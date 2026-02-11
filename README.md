@@ -28,6 +28,11 @@ claude --plugin-dir /path/to/rune-plugin
 # Cancel an active review or audit
 /rune:cancel-review
 /rune:cancel-audit
+
+# Manage agent memory
+/rune:echoes show     # View memory state
+/rune:echoes init     # Initialize memory for this project
+/rune:echoes prune    # Prune stale entries
 ```
 
 ## What It Does
@@ -54,6 +59,33 @@ When you run `/rune:audit`, Rune scans your entire codebase instead of just chan
 6. **Presents TOME** — unified audit summary with coverage gaps
 
 Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. Each Runebearer's context budget limits how many files it processes, prioritized by architectural importance.
+
+## Rune Echoes (Memory)
+
+Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After each review or audit, agents persist patterns and learnings. Future sessions read these echoes to avoid repeating mistakes.
+
+### 3-Layer Lifecycle
+
+| Layer | Name | Duration | Purpose |
+|-------|------|----------|---------|
+| Structural | **Etched** | Permanent | Architecture decisions, tech stack, key conventions |
+| Tactical | **Inscribed** | 90 days | Patterns from reviews/audits (N+1 queries, unused imports) |
+| Session | **Traced** | 30 days | Session-specific observations |
+
+### How It Works
+
+1. Run `/rune:echoes init` to set up memory directories
+2. Run `/rune:review` or `/rune:audit` — agents persist high-confidence findings
+3. Future workflows read echoes via the `echo-reader` agent
+4. Memory self-prunes: stale entries archive automatically
+
+### Memory Management
+
+```bash
+/rune:echoes show     # Display echo statistics per role
+/rune:echoes prune    # Score and archive stale entries
+/rune:echoes reset    # Clear all echoes (with backup)
+```
 
 ## Runebearers
 
@@ -89,6 +121,7 @@ Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. 
 | rune-orchestration | Multi-agent coordination patterns |
 | context-weaving | Context overflow/rot prevention |
 | rune-circle | Review orchestration (7-phase lifecycle) |
+| rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | runebearer-guide | Agent invocation reference |
 
 ## Configuration
@@ -102,6 +135,9 @@ rune-gaze:
   frontend_extensions: [.tsx, .ts]
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md"]
+
+echoes:
+  version_controlled: false  # Set to true to track echoes in git
 ```
 
 ## Key Concepts
@@ -116,6 +152,8 @@ rune-gaze:
 
 **TOME** — The unified review summary after deduplication and prioritization.
 
+**Rune Echoes** — Project-level agent memory with 3-layer lifecycle. Agents learn across sessions without explicit compound workflows.
+
 ## File Structure
 
 ```
@@ -124,16 +162,19 @@ rune-plugin/
 │   └── plugin.json
 ├── agents/
 │   ├── review/          # 10 review agents
+│   ├── research/        # Echo reader agent
 │   └── utility/         # Runebinder aggregator
 ├── commands/
 │   ├── review.md        # /rune:review
 │   ├── cancel-review.md # /rune:cancel-review
 │   ├── audit.md         # /rune:audit
-│   └── cancel-audit.md  # /rune:cancel-audit
+│   ├── cancel-audit.md  # /rune:cancel-audit
+│   └── echoes.md        # /rune:echoes
 ├── skills/
 │   ├── rune-orchestration/  # Core coordination
 │   ├── context-weaving/     # Context management
 │   ├── rune-circle/         # Review orchestration
+│   ├── rune-echoes/         # Smart Memory Lifecycle
 │   └── runebearer-guide/    # Agent reference
 ├── CLAUDE.md
 ├── LICENSE
@@ -144,7 +185,8 @@ rune-plugin/
 
 - Agent prompts include Truthbinding anchors to resist prompt injection
 - Review output in `tmp/` is ephemeral and not committed
-- `.gitignore` excludes `.claude/echoes/` (future memory feature)
+- `.gitignore` excludes `.claude/echoes/` by default (opt-in to version control)
+- Sensitive data filter rejects API keys, passwords, tokens from echo entries
 - All findings require verified evidence from source code
 
 ## Requirements

@@ -9,6 +9,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **rune-orchestration** | Core coordination patterns, file-based handoff, output formats, conflict resolution |
 | **context-weaving** | Unified context management (overflow prevention, rot, compression, offloading) |
 | **rune-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
+| **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
 | **runebearer-guide** | Agent invocation reference and Runebearer selection guide |
 
 ## Commands
@@ -19,6 +20,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
 | `/rune:audit` | Full codebase audit with up to 5 Runebearer teammates |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
+| `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) |
 
 ## Agents
 
@@ -36,6 +38,12 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | void-analyzer | Incomplete implementations, TODOs, stubs |
 | orphan-finder | Dead code, unused exports |
 | phantom-checker | Dynamic references, reflection analysis |
+
+### Research Agents (`agents/research/`)
+
+| Agent | Purpose |
+|-------|---------|
+| echo-reader | Reads Rune Echoes to surface relevant past learnings |
 
 ### Utility Agents (`agents/utility/`)
 
@@ -72,6 +80,15 @@ JSON contract (`inscription.json`) that defines:
 - Seal Format for completion signals
 - Verification settings
 
+### Rune Echoes
+
+Project-level agent memory in `.claude/echoes/` with 3-layer lifecycle:
+1. **Etched**: Permanent project knowledge (architecture, conventions) — never auto-pruned
+2. **Inscribed**: Tactical patterns from reviews/audits — pruned after 90 days unreferenced
+3. **Traced**: Session observations — pruned after 30 days
+
+Agents persist learnings automatically after workflows. Future workflows read echoes to avoid repeating mistakes. See `rune-echoes` skill for full lifecycle.
+
 ### Context Weaving
 
 4-layer context management:
@@ -95,8 +112,11 @@ JSON contract (`inscription.json`) that defines:
 | Reviews | `tmp/reviews/{id}/` | `{runebearer}.md`, `TOME.md`, `inscription.json` |
 | Audits | `tmp/audit/{id}/` | Same pattern |
 | Scratch | `tmp/scratch/` | Session state |
+| Echoes | `.claude/echoes/{role}/` | `MEMORY.md`, `knowledge.md`, `archive/` |
 
 All `tmp/` directories are ephemeral and can be safely deleted after workflows complete.
+
+Echo files in `.claude/echoes/` are persistent and survive across sessions.
 
 ## Configuration
 
@@ -108,6 +128,9 @@ rune-gaze:
   frontend_extensions: [.tsx, .ts]
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md", ".claude/**/*.md"]
+
+echoes:
+  version_controlled: false  # Set to true to track echoes in git
 ```
 
 ## Coexistence
