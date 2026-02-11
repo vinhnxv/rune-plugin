@@ -52,13 +52,16 @@ The lead agent resolves the `agent` field based on `source`:
 ```
 1. Read rune-config.yml
 2. For each custom Runebearer:
-   a. If source == "local":
+   a. Validate agent name: must match /^[a-zA-Z0-9_:-]+$/
+      - Reject names containing: /, \, .., or any path separator
+      - If invalid → error: "Invalid agent name '{agent}'"
+   b. If source == "local":
       - Check .claude/agents/{agent}.md exists (Glob)
       - If not found → error: "Agent '{agent}' not found in .claude/agents/"
-   b. If source == "global":
+   c. If source == "global":
       - Check ~/.claude/agents/{agent}.md exists (Glob)
       - If not found → error: "Agent '{agent}' not found in ~/.claude/agents/"
-   c. If source == "plugin":
+   d. If source == "plugin":
       - Agent string must contain ":" (namespace separator)
       - Trust that the plugin system resolves it at spawn time
       - If spawn fails → report in TOME.md as partial failure
@@ -173,6 +176,7 @@ Run these checks at Phase 0 before spawning any agents:
 | Agent exists | Agent file/namespace is resolvable | "Agent '{agent}' not found in {source}" |
 | Valid workflows | Each entry is `review` or `audit` | "Invalid workflow '{value}' in Runebearer '{name}'. Must be 'review' or 'audit'" |
 | Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, QUAL, FRONT, DOC | "Prefix '{prefix}' is reserved for built-in Runebearer '{name}'" |
+| Agent name safe | `agent` field matches `^[a-zA-Z0-9_:-]+$` (no path separators or `..`) | "Invalid agent name '{agent}': must contain only alphanumeric, hyphen, underscore, or colon characters" |
 
 **On validation failure:** Log the error, skip the invalid custom Runebearer, and continue with remaining valid entries. Do NOT abort the entire workflow.
 

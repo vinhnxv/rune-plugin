@@ -110,7 +110,7 @@ Used by workflows producing prioritized findings with P1/P2/P3 severity levels.
 
 ## P3 (Medium)
 
-- [ ] **[PAT-001] Issue Title** in `file:line`
+- [ ] **[QUAL-001] Issue Title** in `file:line`
   - **Rune Trace:**
     ```python
     {actual code snippet}

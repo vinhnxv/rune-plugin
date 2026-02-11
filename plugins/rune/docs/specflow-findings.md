@@ -12,7 +12,7 @@
 | Context overflow | v0.1 | Glyph Budget (file-only output, 50-word limit) |
 | Teammate timeout (5 min) | v0.1 | Stale detection in Phase 4 Monitor |
 | Output validation | v0.1 | Inscription Protocol (`inscription.json`) |
-| Deduplication | v0.1 | Runebinder with hierarchy (SEC > FORGE > DOC > PAT > GLYPH) |
+| Deduplication | v0.1 | Runebinder with hierarchy (SEC > BACK > DOC > QUAL > FRONT) |
 | `/rune:audit` — full codebase scan | v0.2 | `commands/audit.md` — find-based scan |
 | Not-a-git-repo error | v0.2 | Audit works without git |
 | No cleanup for stale tmp/ | v1.2 | `/rune:cleanup` command |
@@ -24,6 +24,7 @@
 | Runebinder prompt | v1.2 | `runebearer-prompts/runebinder.md` |
 | Truthseer Validator prompt | v1.2 | `runebearer-prompts/truthseer-validator.md` |
 | Truthsight depth (Layer 0-2) | v1.1 | Full circuit breakers, sampling, verifier output format |
+| Custom agent templates (user-defined Runebearers) | v1.4 | `custom-runebearers.md` schema, `rune-config.yml` examples, trigger matching |
 | Agent Role Patterns | v1.1 | Added to `rune-orchestration/SKILL.md` |
 | JSON output format | v1.1 | `output-format.md` + `completion.json` |
 
@@ -58,11 +59,6 @@
 - Adaptive agent count based on file count and complexity
 - Progress indicators (X of Y Runebearers completed)
 
-### 7. Customization
-- Custom agent templates (user-defined Runebearers)
-- `.claude/rune-config.yml` examples and documentation
-- Quality gate integration examples
-
-### 8. Reliability Tracking (Layer 3)
+### 7. Reliability Tracking (Layer 3)
 - Per-agent hallucination rates over time in `.claude/echoes/`
 - Agents with high rates get stricter verification in future runs

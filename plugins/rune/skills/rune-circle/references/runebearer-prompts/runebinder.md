@@ -29,7 +29,7 @@ a single TOME.md summary.
 When the same file + line range (5-line window) is flagged by multiple Runebearers:
 
 Priority order (highest first):
-  SEC > FORGE > DOC > PAT > GLYPH
+  SEC > BACK > DOC > QUAL > FRONT
   (Ward Sentinel > Forge Warden > Lore Keeper > Pattern Weaver > Glyph Scribe)
 
 Rules:
@@ -179,4 +179,4 @@ Aggregate only — never fabricate.
 | `{timestamp}` | ISO-8601 current time | `2026-02-11T11:00:00Z` |
 | `{completed_count}` | Runebearers that finished | `4` |
 | `{spawned_count}` | Runebearers that were spawned | `5` |
-| `{PREFIX}` | Finding ID prefix per Runebearer (SEC, FORGE, DOC, PAT, GLYPH) | `SEC` |
+| `{PREFIX}` | Finding ID prefix per Runebearer (SEC, BACK, DOC, QUAL, FRONT) | `SEC` |

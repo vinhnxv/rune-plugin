@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.1] - 2026-02-12
+
+### Fixed
+
+- **Finding prefix naming** — unified all files to canonical prefixes (BACK/QUAL/FRONT) replacing stale FORGE/PAT/GLYPH references across 9 files
+- **Root README** — removed phantom `plugin.json` from structure diagram (only `marketplace.json` exists at root)
+- **Missing agent definition** — added `agents/utility/truthseer-validator.md` (referenced in CLAUDE.md but file was absent)
+- **Agent name validation** — added path traversal prevention rule (`^[a-zA-Z0-9_:-]+$`) to custom Runebearer validation
+- **Cleanup symlink safety** — added explicit symlink detection (`-L` check) before path validation in cleanup command
+- **specflow-findings.md** — moved item #7 (Custom agent templates) to Resolved table (delivered in v1.4.0)
+- **Keyword alignment** — synced `plugin.json` keywords with `marketplace.json` tags (`swarm`, `planning`)
+- **`--max-agents` flag** — added to `/rune:review` command (was only documented for `/rune:audit`)
+
 ## [1.4.0] - 2026-02-12
 
 ### Added

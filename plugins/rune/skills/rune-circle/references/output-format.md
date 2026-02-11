@@ -21,10 +21,10 @@ Each finding follows this template:
 
 | Runebearer | Prefix | Example |
 |-----------|--------|---------|
-| Forge Warden | `FORGE` | `FORGE-001` |
+| Forge Warden | `BACK` | `BACK-001` |
 | Ward Sentinel | `SEC` | `SEC-001` |
-| Pattern Weaver | `PAT` | `PAT-001` |
-| Glyph Scribe | `GLYPH` | `GLYPH-001` |
+| Pattern Weaver | `QUAL` | `QUAL-001` |
+| Glyph Scribe | `FRONT` | `FRONT-001` |
 | Lore Keeper | `DOC` | `DOC-001` |
 
 ### Rune Trace Requirements
@@ -56,7 +56,7 @@ In addition to Markdown, Runebearers MAY write a companion JSON file for tooling
   "timestamp": "2026-02-11T10:45:00Z",
   "findings": [
     {
-      "id": "FORGE-001",
+      "id": "BACK-001",
       "priority": "P1",
       "title": "Race condition in payment processing",
       "file": "services/payment.py",
@@ -148,7 +148,7 @@ Lore Keeper uses blockquotes instead of code blocks for evidence:
 When the same finding appears from multiple Runebearers:
 
 ```
-SEC > FORGE > DOC > PAT > GLYPH
+SEC > BACK > DOC > QUAL > FRONT
 ```
 
 Keep the finding from the higher-priority Runebearer. See [Dedup Runes](dedup-runes.md) for full algorithm.

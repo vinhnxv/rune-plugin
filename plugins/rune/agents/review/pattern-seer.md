@@ -69,12 +69,12 @@ handlers/user_handler.py  → thin HTTP layer
 ## Pattern Findings
 
 ### P2 (High) — Convention Violations
-- [ ] **[PAT-001] Naming Inconsistency** in `new_service.py`
+- [ ] **[QUAL-001] Naming Inconsistency** in `new_service.py`
   - **Evidence:** Uses `Manager` suffix, codebase convention is `Service`
   - **Fix:** Rename `UserManager` to `UserService`
 
 ### P3 (Medium) — Style Deviations
-- [ ] **[PAT-002] Mixed Error Patterns** in `api/routes.py:45`
+- [ ] **[QUAL-002] Mixed Error Patterns** in `api/routes.py:45`
   - **Evidence:** Raises exception while other routes return Result
   - **Fix:** Use Result type for consistency
 ```

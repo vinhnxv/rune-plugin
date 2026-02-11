@@ -1,6 +1,6 @@
 {
   "name": "rune",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams",
   "author": {
     "name": "vinhnxv",
@@ -15,7 +15,8 @@
     "audit",
     "orchestration",
     "engineering-workflow",
-    "orchestrating-swarms",
+    "swarm",
+    "planning",
     "rune"
   ]
 }

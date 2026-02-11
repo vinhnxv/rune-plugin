@@ -80,17 +80,22 @@ Proceed? [Y/n]
 Before removing any directory, verify paths are within `tmp/`:
 
 ```bash
-# Validate each path resolves inside tmp/ (prevents traversal)
+# Validate each path resolves inside tmp/ (prevents traversal and symlink attacks)
 for dir in "${dirs_to_remove[@]}"; do
-  resolved=$(cd "$dir" 2>/dev/null && pwd)
-  if [[ "$resolved" != "$(pwd)/tmp/"* ]]; then
+  # Reject symlinks — do not follow them
+  if [[ -L "$dir" ]]; then
+    echo "SKIP: $dir is a symlink (not following)"
+    continue
+  fi
+  resolved=$(realpath -s "$dir" 2>/dev/null || (cd "$dir" 2>/dev/null && pwd))
+  if [[ "$resolved" != "$(realpath -s tmp 2>/dev/null || (cd tmp && pwd))"/* ]]; then
     echo "SKIP: $dir resolves outside tmp/ ($resolved)"
     continue
   fi
 done
 ```
 
-Any path that resolves outside `tmp/` is skipped with a warning. This prevents accidental deletion from symlinks or malformed state file entries.
+Any path that resolves outside `tmp/` or is a symlink is skipped with a warning. This prevents accidental deletion from symlinks or malformed state file entries.
 
 ### 5. Remove Artifacts
 

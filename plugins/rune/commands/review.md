@@ -37,6 +37,7 @@ Orchestrate a multi-agent code review using the Rune Circle architecture. Each R
 |------|-------------|---------|
 | `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off (reviews all branch changes) |
 | `--dry-run` | Show scope selection and Runebearer plan without spawning agents | Off |
+| `--max-agents <N>` | Limit total Runebearers spawned (built-in + custom). Range: 1-8 | All selected |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
 

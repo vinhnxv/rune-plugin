@@ -12,15 +12,14 @@ claude plugin add vinhnxv/rune-plugin
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.4.0 |
+| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.4.1 |
 
 ## Structure
 
 ```
 rune-plugin/
 ├── .claude-plugin/
-│   ├── marketplace.json
-│   └── plugin.json
+│   └── marketplace.json
 └── plugins/
     └── rune/              # Main plugin
         ├── .claude-plugin/
