@@ -1,5 +1,5 @@
 ---
-name: cleanup
+name: rune:cleanup
 description: |
   Remove tmp/ output directories from completed Rune workflows (reviews, audits, plans, work).
   Preserves Rune Echoes (.claude/echoes/) and active workflow state files.

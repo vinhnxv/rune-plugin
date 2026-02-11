@@ -1,5 +1,5 @@
 ---
-name: cancel-audit
+name: rune:cancel-audit
 description: |
   Cancel an active Rune Circle audit and gracefully shutdown all Runebearer teammates.
   Partial results remain in tmp/audit/ for manual inspection.

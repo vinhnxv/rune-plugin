@@ -1,12 +1,33 @@
-# Rune Plugin Marketplace
+# Rune Marketplace
 
-Plugin marketplace for [Rune](plugins/rune/) — multi-agent engineering orchestration for [Claude Code](https://claude.ai/claude-code).
+A Claude Code plugin marketplace featuring **Rune** — multi-agent engineering orchestration that plans, works, reviews, and audits with Agent Teams.
 
-## Install
+## Claude Code Install
 
 ```bash
-claude plugin add vinhnxv/rune-plugin
+/plugin marketplace add https://github.com/vinhnxv/rune-plugin
+/plugin install rune
 ```
+
+## Workflow
+
+```
+Plan → Work → Review → Audit → Repeat
+```
+
+| Command | Purpose |
+|---------|---------|
+| `/rune:plan` | Turn feature ideas into structured plans with parallel research agents |
+| `/rune:work` | Execute plans with self-organizing swarm workers |
+| `/rune:review` | Multi-agent code review before merging |
+| `/rune:audit` | Full codebase audit with specialized Runebearers |
+
+Each Runebearer teammate gets its own 200k context window, eliminating single-context bottlenecks.
+
+## Learn More
+
+- [Full component reference](plugins/rune/README.md) — all agents, commands, skills, and configuration
+- [Changelog](plugins/rune/CHANGELOG.md)
 
 ## Plugins
 

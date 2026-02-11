@@ -1,5 +1,5 @@
 ---
-name: review
+name: rune:review
 description: |
   Multi-agent code review using Agent Teams. Spawns up to 5 built-in Runebearer teammates
   (plus custom Runebearers from rune-config.yml), each with their own 200k context window.

@@ -1,5 +1,5 @@
 ---
-name: work
+name: rune:work
 description: |
   Multi-agent work execution using Agent Teams. Parses a plan into tasks,
   spawns swarm workers that claim and complete tasks independently,
