@@ -155,7 +155,7 @@ If inscription.json has `verification.enabled: true`:
 2. **Layer 2**: Spawn Truthsight Verifier for P1 findings (see `rune-orchestration/references/verifier-prompt.md`)
 3. Flag any HALLUCINATED findings
 
-## Phase 7: Cleanup
+## Phase 7: Cleanup & Echo Persist
 
 ```javascript
 // 1. Shutdown all Runebearers
@@ -168,7 +168,23 @@ for (const runebearer of allRunebearers) {
 // 3. Cleanup team
 TeamDelete()
 
-// 4. Read and present TOME.md to user
+// 4. Persist learnings to Rune Echoes (if .claude/echoes/ exists)
+//    Extract P1/P2 patterns from TOME.md and write as Inscribed entries
+//    See rune-echoes skill for entry format and write protocol
+if (exists(".claude/echoes/reviewer/")) {
+  patterns = extractRecurringPatterns("tmp/reviews/{identifier}/TOME.md")
+  for (const pattern of patterns) {
+    appendEchoEntry("echoes/reviewer/MEMORY.md", {
+      layer: "inscribed",
+      source: `rune:review ${identifier}`,
+      confidence: pattern.confidence,
+      evidence: pattern.evidence,
+      content: pattern.summary
+    })
+  }
+}
+
+// 5. Read and present TOME.md to user
 Read("tmp/reviews/{identifier}/TOME.md")
 ```
 
