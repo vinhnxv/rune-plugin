@@ -1,0 +1,7 @@
+# Rune Echoes — merge strategy for project-level agent memory
+# When version_controlled: true in rune-config.yml, use union merge
+# to combine echo entries from different branches without conflicts.
+.claude/echoes/**/*.md merge=union
+
+# Lock files — binary merge (take ours)
+*.lock binary

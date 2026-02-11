@@ -213,6 +213,7 @@ Partial results remain in `tmp/audit/{id}/`.
 ## References
 
 - [Rune Gaze](references/rune-gaze.md) — File classification algorithm
+- [Circle Registry](references/circle-registry.md) — Agent-to-Runebearer mapping, audit scope priorities, focus mode
 - [Runebearer Prompts](references/runebearer-prompts/) — Individual Runebearer prompts
 - [Inscription Schema](references/inscription-schema.md) — inscription.json format
 - [Dedup Runes](references/dedup-runes.md) — Deduplication hierarchy

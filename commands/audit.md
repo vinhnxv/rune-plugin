@@ -31,6 +31,17 @@ Orchestrate a full codebase audit using the Rune Circle architecture. Each Runeb
 
 **Load skill**: `rune-circle` for full architecture reference.
 
+## Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--focus <area>` | Limit audit to specific area: `security`, `performance`, `quality`, `frontend`, `docs`, `backend`, `full` | `full` |
+| `--max-agents <N>` | Cap maximum Runebearers spawned (1-5) | 5 |
+
+**Focus mode** selects only the relevant Runebearers (see `rune-circle/references/circle-registry.md` for the mapping). This increases each Runebearer's effective context budget since fewer compete for resources.
+
+**Max agents** reduces team size when context or cost is a concern. Runebearers are prioritized: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Lore Keeper.
+
 ## Phase 0: Pre-flight
 
 ```bash
@@ -78,6 +89,10 @@ for each file in all_files:
 ```
 
 Check for project overrides in `.claude/rune-config.yml`.
+
+**Apply `--focus` filter:** If `--focus <area>` is set, only spawn Runebearers matching that area. See `rune-circle/references/circle-registry.md` for the focus-to-Runebearer mapping.
+
+**Apply `--max-agents` cap:** If `--max-agents N` is set, limit selected Runebearers to N. Priority order: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Lore Keeper.
 
 **Large codebase warning:** If total reviewable files > 150:
 ```

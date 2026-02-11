@@ -31,6 +31,14 @@ Orchestrate a multi-agent code review using the Rune Circle architecture. Each R
 
 **Load skill**: `rune-circle` for full architecture reference.
 
+## Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off (reviews all branch changes) |
+
+**Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
+
 ## Phase 0: Pre-flight
 
 ```bash
@@ -42,7 +50,13 @@ if [ -z "$default_branch" ]; then
 fi
 
 # Get changed files
-changed_files=$(git diff --name-only ${default_branch}...HEAD)
+if [ "--partial" in flags ]; then
+  # Partial mode: only staged files
+  changed_files=$(git diff --cached --name-only)
+else
+  # Default: full branch diff
+  changed_files=$(git diff --name-only ${default_branch}...HEAD)
+fi
 ```
 
 **Abort conditions:**
