@@ -32,7 +32,7 @@
 
 ### Fixed
 
-- TheChoice-specific "review-teams" reference replaced with "Rune Circle"
+- Stray "review-teams" reference replaced with "Rune Circle"
 
 ## [1.0.1] - 2026-02-12
 
