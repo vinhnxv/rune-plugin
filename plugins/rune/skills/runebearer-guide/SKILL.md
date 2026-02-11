@@ -1,8 +1,8 @@
 ---
 name: runebearer-guide
 description: |
-  Quick reference for invoking Rune agents correctly.
-  Use when spawning agents, getting "agent not found" errors, or selecting review agents.
+  Provides a quick reference for invoking Rune agents correctly.
+  This skill should be used when spawning agents, troubleshooting "agent not found" errors, or selecting review agents.
 
   <example>
   Context: User wants to know which agents are available
@@ -10,6 +10,9 @@ description: |
   assistant: "Loading runebearer-guide for the agent reference table"
   </example>
 user-invocable: false
+allowed-tools:
+  - Read
+  - Glob
 ---
 
 # Runebearer Guide
@@ -62,8 +65,10 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 | **Forge Warden** | rune-architect, forge-oracle, flaw-hunter, echo-detector | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
 | **Ward Sentinel** | ward-sentinel | ALL files (security always) |
 | **Pattern Weaver** | simplicity-warden, pattern-seer, orphan-finder, phantom-checker | ALL files (quality patterns) |
-| **Glyph Scribe** | void-analyzer, forge-oracle (frontend) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
-| **Lore Keeper** | (docs-specific logic) | Docs (`.md` files, conditional) |
+| **Glyph Scribe** | Inline perspectives (TypeScript safety, React performance, accessibility) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
+| **Lore Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
+
+**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe and Lore Keeper use inline perspective definitions in their Runebearer prompts (no dedicated agent files).
 
 ## Utility Agents
 

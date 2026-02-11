@@ -86,7 +86,7 @@ Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. 
 When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 
 1. **Gathers input** — accepts a feature description or runs interactive brainstorm (`--brainstorm`)
-2. **Spawns research agents** — 4 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
+2. **Spawns research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
 4. **Deepens sections** — optional parallel deep-dive per section (`--deep`)
 5. **Reviews document** — Scroll Reviewer checks plan quality
@@ -213,7 +213,21 @@ rune-gaze:
   backend_extensions: [.py, .go]
   frontend_extensions: [.tsx, .ts]
   skip_patterns: ["**/migrations/**"]
-  always_review: ["CLAUDE.md"]
+  always_review: ["CLAUDE.md", ".claude/**/*.md"]
+
+runebearers:
+  custom:                              # Extend built-in Runebearers with your own
+    - name: "my-reviewer"
+      agent: "my-reviewer"             # .claude/agents/my-reviewer.md
+      source: local
+      workflows: [review]
+      trigger:
+        extensions: [".py"]
+      context_budget: 20
+      finding_prefix: "MYR"
+
+settings:
+  max_runebearers: 8                   # Hard cap (5 built-in + custom)
 
 echoes:
   version_controlled: false  # Set to true to track echoes in git
@@ -224,6 +238,8 @@ work:
     - "npm test"
   max_workers: 3               # Max parallel swarm workers
 ```
+
+See [`rune-config.example.yml`](rune-config.example.yml) for the full configuration schema including custom Runebearers, trigger matching, and dedup hierarchy.
 
 ## Key Concepts
 
@@ -263,6 +279,7 @@ plugins/rune/
 │   ├── rune-orchestration/  # Core coordination
 │   ├── context-weaving/     # Context management
 │   ├── rune-circle/         # Review orchestration
+│   │   └── references/      # e.g. rune-gaze.md, custom-runebearers.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
 │   └── runebearer-guide/    # Agent reference
 ├── docs/

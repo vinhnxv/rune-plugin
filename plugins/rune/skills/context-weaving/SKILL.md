@@ -2,8 +2,8 @@
 name: context-weaving
 description: |
   Unified context management: overflow prevention, compression, and filesystem offloading.
-  Use BEFORE spawning 3+ agents to enforce Glyph Budgets, plan orchestration, and prevent "Prompt is too long" errors.
-  Also use for long sessions (50+ messages) to compress context.
+  Should be loaded before spawning 3+ agents to enforce Glyph Budgets, plan orchestration, and prevent "Prompt is too long" errors.
+  Also applicable for long sessions (50+ messages) to compress context.
 
   <example>
   Context: About to launch 4 review agents

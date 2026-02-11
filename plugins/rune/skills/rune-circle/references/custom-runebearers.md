@@ -4,6 +4,25 @@
 
 Custom Runebearers participate in the full Rune Circle lifecycle: they receive Truthbinding wrapper prompts, write to the standard output directory, get deduplicated in TOME.md, and are verified by Truthsight.
 
+## Table of Contents
+
+- [Schema Reference](#schema-reference)
+  - [`runebearers.custom[]` Fields](#runebearerscustom-fields)
+  - [`settings` Fields](#settings-fields)
+  - [`defaults` Fields](#defaults-fields)
+- [Agent Resolution](#agent-resolution)
+- [Wrapper Prompt Template](#wrapper-prompt-template)
+  - [Variable Substitution](#variable-substitution)
+- [Validation Rules](#validation-rules)
+- [Trigger Matching](#trigger-matching)
+- [Constraints](#constraints)
+- [Examples](#examples)
+  - [Local Project Reviewer](#local-project-reviewer)
+  - [Global User-Level Agent](#global-user-level-agent)
+  - [Plugin Agent](#plugin-agent)
+- [Dry-Run Output](#dry-run-output)
+- [References](#references)
+
 ## Schema Reference
 
 Define custom Runebearers in `.claude/rune-config.yml` (project) or `~/.claude/rune-config.yml` (global).
