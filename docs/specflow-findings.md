@@ -1,73 +1,68 @@
 # SpecFlow Analysis Findings
 
-> From the v0.1.0 planning phase. These findings inform the v0.2+ roadmap.
+> From the v0.1.0 planning phase. Updated through v1.2.0.
 
-## Critical Gaps (Address in v0.2)
+## Resolved (v0.1 → v1.2)
+
+| Finding | Version | Resolution |
+|---------|---------|------------|
+| Empty diff detection | v0.1 | Pre-flight abort in `review.md` |
+| Concurrent review prevention | v0.1 | State file check (`tmp/.rune-review-*.json`) |
+| Prompt injection | v0.1 | Truthbinding Protocol (ANCHOR + RE-ANCHOR) |
+| Context overflow | v0.1 | Glyph Budget (file-only output, 50-word limit) |
+| Teammate timeout (5 min) | v0.1 | Stale detection in Phase 4 Monitor |
+| Output validation | v0.1 | Inscription Protocol (`inscription.json`) |
+| Deduplication | v0.1 | Runebinder with hierarchy (SEC > BACK > DOC > QUAL > FRONT) |
+| `/rune:audit` — full codebase scan | v0.2 | `commands/audit.md` — find-based scan |
+| Not-a-git-repo error | v0.2 | Audit works without git |
+| No cleanup for stale tmp/ | v1.2 | `/rune:cleanup` command |
+| Partial failure policy | v0.1 | Proceed with partial results, report gaps in TOME.md |
+| Teammate output wrong format | v1.1 | Truthsight Pipeline Layer 0 (inline section validation) |
+| Hung teammate detection | v0.1 | 5-min stale detection + proceed with partial |
+| `--dry-run` flag | v1.2 | Added to `/rune:review` and `/rune:audit` |
+| Extension-based tech detection | v0.1 | Rune Gaze file classification |
+| Runebinder prompt | v1.2 | `runebearer-prompts/runebinder.md` |
+| Truthseer Validator prompt | v1.2 | `runebearer-prompts/truthseer-validator.md` |
+| Truthsight depth (Layer 0-2) | v1.1 | Full circuit breakers, sampling, verifier output format |
+| Agent Role Patterns | v1.1 | Added to `rune-orchestration/SKILL.md` |
+| JSON output format | v1.1 | `output-format.md` + `completion.json` |
+
+## Open — Medium Priority
 
 ### 1. User Onboarding
 - No `/rune:help` command or discovery mechanism
-- No `/rune:init` to scaffold project customization
+- No `/rune:init` to scaffold `.claude/rune-config.yml`
 - No post-install confirmation with next steps
 
-### 2. Failure Handling
-- No timeout thresholds for teammates (recommend 5-10 min per agent)
-- No partial failure policy (e.g., proceed if >= 3 of 5 teammates succeed)
-- No retry mechanism for crashed teammates
-- No cleanup for stale `tmp/` files
-
-### 3. Edge Cases in Review Mode
-- `git diff` empty (no changes) — handled in v0.1 Pre-flight
-- `git diff` fails (not a git repo) — needs graceful error
-- Diff is 10k+ lines — needs chunking strategy
-- Partial team spawn (3 of 5 succeed) — needs policy
-- Teammate output in wrong format — needs validation
-
-### 4. Agent Teams Coordination
-- Hung teammate detection (alive but no progress)
-- Concurrent file write conflicts (no locking)
-- SendMessage delivery failures (recipient crashes before reading)
-- Context overflow within teammates (reading too many files)
-
-## Medium Priority (v0.3+)
-
-### 5. Workflow Chaining
+### 2. Workflow Chaining
 - `/rune:flow plan,work,review` sequential execution
 - Dependency checks (work requires plan file)
 
-### 6. Memory Concurrency (for Rune Echoes)
-- Append-only format with timestamps
+### 3. Memory Concurrency (Rune Echoes)
 - Lock file during write operations
 - Schema version marker in header
 - Cross-branch merge conflicts in memory files
 
-### 7. Tech Stack Detection
-- Extension-based detection (covered by Rune Gaze)
-- Config file detection (pyproject.toml, package.json, go.mod, Gemfile)
+### 4. Agent Teams Coordination (Remaining)
+- Concurrent file write conflicts (no locking — low risk with file-per-agent pattern)
+- SendMessage delivery failures (recipient crashes before reading)
+- Large diff chunking (10k+ lines) — context budget caps mitigate this
+
+### 5. Config File Detection
+- Beyond extension-based: pyproject.toml, package.json, go.mod, Gemfile
 - Quality gate discovery (Makefile targets, package.json scripts, CI config)
-- Fallback: generic review only + warn user
 
-## Low Priority (v1.0+)
+## Open — Low Priority (v2.0+)
 
-### 8. Scalability
-- Adaptive agent count for audit mode
-- `--dry-run` flag for all workflows
-- Progress indicators (X of Y teammates completed)
+### 6. Scalability
+- Adaptive agent count based on file count and complexity
+- Progress indicators (X of Y Runebearers completed)
 
-### 9. Customization
-- Custom agent templates
-- `.claude/rune-config.yml` examples
+### 7. Customization
+- Custom agent templates (user-defined Runebearers)
+- `.claude/rune-config.yml` examples and documentation
 - Quality gate integration examples
 
-## Validated in v0.1
-
-These concerns from the analysis are already addressed:
-
-| Concern | Resolution in v0.1 |
-|---------|-------------------|
-| Empty diff detection | Pre-flight abort in `review.md` |
-| Concurrent review prevention | State file check (`tmp/.rune-review-*.json`) |
-| Prompt injection | Truthbinding Protocol (ANCHOR + RE-ANCHOR) |
-| Context overflow | Glyph Budget (file-only output, 50-word limit) |
-| Teammate timeout | 5-min stale detection in Phase 4 Monitor |
-| Output validation | Inscription Protocol (`inscription.json`) |
-| Deduplication | Runebinder with hierarchy (SEC > BACK > DOC > QUAL > FRONT) |
+### 8. Reliability Tracking (Layer 3)
+- Per-agent hallucination rates over time in `.claude/echoes/`
+- Agents with high rates get stricter verification in future runs

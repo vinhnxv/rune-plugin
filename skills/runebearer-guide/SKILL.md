@@ -70,10 +70,10 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 | Agent | Role |
 |-------|------|
 | `rune:utility:runebinder` | Aggregates review/audit outputs → writes TOME.md |
-| `rune:utility:flow-seer` | Spec flow analysis (v1.0) |
-| `rune:utility:scroll-reviewer` | Document quality review (v1.0) |
+| `rune:utility:flow-seer` | Spec flow analysis |
+| `rune:utility:scroll-reviewer` | Document quality review |
 
-## Research Agents (v1.0)
+## Research Agents
 
 | Agent | Role |
 |-------|------|
@@ -83,7 +83,7 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 | `rune:research:echo-reader` | Reads Rune Echoes (past learnings) |
 | `rune:research:chronicle-miner` | Git history archaeology |
 
-## Work Agents (v1.0)
+## Work Agents
 
 | Agent | Role |
 |-------|------|

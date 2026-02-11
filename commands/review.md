@@ -36,8 +36,17 @@ Orchestrate a multi-agent code review using the Rune Circle architecture. Each R
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off (reviews all branch changes) |
+| `--dry-run` | Show scope selection and Runebearer plan without spawning agents | Off |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
+
+**Dry-run mode** executes Phase 0 (Pre-flight) and Phase 1 (Rune Gaze) only, then displays:
+- Changed files classified by type
+- Which Runebearers would be spawned
+- File assignments per Runebearer (with context budget caps)
+- Estimated team size
+
+No teams, tasks, or agents are created. Use this to preview scope before committing to a full review.
 
 ## Phase 0: Pre-flight
 
@@ -77,6 +86,33 @@ for each file in changed_files:
 ```
 
 Check for project overrides in `.claude/rune-config.yml`.
+
+### Dry-Run Exit Point
+
+If `--dry-run` flag is set, display the plan and stop:
+
+```
+Dry Run — Review Plan
+━━━━━━━━━━━━━━━━━━━━━
+
+Branch: {branch} (vs {default_branch})
+Changed files: {count}
+  Backend:  {count} files
+  Frontend: {count} files
+  Docs:     {count} files
+  Other:    {count} files (skipped)
+
+Runebearers to spawn: {count}
+  - Forge Warden:   {file_count} files (cap: 30)
+  - Ward Sentinel:  {file_count} files (cap: 20)
+  - Pattern Weaver: {file_count} files (cap: 30)
+  - Glyph Scribe:   {file_count} files (cap: 25)  [conditional]
+  - Lore Keeper:    {file_count} files (cap: 25)  [conditional]
+
+To run the full review: /rune:review
+```
+
+Do NOT proceed to Phase 2. Exit here.
 
 ## Phase 2: Forge Team
 

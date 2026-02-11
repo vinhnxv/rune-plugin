@@ -35,9 +35,17 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:audit --focus security    # Security-only audit
 /rune:audit --max-agents 3      # Limit to 3 Runebearers
 
+# Preview scope without spawning agents
+/rune:review --dry-run
+/rune:audit --dry-run
+
 # Cancel an active review or audit
 /rune:cancel-review
 /rune:cancel-audit
+
+# Clean up tmp/ artifacts from completed workflows
+/rune:cleanup
+/rune:cleanup --dry-run       # Preview what would be removed
 
 # Manage agent memory
 /rune:echoes show     # View memory state
@@ -245,7 +253,8 @@ rune-plugin/
 │   ├── cancel-review.md # /rune:cancel-review
 │   ├── audit.md         # /rune:audit
 │   ├── cancel-audit.md  # /rune:cancel-audit
-│   └── echoes.md        # /rune:echoes
+│   ├── echoes.md        # /rune:echoes
+│   └── cleanup.md       # /rune:cleanup
 ├── skills/
 │   ├── rune-orchestration/  # Core coordination
 │   ├── context-weaving/     # Context management
@@ -263,7 +272,7 @@ rune-plugin/
 - **Context budget caps** — Each Runebearer can review a limited number of files (20-30). Large codebases will have coverage gaps reported in the TOME.
 - **No incremental audit** — `/rune:audit` scans all files each run. There is no diff-based "only audit what changed since last audit" mode yet.
 - **Concurrent sessions** — Only one `/rune:review` or `/rune:audit` can run at a time. Use `/rune:cancel-review` or `/rune:cancel-audit` to stop an active session.
-- **No `/rune:cleanup` command** — Temporary files in `tmp/` must be cleaned up manually or by the OS. Planned for a future release.
+- **Manual cleanup optional** — Run `/rune:cleanup` to remove `tmp/` artifacts, or let the OS handle them.
 
 ## Troubleshooting
 

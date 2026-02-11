@@ -243,7 +243,7 @@ Configuration: `layer_2_circuit: { failure_threshold: 2, recovery_seconds: 120 }
 - If partial output exists: use whatever was verified, note incomplete coverage
 - If no output: fallback to Layer 0 results only, flag for human review
 
-### Layer 3: Reliability Tracking (Deferred to v1.0)
+### Layer 3: Reliability Tracking (Deferred to v2.0)
 
 **Cost:** Write to `.claude/echoes/`
 **When:** After each review session (future)
@@ -254,9 +254,9 @@ Track per-agent hallucination rates over time. Agents with high hallucination ra
 
 | Workflow | Layer 0 | Layer 1 | Layer 2 | Layer 3 |
 |----------|---------|---------|---------|---------|
-| `/rune:review` (3+ teammates) | Always | Always | Enabled | v1.0 |
-| `/rune:review` (1-2 teammates) | Always | Always | Optional | v1.0 |
-| `/rune:audit` (8+ agents) | Always | Always | Enabled | v1.0 |
+| `/rune:review` (3+ teammates) | Always | Always | Enabled | v2.0 |
+| `/rune:review` (1-2 teammates) | Always | Always | Optional | v2.0 |
+| `/rune:audit` (8+ agents) | Always | Always | Enabled | v2.0 |
 | `/rune:plan` | Skip | Skip | Skip | Skip |
 | `/rune:work` | Skip | Skip | Skip | Skip |
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.0] - 2026-02-12
+
+### Added
+
+- `/rune:cleanup` command — remove `tmp/` artifacts from completed workflows, with `--dry-run` and `--all` flags
+- `--dry-run` flag for `/rune:review` and `/rune:audit` — preview scope selection without spawning agents
+- Runebinder aggregation prompt (`runebearer-prompts/runebinder.md`) — TOME.md generation with dedup algorithm, completion.json
+- Truthseer Validator prompt (`runebearer-prompts/truthseer-validator.md`) — audit coverage validation for Phase 5.5
+
+### Fixed
+
+- Stale version labels: "Deferred to v1.0" → "Deferred to v2.0" in `truthsight-pipeline.md`
+- Removed redundant "(v1.0)" suffixes from agent tables in `runebearer-guide/SKILL.md`
+
+### Enhanced
+
+- `specflow-findings.md` reorganized: "Resolved" table (20 items with version), "Open — Medium" (5), "Open — Low" (3)
+
 ## [1.1.0] - 2026-02-12
 
 ### Added

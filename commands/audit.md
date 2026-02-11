@@ -37,6 +37,7 @@ Orchestrate a full codebase audit using the Rune Circle architecture. Each Runeb
 |------|-------------|---------|
 | `--focus <area>` | Limit audit to specific area: `security`, `performance`, `quality`, `frontend`, `docs`, `backend`, `full` | `full` |
 | `--max-agents <N>` | Cap maximum Runebearers spawned (1-5) | 5 |
+| `--dry-run` | Show scope selection and Runebearer plan without spawning agents | Off |
 
 **Focus mode** selects only the relevant Runebearers (see `rune-circle/references/circle-registry.md` for the mapping). This increases each Runebearer's effective context budget since fewer compete for resources.
 
@@ -106,6 +107,36 @@ limits what they can review. Some files may not be fully covered.
 - Pattern Weaver (max 30): largest files first (highest complexity risk)
 - Glyph Scribe (max 25): pages/routes > components > hooks > utils
 - Lore Keeper (max 25): README > CLAUDE.md > docs/ > other .md files
+
+### Dry-Run Exit Point
+
+If `--dry-run` flag is set, display the plan and stop:
+
+```
+Dry Run — Audit Plan
+━━━━━━━━━━━━━━━━━━━━
+
+Scope: {directory}
+Total files: {count}
+  Backend:  {count} files
+  Frontend: {count} files
+  Docs:     {count} files
+  Other:    {count} files (skipped)
+
+Runebearers to spawn: {count}
+  - Forge Warden:   {file_count} files (cap: 30)
+  - Ward Sentinel:  {file_count} files (cap: 20)
+  - Pattern Weaver: {file_count} files (cap: 30)
+  - Glyph Scribe:   {file_count} files (cap: 25)  [conditional]
+  - Lore Keeper:    {file_count} files (cap: 25)  [conditional]
+
+Focus: {focus_mode}
+Max agents: {max_agents}
+
+To run the full audit: /rune:audit
+```
+
+Do NOT proceed to Phase 2. Exit here.
 
 ## Phase 2: Forge Team
 

@@ -23,6 +23,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:plan` | Multi-agent planning with parallel research and synthesis |
 | `/rune:work` | Swarm work execution with self-organizing task pool |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) |
+| `/rune:cleanup` | Remove tmp/ artifacts from completed workflows |
 
 ## Agents
 
