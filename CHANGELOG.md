@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.1.0] - 2026-02-12
+
+### Added
+
+- 4 new Rune Circle reference files:
+  - `smart-selection.md` — File-to-Runebearer assignment, context budgets, focus mode
+  - `task-templates.md` — TaskCreate templates for each Runebearer role
+  - `output-format.md` — Raw finding format, validated format, JSON output, TOME format
+  - `validator-rules.md` — Confidence scoring, risk classification, dedup, gap reporting
+- Agent Role Patterns section in `rune-orchestration/SKILL.md` — spawn patterns for Review/Audit/Research/Work/Conditional/Validation
+- Truthseer Validator (Phase 5.5) for audit workflows — cross-references finding density against file importance
+- Seal Format specification in `rune-circle/SKILL.md` with field table and completion signal
+- Output Directory Structure showing all expected files per workflow
+- JSON output format (`{runebearer}-findings.json`) and `completion.json` structured summary
+
+### Enhanced
+
+- `inscription-protocol.md` expanded from 184 to 397 lines:
+  - Authority Precedence rules, Coverage Matrix, Full Prompt Injection Template
+  - Truthbinding Protocol with hallucination type table
+  - 3-Tier Clarification Protocol, Self-Review Detection Heuristics
+  - State File Integration with state transitions
+  - Per-Workflow Adaptations with output sections
+- `truthsight-pipeline.md` expanded from 121 to 280+ lines:
+  - Circuit breaker state machines (CLOSED/OPEN/HALF_OPEN) for Layer 0 and Layer 2
+  - Sampling strategy table, 5 verification tasks, hallucination criteria
+  - Context budget table, verifier output format, timeout recovery
+  - Re-verify agent decision logic, integration points
+- `rune-circle/SKILL.md` Phase 6 (Verify) with detailed Layer 0/1/2 inline validation
+
+### Fixed
+
+- TheChoice-specific "review-teams" reference replaced with "Rune Circle"
+
 ## [1.0.1] - 2026-02-12
 
 ### Added

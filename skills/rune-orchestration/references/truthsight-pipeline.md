@@ -11,27 +11,71 @@ Truthsight validates that Runebearer findings are grounded in actual code, not h
 ### Layer 0: Inline Checks (Lead Agent)
 
 **Cost:** ~0 extra tokens (lead runs Grep directly)
-**When:** Always active for 3+ teammate workflows
+**When:** Always active for 3+ Runebearer workflows
+**Output:** `{output_dir}/inline-validation.json`
 
 The lead agent performs grep-based validation on each output file:
 
-```bash
-# Check required sections exist
-grep -c "## P1" {output_file}
-grep -c "## P2" {output_file}
-grep -c "## Summary" {output_file}
-grep -c "SEAL:" {output_file}
+### Procedure
 
-# Check evidence blocks exist
-grep -c "Rune Trace" {output_file}
+```
+For each Runebearer output file:
+  1. Read required_sections from inscription.agents[runebearer].required_sections
+  2. Grep for each "## Section Name" header in the output file
+  3. Parse Seal for required fields:
+     - findings, evidence_verified, confidence,
+       self_reviewed, self_review_actions
+  4. Check Self-Review Log exists: Grep for "confirmed|REVISED|DELETED"
+  5. Check evidence blocks exist: Grep for "Rune Trace" patterns
+  6. Record result per Runebearer
 ```
 
-**Circuit breaker:** If 3+ files fail inline checks → systemic prompt issue. Pause and investigate before continuing.
+### Output Format
 
-### Layer 1: Self-Review (Each Runebearer)
+```json
+{
+  "timestamp": "2026-02-11T10:30:00Z",
+  "results": {
+    "forge-warden": {
+      "checks": {
+        "P1 (Critical)": true,
+        "P2 (High)": true,
+        "P3 (Medium)": true,
+        "Summary": true,
+        "Self-Review Log": true,
+        "Rune Traces": true,
+        "Seal": true
+      }
+    }
+  },
+  "runebearers_checked": 4
+}
+```
 
-**Cost:** ~0 extra tokens (teammates do it themselves)
+### Failure Semantics
+
+| Outcome | Action |
+|---------|--------|
+| ALL PASS | Proceed to Layer 2 (spawn verifier) |
+| PARTIAL | Proceed with skip list (verifier skips invalid files) |
+| ALL FAIL | Skip verification, flag workflow for human review |
+| TOOL ERROR | Treat as PASS, rely on Layer 2 |
+
+### Circuit Breaker
+
+| State | Behavior | Transition |
+|-------|----------|------------|
+| CLOSED (normal) | Run all checks | → OPEN after 3 consecutive ALL FAIL |
+| OPEN (bypassed) | Skip Layer 0, warn lead | → HALF_OPEN after 60s recovery |
+| HALF_OPEN (testing) | Run checks on 1 Runebearer only | → CLOSED if pass, → OPEN if fail |
+
+Configuration: `layer_0_circuit: { failure_threshold: 3, recovery_seconds: 60 }`
+
+### Layer 1: Verifiable Self-Review (Each Runebearer)
+
+**Cost:** ~0 extra tokens (Runebearers do it themselves)
 **When:** Always active (embedded in Runebearer prompts)
+**Output:** `## Self-Review Log` table appended to each Runebearer's output file
 
 Before sending the Seal, each Runebearer:
 1. Re-reads their P1 and P2 findings
@@ -39,40 +83,165 @@ Before sending the Seal, each Runebearer:
 3. Actions: `confirmed` / `REVISED` / `DELETED`
 4. Logs actions in Self-Review Log section
 
-Output:
+### Self-Review Log Format
+
 ```markdown
 ## Self-Review Log
 
-| Finding | Action | Reason |
-|---------|--------|--------|
-| SEC-001 | confirmed | Evidence matches source line 42 |
-| SEC-002 | DELETED | Cannot verify — code may have changed |
+| # | Finding | Action | Notes |
+|---|---------|--------|-------|
+| 1 | P1: SQL injection in user_queries.py:45 | confirmed | Rune Trace re-verified against source |
+| 2 | P2: Missing auth check in admin_routes.py:112 | confirmed | |
+| 3 | P2: Unused import in models.py:3 | DELETED | Import is used in type annotation |
+| 4 | P1: Race condition in payment_service.py:78 | REVISED | Downgraded to P2, async lock exists |
 ```
+
+### Actions
+
+| Action | Meaning | Effect on Output |
+|--------|---------|-----------------|
+| `confirmed` | Re-verified, finding is accurate | No change |
+| `REVISED` | Corrected in-place | Update finding text + evidence in output |
+| `DELETED` | Removed (was fabricated/incorrect) | Remove from findings section |
+
+### Seal Field
+
+```
+self_review_actions: "confirmed: 10, revised: 1, deleted: 1"
+```
+
+### Verification Checks (performed by Layer 0 or Layer 2)
+
+1. Row count in Self-Review Log matches P1 + P2 finding count
+2. DELETED items actually removed from findings section
+3. `self_review_actions` counts match log table totals
+
+### Detection Heuristics
+
+| Metric | Healthy | Warning | Rotted |
+|--------|---------|---------|--------|
+| Confirmed rate | >80% | 50-80% | <50% |
+| Delete rate | <10% | 10-25% | >25% |
+| Log completeness | 100% of P1+P2 | >80% | <80% |
+| REVISED with changes | All REVISED have edits | Some missing | No edits visible |
 
 ### Layer 2: Smart Verifier (Spawned by Lead)
 
-**Cost:** ~1 Task return (~150 tokens) + verifier writes to file
-**When:** Review-teams with 3+ teammates, or audit with 8+ agents
+**Cost:** ~5-15k tokens (verifier reads outputs + samples source files)
+**When:** Rune Circle with 3+ Runebearers, or audit with 5+ Runebearers
+**Output:** `{output_dir}/truthsight-report.md`
 
-After all Runebearers complete, spawn a verification agent:
+### Spawning Conditions
 
+| Workflow | Condition | Model |
+|----------|-----------|-------|
+| `/rune:review` | `inscription.verification.enabled` AND 3+ Runebearers | haiku |
+| `/rune:audit` | `inscription.verification.enabled` AND 5+ Runebearers | haiku |
+| Custom | Configurable via inscription `verification` block | haiku |
+
+### Sampling Strategy
+
+| Finding Priority | Default Rate | If Runebearer confidence < 0.7 | If inline checks FAILED |
+|-----------------|-------------|-------------------------------|------------------------|
+| P1 (Critical) | 100% | 100% | 100% |
+| P2 (High) | ~30% (every 3rd) | 100% | 100% |
+| P3 (Medium) | 0% | 0% | 50% |
+
+### Verification Tasks
+
+The verifier performs 5 tasks in order:
+
+1. **Rune Trace Resolvability Scan** — Extract every `**Rune Trace:**` code block, parse file:line references, use Grep to check if cited pattern exists
+2. **Sampling Selection** — Select specific findings to deep-verify based on sampling rates above
+3. **Deep Verification** — Read source files at cited lines (offset/limit), compare against Rune Trace, assign verdict: CONFIRMED / INACCURATE / HALLUCINATED
+4. **Cross-Runebearer Conflict Detection** — Group findings by file path, identify overlapping assessments, flag conflicts and groupthink
+5. **Self-Review Log Validation** — Verify log row counts match finding counts, DELETED items removed, action counts consistent
+
+### Hallucination Criteria
+
+**HALLUCINATED:**
+- Cited file doesn't exist
+- Cited line is out of range
+- Code at cited location doesn't match the Rune Trace block
+- Finding describes behavior contradicted by actual code
+
+**INACCURATE (CONTESTED):**
+- Rune Trace partially matches but finding overstates severity
+- Code has changed since review (uncommon in same-session)
+
+### Context Budget
+
+| Component | Tokens | Limit |
+|-----------|--------|-------|
+| Runebearer output files | ~10k each | Max 5 files per run |
+| Source files (sampled) | ~3k each | Max 15 files per run |
+| Metadata (inscription, inline-validation) | ~5k | 1 per run |
+| **Total input** | ~100k | |
+| **Remaining for reasoning + output** | ~100k | |
+
+### Read Constraints
+
+**Allowed:**
+- `Grep "pattern" file.py` at stated line ranges
+- `Read file.py` with `offset`/`limit` to check specific lines
+
+**Prohibited:**
+- `Read file.py` without offset/limit (wastes verifier context)
+- Reading files not referenced in findings (scope creep)
+
+### Verifier Output Format
+
+```markdown
+# Truthsight Report
+
+**Workflow:** {workflow_type}
+**Date:** {timestamp}
+**Verifier model:** haiku
+
+## Summary
+- Runebearers verified: {verified}/{total}
+- Findings sampled: {sampled}/{total_findings} ({percentage}%)
+- Verified correct: {correct}/{sampled} ({accuracy}%)
+- Hallucinations found: {count}
+- Conflicts found: {count}
+- Re-verifications recommended: {count}
+
+## Per-Runebearer Results
+
+### {runebearer-name} (confidence: {confidence})
+- Inline validation: {PASS/WARN/FAIL}
+- Rune Trace resolvability: {resolvable}/{total} ({percentage}%)
+- Sampled: {count} findings ({breakdown by priority})
+- Results:
+  - {Finding ID} ({file}:{line}): {CONFIRMED/HALLUCINATED/INACCURATE}
+- Self-Review Log: {reviewed}/{expected} findings reviewed, {deleted} deleted
+
+## Conflicts
+{List of cross-Runebearer conflicts, or "None detected."}
+
+## Hallucination Details
+{For each hallucinated finding: what was claimed vs actual}
+
+## Re-Verification Recommendations
+{Max 2 re-verify agents per workflow run}
 ```
-Task:
-  subagent_type: "general-purpose"
-  model: haiku
-  description: "Truthsight Verifier"
-  prompt: [from references/verifier-prompt.md]
-```
 
-The verifier:
-1. Reads each Runebearer's output file
-2. Samples 2-3 P1 findings per Runebearer
-3. Reads the actual source files cited in Rune Traces
-4. Compares evidence blocks against real code
-5. Marks each sampled finding: CONFIRMED / INACCURATE / HALLUCINATED
-6. Writes verification report to `{output_dir}/truthsight-report.md`
+### Circuit Breaker
 
-**Circuit breaker:** If 2+ findings are HALLUCINATED from the same Runebearer → flag entire output as unreliable.
+| State | Behavior | Transition |
+|-------|----------|------------|
+| CLOSED (normal) | Spawn verifier agent | → OPEN after 2 consecutive failures/timeouts |
+| OPEN (bypassed) | Skip verification, rely on Layer 0 only | → HALF_OPEN after 120s recovery |
+| HALF_OPEN (testing) | Spawn verifier with reduced scope (P1s only) | → CLOSED if success, → OPEN if fail |
+
+Configuration: `layer_2_circuit: { failure_threshold: 2, recovery_seconds: 120 }`
+
+### Timeout Recovery
+
+- **Verifier timeout**: 15 minutes
+- If timeout: check for partial output in `truthsight-report.md`
+- If partial output exists: use whatever was verified, note incomplete coverage
+- If no output: fallback to Layer 0 results only, flag for human review
 
 ### Layer 3: Reliability Tracking (Deferred to v1.0)
 
@@ -114,8 +283,45 @@ Add to `inscription.json`:
 
 ## Re-Verification
 
-If the verifier flags hallucinated findings:
-1. Spawn max 2 re-verify agents (one per flagged Runebearer)
-2. Re-verify agent reads the source file and the finding
-3. Produces: CONFIRMED / STILL_HALLUCINATED verdict
-4. If STILL_HALLUCINATED → remove from TOME.md with note
+When the verifier finds hallucinated Rune Traces, the lead may spawn targeted re-verify agents:
+
+| Property | Value |
+|----------|-------|
+| Type | `general-purpose` Task subagent |
+| Model | haiku |
+| Max per workflow | 2 |
+| Timeout | 3 minutes |
+| Output | `{output_dir}/re-verify-{runebearer}-{finding-id}.md` |
+
+**Decision logic:**
+- If re-verify says HALLUCINATED: remove finding from TOME.md with note
+- If re-verify says VALID: mark finding as CONTESTED, present both views
+- If re-verify times out: keep original verifier assessment
+
+## Integration Points
+
+### Where Each Workflow Runs Verification
+
+| Workflow | Phase | Trigger |
+|----------|-------|---------|
+| `/rune:review` | Phase 6 (Verify) | Steps 6a (Layer 0), 6b (Layer 1 review), 6c (Layer 2) |
+| `/rune:audit` | Phase 5.5 (Truthseer Validator) + Phase 6 | Steps 5.5 (cross-reference), 6a-6c |
+| `/rune:plan` | None | Verification not required for research |
+| `/rune:work` | None | Status-only output, no findings to verify |
+
+### Output Files
+
+```
+{output_dir}/
+├── inline-validation.json      # Layer 0 results
+├── truthsight-report.md        # Layer 2 results
+├── re-verify-{name}-{id}.md    # Re-verify agent results (if hallucination found)
+└── {runebearer}.md             # Runebearer outputs (include Self-Review Log from Layer 1)
+```
+
+## References
+
+- [Inscription Protocol](inscription-protocol.md) — Verification block in inscription.json, Truthbinding rules
+- [Prompt Weaving](prompt-weaving.md) — Self-Review Log (Layer 1), 7-section prompt template
+- [Verifier Prompt](verifier-prompt.md) — Smart Verifier prompt template with circuit breaker
+- [Validator Rules](../../rune-circle/references/validator-rules.md) — Confidence scoring, risk classification

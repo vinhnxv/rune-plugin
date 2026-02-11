@@ -51,6 +51,21 @@ Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 
 Plus **Runebinder** (utility) for aggregation in Phase 5.
 
+### Output Directory Structure
+
+```
+tmp/reviews/{id}/
+├── inscription.json         # Output contract (generated Phase 2)
+├── forge-warden.md          # Backend review findings
+├── ward-sentinel.md         # Security review findings
+├── pattern-weaver.md        # Quality patterns findings
+├── glyph-scribe.md          # Frontend review findings (if spawned)
+├── lore-keeper.md           # Docs review findings (if spawned)
+├── TOME.md                  # Aggregated + deduplicated findings
+├── truthsight-report.md     # Verification results (if Layer 2 enabled)
+└── completion.json          # Structured completion summary
+```
+
 ### Audit Mode
 
 `/rune:audit` reuses the same 7-phase lifecycle with one difference in Phase 0:
@@ -66,6 +81,26 @@ Plus **Runebinder** (utility) for aggregation in Phase 5.
 | File prioritization | New/modified files first | Entry points/core modules first |
 
 Phases 1-7 are identical. Same Runebearers, same inscription schema, same dedup, same verification. Audit file prioritization differs: importance-based (entry points, core modules) instead of recency-based (new files, modified files).
+
+### Audit-Specific: Truthseer Validator
+
+For audits with high file counts (>100 reviewable files), a **Truthseer Validator** phase runs between Phase 5 and Phase 6:
+
+```
+Phase 5.5: Truthseer Validator
+  1. Read all Runebearer outputs
+  2. Cross-reference finding density against file importance
+  3. Flag under-reviewed areas (high-importance files with 0 findings)
+  4. Score confidence per Runebearer based on evidence quality
+  5. Write validation summary to {output_dir}/validator-summary.md
+```
+
+The Validator ensures audit coverage quality by detecting:
+- **Under-coverage**: Critical files reviewed but no findings (suspicious silence)
+- **Over-confidence**: High finding counts with low evidence quality
+- **Scope gaps**: Files in budget that weren't actually read
+
+See [Validator Rules](references/validator-rules.md) for confidence scoring and risk classification.
 
 ## Phase 0: Pre-flight
 
@@ -129,6 +164,38 @@ Each Runebearer prompt includes:
 - Glyph Budget enforcement
 - Seal Format for completion
 
+### Seal Format
+
+Each Runebearer writes a Seal at the end of their output file to signal completion:
+
+```
+---
+SEAL: {
+  findings: 7,
+  evidence_verified: true,
+  confidence: 0.85,
+  self_reviewed: true,
+  self_review_actions: "confirmed: 5, revised: 1, deleted: 1"
+}
+---
+```
+
+Then sends to lead (max 50 words — Glyph Budget enforced):
+```
+"Seal: forge-warden complete. Path: tmp/reviews/142/forge-warden.md.
+Findings: 2 P1, 3 P2, 2 P3. Confidence: 0.85. Self-reviewed: yes."
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `findings` | integer | Total P1+P2+P3 findings count |
+| `evidence_verified` | boolean | All findings have Rune Trace blocks |
+| `confidence` | float 0-1 | Self-assessed confidence (0.7+ = high) |
+| `self_reviewed` | boolean | Whether self-review pass was performed |
+| `self_review_actions` | string | confirmed/revised/deleted counts |
+
+Full spec: [Inscription Protocol](../rune-orchestration/references/inscription-protocol.md)
+
 See `references/runebearer-prompts/` for individual prompts.
 
 ## Phase 4: Monitor
@@ -175,9 +242,70 @@ The Runebinder:
 
 If verification is enabled in inscription.json:
 
-1. **Layer 0:** Lead runs grep-based inline checks on each output file
-2. **Layer 2:** Spawn Truthsight Verifier agent (see `rune-orchestration/references/verifier-prompt.md`)
-3. Flag any HALLUCINATED findings
+### Layer 0: Inline Checks (Lead Agent)
+
+For each Runebearer output file, run grep-based validation:
+
+```bash
+# Required structure checks
+grep -c "## P1" {output_file}      # P1 section exists
+grep -c "## P2" {output_file}      # P2 section exists
+grep -c "## Summary" {output_file} # Summary section exists
+grep -c "SEAL:" {output_file}      # Seal present
+
+# Evidence quality checks
+grep -c "Rune Trace" {output_file} # Evidence blocks exist
+```
+
+**Circuit breaker:** If 3+ files fail inline checks → systemic prompt issue. Pause and investigate.
+
+### Layer 1: Self-Review (Each Runebearer)
+
+Already performed by each Runebearer before sending Seal (embedded in prompts). Review the Self-Review Log section in each output file.
+
+### Layer 2: Smart Verifier (Spawned by Lead)
+
+Spawn conditions: Rune Circle with 3+ Runebearers, or audit with 5+ Runebearers.
+
+```
+Task({
+  subagent_type: "general-purpose",
+  model: "haiku",
+  description: "Truthsight Verifier",
+  prompt: [from rune-orchestration/references/verifier-prompt.md]
+})
+```
+
+The verifier:
+1. Reads each Runebearer's output file
+2. Samples 2-3 P1 findings per Runebearer
+3. Reads the actual source files cited in Rune Traces
+4. Compares evidence blocks against real code
+5. Marks each: CONFIRMED / INACCURATE / HALLUCINATED
+6. Writes `{output_dir}/truthsight-report.md`
+
+**Circuit breaker:** 2+ HALLUCINATED findings from same Runebearer → flag entire output as unreliable.
+
+### completion.json
+
+After verification, write structured completion summary:
+
+```json
+{
+  "workflow": "rune-review",
+  "identifier": "PR #142",
+  "completed_at": "2026-02-11T11:00:00Z",
+  "runebearers": {
+    "forge-warden": { "status": "complete", "findings": 7, "confidence": 0.85 },
+    "ward-sentinel": { "status": "complete", "findings": 3, "confidence": 0.90 },
+    "pattern-weaver": { "status": "partial", "findings": 2, "confidence": 0.60 }
+  },
+  "aggregation": { "tome_path": "tmp/reviews/142/TOME.md", "total_findings": 12 },
+  "verification": { "layer_0_passed": true, "layer_2_hallucinated": 0 }
+}
+```
+
+Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/truthsight-pipeline.md)
 
 ## Phase 7: Cleanup
 
@@ -214,6 +342,10 @@ Partial results remain in `tmp/audit/{id}/`.
 
 - [Rune Gaze](references/rune-gaze.md) — File classification algorithm
 - [Circle Registry](references/circle-registry.md) — Agent-to-Runebearer mapping, audit scope priorities, focus mode
+- [Smart Selection](references/smart-selection.md) — File-to-Runebearer assignment, context budgets, focus mode
+- [Task Templates](references/task-templates.md) — TaskCreate templates for each Runebearer role
+- [Output Format](references/output-format.md) — Raw finding format, validated format, TOME format, JSON output
+- [Validator Rules](references/validator-rules.md) — Confidence scoring, risk classification, dedup, gap reporting
 - [Runebearer Prompts](references/runebearer-prompts/) — Individual Runebearer prompts
 - [Inscription Schema](references/inscription-schema.md) — inscription.json format
 - [Dedup Runes](references/dedup-runes.md) — Deduplication hierarchy

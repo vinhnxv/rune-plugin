@@ -1,0 +1,159 @@
+# Output Format — Runebearer Finding Specifications
+
+> Defines raw finding format, validated format, and dual output modes (Markdown + JSON).
+
+## Raw Finding Format (Written by Runebearers)
+
+Each finding follows this template:
+
+```markdown
+- [ ] **[{PREFIX}-{NUM}] {Title}** in `{file}:{line}`
+  - **Rune Trace:**
+    ```{language}
+    # Lines {start}-{end} of {file}
+    {actual code from the source file — copy-pasted, NOT paraphrased}
+    ```
+  - **Issue:** {description of what's wrong and why it matters}
+  - **Fix:** {specific recommendation with code example if applicable}
+```
+
+### Finding Prefixes
+
+| Runebearer | Prefix | Example |
+|-----------|--------|---------|
+| Forge Warden | `FORGE` | `FORGE-001` |
+| Ward Sentinel | `SEC` | `SEC-001` |
+| Pattern Weaver | `PAT` | `PAT-001` |
+| Glyph Scribe | `GLYPH` | `GLYPH-001` |
+| Lore Keeper | `DOC` | `DOC-001` |
+
+### Rune Trace Requirements
+
+1. **MUST quote actual code** — 3-5 lines from the source file
+2. **MUST include file:line reference** — exact location
+3. **MUST be copy-pasted** — not reconstructed from memory
+4. If evidence cannot be provided → move to `## Unverified Observations`
+
+## Validated Finding Format (After Self-Review)
+
+After self-review, findings may be annotated:
+
+```markdown
+- [x] **[SEC-001] SQL Injection** in `routes.py:42` — ✅ CONFIRMED
+- [ ] **[SEC-002] Missing Auth Check** in `admin.py:15` — ⚠️ REVISED (downgraded from P1)
+- ~~**[SEC-003] Hardcoded Secret** in `config.py:3`~~ — ❌ DELETED (env var confirmed)
+```
+
+## JSON Output (Optional, for Programmatic Consumption)
+
+In addition to Markdown, Runebearers MAY write a companion JSON file for tooling integration:
+
+```json
+{
+  "runebearer": "forge-warden",
+  "workflow": "rune-review",
+  "identifier": "PR #142",
+  "timestamp": "2026-02-11T10:45:00Z",
+  "findings": [
+    {
+      "id": "FORGE-001",
+      "priority": "P1",
+      "title": "Race condition in payment processing",
+      "file": "services/payment.py",
+      "line": 78,
+      "rune_trace": "async def process_payment(self, order):\n    balance = await self.get_balance()\n    # No lock between read and write",
+      "issue": "Balance read and debit are not atomic",
+      "fix": "Add async lock around balance operations",
+      "status": "confirmed"
+    }
+  ],
+  "summary": {
+    "p1": 2,
+    "p2": 3,
+    "p3": 1,
+    "total": 6,
+    "evidence_verified": 6,
+    "confidence": 0.85
+  }
+}
+```
+
+JSON output file: `{output_dir}/{runebearer}-findings.json`
+
+### When to Use JSON Output
+
+| Scenario | MD Only | MD + JSON |
+|----------|---------|-----------|
+| Standard review | Default | Optional |
+| CI/CD integration | ✗ | Required |
+| Automated fix tooling | ✗ | Required |
+| Human-only review | Default | Optional |
+
+## Docs-Specific Format (Lore Keeper)
+
+Lore Keeper uses blockquotes instead of code blocks for evidence:
+
+```markdown
+- [ ] **[DOC-001] Outdated API endpoint** in `docs/api.md:45`
+  - **Rune Trace:**
+    > Line 45: "POST /api/v1/users — Creates a new user"
+    > Line 46: "Required fields: name, email"
+  - **Issue:** Endpoint was renamed to `/api/v2/users` in backend refactor
+  - **Fix:** Update to match current API routes
+```
+
+## TOME Format (Aggregated by Runebinder)
+
+```markdown
+# TOME — Review Summary
+
+**PR:** #{pr-number}
+**Date:** {timestamp}
+**Runebearers:** {count} spawned, {count} completed
+
+## P1 (Critical) — {count} findings
+
+{All P1 findings from all Runebearers, deduplicated}
+
+## P2 (High) — {count} findings
+
+{All P2 findings, deduplicated}
+
+## P3 (Medium) — {count} findings
+
+{All P3 findings, deduplicated}
+
+## Coverage Gaps
+
+| Runebearer | Status | Uncovered Scope |
+|-----------|--------|-----------------|
+| {name} | {complete/partial/missing} | {files not reviewed due to budget} |
+
+## Verification Status
+
+| Runebearer | Confidence | Spot-Checked | Result |
+|-----------|-----------|-------------|--------|
+| {name} | {0.X} | {N findings} | {all confirmed/N hallucinated} |
+
+## Summary
+
+- Total findings: {count}
+- P1: {count}, P2: {count}, P3: {count}
+- Runebearers: {completed}/{spawned}
+- Evidence coverage: {verified}/{total}
+```
+
+## Dedup Hierarchy
+
+When the same finding appears from multiple Runebearers:
+
+```
+SEC > FORGE > DOC > PAT > GLYPH
+```
+
+Keep the finding from the higher-priority Runebearer. See [Dedup Runes](dedup-runes.md) for full algorithm.
+
+## References
+
+- [Dedup Runes](dedup-runes.md) — Deduplication algorithm
+- [Inscription Schema](inscription-schema.md) — inscription.json `required_sections`
