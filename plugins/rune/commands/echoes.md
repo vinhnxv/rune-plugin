@@ -1,5 +1,5 @@
 ---
-name: echoes
+name: rune:echoes
 description: |
   Manage Rune Echoes — project-level agent memory stored in .claude/echoes/.
   View memory state, prune stale entries, or reset all echoes.

@@ -1,5 +1,5 @@
 ---
-name: cancel-review
+name: rune:cancel-review
 description: |
   Cancel an active Rune Circle review and gracefully shutdown all Runebearer teammates.
   Partial results remain in tmp/reviews/ for manual inspection.

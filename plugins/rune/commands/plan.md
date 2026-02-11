@@ -1,5 +1,5 @@
 ---
-name: plan
+name: rune:plan
 description: |
   Multi-agent planning workflow using Agent Teams. Combines brainstorm, research,
   synthesis, deepening, and review into a single orchestrated pipeline with

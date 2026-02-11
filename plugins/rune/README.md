@@ -4,13 +4,16 @@ Multi-agent engineering orchestration for [Claude Code](https://claude.ai/claude
 
 Each Runebearer teammate gets its own 200k context window, eliminating single-context bottlenecks.
 
-## Install
+## Claude Code Install
 
 ```bash
-claude plugin add vinhnxv/rune-plugin
+/plugin marketplace add https://github.com/vinhnxv/rune-plugin
+/plugin install rune
 ```
 
-Or for local development:
+Restart Claude Code after installation to load the plugin.
+
+### Local Development
 
 ```bash
 claude --plugin-dir /path/to/rune-plugin
