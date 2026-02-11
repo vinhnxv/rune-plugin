@@ -1,0 +1,17 @@
+# Rune Echoes — project-level memory (secrets risk)
+# Users opt-in to version control by removing this line
+.claude/echoes/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Temporary review outputs
+tmp/
