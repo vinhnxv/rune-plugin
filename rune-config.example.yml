@@ -1,0 +1,139 @@
+# Rune Plugin Configuration
+# Copy to .claude/rune-config.yml (project-level) or ~/.claude/rune-config.yml (global)
+#
+# Resolution order:
+#   1. .claude/rune-config.yml   (project, highest priority)
+#   2. ~/.claude/rune-config.yml (user global)
+#   3. Plugin defaults           (5 built-in Runebearers)
+
+version: 1
+
+# ──────────────────────────────────────────────
+# Rune Gaze — File classification overrides
+# ──────────────────────────────────────────────
+rune-gaze:
+  # Override which extensions map to backend Runebearer (Forge Warden)
+  backend_extensions:
+    - .py
+    - .go
+    - .rs
+    - .rb
+
+  # Override which extensions map to frontend Runebearer (Glyph Scribe)
+  frontend_extensions:
+    - .tsx
+    - .ts
+    - .jsx
+
+  # Files/patterns to skip entirely (glob syntax)
+  skip_patterns:
+    - "**/migrations/**"
+    - "**/*.generated.ts"
+    - "**/vendor/**"
+
+  # Files that should always be reviewed regardless of extension
+  always_review:
+    - "CLAUDE.md"
+    - ".claude/**/*.md"
+
+# ──────────────────────────────────────────────
+# Custom Runebearers — Extend the built-in 5
+# ──────────────────────────────────────────────
+# Each custom Runebearer joins the Rune Circle lifecycle:
+#   - Gets a Truthbinding wrapper prompt (evidence, Seal, Glyph Budget)
+#   - Participates in dedup via its unique finding_prefix
+#   - Verified by Truthsight (if enabled)
+#   - Findings aggregated into TOME.md
+#
+# Agent sources:
+#   local  → .claude/agents/{name}.md (project-level)
+#   global → ~/.claude/agents/{name}.md (user-level)
+#   plugin → Full namespace like "my-plugin:review:agent-name"
+
+runebearers:
+  custom:
+    # Example 1: A local project-specific reviewer
+    - name: "domain-logic-reviewer"
+      agent: "domain-logic-reviewer"       # Resolves to .claude/agents/domain-logic-reviewer.md
+      source: local
+      workflows: [review, audit]
+      trigger:
+        extensions: [".py", ".rb", ".go"]
+        paths: ["src/domain/", "src/services/", "app/models/"]
+      context_budget: 20
+      finding_prefix: "DOM"
+      required_sections:
+        - "P1 (Critical)"
+        - "P2 (High)"
+        - "P3 (Medium)"
+        - "Summary"
+        - "Self-Review Log"
+
+    # Example 2: A global user-level performance agent
+    - name: "perf-deep-scan"
+      agent: "perf-deep-scan"              # Resolves to ~/.claude/agents/perf-deep-scan.md
+      source: global
+      workflows: [audit]                   # Audit only (too heavy for PR reviews)
+      trigger:
+        extensions: [".py", ".ts", ".tsx", ".rb"]
+        min_files: 10                      # Only spawn if 10+ matching files
+      context_budget: 20
+      finding_prefix: "PERF"
+
+    # Example 3: An agent from another installed plugin
+    # - name: "compliance-checker"
+    #   agent: "my-plugin:review:compliance-checker"
+    #   source: plugin
+    #   workflows: [review, audit]
+    #   trigger:
+    #     extensions: ["*"]                # All file types
+    #     paths: ["src/api/", "src/auth/"]
+    #   context_budget: 15
+    #   finding_prefix: "COMP"
+
+# ──────────────────────────────────────────────
+# Settings — Global behavior adjustments
+# ──────────────────────────────────────────────
+settings:
+  # Hard cap on total Runebearers (built-in + custom)
+  # Max recommended: 8 (verifier context budget constraint)
+  max_runebearers: 8
+
+  # Extended dedup hierarchy — higher = wins on conflict
+  # Must include ALL active prefixes (built-in + custom)
+  # Built-in prefixes: SEC, BACK, DOC, QUAL, FRONT
+  dedup_hierarchy:
+    - SEC          # Ward Sentinel (always highest)
+    - BACK         # Forge Warden
+    - DOM          # Custom: domain-logic-reviewer
+    - PERF         # Custom: perf-deep-scan
+    - DOC          # Lore Keeper
+    - QUAL         # Pattern Weaver
+    - FRONT        # Glyph Scribe (lowest)
+
+  # Whether Truthsight Layer 2 verifier checks custom Runebearer outputs
+  verification:
+    layer_2_custom_agents: true
+
+# ──────────────────────────────────────────────
+# Defaults — Disable built-in Runebearers
+# ──────────────────────────────────────────────
+# Use this to turn off a built-in Runebearer you've replaced with a custom one
+defaults:
+  disable_runebearers: []
+  # Example: disable_runebearers: ["lore-keeper"]
+
+# ──────────────────────────────────────────────
+# Echoes — Memory persistence
+# ──────────────────────────────────────────────
+echoes:
+  version_controlled: false    # Set true to track .claude/echoes/ in git
+
+# ──────────────────────────────────────────────
+# Work — Swarm execution settings
+# ──────────────────────────────────────────────
+work:
+  ward_commands:               # Quality gate commands for /rune:work
+    - "make check"
+    - "npm test"
+  max_workers: 3               # Max parallel swarm workers

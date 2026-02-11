@@ -39,7 +39,7 @@ Phase 6: Verify          → Truthsight validation on P1 findings
 Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 ```
 
-### Runebearer Roles (Max 5)
+### Built-in Runebearer Roles (Max 5)
 
 | Runebearer | Role | When Selected | Perspectives |
 |-----------|------|---------------|-------------|
@@ -50,6 +50,20 @@ Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 | **Lore Keeper** | Docs review | Docs changed (>= 10 lines) | Accuracy, completeness, anti-injection |
 
 Plus **Runebinder** (utility) for aggregation in Phase 5.
+
+### Custom Runebearers (Extensible)
+
+Projects can register additional Runebearers from local agents, global agents, or other plugins via `rune-config.yml`. Custom Runebearers join the standard lifecycle:
+
+- **Wrapped** with Truthbinding Protocol (evidence, Glyph Budget, Seal format)
+- **Spawned** alongside built-ins in Phase 3 (parallel execution)
+- **Deduplicated** using their unique `finding_prefix` in the extended hierarchy
+- **Verified** by Truthsight (if `settings.verification.layer_2_custom_agents: true`)
+- **Aggregated** into TOME.md by Runebinder
+
+**Max total:** 5 built-in + up to 3 custom = 8 Runebearers (configurable via `settings.max_runebearers`). The cap exists because each Runebearer output (~10k tokens) consumes verifier context budget.
+
+See [`custom-runebearers.md`](references/custom-runebearers.md) for full schema, wrapper prompt template, and examples.
 
 ### Output Directory Structure
 

@@ -64,6 +64,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | Agent | Purpose |
 |-------|---------|
 | runebinder | Aggregates Runebearer findings into TOME.md |
+| truthseer-validator | Audit coverage validation (Phase 5.5) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
 
@@ -137,7 +138,7 @@ Echo files in `.claude/echoes/` are persistent and survive across sessions.
 
 ## Configuration
 
-Projects can override Rune Gaze defaults via `.claude/rune-config.yml`:
+Projects can override defaults via `.claude/rune-config.yml` (project) or `~/.claude/rune-config.yml` (global):
 
 ```yaml
 rune-gaze:
@@ -146,15 +147,32 @@ rune-gaze:
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md", ".claude/**/*.md"]
 
+# Custom Runebearers — extend the built-in 5
+runebearers:
+  custom:
+    - name: "domain-logic-reviewer"
+      agent: "domain-logic-reviewer"    # local .claude/agents/ or plugin namespace
+      source: local                     # local | global | plugin
+      workflows: [review, audit]
+      trigger:
+        extensions: [".py", ".rb"]
+        paths: ["src/domain/"]
+      context_budget: 20
+      finding_prefix: "DOM"
+
+settings:
+  max_runebearers: 8                   # Hard cap (5 built-in + custom)
+  dedup_hierarchy: [SEC, BACK, DOM, DOC, QUAL, FRONT]
+
 echoes:
-  version_controlled: false  # Set to true to track echoes in git
+  version_controlled: false
 
 work:
-  ward_commands:               # Override quality gate commands
-    - "make check"
-    - "npm test"
-  max_workers: 3               # Max parallel swarm workers
+  ward_commands: ["make check", "npm test"]
+  max_workers: 3
 ```
+
+See `rune-circle/references/custom-runebearers.md` for full schema and `rune-config.example.yml` at plugin root.
 
 ## Coexistence
 

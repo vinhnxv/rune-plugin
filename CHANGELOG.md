@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.4.0] - 2026-02-12
+
+### Added
+
+- **Custom Runebearers** — extend built-in 5 Runebearers with agents from local (`.claude/agents/`), global (`~/.claude/agents/`), or third-party plugins via `rune-config.yml`
+  - `runebearers.custom[]` config with name, agent, source, workflows, trigger, context_budget, finding_prefix
+  - Truthbinding wrapper prompt auto-injected for custom agents (ANCHOR + Glyph Budget + Seal + RE-ANCHOR)
+  - Trigger matching: extension + path filters with min_files threshold
+  - Agent resolution: local → global → plugin namespace
+- **`rune-config.example.yml`** — complete example config at plugin root
+- **`custom-runebearers.md`** — full schema reference, wrapper prompt template, validation rules, examples
+- **Extended dedup hierarchy** — `settings.dedup_hierarchy` supports custom finding prefixes alongside built-ins
+- **`settings.max_runebearers`** — configurable hard cap (default 8) for total active Runebearers
+- **`defaults.disable_runebearers`** — optionally disable built-in Runebearers
+- **`--dry-run` output** now shows custom Runebearers with their prefix, file count, and source
+
+### Changed
+
+- `/rune:review` and `/rune:audit` Phase 0 now reads `rune-config.yml` for custom Runebearer definitions
+- Phase 3 spawning extended to include custom Runebearers with wrapper prompts
+- Runebinder aggregation uses extended dedup hierarchy from config
+- `--max-agents` flag range updated from 1-5 to 1-8 (to include custom)
+
 ## [1.3.0] - 2026-02-12
 
 ### Enhanced

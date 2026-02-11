@@ -1,9 +1,9 @@
 ---
 name: review
 description: |
-  Multi-agent code review using Agent Teams. Spawns up to 5 Runebearer teammates,
-  each with their own 200k context window. Handles scope selection, team creation,
-  review orchestration, aggregation, verification, and cleanup.
+  Multi-agent code review using Agent Teams. Spawns up to 5 built-in Runebearer teammates
+  (plus custom Runebearers from rune-config.yml), each with their own 200k context window.
+  Handles scope selection, team creation, review orchestration, aggregation, verification, and cleanup.
 
   <example>
   user: "/rune:review"
@@ -46,7 +46,7 @@ Orchestrate a multi-agent code review using the Rune Circle architecture. Each R
 - File assignments per Runebearer (with context budget caps)
 - Estimated team size
 
-No teams, tasks, or agents are created. Use this to preview scope before committing to a full review.
+No teams, tasks, state files, or agents are created. Use this to preview scope before committing to a full review.
 
 ## Phase 0: Pre-flight
 
@@ -72,6 +72,23 @@ fi
 - No changed files → "Nothing to review. Make some changes first."
 - Only non-reviewable files (images, lock files) → "No reviewable changes found."
 
+### Load Custom Runebearers
+
+After collecting changed files, check for custom Runebearer config:
+
+```
+1. Read .claude/rune-config.yml (project) or ~/.claude/rune-config.yml (global)
+2. If runebearers.custom[] exists:
+   a. Validate: unique prefixes, unique names, resolvable agents, count ≤ max
+   b. Filter by workflows: keep only entries with "review" in workflows[]
+   c. Match triggers against changed_files (extension + path match)
+   d. Skip entries with fewer matching files than trigger.min_files
+3. Merge validated custom Runebearers with built-in selections
+4. Apply defaults.disable_runebearers to remove any disabled built-ins
+```
+
+See `rune-circle/references/custom-runebearers.md` for full schema and validation rules.
+
 ## Phase 1: Rune Gaze (Scope Selection)
 
 Classify changed files by extension. See `rune-circle/references/rune-gaze.md`.
@@ -83,6 +100,13 @@ for each file in changed_files:
   - *.md (>= 10 lines changed)            → select Lore Keeper
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
+
+# Custom Runebearers (from rune-config.yml):
+for each custom in validated_custom_runebearers:
+  matching = files where extension in custom.trigger.extensions
+                    AND (custom.trigger.paths is empty OR file starts with any path)
+  if len(matching) >= custom.trigger.min_files:
+    select custom.name with matching[:custom.context_budget]
 ```
 
 Check for project overrides in `.claude/rune-config.yml`.
@@ -102,12 +126,18 @@ Changed files: {count}
   Docs:     {count} files
   Other:    {count} files (skipped)
 
-Runebearers to spawn: {count}
+Runebearers to spawn: {count} ({built_in_count} built-in + {custom_count} custom)
+  Built-in:
   - Forge Warden:   {file_count} files (cap: 30)
   - Ward Sentinel:  {file_count} files (cap: 20)
   - Pattern Weaver: {file_count} files (cap: 30)
   - Glyph Scribe:   {file_count} files (cap: 25)  [conditional]
   - Lore Keeper:    {file_count} files (cap: 25)  [conditional]
+
+  Custom (from .claude/rune-config.yml):       # Only shown if custom Runebearers exist
+  - {name} [{prefix}]: {file_count} files (cap: {budget}, source: {source})
+
+Dedup hierarchy: {hierarchy from settings or default}
 
 To run the full review: /rune:review
 ```
@@ -152,13 +182,24 @@ for (const runebearer of selectedRunebearers) {
 Spawn ALL selected Runebearers in a **single message** (parallel execution):
 
 ```javascript
-// For each selected Runebearer, spawn as background teammate
+// Built-in Runebearers: load prompt from runebearer-prompts/{role}.md
 Task({
   team_name: "rune-review-{identifier}",
   name: "{runebearer-name}",
   subagent_type: "general-purpose",
   prompt: /* Load from rune-circle/references/runebearer-prompts/{role}.md
              Substitute: {changed_files}, {output_path}, {task_id}, {branch}, {timestamp} */,
+  run_in_background: true
+})
+
+// Custom Runebearers: use wrapper prompt template from custom-runebearers.md
+// The wrapper injects Truthbinding Protocol + Glyph Budget + Seal format
+Task({
+  team_name: "rune-review-{identifier}",
+  name: "{custom.name}",
+  subagent_type: "{custom.agent}",  // local name or plugin namespace
+  prompt: /* Generate from wrapper template in rune-circle/references/custom-runebearers.md
+             Substitute: {name}, {file_list}, {output_dir}, {finding_prefix}, {context_budget} */,
   run_in_background: true
 })
 ```
@@ -191,7 +232,8 @@ Task({
   name: "runebinder",
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/reviews/{id}/.
-    Deduplicate using hierarchy: SEC > BACK > DOC > QUAL > FRONT.
+    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT).
+    Include custom Runebearer outputs in dedup — use their finding_prefix from config.
     Write unified summary to tmp/reviews/{id}/TOME.md.
     See rune-circle/references/dedup-runes.md for dedup algorithm.`
 })

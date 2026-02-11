@@ -1,9 +1,10 @@
 ---
 name: audit
 description: |
-  Full codebase audit using Agent Teams. Spawns up to 5 Runebearer teammates,
-  each with their own 200k context window. Scans entire project (or current directory)
-  instead of git diff changes. Uses the same 7-phase Rune Circle lifecycle.
+  Full codebase audit using Agent Teams. Spawns up to 5 built-in Runebearer teammates
+  (plus custom Runebearers from rune-config.yml), each with their own 200k context window.
+  Scans entire project (or current directory) instead of git diff changes. Uses the same
+  7-phase Rune Circle lifecycle.
 
   <example>
   user: "/rune:audit"
@@ -36,7 +37,7 @@ Orchestrate a full codebase audit using the Rune Circle architecture. Each Runeb
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--focus <area>` | Limit audit to specific area: `security`, `performance`, `quality`, `frontend`, `docs`, `backend`, `full` | `full` |
-| `--max-agents <N>` | Cap maximum Runebearers spawned (1-5) | 5 |
+| `--max-agents <N>` | Cap maximum Runebearers spawned (1-8, including custom) | 5 |
 | `--dry-run` | Show scope selection and Runebearer plan without spawning agents | Off |
 
 **Focus mode** selects only the relevant Runebearers (see `rune-circle/references/circle-registry.md` for the mapping). This increases each Runebearer's effective context budget since fewer compete for resources.
@@ -76,6 +77,23 @@ branch=$(git branch --show-current 2>/dev/null || echo "n/a")
 
 **Note:** Unlike `/rune:review`, audit does NOT require a git repository.
 
+### Load Custom Runebearers
+
+After scanning files, check for custom Runebearer config:
+
+```
+1. Read .claude/rune-config.yml (project) or ~/.claude/rune-config.yml (global)
+2. If runebearers.custom[] exists:
+   a. Validate: unique prefixes, unique names, resolvable agents, count ≤ max
+   b. Filter by workflows: keep only entries with "audit" in workflows[]
+   c. Match triggers against all_files (extension + path match)
+   d. Skip entries with fewer matching files than trigger.min_files
+3. Merge validated custom Runebearers with built-in selections
+4. Apply defaults.disable_runebearers to remove any disabled built-ins
+```
+
+See `rune-circle/references/custom-runebearers.md` for full schema and validation rules.
+
 ## Phase 1: Rune Gaze (Scope Selection)
 
 Classify ALL project files by extension. See `rune-circle/references/rune-gaze.md`.
@@ -87,6 +105,13 @@ for each file in all_files:
   - *.md (>= 10 lines)                   → select Lore Keeper
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
+
+# Custom Runebearers (from rune-config.yml):
+for each custom in validated_custom_runebearers:
+  matching = files where extension in custom.trigger.extensions
+                    AND (custom.trigger.paths is empty OR file starts with any path)
+  if len(matching) >= custom.trigger.min_files:
+    select custom.name with matching[:custom.context_budget]
 ```
 
 Check for project overrides in `.claude/rune-config.yml`.
@@ -123,20 +148,25 @@ Total files: {count}
   Docs:     {count} files
   Other:    {count} files (skipped)
 
-Runebearers to spawn: {count}
+Runebearers to spawn: {count} ({built_in_count} built-in + {custom_count} custom)
+  Built-in:
   - Forge Warden:   {file_count} files (cap: 30)
   - Ward Sentinel:  {file_count} files (cap: 20)
   - Pattern Weaver: {file_count} files (cap: 30)
   - Glyph Scribe:   {file_count} files (cap: 25)  [conditional]
   - Lore Keeper:    {file_count} files (cap: 25)  [conditional]
 
+  Custom (from .claude/rune-config.yml):       # Only shown if custom Runebearers exist
+  - {name} [{prefix}]: {file_count} files (cap: {budget}, source: {source})
+
 Focus: {focus_mode}
 Max agents: {max_agents}
+Dedup hierarchy: {hierarchy from settings or default}
 
 To run the full audit: /rune:audit
 ```
 
-Do NOT proceed to Phase 2. Exit here.
+No teams, tasks, state files, or agents are created. Do NOT proceed to Phase 2. Exit here.
 
 ## Phase 2: Forge Team
 
@@ -188,13 +218,23 @@ for (const runebearer of selectedRunebearers) {
 Spawn ALL selected Runebearers in a **single message** (parallel execution):
 
 ```javascript
-// For each selected Runebearer, spawn as background teammate
+// Built-in Runebearers: load prompt from runebearer-prompts/{role}.md
 Task({
   team_name: "rune-audit-{audit_id}",
   name: "{runebearer-name}",
   subagent_type: "general-purpose",
   prompt: /* Load from rune-circle/references/runebearer-prompts/{role}.md
              Substitute: {changed_files} with audit file list, {output_path}, {task_id}, {branch}, {timestamp} */,
+  run_in_background: true
+})
+
+// Custom Runebearers: use wrapper prompt template from custom-runebearers.md
+Task({
+  team_name: "rune-audit-{audit_id}",
+  name: "{custom.name}",
+  subagent_type: "{custom.agent}",  // local name or plugin namespace
+  prompt: /* Generate from wrapper template in rune-circle/references/custom-runebearers.md
+             Substitute: {name}, {file_list}, {output_dir}, {finding_prefix}, {context_budget} */,
   run_in_background: true
 })
 ```
@@ -229,7 +269,8 @@ Task({
   name: "runebinder",
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/audit/{audit_id}/.
-    Deduplicate using hierarchy: SEC > BACK > DOC > QUAL > FRONT.
+    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT).
+    Include custom Runebearer outputs in dedup — use their finding_prefix from config.
     Write unified summary to tmp/audit/{audit_id}/TOME.md.
     See rune-circle/references/dedup-runes.md for dedup algorithm.
 

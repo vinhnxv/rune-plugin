@@ -19,6 +19,8 @@ If two Runebearers flag the same file within a 5-line range:
 
 ### Priority Hierarchy
 
+**Default (built-in only):**
+
 ```
 Ward Sentinel > Forge Warden > Lore Keeper > Pattern Weaver > Glyph Scribe
 SEC > BACK > DOC > QUAL > FRONT
@@ -29,17 +31,38 @@ When the same issue is found by multiple Runebearers:
 2. Note in TOME.md which other Runebearers also flagged it
 3. Use the highest severity (P1 > P2 > P3)
 
+### Extended Hierarchy (with Custom Runebearers)
+
+When custom Runebearers are configured in `rune-config.yml`, the dedup hierarchy is extended via `settings.dedup_hierarchy`. Custom prefixes are slotted into the hierarchy at the position specified by the user.
+
+**Example extended hierarchy:**
+```
+SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT
+```
+
+**Rules:**
+- If `settings.dedup_hierarchy` is defined in config, use it as-is (user controls the order)
+- If NOT defined, append custom prefixes AFTER built-in hierarchy (lowest priority):
+  ```
+  SEC > BACK > DOC > QUAL > FRONT > {custom_1} > {custom_2} > ...
+  ```
+- Every active Runebearer's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
+- Reserved built-in prefixes: `SEC`, `BACK`, `QUAL`, `FRONT`, `DOC` — cannot be used by custom Runebearers
+
 ### Finding ID Prefixes
 
 Each Runebearer uses a unique prefix for finding IDs:
 
-| Runebearer | Prefix | Example |
-|-----------|--------|---------|
-| Ward Sentinel | `SEC-` | `SEC-001` |
-| Forge Warden | `BACK-` | `BACK-001` |
-| Pattern Weaver | `QUAL-` | `QUAL-001` |
-| Glyph Scribe | `FRONT-` | `FRONT-001` |
-| Lore Keeper | `DOC-` | `DOC-001` |
+| Runebearer | Prefix | Example | Type |
+|-----------|--------|---------|------|
+| Ward Sentinel | `SEC-` | `SEC-001` | Built-in |
+| Forge Warden | `BACK-` | `BACK-001` | Built-in |
+| Pattern Weaver | `QUAL-` | `QUAL-001` | Built-in |
+| Glyph Scribe | `FRONT-` | `FRONT-001` | Built-in |
+| Lore Keeper | `DOC-` | `DOC-001` | Built-in |
+| *(custom)* | *from config* | e.g., `DOM-001` | Custom |
+
+Custom Runebearers define their prefix in `rune-config.yml` → `runebearers.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Runebearers.
 
 ### Dedup Algorithm
 
