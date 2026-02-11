@@ -7,7 +7,7 @@ Each Runebearer teammate gets its own 200k context window, eliminating single-co
 ## Install
 
 ```bash
-claude plugin add vinhnxv/rune-plugin
+claude plugin add vinhtrue/rune-plugin
 ```
 
 Or for local development:
