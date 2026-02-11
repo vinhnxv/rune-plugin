@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.1] - 2026-02-12
+
+### Added
+
+- Circle Registry (`rune-circle/references/circle-registry.md`) — agent-to-Runebearer mapping with audit scope priorities and context budgets
+- `--focus <area>` and `--max-agents <N>` flags for `/rune:audit`
+- `--partial` flag for `/rune:review` (review staged files only)
+- Known Limitations and Troubleshooting sections in README
+- `.gitattributes` with `merge=union` strategy for Rune Echoes files
+
+### Fixed
+
+- Missing cross-reference from `rune-circle/SKILL.md` to `circle-registry.md`
+
 ## [1.0.0] - 2026-02-12
 
 ### Added

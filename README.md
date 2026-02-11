@@ -32,6 +32,8 @@ claude --plugin-dir /path/to/rune-plugin
 
 # Run a full codebase audit (all files)
 /rune:audit
+/rune:audit --focus security    # Security-only audit
+/rune:audit --max-agents 3      # Limit to 3 Runebearers
 
 # Cancel an active review or audit
 /rune:cancel-review
@@ -254,6 +256,25 @@ rune-plugin/
 ├── LICENSE
 └── README.md
 ```
+
+## Known Limitations
+
+- **Agent Teams is experimental** — Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable. Behavior may change across Claude Code releases.
+- **Context budget caps** — Each Runebearer can review a limited number of files (20-30). Large codebases will have coverage gaps reported in the TOME.
+- **No incremental audit** — `/rune:audit` scans all files each run. There is no diff-based "only audit what changed since last audit" mode yet.
+- **Concurrent sessions** — Only one `/rune:review` or `/rune:audit` can run at a time. Use `/rune:cancel-review` or `/rune:cancel-audit` to stop an active session.
+- **No `/rune:cleanup` command** — Temporary files in `tmp/` must be cleaned up manually or by the OS. Planned for a future release.
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Agent Teams not available" | Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in your shell profile |
+| Runebearer times out (>5 min) | Rune proceeds with partial results. Check TOME.md for coverage gaps |
+| "Concurrent review running" | Run `/rune:cancel-review` first, then retry |
+| Echo files causing merge conflicts | Add `.gitattributes` with `merge=union` for echo paths (see Configuration) |
+| No files to review | Ensure you have uncommitted changes on a feature branch (not main) |
+| `/rune:work` stalled workers | Workers auto-release after 3 minutes. Lead re-assigns stuck tasks |
 
 ## Security
 
