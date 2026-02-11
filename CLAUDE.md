@@ -17,6 +17,8 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 |---------|-------------|
 | `/rune:review` | Multi-agent code review with up to 5 Runebearer teammates |
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
+| `/rune:audit` | Full codebase audit with up to 5 Runebearer teammates |
+| `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
 
 ## Agents
 

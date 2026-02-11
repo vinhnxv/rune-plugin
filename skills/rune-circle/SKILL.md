@@ -51,6 +51,22 @@ Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 
 Plus **Runebinder** (utility) for aggregation in Phase 5.
 
+### Audit Mode
+
+`/rune:audit` reuses the same 7-phase lifecycle with one difference in Phase 0:
+
+| Aspect | Review (`/rune:review`) | Audit (`/rune:audit`) |
+|--------|------------------------|----------------------|
+| Phase 0 input | `git diff` (changed files) | `find` (all project files) |
+| Identifier | PR number / branch name | Timestamp (`YYYYMMDD-HHMMSS`) |
+| Output directory | `tmp/reviews/{id}/` | `tmp/audit/{id}/` |
+| State file | `tmp/.rune-review-{id}.json` | `tmp/.rune-audit-{id}.json` |
+| Team name | `rune-review-{id}` | `rune-audit-{id}` |
+| Git required | Yes | No |
+| File prioritization | New/modified files first | Entry points/core modules first |
+
+Phases 1-7 are identical. Same Runebearers, same inscription schema, same dedup, same verification. Audit file prioritization differs: importance-based (entry points, core modules) instead of recency-based (new files, modified files).
+
 ## Phase 0: Pre-flight
 
 ```bash
@@ -190,6 +206,9 @@ If verification is enabled in inscription.json:
 3. Wait for approvals (max 30s)
 4. TeamDelete()
 5. Partial results remain in `tmp/reviews/{pr}/`
+
+`/rune:cancel-audit` triggers the same cancellation flow with `tmp/.rune-audit-*` state files.
+Partial results remain in `tmp/audit/{id}/`.
 
 ## References
 

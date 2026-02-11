@@ -19,11 +19,15 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
-# Run a multi-agent code review
+# Run a multi-agent code review (changed files only)
 /rune:review
 
-# Cancel an active review
+# Run a full codebase audit (all files)
+/rune:audit
+
+# Cancel an active review or audit
 /rune:cancel-review
+/rune:cancel-audit
 ```
 
 ## What It Does
@@ -37,6 +41,19 @@ When you run `/rune:review`, Rune:
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes
 6. **Verifies evidence** — Truthsight validates P1 findings against source
 7. **Presents TOME** — unified review summary
+
+## Audit Mode
+
+When you run `/rune:audit`, Rune scans your entire codebase instead of just changed files:
+
+1. **Scans codebase** — finds all project files (excluding binaries, lock files, build output)
+2. **Classifies files** — same Rune Gaze extension-based classification
+3. **Selects Runebearers** — same 2-5 Runebearer selection
+4. **Audits in parallel** — each Runebearer gets capped context budget, prioritized by importance
+5. **Aggregates findings** — Runebinder deduplicates and prioritizes
+6. **Presents TOME** — unified audit summary with coverage gaps
+
+Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. Each Runebearer's context budget limits how many files it processes, prioritized by architectural importance.
 
 ## Runebearers
 
@@ -110,7 +127,9 @@ rune-plugin/
 │   └── utility/         # Runebinder aggregator
 ├── commands/
 │   ├── review.md        # /rune:review
-│   └── cancel-review.md # /rune:cancel-review
+│   ├── cancel-review.md # /rune:cancel-review
+│   ├── audit.md         # /rune:audit
+│   └── cancel-audit.md  # /rune:cancel-audit
 ├── skills/
 │   ├── rune-orchestration/  # Core coordination
 │   ├── context-weaving/     # Context management
