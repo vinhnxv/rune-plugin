@@ -20,6 +20,8 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
 | `/rune:audit` | Full codebase audit with up to 5 Runebearer teammates |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
+| `/rune:plan` | Multi-agent planning with parallel research and synthesis |
+| `/rune:work` | Swarm work execution with self-organizing task pool |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) |
 
 ## Agents
@@ -43,13 +45,26 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 | Agent | Purpose |
 |-------|---------|
+| lore-seeker | External best practices and industry patterns |
+| realm-analyst | Codebase exploration and pattern discovery |
+| codex-scholar | Framework documentation and API research |
+| chronicle-miner | Git history analysis and code archaeology |
 | echo-reader | Reads Rune Echoes to surface relevant past learnings |
+
+### Work Agents (`agents/work/`)
+
+| Agent | Purpose |
+|-------|---------|
+| rune-smith | Code implementation (TDD-aware swarm worker) |
+| trial-forger | Test generation (swarm worker) |
 
 ### Utility Agents (`agents/utility/`)
 
 | Agent | Purpose |
 |-------|---------|
 | runebinder | Aggregates Runebearer findings into TOME.md |
+| flow-seer | Spec flow analysis and gap detection |
+| scroll-reviewer | Document quality review |
 
 ## Key Concepts
 
@@ -111,6 +126,7 @@ Agents persist learnings automatically after workflows. Future workflows read ec
 |----------|----------|-------|
 | Reviews | `tmp/reviews/{id}/` | `{runebearer}.md`, `TOME.md`, `inscription.json` |
 | Audits | `tmp/audit/{id}/` | Same pattern |
+| Plans | `tmp/plans/{id}/research/` | Research findings, deepen outputs |
 | Scratch | `tmp/scratch/` | Session state |
 | Echoes | `.claude/echoes/{role}/` | `MEMORY.md`, `knowledge.md`, `archive/` |
 
@@ -131,6 +147,12 @@ rune-gaze:
 
 echoes:
   version_controlled: false  # Set to true to track echoes in git
+
+work:
+  ward_commands:               # Override quality gate commands
+    - "make check"
+    - "npm test"
+  max_workers: 3               # Max parallel swarm workers
 ```
 
 ## Coexistence

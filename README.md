@@ -19,6 +19,14 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
+# Plan a feature with parallel research agents
+/rune:plan
+/rune:plan --brainstorm        # Start with interactive brainstorm
+/rune:plan --deep              # Include deep section-level research
+
+# Execute a plan with swarm workers
+/rune:work plans/feat-user-auth-plan.md
+
 # Run a multi-agent code review (changed files only)
 /rune:review
 
@@ -60,6 +68,32 @@ When you run `/rune:audit`, Rune scans your entire codebase instead of just chan
 
 Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. Each Runebearer's context budget limits how many files it processes, prioritized by architectural importance.
 
+## Plan Mode
+
+When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
+
+1. **Gathers input** — accepts a feature description or runs interactive brainstorm (`--brainstorm`)
+2. **Spawns research agents** — 4 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
+3. **Synthesizes findings** — lead consolidates research into a structured plan
+4. **Deepens sections** — optional parallel deep-dive per section (`--deep`)
+5. **Reviews document** — Scroll Reviewer checks plan quality
+6. **Persists learnings** — saves planning insights to Rune Echoes
+
+Output: `plans/{type}-{feature-name}-plan.md`
+
+## Work Mode
+
+When you run `/rune:work`, Rune parses a plan into tasks and spawns self-organizing swarm workers:
+
+1. **Parses plan** — extracts tasks with dependencies from checkbox items or numbered lists
+2. **Creates task pool** — TaskCreate with dependency chains (blockedBy)
+3. **Spawns workers** — Rune Smiths (implementation) and Trial Forgers (tests) claim tasks independently
+4. **Monitors progress** — polls TaskList, detects stalled workers, releases stuck tasks
+5. **Runs quality gates** — auto-discovers wards from Makefile, package.json, pyproject.toml
+6. **Persists learnings** — saves implementation patterns to Rune Echoes
+
+Workers scale automatically based on task count (1-5 tasks: 2 workers, 20+ tasks: 5 workers).
+
 ## Rune Echoes (Memory)
 
 Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After each review or audit, agents persist patterns and learnings. Future sessions read these echoes to avoid repeating mistakes.
@@ -97,7 +131,9 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 | Glyph Scribe | Frontend review | Frontend files changed |
 | Lore Keeper | Docs review | Docs changed (>= 10 lines) |
 
-## Review Agents
+## Agents
+
+### Review Agents
 
 10 specialized agents that Runebearers embed as perspectives:
 
@@ -113,6 +149,35 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 | void-analyzer | Incomplete implementations |
 | orphan-finder | Dead code |
 | phantom-checker | Dynamic references |
+
+### Research Agents
+
+Spawned during `/rune:plan` for parallel research:
+
+| Agent | Purpose |
+|-------|---------|
+| lore-seeker | External best practices and industry patterns |
+| realm-analyst | Codebase exploration and pattern discovery |
+| codex-scholar | Framework documentation and API research |
+| chronicle-miner | Git history analysis and code archaeology |
+| echo-reader | Reads past Rune Echoes for relevant learnings |
+
+### Work Agents
+
+Spawned during `/rune:work` as self-organizing swarm workers:
+
+| Agent | Purpose |
+|-------|---------|
+| rune-smith | Code implementation (TDD-aware, claims tasks from pool) |
+| trial-forger | Test generation (follows existing test patterns) |
+
+### Utility Agents
+
+| Agent | Purpose |
+|-------|---------|
+| runebinder | Aggregates Runebearer findings into TOME.md |
+| flow-seer | Spec flow analysis and gap detection |
+| scroll-reviewer | Document quality review |
 
 ## Skills
 
@@ -138,6 +203,12 @@ rune-gaze:
 
 echoes:
   version_controlled: false  # Set to true to track echoes in git
+
+work:
+  ward_commands:               # Override quality gate commands
+    - "make check"
+    - "npm test"
+  max_workers: 3               # Max parallel swarm workers
 ```
 
 ## Key Concepts
@@ -162,9 +233,12 @@ rune-plugin/
 │   └── plugin.json
 ├── agents/
 │   ├── review/          # 10 review agents
-│   ├── research/        # Echo reader agent
-│   └── utility/         # Runebinder aggregator
+│   ├── research/        # 5 research agents (plan pipeline)
+│   ├── work/            # 2 swarm workers (work pipeline)
+│   └── utility/         # Runebinder, flow-seer, scroll-reviewer
 ├── commands/
+│   ├── plan.md          # /rune:plan
+│   ├── work.md          # /rune:work
 │   ├── review.md        # /rune:review
 │   ├── cancel-review.md # /rune:cancel-review
 │   ├── audit.md         # /rune:audit
