@@ -1,0 +1,22 @@
+{
+  "name": "rune",
+  "version": "1.4.1",
+  "description": "Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams",
+  "author": {
+    "name": "vinhnxv",
+    "url": "https://github.com/vinhnxv"
+  },
+  "repository": "https://github.com/vinhnxv/rune-plugin",
+  "license": "MIT",
+  "keywords": [
+    "multi-agent",
+    "agent-teams",
+    "code-review",
+    "audit",
+    "orchestration",
+    "engineering-workflow",
+    "swarm",
+    "planning",
+    "rune"
+  ]
+}
