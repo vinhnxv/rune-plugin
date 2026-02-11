@@ -12,7 +12,7 @@
 | Context overflow | v0.1 | Glyph Budget (file-only output, 50-word limit) |
 | Teammate timeout (5 min) | v0.1 | Stale detection in Phase 4 Monitor |
 | Output validation | v0.1 | Inscription Protocol (`inscription.json`) |
-| Deduplication | v0.1 | Runebinder with hierarchy (SEC > BACK > DOC > QUAL > FRONT) |
+| Deduplication | v0.1 | Runebinder with hierarchy (SEC > FORGE > DOC > PAT > GLYPH) |
 | `/rune:audit` — full codebase scan | v0.2 | `commands/audit.md` — find-based scan |
 | Not-a-git-repo error | v0.2 | Audit works without git |
 | No cleanup for stale tmp/ | v1.2 | `/rune:cleanup` command |

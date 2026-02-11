@@ -24,7 +24,7 @@ Combines findings from multiple Runebearer outputs into a unified TOME.md.
 ## Task
 
 1. Read all Runebearer output files from `{output_dir}/`
-2. Deduplicate findings using the hierarchy: SEC > BACK > DOC > QUAL > FRONT
+2. Deduplicate findings using the hierarchy: SEC > FORGE > DOC > PAT > GLYPH
 3. Prioritize: P1 first, then P2, then P3
 4. Report gaps from any crashed or stalled Runebearers
 5. Write unified summary to `{output_dir}/TOME.md`
@@ -36,7 +36,7 @@ When two Runebearers flag the same file within a 5-line range:
 | Condition | Action |
 |-----------|--------|
 | Same file + same 5-line window | Keep higher-priority Runebearer's finding |
-| Same severity | Keep by hierarchy: SEC > BACK > DOC > QUAL > FRONT |
+| Same severity | Keep by hierarchy: SEC > FORGE > DOC > PAT > GLYPH |
 | Different severity | Keep highest severity (P1 > P2 > P3) |
 | Different perspectives | Keep both (different value) |
 

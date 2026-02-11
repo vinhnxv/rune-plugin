@@ -70,6 +70,7 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 | Agent | Role |
 |-------|------|
 | `rune:utility:runebinder` | Aggregates review/audit outputs → writes TOME.md |
+| `rune:utility:truthseer-validator` | Audit coverage validation (Phase 5.5) |
 | `rune:utility:flow-seer` | Spec flow analysis |
 | `rune:utility:scroll-reviewer` | Document quality review |
 

@@ -47,7 +47,7 @@ ls tmp/.rune-review-*.json tmp/.rune-audit-*.json 2>/dev/null
 ```
 
 For each state file found, read and check status:
-- `"status": "running"` or `"status": "spawning"` → **SKIP** associated directory, warn user
+- `"status": "active"` → **SKIP** associated directory, warn user
 - `"status": "completed"` or `"status": "cancelled"` → Safe to clean
 
 ### 2. Inventory Artifacts
@@ -70,18 +70,35 @@ Cleanup Summary:
   Total:    ~3.4 MB
 
 Active workflows (PRESERVED):
-  - tmp/.rune-review-142.json (running)
+  - tmp/.rune-review-142.json (active)
 
 Proceed? [Y/n]
 ```
 
-### 4. Remove Artifacts
+### 4. Validate Paths
+
+Before removing any directory, verify paths are within `tmp/`:
 
 ```bash
-# Remove completed review directories
+# Validate each path resolves inside tmp/ (prevents traversal)
+for dir in "${dirs_to_remove[@]}"; do
+  resolved=$(cd "$dir" 2>/dev/null && pwd)
+  if [[ "$resolved" != "$(pwd)/tmp/"* ]]; then
+    echo "SKIP: $dir resolves outside tmp/ ($resolved)"
+    continue
+  fi
+done
+```
+
+Any path that resolves outside `tmp/` is skipped with a warning. This prevents accidental deletion from symlinks or malformed state file entries.
+
+### 5. Remove Artifacts
+
+```bash
+# Remove completed review directories (validated paths only)
 rm -rf tmp/reviews/{completed_ids}/
 
-# Remove completed audit directories
+# Remove completed audit directories (validated paths only)
 rm -rf tmp/audit/{completed_ids}/
 
 # Remove plan research artifacts
@@ -98,7 +115,9 @@ rm tmp/.rune-review-{completed_ids}.json
 rm tmp/.rune-audit-{completed_ids}.json
 ```
 
-### 5. Report
+**Note:** `tmp/plans/`, `tmp/work/`, and `tmp/scratch/` are removed unconditionally (no active-state check). These directories do not have state files and are always safe to clean. If you need to preserve in-progress plan or work artifacts, move them out of `tmp/` before running cleanup.
+
+### 6. Report
 
 ```
 Cleanup complete.
@@ -112,8 +131,8 @@ Rune Echoes (.claude/echoes/) untouched.
 
 | Flag | Effect |
 |------|--------|
-| `--all` | Remove ALL tmp/ artifacts (skip active check) |
-| `--dry-run` | Show what would be removed without deleting |
+| `--all` | Remove ALL tmp/ artifacts including active workflows. Still requires user confirmation (Step 3). |
+| `--dry-run` | Show what would be removed without deleting. Combinable with `--all` to preview full cleanup scope. |
 
 ### --dry-run Example
 
@@ -129,6 +148,15 @@ Rune Echoes (.claude/echoes/) untouched.
 Would preserve:
   .claude/echoes/  (persistent memory)
 ```
+
+## Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| `tmp/` doesn't exist | Report "Nothing to clean" |
+| State file unreadable (corrupt JSON) | Treat associated directory as active (skip) |
+| Path resolves outside `tmp/` | Skip with warning, do not delete |
+| Permission denied on remove | Report which directories failed, continue with rest |
 
 ## Notes
 

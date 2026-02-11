@@ -71,7 +71,7 @@ Identical to review mode except:
 ```
 TaskCreate({
   subject: "Aggregate findings into TOME",
-  description: "Read all Runebearer output files from {output_dir}. Deduplicate using hierarchy (SEC > BACK > DOC > QUAL > FRONT). Write TOME.md with unified findings sorted by priority.",
+  description: "Read all Runebearer output files from {output_dir}. Deduplicate using hierarchy (SEC > FORGE > DOC > PAT > GLYPH). Write TOME.md with unified findings sorted by priority.",
   activeForm: "Aggregating findings into TOME"
 })
 ```
