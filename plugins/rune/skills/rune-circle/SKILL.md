@@ -1,8 +1,8 @@
 ---
 name: rune-circle
 description: |
-  Orchestrate multi-agent code reviews using Agent Teams with up to 5 Runebearer teammates.
-  Use when running /rune:review or /rune:audit. Each Runebearer gets its own 200k context window.
+  Orchestrates multi-agent code reviews using Agent Teams with up to 5 Runebearer teammates.
+  This skill should be used when running /rune:review or /rune:audit. Each Runebearer gets its own 200k context window.
   Handles scope selection, team creation, inscription generation, Runebearer spawning, monitoring, aggregation, verification, and cleanup.
 
   <example>

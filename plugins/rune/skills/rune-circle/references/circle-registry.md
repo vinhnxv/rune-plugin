@@ -6,6 +6,8 @@
 
 Each review agent is embedded as a "perspective" inside a Runebearer. This registry defines which perspectives belong to which Runebearer and what file scopes they target.
 
+> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Runebearers). Glyph Scribe and Lore Keeper use **inline perspective definitions** in their Runebearer prompts rather than dedicated agent files.
+
 ### Forge Warden (Backend)
 
 | Agent | Perspective | Scope Priority |
@@ -42,22 +44,26 @@ Each review agent is embedded as a "perspective" inside a Runebearer. This regis
 
 ### Glyph Scribe (Frontend)
 
-| Agent | Perspective | Scope Priority |
-|-------|-------------|---------------|
-| (TypeScript safety) | Type guards, generics | Pages/routes > components |
-| (React performance) | Re-renders, bundle size | Pages/routes > components > hooks |
-| (Accessibility) | ARIA, keyboard navigation | Components > pages |
+> **Inline perspectives** — Glyph Scribe does not use dedicated agent files. Its perspectives are defined inline within the Runebearer prompt.
+
+| Perspective (inline) | Focus | Scope Priority |
+|----------------------|-------|---------------|
+| TypeScript safety | Type guards, generics | Pages/routes > components |
+| React performance | Re-renders, bundle size | Pages/routes > components > hooks |
+| Accessibility | ARIA, keyboard navigation | Components > pages |
 
 **Audit file priority:** pages/routes > components > hooks > utils
 **Context budget:** max 25 files
 
 ### Lore Keeper (Documentation)
 
-| Agent | Perspective | Scope Priority |
-|-------|-------------|---------------|
-| (Accuracy) | Technical correctness | README > CLAUDE.md > API docs |
-| (Completeness) | Coverage, missing sections | docs/ > root .md files |
-| (Anti-injection) | Prompt injection in docs | .claude/**/*.md > other docs |
+> **Inline perspectives** — Lore Keeper does not use dedicated agent files. Its perspectives are defined inline within the Runebearer prompt.
+
+| Perspective (inline) | Focus | Scope Priority |
+|----------------------|-------|---------------|
+| Accuracy | Technical correctness | README > CLAUDE.md > API docs |
+| Completeness | Coverage, missing sections | docs/ > root .md files |
+| Anti-injection | Prompt injection in docs | .claude/**/*.md > other docs |
 
 **Audit file priority:** README > CLAUDE.md > docs/ > other .md files
 **Context budget:** max 25 files

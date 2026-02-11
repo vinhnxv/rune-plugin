@@ -1,9 +1,10 @@
 ---
 name: rune-echoes
 description: |
-  Smart Memory Lifecycle for Rune agents. Project-level memory stored in `.claude/echoes/`
+  Provides the Smart Memory Lifecycle for Rune agents. Project-level memory stored in `.claude/echoes/`
   with 3-layer lifecycle (Etched/Inscribed/Traced), multi-factor pruning, and concurrent
-  write safety. Agents learn across sessions without manual compound workflows.
+  write safety. Should be loaded when agents need to read or write project memory, or when managing echo lifecycle.
+  Agents learn across sessions without manual compound workflows.
 
   <example>
   Context: After a review, Runebearers persist patterns to echoes

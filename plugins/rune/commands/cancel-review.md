@@ -15,6 +15,7 @@ allowed-tools:
   - SendMessage
   - TeamDelete
   - Read
+  - Write
   - Bash
   - Glob
 ---

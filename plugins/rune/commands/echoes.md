@@ -17,6 +17,7 @@ user-invocable: true
 allowed-tools:
   - Read
   - Write
+  - Edit
   - Bash
   - Glob
   - Grep
@@ -41,9 +42,9 @@ Manage the project-level agent memory stored in `.claude/echoes/`.
 
 Scan `.claude/echoes/` and display statistics per role.
 
-```bash
+```
 # Find all MEMORY.md files
-find .claude/echoes -name "MEMORY.md" -type f 2>/dev/null
+Glob(".claude/echoes/**/MEMORY.md")
 ```
 
 **Output format:**

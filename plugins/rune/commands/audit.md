@@ -16,6 +16,7 @@ allowed-tools:
   - TaskCreate
   - TaskList
   - TaskUpdate
+  - TaskGet
   - TeamCreate
   - TeamDelete
   - SendMessage
@@ -37,8 +38,10 @@ Orchestrate a full codebase audit using the Rune Circle architecture. Each Runeb
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--focus <area>` | Limit audit to specific area: `security`, `performance`, `quality`, `frontend`, `docs`, `backend`, `full` | `full` |
-| `--max-agents <N>` | Cap maximum Runebearers spawned (1-8, including custom) | 5 |
+| `--max-agents <N>` | Cap maximum Runebearers spawned (1-8, including custom) | All selected |
 | `--dry-run` | Show scope selection and Runebearer plan without spawning agents | Off |
+
+**Note:** Unlike `/rune:review`, there is no `--partial` flag. Audit always scans the full project.
 
 **Focus mode** selects only the relevant Runebearers (see `rune-circle/references/circle-registry.md` for the mapping). This increases each Runebearer's effective context budget since fewer compete for resources.
 

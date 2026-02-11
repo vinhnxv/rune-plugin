@@ -2,8 +2,8 @@
 name: rune-orchestration
 description: |
   Architecture reference for multi-agent orchestration: coordination patterns, output formats, conflict resolution, and file-based handoff.
-  Use when choosing orchestration architecture (supervisor vs swarm vs pipeline), defining agent output formats, or resolving conflicting agent findings.
-  For pre-spawn budgets and overflow prevention, use context-weaving instead.
+  This skill should be used when choosing orchestration architecture (supervisor vs swarm vs pipeline), defining agent output formats, or resolving conflicting agent findings.
+  For pre-spawn budgets and overflow prevention, the context-weaving skill should be used instead.
 
   <example>
   Context: Running multi-agent code review
@@ -73,115 +73,11 @@ The workflow: Agents write findings → Coordinator reads files → Synthesizes 
 
 ## Agent Output Formats
 
-Each agent writes findings in a format matching its workflow type. All formats require **mandatory evidence blocks** (see Truthbinding Protocol in `references/inscription-protocol.md`).
+Each agent writes findings in a format matching its workflow type. All formats require mandatory evidence blocks.
 
-### 1. Report Format (Reviews, Audits)
-
-Used by workflows producing prioritized findings with P1/P2/P3 severity levels.
-
-```markdown
-# {Runebearer Name} Review
-
-**PR:** #{pr-number}
-**Branch:** {branch-name}
-**Date:** {timestamp}
-
-## P1 (Critical)
-
-- [ ] **[SEC-001] Issue Title** in `file:line`
-  - **Rune Trace:**
-    ```python
-    # Lines {start}-{end} of {file}
-    {actual code from the source file}
-    ```
-  - **Issue:** {description of what's wrong and why it matters}
-  - **Fix:** {recommendation}
-
-## P2 (High)
-
-- [ ] **[PERF-001] Issue Title** in `file:line`
-  - **Rune Trace:**
-    ```python
-    # Lines {start}-{end} of {file}
-    {actual code from the source file}
-    ```
-  - **Issue:** {description}
-  - **Fix:** {recommendation}
-
-## P3 (Medium)
-
-- [ ] **[QUAL-001] Issue Title** in `file:line`
-  - **Rune Trace:**
-    ```python
-    {actual code snippet}
-    ```
-  - **Issue:** {description}
-
-## Unverified Observations
-
-{Items where evidence could not be provided — NOT counted in totals}
-
-## Summary
-
-- P1: {count}
-- P2: {count}
-- P3: {count}
-- Total: {count}
-- Evidence coverage: {verified}/{total} findings have Rune Trace blocks
-```
-
-### 2. Research Format (Plans)
-
-Used by workflows producing knowledge synthesis from parallel exploration.
-
-```markdown
-# {Agent Name} Research
-
-**Topic:** {research area}
-**Date:** {timestamp}
-
-## Key Findings
-
-1. **{Finding title}**
-   - **Source:** {documentation URL, file path, or prior art}
-   - **Detail:** {what was discovered and why it matters}
-   - **Relevance:** {how this applies to the current task}
-
-## Recommendations
-
-- {Actionable recommendation with justification}
-
-## Summary
-
-- Findings: {count}
-- Confidence: {high/medium/low}
-- Key recommendation: {one-sentence summary}
-```
-
-### 3. Status Format (Work)
-
-Used by workflows producing implementation progress reports.
-
-```markdown
-# {Agent Name} Status
-
-**Task:** {task description}
-**Date:** {timestamp}
-
-## Status: {completed | partial | blocked}
-
-## Files Changed
-
-- `{file path}`: {what changed and why}
-
-## Tests
-
-- {test file}: {passed/failed} — {brief description}
-
-## Notes
-
-{Any blockers, decisions made, or follow-up needed}
-```
+- **Report Format** (Reviews, Audits): P1/P2/P3 severity with Rune Traces. See [Output Formats](references/output-formats.md)
+- **Research Format** (Plans): Knowledge synthesis with sources. See [Output Formats](references/output-formats.md)
+- **Status Format** (Work): Implementation progress reports. See [Output Formats](references/output-formats.md)
 
 ## Conflict Resolution Rules
 
@@ -243,104 +139,14 @@ Strategy Layer (plan)
 
 ## Agent Role Patterns
 
-### Review Runebearers (Parallel Specialists)
+Defines how agents are organized for each workflow type, including conditional spawning rules and validation pipelines.
 
-Run simultaneously with isolated contexts. Each produces Report-format output.
-
-```
-# Parallel execution — each Runebearer writes to tmp/reviews/{pr}/
-Task forge-warden(backend_files)     # Backend review
-Task ward-sentinel(all_files)        # Security review
-Task pattern-weaver(all_files)       # Quality patterns
-Task glyph-scribe(frontend_files)    # Frontend review (conditional)
-Task lore-keeper(doc_files)          # Docs review (conditional)
-```
-
-### Audit Runebearers (Fan-out / Fan-in)
-
-Similar to review but broader scope — all project files instead of changed files.
-
-```
-# Fan-out to focused audit areas
-Task forge-warden(all_backend)       # Backend architecture + logic
-Task ward-sentinel(all_files)        # Security posture
-Task pattern-weaver(all_files)       # Codebase quality + dead code
-# Each writes to tmp/audit/{id}/
-```
-
-### Research Agents (Parallel Exploration)
-
-Run simultaneously to gather knowledge from different angles. Produce Research-format output.
-
-```
-# Parallel research for /rune:plan
-Task repo-analyst(topic)             # Repo patterns + conventions
-Task best-practices(topic)           # External best practices
-Task framework-docs(topic)           # Framework documentation
-# Each writes to tmp/research/
-```
-
-### Work Agents (Rune Smiths)
-
-Self-organizing workers that claim tasks from a shared pool. Produce Status-format output.
-
-```
-# Swarm mode for /rune:work — workers claim from task list
-Task rune-smith-1(task-pool)         # Claims and works on tasks
-Task rune-smith-2(task-pool)         # Claims and works on tasks
-# Each writes to tmp/work/
-```
-
-### Conditional Runebearers
-
-Spawned based on file types present in scope:
-
-| Trigger | Runebearer | Workflow Types |
-|---------|-----------|----------------|
-| Backend files (`.py`, `.go`, `.rs`, `.rb`) | Forge Warden | Reviews, Audits |
-| Frontend files (`.ts`, `.tsx`, `.js`, `.jsx`) | Glyph Scribe | Reviews, Audits |
-| Doc files (`.md`, >= 10 lines changed) | Lore Keeper | Reviews, Audits |
-| ALL scopes | Ward Sentinel (always) | Reviews, Audits |
-| ALL scopes | Pattern Weaver (always) | Reviews, Audits |
-
-### Validation Agents (Truthsight Pipeline)
-
-Post-review agents that verify Runebearer output quality. Run AFTER all Runebearers complete.
-
-```
-# Layer 0: Inline Checks (lead runs directly — no agent)
-#   Grep-based section validation of output files
-#   Writes: {output_dir}/inline-validation.json
-
-# Layer 1: Self-Review Log (each Runebearer performs self-review)
-#   Runebearers re-read P1/P2 findings before completing
-#   Output: ## Self-Review Log table in each output file
-
-# Layer 2: Smart Verifier (spawned by lead after Runebearers complete)
-Task:
-  subagent_type: "general-purpose"
-  model: haiku
-  description: "Truthsight Verifier"
-  prompt: [from references/verifier-prompt.md]
-  # Writes to: {output_dir}/truthsight-report.md
-
-# Re-verify agents (max 2 per workflow, spawned on hallucination detection)
-Task:
-  subagent_type: "general-purpose"
-  model: haiku
-  description: "Re-verify {runebearer}-{finding}"
-  # Writes to: {output_dir}/re-verify-{runebearer}-{finding}.md
-```
-
-**When to spawn Layer 2 verifier:**
-
-| Workflow | Condition | Verifier Scope |
-|----------|-----------|----------------|
-| `/rune:review` | `inscription.verification.enabled` AND 3+ Runebearers | All Runebearer outputs |
-| `/rune:audit` | `inscription.verification.enabled` AND 5+ Runebearers | All Runebearer outputs |
-| Custom | Configurable via inscription `verification` block | Per configuration |
-
-Full verifier prompt template: [Verifier Prompt](references/verifier-prompt.md)
+- **Review Runebearers**: Parallel specialists writing to `tmp/reviews/{pr}/`. See [Role Patterns](references/role-patterns.md)
+- **Audit Runebearers**: Fan-out/fan-in to `tmp/audit/{id}/`. See [Role Patterns](references/role-patterns.md)
+- **Research Agents**: Parallel exploration to `tmp/research/`. See [Role Patterns](references/role-patterns.md)
+- **Work Agents (Rune Smiths)**: Swarm workers to `tmp/work/`. See [Role Patterns](references/role-patterns.md)
+- **Conditional Runebearers**: Spawned based on file types in scope. See [Role Patterns](references/role-patterns.md)
+- **Validation Agents (Truthsight Pipeline)**: Post-review verification. See [Role Patterns](references/role-patterns.md)
 
 ## Token Economics
 
@@ -428,6 +234,8 @@ Full protocol: [Structured Reasoning](references/structured-reasoning.md)
 
 ## References
 
+- [Output Formats](references/output-formats.md) — Report, Research, and Status output templates
+- [Role Patterns](references/role-patterns.md) — Agent organization per workflow type, conditional spawning, validation pipeline
 - [Structured Reasoning](references/structured-reasoning.md) — Reasoning principles for lead + teammate reasoning
 - [Inscription Protocol](references/inscription-protocol.md) — Output validation for all multi-agent workflows
 - [Prompt Weaving](references/prompt-weaving.md) — 7-section prompt template, context rot prevention, instruction anchoring

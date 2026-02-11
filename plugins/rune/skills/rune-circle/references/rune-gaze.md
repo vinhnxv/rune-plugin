@@ -2,6 +2,21 @@
 
 > Extension-based file classification for Runebearer selection. Generic and configurable.
 
+## Table of Contents
+
+- [File Classification Algorithm](#file-classification-algorithm)
+- [Extension Groups](#extension-groups)
+  - [Backend Extensions](#backend-extensions)
+  - [Frontend Extensions](#frontend-extensions)
+  - [Documentation Extensions](#documentation-extensions)
+  - [Skip Extensions (Never Review)](#skip-extensions-never-review)
+- [Runebearer Selection Matrix](#runebearer-selection-matrix)
+- [Configurable Overrides](#configurable-overrides)
+- [Special File Handling](#special-file-handling)
+  - [Critical Files (Always Review)](#critical-files-always-review)
+  - [Critical Deletions](#critical-deletions)
+- [Line Count Threshold for Docs](#line-count-threshold-for-docs)
+
 ## File Classification Algorithm
 
 ```
@@ -84,7 +99,7 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 | Backend + docs | Selected | **Always** | **Always** | - | Selected |
 | All types | Selected | **Always** | **Always** | Selected | Selected |
 
-**Max Runebearers:** 5 (all selected) + 1 Runebinder (utility) = 6 total teammates
+**Max built-in Runebearers:** 5. With custom Runebearers (via `rune-config.yml`), total can reach 8 (`settings.max_runebearers`). Plus 1 Runebinder (utility) for aggregation.
 
 ## Configurable Overrides
 

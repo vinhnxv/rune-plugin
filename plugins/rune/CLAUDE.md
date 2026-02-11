@@ -74,13 +74,15 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 Each Runebearer is an Agent Teams teammate with its own 200k context window. A Runebearer embeds multiple review agent perspectives into a single teammate to reduce team size.
 
-| Runebearer | Perspectives | When Spawned |
-|-----------|-------------|-------------|
-| **Forge Warden** | Backend code quality, architecture, performance, logic, testing | Backend files changed |
-| **Ward Sentinel** | All security perspectives | ALWAYS |
-| **Pattern Weaver** | Simplicity, patterns, duplication, logic, dead code, complexity, tests | ALWAYS |
-| **Glyph Scribe** | Type safety, components, performance, hooks, accessibility | Frontend files changed |
-| **Lore Keeper** | Accuracy, completeness, consistency, readability, security | Docs changed (>= 10 lines) |
+Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Runebearers). Glyph Scribe and Lore Keeper use inline perspective definitions in their Runebearer prompts.
+
+| Runebearer | Perspectives | Agent Source | When Spawned |
+|-----------|-------------|-------------|-------------|
+| **Forge Warden** | Backend code quality, architecture, performance, logic, testing | Dedicated agent files | Backend files changed |
+| **Ward Sentinel** | All security perspectives | Dedicated agent files | ALWAYS |
+| **Pattern Weaver** | Simplicity, patterns, duplication, logic, dead code, complexity, tests | Dedicated agent files | ALWAYS |
+| **Glyph Scribe** | Type safety, components, performance, hooks, accessibility | Inline perspectives | Frontend files changed |
+| **Lore Keeper** | Accuracy, completeness, consistency, readability, security | Inline perspectives | Docs changed (>= 10 lines) |
 
 ### Truthbinding Protocol
 

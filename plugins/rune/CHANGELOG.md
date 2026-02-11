@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.4.2] - 2026-02-12
+
+### Added
+
+- **Truthbinding Protocol** for all 10 review agents — ANCHOR + RE-ANCHOR prompt injection resistance
+- **Truthbinding hardening** for utility agents (runebinder, truthseer-validator) and Runebearer prompts (forge-warden, pattern-weaver, glyph-scribe, lore-keeper)
+- **File scope restrictions** for work agents (rune-smith, trial-forger) — prevent modification of `.claude/`, `.github/`, CI/CD configs
+- **File scope restrictions** for utility agents (scroll-reviewer, flow-seer) — context budget and scope boundaries
+- **New reference files** — `rune-orchestration/references/output-formats.md` and `rune-orchestration/references/role-patterns.md` (extracted from oversized SKILL.md)
+
+### Fixed
+
+- **P1: Missing `Write` tool** in `cancel-review` and `cancel-audit` commands — state file updates would fail at runtime
+- **P1: Missing `TaskGet` tool** in `review` and `audit` commands — task inspection during monitoring unavailable
+- **P1: Missing `Edit` tool** in `echoes` command — prune subcommand could not edit memory files
+- **P1: Missing `AskUserQuestion` tool** in `cleanup` command — user confirmation dialog unavailable
+- **P1: Missing `allowed-tools`** in `runebearer-guide` skill — added Read, Glob
+- **P1: `rune-orchestration` SKILL.md** exceeded 500-line guideline (437 lines) — reduced to 245 lines via reference extraction
+- **Glyph Scribe / Lore Keeper documentation** — clarified these use inline perspectives, not dedicated agent files
+- **Agent-to-Runebearer mapping** made explicit across runebearer-guide, CLAUDE.md, circle-registry
+- **Skill descriptions** rewritten to third-person trigger format per Anthropic SKILL.md standard
+- **`--max-agents` default** in audit command corrected from `5` to `All selected`
+- **Malicious code warnings** added to RE-ANCHOR sections in all 4 Runebearer prompts
+- **Table of Contents** added to `custom-runebearers.md` reference
+- **`rune-gaze.md`** updated max Runebearers count to include custom Runebearers (8 via settings)
+- **echo-reader** listing fixed in v1.0.0 changelog entry
+
 ## [1.4.1] - 2026-02-12
 
 ### Fixed
@@ -124,7 +151,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 ### Added
 
 - `/rune:plan` — Multi-agent planning with parallel research pipeline
-  - 4 research agents (lore-seeker, realm-analyst, codex-scholar, echo-reader)
+  - 3 new research agents (lore-seeker, realm-analyst, codex-scholar) plus echo-reader (from v0.3.0)
   - Optional brainstorm phase (`--brainstorm`)
   - Optional deep section-level research (`--deep`)
   - Scroll Reviewer document quality check

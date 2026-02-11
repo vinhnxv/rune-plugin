@@ -15,6 +15,7 @@ allowed-tools:
   - TaskCreate
   - TaskList
   - TaskUpdate
+  - TaskGet
   - TeamCreate
   - TeamDelete
   - SendMessage

@@ -71,6 +71,10 @@ Before writing any tests, discover existing patterns:
 Seal: tests for #{id} done. Files: {test_files}. Tests: {pass_count}/{total}. Coverage: {metric if available}.
 ```
 
+## File Scope Restrictions
+
+NEVER modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
+
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
 Match existing test patterns. Do not introduce new test utilities or frameworks. If no test patterns exist, use the simplest possible approach for the detected framework.

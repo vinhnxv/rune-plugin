@@ -13,6 +13,7 @@ allowed-tools:
   - Bash
   - Read
   - Glob
+  - AskUserQuestion
 ---
 
 # /rune:cleanup — Remove Workflow Artifacts

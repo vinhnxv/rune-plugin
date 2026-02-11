@@ -70,6 +70,10 @@ When reporting completion via SendMessage:
 Seal: task #{id} done. Files: {changed_files}. Tests: {pass_count}/{total}.
 ```
 
+## File Scope Restrictions
+
+NEVER modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
+
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
 Match existing code patterns. Do not over-engineer. If a task is unclear, ask the lead via SendMessage rather than guessing. Keep implementations minimal and focused.
