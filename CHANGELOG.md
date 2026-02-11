@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.3.0] - 2026-02-12
+
+### Enhanced
+
+- **Truthsight Verifier prompt** — added 3 missing verification tasks from source architecture:
+  - Task 1: Rune Trace Resolvability Scan (validates all evidence blocks are resolvable)
+  - Task 4: Cross-Runebearer Conflict Detection (flags conflicting assessments + groupthink)
+  - Task 5: Self-Review Log Validation (verifies log completeness + DELETED consistency)
+- **Truthsight Verifier prompt** — added Context Budget (100k token breakdown), Read Constraints (allowed vs prohibited reads), Seal Format for verifier output, Re-Verify Agent Specification (max 2, 3-min timeout), Timeout Recovery (15-min with partial output handling)
+- **Structured Reasoning** — added foundational "5 Principles" framework (Forced Serialization, Revision Permission, Branching, Dynamic Scope, State Externalization) with per-level application tables
+- **Structured Reasoning** — added "Why Linear Processes Degrade" motivation section, Decision Complexity Matrix, Fallback Behavior (when Sequential Thinking MCP unavailable), Token Budget specification, expanded Self-Calibration Signals and Scope Rules
+- **Inscription Protocol** — expanded "Adding Inscription to a New Workflow" into full Custom Workflow Cookbook with step-by-step template, inscription.json example, verification level guide, and research workflow example
+
+### Gap Analysis Reference
+
+Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,750 lines) against Rune plugin equivalents (6 files, ~1,811 lines → now ~1,994 lines). All gaps identified in the P1-P3 priority analysis have been resolved.
+
 ## [1.2.0] - 2026-02-12
 
 ### Added
@@ -14,7 +31,7 @@
 - Stale version labels: "Deferred to v1.0" → "Deferred to v2.0" in `truthsight-pipeline.md`
 - Removed redundant "(v1.0)" suffixes from agent tables in `runebearer-guide/SKILL.md`
 
-### Enhanced
+### Changed
 
 - `specflow-findings.md` reorganized: "Resolved" table (20 items with version), "Open — Medium" (5), "Open — Low" (3)
 
@@ -33,7 +50,7 @@
 - Output Directory Structure showing all expected files per workflow
 - JSON output format (`{runebearer}-findings.json`) and `completion.json` structured summary
 
-### Enhanced
+### Changed
 
 - `inscription-protocol.md` expanded from 184 to 397 lines:
   - Authority Precedence rules, Coverage Matrix, Full Prompt Injection Template

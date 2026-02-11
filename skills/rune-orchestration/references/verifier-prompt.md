@@ -1,96 +1,250 @@
 # Truthsight Verifier Agent Prompt
 
-> Prompt template for the Layer 2 Smart Verifier agent.
+> Prompt template for the Layer 2 Smart Verifier agent. Spawned as a `general-purpose` Task subagent (not a teammate) after all Runebearers complete and Layer 0 inline checks pass.
+
+## When to Spawn
+
+| Workflow | Condition | Model |
+|----------|-----------|-------|
+| `/rune:review` | `inscription.verification.enabled` AND 3+ Runebearers | haiku |
+| `/rune:audit` | `inscription.verification.enabled` AND 5+ Runebearers | haiku |
+| Custom | Configurable via inscription `verification` block | haiku |
 
 ## Usage
-
-Spawn this agent after all Runebearers complete their review:
 
 ```
 Task:
   subagent_type: "general-purpose"
   model: haiku
-  description: "Truthsight Verifier for review #{pr}"
+  description: "Truthsight Verifier for review #{id}"
   prompt: [this template with variables filled]
 ```
 
 ## Prompt Template
 
+Inject `{variables}` before spawning. The prompt follows the 7-section structure but compressed for a verification-only agent.
+
 ```markdown
+# CRITICAL RULES (Read First)
+
+1. Use ONLY Grep and Read(offset/limit) for evidence checks — NO full file reads
+2. Write ALL results to: {output_dir}/truthsight-report.md
+3. Return to caller ONLY: file path + 1-sentence summary (max 50 words)
+4. Max 15 source file reads for deep verification
+5. Max 5 Runebearer output files per run
+
 # Truthsight Verifier
 
-You are a verification agent. Your job is to check whether review findings
-are grounded in actual source code — not hallucinated.
+You are a Smart Verifier. Your job is to validate the accuracy of findings
+from Runebearer review agents by checking their evidence against actual source code.
 
-## INPUT
+## Input Files
 
-Review output files are in: {output_dir}/
-Each file contains findings with Rune Trace evidence blocks.
+- `{output_dir}/inline-validation.json` — Layer 0 structural validation results
+- `{output_dir}/*.md` — Runebearer output files
+- `{output_dir}/inscription.json` — expected deliverables and agent metadata
 
-## PROCEDURE
+## Task 1: Rune Trace Resolvability Scan
 
-For each Runebearer output file:
+For ALL Runebearer output files that PASSED inline validation:
+1. Extract every `**Rune Trace:**` code block
+2. Parse `file_path:line_number` references from each block
+3. Use `Grep` to check if the cited pattern exists at the stated location
+4. If Grep returns no match, use `Read` with offset/limit to verify the file and line exist
+5. Score each Runebearer: `{ runebearer, total_trace_blocks, resolvable, unresolvable }`
 
-1. Read the output file
-2. Identify all P1 findings (Critical)
-3. Sample 2-3 P1 findings (or ALL if fewer than 3)
-4. For each sampled finding:
-   a. Read the Rune Trace block (claimed code evidence)
-   b. Read the ACTUAL source file at the claimed file:line
-   c. Compare: does the Rune Trace match the real code?
-   d. Verdict:
-      - CONFIRMED: Evidence matches source code
-      - INACCURATE: Evidence is partially wrong (wrong line numbers, truncated)
-      - HALLUCINATED: Evidence does not exist in the source file
+**Judgment criteria:** Does the cited code match the actual code at the stated location?
+Pass if the code intent and structure match, even with minor whitespace or formatting differences.
 
-## OUTPUT
+## Task 2: Sampling Selection
 
-Write to: {output_dir}/truthsight-report.md
+Using Rune Trace resolvability scores + confidence from Seal messages + inline validation:
 
-```markdown
+| Finding Priority | Default Rate | If Runebearer confidence < 0.7 | If inline checks FAILED |
+|-----------------|-------------|-------------------------------|------------------------|
+| P1 (Critical) | 100% | 100% | 100% |
+| P2 (High) | ~30% (every 3rd) | 100% | 100% |
+| P3 (Medium) | 0% | 0% | 50% |
+
+Select which specific findings to deep-verify based on these rates.
+
+## Task 3: Deep Verification
+
+For each sampled finding:
+1. Read the source file at the cited line using `Read` with offset/limit (e.g., offset=line-3, limit=10)
+2. Does the Rune Trace block match what's actually at that location?
+3. Is the finding's assessment (severity, category, fix recommendation) reasonable?
+4. Record verdict: **CONFIRMED** / **HALLUCINATED** / **INACCURATE**
+
+**HALLUCINATED criteria:**
+- Cited file doesn't exist
+- Cited line is out of range
+- Code at cited location doesn't match the Rune Trace block
+- Finding describes behavior contradicted by actual code
+
+**INACCURATE (CONTESTED) criteria:**
+- Rune Trace partially matches but finding overstates severity
+- Code has changed since review (uncommon in same-session)
+
+## Task 4: Cross-Runebearer Conflict Detection
+
+1. Group all findings from all Runebearers by file path
+2. Within each file, identify findings with overlapping line ranges (+-5 lines)
+3. Flag **conflicts**: same code location, different assessments (e.g., one says P1, another says acceptable)
+4. Flag **groupthink**: 3+ Runebearers with identical finding on same location (potential training bias)
+
+## Task 5: Self-Review Log Validation
+
+For each Runebearer output:
+1. Count rows in `## Self-Review Log` table
+2. Compare against P1 + P2 finding count — should match
+3. Verify any DELETED items are actually removed from the Findings sections
+4. Check `self_review_actions` counts in Seal match the log table totals
+
+## Output
+
+Write to: `{output_dir}/truthsight-report.md`
+
+### Report Format
+
+```
 # Truthsight Verification Report
 
+**Workflow:** {workflow_type}
 **Date:** {timestamp}
-**Output dir:** {output_dir}
-
-## Verification Results
-
-### {runebearer-name}
-| Finding | Claimed File:Line | Verdict | Notes |
-|---------|------------------|---------|-------|
-| SEC-001 | api/auth.py:42 | CONFIRMED | Code matches exactly |
-| SEC-002 | api/users.py:15 | INACCURATE | Line 15 is blank, code is at line 18 |
-
-### {runebearer-name}
-| Finding | Claimed File:Line | Verdict | Notes |
-|---------|------------------|---------|-------|
-| PERF-001 | db/queries.py:88 | HALLUCINATED | File only has 45 lines |
+**Verifier model:** haiku
 
 ## Summary
+- Runebearers verified: {verified}/{total}
+- Findings sampled: {sampled}/{total_findings} ({percentage}%)
+- Verified correct: {correct}/{sampled} ({accuracy}%)
+- Hallucinations found: {count}
+- Conflicts found: {count}
+- Re-verifications recommended: {count}
 
-- Total findings sampled: {count}
-- CONFIRMED: {count}
-- INACCURATE: {count}
-- HALLUCINATED: {count}
-- Unreliable Runebearers: {list or "none"}
+## Per-Runebearer Results
+
+### {runebearer-name} (confidence: {confidence})
+- Inline validation: {PASS/WARN/FAIL}
+- Rune Trace resolvability: {resolvable}/{total} ({percentage}%)
+- Sampled: {count} findings ({breakdown by priority})
+- Results:
+  - {Finding ID} ({file}:{line}): {CONFIRMED/HALLUCINATED/INACCURATE}
+  - ...
+- Self-Review Log: {reviewed}/{expected} findings reviewed, {deleted} deleted
+
+## Conflicts
+{List of cross-Runebearer conflicts, or "None detected."}
+
+## Hallucination Details
+{For each hallucinated finding:}
+- **{Runebearer} {Finding ID}**: {brief description of what was claimed vs actual}
+
+## Re-Verification Recommendations
+{Findings that should be re-verified by a targeted agent}
+- Max 2 re-verify agents per workflow run
+- Each re-verify targets: 1 hallucinated finding + 2 correlated findings from same Runebearer
 ```
 
-## RULES
+## Context Budget (MANDATORY)
 
-- Read the ACTUAL source file. Do not trust the Rune Trace at face value.
-- If a file doesn't exist, mark as HALLUCINATED immediately.
-- If line numbers are off by 1-3 lines, mark as INACCURATE (not hallucinated).
-- Focus on P1 findings — they have the highest impact.
+- Max 5 Runebearer output files per verifier run
+- Max 15 source files for deep verification
+- Estimated input: 5 x 10k (outputs) + 15 x 3k (source) + 5k (metadata) = ~100k tokens
+- Remaining for reasoning + output: ~100k tokens
 
-## GLYPH BUDGET
+## Read Constraints
 
-Write ALL findings to {output_dir}/truthsight-report.md
-Return ONLY: file path + 1-sentence summary (max 50 words)
+**Allowed:**
+- `Grep "pattern" file.py` at stated line ranges (primary verification method)
+- `Read file.py` with `offset`/`limit` to check existence and specific line ranges
+
+**Prohibited:**
+- `Read file.py` without offset/limit (full file reads waste verifier context)
+- Reading files not referenced in findings (scope creep)
+
+## GLYPH BUDGET (MANDATORY)
+
+Write ALL detailed findings to: `{output_dir}/truthsight-report.md`
+Return to caller ONLY: the output file path + 1-sentence summary (max 50 words)
+DO NOT include full analysis in return message.
+
+Example return:
+"Findings written to {output_dir}/truthsight-report.md. Verified 8/15 findings across 4 Runebearers; 1 hallucination detected in forge-warden, re-verification recommended."
+
+## Seal Format
+
+When complete, end your output file with:
+---
+SEAL: {
+  findings_sampled: {sampled}/{total},
+  verified_correct: {correct}/{sampled},
+  hallucinations_found: {count},
+  conflicts_found: {count},
+  re_verifications_triggered: {count}
+}
+---
+
+Then send to lead (max 50 words — Glyph Budget enforced):
+"Seal: Truthsight complete. Path: {output_dir}/truthsight-report.md.
+Sampled: N/{total}. Confirmed: N. Hallucinated: N. Conflicts: N."
+
+# REMINDER (Critical Rules — Re-read Before Starting)
+
+1. Use ONLY Grep and Read(offset/limit) — NO full file reads
+2. Write ALL results to: {output_dir}/truthsight-report.md
+3. Return ONLY: file path + 1-sentence summary (max 50 words)
+4. Max 15 source file reads for deep verification
+5. Max 5 Runebearer output files per run
 ```
 
 ## Circuit Breaker
 
-If 2+ findings from the same Runebearer are HALLUCINATED:
-- Flag that Runebearer's entire output as unreliable
-- Lead agent should re-read that Runebearer's raw file manually
-- Consider spawning a re-verify agent for that Runebearer's P2 findings
+Layer 2 has its own circuit breaker, independent of Layer 0:
+
+| State | Behavior | Transition |
+|-------|----------|------------|
+| CLOSED (normal) | Spawn verifier agent | -> OPEN after 2 consecutive verifier failures/timeouts |
+| OPEN (bypassed) | Skip verification, rely on Layer 0 only | -> HALF_OPEN after 120s recovery |
+| HALF_OPEN (testing) | Spawn verifier with reduced scope (P1s only) | -> CLOSED if success, -> OPEN if fail |
+
+Configuration: `layer_2_circuit: { failure_threshold: 2, recovery_seconds: 120 }`
+
+## Re-Verify Agent Specification
+
+When the verifier finds hallucinated Rune Traces, the lead may spawn targeted re-verify agents:
+
+| Property | Value |
+|----------|-------|
+| Type | `general-purpose` Task subagent |
+| Model | haiku |
+| Max per workflow | 2 |
+| Timeout | 3 minutes |
+| Output | `{output_dir}/re-verify-{runebearer}-{finding-id}.md` |
+
+**Re-verify agent Seal format:**
+```
+SEAL: {
+  original_finding: {finding-id},
+  verdict: {HALLUCINATED/VALID/CONTESTED},
+  evidence: "{1-line summary of what was found}"
+}
+```
+
+**Decision logic:**
+- If re-verify says HALLUCINATED: remove finding from TOME.md with note
+- If re-verify says VALID: mark finding as CONTESTED, present both views
+- If re-verify times out: keep original verifier assessment
+
+## Timeout Recovery
+
+- **Verifier timeout:** 15 minutes
+- If timeout: check for partial output in `truthsight-report.md`
+- If partial output exists: use whatever was verified, note incomplete coverage
+- If no output: fallback to Layer 0 results only, flag for human review
+
+## References
+
+- [Inscription Protocol](inscription-protocol.md) — Truthbinding rules, Seal format
+- [Prompt Weaving](prompt-weaving.md) — Self-Review Log, context rot signals
+- [Truthsight Pipeline](truthsight-pipeline.md) — Full 4-layer verification spec

@@ -382,12 +382,128 @@ cancelled           → {}  (terminal)
 
 ## Adding Inscription to a New Workflow
 
+### Quick Checklist
+
 1. **Determine output directory:** `tmp/{workflow-name}/`
 2. **Define required sections:** Match output format (Report/Research/Status)
 3. **Generate `inscription.json`** before spawning agents
 4. **Inject Prompt Template** (full template above) into each agent prompt
 5. **Validate outputs** after completion (circuit breaker → per-file → gap report)
 6. **Test:** Verify inscription generates, prompts inject, validation runs
+
+### Custom Workflow Cookbook
+
+Use this template when extending Rune with your own multi-agent workflow.
+
+#### Step 1: Define Your Workflow Shape
+
+| Question | Your Answer |
+|----------|------------|
+| What is the workflow name? | `my-workflow` |
+| How many agents? | N (determines protocol level) |
+| What output format? | Report / Research / Status |
+| Where do agents write? | `tmp/{workflow-name}/{id}/` |
+| What sections must each agent produce? | List of `## Section` headers |
+| Is verification needed? | Yes (findings) / No (status-only) |
+
+#### Step 2: Generate inscription.json
+
+```json
+{
+  "workflow": "rune-{my-workflow}",
+  "timestamp": "{ISO-8601}",
+  "output_dir": "tmp/{workflow-name}/{id}/",
+  "teammates": [
+    {
+      "name": "{agent-1-name}",
+      "output_file": "{agent-1-name}.md",
+      "required_sections": ["Section A", "Section B", "Summary"],
+      "role": "{brief role description}"
+    }
+  ],
+  "aggregator": {
+    "name": "runebinder",
+    "output_file": "TOME.md"
+  },
+  "verification": {
+    "enabled": true,
+    "layer_0_circuit": { "failure_threshold": 3, "recovery_seconds": 60 },
+    "layer_2_circuit": { "failure_threshold": 2, "recovery_seconds": 120 },
+    "max_reverify_agents": 2
+  },
+  "context_engineering": {
+    "read_ordering": "source_first",
+    "instruction_anchoring": true,
+    "reanchor_interval": 5,
+    "context_budget": {
+      "{role-1}": 30,
+      "{role-2}": 20
+    }
+  }
+}
+```
+
+#### Step 3: Inject into Each Agent Prompt
+
+Append the Full Prompt Injection Template (above) to every agent prompt. Replace:
+- `{output_dir}` → your output directory
+- `{output_file}` → agent's output filename from inscription
+- `{required_sections}` → comma-separated section names
+- `{role}` → agent's role description
+
+#### Step 4: Choose Verification Level
+
+| Agent Count | Verification |
+|-------------|-------------|
+| 1-2 agents | Glyph Budget only, no inscription required |
+| 3-4 agents | Inscription + Layer 0 (inline checks) |
+| 5+ agents | Inscription + Layer 0 + Layer 2 (Smart Verifier) |
+| Findings-free (status-only) | Inscription for structure, skip verification |
+
+#### Step 5: Post-Completion Validation
+
+After all agents complete:
+1. Run circuit breaker check (all files missing → abort)
+2. Run per-file validation (exists, >100 bytes, required sections, Seal)
+3. Run Runebinder aggregation if applicable
+4. Run Truthsight Layer 2 if enabled
+5. Write completion.json with workflow summary
+
+#### Example: Custom Research Workflow
+
+```json
+{
+  "workflow": "rune-deep-research",
+  "output_dir": "tmp/research/auth-patterns/",
+  "teammates": [
+    {
+      "name": "framework-researcher",
+      "output_file": "framework-researcher.md",
+      "required_sections": ["Key Findings", "Recommendations", "Summary"],
+      "role": "Framework documentation research"
+    },
+    {
+      "name": "pattern-researcher",
+      "output_file": "pattern-researcher.md",
+      "required_sections": ["Key Findings", "Recommendations", "Summary"],
+      "role": "Best practices and pattern research"
+    },
+    {
+      "name": "codebase-researcher",
+      "output_file": "codebase-researcher.md",
+      "required_sections": ["Key Findings", "Recommendations", "Summary"],
+      "role": "Existing codebase pattern analysis"
+    }
+  ],
+  "aggregator": {
+    "name": "runebinder",
+    "output_file": "TOME.md"
+  },
+  "verification": {
+    "enabled": false
+  }
+}
+```
 
 ## References
 
