@@ -168,7 +168,7 @@ forge:
 1. Parse plan into sections (## headings)
 2. Run Forge Gaze matching (enrichment agents only)
 3. Log selection transparently
-4. Spawn matched agents per section
+4. Summon matched agents per section
 5. Each agent writes to: tmp/plans/{timestamp}/forge/{section-slug}-{agent-name}.md
 6. Lead merges enrichments into plan document
 ```
@@ -181,7 +181,7 @@ Same flow but with:
 - Higher total cap (12 vs 8)
 - Research-budget agents included
 - Two-tier aggregation: per-section synthesizer → lead
-- Cost warning displayed before spawning
+- Cost warning displayed before summoning
 
 ## Custom Forge Agents
 
@@ -216,7 +216,7 @@ If `forge` is in `workflows`, these fields are **required**:
 ## Fallback Behavior
 
 If no agent scores above the threshold for a section:
-- Use an inline generic Task prompt (not a named agent) as fallback — the orchestrator spawns a general-purpose agent with a generic "research and enrich this section" prompt
+- Use an inline generic Task prompt (not a named agent) as fallback — the orchestrator summons a general-purpose agent with a generic "research and enrich this section" prompt
 - The generic prompt produces the standard structured subsections
 
 This ensures Forge never produces empty enrichment — it gracefully degrades. There is no dedicated `forge-researcher` agent definition; the fallback uses an inline prompt.
@@ -225,7 +225,7 @@ This ensures Forge never produces empty enrichment — it gracefully degrades. T
 
 > **Note**: `--dry-run` is not yet implemented in `/rune:plan`. The format below is the target specification for when it is added. Currently, Forge Gaze logs its selection transparently in the console output during Phase 3.
 
-When `--forge --dry-run` is used, display selection without spawning:
+When `--forge --dry-run` is used, display selection without summoning:
 
 ```
 Forge Gaze — Agent Selection

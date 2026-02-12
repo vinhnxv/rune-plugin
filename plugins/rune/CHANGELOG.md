@@ -6,7 +6,7 @@
 
 - **Elden Lord persona** — The orchestrator/lead now has a named identity. All commands use
   lore-themed greeting messages ("The Elden Lord convenes the Roundtable Circle...").
-- **Lore Glossary** — New reference table in CLAUDE.md mapping 17 Elden Ring terms to plugin concepts.
+- **Lore Glossary** — New reference table in CLAUDE.md mapping 18 Elden Ring terms to plugin concepts.
 - **Forge Gaze** — Topic-aware agent selection for `/rune:plan --forge`. Matches plan section
   topics to specialized agents using keyword overlap scoring (deterministic, zero token cost).
   13 agents across 2 budget tiers replace generic `forge-researcher` agents.
@@ -24,6 +24,8 @@
   `runebearer-guide/` → `tarnished-guide/`, `custom-runebearers.md` → `custom-tarnished.md`
 - **Config file renamed**: `rune-config.yml` → `talisman.yml`, `rune-config.example.yml` → `talisman.example.yml`.
   Talismans in Elden Ring are equippable items that enhance abilities — fitting for plugin configuration.
+- **spawn → summon** — All 182 references to "spawn" renamed to "summon" across 37 files.
+  In Elden Ring, you summon spirits and cooperators to aid in battle.
 - Natural-language "the lead" → "the Elden Lord" across commands, prompts, and skills.
 
 ### Unchanged (Intentional)
@@ -55,14 +57,14 @@
 
 - Remembrance channel — Human-readable knowledge docs in `docs/solutions/` promoted from Rune Echoes
 - `--approve` flag for `/rune:work` — Optional plan approval gate per task
-- `--exhaustive` flag for `/rune:plan --forge` — Spawn ALL agents per section
+- `--exhaustive` flag for `/rune:plan --forge` — Summon ALL agents per section
 - E8 research pipeline upgrade — Conditional research, brainstorm auto-detect, 6-agent roster, plan detail levels
 - `/rune:echoes migrate` — Echo name migration utility
 - `/rune:echoes promote` — Promote echoes to Remembrance docs
 
 ### Changed
 
-- `/rune:plan` research now uses conditional spawning (local-first, external on demand)
+- `/rune:plan` research now uses conditional summoning (local-first, external on demand)
 - `/rune:plan` post-generation options expanded to 6 (was 3)
 - Team lifecycle guards added to all 9 commands — pre-create guards + cleanup fallbacks with input validation (see `team-lifecycle-guard.md`)
 - Reduced allowed-tools for `/rune:echoes`, `/rune:rest`, `/rune:cancel-arc` to enforce least-privilege
@@ -177,7 +179,7 @@
 ### Changed
 
 - `/rune:review` and `/rune:audit` Phase 0 now reads `talisman.yml` for custom Tarnished definitions
-- Phase 3 spawning extended to include custom Tarnished with wrapper prompts
+- Phase 3 summoning extended to include custom Tarnished with wrapper prompts
 - Runebinder aggregation uses extended dedup hierarchy from config
 - `--max-agents` flag range updated from 1-5 to 1-8 (to include custom)
 
@@ -203,7 +205,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 ### Added
 
 - `/rune:cleanup` command — remove `tmp/` artifacts from completed workflows, with `--dry-run` and `--all` flags
-- `--dry-run` flag for `/rune:review` and `/rune:audit` — preview scope selection without spawning agents
+- `--dry-run` flag for `/rune:review` and `/rune:audit` — preview scope selection without summoning agents
 - Runebinder aggregation prompt (`tarnished-prompts/runebinder.md`) — TOME.md generation with dedup algorithm, completion.json
 - Truthseer Validator prompt (`tarnished-prompts/truthseer-validator.md`) — audit coverage validation for Phase 5.5
 
@@ -225,7 +227,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
   - `task-templates.md` — TaskCreate templates for each Tarnished role
   - `output-format.md` — Raw finding format, validated format, JSON output, TOME format
   - `validator-rules.md` — Confidence scoring, risk classification, dedup, gap reporting
-- Agent Role Patterns section in `rune-orchestration/SKILL.md` — spawn patterns for Review/Audit/Research/Work/Conditional/Validation
+- Agent Role Patterns section in `rune-orchestration/SKILL.md` — summon patterns for Review/Audit/Research/Work/Conditional/Validation
 - Truthseer Validator (Phase 5.5) for audit workflows — cross-references finding density against file importance
 - Seal Format specification in `rune-circle/SKILL.md` with field table and completion signal
 - Output Directory Structure showing all expected files per workflow

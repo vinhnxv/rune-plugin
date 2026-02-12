@@ -77,7 +77,7 @@ tarnished:
       workflows: [audit]                   # Audit only (too heavy for PR reviews)
       trigger:
         extensions: [".py", ".ts", ".tsx", ".rb"]
-        min_files: 10                      # Only spawn if 10+ matching files
+        min_files: 10                      # Only summon if 10+ matching files
       context_budget: 20
       finding_prefix: "PERF"
 

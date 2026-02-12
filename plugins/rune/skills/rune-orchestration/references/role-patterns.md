@@ -50,7 +50,7 @@ Task rune-smith-2(task-pool)         # Claims and works on tasks
 
 ## Conditional Tarnished
 
-Spawned based on file types present in scope:
+Summoned based on file types present in scope:
 
 | Trigger | Tarnished | Workflow Types |
 |---------|-----------|----------------|
@@ -73,7 +73,7 @@ Post-review agents that verify Tarnished output quality. Run AFTER all Tarnished
 #   Tarnished re-read P1/P2 findings before completing
 #   Output: ## Self-Review Log table in each output file
 
-# Layer 2: Smart Verifier (spawned by lead after Tarnished complete)
+# Layer 2: Smart Verifier (summoned by lead after Tarnished complete)
 Task:
   subagent_type: "general-purpose"
   model: haiku
@@ -81,7 +81,7 @@ Task:
   prompt: [from references/verifier-prompt.md]
   # Writes to: {output_dir}/truthsight-report.md
 
-# Re-verify agents (max 2 per workflow, spawned on hallucination detection)
+# Re-verify agents (max 2 per workflow, summoned on hallucination detection)
 Task:
   subagent_type: "general-purpose"
   model: haiku
@@ -89,7 +89,7 @@ Task:
   # Writes to: {output_dir}/re-verify-{tarnished}-{finding}.md
 ```
 
-**When to spawn Layer 2 verifier:**
+**When to summon Layer 2 verifier:**
 
 | Workflow | Condition | Verifier Scope |
 |----------|-----------|----------------|

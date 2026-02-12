@@ -2,7 +2,7 @@
 name: tarnished-guide
 description: |
   Provides a quick reference for invoking Rune agents correctly.
-  This skill should be used when spawning agents, troubleshooting "agent not found" errors, or selecting review agents.
+  This skill should be used when summoning agents, troubleshooting "agent not found" errors, or selecting review agents.
 
   <example>
   Context: User wants to know which agents are available

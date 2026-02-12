@@ -38,7 +38,7 @@ Define custom Tarnished in `.claude/talisman.yml` (project) or `~/.claude/talism
 | `trigger.extensions` | list | Yes* | File extensions that activate this Tarnished. Use `["*"]` for all files. *Required for review/audit workflows |
 | `trigger.paths` | list | No | Directory prefixes to match. If set, file must match BOTH extension AND path |
 | `trigger.topics` | list | No* | Topic keywords for Forge Gaze matching. *Required if `forge` is in `workflows` |
-| `trigger.min_files` | int | No | Minimum matching files required to spawn. Default: 1 |
+| `trigger.min_files` | int | No | Minimum matching files required to summon. Default: 1 |
 | `context_budget` | int | Yes | Maximum files this Tarnished reads. Recommended: 15-30 |
 | `finding_prefix` | string | Yes | Unique 2-5 uppercase character prefix for finding IDs (e.g., `DOM`, `PERF`) |
 | `required_sections` | list | No | Expected sections in output file. Default: `["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Summary"]` |
@@ -64,7 +64,7 @@ Define custom Tarnished in `.claude/talisman.yml` (project) or `~/.claude/talism
 
 The Elden Lord resolves the `agent` field based on `source`:
 
-| Source | Resolution Path | Spawn Method |
+| Source | Resolution Path | Summon Method |
 |--------|----------------|-------------|
 | `local` | `.claude/agents/{agent}.md` | `subagent_type: "{agent}"` (name only) |
 | `global` | `~/.claude/agents/{agent}.md` | `subagent_type: "{agent}"` (name only) |
@@ -86,8 +86,8 @@ The Elden Lord resolves the `agent` field based on `source`:
       - If not found → error: "Agent '{agent}' not found in ~/.claude/agents/"
    d. If source == "plugin":
       - Agent string must contain ":" (namespace separator)
-      - Trust that the plugin system resolves it at spawn time
-      - If spawn fails → report in TOME.md as partial failure
+      - Trust that the plugin system resolves it at summon time
+      - If summon fails → report in TOME.md as partial failure
 3. Proceed with validated list
 ```
 
@@ -188,7 +188,7 @@ SEAL: {
 
 ## Validation Rules
 
-Run these checks at Phase 0 before spawning any agents:
+Run these checks at Phase 0 before summoning any agents:
 
 | Rule | Check | Error Message |
 |------|-------|---------------|
@@ -220,7 +220,7 @@ for each custom Tarnished:
       matching_files.add(file)
 
   if len(matching_files) >= trigger.min_files (default 1):
-    spawn this Tarnished with matching_files[:context_budget]
+    summon this Tarnished with matching_files[:context_budget]
   else:
     skip silently (same behavior as conditional built-in Tarnished)
 ```
@@ -309,7 +309,7 @@ Dry Run — Review Plan
 Branch: feat/user-auth (vs main)
 Changed files: 23
 
-Tarnished to spawn: 4 (3 built-in + 1 custom)
+Tarnished to summon: 4 (3 built-in + 1 custom)
   Built-in:
   - Ward Sentinel:  23 files (cap: 20)
   - Pattern Weaver: 23 files (cap: 30)

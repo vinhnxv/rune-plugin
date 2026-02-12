@@ -56,7 +56,7 @@ For each Tarnished output file:
 
 | Outcome | Action |
 |---------|--------|
-| ALL PASS | Proceed to Layer 2 (spawn verifier) |
+| ALL PASS | Proceed to Layer 2 (summon verifier) |
 | PARTIAL | Proceed with skip list (verifier skips invalid files) |
 | ALL FAIL | Skip verification, flag workflow for human review |
 | TOOL ERROR | Treat as PASS, rely on Layer 2 |
@@ -125,13 +125,13 @@ self_review_actions: "confirmed: 10, revised: 1, deleted: 1"
 | Log completeness | 100% of P1+P2 | >80% | <80% |
 | REVISED with changes | All REVISED have edits | Some missing | No edits visible |
 
-### Layer 2: Smart Verifier (Spawned by Lead)
+### Layer 2: Smart Verifier (Summoned by Lead)
 
 **Cost:** ~5-15k tokens (verifier reads outputs + samples source files)
 **When:** Roundtable Circle with 3+ Tarnished, or audit with 5+ Tarnished
 **Output:** `{output_dir}/truthsight-report.md`
 
-### Spawning Conditions
+### Summoning Conditions
 
 | Workflow | Condition | Model |
 |----------|-----------|-------|
@@ -230,9 +230,9 @@ The verifier performs 5 tasks in order:
 
 | State | Behavior | Transition |
 |-------|----------|------------|
-| CLOSED (normal) | Spawn verifier agent | → OPEN after 2 consecutive failures/timeouts |
+| CLOSED (normal) | Summon verifier agent | → OPEN after 2 consecutive failures/timeouts |
 | OPEN (bypassed) | Skip verification, rely on Layer 0 only | → HALF_OPEN after 120s recovery |
-| HALF_OPEN (testing) | Spawn verifier with reduced scope (P1s only) | → CLOSED if success, → OPEN if fail |
+| HALF_OPEN (testing) | Summon verifier with reduced scope (P1s only) | → CLOSED if success, → OPEN if fail |
 
 Configuration: `layer_2_circuit: { failure_threshold: 2, recovery_seconds: 120 }`
 
@@ -283,7 +283,7 @@ Add to `inscription.json`:
 
 ## Re-Verification
 
-When the verifier finds hallucinated Rune Traces, the Elden Lord may spawn targeted re-verify agents:
+When the verifier finds hallucinated Rune Traces, the Elden Lord may summon targeted re-verify agents:
 
 | Property | Value |
 |----------|-------|

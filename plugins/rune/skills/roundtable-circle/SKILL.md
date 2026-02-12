@@ -3,7 +3,7 @@ name: roundtable-circle
 description: |
   Orchestrates multi-agent code reviews using Agent Teams with up to 8 Tarnished teammates (5 built-in + custom).
   This skill should be used when running /rune:review or /rune:audit. Each Tarnished gets its own 200k context window.
-  Handles scope selection, team creation, inscription generation, Tarnished spawning, monitoring, aggregation, verification, and cleanup.
+  Handles scope selection, team creation, inscription generation, Tarnished summoning, monitoring, aggregation, verification, and cleanup.
 
   <example>
   Context: Running a code review
@@ -32,9 +32,9 @@ Orchestrates multi-agent code reviews using Claude Code Agent Teams. Each Tarnis
 Phase 0: Pre-flight     → Validate git status, check for changes
 Phase 1: Rune Gaze      → git diff → classify files → select Tarnished
 Phase 2: Forge Team      → TeamCreate + TaskCreate + inscription.json
-Phase 3: Spawn           → Fan-out Tarnished with self-organizing prompts
+Phase 3: Summon           → Fan-out Tarnished with self-organizing prompts
 Phase 4: Monitor         → TaskList polling, 5-min stale detection
-Phase 5: Aggregate       → Spawn Runebinder → writes TOME.md
+Phase 5: Aggregate       → Summon Runebinder → writes TOME.md
 Phase 6: Verify          → Truthsight validation on P1 findings
 Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 ```
@@ -56,7 +56,7 @@ Plus **Runebinder** (utility) for aggregation in Phase 5.
 Projects can register additional Tarnished from local agents, global agents, or other plugins via `talisman.yml`. Custom Tarnished join the standard lifecycle:
 
 - **Wrapped** with Truthbinding Protocol (evidence, Glyph Budget, Seal format)
-- **Spawned** alongside built-ins in Phase 3 (parallel execution)
+- **Summoned** alongside built-ins in Phase 3 (parallel execution)
 - **Deduplicated** using their unique `finding_prefix` in the extended hierarchy
 - **Verified** by Truthsight (if `settings.verification.layer_2_custom_agents: true`)
 - **Aggregated** into TOME.md by Runebinder
@@ -73,8 +73,8 @@ tmp/reviews/{id}/
 ├── forge-warden.md          # Backend review findings
 ├── ward-sentinel.md         # Security review findings
 ├── pattern-weaver.md        # Quality patterns findings
-├── glyph-scribe.md          # Frontend review findings (if spawned)
-├── knowledge-keeper.md      # Docs review findings (if spawned)
+├── glyph-scribe.md          # Frontend review findings (if summoned)
+├── knowledge-keeper.md      # Docs review findings (if summoned)
 ├── TOME.md                  # Aggregated + deduplicated findings
 ├── truthsight-report.md     # Verification results (if Layer 2 enabled)
 └── completion.json          # Structured completion summary
@@ -131,7 +131,7 @@ git diff --name-only main..HEAD
 
 ## Phase 1: Rune Gaze (Scope Selection)
 
-Classify changed files by extension to determine which Tarnished to spawn.
+Classify changed files by extension to determine which Tarnished to summon.
 
 See [Rune Gaze](references/rune-gaze.md) for the full file classification algorithm.
 
@@ -158,9 +158,9 @@ See [Rune Gaze](references/rune-gaze.md) for the full file classification algori
    })
 ```
 
-## Phase 3: Spawn Tarnished
+## Phase 3: Summon Tarnished
 
-For each selected Tarnished, spawn as a background teammate:
+For each selected Tarnished, summon as a background teammate:
 
 ```
 Task({
@@ -234,7 +234,7 @@ while (not all tasks completed):
 
 ## Phase 5: Aggregate
 
-After all tasks complete (or timeout), spawn Runebinder:
+After all tasks complete (or timeout), summon Runebinder:
 
 ```
 Task({
@@ -277,9 +277,9 @@ grep -c "Rune Trace" {output_file} # Evidence blocks exist
 
 Already performed by each Tarnished before sending Seal (embedded in prompts). Review the Self-Review Log section in each output file.
 
-### Layer 2: Smart Verifier (Spawned by Lead)
+### Layer 2: Smart Verifier (Summoned by Lead)
 
-Spawn conditions: Roundtable Circle with 3+ Tarnished, or audit with 5+ Tarnished.
+Summon conditions: Roundtable Circle with 3+ Tarnished, or audit with 5+ Tarnished.
 
 ```
 Task({

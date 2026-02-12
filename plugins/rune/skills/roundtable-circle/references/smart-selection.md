@@ -69,7 +69,7 @@ Some files are assigned to multiple Tarnished intentionally:
 
 ### Focus Mode (`--focus <area>`)
 
-| Focus Area | Tarnished Spawned | Budget Increase |
+| Focus Area | Tarnished Summoned | Budget Increase |
 |-----------|-------------------|-----------------|
 | `security` | Ward Sentinel only | 2x (40 files) |
 | `performance` | Forge Warden only | 2x (60 files) |

@@ -37,7 +37,7 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains six phases into a single automated pipeline: forge, plan review, work, code review, mend, and audit. Each phase spawns its own team with fresh context. Artifact-based handoff connects phases. Checkpoint state enables resume after failure.
+Chains six phases into a single automated pipeline: forge, plan review, work, code review, mend, and audit. Each phase summons its own team with fresh context. Artifact-based handoff connects phases. Checkpoint state enables resume after failure.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`
 
@@ -79,7 +79,7 @@ Output: Implemented, reviewed, and fixed feature
 
 ## Arc Orchestrator Design (ARC-1)
 
-The arc orchestrator is a **lightweight dispatcher**, NOT a monolithic agent. Each phase spawns a **new team with fresh context**. Phase artifacts serve as the handoff mechanism.
+The arc orchestrator is a **lightweight dispatcher**, NOT a monolithic agent. Each phase summons a **new team with fresh context**. Phase artifacts serve as the handoff mechanism.
 
 Dispatcher loop:
 ```
@@ -182,7 +182,7 @@ Demoting Phase 2 to "pending" — will re-run plan review.
 
 ## Phase 1: FORGE (skippable with --skip-forge)
 
-Spawn research agents to enrich the plan with current best practices, framework docs, codebase patterns, git history, and past echoes.
+Summon research agents to enrich the plan with current best practices, framework docs, codebase patterns, git history, and past echoes.
 
 **Team**: `arc-forge-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
@@ -197,7 +197,7 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: `arc-forge-${id}` })
 
-// Spawn 5 research agents in parallel
+// Summon 5 research agents in parallel
 const agents = [
   { name: "practice-seeker", task: "External best practices for: {plan_sections}" },
   { name: "lore-scholar", task: "Framework documentation relevant to: {plan_sections}" },
@@ -252,7 +252,7 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: `arc-plan-review-${id}` })
 
-// Spawn 3 reviewers in parallel
+// Summon 3 reviewers in parallel
 const reviewers = [
   { name: "scroll-reviewer", agent: "agents/utility/scroll-reviewer.md", focus: "Document quality" },
   { name: "decree-arbiter", agent: "agents/utility/decree-arbiter.md", focus: "Technical soundness" },
@@ -350,7 +350,7 @@ updateCheckpoint({
 
 ## Phase 4: CODE REVIEW
 
-Invoke `/rune:review` logic on the implemented changes. Spawns Tarnished with Roundtable Circle lifecycle.
+Invoke `/rune:review` logic on the implemented changes. Summons Tarnished with Roundtable Circle lifecycle.
 
 **Team**: `arc-review-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)

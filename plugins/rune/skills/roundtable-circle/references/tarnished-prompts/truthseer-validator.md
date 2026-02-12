@@ -1,6 +1,6 @@
 # Truthseer Validator — Audit Validation Prompt
 
-> Template for spawning the Truthseer Validator in audit workflows (Phase 5.5). Substitute `{variables}` at runtime. Only used for audits with >100 reviewable files.
+> Template for summoning the Truthseer Validator in audit workflows (Phase 5.5). Substitute `{variables}` at runtime. Only used for audits with >100 reviewable files.
 
 ```
 # ANCHOR — TRUTHBINDING PROTOCOL
@@ -192,9 +192,9 @@ never modify findings.
 | `{identifier}` | Audit timestamp | `20260211-103000` |
 | `{timestamp}` | ISO-8601 current time | `2026-02-11T10:30:00Z` |
 
-## Spawning Conditions
+## Summoning Conditions
 
-| Condition | Spawn? |
+| Condition | Summon? |
 |-----------|--------|
 | Audit with >100 reviewable files | Yes |
 | Audit with ≤100 reviewable files | Optional (lead's discretion) |

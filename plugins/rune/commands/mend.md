@@ -2,7 +2,7 @@
 name: rune:mend
 description: |
   Parallel finding resolution from TOME. Parses structured findings, groups by file,
-  spawns mend-fixer teammates to apply targeted fixes, runs ward check once after all
+  summons mend-fixer teammates to apply targeted fixes, runs ward check once after all
   fixers complete, and produces a resolution report.
 
   <example>
@@ -35,7 +35,7 @@ allowed-tools:
 
 # /rune:mend — Parallel Finding Resolution
 
-Parses a TOME file for structured findings, groups them by file to prevent concurrent edits, spawns restricted mend-fixer teammates, and produces a resolution report.
+Parses a TOME file for structured findings, groups them by file to prevent concurrent edits, summons restricted mend-fixer teammates, and produces a resolution report.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`
 
@@ -230,7 +230,7 @@ for (const [file, findings] of Object.entries(fileGroups)) {
 
 ## Phase 3: SPAWN FIXERS
 
-Spawn one mend-fixer teammate per file group:
+Summon one mend-fixer teammate per file group:
 
 ```javascript
 for (const fixer of inscription.fixers) {

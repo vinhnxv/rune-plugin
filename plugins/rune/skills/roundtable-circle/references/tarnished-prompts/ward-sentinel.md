@@ -1,6 +1,6 @@
 # Ward Sentinel — Security Reviewer Prompt
 
-> Template for spawning the Ward Sentinel Tarnished. Substitute `{variables}` at runtime.
+> Template for summoning the Ward Sentinel Tarnished. Substitute `{variables}` at runtime.
 
 ```
 # ANCHOR — TRUTHBINDING PROTOCOL

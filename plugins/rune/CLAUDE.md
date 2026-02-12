@@ -81,7 +81,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 The lead agent that coordinates all Rune workflows. In Elden Ring, the Elden Lord rules
 from the Erdtree throne. In Rune, the Elden Lord:
 - Convenes the Roundtable Circle (review/audit orchestration)
-- Coordinates Tarnished and spawns research agents
+- Coordinates Tarnished and summons research agents
 - Collects findings into the TOME
 - Guides the arc pipeline from forge to audit
 
@@ -93,7 +93,7 @@ Each Tarnished is an Agent Teams teammate with its own 200k context window. A Ta
 
 Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Tarnished). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Tarnished prompts. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 7 perspectives via 5 dedicated agents).
 
-| Tarnished | Perspectives | Agent Source | When Spawned |
+| Tarnished | Perspectives | Agent Source | When Summoned |
 |-----------|-------------|-------------|-------------|
 | **Forge Warden** | Backend code quality, architecture, performance, logic, testing | Dedicated agent files | Backend files changed |
 | **Ward Sentinel** | All security perspectives | Dedicated agent files | ALWAYS |
@@ -151,11 +151,11 @@ See `roundtable-circle/references/forge-gaze.md` for the topic registry and matc
 
 ### Arc Pipeline
 
-End-to-end orchestration across 6 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), work (swarm implementation), code review (Roundtable Circle), mend (parallel finding resolution), and audit (final gate). Each phase spawns a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions enforce least privilege.
+End-to-end orchestration across 6 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), work (swarm implementation), code review (Roundtable Circle), mend (parallel finding resolution), and audit (final gate). Each phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions enforce least privilege.
 
 ### Mend
 
-Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->` markers with session nonce validation, groups findings by file, spawns restricted mend-fixer teammates (no Bash, no TeamCreate). Ward check runs once after all fixers complete. Bisection algorithm identifies failing fixes on ward failure.
+Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->` markers with session nonce validation, groups findings by file, summons restricted mend-fixer teammates (no Bash, no TeamCreate). Ward check runs once after all fixers complete. Bisection algorithm identifies failing fixes on ward failure.
 
 ### Context Weaving
 
@@ -184,6 +184,7 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 | **Forge** | Research enrichment phase | Tempering plans in fire |
 | **Mend** | Finding resolution from TOME | Repairing what was broken |
 | **Remembrance** | Promoted knowledge docs | Memories of fallen foes |
+| **Summon** | Bringing a Tarnished agent into existence | Calling spirits/cooperators to aid in battle |
 | **Talisman** | Plugin configuration file (`talisman.yml`) | Equippable items that enhance abilities |
 | **Decree Arbiter** | Technical soundness reviewer for plans | A judge who weighs the merit of decrees |
 | **Flow Seer** | Spec/feature flow completeness analyzer | One who perceives the currents of fate |

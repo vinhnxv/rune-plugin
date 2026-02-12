@@ -38,7 +38,7 @@
       "failure_threshold": "integer — max hallucinated findings before flagging",
       "recovery_seconds": "integer — wait before retry"
     },
-    "max_reverify_agents": "integer — max re-verify agents to spawn"
+    "max_reverify_agents": "integer — max re-verify agents to summon"
   },
 
   "context_engineering": {

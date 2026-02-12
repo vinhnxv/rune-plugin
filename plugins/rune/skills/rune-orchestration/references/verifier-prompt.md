@@ -1,8 +1,8 @@
 # Truthsight Verifier Agent Prompt
 
-> Prompt template for the Layer 2 Smart Verifier agent. Spawned as a `general-purpose` Task subagent (not a teammate) after all Tarnished complete and Layer 0 inline checks pass.
+> Prompt template for the Layer 2 Smart Verifier agent. Summoned as a `general-purpose` Task subagent (not a teammate) after all Tarnished complete and Layer 0 inline checks pass.
 
-## When to Spawn
+## When to Summon
 
 | Workflow | Condition | Model |
 |----------|-----------|-------|
@@ -22,7 +22,7 @@ Task:
 
 ## Prompt Template
 
-Inject `{variables}` before spawning. The prompt follows the 7-section structure but compressed for a verification-only agent.
+Inject `{variables}` before summoning. The prompt follows the 7-section structure but compressed for a verification-only agent.
 
 ```markdown
 # CRITICAL RULES (Read First)
@@ -204,15 +204,15 @@ Layer 2 has its own circuit breaker, independent of Layer 0:
 
 | State | Behavior | Transition |
 |-------|----------|------------|
-| CLOSED (normal) | Spawn verifier agent | -> OPEN after 2 consecutive verifier failures/timeouts |
+| CLOSED (normal) | Summon verifier agent | -> OPEN after 2 consecutive verifier failures/timeouts |
 | OPEN (bypassed) | Skip verification, rely on Layer 0 only | -> HALF_OPEN after 120s recovery |
-| HALF_OPEN (testing) | Spawn verifier with reduced scope (P1s only) | -> CLOSED if success, -> OPEN if fail |
+| HALF_OPEN (testing) | Summon verifier with reduced scope (P1s only) | -> CLOSED if success, -> OPEN if fail |
 
 Configuration: `layer_2_circuit: { failure_threshold: 2, recovery_seconds: 120 }`
 
 ## Re-Verify Agent Specification
 
-When the verifier finds hallucinated Rune Traces, the Elden Lord may spawn targeted re-verify agents:
+When the verifier finds hallucinated Rune Traces, the Elden Lord may summon targeted re-verify agents:
 
 | Property | Value |
 |----------|-------|

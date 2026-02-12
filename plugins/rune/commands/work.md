@@ -2,7 +2,7 @@
 name: rune:work
 description: |
   Multi-agent work execution using Agent Teams. Parses a plan into tasks,
-  spawns swarm workers that claim and complete tasks independently,
+  summons swarm workers that claim and complete tasks independently,
   and runs quality gates before completion.
 
   <example>
@@ -35,7 +35,7 @@ allowed-tools:
 
 # /rune:work — Multi-Agent Work Execution
 
-Parses a plan into tasks with dependencies, spawns swarm workers, and coordinates parallel implementation.
+Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.
 
 ## Usage
 
@@ -52,7 +52,7 @@ Phase 0: Parse Plan → Extract tasks with dependencies
     ↓
 Phase 1: Forge Team → TeamCreate + TaskCreate pool
     ↓
-Phase 2: Spawn Workers → Self-organizing swarm
+Phase 2: Summon Workers → Self-organizing swarm
     ↓ (workers claim → implement → complete → repeat)
 Phase 3: Monitor → TaskList polling, stale detection
     ↓
@@ -140,12 +140,12 @@ for (const task of extractedTasks) {
 }
 ```
 
-## Phase 2: Spawn Swarm Workers
+## Phase 2: Summon Swarm Workers
 
-Spawn workers based on task types. Default: 2 workers (1 rune-smith + 1 trial-forger). Scale up for larger plans.
+Summon workers based on task types. Default: 2 workers (1 rune-smith + 1 trial-forger). Scale up for larger plans.
 
 ```javascript
-// Spawn implementation worker
+// Summon implementation worker
 Task({
   team_name: "rune-work-{timestamp}",
   name: "rune-smith",
@@ -182,7 +182,7 @@ Task({
   run_in_background: true
 })
 
-// Spawn test worker
+// Summon test worker
 Task({
   team_name: "rune-work-{timestamp}",
   name: "trial-forger",
@@ -222,7 +222,7 @@ Task({
 
 ### Scaling Workers
 
-For plans with 10+ tasks, spawn additional workers:
+For plans with 10+ tasks, summon additional workers:
 
 | Task Count | Rune Smiths | Trial Forgers |
 |-----------|-------------|---------------|
@@ -270,7 +270,7 @@ for (const ward of wards) {
     warn(`Ward failed: ${ward.name}`)
     // Create fix task if ward fails
     TaskCreate({ subject: `Fix ${ward.name} failure`, description: result.output })
-    // Spawn worker to fix
+    // Summon worker to fix
   }
 }
 ```
@@ -343,7 +343,7 @@ Next steps:
 |-------|----------|
 | Worker stalled (>5 min) | Warn lead, release after 10 min |
 | Worker crash | Task returns to pool for reclaim |
-| Ward failure | Create fix task, spawn worker to fix |
+| Ward failure | Create fix task, summon worker to fix |
 | All workers crash | Abort, report partial progress |
 | Plan has no extractable tasks | Ask user to restructure plan |
 | Conflicting file edits | Workers write to separate files; lead resolves conflicts |

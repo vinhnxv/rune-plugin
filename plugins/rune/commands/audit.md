@@ -1,7 +1,7 @@
 ---
 name: rune:audit
 description: |
-  Full codebase audit using Agent Teams. Spawns up to 5 built-in Tarnished teammates
+  Full codebase audit using Agent Teams. Summons up to 5 built-in Tarnished teammates
   (plus custom Tarnished from talisman.yml), each with their own 200k context window.
   Scans entire project (or current directory) instead of git diff changes. Uses the same
   7-phase Roundtable Circle lifecycle.
@@ -38,8 +38,8 @@ Orchestrate a full codebase audit using the Roundtable Circle architecture. Each
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--focus <area>` | Limit audit to specific area: `security`, `performance`, `quality`, `frontend`, `docs`, `backend`, `full` | `full` |
-| `--max-agents <N>` | Cap maximum Tarnished spawned (1-8, including custom) | All selected |
-| `--dry-run` | Show scope selection and Tarnished plan without spawning agents | Off |
+| `--max-agents <N>` | Cap maximum Tarnished summoned (1-8, including custom) | All selected |
+| `--dry-run` | Show scope selection and Tarnished plan without summoning agents | Off |
 
 **Note:** Unlike `/rune:review`, there is no `--partial` flag. Audit always scans the full project.
 
@@ -119,7 +119,7 @@ for each custom in validated_custom_tarnished:
 
 Check for project overrides in `.claude/talisman.yml`.
 
-**Apply `--focus` filter:** If `--focus <area>` is set, only spawn Tarnished matching that area. See `roundtable-circle/references/circle-registry.md` for the focus-to-Tarnished mapping.
+**Apply `--focus` filter:** If `--focus <area>` is set, only summon Tarnished matching that area. See `roundtable-circle/references/circle-registry.md` for the focus-to-Tarnished mapping.
 
 **Apply `--max-agents` cap:** If `--max-agents N` is set, limit selected Tarnished to N. Priority order: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper.
 
@@ -151,7 +151,7 @@ Total files: {count}
   Docs:     {count} files
   Other:    {count} files (skipped)
 
-Tarnished to spawn: {count} ({built_in_count} built-in + {custom_count} custom)
+Tarnished to summon: {count} ({built_in_count} built-in + {custom_count} custom)
   Built-in:
   - Forge Warden:      {file_count} files (cap: 30)
   - Ward Sentinel:     {file_count} files (cap: 20)
@@ -219,9 +219,9 @@ for (const tarnished of selectedTarnished) {
 }
 ```
 
-## Phase 3: Spawn Tarnished
+## Phase 3: Summon Tarnished
 
-Spawn ALL selected Tarnished in a **single message** (parallel execution):
+Summon ALL selected Tarnished in a **single message** (parallel execution):
 
 ```javascript
 // Built-in Tarnished: load prompt from tarnished-prompts/{role}.md
@@ -298,7 +298,7 @@ Task({
 If inscription.json has `verification.enabled: true`:
 
 1. **Layer 0**: Lead runs grep-based inline checks (file paths exist, line numbers valid)
-2. **Layer 2**: Spawn Truthsight Verifier for P1 findings (see `rune-orchestration/references/verifier-prompt.md`)
+2. **Layer 2**: Summon Truthsight Verifier for P1 findings (see `rune-orchestration/references/verifier-prompt.md`)
 3. Flag any HALLUCINATED findings
 
 ## Phase 7: Cleanup & Echo Persist

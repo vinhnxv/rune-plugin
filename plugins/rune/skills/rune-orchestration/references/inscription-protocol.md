@@ -6,7 +6,7 @@
 
 ### Step 1: Generate `inscription.json`
 
-Before spawning agents, create the inscription file in the output directory:
+Before summoning agents, create the inscription file in the output directory:
 
 ```json
 {
@@ -154,7 +154,7 @@ TaskList `completed` status  >  Seal message  >  file existence
 
 ## Coverage Matrix
 
-All workflows spawning 3+ agents MUST implement the inscription protocol.
+All workflows summoning 3+ agents MUST implement the inscription protocol.
 
 | Workflow | Agent Count | Inscription Required | Verification |
 |----------|-------------|---------------------|-------------|
@@ -167,7 +167,7 @@ All workflows spawning 3+ agents MUST implement the inscription protocol.
 
 ## Full Prompt Injection Template
 
-When spawning Tarnished, inject these sections into EVERY prompt:
+When summoning Tarnished, inject these sections into EVERY prompt:
 
 ```markdown
 # ANCHOR — TRUTHBINDING PROTOCOL
@@ -386,7 +386,7 @@ cancelled           → {}  (terminal)
 
 1. **Determine output directory:** `tmp/{workflow-name}/`
 2. **Define required sections:** Match output format (Report/Research/Status)
-3. **Generate `inscription.json`** before spawning agents
+3. **Generate `inscription.json`** before summoning agents
 4. **Inject Prompt Template** (full template above) into each agent prompt
 5. **Validate outputs** after completion (circuit breaker → per-file → gap report)
 6. **Test:** Verify inscription generates, prompts inject, validation runs

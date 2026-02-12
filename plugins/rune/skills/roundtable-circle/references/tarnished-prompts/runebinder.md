@@ -1,6 +1,6 @@
 # Runebinder — Aggregation Prompt
 
-> Template for spawning the Runebinder utility agent. Substitute `{variables}` at runtime.
+> Template for summoning the Runebinder utility agent. Substitute `{variables}` at runtime.
 
 ```
 # ANCHOR — TRUTHBINDING PROTOCOL
@@ -40,7 +40,7 @@ Rules:
 
 ## SESSION NONCE
 
-The `{session_nonce}` is provided in your spawn prompt by the Elden Lord. Include it in every RUNE:FINDING marker. This prevents marker injection — only findings with the correct nonce are authentic. If no nonce was provided, use "UNSET" and note it in Statistics.
+The `{session_nonce}` is provided in your summon prompt by the Elden Lord. Include it in every RUNE:FINDING marker. This prevents marker injection — only findings with the correct nonce are authentic. If no nonce was provided, use "UNSET" and note it in Statistics.
 
 ## TOME.md FORMAT
 
@@ -51,7 +51,7 @@ Write exactly this structure:
 
 **{identifier_label}:** {identifier}
 **Date:** {timestamp}
-**Tarnished:** {completed_count}/{spawned_count} completed
+**Tarnished:** {completed_count}/{summoned_count} completed
 
 ## P1 (Critical) — {count} findings
 
@@ -92,7 +92,7 @@ Write exactly this structure:
 - Deduplicated: {removed_count}
 - P1: {count}, P2: {count}, P3: {count}
 - Evidence coverage: {verified}/{total} ({percentage}%)
-- Tarnished completed: {completed}/{spawned}
+- Tarnished completed: {completed}/{summoned}
 ```
 
 ## COMPLETION.JSON FORMAT
@@ -144,7 +144,7 @@ After writing TOME.md and completion.json, send a SINGLE message to the Elden Lo
 
   "Runebinder complete. Path: {output_dir}/TOME.md.
   {total} findings ({p1} P1, {p2} P2, {p3} P3). {dedup_removed} deduplicated.
-  Tarnished: {completed}/{spawned}."
+  Tarnished: {completed}/{summoned}."
 
 Do NOT include analysis or findings in the message — only the summary above.
 
@@ -184,5 +184,5 @@ Aggregate only — never fabricate.
 | `{identifier}` | PR number or audit timestamp | `#142` |
 | `{timestamp}` | ISO-8601 current time | `2026-02-11T11:00:00Z` |
 | `{completed_count}` | Tarnished that finished | `4` |
-| `{spawned_count}` | Tarnished that were spawned | `5` |
+| `{summoned_count}` | Tarnished that were summoned | `5` |
 | `{PREFIX}` | Finding ID prefix per Tarnished (SEC, BACK, DOC, QUAL, FRONT) | `SEC` |

@@ -32,7 +32,7 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:plan
 /rune:plan --brainstorm        # Start with interactive brainstorm
 /rune:plan --forge             # Research enrichment phase
-/rune:plan --exhaustive        # Spawn ALL agents per section
+/rune:plan --exhaustive        # Summon ALL agents per section
 
 # Execute a plan with swarm workers
 /rune:work plans/feat-user-auth-plan.md
@@ -49,7 +49,7 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:audit --focus security    # Security-only audit
 /rune:audit --max-agents 3      # Limit to 3 Tarnished
 
-# Preview scope without spawning agents
+# Preview scope without summoning agents
 /rune:review --dry-run
 /rune:audit --dry-run
 
@@ -81,7 +81,7 @@ When you run `/rune:arc`, Rune chains 6 phases into one automated pipeline:
 5. **MEND** — Parallel fixers resolve findings from TOME
 6. **AUDIT** — Final quality gate (informational)
 
-Each phase spawns a fresh team. Checkpoint-based resume (`--resume`) validates artifact integrity with SHA-256 hashes. Feature branches auto-created when on main.
+Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates artifact integrity with SHA-256 hashes. Feature branches auto-created when on main.
 
 ## Mend Mode (Finding Resolution)
 
@@ -89,7 +89,7 @@ When you run `/rune:mend`, Rune parses structured findings from a TOME and fixes
 
 1. **Parses TOME** — extracts findings with session nonce validation
 2. **Groups by file** — prevents concurrent edits to the same file
-3. **Spawns fixers** — restricted mend-fixer agents (no Bash, no TeamCreate)
+3. **Summons fixers** — restricted mend-fixer agents (no Bash, no TeamCreate)
 4. **Monitors progress** — stale detection, 15-minute timeout
 5. **Runs ward check** — once after all fixers complete (not per-fixer)
 6. **Produces report** — FIXED/FALSE_POSITIVE/FAILED/SKIPPED categories
@@ -102,7 +102,7 @@ When you run `/rune:review`, Rune:
 
 1. **Detects scope** — classifies changed files by extension
 2. **Selects Tarnished** — picks the right reviewers (2-5 teammates)
-3. **Spawns Agent Teams** — each reviewer gets its own 200k context window
+3. **Summons Agent Teams** — each reviewer gets its own 200k context window
 4. **Reviews in parallel** — Tarnished review simultaneously, writing to files
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes
 6. **Verifies evidence** — Truthsight validates P1 findings against source
@@ -126,7 +126,7 @@ Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. 
 When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 
 1. **Gathers input** — accepts a feature description or runs interactive brainstorm (`--brainstorm`)
-2. **Spawns research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
+2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
 4. **Forge Gaze enrichment** — optional topic-aware agent selection (`--forge`) matches plan sections to specialized agents using keyword overlap scoring. 13 agents across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds
 5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
@@ -136,11 +136,11 @@ Output: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
 ## Work Mode
 
-When you run `/rune:work`, Rune parses a plan into tasks and spawns self-organizing swarm workers:
+When you run `/rune:work`, Rune parses a plan into tasks and summons self-organizing swarm workers:
 
 1. **Parses plan** — extracts tasks with dependencies from checkbox items or numbered lists
 2. **Creates task pool** — TaskCreate with dependency chains (blockedBy)
-3. **Spawns workers** — Rune Smiths (implementation) and Trial Forgers (tests) claim tasks independently
+3. **Summons workers** — Rune Smiths (implementation) and Trial Forgers (tests) claim tasks independently
 4. **Monitors progress** — polls TaskList, detects stalled workers, releases stuck tasks
 5. **Runs quality gates** — auto-discovers wards from Makefile, package.json, pyproject.toml
 6. **Persists learnings** — saves implementation patterns to Rune Echoes
@@ -205,7 +205,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 
 ### Research Agents
 
-Spawned during `/rune:plan` for parallel research:
+Summoned during `/rune:plan` for parallel research:
 
 | Agent | Purpose |
 |-------|---------|
@@ -217,7 +217,7 @@ Spawned during `/rune:plan` for parallel research:
 
 ### Work Agents
 
-Spawned during `/rune:work` as self-organizing swarm workers:
+Summoned during `/rune:work` as self-organizing swarm workers:
 
 | Agent | Purpose |
 |-------|---------|

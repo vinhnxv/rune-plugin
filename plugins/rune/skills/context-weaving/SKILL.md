@@ -2,7 +2,7 @@
 name: context-weaving
 description: |
   Unified context management: overflow prevention, compression, and filesystem offloading.
-  Should be loaded before spawning 3+ agents to enforce Glyph Budgets, plan orchestration, and prevent "Prompt is too long" errors.
+  Should be loaded before summoning 3+ agents to enforce Glyph Budgets, plan orchestration, and prevent "Prompt is too long" errors.
   Also applicable for long sessions (50+ messages) to compress context.
 
   <example>
@@ -37,7 +37,7 @@ Agents can write unlimited detail to files. The overflow comes from what they _r
 
 | Layer | Problem | Solution | When |
 |-------|---------|----------|------|
-| **Overflow Prevention** | Agent returns flood lead context | Glyph Budget: file-only output | Before spawning 3+ agents |
+| **Overflow Prevention** | Agent returns flood lead context | Glyph Budget: file-only output | Before summoning 3+ agents |
 | **Context Rot** | Attention degrades in long contexts | Instruction anchoring, re-anchoring signals | Always (in prompts) |
 | **Compression** | Session grows beyond 50+ messages | Anchored iterative summarization | During long sessions |
 | **Filesystem Offloading** | Tool outputs consume 83.9% of context | Write outputs to files, read on demand | During any workflow |
@@ -48,20 +48,20 @@ Agents can write unlimited detail to files. The overflow comes from what they _r
 
 | Condition | Action |
 |-----------|--------|
-| About to spawn **3-4 agents** via Task tool | Apply Glyph Budget + inscription |
-| About to spawn **5+ agents** | Use Agent Teams + Glyph Budget + inscription |
+| About to summon **3-4 agents** via Task tool | Apply Glyph Budget + inscription |
+| About to summon **5+ agents** | Use Agent Teams + Glyph Budget + inscription |
 | Running `/rune:review` | Loaded automatically by roundtable-circle |
 | Running `/rune:audit` | Loaded automatically by roundtable-circle |
 | Any custom multi-agent orchestration | Apply Glyph Budget (if 3+ agents) |
 
-### Pre-Spawn Checklist (8 Thoughts)
+### Pre-Summon Checklist (8 Thoughts)
 
-**BEFORE spawning agents**, plan with these 8 steps:
+**BEFORE summoning agents**, plan with these 8 steps:
 
 #### Thought 1: Count and Estimate
 
 ```
-Count the agents I'm about to spawn.
+Count the agents I'm about to summon.
 Each Task return adds ~3-5k tokens without budget.
 Base context (CLAUDE.md + rules + MCP) is ~30k tokens.
 
@@ -113,7 +113,7 @@ After all agents complete:
    - Circuit breaker: ALL files missing? → systemic failure, abort
    - Per-file: each file exists AND > 100 bytes? → PASS/FAIL
    - Report gaps in TOME.md "Incomplete" section
-2. Spawn Runebinder if 4+ raw files
+2. Summon Runebinder if 4+ raw files
 3. Run quality probes on TOME.md
 ```
 
@@ -144,7 +144,7 @@ After all agents complete:
 
 ### Glyph Budget Protocol
 
-**Inject this text into EVERY agent prompt** when spawning in a multi-agent workflow:
+**Inject this text into EVERY agent prompt** when summoning in a multi-agent workflow:
 
 ```
 GLYPH BUDGET PROTOCOL (MANDATORY):
@@ -158,13 +158,13 @@ Example return:
 
 ### Runebinder Pattern (Aggregation)
 
-After all agents complete, spawn the Runebinder to process raw files:
+After all agents complete, summon the Runebinder to process raw files:
 
 | Raw files | Action |
 |-----------|--------|
 | 1-3 files | Read directly |
-| 4+ files | Spawn Runebinder agent |
-| 10+ files | MUST spawn Runebinder (never read all directly) |
+| 4+ files | Summon Runebinder agent |
+| 10+ files | MUST summon Runebinder (never read all directly) |
 
 After aggregation, read ONLY the TOME.md file. Do NOT also read raw files.
 
@@ -174,7 +174,7 @@ After aggregation, read ONLY the TOME.md file. Do NOT also read raw files.
 |-------|-------|-----------|
 | **Circuit Breaker** | ALL output files missing? | Systemic failure — abort |
 | **Inscription Validation** | All expected files exist and > 100 bytes? | Report gaps |
-| **Agent Count** | Does TOME.md mention all spawned agents? | Read missing agent's raw file |
+| **Agent Count** | Does TOME.md mention all summoned agents? | Read missing agent's raw file |
 | **P1 Completeness** | Are P1 findings specific (file path + line)? | Spot-check one raw file |
 | **Truthbinding Spot-Check** | Verify Rune Traces in 1-2 P1 findings per agent | Compare against actual source |
 
@@ -304,7 +304,7 @@ Tool outputs consume up to 83.9% of context. Offload large outputs to files.
 
 ## References
 
-- [Overflow Wards](references/overflow-wards.md) — Detailed pre-spawn protocol
+- [Overflow Wards](references/overflow-wards.md) — Detailed pre-summon protocol
 - [Context Compression](references/context-compression.md) — Compression strategies and triggers
 - [Filesystem Offloading](references/filesystem-offloading.md) — File-based output patterns
 - Companion: `rune-orchestration` (architectural patterns, inscription protocol)

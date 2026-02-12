@@ -145,7 +145,7 @@ Files that were deleted should be flagged:
 
 ## Line Count Threshold for Docs
 
-The `>= 10 lines changed` threshold for Knowledge Keeper prevents spawning a full doc reviewer for trivial edits (typo fixes, whitespace).
+The `>= 10 lines changed` threshold for Knowledge Keeper prevents summoning a full doc reviewer for trivial edits (typo fixes, whitespace).
 
 Calculate with:
 ```bash

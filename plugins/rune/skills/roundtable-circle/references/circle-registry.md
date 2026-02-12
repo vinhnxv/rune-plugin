@@ -95,9 +95,9 @@ This is intentional — different perspectives catch different issues.
 
 ## Focus Mode (`--focus`)
 
-When `/rune:audit --focus <area>` is used, only spawn the relevant Tarnished(s):
+When `/rune:audit --focus <area>` is used, only summon the relevant Tarnished(s):
 
-| Focus Area | Tarnished Spawned |
+| Focus Area | Tarnished Summoned |
 |-----------|-------------------|
 | `security` | Ward Sentinel only |
 | `performance` | Forge Warden only |

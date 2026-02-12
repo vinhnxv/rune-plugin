@@ -6,14 +6,14 @@ Applies Sequential Thinking principles to multi-agent workflows at both the **le
 
 ## Why Linear Processes Degrade
 
-Multi-agent workflows follow a linear pipeline: spawn → work → collect → aggregate. Without iterative reasoning:
+Multi-agent workflows follow a linear pipeline: summon → work → collect → aggregate. Without iterative reasoning:
 
 | Gap | Impact |
 |-----|--------|
 | No self-correction | Hallucinated Rune Traces persist through aggregation |
 | No revision loops | Low-confidence findings never improve, only get flagged |
 | No branching | Conflicting findings resolved mechanically by priority, losing nuance |
-| No dynamic scope | Pre-spawn is write-once; can't adapt when conditions change mid-work |
+| No dynamic scope | Pre-summon is write-once; can't adapt when conditions change mid-work |
 
 ## 5 Principles for Multi-Agent Reasoning
 
@@ -23,7 +23,7 @@ Multi-agent workflows follow a linear pipeline: spawn → work → collect → a
 
 | Level | Application |
 |-------|-------------|
-| Lead (pre-spawn) | 8-thought checklist before spawning Tarnished (see `context-weaving`) |
+| Lead (pre-summon) | 8-thought checklist before summoning Tarnished (see `context-weaving`) |
 | Lead (post-aggregate) | Numbered conflict resolution steps when Tarnished disagree |
 | Tarnished | Numbered analysis phases during self-review |
 
@@ -54,7 +54,7 @@ Multi-agent workflows follow a linear pipeline: spawn → work → collect → a
 
 | Level | Application |
 |-------|-------------|
-| Lead (pre-spawn) | Thought 6 of extended checklist: "Can I merge redundant Tarnished? Split overloaded ones?" |
+| Lead (pre-summon) | Thought 6 of extended checklist: "Can I merge redundant Tarnished? Split overloaded ones?" |
 | Lead (monitoring) | Tarnished timeout → revise expectations. New file patterns discovered → add conditional Tarnished |
 | Tarnished (self-calibration) | Found 0 issues in 10 files → broaden review lens. Found 50+ issues → narrow to P1 only |
 
@@ -69,9 +69,9 @@ Multi-agent workflows follow a linear pipeline: spawn → work → collect → a
 
 ## Three Reasoning Checkpoints
 
-### 1. Pre-Spawn (Elden Lord)
+### 1. Pre-Summon (Elden Lord)
 
-Before launching Tarnished, use the 8-thought pre-spawn checklist from `context-weaving`:
+Before launching Tarnished, use the 8-thought pre-summon checklist from `context-weaving`:
 
 | Thought | Purpose | Key Question |
 |---------|---------|-------------|
@@ -82,7 +82,7 @@ Before launching Tarnished, use the 8-thought pre-spawn checklist from `context-
 | 5 | Post-Completion Validation | How will I verify outputs after completion? |
 | **6** | **Revision Checkpoint** | Can I merge redundant Tarnished? Split overloaded Tarnished? Is the context budget per Tarnished appropriate? |
 | **7** | **Fallback Strategies** | If a Tarnished times out or MCP is unavailable, what's Plan B? Document in inscription |
-| **8** | **Verification Planning** | Which layers of Truthsight to enable? When to spawn verifier? |
+| **8** | **Verification Planning** | Which layers of Truthsight to enable? When to summon verifier? |
 
 **When to use**: Always use for 3+ Tarnished. Use Thoughts 1-5 only for 1-2 Tarnished (skip 6-8 unless complex).
 
@@ -92,9 +92,9 @@ Use structured reasoning when these conditions arise during execution:
 
 | Trigger | Reasoning Action |
 |---------|-----------------|
-| Tarnished timeout (no response after expected duration) | Revise inscription: mark Tarnished as `partial`, decide whether to re-spawn or continue without |
+| Tarnished timeout (no response after expected duration) | Revise inscription: mark Tarnished as `partial`, decide whether to re-summon or continue without |
 | Tier 2 clarification request from Tarnished | Assess: Can I answer from context? If not, degrade to Tier 1 (flag + proceed) |
-| Partial failure (1 of N Tarnished failed) | Evaluate: Is the failed Tarnished's scope critical? If yes, re-spawn. If no, document gap in TOME |
+| Partial failure (1 of N Tarnished failed) | Evaluate: Is the failed Tarnished's scope critical? If yes, re-summon. If no, document gap in TOME |
 | Unexpected patterns discovered | Dynamic scope: Should I add a conditional Tarnished? (e.g., payment code found mid-review) |
 
 ### 3. Post-Aggregate (Elden Lord)
@@ -182,7 +182,7 @@ If Sequential Thinking MCP is unavailable:
 
 | Checkpoint | Fallback |
 |-----------|----------|
-| Pre-spawn (lead) | Use the 8-thought checklist as a manual checklist (think through each point without the MCP tool) |
+| Pre-summon (lead) | Use the 8-thought checklist as a manual checklist (think through each point without the MCP tool) |
 | Mid-monitor (lead) | Use heuristic decision tables in inscription-protocol.md |
 | Post-aggregate (lead) | Apply conflict resolution rules from rune-orchestration SKILL.md directly |
 | Self-review (Tarnished) | The self-review protocol is inline prompt text — works regardless of MCP availability |
@@ -212,11 +212,11 @@ Sequential Thinking adds minimal overhead because it structures existing reasoni
 
 ## Integration with Sequential Thinking MCP
 
-If the `mcp__sequential-thinking__sequentialthinking` tool is available, use it for the pre-spawn checklist and post-aggregate conflict resolution. The structured reasoning checkpoints map directly to Sequential Thinking parameters:
+If the `mcp__sequential-thinking__sequentialthinking` tool is available, use it for the pre-summon checklist and post-aggregate conflict resolution. The structured reasoning checkpoints map directly to Sequential Thinking parameters:
 
 | Checkpoint | `thoughtNumber` range | `totalThoughts` |
 |-----------|----------------------|-----------------|
-| Pre-spawn | 1-8 | 8 |
+| Pre-summon | 1-8 | 8 |
 | Mid-monitor | Varies | Varies (per intervention) |
 | Post-aggregate | 1-6 | 6 (adjust for conflicts) |
 
@@ -224,7 +224,7 @@ Use `isRevision: true` when reconsidering a decision. Use `branchFromThought` wh
 
 ## References
 
-- Pre-spawn checklist: `../../context-weaving/SKILL.md` (Thoughts 1-8)
+- Pre-summon checklist: `../../context-weaving/SKILL.md` (Thoughts 1-8)
 - Conflict resolution: `../SKILL.md` → "Conflict Resolution Rules"
 - Truthbinding Protocol: `inscription-protocol.md` → "Truthbinding Protocol"
 - Prompt engineering: `prompt-weaving.md` → 7-section template

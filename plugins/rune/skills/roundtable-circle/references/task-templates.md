@@ -1,6 +1,6 @@
 # Task Templates — TaskCreate for Each Tarnished
 
-> Copy-paste templates for creating tasks when spawning Tarnished.
+> Copy-paste templates for creating tasks when summoning Tarnished.
 
 ## Review Mode Templates
 
@@ -76,7 +76,7 @@ TaskCreate({
 })
 ```
 
-## Spawn Templates
+## Summon Templates
 
 ### Background Teammate (Agent Teams)
 

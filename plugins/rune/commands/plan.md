@@ -42,7 +42,7 @@ Orchestrates a planning pipeline using Agent Teams with dependency-aware task sc
 /rune:plan                              # Standard planning (research + synthesize + review)
 /rune:plan --brainstorm                 # Start with brainstorm phase
 /rune:plan --forge                      # Include research enrichment
-/rune:plan --forge --exhaustive         # Spawn ALL agents per section
+/rune:plan --forge --exhaustive         # Summon ALL agents per section
 /rune:plan --brainstorm --forge         # Full pipeline
 ```
 
@@ -185,7 +185,7 @@ This file is read by research agents to inform their search.
 
 ## Phase 1: Research (Conditional, up to 6 agents)
 
-Create an Agent Teams team and spawn research tasks using the conditional research pipeline.
+Create an Agent Teams team and summon research tasks using the conditional research pipeline.
 
 ### Phase 1A: Local Research (always runs)
 
@@ -199,7 +199,7 @@ TeamCreate({ team_name: "rune-plan-{timestamp}" })
 // 2. Create research output directory
 mkdir -p tmp/plans/{timestamp}/research/
 
-// 3. Spawn local research agents (always run — these are cheap and essential)
+// 3. Summon local research agents (always run — these are cheap and essential)
 TaskCreate({ subject: "Research repo patterns", description: "..." })       // #1
 TaskCreate({ subject: "Read past echoes", description: "..." })             // #2
 TaskCreate({ subject: "Analyze git history", description: "..." })          // #3
@@ -276,10 +276,10 @@ After local research completes, evaluate whether external research is needed.
 
 ### Phase 1C: External Research (conditional)
 
-Spawn only if the research decision requires external input:
+Summon only if the research decision requires external input:
 
 ```javascript
-// Only spawned if risk >= 0.65 OR local sufficiency < 0.70
+// Only summoned if risk >= 0.65 OR local sufficiency < 0.70
 TaskCreate({ subject: "Research best practices", description: "..." })      // #4
 TaskCreate({ subject: "Research framework docs", description: "..." })      // #5
 
@@ -611,7 +611,7 @@ for (const [section, agents] of assignments) {
   console.log(`  ${section.title}: ${agents.map(a => `${a.name} (${a.score})`).join(", ")}`)
 }
 
-// 4. Create tasks and spawn matched agents
+// 4. Create tasks and summon matched agents
 for (const [section, agents] of assignments) {
   for (const agent of agents) {
     TaskCreate({ subject: `Forge: ${section.title} (${agent.name})` })
@@ -674,15 +674,15 @@ Default --forge:
   - Two-tier aggregation: per-section synthesizer → lead
 ```
 
-**Spawn throttle enforcement**:
+**Summon throttle enforcement**:
 1. Max 5 concurrent agents per phase
 2. Concurrent arc run prevention: check for active `.claude/arc/*/checkpoint.json`
 3. Total agent cap enforcement via Forge Gaze `MAX_TOTAL_AGENTS`
 
-**Cost warning** (displayed before spawning):
+**Cost warning** (displayed before summoning):
 
 ```
---exhaustive mode will spawn {N} agents across {M} sections = {N} agent invocations.
+--exhaustive mode will summon {N} agents across {M} sections = {N} agent invocations.
 Estimated token usage: ~{estimate}M tokens (~${cost_estimate}).
 Token budget: {budget}M. Proceed? [Y/n]
 ```
@@ -691,7 +691,7 @@ Token budget: {budget}M. Proceed? [Y/n]
 
 ### 4A: Scroll Review (always)
 
-Spawn a document quality reviewer:
+Summon a document quality reviewer:
 
 ```javascript
 Task({
@@ -717,7 +717,7 @@ If scroll-reviewer reports HIGH severity issues:
 
 ### 4C: Technical Review (optional)
 
-If user requested or plan is Comprehensive detail level, spawn in parallel:
+If user requested or plan is Comprehensive detail level, summon in parallel:
 
 ```javascript
 Task({
@@ -815,7 +815,7 @@ AskUserQuestion({
 **Action handlers**:
 - `/rune:work` → Invoke Skill("rune:work", plan_path)
 - Edit plan → Present plan for editing
-- Technical review → Spawn decree-arbiter + knowledge-keeper + scroll-reviewer as Agent Teams teammates
+- Technical review → Summon decree-arbiter + knowledge-keeper + scroll-reviewer as Agent Teams teammates
 - Create issue → See Issue Creation section
 
 ## Issue Creation

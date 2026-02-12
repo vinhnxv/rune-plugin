@@ -1,6 +1,6 @@
 # Forge Warden — Backend Reviewer Prompt
 
-> Template for spawning the Forge Warden Tarnished. Substitute `{variables}` at runtime.
+> Template for summoning the Forge Warden Tarnished. Substitute `{variables}` at runtime.
 
 ```
 # ANCHOR — TRUTHBINDING PROTOCOL

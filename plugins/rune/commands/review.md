@@ -1,7 +1,7 @@
 ---
 name: rune:review
 description: |
-  Multi-agent code review using Agent Teams. Spawns up to 5 built-in Tarnished teammates
+  Multi-agent code review using Agent Teams. Summons up to 5 built-in Tarnished teammates
   (plus custom Tarnished from talisman.yml), each with their own 200k context window.
   Handles scope selection, team creation, review orchestration, aggregation, verification, and cleanup.
 
@@ -37,14 +37,14 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off (reviews all branch changes) |
-| `--dry-run` | Show scope selection and Tarnished plan without spawning agents | Off |
-| `--max-agents <N>` | Limit total Tarnished spawned (built-in + custom). Range: 1-8 | All selected |
+| `--dry-run` | Show scope selection and Tarnished plan without summoning agents | Off |
+| `--max-agents <N>` | Limit total Tarnished summoned (built-in + custom). Range: 1-8 | All selected |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
 
 **Dry-run mode** executes Phase 0 (Pre-flight) and Phase 1 (Rune Gaze) only, then displays:
 - Changed files classified by type
-- Which Tarnished would be spawned
+- Which Tarnished would be summoned
 - File assignments per Tarnished (with context budget caps)
 - Estimated team size
 
@@ -128,7 +128,7 @@ Changed files: {count}
   Docs:     {count} files
   Other:    {count} files (skipped)
 
-Tarnished to spawn: {count} ({built_in_count} built-in + {custom_count} custom)
+Tarnished to summon: {count} ({built_in_count} built-in + {custom_count} custom)
   Built-in:
   - Forge Warden:      {file_count} files (cap: 30)
   - Ward Sentinel:     {file_count} files (cap: 20)
@@ -184,9 +184,9 @@ for (const tarnished of selectedTarnished) {
 }
 ```
 
-## Phase 3: Spawn Tarnished
+## Phase 3: Summon Tarnished
 
-Spawn ALL selected Tarnished in a **single message** (parallel execution):
+Summon ALL selected Tarnished in a **single message** (parallel execution):
 
 ```javascript
 // Built-in Tarnished: load prompt from tarnished-prompts/{role}.md
@@ -251,7 +251,7 @@ Task({
 If inscription.json has `verification.enabled: true`:
 
 1. **Layer 0**: Lead runs grep-based inline checks (file paths exist, line numbers valid)
-2. **Layer 2**: Spawn Truthsight Verifier for P1 findings (see `rune-orchestration/references/verifier-prompt.md`)
+2. **Layer 2**: Summon Truthsight Verifier for P1 findings (see `rune-orchestration/references/verifier-prompt.md`)
 3. Flag any HALLUCINATED findings
 
 ## Phase 7: Cleanup & Echo Persist

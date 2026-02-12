@@ -109,7 +109,7 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 **PR:** #{pr-number}
 **Date:** {timestamp}
-**Tarnished:** {count} spawned, {count} completed
+**Tarnished:** {count} summoned, {count} completed
 
 ## P1 (Critical) — {count} findings
 
@@ -139,7 +139,7 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 - Total findings: {count}
 - P1: {count}, P2: {count}, P3: {count}
-- Tarnished: {completed}/{spawned}
+- Tarnished: {completed}/{summoned}
 - Evidence coverage: {verified}/{total}
 ```
 

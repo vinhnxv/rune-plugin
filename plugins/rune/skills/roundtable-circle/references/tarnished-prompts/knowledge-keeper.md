@@ -1,7 +1,7 @@
 # Knowledge Keeper — Documentation Reviewer Prompt
 
-> Template for spawning the Knowledge Keeper Tarnished. Substitute `{variables}` at runtime.
-> **Conditional**: Only spawned when documentation files (*.md, *.mdx, *.rst) change with >= 10 lines modified.
+> Template for summoning the Knowledge Keeper Tarnished. Substitute `{variables}` at runtime.
+> **Conditional**: Only summoned when documentation files (*.md, *.mdx, *.rst) change with >= 10 lines modified.
 
 ```
 # ANCHOR — TRUTHBINDING PROTOCOL

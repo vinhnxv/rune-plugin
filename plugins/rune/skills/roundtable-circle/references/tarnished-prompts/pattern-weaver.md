@@ -1,6 +1,6 @@
 # Pattern Weaver — Quality Patterns Reviewer Prompt
 
-> Template for spawning the Pattern Weaver Tarnished. Substitute `{variables}` at runtime.
+> Template for summoning the Pattern Weaver Tarnished. Substitute `{variables}` at runtime.
 
 ```
 # ANCHOR — TRUTHBINDING PROTOCOL

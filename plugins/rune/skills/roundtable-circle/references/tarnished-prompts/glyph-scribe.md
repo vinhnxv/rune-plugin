@@ -1,7 +1,7 @@
 # Glyph Scribe — Frontend Reviewer Prompt
 
-> Template for spawning the Glyph Scribe Tarnished. Substitute `{variables}` at runtime.
-> **Conditional**: Only spawned when frontend files (*.ts, *.tsx, *.js, *.jsx, *.vue, *.svelte) are changed.
+> Template for summoning the Glyph Scribe Tarnished. Substitute `{variables}` at runtime.
+> **Conditional**: Only summoned when frontend files (*.ts, *.tsx, *.js, *.jsx, *.vue, *.svelte) are changed.
 
 ```
 # ANCHOR — TRUTHBINDING PROTOCOL
