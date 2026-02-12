@@ -249,6 +249,9 @@ Task({
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT).
     Include custom Ash outputs in dedup — use their finding_prefix from config.
     Write unified summary to tmp/reviews/{identifier}/TOME.md.
+    IMPORTANT: Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
+    Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.
+    The session_nonce is from inscription.json. Without these markers, /rune:mend cannot parse findings.
     See roundtable-circle/references/dedup-runes.md for dedup algorithm.`
 })
 ```
@@ -272,6 +275,7 @@ for (const ash of allAsh) {
 // 2. Wait for shutdown approvals (max 30s)
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+// identifier validated at Phase 2: /^[a-zA-Z0-9_-]+$/
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-review-{identifier}/ ~/.claude/tasks/rune-review-{identifier}/ 2>/dev/null")
 }

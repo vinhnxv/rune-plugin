@@ -105,7 +105,7 @@ if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
   # Extract plan name from filename
   plan_name=$(basename "$plan_file" .md | sed 's/[^a-zA-Z0-9]/-/g')
   plan_name=${plan_name:-unnamed}
-  branch_name="rune/arc-${plan_name}-$(date +%Y%m%d)"
+  branch_name="rune/arc-${plan_name}-$(date +%Y%m%d-%H%M%S)"
   git checkout -b -- "$branch_name"
 fi
 ```
@@ -115,10 +115,18 @@ If already on a feature branch, use the current branch.
 ### Concurrent Arc Prevention
 
 ```bash
-# Check for active arc sessions
-active=$(ls .claude/arc/*/checkpoint.json 2>/dev/null | while read f; do
-  jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
-done)
+# Check for active arc sessions (with jq fallback)
+if command -v jq >/dev/null 2>&1; then
+  active=$(ls .claude/arc/*/checkpoint.json 2>/dev/null | while read f; do
+    jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
+  done)
+else
+  # Fallback: grep for in_progress status when jq is unavailable
+  active=$(ls .claude/arc/*/checkpoint.json 2>/dev/null | while read f; do
+    # grep fallback: less precise than jq, matches status fields
+    if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then basename "$(dirname "$f")"; fi
+  done)
+fi
 
 if [ -n "$active" ]; then
   echo "Active arc session detected: $active"

@@ -202,6 +202,9 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: "rune-forge-{timestamp}" })
 
+// Create output directory before agents write to it
+Bash(`mkdir -p "tmp/forge/${timestamp}"`)
+
 // Create tasks for each agent assignment
 for (const [section, agents] of assignments) {
   for (const [agent, score] of agents) {
@@ -312,7 +315,7 @@ Before any edits, back up the plan so enrichment can be reverted:
 
 ```javascript
 const backupPath = `tmp/forge/{timestamp}/original-plan.md`
-Bash(`mkdir -p "tmp/forge/{timestamp}"`)
+// Directory already created in Phase 4
 Bash(`cp "${planPath}" "${backupPath}"`)
 log(`Backup saved: ${backupPath}`)
 ```

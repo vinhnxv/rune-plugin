@@ -141,14 +141,25 @@ Write("tmp/.rune-work-{timestamp}.json", {
   expected_workers: workerCount
 })
 
-// 3. Create task pool with dependencies
-for (const task of extractedTasks) {
+// 3. Create task pool and map symbolic refs to real IDs
+const idMap = {}  // Map symbolic refs (#1, #2...) to actual task IDs
+for (let i = 0; i < extractedTasks.length; i++) {
+  const task = extractedTasks[i]
   const id = TaskCreate({
     subject: task.subject,
     description: `${task.description}\n\nPlan: ${planPath}\nType: ${task.type}`
   })
+  idMap[`#${i + 1}`] = id  // Map symbolic ref to real task ID
+}
+
+// 4. Link dependencies using mapped IDs
+for (let i = 0; i < extractedTasks.length; i++) {
+  const task = extractedTasks[i]
   if (task.blockedBy.length > 0) {
-    TaskUpdate({ taskId: id, addBlockedBy: task.blockedBy })
+    const realBlockers = task.blockedBy.map(ref => idMap[ref]).filter(Boolean)
+    if (realBlockers.length > 0) {
+      TaskUpdate({ taskId: idMap[`#${i + 1}`], addBlockedBy: realBlockers })
+    }
   }
 }
 ```
@@ -178,15 +189,21 @@ Task({
     5. Read existing code patterns in the codebase
     6. Implement with TDD cycle (test → implement → refactor)
     7. Run quality gates (discovered from Makefile/package.json/pyproject.toml)
-    8. IF ward passes: stage files (git add <specific files>),
-       write sanitized commit message to tmp file,
-       commit (git commit -F <msg-file>) with format:
-       "rune: <task-subject> [ward-checked]"
-    9. IF ward fails: do NOT commit, flag task for review, continue to next.
-    10. TaskUpdate({ taskId, status: "completed" })
-    11. SendMessage to the Tarnished: "Seal: task #{id} done. Files: {list}"
-    12. TaskList() → claim next or exit
+    8. IF ward passes:
+       a. Stage files (git add <specific files>)
+       b. Write sanitized commit message to tmp file
+       c. Commit (git commit -F <msg-file>) with format:
+          "rune: <task-subject> [ward-checked]"
+       d. TaskUpdate({ taskId, status: "completed" })
+       e. SendMessage to the Tarnished: "Seal: task #{id} done. Files: {list}"
+    9. IF ward fails:
+       a. Do NOT commit
+       b. TaskUpdate({ taskId, status: "pending", owner: "" })
+       c. SendMessage to the Tarnished: "Ward failed on task #{id}: {failure summary}"
+    10. TaskList() → claim next or exit
 
+    RETRY LIMIT: Do NOT reclaim a task you just released due to ward failure.
+    Track failed task IDs internally and skip them when scanning TaskList.
     EXIT: No tasks after 3 retries (30s each) → idle notification → exit
     SHUTDOWN: Approve immediately
 
@@ -214,15 +231,21 @@ Task({
     5. Discover test patterns (framework, fixtures, assertions)
     6. Write tests following discovered patterns
     7. Run tests to verify they pass
-    8. IF tests pass: stage files (git add <specific files>),
-       write sanitized commit message to tmp file,
-       commit (git commit -F <msg-file>) with format:
-       "rune: <task-subject> [ward-checked]"
-    9. IF tests fail: do NOT commit, flag task for review, continue to next.
-    10. TaskUpdate({ taskId, status: "completed" })
-    11. SendMessage to the Tarnished: "Seal: tests for #{id}. Pass: {count}/{total}"
-    12. TaskList() → claim next or exit
+    8. IF tests pass:
+       a. Stage files (git add <specific files>)
+       b. Write sanitized commit message to tmp file
+       c. Commit (git commit -F <msg-file>) with format:
+          "rune: <task-subject> [ward-checked]"
+       d. TaskUpdate({ taskId, status: "completed" })
+       e. SendMessage to the Tarnished: "Seal: tests for #{id}. Pass: {count}/{total}"
+    9. IF tests fail:
+       a. Do NOT commit
+       b. TaskUpdate({ taskId, status: "pending", owner: "" })
+       c. SendMessage to the Tarnished: "Tests failed on task #{id}: {failure summary}"
+    10. TaskList() → claim next or exit
 
+    RETRY LIMIT: Do NOT reclaim a task you just released due to test failure.
+    Track failed task IDs internally and skip them when scanning TaskList.
     EXIT: No tasks after 3 retries (30s each) → idle notification → exit
     SHUTDOWN: Approve immediately
 

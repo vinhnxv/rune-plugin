@@ -29,7 +29,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/reviews/{id}/` | Review outputs, TOME.md, inscription.json | Yes (if completed) |
 | `tmp/audit/{id}/` | Audit outputs, TOME.md | Yes (if completed) |
 | `tmp/plans/{id}/` | Research findings, plan artifacts | Yes |
-| `tmp/work/` | Work agent status files | Yes |
+| `tmp/work/` | Work agent status files | Yes (if no active work team) |
 | `tmp/scratch/` | Session scratch pads | Yes |
 | `tmp/mend/{id}/` | Mend resolution reports, fixer outputs | Yes (if completed) |
 | `tmp/arc/{id}/` | Arc pipeline artifacts (enriched plans, TOME, reports) | Yes (if completed) |
@@ -43,6 +43,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/.rune-review-*.json` (active) | Active workflow state |
 | `tmp/.rune-audit-*.json` (active) | Active workflow state |
 | `tmp/.rune-mend-*.json` (active) | Mend concurrency detection |
+| `tmp/.rune-work-*.json` (active) | Active work workflow state |
 
 ## Steps
 
@@ -50,11 +51,12 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 
 ```bash
 # Look for active state files (status != completed, cancelled)
-ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json 2>/dev/null
+ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json tmp/.rune-work-*.json 2>/dev/null
 ```
 
 For each state file found, read and check status:
 - `"status": "active"` → **SKIP** associated directory, warn user
+- `"status": "partial"` → **SKIP** associated directory, warn user (mend had failures — artifacts may be needed)
 - `"status": "completed"` or `"status": "cancelled"` → Safe to clean
 
 ### 2. Inventory Artifacts
@@ -122,8 +124,17 @@ done
 # Remove plan research artifacts (unconditional — no state file)
 rm -rf tmp/plans/
 
-# Remove work status files (unconditional — no state file)
-rm -rf tmp/work/
+# Remove work artifacts — conditional on no active work teams
+# Check work state files for active status (consistent with review/audit/mend checks)
+active_work=""
+for f in tmp/.rune-work-*.json; do
+  [ -f "$f" ] && grep -q '"status"[[:space:]]*:[[:space:]]*"active"' "$f" && active_work="$f"
+done
+if [ -z "$active_work" ]; then
+  rm -rf tmp/work/
+else
+  echo "SKIP: tmp/work/ — active work team detected"
+fi
 
 # Remove scratch files (unconditional — no state file)
 rm -rf tmp/scratch/
@@ -132,9 +143,10 @@ rm -rf tmp/scratch/
 rm -f tmp/.rune-review-{completed_ids}.json
 rm -f tmp/.rune-audit-{completed_ids}.json
 rm -f tmp/.rune-mend-{completed_ids}.json
+rm -f tmp/.rune-work-{completed_ids}.json
 ```
 
-**Note:** `tmp/plans/`, `tmp/work/`, and `tmp/scratch/` are removed unconditionally (no active-state check). These directories do not have state files and are always safe to clean. `tmp/mend/` and `tmp/arc/` directories follow the same active-state check as reviews and audits. Arc checkpoint state at `.claude/arc/` is NEVER cleaned — it lives outside `tmp/` and is needed for `--resume`.
+**Note:** `tmp/plans/` and `tmp/scratch/` are removed unconditionally (no active-state check). `tmp/work/` is conditionally removed — it checks for active work teams first (work proposals in `tmp/work/{id}/proposals/` are needed during `--approve` mode). `tmp/mend/` and `tmp/arc/` directories follow the same active-state check as reviews and audits. Arc checkpoint state at `.claude/arc/` is NEVER cleaned — it lives outside `tmp/` and is needed for `--resume`.
 
 ### 6. Report
 

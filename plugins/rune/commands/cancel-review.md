@@ -30,17 +30,36 @@ Cancel an active Roundtable Circle review and gracefully shutdown all teammates.
 ### 1. Find Active Review
 
 ```bash
-# Find active review state files
-ls tmp/.rune-review-*.json 2>/dev/null
+# Find active review state files, most recent first
+ls -t tmp/.rune-review-*.json 2>/dev/null
 ```
 
-If no active review found: "No active review to cancel."
+If no state files found: "No active review to cancel."
 
-### 2. Read State
+### 2. Select & Read State
+
+Read each state file and filter to active ones. If multiple active reviews exist, cancel the most recent:
 
 ```javascript
-state = Read("tmp/.rune-review-{identifier}.json")
+// Read each state file, find most recent active one
+const activeStates = stateFiles
+  .map(f => ({ path: f, state: Read(f) }))
+  .filter(s => s.state.status === "active")
+  .sort((a, b) => new Date(b.state.started) - new Date(a.state.started))
+
+if (activeStates.length === 0) {
+  return "No active review to cancel."
+}
+
+// Use most recent active review (sorted by started timestamp)
+state = activeStates[0].state
+identifier = state.team_name.replace("rune-review-", "")
+if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) { warn("Invalid derived identifier: " + identifier); continue }
 team_name = state.team_name
+
+if (activeStates.length > 1) {
+  warn(`Multiple active reviews found (${activeStates.length}). Cancelling most recent: ${team_name}`)
+}
 ```
 
 ### 3. Broadcast Cancellation

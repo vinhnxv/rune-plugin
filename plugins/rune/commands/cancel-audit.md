@@ -30,17 +30,36 @@ Cancel an active Roundtable Circle audit and gracefully shutdown all teammates.
 ### 1. Find Active Audit
 
 ```bash
-# Find active audit state files
-ls tmp/.rune-audit-*.json 2>/dev/null
+# Find active audit state files, most recent first
+ls -t tmp/.rune-audit-*.json 2>/dev/null
 ```
 
-If no active audit found: "No active audit to cancel."
+If no state files found: "No active audit to cancel."
 
-### 2. Read State
+### 2. Select & Read State
+
+Read each state file and filter to active ones. If multiple active audits exist, cancel the most recent:
 
 ```javascript
-state = Read("tmp/.rune-audit-{identifier}.json")
+// Read each state file, find most recent active one
+const activeStates = stateFiles
+  .map(f => ({ path: f, state: Read(f) }))
+  .filter(s => s.state.status === "active")
+  .sort((a, b) => new Date(b.state.started) - new Date(a.state.started))
+
+if (activeStates.length === 0) {
+  return "No active audit to cancel."
+}
+
+// Use most recent active audit (sorted by started timestamp)
+state = activeStates[0].state
+identifier = state.team_name.replace("rune-audit-", "")
+if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) { warn("Invalid derived identifier: " + identifier); continue }
 team_name = state.team_name
+
+if (activeStates.length > 1) {
+  warn(`Multiple active audits found (${activeStates.length}). Cancelling most recent: ${team_name}`)
+}
 ```
 
 ### 3. Broadcast Cancellation
