@@ -62,7 +62,7 @@ Phase 1: PLAN → Analyze dependencies, determine fixer count
     ↓
 Phase 2: FORGE TEAM → TeamCreate + TaskCreate per file group
     ↓
-Phase 3: SPAWN FIXERS → One mend-fixer per file group
+Phase 3: SUMMON FIXERS → One mend-fixer per file group
     ↓ (fixers read → fix → verify → report)
 Phase 4: MONITOR → Poll TaskList, stale/timeout detection
     ↓
@@ -230,7 +230,7 @@ for (const [file, findings] of Object.entries(fileGroups)) {
 }
 ```
 
-## Phase 3: SPAWN FIXERS
+## Phase 3: SUMMON FIXERS
 
 Summon one mend-fixer teammate per file group:
 

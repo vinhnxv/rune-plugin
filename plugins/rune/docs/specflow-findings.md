@@ -1,6 +1,6 @@
 # SpecFlow Analysis Findings
 
-> From the v0.1.0 planning phase. Updated through v1.8.2.
+> From the v0.1.0 planning phase. Updated through v1.10.0.
 
 ## Resolved (v0.1 → v1.8)
 

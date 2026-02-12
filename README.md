@@ -24,9 +24,9 @@ Plan → Work → Review → Mend → Audit
 | `/rune:work` | Execute plans with self-organizing swarm workers |
 | `/rune:review` | Multi-agent code review before merging |
 | `/rune:mend` | Parallel finding resolution from TOME |
-| `/rune:audit` | Full codebase audit with specialized Tarnished |
+| `/rune:audit` | Full codebase audit with specialized Ashes |
 
-Each Tarnished teammate gets its own 200k context window, eliminating single-context bottlenecks.
+Each Ash teammate gets its own 200k context window, eliminating single-context bottlenecks.
 
 ## Learn More
 
@@ -37,7 +37,7 @@ Each Tarnished teammate gets its own 200k context window, eliminating single-con
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.9.0 |
+| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.10.0 |
 
 ## Structure
 

@@ -24,7 +24,7 @@ allowed-tools:
 
 Project-level agent memory that compounds knowledge across sessions. Each workflow writes learnings to `.claude/echoes/`, and future workflows read them to avoid repeating mistakes.
 
-> "The Ash collects runes to grow stronger. Each engineering session should do the same."
+> "The Tarnished collects runes to grow stronger. Each engineering session should do the same."
 
 ## Architecture
 
