@@ -6,12 +6,12 @@ description: |
   per-phase teams, circuit breakers, and artifact-based handoff.
 
   <example>
-  user: "/rune:arc docs/plans/feat-user-auth-plan.md"
+  user: "/rune:arc plans/feat-user-auth-plan.md"
   assistant: "The Tarnished begins the arc — 6 phases of forge, review, and mend..."
   </example>
 
   <example>
-  user: "/rune:arc docs/plans/feat-user-auth-plan.md --resume"
+  user: "/rune:arc plans/feat-user-auth-plan.md --resume"
   assistant: "Resuming arc from Phase 3 (WORK) — validating checkpoint integrity..."
   </example>
 user-invocable: true
@@ -125,6 +125,16 @@ if [ -n "$active" ]; then
   echo "Cancel with /rune:cancel-arc or wait for completion"
   exit 1
 fi
+```
+
+### Validate Plan Path
+
+```javascript
+// Validate plan path: prevent shell injection in Bash calls
+if (!/^[a-zA-Z0-9._\/-]+$/.test(planFile)) {
+  error(`Invalid plan path: ${planFile}. Path must contain only alphanumeric, dot, slash, hyphen, and underscore characters.`)
+  return
+}
 ```
 
 ### Initialize Checkpoint (ARC-2)

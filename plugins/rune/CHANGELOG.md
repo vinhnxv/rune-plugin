@@ -2,33 +2,33 @@
 
 ## [1.10.1] - 2026-02-13
 
+Patch release: forge enrichment improvements and review finding fixes.
+
 ### Added
 
-- `/rune:forge` — standalone plan enrichment command (deepen any existing plan with Forge Gaze)
-- `--quick` flag for `/rune:plan` — minimal pipeline (research + synthesize + review)
-- Phase 1.5: Research Consolidation Validation checkpoint
-- Phase 2.5: Shatter Assessment for complex plan decomposition
-- AI-Era Considerations section in Comprehensive template
-- SpecFlow dual-pass for Comprehensive plans
-- Automated grep verification gate in plan review phase
-- decree-arbiter 6th dimension: Internal Consistency
-
-### Changed
-
-- **Brainstorm + forge now default** — `/rune:plan` runs full pipeline by default. Use `--quick` for minimal.
-- `--skip-forge` renamed to `--no-forge` in `/rune:arc`
-- Post-plan options expanded (4 explicit + Other free-text)
-- decree-arbiter now evaluates 6 dimensions (was 5)
-- Command count: 11 → 12 (added `/rune:forge`)
+- Plan backup before forge merge — enables diff viewing and revert
+- Enrichment Output Format template — standardized subsections (Best Practices, Performance, Implementation Details, Edge Cases, References)
+- Post-enhancement options — diff, revert, deepen specific sections
+- Echo integration in forge agent prompts — agents read `.claude/echoes/` for past learnings
+- Context7 MCP + WebSearch explicit in forge agent research steps
 
 ### Fixed
 
 - forge.md agent prompts now include anti-injection guard (Truthbinding parity with plan.md)
-- arc.md internal `skip_forge` key renamed to `no_forge`
-- plan.md added missing `Load skills` directive and `Edit` tool
-- README arc examples corrected from `docs/plans/` to `plans/`
+- forge.md Phase 6 `rm -rf` now has adjacent regex guard (SEC-1)
+- forge.md RE-ANCHOR wording fixed for runtime-read plan content (SEC-2)
+- forge.md `planPath` validated before Bash calls (SEC-3)
+- arc.md YAML examples corrected from `docs/plans/` to `plans/` (DOC-1)
+- arc.md `plan_file` path validation added before checkpoint (SEC-4)
+- arc.md internal `skip_forge` key renamed to `no_forge` (QUAL-1)
+- plan.md added missing `Load skills` directive (`rune-orchestration`) and `Edit` tool
+- Pseudocode template syntax normalized to `{placeholder}` style across commands
 
-## [1.10.0] - 2026-02-13 — "The Elden Throne"
+### Removed
+
+- `docs/specflow-findings.md` — tracking document superseded by CHANGELOG and GitHub Issues
+
+## [1.10.0] - 2026-02-12 — "The Elden Throne"
 
 ### Added
 

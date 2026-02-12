@@ -35,7 +35,7 @@ allowed-tools:
 
 # /rune:plan — Multi-Agent Planning Workflow
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`
 
 Orchestrates a planning pipeline using Agent Teams with dependency-aware task scheduling.
 
