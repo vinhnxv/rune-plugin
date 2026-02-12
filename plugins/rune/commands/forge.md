@@ -198,7 +198,11 @@ for (const [section, agents] of assignments) {
         Write findings to: tmp/forge/${timestamp}/${section.slug}-${agent.name}.md
 
         NEVER write implementation code. Research and enrichment only.
-        Include evidence from actual source files (Rune Traces).`
+        Include evidence from actual source files (Rune Traces).
+        Use Context7 MCP for framework docs, WebSearch for current practices.
+        Check .claude/echoes/ for relevant past learnings.
+        Follow the Enrichment Output Format (Best Practices, Performance,
+        Implementation Details, Edge Cases, References).`
     })
   }
 }
@@ -221,11 +225,15 @@ for (const agentName of uniqueAgents(assignments)) {
       1. TaskList() → find unblocked, unowned tasks matching your name
       2. Claim: TaskUpdate({ taskId, owner: "${agentName}", status: "in_progress" })
       3. Read the plan section from ${planPath}
-      4. Research codebase patterns, docs, or external sources relevant to your perspective
-      5. Write enrichment to the output path specified in task description
-      6. TaskUpdate({ taskId, status: "completed" })
-      7. SendMessage to the Tarnished: "Seal: enrichment for {section} done."
-      8. TaskList() → claim next or exit
+      4. Check .claude/echoes/ for relevant past learnings (if directory exists)
+      5. Research codebase patterns via Glob/Grep/Read. For external research,
+         use Context7 MCP (resolve-library-id → query-docs) for framework docs,
+         and WebSearch for current best practices (2026+).
+      6. Write enrichment using the Enrichment Output Format (see above)
+         to the output path specified in task description
+      7. TaskUpdate({ taskId, status: "completed" })
+      8. SendMessage to the Tarnished: "Seal: enrichment for {section} done."
+      9. TaskList() → claim next or exit
 
       EXIT: No tasks after 2 retries (30s each) → idle notification → exit
       SHUTDOWN: Approve immediately
@@ -237,6 +245,31 @@ for (const agentName of uniqueAgents(assignments)) {
   })
 }
 ```
+
+### Enrichment Output Format
+
+Each agent MUST structure their output file using these subsections (include only those relevant to their perspective):
+
+```markdown
+## Enrichment: {section title} — {agent name}
+
+### Best Practices
+{Industry standards, community conventions, proven patterns}
+
+### Performance Considerations
+{Complexity analysis, bottlenecks, optimization opportunities}
+
+### Implementation Details
+{Concrete recommendations, code patterns from the codebase, specific approaches}
+
+### Edge Cases & Risks
+{Failure modes, boundary conditions, security implications}
+
+### References
+{File paths with line numbers, external docs, related PRs/issues}
+```
+
+Agents should produce **concrete, actionable** recommendations with evidence from actual source files (Rune Traces). Empty subsections should be omitted, not left blank.
 
 ### Monitor
 
@@ -258,6 +291,18 @@ while (not all tasks completed) {
 ```
 
 ## Phase 5: Merge Enrichments
+
+### Backup Original
+
+Before any edits, back up the plan so enrichment can be reverted:
+
+```javascript
+const backupPath = `tmp/forge/${timestamp}/original-plan.md`
+Bash(`cp "${planPath}" "${backupPath}"`)
+log(`Backup saved: ${backupPath}`)
+```
+
+### Apply Enrichments
 
 Read each enrichment output and merge into the plan using Edit (preserving existing content):
 
@@ -307,6 +352,7 @@ try { TeamDelete() } catch (e) {
 The Tarnished has tempered the plan in forge fire.
 
 Plan: {planPath}
+Backup: tmp/forge/{timestamp}/original-plan.md
 Sections enriched: {enrichedCount}/{totalSections}
 Agents summoned: {agentCount}
 Mode: {default|exhaustive}
@@ -315,12 +361,33 @@ Enrichments added:
 - "Technical Approach" — rune-architect, pattern-seer, simplicity-warden
 - "Security Requirements" — ward-sentinel, flaw-hunter
 - ...
-
-Next steps:
-1. Review enriched plan: {planPath}
-2. /rune:work {planPath} — Start implementing
-3. /rune:review — Review after implementation
 ```
+
+### Post-Enhancement Options
+
+After presenting the completion report, offer next steps:
+
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: `Plan enriched at ${planPath}. What would you like to do next?`,
+    header: "Next step",
+    options: [
+      { label: "/rune:work (Recommended)", description: "Start implementing this plan with swarm workers" },
+      { label: "View diff", description: "Show what the forge changed (diff against backup)" },
+      { label: "Revert enrichment", description: "Restore the original plan from backup" },
+      { label: "Deepen sections", description: "Re-run forge on specific sections for more depth" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+**Action handlers**:
+- `/rune:work` → Invoke `Skill("rune:work", planPath)`
+- **View diff** → `Bash(\`diff -u "tmp/forge/${timestamp}/original-plan.md" "${planPath}" || true\`)` — display unified diff of all changes
+- **Revert enrichment** → `Bash(\`cp "tmp/forge/${timestamp}/original-plan.md" "${planPath}"\`)` — restore original, confirm to user
+- **Deepen sections** → Ask which sections to re-deepen via AskUserQuestion, then re-run Phase 2-5 targeting only those sections (reuse same `timestamp` and backup)
 
 ## Error Handling
 
@@ -332,6 +399,8 @@ Next steps:
 | Agent timeout (>5 min) | Release task, warn user, proceed with available enrichments |
 | Team lifecycle failure | Pre-create guard + rm fallback (see team-lifecycle-guard.md) |
 | Edit conflict (section changed) | Re-read plan, retry Edit with updated content |
+| Enrichment quality poor | User can revert from backup (`tmp/forge/{id}/original-plan.md`) |
+| Backup file missing | Warn user — cannot revert. Suggest `git checkout` as fallback |
 
 ## RE-ANCHOR
 

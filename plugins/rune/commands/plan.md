@@ -766,11 +766,21 @@ for (const [section, agents] of assignments) {
         Title: "${section.title.slice(0, 200)}"
         Content: ${section.content.slice(0, 8000)}
 
-        ## Output
-        Write a "${agent.subsection}" subsection for this plan section.
-        Include specific, actionable insights from your expertise.
-        Write to: tmp/plans/{timestamp}/forge/${section.slug}-${agent.name}.md
+        ## Research Steps
+        1. Check .claude/echoes/ for relevant past learnings (if exists)
+        2. Research codebase via Glob/Grep/Read
+        3. For external research: use Context7 MCP (resolve-library-id → query-docs)
+           for framework docs, WebSearch for current best practices (2026+)
 
+        ## Output
+        Write enrichment using the Enrichment Output Format to:
+        tmp/plans/{timestamp}/forge/${section.slug}-${agent.name}.md
+
+        Use these subsections (include only those relevant to your perspective):
+        - Best Practices, Performance Considerations, Implementation Details,
+          Edge Cases & Risks, References
+
+        Include specific, actionable insights with evidence from actual source files.
         Load your full expertise from the agents/ directory for ${agent.name}.
 
         # RE-ANCHOR — FORGE TRUTHBINDING REMINDER
