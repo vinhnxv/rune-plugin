@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.8.2] - 2026-02-12
+
+### Added
+
+- Remembrance directory structure — `docs/solutions/` with 8 category directories and README
+
+### Fixed
+
+- SpecFlow findings updated through v1.8.1 (was stuck at v1.2.0) — added 20 resolved entries
+- Stale `codex-scholar` references in plan document updated to `lore-scholar`
+
+## [1.8.1] - 2026-02-12
+
+### Changed
+
+- **Agent rename**: `codex-scholar` → `lore-scholar` — avoids name collision with OpenAI's codex-cli. "Lore" fits the Elden Ring theme and conveys documentation research. Updated across 7 files (agent definition, commands, skills, CLAUDE.md, README, CHANGELOG).
+
 ## [1.8.0] - 2026-02-12 — "Knowledge & Safety"
 
 ### Added
@@ -220,7 +237,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 ### Added
 
 - `/rune:plan` — Multi-agent planning with parallel research pipeline
-  - 3 new research agents (lore-seeker, realm-analyst, codex-scholar) plus echo-reader (from v0.3.0)
+  - 3 new research agents (lore-seeker, realm-analyst, lore-scholar) plus echo-reader (from v0.3.0)
   - Optional brainstorm phase (`--brainstorm`)
   - Optional deep section-level research (`--deep`)
   - Scroll Reviewer document quality check

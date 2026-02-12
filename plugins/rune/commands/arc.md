@@ -200,7 +200,7 @@ TeamCreate({ team_name: `arc-forge-${id}` })
 // Spawn 5 research agents in parallel
 const agents = [
   { name: "practice-seeker", task: "External best practices for: {plan_sections}" },
-  { name: "codex-scholar", task: "Framework documentation relevant to: {plan_sections}" },
+  { name: "lore-scholar", task: "Framework documentation relevant to: {plan_sections}" },
   { name: "repo-surveyor", task: "Codebase patterns relevant to: {plan_sections}" },
   { name: "git-miner", task: "Git history context for: {plan_sections}" },
   { name: "echo-reader", task: "Past learnings from Rune Echoes relevant to: {plan_sections}" }

@@ -211,7 +211,7 @@ Spawned during `/rune:plan` for parallel research:
 |-------|---------|
 | practice-seeker | External best practices and industry patterns |
 | repo-surveyor | Codebase exploration and pattern discovery |
-| codex-scholar | Framework documentation and API research |
+| lore-scholar | Framework documentation and API research |
 | git-miner | Git history analysis and code archaeology |
 | echo-reader | Reads past Rune Echoes for relevant learnings |
 

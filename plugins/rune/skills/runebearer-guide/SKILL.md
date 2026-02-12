@@ -85,7 +85,7 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 |-------|------|
 | `rune:research:practice-seeker` | External best practices research |
 | `rune:research:repo-surveyor` | Codebase/repo exploration |
-| `rune:research:codex-scholar` | Framework documentation research |
+| `rune:research:lore-scholar` | Framework documentation research |
 | `rune:research:echo-reader` | Reads Rune Echoes (past learnings) |
 | `rune:research:git-miner` | Git history archaeology |
 

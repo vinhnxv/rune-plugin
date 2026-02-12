@@ -1,8 +1,8 @@
 # SpecFlow Analysis Findings
 
-> From the v0.1.0 planning phase. Updated through v1.2.0.
+> From the v0.1.0 planning phase. Updated through v1.8.2.
 
-## Resolved (v0.1 → v1.2)
+## Resolved (v0.1 → v1.8)
 
 | Finding | Version | Resolution |
 |---------|---------|------------|
@@ -27,6 +27,26 @@
 | Custom agent templates (user-defined Runebearers) | v1.4 | `custom-runebearers.md` schema, `rune-config.yml` examples, trigger matching |
 | Agent Role Patterns | v1.1 | Added to `rune-orchestration/SKILL.md` |
 | JSON output format | v1.1 | `output-format.md` + `completion.json` |
+| Selective naming refresh (E7) | v1.5 | 3 review + 3 research agents + 1 Runebearer + 1 skill + 1 command renamed |
+| TOME structured markers | v1.5 | `<!-- RUNE:FINDING nonce=... -->` format with session nonce validation |
+| decree-arbiter agent | v1.5 | 5-dimension plan review with Decree Trace evidence format |
+| knowledge-keeper standalone agent | v1.5 | Extracted from Runebearer prompt for arc Phase 2 use |
+| Parallel finding resolution (`/rune:mend`) | v1.6 | Team-based fixers with restricted tools, ward check serialization (MEND-1) |
+| Mend fixer security (ANCHOR/RE-ANCHOR) | v1.6 | Full Truthbinding Protocol for highest-risk agent type |
+| SEC-prefix FALSE_POSITIVE gate | v1.6 | Human approval required before skipping security findings |
+| Mend state file concurrency | v1.6 | `tmp/.rune-mend-{id}.json` for concurrent detection |
+| Incremental commits (E5) | v1.6 | `rune: <subject> [ward-checked]` format, sanitized via `git commit -F` |
+| End-to-end pipeline (`/rune:arc`) | v1.7 | 6-phase pipeline with checkpoint-based resume |
+| Arc checkpoint integrity (F9) | v1.7 | SHA-256 artifact hashes, monotonic phase_sequence, session nonce |
+| Per-phase tool restrictions (F8) | v1.7 | Phase-specific TeamCreate with least-privilege tool sets |
+| Arc dispatcher context management (A2) | v1.7 | Summary-only artifact reading, Glyph Budget for orchestrator |
+| `/rune:cancel-arc` command | v1.7 | Graceful phase cancellation with artifact preservation |
+| Remembrance channel (E3) | v1.8 | `docs/solutions/` with 8 categories, YAML frontmatter schema |
+| Security Remembrance gate (F6) | v1.8 | `verified_by: human` required for security category promotion |
+| `--approve` flag (E4) | v1.8 | Human approval gate for work mode with 3-min auto-REJECT timeout |
+| `--exhaustive` mode (E6) | v1.8 | All agents per section with token budget cap and cost warning |
+| Conditional research pipeline (E8) | v1.8 | Risk classification heuristics, local sufficiency scoring, brainstorm auto-detect |
+| Agent rename: `codex-scholar` → `lore-scholar` | v1.8.1 | Avoids OpenAI codex-cli name collision; updated across agent, commands, skills, docs |
 
 ## Open — Medium Priority
 

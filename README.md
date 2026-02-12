@@ -37,7 +37,7 @@ Each Runebearer teammate gets its own 200k context window, eliminating single-co
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.8.0 |
+| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.8.2 |
 
 ## Structure
 

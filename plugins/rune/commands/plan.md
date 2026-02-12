@@ -56,7 +56,7 @@ Phase 0: Gather Input (brainstorm auto-detect or accept description)
 Phase 1: Research (up to 6 parallel agents, conditional)
     ├─ Phase 1A: LOCAL RESEARCH (always — repo-surveyor, echo-reader, git-miner)
     ├─ Phase 1B: RESEARCH DECISION (risk + local sufficiency scoring)
-    ├─ Phase 1C: EXTERNAL RESEARCH (conditional — practice-seeker, codex-scholar)
+    ├─ Phase 1C: EXTERNAL RESEARCH (conditional — practice-seeker, lore-scholar)
     └─ Phase 1D: SPEC VALIDATION (always — flow-seer)
     ↓ (all research tasks converge)
 Phase 2: Synthesize (lead consolidates findings, detail level selection)
@@ -230,12 +230,12 @@ Task({
 
 Task({
   team_name: "rune-plan-{timestamp}",
-  name: "codex-scholar",
+  name: "lore-scholar",
   subagent_type: "general-purpose",
-  prompt: `You are Codex Scholar. Research framework docs for: {feature}.
+  prompt: `You are Lore Scholar. Research framework docs for: {feature}.
     Write findings to tmp/plans/{timestamp}/research/framework-docs.md.
     Claim task #5 via TaskList/TaskUpdate.
-    See agents/research/codex-scholar.md for full instructions.`,
+    See agents/research/lore-scholar.md for full instructions.`,
   run_in_background: true
 })
 ```
