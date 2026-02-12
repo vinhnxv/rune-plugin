@@ -22,7 +22,9 @@ Patch release: forge enrichment improvements and review finding fixes.
 - arc.md `plan_file` path validation added before checkpoint (SEC-4)
 - arc.md internal `skip_forge` key renamed to `no_forge` (QUAL-1)
 - plan.md added missing `Load skills` directive (`rune-orchestration`) and `Edit` tool
+- review.md, audit.md, work.md, mend.md added missing `Load skills` directives (`context-weaving`, `rune-echoes`, `rune-orchestration`)
 - Pseudocode template syntax normalized to `{placeholder}` style across commands
+- arc.md `rm -rf` sites annotated with validation cross-reference comments (SEC-5)
 
 ### Removed
 

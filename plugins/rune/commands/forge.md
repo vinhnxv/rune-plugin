@@ -326,9 +326,8 @@ for (const [section, agents] of assignments) {
   if (enrichments.length > 0) {
     // Find the section end in the plan
     // Insert enrichment subsections before the next ## heading
-    const enrichmentBlock = enrichments.map(e =>
-      `### ${e.subsection}\n\n${e.content}`
-    ).join('\n\n')
+    // Each enrichment file already contains ### headings per the Enrichment Output Format
+    const enrichmentBlock = enrichments.join('\n\n')
 
     // Use Edit to insert enrichments into the plan (not overwrite)
     Edit(planPath, {

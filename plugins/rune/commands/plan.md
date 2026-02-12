@@ -863,9 +863,10 @@ After scroll review and refinement, run deterministic checks with zero LLM hallu
 
 ```bash
 # Extensible verification — add plan-specific checks here
-rg "11 commands" plugins/rune/ .claude-plugin/    # Must be 0 (updated to 12)
-rg -- "--skip-forge" plugins/rune/                # Must be 0 (renamed to --no-forge)
-rg "optional.*--forge" plugins/rune/commands/plan.md  # Must be 0 (forge is default)
+# Exclude plan.md itself and CHANGELOG.md to avoid self-matching these patterns
+rg "11 commands" plugins/rune/ .claude-plugin/ --glob '!commands/plan.md'           # Must be 0 (updated to 12)
+rg -- "--skip-forge" plugins/rune/ --glob '!commands/plan.md' --glob '!CHANGELOG.md' # Must be 0 (renamed to --no-forge)
+rg "optional.*--forge" plugins/rune/ --glob '!commands/plan.md'                      # Must be 0 (forge is default)
 ```
 
 If any check fails: auto-fix the stale reference or flag to user before presenting the plan.

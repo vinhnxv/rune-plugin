@@ -37,6 +37,8 @@ allowed-tools:
 
 Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.
 
+**Load skills**: `context-weaving`, `rune-echoes`, `rune-orchestration`
+
 ## Usage
 
 ```

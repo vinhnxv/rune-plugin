@@ -37,7 +37,7 @@ allowed-tools:
 
 Parses a TOME file for structured findings, groups them by file to prevent concurrent edits, summons restricted mend-fixer teammates, and produces a resolution report.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`
 
 ## Usage
 

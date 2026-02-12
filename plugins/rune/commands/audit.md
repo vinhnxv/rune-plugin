@@ -31,7 +31,7 @@ allowed-tools:
 
 Orchestrate a full codebase audit using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams. Unlike `/rune:review` (which reviews only changed files), `/rune:audit` scans the entire project.
 
-**Load skill**: `roundtable-circle` for full architecture reference.
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`
 
 ## Flags
 
