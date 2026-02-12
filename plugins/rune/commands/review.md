@@ -167,6 +167,8 @@ Write("tmp/.rune-review-{identifier}.json", {
 Write("tmp/reviews/{identifier}/inscription.json", { ... })
 
 // 5. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// Validate identifier before rm -rf
+if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("Invalid review identifier")
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-review-{identifier}/ ~/.claude/tasks/rune-review-{identifier}/ 2>/dev/null")
 }

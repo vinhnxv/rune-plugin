@@ -8,6 +8,13 @@ capabilities:
   - Find documentation and tutorials
   - Identify common pitfalls and anti-patterns
   - Provide implementation examples from real-world projects
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - WebSearch
+  - WebFetch
+  - SendMessage
 ---
 
 # Practice Seeker — External Best Practices Agent

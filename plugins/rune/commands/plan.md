@@ -30,8 +30,6 @@ allowed-tools:
   - Glob
   - Grep
   - AskUserQuestion
-  - WebSearch
-  - WebFetch
 ---
 
 # /rune:plan — Multi-Agent Planning Workflow
@@ -633,8 +631,8 @@ for (const [section, agents] of assignments) {
         Focus on: ${agent.perspective}
 
         ## Section to Enrich
-        Title: "${section.title}"
-        Content: ${section.content}
+        Title: "${section.title.slice(0, 200)}"
+        Content: ${section.content.slice(0, 8000)}
 
         ## Output
         Write a "${agent.subsection}" subsection for this plan section.
@@ -655,7 +653,7 @@ for (const [section, agents] of assignments) {
 //    Read tmp/plans/{timestamp}/forge/*.md → insert under matching sections
 ```
 
-**Fallback**: If no agent scores above threshold for a section, use a generic `forge-researcher` (same as pre-Forge-Gaze behavior). Forge never produces empty enrichment.
+**Fallback**: If no agent scores above threshold for a section, use an inline generic Task prompt (not a named agent) to produce standard enrichment. Forge never produces empty enrichment.
 
 ### --exhaustive Mode (`--forge --exhaustive`)
 

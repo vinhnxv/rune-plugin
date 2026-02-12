@@ -91,7 +91,7 @@ The Elden Lord is the lead agent in every team. Machine identifier: `team-lead`.
 
 Each Tarnished is an Agent Teams teammate with its own 200k context window. A Tarnished embeds multiple review agent perspectives into a single teammate to reduce team size.
 
-Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Tarnished). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Tarnished prompts.
+Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Tarnished). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Tarnished prompts. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 7 perspectives via 5 dedicated agents).
 
 | Tarnished | Perspectives | Agent Source | When Spawned |
 |-----------|-------------|-------------|-------------|

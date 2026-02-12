@@ -8,6 +8,11 @@ capabilities:
   - Identify edge cases and error scenarios
   - Validate acceptance criteria completeness
   - Detect requirement conflicts
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - SendMessage
 ---
 
 # Flow Seer — Spec Flow Analysis Agent

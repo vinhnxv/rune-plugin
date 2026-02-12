@@ -15,6 +15,12 @@ capabilities:
   - Priority-based ordering (P1 > P2 > P3)
   - Gap reporting for incomplete deliverables
   - Statistics and evidence coverage tracking
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - Write
+  - SendMessage
 ---
 
 # Runebinder — Review Aggregation Agent

@@ -8,6 +8,12 @@ capabilities:
   - Trace file evolution and refactoring history
   - Identify contributors and review patterns
   - Discover why code exists in its current form
+allowed-tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+  - SendMessage
 ---
 
 # Git Miner — Git History Agent

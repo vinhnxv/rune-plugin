@@ -8,6 +8,17 @@ capabilities:
   - Generate integration tests for service boundaries
   - Discover and use existing test utilities and fixtures
   - Verify tests pass before marking complete
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+  - TaskList
+  - TaskGet
+  - TaskUpdate
+  - SendMessage
 ---
 
 # Trial Forger — Test Generation Agent

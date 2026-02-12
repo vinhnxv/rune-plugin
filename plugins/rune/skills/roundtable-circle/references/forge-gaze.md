@@ -26,6 +26,8 @@
 
 Each agent declares which plan section topics it can enrich, what subsection it produces, and its perspective focus.
 
+> **Note**: Forge Gaze matches agents **individually** (each agent scores independently against section topics), unlike `/rune:review` where agents are grouped into Tarnished composites. This allows fine-grained topic matching per plan section.
+
 ### Review Agents (Enrichment Budget)
 
 | Agent | Topics | Subsection | Perspective |
@@ -214,12 +216,12 @@ If `forge` is in `workflows`, these fields are **required**:
 ## Fallback Behavior
 
 If no agent scores above the threshold for a section:
-- Use generic `forge-researcher` (current behavior) as fallback
-- The generic researcher produces the standard structured subsections
+- Use an inline generic Task prompt (not a named agent) as fallback — the orchestrator spawns a general-purpose agent with a generic "research and enrich this section" prompt
+- The generic prompt produces the standard structured subsections
 
-This ensures Forge never produces empty enrichment — it gracefully degrades.
+This ensures Forge never produces empty enrichment — it gracefully degrades. There is no dedicated `forge-researcher` agent definition; the fallback uses an inline prompt.
 
-## Dry-Run Output
+## Dry-Run Output (Not Yet Implemented)
 
 > **Note**: `--dry-run` is not yet implemented in `/rune:plan`. The format below is the target specification for when it is added. Currently, Forge Gaze logs its selection transparently in the console output during Phase 3.
 

@@ -8,6 +8,11 @@ capabilities:
   - Check for ambiguous or unclear language
   - Validate cross-references and links
   - Assess actionability of requirements
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - SendMessage
 ---
 
 # Scroll Reviewer — Document Quality Agent

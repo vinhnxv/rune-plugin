@@ -30,7 +30,7 @@
 | Selective naming refresh (E7) | v1.5 | 3 review + 3 research agents + 1 Tarnished + 1 skill + 1 command renamed |
 | TOME structured markers | v1.5 | `<!-- RUNE:FINDING nonce=... -->` format with session nonce validation |
 | decree-arbiter agent | v1.5 | 5-dimension plan review with Decree Trace evidence format |
-| knowledge-keeper standalone agent | v1.5 | Extracted from Tarnished prompt for arc Phase 2 use |
+| knowledge-keeper standalone agent | v1.7 | Extracted from Tarnished prompt for arc Phase 2 use |
 | Parallel finding resolution (`/rune:mend`) | v1.6 | Team-based fixers with restricted tools, ward check serialization (MEND-1) |
 | Mend fixer security (ANCHOR/RE-ANCHOR) | v1.6 | Full Truthbinding Protocol for highest-risk agent type |
 | SEC-prefix FALSE_POSITIVE gate | v1.6 | Human approval required before skipping security findings |

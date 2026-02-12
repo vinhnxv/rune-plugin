@@ -8,6 +8,17 @@ capabilities:
   - Write code with TDD cycle (test first, then implement)
   - Run project quality gates (linting, type checking)
   - Commit changes with conventional format
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+  - TaskList
+  - TaskGet
+  - TaskUpdate
+  - SendMessage
 ---
 
 # Rune Smith — Code Implementation Agent
@@ -56,6 +67,7 @@ Run discovered gates. If any fail, fix the issues before marking complete.
 3. **Small changes**: Prefer minimal, focused changes over sweeping refactors
 4. **Test coverage**: Every implementation must have corresponding tests
 5. **No new deps**: Do not add new dependencies without explicit task instruction
+6. **Commit safety**: Sanitize commit messages — strip newlines/control chars, limit to 72 chars, escape shell metacharacters. Use `git commit -F <message-file>` (not inline `-m`) to avoid shell injection.
 
 ## Exit Conditions
 

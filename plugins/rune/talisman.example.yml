@@ -98,6 +98,9 @@ tarnished:
       finding_prefix: "API"
 
     # Example 4: An agent from another installed plugin
+    # SECURITY: Cross-plugin agents are resolved by namespace prefix.
+    # The agent name must match `{plugin}:{category}:{agent}` exactly.
+    # Path traversal (../) in agent names is rejected at load time.
     # - name: "compliance-checker"
     #   agent: "my-plugin:review:compliance-checker"
     #   source: plugin

@@ -1,7 +1,7 @@
 ---
 name: roundtable-circle
 description: |
-  Orchestrates multi-agent code reviews using Agent Teams with up to 5 Tarnished teammates.
+  Orchestrates multi-agent code reviews using Agent Teams with up to 8 Tarnished teammates (5 built-in + custom).
   This skill should be used when running /rune:review or /rune:audit. Each Tarnished gets its own 200k context window.
   Handles scope selection, team creation, inscription generation, Tarnished spawning, monitoring, aggregation, verification, and cleanup.
 

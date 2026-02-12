@@ -64,7 +64,7 @@ In `/rune:review`, agents are grouped into max 5 Tarnished:
 |-----------|-----------------|-------|
 | **Forge Warden** | rune-architect, ember-oracle, flaw-hunter, mimic-detector | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
 | **Ward Sentinel** | ward-sentinel | ALL files (security always) |
-| **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker | ALL files (quality patterns) |
+| **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker, void-analyzer | ALL files (quality patterns) |
 | **Glyph Scribe** | Inline perspectives (TypeScript safety, React performance, accessibility) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
 | **Knowledge Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
 
@@ -78,6 +78,9 @@ In `/rune:review`, agents are grouped into max 5 Tarnished:
 | `rune:utility:truthseer-validator` | Audit coverage validation (Phase 5.5) |
 | `rune:utility:flow-seer` | Spec flow analysis |
 | `rune:utility:scroll-reviewer` | Document quality review |
+| `rune:utility:decree-arbiter` | Technical soundness review for plans |
+| `rune:utility:mend-fixer` | Parallel code fixer for /rune:mend findings |
+| `rune:utility:knowledge-keeper` | Documentation coverage reviewer for plans |
 
 ## Research Agents
 

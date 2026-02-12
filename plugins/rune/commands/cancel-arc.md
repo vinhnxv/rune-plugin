@@ -41,6 +41,9 @@ If no active arc found: "No active arc pipeline to cancel."
 ```javascript
 checkpoint = Read(".claude/arc/{id}/checkpoint.json")
 
+// Validate arc id from checkpoint before using in path construction
+if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid arc id")
+
 // Derive current phase — checkpoint has no `current_phase` field,
 // scan phases object for the one with status "in_progress"
 const [current_phase, phase_info] = Object.entries(checkpoint.phases)
