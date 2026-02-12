@@ -15,14 +15,6 @@ description: |
   </example>
 user-invocable: true
 allowed-tools:
-  - Task
-  - TaskCreate
-  - TaskList
-  - TaskUpdate
-  - TaskGet
-  - TeamCreate
-  - TeamDelete
-  - SendMessage
   - Read
   - Write
   - Edit
@@ -43,7 +35,12 @@ Manage the project-level agent memory stored in `.claude/echoes/`.
 /rune:echoes prune          # Prune stale entries (with confirmation)
 /rune:echoes reset          # Clear all echoes (with confirmation)
 /rune:echoes init           # Initialize echo directories for this project
+/rune:echoes promote        # Promote echoes to Remembrance docs
+/rune:echoes migrate        # Migrate echo names after upgrade
+/rune:echoes remembrance    # View Remembrance knowledge docs
 ```
+
+**Load skills**: `rune-echoes` for full lifecycle reference.
 
 ## Subcommands
 
@@ -167,6 +164,43 @@ Create the echo directory structure for a new project.
 
    Run /rune:review or /rune:audit to start building memory.
    ```
+
+### promote — Promote Echoes to Remembrance
+
+Promote high-confidence echoes to human-readable knowledge docs in `docs/solutions/`.
+
+**Steps:**
+
+1. If no args: list all Etched and high-confidence Inscribed entries with their echo refs
+2. If `--category <cat>`: filter by category (e.g., `performance`, `security`, `patterns`)
+3. For each selected echo:
+   - Convert to Remembrance format (see `rune-echoes` skill, Remembrance Commands section)
+   - Write to `docs/solutions/{category}/{slug}.md`
+   - Mark echo as promoted (add `promoted_to` field)
+4. Report: "{count} echoes promoted to docs/solutions/"
+
+### migrate — Migrate Echo Names
+
+Migrate echo role names and schema versions after a Rune upgrade.
+
+**Steps:**
+
+1. Scan `.claude/echoes/` for directories and MEMORY.md files
+2. Check schema version in `<!-- echo-schema: vN -->` headers
+3. Rename directories if role names changed (e.g., legacy names to current convention)
+4. Update schema headers to current version
+5. Report: "{count} echoes migrated, {count} already current"
+
+### remembrance — View Remembrance Docs
+
+View and search Remembrance knowledge documents.
+
+**Steps:**
+
+1. If no args: list all docs in `docs/solutions/` with categories and titles
+2. If `<category>`: list docs in `docs/solutions/{category}/`
+3. If `<search>`: search across all Remembrance docs for keyword
+4. Display matching documents with summaries
 
 ## Notes
 

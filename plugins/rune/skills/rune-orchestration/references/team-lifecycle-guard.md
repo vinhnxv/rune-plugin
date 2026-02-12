@@ -84,9 +84,36 @@ try {
 }
 ```
 
+## Input Validation
+
+**IMPORTANT**: Always validate team names before interpolating into `rm -rf` commands.
+
+```javascript
+// Validate team_name matches safe pattern (alphanumeric, hyphens, underscores only)
+if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) {
+  throw new Error(`Invalid team_name: ${team_name}`)
+}
+```
+
+For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `rune-review-{timestamp}`), the risk is low since the prefix anchors the path. For cancel commands where `team_name` is read from a state file, validation is **required** since the state file could be tampered with.
+
+## Team Naming Convention
+
+| Command | Team Name Pattern |
+|---------|-------------------|
+| `/rune:plan` | `rune-plan-{timestamp}` |
+| `/rune:work` | `rune-work-{timestamp}` |
+| `/rune:review` | `rune-review-{identifier}` |
+| `/rune:audit` | `rune-audit-{audit_id}` |
+| `/rune:mend` | `mend-{timestamp}` |
+| `/rune:arc` Phase 1 | `arc-forge-{id}` |
+| `/rune:arc` Phase 2 | `arc-plan-review-{id}` |
+| `/rune:arc` Phases 3-6 | Delegated to work/review/mend/audit commands |
+
 ## Notes
 
 - The filesystem fallback (`rm -rf ~/.claude/teams/...`) is safe — these directories only contain Agent SDK coordination state, not user data
+- Callers MUST NOT interpolate unsanitized external input into team names — always validate first
 - Always update workflow state files (e.g., `tmp/.rune-review-{id}.json`) AFTER team cleanup, not before
 - The 30s wait is a best-effort grace period — some agents may need longer for complex file writes
 - Arc pipelines call TeamCreate/TeamDelete per-phase, so each phase transition needs the pre-create guard

@@ -13,7 +13,8 @@ A Claude Code plugin marketplace featuring **Rune** — multi-agent engineering 
 
 ```
 Plan → Work → Review → Mend → Audit
- └──────── or /rune:arc ────────┘
+ └──────────── or /rune:arc ──────────────┘
+ (Forge → Plan Review → Work → Review → Mend → Audit)
 ```
 
 | Command | Purpose |

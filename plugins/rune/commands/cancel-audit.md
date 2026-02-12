@@ -79,6 +79,8 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 
 ```javascript
 // Delete team with fallback (see team-lifecycle-guard.md)
+// Validate team_name before shell interpolation
+if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) throw new Error("Invalid team_name")
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/${team_name}/ ~/.claude/tasks/${team_name}/ 2>/dev/null`)
 }

@@ -15,6 +15,8 @@
 
 - `/rune:plan` research now uses conditional spawning (local-first, external on demand)
 - `/rune:plan` post-generation options expanded to 6 (was 3)
+- Team lifecycle guards added to all 9 commands — pre-create guards + cleanup fallbacks with input validation (see `team-lifecycle-guard.md`)
+- Reduced allowed-tools for `/rune:echoes`, `/rune:rest`, `/rune:cancel-arc` to enforce least-privilege
 
 ## [1.7.0] - 2026-XX-XX — "Arc Pipeline"
 

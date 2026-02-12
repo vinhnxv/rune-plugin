@@ -308,6 +308,7 @@ Invoke `/rune:work` logic on the enriched plan. Swarm workers implement tasks wi
 
 **Team**: `arc-work-{id}`
 **Tools (full access)**: Read, Write, Edit, Bash, Glob, Grep (all tools needed for implementation)
+**Team lifecycle**: Delegated to `/rune:work` — the work command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md). The arc orchestrator invokes the work logic; it does NOT create `arc-work-{id}` directly.
 
 ```javascript
 updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 3 })
@@ -352,6 +353,7 @@ Invoke `/rune:review` logic on the implemented changes. Spawns Runebearers with 
 
 **Team**: `arc-review-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
+**Team lifecycle**: Delegated to `/rune:review` — the review command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
 
 ```javascript
 updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 4 })
@@ -382,6 +384,7 @@ Invoke `/rune:mend` logic on the TOME. Parallel fixers resolve findings.
 
 **Team**: `arc-mend-{id}` (orchestrator team); fixers get restricted tools
 **Tools**: Orchestrator full access. Fixers restricted (see mend-fixer agent).
+**Team lifecycle**: Delegated to `/rune:mend` — the mend command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
 
 ```javascript
 updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 5 })
@@ -412,6 +415,7 @@ Invoke `/rune:audit` logic as a final quality gate. This phase is informational 
 
 **Team**: `arc-audit-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
+**Team lifecycle**: Delegated to `/rune:audit` — the audit command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
 
 ```javascript
 updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 6 })

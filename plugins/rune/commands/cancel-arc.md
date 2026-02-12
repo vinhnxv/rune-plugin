@@ -10,17 +10,13 @@ description: |
   </example>
 user-invocable: true
 allowed-tools:
-  - Task
-  - TaskCreate
   - TaskList
   - TaskUpdate
   - TaskGet
-  - TeamCreate
   - TeamDelete
   - SendMessage
   - Read
   - Write
-  - Edit
   - Bash
   - Glob
 ---
@@ -105,10 +101,21 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 
 ```javascript
 // Delete team with fallback (see team-lifecycle-guard.md)
-// Team name depends on active phase: arc-forge-{id} or arc-plan-review-{id}
+// Map all 6 arc phases to their team names
+const phaseTeamMap = {
+  forge: `arc-forge-${id}`,
+  plan_review: `arc-plan-review-${id}`,
+  work: `arc-work-${id}`,
+  code_review: `arc-review-${id}`,
+  mend: `arc-mend-${id}`,
+  audit: `arc-audit-${id}`
+}
+const phase_team = phaseTeamMap[current_phase]
+
 try { TeamDelete() } catch (e) {
-  const phase_team = current_phase === "forge" ? `arc-forge-${id}` : `arc-plan-review-${id}`
-  Bash(`rm -rf ~/.claude/teams/${phase_team}/ ~/.claude/tasks/${phase_team}/ 2>/dev/null`)
+  if (phase_team && /^[a-zA-Z0-9_-]+$/.test(phase_team)) {
+    Bash(`rm -rf ~/.claude/teams/${phase_team}/ ~/.claude/tasks/${phase_team}/ 2>/dev/null`)
+  }
 }
 ```
 

@@ -11,16 +11,9 @@ description: |
   </example>
 user-invocable: true
 allowed-tools:
-  - Task
-  - TaskCreate
-  - TaskList
-  - TaskUpdate
-  - TaskGet
-  - TeamCreate
-  - TeamDelete
-  - SendMessage
-  - Bash
   - Read
+  - Write
+  - Bash
   - Glob
   - AskUserQuestion
 ---

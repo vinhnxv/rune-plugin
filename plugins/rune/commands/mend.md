@@ -399,7 +399,7 @@ for (const fixer of allFixers) {
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
 try { TeamDelete() } catch (e) {
-  Bash("rm -rf ~/.claude/teams/mend-{id}/ ~/.claude/tasks/mend-{id}/ 2>/dev/null")
+  Bash("rm -rf ~/.claude/teams/mend-{timestamp}/ ~/.claude/tasks/mend-{timestamp}/ 2>/dev/null")
 }
 
 // 4. Update state file
