@@ -1,9 +1,9 @@
 # Rune Plugin Configuration
-# Copy to .claude/rune-config.yml (project-level) or ~/.claude/rune-config.yml (global)
+# Copy to .claude/talisman.yml (project-level) or ~/.claude/talisman.yml (global)
 #
 # Resolution order:
-#   1. .claude/rune-config.yml   (project, highest priority)
-#   2. ~/.claude/rune-config.yml (user global)
+#   1. .claude/talisman.yml   (project, highest priority)
+#   2. ~/.claude/talisman.yml (user global)
 #   3. Plugin defaults           (5 built-in Tarnished)
 
 version: 1

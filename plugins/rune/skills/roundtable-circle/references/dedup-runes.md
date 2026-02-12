@@ -33,7 +33,7 @@ When the same issue is found by multiple Tarnished:
 
 ### Extended Hierarchy (with Custom Tarnished)
 
-When custom Tarnished are configured in `rune-config.yml`, the dedup hierarchy is extended via `settings.dedup_hierarchy`. Custom prefixes are slotted into the hierarchy at the position specified by the user.
+When custom Tarnished are configured in `talisman.yml`, the dedup hierarchy is extended via `settings.dedup_hierarchy`. Custom prefixes are slotted into the hierarchy at the position specified by the user.
 
 **Example extended hierarchy:**
 ```
@@ -62,7 +62,7 @@ Each Tarnished uses a unique prefix for finding IDs:
 | Knowledge Keeper | `DOC-` | `DOC-001` | Built-in |
 | *(custom)* | *from config* | e.g., `DOM-001` | Custom |
 
-Custom Tarnished define their prefix in `rune-config.yml` → `tarnished.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Tarnished.
+Custom Tarnished define their prefix in `talisman.yml` → `tarnished.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Tarnished.
 
 ### Dedup Algorithm
 

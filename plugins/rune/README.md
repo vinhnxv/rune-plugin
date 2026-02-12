@@ -251,7 +251,7 @@ Spawned during `/rune:work` as self-organizing swarm workers:
 Override file classification defaults in your project:
 
 ```yaml
-# .claude/rune-config.yml
+# .claude/talisman.yml
 rune-gaze:
   backend_extensions: [.py, .go]
   frontend_extensions: [.tsx, .ts]
@@ -284,7 +284,7 @@ work:
   commit_format: "rune: {subject} [ward-checked]"
 ```
 
-See [`rune-config.example.yml`](rune-config.example.yml) for the full configuration schema including custom Tarnished, trigger matching, and dedup hierarchy.
+See [`talisman.example.yml`](talisman.example.yml) for the full configuration schema including custom Tarnished, trigger matching, and dedup hierarchy.
 
 ## Remembrance Channel
 

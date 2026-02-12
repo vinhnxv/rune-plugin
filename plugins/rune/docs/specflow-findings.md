@@ -24,7 +24,7 @@
 | Runebinder prompt | v1.2 | `tarnished-prompts/runebinder.md` |
 | Truthseer Validator prompt | v1.2 | `tarnished-prompts/truthseer-validator.md` |
 | Truthsight depth (Layer 0-2) | v1.1 | Full circuit breakers, sampling, verifier output format |
-| Custom agent templates (user-defined Tarnished) | v1.4 | `custom-tarnished.md` schema, `rune-config.yml` examples, trigger matching |
+| Custom agent templates (user-defined Tarnished) | v1.4 | `custom-tarnished.md` schema, `talisman.yml` examples, trigger matching |
 | Agent Role Patterns | v1.1 | Added to `rune-orchestration/SKILL.md` |
 | JSON output format | v1.1 | `output-format.md` + `completion.json` |
 | Selective naming refresh (E7) | v1.5 | 3 review + 3 research agents + 1 Tarnished + 1 skill + 1 command renamed |
@@ -52,7 +52,7 @@
 
 ### 1. User Onboarding
 - No `/rune:help` command or discovery mechanism
-- No `/rune:init` to scaffold `.claude/rune-config.yml`
+- No `/rune:init` to scaffold `.claude/talisman.yml`
 - No post-install confirmation with next steps
 
 ### 2. Workflow Chaining

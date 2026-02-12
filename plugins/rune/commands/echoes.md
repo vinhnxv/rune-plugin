@@ -206,5 +206,5 @@ View and search Remembrance knowledge documents.
 
 - Echo data is project-local (`.claude/echoes/` in project root)
 - Excluded from git by default (security: may contain code patterns)
-- Opt-in to version control via `.claude/rune-config.yml`
+- Opt-in to version control via `.claude/talisman.yml`
 - See `rune-echoes` skill for full lifecycle documentation

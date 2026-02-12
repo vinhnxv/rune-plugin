@@ -824,7 +824,7 @@ AskUserQuestion({
 
 When user selects "Create issue":
 
-1. **Detect tracker** from CLAUDE.md or rune-config.yml:
+1. **Detect tracker** from CLAUDE.md or talisman.yml:
    - Look for `project_tracker: github` or `project_tracker: linear`
 
 2. **GitHub**:

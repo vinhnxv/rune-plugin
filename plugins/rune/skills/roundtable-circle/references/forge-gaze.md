@@ -137,7 +137,7 @@ forge_select(plan_sections, topic_registry, mode="default"):
 | `MAX_PER_SECTION` | 3 | 5 | Maximum agents per plan section |
 | `MAX_TOTAL_AGENTS` | 8 | 12 | Hard cap across all sections |
 
-These can be overridden via `rune-config.yml`:
+These can be overridden via `talisman.yml`:
 
 ```yaml
 forge:
@@ -183,7 +183,7 @@ Same flow but with:
 
 ## Custom Forge Agents
 
-Custom Tarnished from `rune-config.yml` can participate in forge by adding `forge` to their `workflows` list and providing forge-specific config:
+Custom Tarnished from `talisman.yml` can participate in forge by adding `forge` to their `workflows` list and providing forge-specific config:
 
 ```yaml
 tarnished:

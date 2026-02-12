@@ -145,7 +145,7 @@ When `--forge` is used with `/rune:plan`, Forge Gaze matches plan section topics
 - **Budget tiers**: `enrichment` (review agents, ~5k tokens) and `research` (practice-seeker/lore-scholar, ~15k tokens)
 - **Default `--forge`**: threshold 0.30, max 3 agents/section, enrichment only, max 8 total
 - **`--forge --exhaustive`**: threshold 0.15, max 5 agents/section, enrichment + research, max 12 total
-- **Custom agents** from `rune-config.yml` participate via `workflows: [forge]` + `trigger.topics` + `forge:` config
+- **Custom agents** from `talisman.yml` participate via `workflows: [forge]` + `trigger.topics` + `forge:` config
 
 See `roundtable-circle/references/forge-gaze.md` for the topic registry and matching algorithm.
 
@@ -184,6 +184,7 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 | **Forge** | Research enrichment phase | Tempering plans in fire |
 | **Mend** | Finding resolution from TOME | Repairing what was broken |
 | **Remembrance** | Promoted knowledge docs | Memories of fallen foes |
+| **Talisman** | Plugin configuration file (`talisman.yml`) | Equippable items that enhance abilities |
 | **Decree Arbiter** | Technical soundness reviewer for plans | A judge who weighs the merit of decrees |
 | **Flow Seer** | Spec/feature flow completeness analyzer | One who perceives the currents of fate |
 
@@ -214,7 +215,7 @@ Echo files in `.claude/echoes/` are persistent and survive across sessions.
 
 ## Configuration
 
-Projects can override defaults via `.claude/rune-config.yml` (project) or `~/.claude/rune-config.yml` (global):
+Projects can override defaults via `.claude/talisman.yml` (project) or `~/.claude/talisman.yml` (global):
 
 ```yaml
 rune-gaze:
@@ -260,7 +261,7 @@ work:
   commit_format: "rune: {subject} [ward-checked]"
 ```
 
-See `roundtable-circle/references/custom-tarnished.md` for full schema and `rune-config.example.yml` at plugin root.
+See `roundtable-circle/references/custom-tarnished.md` for full schema and `talisman.example.yml` at plugin root.
 
 ## Coexistence
 

@@ -6,22 +6,24 @@
 
 - **Elden Lord persona** — The orchestrator/lead now has a named identity. All commands use
   lore-themed greeting messages ("The Elden Lord convenes the Roundtable Circle...").
-- **Lore Glossary** — New reference table in CLAUDE.md mapping 14 Elden Ring terms to plugin concepts.
+- **Lore Glossary** — New reference table in CLAUDE.md mapping 17 Elden Ring terms to plugin concepts.
 - **Forge Gaze** — Topic-aware agent selection for `/rune:plan --forge`. Matches plan section
   topics to specialized agents using keyword overlap scoring (deterministic, zero token cost).
   13 agents across 2 budget tiers replace generic `forge-researcher` agents.
   See `roundtable-circle/references/forge-gaze.md` for the topic registry and algorithm.
 - **Forge Gaze configuration** — Override thresholds, per-section caps, and total agent limits
-  via `forge:` section in `rune-config.yml`. Custom Tarnished participate via `workflows: [forge]`.
+  via `forge:` section in `talisman.yml`. Custom Tarnished participate via `workflows: [forge]`.
 
 ### Changed
 
 - **Runebearer → Tarnished** — All review/worker/research/utility teammates are now called
   "Tarnished". Named roles (Forge Warden, Ward Sentinel, etc.) are unchanged.
 - **Config keys renamed**: `runebearers:` → `tarnished:`, `max_runebearers` → `max_tarnished`,
-  `disable_runebearers` → `disable_tarnished`. Update your `.claude/rune-config.yml`.
+  `disable_runebearers` → `disable_tarnished`. Update your `.claude/talisman.yml`.
 - Directory renames: `runebearer-prompts/` → `tarnished-prompts/`,
   `runebearer-guide/` → `tarnished-guide/`, `custom-runebearers.md` → `custom-tarnished.md`
+- **Config file renamed**: `rune-config.yml` → `talisman.yml`, `rune-config.example.yml` → `talisman.example.yml`.
+  Talismans in Elden Ring are equippable items that enhance abilities — fitting for plugin configuration.
 - Natural-language "the lead" → "the Elden Lord" across commands, prompts, and skills.
 
 ### Unchanged (Intentional)
@@ -160,12 +162,12 @@
 
 ### Added
 
-- **Custom Tarnished** — extend built-in 5 Tarnished with agents from local (`.claude/agents/`), global (`~/.claude/agents/`), or third-party plugins via `rune-config.yml`
+- **Custom Tarnished** — extend built-in 5 Tarnished with agents from local (`.claude/agents/`), global (`~/.claude/agents/`), or third-party plugins via `talisman.yml`
   - `tarnished.custom[]` config with name, agent, source, workflows, trigger, context_budget, finding_prefix
   - Truthbinding wrapper prompt auto-injected for custom agents (ANCHOR + Glyph Budget + Seal + RE-ANCHOR)
   - Trigger matching: extension + path filters with min_files threshold
   - Agent resolution: local → global → plugin namespace
-- **`rune-config.example.yml`** — complete example config at plugin root
+- **`talisman.example.yml`** — complete example config at plugin root
 - **`custom-tarnished.md`** — full schema reference, wrapper prompt template, validation rules, examples
 - **Extended dedup hierarchy** — `settings.dedup_hierarchy` supports custom finding prefixes alongside built-ins
 - **`settings.max_tarnished`** — configurable hard cap (default 8) for total active Tarnished
@@ -174,7 +176,7 @@
 
 ### Changed
 
-- `/rune:review` and `/rune:audit` Phase 0 now reads `rune-config.yml` for custom Tarnished definitions
+- `/rune:review` and `/rune:audit` Phase 0 now reads `talisman.yml` for custom Tarnished definitions
 - Phase 3 spawning extended to include custom Tarnished with wrapper prompts
 - Runebinder aggregation uses extended dedup hierarchy from config
 - `--max-agents` flag range updated from 1-5 to 1-8 (to include custom)

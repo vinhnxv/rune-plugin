@@ -191,7 +191,7 @@ If a finding triggers the filter, persist the learning but strip the sensitive e
 `.gitignore` excludes `.claude/echoes/` by default. Users opt-in to version control:
 
 ```yaml
-# .claude/rune-config.yml
+# .claude/talisman.yml
 echoes:
   version_controlled: true  # Remove .claude/echoes/ from .gitignore
 ```

@@ -99,14 +99,14 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 | Backend + docs | Selected | **Always** | **Always** | - | Selected |
 | All types | Selected | **Always** | **Always** | Selected | Selected |
 
-**Max built-in Tarnished:** 5. With custom Tarnished (via `rune-config.yml`), total can reach 8 (`settings.max_tarnished`). Plus 1 Runebinder (utility) for aggregation.
+**Max built-in Tarnished:** 5. With custom Tarnished (via `talisman.yml`), total can reach 8 (`settings.max_tarnished`). Plus 1 Runebinder (utility) for aggregation.
 
 ## Configurable Overrides
 
-Projects can override the default extension groups via `.claude/rune-config.yml`:
+Projects can override the default extension groups via `.claude/talisman.yml`:
 
 ```yaml
-# .claude/rune-config.yml (optional)
+# .claude/talisman.yml (optional)
 rune-gaze:
   backend_extensions:
     - .py

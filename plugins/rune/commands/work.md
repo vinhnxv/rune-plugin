@@ -262,7 +262,7 @@ After all tasks complete, run project-wide quality gates:
 ```javascript
 // Discover wards
 wards = discoverWards()
-// Possible sources: Makefile, package.json, pyproject.toml, rune-config.yml
+// Possible sources: Makefile, package.json, pyproject.toml, talisman.yml
 
 for (const ward of wards) {
   result = Bash(ward.command)
@@ -283,7 +283,7 @@ for (const ward of wards) {
 3. pyproject.toml → [tool.ruff], [tool.mypy], [tool.pytest]
 4. Cargo.toml → cargo test, cargo clippy
 5. go.mod → go test, go vet
-6. .claude/rune-config.yml → ward_commands override
+6. .claude/talisman.yml → ward_commands override
 7. Fallback: skip wards, warn user
 ```
 

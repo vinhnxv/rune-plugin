@@ -53,7 +53,7 @@ Plus **Runebinder** (utility) for aggregation in Phase 5.
 
 ### Custom Tarnished (Extensible)
 
-Projects can register additional Tarnished from local agents, global agents, or other plugins via `rune-config.yml`. Custom Tarnished join the standard lifecycle:
+Projects can register additional Tarnished from local agents, global agents, or other plugins via `talisman.yml`. Custom Tarnished join the standard lifecycle:
 
 - **Wrapped** with Truthbinding Protocol (evidence, Glyph Budget, Seal format)
 - **Spawned** alongside built-ins in Phase 3 (parallel execution)

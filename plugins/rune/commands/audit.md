@@ -2,7 +2,7 @@
 name: rune:audit
 description: |
   Full codebase audit using Agent Teams. Spawns up to 5 built-in Tarnished teammates
-  (plus custom Tarnished from rune-config.yml), each with their own 200k context window.
+  (plus custom Tarnished from talisman.yml), each with their own 200k context window.
   Scans entire project (or current directory) instead of git diff changes. Uses the same
   7-phase Roundtable Circle lifecycle.
 
@@ -85,7 +85,7 @@ branch=$(git branch --show-current 2>/dev/null || echo "n/a")
 After scanning files, check for custom Tarnished config:
 
 ```
-1. Read .claude/rune-config.yml (project) or ~/.claude/rune-config.yml (global)
+1. Read .claude/talisman.yml (project) or ~/.claude/talisman.yml (global)
 2. If tarnished.custom[] exists:
    a. Validate: unique prefixes, unique names, resolvable agents, count ≤ max
    b. Filter by workflows: keep only entries with "audit" in workflows[]
@@ -109,7 +109,7 @@ for each file in all_files:
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
 
-# Custom Tarnished (from rune-config.yml):
+# Custom Tarnished (from talisman.yml):
 for each custom in validated_custom_tarnished:
   matching = files where extension in custom.trigger.extensions
                     AND (custom.trigger.paths is empty OR file starts with any path)
@@ -117,7 +117,7 @@ for each custom in validated_custom_tarnished:
     select custom.name with matching[:custom.context_budget]
 ```
 
-Check for project overrides in `.claude/rune-config.yml`.
+Check for project overrides in `.claude/talisman.yml`.
 
 **Apply `--focus` filter:** If `--focus <area>` is set, only spawn Tarnished matching that area. See `roundtable-circle/references/circle-registry.md` for the focus-to-Tarnished mapping.
 
@@ -159,7 +159,7 @@ Tarnished to spawn: {count} ({built_in_count} built-in + {custom_count} custom)
   - Glyph Scribe:      {file_count} files (cap: 25)  [conditional]
   - Knowledge Keeper:  {file_count} files (cap: 25)  [conditional]
 
-  Custom (from .claude/rune-config.yml):       # Only shown if custom Tarnished exist
+  Custom (from .claude/talisman.yml):       # Only shown if custom Tarnished exist
   - {name} [{prefix}]: {file_count} files (cap: {budget}, source: {source})
 
 Focus: {focus_mode}

@@ -25,7 +25,7 @@ Custom Tarnished participate in the full Roundtable Circle lifecycle: they recei
 
 ## Schema Reference
 
-Define custom Tarnished in `.claude/rune-config.yml` (project) or `~/.claude/rune-config.yml` (global).
+Define custom Tarnished in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml` (global).
 
 ### `tarnished.custom[]` Fields
 
@@ -73,7 +73,7 @@ The Elden Lord resolves the `agent` field based on `source`:
 **Resolution steps:**
 
 ```
-1. Read rune-config.yml
+1. Read talisman.yml
 2. For each custom Tarnished:
    a. Validate agent name: must match /^[a-zA-Z0-9_:-]+$/
       - Reject names containing: /, \, .., or any path separator
@@ -240,7 +240,7 @@ for each custom Tarnished:
 ### Local Project Reviewer (Review + Audit + Forge)
 
 ```yaml
-# .claude/rune-config.yml
+# .claude/talisman.yml
 tarnished:
   custom:
     - name: "api-contract-reviewer"
@@ -315,7 +315,7 @@ Tarnished to spawn: 4 (3 built-in + 1 custom)
   - Pattern Weaver: 23 files (cap: 30)
   - Forge Warden:   15 files (cap: 30)
 
-  Custom (from .claude/rune-config.yml):
+  Custom (from .claude/talisman.yml):
   - api-contract-reviewer [API]:  8 files (cap: 15, source: local)
 
 Dedup hierarchy: SEC > BACK > API > DOC > QUAL > FRONT
@@ -328,4 +328,4 @@ Dedup hierarchy: SEC > BACK > API > DOC > QUAL > FRONT
 - [Dedup Runes](dedup-runes.md) — Deduplication algorithm and extended hierarchy
 - [Circle Registry](circle-registry.md) — Built-in Tarnished agent mapping
 - [Inscription Protocol](../../rune-orchestration/references/inscription-protocol.md) — Output contract and Seal format
-- [Example Config](../../../rune-config.example.yml) — Full example `rune-config.yml`
+- [Example Config](../../../talisman.example.yml) — Full example `talisman.yml`

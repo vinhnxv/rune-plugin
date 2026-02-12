@@ -2,7 +2,7 @@
 name: rune:review
 description: |
   Multi-agent code review using Agent Teams. Spawns up to 5 built-in Tarnished teammates
-  (plus custom Tarnished from rune-config.yml), each with their own 200k context window.
+  (plus custom Tarnished from talisman.yml), each with their own 200k context window.
   Handles scope selection, team creation, review orchestration, aggregation, verification, and cleanup.
 
   <example>
@@ -79,7 +79,7 @@ fi
 After collecting changed files, check for custom Tarnished config:
 
 ```
-1. Read .claude/rune-config.yml (project) or ~/.claude/rune-config.yml (global)
+1. Read .claude/talisman.yml (project) or ~/.claude/talisman.yml (global)
 2. If tarnished.custom[] exists:
    a. Validate: unique prefixes, unique names, resolvable agents, count ≤ max
    b. Filter by workflows: keep only entries with "review" in workflows[]
@@ -103,7 +103,7 @@ for each file in changed_files:
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
 
-# Custom Tarnished (from rune-config.yml):
+# Custom Tarnished (from talisman.yml):
 for each custom in validated_custom_tarnished:
   matching = files where extension in custom.trigger.extensions
                     AND (custom.trigger.paths is empty OR file starts with any path)
@@ -111,7 +111,7 @@ for each custom in validated_custom_tarnished:
     select custom.name with matching[:custom.context_budget]
 ```
 
-Check for project overrides in `.claude/rune-config.yml`.
+Check for project overrides in `.claude/talisman.yml`.
 
 ### Dry-Run Exit Point
 
@@ -136,7 +136,7 @@ Tarnished to spawn: {count} ({built_in_count} built-in + {custom_count} custom)
   - Glyph Scribe:      {file_count} files (cap: 25)  [conditional]
   - Knowledge Keeper:  {file_count} files (cap: 25)  [conditional]
 
-  Custom (from .claude/rune-config.yml):       # Only shown if custom Tarnished exist
+  Custom (from .claude/talisman.yml):       # Only shown if custom Tarnished exist
   - {name} [{prefix}]: {file_count} files (cap: {budget}, source: {source})
 
 Dedup hierarchy: {hierarchy from settings or default}
