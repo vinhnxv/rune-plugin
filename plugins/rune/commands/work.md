@@ -37,6 +37,8 @@ allowed-tools:
 
 Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.
 
+**Load skills**: `context-weaving`, `rune-echoes`, `rune-orchestration`
+
 ## Usage
 
 ```
@@ -294,7 +296,7 @@ for (const ward of wards) {
 ```javascript
 if (exists(".claude/echoes/workers/")) {
   // Persist implementation patterns discovered during work
-  appendEchoEntry("echoes/workers/MEMORY.md", {
+  appendEchoEntry(".claude/echoes/workers/MEMORY.md", {
     layer: "inscribed",
     source: `rune:work ${timestamp}`,
     // ... patterns, gotchas, quality gate results

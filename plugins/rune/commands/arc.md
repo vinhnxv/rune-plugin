@@ -6,12 +6,12 @@ description: |
   per-phase teams, circuit breakers, and artifact-based handoff.
 
   <example>
-  user: "/rune:arc docs/plans/feat-user-auth-plan.md"
+  user: "/rune:arc plans/feat-user-auth-plan.md"
   assistant: "The Tarnished begins the arc — 6 phases of forge, review, and mend..."
   </example>
 
   <example>
-  user: "/rune:arc docs/plans/feat-user-auth-plan.md --resume"
+  user: "/rune:arc --resume"
   assistant: "Resuming arc from Phase 3 (WORK) — validating checkpoint integrity..."
   </example>
 user-invocable: true
@@ -45,19 +45,19 @@ Chains six phases into a single automated pipeline: forge, plan review, work, co
 
 ```
 /rune:arc <plan_file.md>                              # Full pipeline
-/rune:arc <plan_file.md> --skip-forge                 # Skip research enrichment
+/rune:arc <plan_file.md> --no-forge                 # Skip research enrichment
 /rune:arc <plan_file.md> --approve                    # Require human approval for work tasks
-/rune:arc <plan_file.md> --resume                     # Resume from last checkpoint
-/rune:arc <plan_file.md> --resume --skip-forge        # Resume, skipping forge on retry
+/rune:arc --resume                                     # Resume from last checkpoint (plan path auto-detected from checkpoint)
+/rune:arc --resume --no-forge                        # Resume, skipping forge on retry
 ```
 
 ## Flags
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--skip-forge` | Skip Phase 1 (research enrichment), use plan as-is | Off |
+| `--no-forge` | Skip Phase 1 (research enrichment), use plan as-is | Off |
 | `--approve` | Require human approval for each work task (Phase 3 only) | Off |
-| `--resume` | Resume from last checkpoint, validating artifact integrity | Off |
+| `--resume` | Resume from last checkpoint, validating artifact integrity. Plan path is auto-detected from checkpoint (no argument required). | Off |
 
 ## Pipeline Overview
 
@@ -127,6 +127,16 @@ if [ -n "$active" ]; then
 fi
 ```
 
+### Validate Plan Path
+
+```javascript
+// Validate plan path: prevent shell injection in Bash calls
+if (!/^[a-zA-Z0-9._\/-]+$/.test(planFile)) {
+  error(`Invalid plan path: ${planFile}. Path must contain only alphanumeric, dot, slash, hyphen, and underscore characters.`)
+  return
+}
+```
+
 ### Initialize Checkpoint (ARC-2)
 
 ```javascript
@@ -137,16 +147,16 @@ const sessionNonce = crypto.randomBytes(6).toString('hex')
 Write(`.claude/arc/${id}/checkpoint.json`, {
   id: id,
   plan_file: planFile,
-  flags: { approve: approveFlag, skip_forge: skipForgeFlag },
+  flags: { approve: approveFlag, no_forge: noForgeFlag },
   session_nonce: sessionNonce,
   phase_sequence: 0,
   phases: {
-    forge:       { status: skipForgeFlag ? "skipped" : "pending", artifact: null, artifact_hash: null },
-    plan_review: { status: "pending", artifact: null, artifact_hash: null },
-    work:        { status: "pending", artifact: null, artifact_hash: null },
-    code_review: { status: "pending", artifact: null, artifact_hash: null },
-    mend:        { status: "pending", artifact: null, artifact_hash: null },
-    audit:       { status: "pending", artifact: null, artifact_hash: null }
+    forge:       { status: noForgeFlag ? "skipped" : "pending", artifact: null, artifact_hash: null, team_name: null },
+    plan_review: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    work:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    code_review: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    mend:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    audit:       { status: "pending", artifact: null, artifact_hash: null, team_name: null }
   },
   commits: [],
   started_at: new Date().toISOString(),
@@ -159,17 +169,19 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 On resume, validate checkpoint integrity before proceeding:
 
 ```
-1. Read .claude/arc/{id}/checkpoint.json
-2. Validate phase_sequence is monotonically increasing
-3. For each phase marked "completed":
+1. Find most recent checkpoint: ls -t .claude/arc/*/checkpoint.json | head -1
+   (or use explicit plan path argument to match checkpoint by plan_file field)
+2. Read .claude/arc/{id}/checkpoint.json — extract plan_file for downstream phases
+3. Validate phase_sequence is monotonically increasing
+4. For each phase marked "completed":
    a. Verify artifact file exists at recorded path
    b. Compute SHA-256 of artifact, compare against stored artifact_hash
    c. If hash mismatch → demote phase to "pending" + warn user
-4. If enriched-plan.md exists AND hash valid → skip Phase 1
-5. If plan-review.md exists AND hash valid AND no BLOCK → skip Phase 2
-6. If tome.md exists AND hash valid → skip Phases 3-4
-7. If resolution-report.md exists AND hash valid → skip Phase 5
-8. Resume from first incomplete/demoted phase
+5. If enriched-plan.md exists AND hash valid → skip Phase 1
+6. If plan-review.md exists AND hash valid AND no BLOCK → skip Phase 2
+7. If tome.md exists AND hash valid → skip Phases 3-4
+8. If resolution-report.md exists AND hash valid → skip Phase 5
+9. Resume from first incomplete/demoted phase
 ```
 
 Hash mismatch warning:
@@ -181,7 +193,7 @@ Hash found: sha256:xyz789...
 Demoting Phase 2 to "pending" — will re-run plan review.
 ```
 
-## Phase 1: FORGE (skippable with --skip-forge)
+## Phase 1: FORGE (skippable with --no-forge)
 
 Summon research agents to enrich the plan with current best practices, framework docs, codebase patterns, git history, and past echoes.
 
@@ -190,9 +202,10 @@ Summon research agents to enrich the plan with current best practices, framework
 
 ```javascript
 // Update checkpoint
-updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1 })
+updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1, team_name: `arc-forge-${id}` })
 
 // Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// id validated at init (line 144): /^arc-[a-zA-Z0-9_-]+$/
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-forge-${id}/ ~/.claude/tasks/arc-forge-${id}/ 2>/dev/null`)
 }
@@ -221,6 +234,7 @@ for (const agent of agents) {
 // Synthesize enriched plan → tmp/arc/{id}/enriched-plan.md
 
 // Cleanup with fallback (see team-lifecycle-guard.md)
+// id validated at init (line 144): /^arc-[a-zA-Z0-9_-]+$/
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-forge-${id}/ ~/.claude/tasks/arc-forge-${id}/ 2>/dev/null`)
 }
@@ -235,7 +249,7 @@ updateCheckpoint({
 
 **Output**: `tmp/arc/{id}/enriched-plan.md`
 
-If research times out: proceed with original plan + warn user. Offer `--skip-forge` on retry.
+If research times out: proceed with original plan + warn user. Offer `--no-forge` on retry.
 
 ## Phase 2: PLAN REVIEW (circuit breaker)
 
@@ -245,9 +259,10 @@ Three parallel reviewers evaluate the enriched plan. ANY BLOCK verdict halts the
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
 
 ```javascript
-updateCheckpoint({ phase: "plan_review", status: "in_progress", phase_sequence: 2 })
+updateCheckpoint({ phase: "plan_review", status: "in_progress", phase_sequence: 2, team_name: `arc-plan-review-${id}` })
 
 // Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// id validated at init (line 144): /^arc-[a-zA-Z0-9_-]+$/
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
 }
@@ -278,6 +293,7 @@ for (const reviewer of reviewers) {
 // Merge → tmp/arc/{id}/plan-review.md
 
 // Cleanup with fallback (see team-lifecycle-guard.md)
+// id validated at init (line 144): /^arc-[a-zA-Z0-9_-]+$/
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
 }
@@ -313,15 +329,16 @@ Invoke `/rune:work` logic on the enriched plan. Swarm workers implement tasks wi
 **Team lifecycle**: Delegated to `/rune:work` — the work command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md). The arc orchestrator invokes the work logic; it does NOT create `arc-work-{id}` directly.
 
 ```javascript
-updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 3 })
-
 // Create feature branch if needed (COMMIT-1)
 createFeatureBranchIfNeeded()
 
 // Invoke /rune:work logic
-// Input: enriched plan (or original if --skip-forge)
+// Input: enriched plan (or original if --no-forge)
 // If --approve: propagate to work mode (routes to human via AskUserQuestion)
 // Incremental commits after each ward-checked task: [ward-checked] prefix
+// Capture team_name from work command for cancel-arc discovery
+const workTeamName = /* team name created by /rune:work logic */
+updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 3, team_name: workTeamName })
 
 // After work completes, produce work summary
 Write(`tmp/arc/${id}/work-summary.md`, {
@@ -358,11 +375,12 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 **Team lifecycle**: Delegated to `/rune:review` — the review command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
 
 ```javascript
-updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 4 })
-
 // Invoke /rune:review logic
 // Scope: changes since arc branch creation (or since Phase 3 start)
 // TOME session nonce: use arc session_nonce for marker integrity
+// Capture team_name from review command for cancel-arc discovery
+const reviewTeamName = /* team name created by /rune:review logic */
+updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 4, team_name: reviewTeamName })
 
 // Move TOME to arc directory
 // Copy/move from tmp/reviews/{review-id}/TOME.md → tmp/arc/{id}/tome.md
@@ -389,11 +407,12 @@ Invoke `/rune:mend` logic on the TOME. Parallel fixers resolve findings.
 **Team lifecycle**: Delegated to `/rune:mend` — the mend command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
 
 ```javascript
-updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 5 })
-
 // Invoke /rune:mend logic
 // Input: tmp/arc/{id}/tome.md
 // Output directory: tmp/arc/{id}/ (resolution-report.md)
+// Capture team_name from mend command for cancel-arc discovery
+const mendTeamName = /* team name created by /rune:mend logic */
+updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 5, team_name: mendTeamName })
 
 // Check failure threshold
 const failedCount = countFindings("FAILED", resolutionReport)
@@ -420,11 +439,12 @@ Invoke `/rune:audit` logic as a final quality gate. This phase is informational 
 **Team lifecycle**: Delegated to `/rune:audit` — the audit command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
 
 ```javascript
-updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 6 })
-
 // Invoke /rune:audit logic
 // Full codebase audit
 // Output: tmp/arc/{id}/audit-report.md
+// Capture team_name from audit command for cancel-arc discovery
+const auditTeamName = /* team name created by /rune:audit logic */
+updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 6, team_name: auditTeamName })
 
 updateCheckpoint({
   phase: "audit",
@@ -469,7 +489,7 @@ All worker and fixer agent prompts MUST include: "NEVER modify files in `.claude
 
 | Phase | On Failure | Recovery |
 |-------|-----------|----------|
-| FORGE | Halt + report. Non-critical — offer `--skip-forge` | `/rune:arc --resume --skip-forge` |
+| FORGE | Halt + report. Non-critical — offer `--no-forge` | `/rune:arc --resume --no-forge` |
 | PLAN REVIEW | Halt if ANY BLOCK verdict. Report which reviewer blocked and why | User fixes plan, `/rune:arc --resume` |
 | WORK | Halt if <50% tasks complete. Partial work is committed (incremental) | `/rune:arc --resume` resumes incomplete tasks |
 | CODE REVIEW | Never halts (review always produces findings or clean report) | N/A |

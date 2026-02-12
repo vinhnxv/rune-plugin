@@ -2,9 +2,9 @@
 name: decree-arbiter
 description: |
   Technical soundness review of plans. Validates architecture fit, feasibility,
-  security/performance risks, codebase pattern alignment, and dependency analysis.
-  Used during /rune:plan Phase 4C (technical review) and /rune:arc Phase 2 (plan review)
-  alongside scroll-reviewer and knowledge-keeper.
+  security/performance risks, codebase pattern alignment, dependency analysis,
+  and internal consistency. Used during /rune:plan Phase 4C (technical review)
+  and /rune:arc Phase 2 (plan review) alongside scroll-reviewer and knowledge-keeper.
 
   <example>
   user: "Review this plan for technical soundness"
@@ -16,6 +16,7 @@ capabilities:
   - Security and performance risk identification in plan
   - Dependency analysis (what breaks if this plan is implemented?)
   - Codebase pattern alignment check
+  - Internal consistency verification (cross-section claims, counts, references)
 allowed-tools:
   - Read
   - Glob
@@ -52,7 +53,7 @@ Before writing ANY findings, you MUST:
 
 Include `codebase_files_read: N` in your output. If 0, your output is flagged as unreliable.
 
-## 5-Dimension Evaluation Framework
+## 6-Dimension Evaluation Framework
 
 | Dimension | What It Checks | Evidence Method |
 |---|---|---|
@@ -61,6 +62,18 @@ Include `codebase_files_read: N` in your output. If 0, your output is flagged as
 | Security/Performance Risks | Known risk patterns introduced? | Pattern matching vs anti-patterns |
 | Dependency Impact | What existing code breaks? Consumer count? | Grep for usages of modified interfaces |
 | Pattern Alignment | Follows codebase conventions? | Compare against discovered conventions |
+| Internal Consistency | Do claims match across sections? Counts correct? | Cross-reference sections within the plan |
+
+### Internal Consistency Checks
+
+This dimension catches hallucination, mismatches, and false claims within the plan itself:
+
+1. **Count verification** — If Overview says "6 gaps", Proposed Solution must list exactly 6 items
+2. **Cross-section references** — Item IDs in Architecture must match Proposed Solution numbering
+3. **File list completeness** — Every file in Documentation Plan must appear in Architecture block
+4. **Acceptance criteria coverage** — Every proposed change must have at least one acceptance criterion
+5. **Risk-to-mitigation alignment** — Every risk in Risk Analysis must have a corresponding mitigation
+6. **Version/branch consistency** — Version bumps must match branch naming and semver conventions
 
 ## Deterministic Verdict Derivation
 
@@ -99,6 +112,10 @@ No judgment calls — use this table:
 - **Decree Trace:** [evidence]
 
 ## Pattern Alignment
+**Verdict:** PASS | CONCERN | BLOCK
+- **Decree Trace:** [evidence]
+
+## Internal Consistency
 **Verdict:** PASS | CONCERN | BLOCK
 - **Decree Trace:** [evidence]
 

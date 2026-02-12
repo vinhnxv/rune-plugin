@@ -81,7 +81,9 @@ ashes:
       context_budget: 20
       finding_prefix: "PERF"
 
-    # Example 3: A review + forge agent (participates in both workflows)
+    # Example 3: A review + forge agent (participates in all workflows)
+    # Forge is default in /rune:plan and /rune:forge — custom agents participate
+    # via topic matching when "forge" is in their workflows list.
     - name: "api-contract-reviewer"
       agent: "api-contract-reviewer"       # Resolves to .claude/agents/api-contract-reviewer.md
       source: local
@@ -145,8 +147,10 @@ defaults:
   # Example: disable_ashes: ["knowledge-keeper"]
 
 # ──────────────────────────────────────────────
-# Forge — Forge Gaze selection overrides
+# Forge — Forge Gaze selection overrides (forge runs by default)
 # ──────────────────────────────────────────────
+# Forge enrichment is enabled by default in /rune:plan and /rune:forge.
+# Use --quick with /rune:plan to skip forge, or --exhaustive for deeper research.
 # forge:
 #   threshold: 0.30          # Score threshold for agent selection (0.0-1.0)
 #   max_per_section: 3       # Max agents per plan section (upper bound: 5)

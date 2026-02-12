@@ -31,7 +31,7 @@ allowed-tools:
 
 Orchestrate a full codebase audit using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams. Unlike `/rune:review` (which reviews only changed files), `/rune:audit` scans the entire project.
 
-**Load skill**: `roundtable-circle` for full architecture reference.
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`
 
 ## Flags
 
@@ -318,13 +318,23 @@ try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
 }
 
-// 4. Persist learnings to Rune Echoes (if .claude/echoes/ exists)
+// 4. Update state file to completed
+Write("tmp/.rune-audit-{audit_id}.json", {
+  team_name: "rune-audit-{audit_id}",
+  started: timestamp,
+  status: "completed",
+  completed: new Date().toISOString(),
+  audit_scope: ".",
+  expected_files: selectedAsh.map(r => `tmp/audit/${audit_id}/${r}.md`)
+})
+
+// 5. Persist learnings to Rune Echoes (if .claude/echoes/ exists)
 //    Extract P1/P2 patterns from TOME.md and write as Inscribed entries
 //    See rune-echoes skill for entry format and write protocol
 if (exists(".claude/echoes/auditor/")) {
   patterns = extractRecurringPatterns("tmp/audit/{audit_id}/TOME.md")
   for (const pattern of patterns) {
-    appendEchoEntry("echoes/auditor/MEMORY.md", {
+    appendEchoEntry(".claude/echoes/auditor/MEMORY.md", {
       layer: "inscribed",
       source: `rune:audit ${audit_id}`,
       confidence: pattern.confidence,
@@ -334,7 +344,7 @@ if (exists(".claude/echoes/auditor/")) {
   }
 }
 
-// 5. Read and present TOME.md to user
+// 6. Read and present TOME.md to user
 Read("tmp/audit/{audit_id}/TOME.md")
 ```
 

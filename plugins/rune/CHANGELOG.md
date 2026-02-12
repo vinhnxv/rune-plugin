@@ -1,9 +1,75 @@
 # Changelog
 
+## [1.10.2] - 2026-02-13
+
+Patch release: cross-command consistency fixes from codex-cli static audit.
+
+### Fixed
+
+- review.md: Standardized `{identifier}` variable (was mixed `{id}/{identifier}` causing broken paths)
+- review.md, audit.md: State files now marked `"completed"` in Phase 7 cleanup (was stuck `"active"` forever, blocking `/rune:rest` cleanup)
+- mend.md: Status field standardized to `"active"` (was `"running"`, mismatched with rest.md's expected value)
+- mend.md: Standardized `{id}` variable (was mixed `{id}/{timestamp}`) and fixed undefined `f` variable in task description template
+- forge.md: Added `mkdir -p` before `cp` backup command (was failing if directory didn't exist)
+- forge.md, plan.md: Normalized reference paths from `skills/roundtable-circle/...` to `roundtable-circle/...` (consistent with all other files)
+- arc.md: Made plan path optional with `--resume` (auto-detected from checkpoint); fixed contradictory recovery instructions
+- arc.md: Added `team_name` field to per-phase checkpoint schema (enables cancel-arc to find delegated team names)
+- cancel-arc.md: Now reads `team_name` from checkpoint instead of hardcoded phase-to-team map (was using wrong names for delegated Phases 3-6)
+- cancel-arc.md: Fixed undefined `member` variable in shutdown loop (now reads team config to discover teammates)
+- plan.md, review.md, audit.md, mend.md, work.md: Fixed echo write paths from `echoes/` to `.claude/echoes/` (was writing to wrong location)
+- rest.md: Deletion step now uses validated path list from Step 4 (was ignoring validation output)
+
+## [1.10.1] - 2026-02-13
+
+Patch release: forge enrichment improvements and review finding fixes.
+
+### Added
+
+- Plan backup before forge merge — enables diff viewing and revert
+- Enrichment Output Format template — standardized subsections (Best Practices, Performance, Implementation Details, Edge Cases, References)
+- Post-enhancement options — diff, revert, deepen specific sections
+- Echo integration in forge agent prompts — agents read `.claude/echoes/` for past learnings
+- Context7 MCP + WebSearch explicit in forge agent research steps
+
+### Fixed
+
+- forge.md agent prompts now include anti-injection guard (Truthbinding parity with plan.md)
+- forge.md Phase 6 `rm -rf` now has adjacent regex guard (SEC-1)
+- forge.md RE-ANCHOR wording fixed for runtime-read plan content (SEC-2)
+- forge.md `planPath` validated before Bash calls (SEC-3)
+- arc.md YAML examples corrected from `docs/plans/` to `plans/` (DOC-1)
+- arc.md `plan_file` path validation added before checkpoint (SEC-4)
+- arc.md internal `skip_forge` key renamed to `no_forge` (QUAL-1)
+- plan.md added missing `Load skills` directive (`rune-orchestration`) and `Edit` tool
+- review.md, audit.md, work.md, mend.md added missing `Load skills` directives (`context-weaving`, `rune-echoes`, `rune-orchestration`)
+- Pseudocode template syntax normalized to `{placeholder}` style across commands
+- arc.md `rm -rf` sites annotated with validation cross-reference comments (SEC-5)
+
+### Removed
+
+- `docs/specflow-findings.md` — tracking document superseded by CHANGELOG and GitHub Issues
+
 ## [1.10.0] - 2026-02-12 — "The Elden Throne"
+
+### Added
+
+- `/rune:forge` — standalone plan enrichment command (deepen any existing plan with Forge Gaze)
+- `--quick` flag for `/rune:plan` — minimal pipeline (research + synthesize + review)
+- Phase 1.5: Research Consolidation Validation checkpoint (AskUserQuestion after research)
+- Phase 2.5: Shatter Assessment for complex plan decomposition (complexity scoring + shard generation)
+- AI-Era Considerations section in Comprehensive template
+- SpecFlow dual-pass for Comprehensive plans (second flow-seer pass on drafted plan)
+- Post-plan "Open in editor" and "Review and refine" options (4 explicit + Other free-text)
+- Automated grep verification gate in plan review phase (deterministic, zero hallucination risk)
+- decree-arbiter 6th dimension: Internal Consistency (anti-hallucination checks)
 
 ### Changed
 
+- **Brainstorm + forge now default** — `/rune:plan` runs full pipeline by default. Use `--quick` for minimal.
+- `--skip-forge` renamed to `--no-forge` in `/rune:arc` for consistency
+- `--no-brainstorm`, `--no-forge`, `--exhaustive` still work as legacy flags
+- Post-plan options expanded (4 explicit + Other free-text)
+- decree-arbiter now evaluates 6 dimensions (was 5)
 - **Elden Lord → Tarnished** — The lead/orchestrator is now called "the Tarnished" (the protagonist).
   In Elden Ring, the Tarnished is the player character who journeys through the Lands Between.
 - **Tarnished → Ash** — All teammates (review, work, research, utility) are now called "Ash" / "Ashes".

@@ -1,6 +1,6 @@
 # Custom Ashes — Extensibility Guide
 
-> Register custom agents as Ash in `/rune:review`, `/rune:audit`, and `/rune:plan --forge` workflows.
+> Register custom agents as Ash in `/rune:review`, `/rune:audit`, and forge workflows (`/rune:plan`, `/rune:forge`).
 
 Custom Ashes participate in the full Roundtable Circle lifecycle: they receive Truthbinding wrapper prompts, write to the standard output directory, get deduplicated in TOME.md, and are verified by Truthsight.
 
