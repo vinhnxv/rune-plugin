@@ -45,17 +45,17 @@ Chains six phases into a single automated pipeline: forge, plan review, work, co
 
 ```
 /rune:arc <plan_file.md>                              # Full pipeline
-/rune:arc <plan_file.md> --skip-forge                 # Skip research enrichment
+/rune:arc <plan_file.md> --no-forge                 # Skip research enrichment
 /rune:arc <plan_file.md> --approve                    # Require human approval for work tasks
 /rune:arc <plan_file.md> --resume                     # Resume from last checkpoint
-/rune:arc <plan_file.md> --resume --skip-forge        # Resume, skipping forge on retry
+/rune:arc <plan_file.md> --resume --no-forge        # Resume, skipping forge on retry
 ```
 
 ## Flags
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--skip-forge` | Skip Phase 1 (research enrichment), use plan as-is | Off |
+| `--no-forge` | Skip Phase 1 (research enrichment), use plan as-is | Off |
 | `--approve` | Require human approval for each work task (Phase 3 only) | Off |
 | `--resume` | Resume from last checkpoint, validating artifact integrity | Off |
 
@@ -137,11 +137,11 @@ const sessionNonce = crypto.randomBytes(6).toString('hex')
 Write(`.claude/arc/${id}/checkpoint.json`, {
   id: id,
   plan_file: planFile,
-  flags: { approve: approveFlag, skip_forge: skipForgeFlag },
+  flags: { approve: approveFlag, no_forge: noForgeFlag },
   session_nonce: sessionNonce,
   phase_sequence: 0,
   phases: {
-    forge:       { status: skipForgeFlag ? "skipped" : "pending", artifact: null, artifact_hash: null },
+    forge:       { status: noForgeFlag ? "skipped" : "pending", artifact: null, artifact_hash: null },
     plan_review: { status: "pending", artifact: null, artifact_hash: null },
     work:        { status: "pending", artifact: null, artifact_hash: null },
     code_review: { status: "pending", artifact: null, artifact_hash: null },
@@ -181,7 +181,7 @@ Hash found: sha256:xyz789...
 Demoting Phase 2 to "pending" — will re-run plan review.
 ```
 
-## Phase 1: FORGE (skippable with --skip-forge)
+## Phase 1: FORGE (skippable with --no-forge)
 
 Summon research agents to enrich the plan with current best practices, framework docs, codebase patterns, git history, and past echoes.
 
@@ -235,7 +235,7 @@ updateCheckpoint({
 
 **Output**: `tmp/arc/{id}/enriched-plan.md`
 
-If research times out: proceed with original plan + warn user. Offer `--skip-forge` on retry.
+If research times out: proceed with original plan + warn user. Offer `--no-forge` on retry.
 
 ## Phase 2: PLAN REVIEW (circuit breaker)
 
@@ -319,7 +319,7 @@ updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 3 })
 createFeatureBranchIfNeeded()
 
 // Invoke /rune:work logic
-// Input: enriched plan (or original if --skip-forge)
+// Input: enriched plan (or original if --no-forge)
 // If --approve: propagate to work mode (routes to human via AskUserQuestion)
 // Incremental commits after each ward-checked task: [ward-checked] prefix
 
@@ -469,7 +469,7 @@ All worker and fixer agent prompts MUST include: "NEVER modify files in `.claude
 
 | Phase | On Failure | Recovery |
 |-------|-----------|----------|
-| FORGE | Halt + report. Non-critical — offer `--skip-forge` | `/rune:arc --resume --skip-forge` |
+| FORGE | Halt + report. Non-critical — offer `--no-forge` | `/rune:arc --resume --no-forge` |
 | PLAN REVIEW | Halt if ANY BLOCK verdict. Report which reviewer blocked and why | User fixes plan, `/rune:arc --resume` |
 | WORK | Halt if <50% tasks complete. Partial work is committed (incremental) | `/rune:arc --resume` resumes incomplete tasks |
 | CODE REVIEW | Never halts (review always produces findings or clean report) | N/A |

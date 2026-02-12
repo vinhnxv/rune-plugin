@@ -19,20 +19,27 @@ Restart Claude Code after installation to load the plugin.
 claude --plugin-dir /path/to/rune-plugin
 ```
 
+> [!WARNING]
+> **Rune is a token-intensive multi-agent system.** Each workflow summons multiple agents with their own 200k context windows, consuming tokens rapidly. A single `/rune:arc` or `/rune:audit` run can burn through a significant portion of your weekly usage limit.
+>
+> **We recommend Claude Max ($200/month) or higher.** If you are on a lower-tier subscription, a single Rune session could exhaust your entire week's usage allowance. Use `--dry-run` to preview scope before committing to a full run.
+
 ## Quick Start
 
 ```bash
 # End-to-end pipeline: plan → review → work → code review → mend → audit
-/rune:arc docs/plans/my-plan.md
-/rune:arc docs/plans/my-plan.md --skip-forge     # Skip research enrichment
-/rune:arc docs/plans/my-plan.md --approve         # Require human approval per task
-/rune:arc docs/plans/my-plan.md --resume          # Resume from checkpoint
+/rune:arc plans/my-plan.md
+/rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
+/rune:arc plans/my-plan.md --approve              # Require human approval per task
+/rune:arc plans/my-plan.md --resume               # Resume from checkpoint
 
-# Plan a feature with parallel research agents
-/rune:plan
-/rune:plan --brainstorm        # Start with interactive brainstorm
-/rune:plan --forge             # Research enrichment phase
-/rune:plan --exhaustive        # Summon ALL agents per section
+# Plan a feature (brainstorm + research + forge + review by default)
+/rune:plan                       # Full pipeline
+/rune:plan --quick               # Quick: research + synthesize + review only
+
+# Deepen an existing plan with Forge Gaze enrichment
+/rune:forge plans/my-plan.md     # Deepen specific plan
+/rune:forge                      # Auto-detect recent plan
 
 # Execute a plan with swarm workers
 /rune:work plans/feat-user-auth-plan.md
@@ -125,10 +132,10 @@ Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. 
 
 When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 
-1. **Gathers input** — accepts a feature description or runs interactive brainstorm (`--brainstorm`)
+1. **Gathers input** — runs interactive brainstorm by default (auto-skips when requirements are clear)
 2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Forge Gaze enrichment** — optional topic-aware agent selection (`--forge`) matches plan sections to specialized agents using keyword overlap scoring. 13 agents across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds
+4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 13 agents across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
 5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
@@ -306,7 +313,7 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers and centralized ward check.
 
-**Forge Gaze** — Topic-aware agent selection for `--forge` enrichment. Matches plan section topics to specialized agents via keyword overlap scoring. Configurable thresholds and budget tiers.
+**Forge Gaze** — Topic-aware agent selection for plan enrichment (default in `/rune:plan` and `/rune:forge`). Matches plan section topics to specialized agents via keyword overlap scoring. Configurable thresholds and budget tiers.
 
 **Rune Echoes** — Project-level agent memory with 3-layer lifecycle. Agents learn across sessions without explicit compound workflows.
 
@@ -324,6 +331,7 @@ plugins/rune/
 ├── commands/
 │   ├── arc.md           # /rune:arc
 │   ├── cancel-arc.md    # /rune:cancel-arc
+│   ├── forge.md         # /rune:forge
 │   ├── mend.md          # /rune:mend
 │   ├── plan.md          # /rune:plan
 │   ├── work.md          # /rune:work
@@ -342,7 +350,6 @@ plugins/rune/
 │   ├── rune-echoes/         # Smart Memory Lifecycle
 │   └── ash-guide/    # Agent reference
 ├── docs/
-│   └── specflow-findings.md
 ├── CLAUDE.md
 ├── LICENSE
 └── README.md

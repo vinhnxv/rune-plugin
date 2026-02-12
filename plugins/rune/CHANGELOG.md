@@ -1,9 +1,54 @@
 # Changelog
 
-## [1.10.0] - 2026-02-12 — "The Elden Throne"
+## [1.10.1] - 2026-02-13
+
+### Added
+
+- `/rune:forge` — standalone plan enrichment command (deepen any existing plan with Forge Gaze)
+- `--quick` flag for `/rune:plan` — minimal pipeline (research + synthesize + review)
+- Phase 1.5: Research Consolidation Validation checkpoint
+- Phase 2.5: Shatter Assessment for complex plan decomposition
+- AI-Era Considerations section in Comprehensive template
+- SpecFlow dual-pass for Comprehensive plans
+- Automated grep verification gate in plan review phase
+- decree-arbiter 6th dimension: Internal Consistency
 
 ### Changed
 
+- **Brainstorm + forge now default** — `/rune:plan` runs full pipeline by default. Use `--quick` for minimal.
+- `--skip-forge` renamed to `--no-forge` in `/rune:arc`
+- Post-plan options expanded (4 explicit + Other free-text)
+- decree-arbiter now evaluates 6 dimensions (was 5)
+- Command count: 11 → 12 (added `/rune:forge`)
+
+### Fixed
+
+- forge.md agent prompts now include anti-injection guard (Truthbinding parity with plan.md)
+- arc.md internal `skip_forge` key renamed to `no_forge`
+- plan.md added missing `Load skills` directive and `Edit` tool
+- README arc examples corrected from `docs/plans/` to `plans/`
+
+## [1.10.0] - 2026-02-13 — "The Elden Throne"
+
+### Added
+
+- `/rune:forge` — standalone plan enrichment command (deepen any existing plan with Forge Gaze)
+- `--quick` flag for `/rune:plan` — minimal pipeline (research + synthesize + review)
+- Phase 1.5: Research Consolidation Validation checkpoint (AskUserQuestion after research)
+- Phase 2.5: Shatter Assessment for complex plan decomposition (complexity scoring + shard generation)
+- AI-Era Considerations section in Comprehensive template
+- SpecFlow dual-pass for Comprehensive plans (second flow-seer pass on drafted plan)
+- Post-plan "Open in editor" and "Review and refine" options (4 explicit + Other free-text)
+- Automated grep verification gate in plan review phase (deterministic, zero hallucination risk)
+- decree-arbiter 6th dimension: Internal Consistency (anti-hallucination checks)
+
+### Changed
+
+- **Brainstorm + forge now default** — `/rune:plan` runs full pipeline by default. Use `--quick` for minimal.
+- `--skip-forge` renamed to `--no-forge` in `/rune:arc` for consistency
+- `--no-brainstorm`, `--no-forge`, `--exhaustive` still work as legacy flags
+- Post-plan options expanded (4 explicit + Other free-text)
+- decree-arbiter now evaluates 6 dimensions (was 5)
 - **Elden Lord → Tarnished** — The lead/orchestrator is now called "the Tarnished" (the protagonist).
   In Elden Ring, the Tarnished is the player character who journeys through the Lands Between.
 - **Tarnished → Ash** — All teammates (review, work, research, utility) are now called "Ash" / "Ashes".

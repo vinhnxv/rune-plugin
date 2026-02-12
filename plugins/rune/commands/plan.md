@@ -2,17 +2,17 @@
 name: rune:plan
 description: |
   Multi-agent planning workflow using Agent Teams. Combines brainstorm, research,
-  synthesis, deepening, and review into a single orchestrated pipeline with
-  dependency-aware task scheduling.
+  validation, synthesis, shatter assessment, forge enrichment, and review into a
+  single orchestrated pipeline with dependency-aware task scheduling.
 
   <example>
   user: "/rune:plan"
-  assistant: "The Tarnished begins the planning ritual..."
+  assistant: "The Tarnished begins the planning ritual — full pipeline with brainstorm, forge, and review..."
   </example>
 
   <example>
-  user: "/rune:plan --brainstorm --forge"
-  assistant: "The Tarnished begins the planning ritual with brainstorm and research enrichment..."
+  user: "/rune:plan --quick"
+  assistant: "The Tarnished begins a quick planning ritual — research, synthesize, review only..."
   </example>
 user-invocable: true
 allowed-tools:
@@ -26,6 +26,7 @@ allowed-tools:
   - SendMessage
   - Read
   - Write
+  - Edit
   - Bash
   - Glob
   - Grep
@@ -34,22 +35,31 @@ allowed-tools:
 
 # /rune:plan — Multi-Agent Planning Workflow
 
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`
+
 Orchestrates a planning pipeline using Agent Teams with dependency-aware task scheduling.
 
 ## Usage
 
 ```
-/rune:plan                              # Standard planning (research + synthesize + review)
-/rune:plan --brainstorm                 # Start with brainstorm phase
-/rune:plan --forge                      # Include research enrichment
-/rune:plan --forge --exhaustive         # Summon ALL agents per section
-/rune:plan --brainstorm --forge         # Full pipeline
+/rune:plan                              # Full pipeline (brainstorm + research + validate + synthesize + shatter? + forge + review)
+/rune:plan --quick                      # Quick: research + synthesize + review only (skip brainstorm, forge, shatter)
+```
+
+### Legacy Flags (still functional, undocumented)
+
+```
+/rune:plan --no-brainstorm              # Skip brainstorm only (granular)
+/rune:plan --no-forge                   # Skip forge only (granular)
+/rune:plan --exhaustive                 # Exhaustive forge mode (lower threshold, research-budget agents)
+/rune:plan --brainstorm                 # No-op (brainstorm is already default)
+/rune:plan --forge                      # No-op (forge is already default)
 ```
 
 ## Pipeline Overview
 
 ```
-Phase 0: Gather Input (brainstorm auto-detect or accept description)
+Phase 0: Gather Input (brainstorm by default — auto-skip when requirements are clear)
     ↓
 Phase 1: Research (up to 6 parallel agents, conditional)
     ├─ Phase 1A: LOCAL RESEARCH (always — repo-surveyor, echo-reader, git-miner)
@@ -57,9 +67,13 @@ Phase 1: Research (up to 6 parallel agents, conditional)
     ├─ Phase 1C: EXTERNAL RESEARCH (conditional — practice-seeker, lore-scholar)
     └─ Phase 1D: SPEC VALIDATION (always — flow-seer)
     ↓ (all research tasks converge)
+Phase 1.5: Research Consolidation Validation (AskUserQuestion checkpoint)
+    ↓
 Phase 2: Synthesize (lead consolidates findings, detail level selection)
     ↓
-Phase 3: Forge (optional — --forge flag, structured deepen per section)
+Phase 2.5: Shatter Assessment (complexity scoring → optional decomposition)
+    ↓
+Phase 3: Forge (default — skipped with --quick)
     ↓
 Phase 4: Plan Review (scroll review + optional iterative refinement)
     ↓
@@ -70,6 +84,7 @@ Phase 5: Echo Persist (save learnings to .claude/echoes/)
 Phase 6: Cleanup & Present (shutdown teammates, TeamDelete, present plan)
     ↓
 Output: plans/YYYY-MM-DD-{type}-{name}-plan.md
+        (or plans/YYYY-MM-DD-{type}-{name}-shard-N-plan.md if shattered)
 ```
 
 ## Phase 0: Gather Input
@@ -97,11 +112,12 @@ const brainstorms = [
 
 **Recency decay**: >14 days: 0.7x, >30 days: 0.4x, >90 days: skip.
 
-### Without `--brainstorm`
+### With `--quick`
 
-Ask the user for a feature description:
+Skip brainstorm entirely. Ask the user for a feature description:
 
 ```javascript
+// Pseudocode — illustrative only
 AskUserQuestion({
   questions: [{
     question: "What would you like to plan?",
@@ -116,11 +132,11 @@ AskUserQuestion({
 })
 ```
 
-Then ask for details. Collect until the feature is clear.
+Then ask for details. Collect until the feature is clear. Proceed directly to Phase 1 (Research).
 
-### With `--brainstorm`
+### Default (Brainstorm)
 
-Run a structured brainstorm session:
+Run a structured brainstorm session. This is the default flow — brainstorm ensures clarity before research.
 
 #### Step 1: Assess Requirement Clarity
 
@@ -310,7 +326,7 @@ Task({
 })
 ```
 
-If external research times out: proceed with local findings only and recommend `--forge` re-run after implementation.
+If external research times out: proceed with local findings only and recommend `/rune:forge` re-run after implementation.
 
 ### Phase 1D: Spec Validation (always runs)
 
@@ -344,6 +360,38 @@ while (not all research tasks completed):
   if (any stale > 5 min): proceed with partial
   sleep(30)
 ```
+
+## Phase 1.5: Research Consolidation Validation
+
+Skipped when `--quick` is passed.
+
+After research completes, the Tarnished summarizes key findings from each research output file and presents them to the user for validation before synthesis.
+
+```javascript
+// Pseudocode — illustrative only
+// Read all files in tmp/plans/{timestamp}/research/
+// Summarize key findings (2-3 bullet points per agent)
+
+AskUserQuestion({
+  questions: [{
+    question: `Research complete. Key findings:\n${summary}\n\nLook correct? Any gaps?`,
+    header: "Validate",
+    options: [
+      { label: "Looks good, proceed (Recommended)", description: "Continue to plan synthesis" },
+      { label: "Missing context", description: "I'll provide additional context before synthesis" },
+      { label: "Re-run external research", description: "Force external research agents" }
+    ],
+    multiSelect: false
+  }]
+})
+// Note: AskUserQuestion auto-provides an "Other" free-text option (platform behavior)
+```
+
+**Action handlers**:
+- **Looks good** → Proceed to Phase 2 (Synthesize)
+- **Missing context** → Collect user input, append to research findings, then proceed
+- **Re-run external research** → Summon practice-seeker + lore-scholar with updated context
+- **"Other" free-text** → Interpret user instruction and act accordingly
 
 ## Phase 2: Synthesize
 
@@ -555,6 +603,13 @@ erDiagram
 
 {What docs need updating — README, API docs, inline comments, migration guides}
 
+## AI-Era Considerations (optional)
+
+- AI tools used during research: {list tools and what they found}
+- Prompts/patterns that worked well: {any useful prompt patterns}
+- Areas needing human review: {sections that require domain expertise validation}
+- Testing emphasis: {areas where AI-accelerated implementation needs extra testing}
+
 ## References
 
 ### Internal
@@ -584,15 +639,90 @@ erDiagram
 
 4. Write to `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
-## Phase 3: Forge (Optional — `--forge` flag)
+5. **Comprehensive only — Second SpecFlow pass**: If detail level is Comprehensive, re-run flow-seer on the drafted plan (not just the raw spec from Phase 1D). This catches gaps introduced during synthesis. Write to `tmp/plans/{timestamp}/research/specflow-post-draft.md`. Tarnished appends findings to the plan before scroll-reviewer runs.
 
-If `--forge` is specified, use **Forge Gaze** (topic-aware agent matching) to select the best specialized agents for each plan section. See `skills/roundtable-circle/references/forge-gaze.md` for the full topic registry and matching algorithm.
+## Phase 2.5: Shatter Assessment
+
+Skipped when `--quick` is passed.
+
+After synthesis produces a plan, assess its complexity. If the plan is large enough to benefit from decomposition, offer to "shatter" it into smaller sub-plans (shards). Each shard is then forged and implemented independently — like the Elden Ring shattering into Great Runes, each carrying part of the whole.
+
+### Complexity Scoring
+
+| Signal | Weight | Threshold |
+|--------|--------|-----------|
+| Task count | 40% | >= 8 tasks |
+| Phase count | 30% | >= 3 phases |
+| Cross-cutting concerns | 20% | >= 2 shared dependencies |
+| Estimated effort (sum of S/M/L) | 10% | >= 2 L-size phases |
+
+Complexity score >= 0.65: Offer shatter
+Complexity score < 0.65: Skip shatter, proceed to forge
+
+### Shatter Decision
+
+```javascript
+// Pseudocode — illustrative only
+if (complexityScore >= 0.65) {
+  AskUserQuestion({
+    questions: [{
+      question: `This plan has ${taskCount} tasks across ${phaseCount} phases.
+        Shattering into smaller plans enables focused forge enrichment
+        and incremental implementation. Shatter?`,
+      header: "Shatter",
+      options: [
+        { label: "Shatter (Recommended)", description: "Split into sub-plans, forge each independently" },
+        { label: "Keep as one plan", description: "Forge the full plan as a single document" },
+        { label: "Let me choose sections", description: "I'll specify which sections to split" }
+      ],
+      multiSelect: false
+    }]
+  })
+}
+```
+
+### Shard Generation
+
+When user chooses to shatter:
+
+1. Identify natural boundaries (implementation phases are the primary split point)
+2. Create shard files:
+   - `plans/YYYY-MM-DD-{type}-{name}-shard-1-{phase-name}-plan.md`
+   - `plans/YYYY-MM-DD-{type}-{name}-shard-2-{phase-name}-plan.md`
+   - etc.
+3. Each shard contains:
+   - Shared context section (overview, problem statement, references from parent plan)
+   - Its specific phase tasks and acceptance criteria
+   - Dependencies on other shards (if any)
+4. Parent plan updated with shard index:
+   - List of shard files with status (pending/in-progress/done)
+   - Cross-shard dependency graph
+
+### Forge Per Shard
+
+When shattered, Phase 3 (Forge) runs on each shard independently:
+- Smaller context = more focused enrichment per section
+- Forge Gaze selects agents relevant to each shard's topic
+- Total agent invocations may be higher, but quality improves
+
+### Implementation Per Shard
+
+After forge, `/rune:work` can target individual shards:
+- `/rune:work plans/...-shard-1-foundation-plan.md`
+- Each shard implemented and ward-checked independently
+- Cross-shard integration tested after all shards complete
+
+## Phase 3: Forge (Default — skipped with `--quick`)
+
+Forge runs by default. Use **Forge Gaze** (topic-aware agent matching) to select the best specialized agents for each plan section. See `skills/roundtable-circle/references/forge-gaze.md` for the full topic registry and matching algorithm.
+
+Skip this phase when `--quick` or `--no-forge` is passed. `--forge` is a no-op (forge is already default).
 
 ### Auto-Forge Trigger
 
 If the user's message contains ultrathink keywords (ULTRATHINK, DEEP, ARCHITECT),
-automatically enable `--forge` mode even if the flag was not explicitly passed.
-Announce: "Ultrathink detected — auto-enabling forge enrichment."
+automatically enable `--exhaustive` forge mode even if the flag was not explicitly passed.
+Announce: "Ultrathink detected — auto-enabling exhaustive forge enrichment."
 
 ### Default --forge Mode
 
@@ -717,6 +847,21 @@ If scroll-reviewer reports HIGH severity issues:
 3. Re-run scroll-reviewer to verify fixes
 4. Max 2 refinement passes — diminishing returns after that
 
+### 4B.5: Automated Verification Gate
+
+After scroll review and refinement, run deterministic checks with zero LLM hallucination risk:
+
+```bash
+# Extensible verification — add plan-specific checks here
+rg "11 commands" plugins/rune/ .claude-plugin/    # Must be 0 (updated to 12)
+rg -- "--skip-forge" plugins/rune/                # Must be 0 (renamed to --no-forge)
+rg "optional.*--forge" plugins/rune/commands/plan.md  # Must be 0 (forge is default)
+```
+
+If any check fails: auto-fix the stale reference or flag to user before presenting the plan.
+
+This gate is extensible — each plan implementation can define plan-specific grep patterns to catch stale values, inconsistent counts, or deprecated flags.
+
 ### 4C: Technical Review (optional)
 
 If user requested or plan is Comprehensive detail level, summon in parallel:
@@ -729,7 +874,7 @@ Task({
   prompt: `You are Decree Arbiter — a RESEARCH agent. Do not write implementation code.
     Review the plan for technical soundness.
     Write review to tmp/plans/{timestamp}/decree-review.md.
-    See agents/utility/decree-arbiter.md for 5-dimension evaluation.`,
+    See agents/utility/decree-arbiter.md for 6-dimension evaluation.`,
   run_in_background: true
 })
 
@@ -801,26 +946,34 @@ Plan file written to: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 After presenting the plan, offer next steps using AskUserQuestion:
 
 ```javascript
+// Pseudocode — illustrative only
 AskUserQuestion({
   questions: [{
     question: `Plan ready at plans/${path}. What would you like to do next?`,
     header: "Next step",
     options: [
       { label: "/rune:work (Recommended)", description: "Start implementing this plan with swarm workers" },
-      { label: "Edit plan", description: "Refine the plan before implementing" },
-      { label: "Technical review", description: "Run decree-arbiter + scroll-reviewer + knowledge-keeper" },
+      { label: "/rune:forge", description: "Deepen plan with Forge Gaze enrichment" },
+      { label: "Open in editor", description: "Open plan file in default editor" },
       { label: "Create issue", description: "Push to GitHub Issues or Linear" }
     ],
     multiSelect: false
   }]
 })
+// AskUserQuestion auto-provides an "Other" free-text option (platform behavior).
+// Users can type "edit plan", "technical review", "review", "refine", etc. in "Other".
 ```
 
 **Action handlers**:
-- `/rune:work` → Invoke Skill("rune:work", plan_path)
-- Edit plan → Present plan for editing
-- Technical review → Summon decree-arbiter + knowledge-keeper + scroll-reviewer as Agent Teams teammates
+- `/rune:work` → `Skill("rune:work", plan_path)`
+- `/rune:forge` → `Skill("rune:forge", plan_path)`
+- Open in editor → `Bash("open plans/${path}")` (macOS) or `Bash("code plans/${path}")` (VS Code)
 - Create issue → See Issue Creation section
+
+**"Other" free-text handlers** (keyword matching):
+- "edit" or "edit plan" → Present plan for editing
+- "review", "refine", or "technical review" → Re-summon scroll-reviewer (and optionally decree-arbiter + knowledge-keeper)
+- Any other text → Interpret as user instruction
 
 ## Issue Creation
 

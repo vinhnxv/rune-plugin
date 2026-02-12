@@ -1,6 +1,6 @@
 # Forge Gaze — Topic-Aware Agent Selection for Plan Enrichment
 
-> Matches plan section topics to specialized agents for `--forge` enrichment. Analogous to [Rune Gaze](rune-gaze.md) (file extensions → Ash for reviews).
+> Matches plan section topics to specialized agents for plan enrichment (default in `/rune:plan` and `/rune:forge`). Analogous to [Rune Gaze](rune-gaze.md) (file extensions → Ash for reviews). Use `--quick` with `/rune:plan` to skip forge.
 
 ## Table of Contents
 
@@ -15,8 +15,8 @@
   - [Constants](#constants)
 - [Budget Tiers](#budget-tiers)
 - [Forge Modes](#forge-modes)
-  - [Default --forge](#default---forge)
-  - [--forge --exhaustive](#--forge---exhaustive)
+  - [Default](#default-runs-automatically-in-runeplan-and-runeforge)
+  - [--exhaustive](#--exhaustive)
 - [Custom Forge Agents](#custom-forge-agents)
 - [Fallback Behavior](#fallback-behavior)
 - [Dry-Run Output](#dry-run-output)
@@ -157,12 +157,12 @@ forge:
 | `enrichment` | Review + utility agents | Read plan section, apply expertise, write perspective | ~5k tokens |
 | `research` | practice-seeker, lore-scholar | Web search, docs lookup, deeper analysis | ~15k tokens |
 
-- **Default `--forge`**: Only `enrichment` budget agents
-- **`--forge --exhaustive`**: Both `enrichment` and `research` budget agents
+- **Default forge**: Only `enrichment` budget agents
+- **`--exhaustive`**: Both `enrichment` and `research` budget agents
 
 ## Forge Modes
 
-### Default --forge
+### Default (runs automatically in `/rune:plan` and `/rune:forge`)
 
 ```
 1. Parse plan into sections (## headings)
@@ -173,7 +173,9 @@ forge:
 6. Lead merges enrichments into plan document
 ```
 
-### --forge --exhaustive
+Use `--quick` with `/rune:plan` to skip forge, or `--no-forge` for granular control.
+
+### --exhaustive
 
 Same flow but with:
 - Lower threshold (0.15 vs 0.30)
@@ -225,7 +227,7 @@ This ensures Forge never produces empty enrichment — it gracefully degrades. T
 
 > **Note**: `--dry-run` is not yet implemented in `/rune:plan`. The format below is the target specification for when it is added. Currently, Forge Gaze logs its selection transparently in the console output during Phase 3.
 
-When `--forge --dry-run` is used, display selection without summoning:
+When `--dry-run` is used, display selection without summoning (forge runs by default; `--quick` skips it):
 
 ```
 Forge Gaze — Agent Selection

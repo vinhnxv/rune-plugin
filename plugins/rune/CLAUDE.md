@@ -20,7 +20,8 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
 | `/rune:audit` | Full codebase audit with up to 5 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
-| `/rune:plan` | Multi-agent planning with parallel research, 3 detail levels, Forge Gaze topic-aware enrichment, issue creation (+ `--forge`, `--exhaustive`, `--brainstorm`) |
+| `/rune:plan` | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick` for minimal pipeline) |
+| `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | `/rune:mend` | Parallel finding resolution from TOME |
 | `/rune:arc` | End-to-end pipeline (forge, plan review, work, review, mend, audit) |
@@ -67,7 +68,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | Agent | Purpose |
 |-------|---------|
 | runebinder | Aggregates Ash findings into TOME.md |
-| decree-arbiter | Technical soundness review for plans (5-dimension evaluation) |
+| decree-arbiter | Technical soundness review for plans (6-dimension evaluation) |
 | truthseer-validator | Audit coverage validation (Phase 5.5) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
@@ -122,7 +123,7 @@ The unified review summary after deduplication and prioritization. Findings use 
 
 ### Decree Arbiter
 
-Utility agent that reviews plans for technical soundness across 5 dimensions (feasibility, risk, efficiency, coverage, consistency). Uses Decree Trace evidence format.
+Utility agent that reviews plans for technical soundness across 6 dimensions (feasibility, risk, efficiency, coverage, consistency, internal consistency). Uses Decree Trace evidence format.
 
 ### Remembrance Channel
 
@@ -139,12 +140,12 @@ Agents persist learnings automatically after workflows. Future workflows read ec
 
 ### Forge Gaze (Topic-Aware Agent Selection)
 
-When `--forge` is used with `/rune:plan`, Forge Gaze matches plan section topics to specialized agents. Analogous to Rune Gaze (file extensions → Ash for reviews), but applied to plan section topics instead.
+By default, `/rune:plan` and `/rune:forge` use Forge Gaze to match plan section topics to specialized agents. Analogous to Rune Gaze (file extensions → Ash for reviews), but applied to plan section topics instead. Use `--quick` with `/rune:plan` to skip forge enrichment.
 
 - **Keyword overlap scoring** with title bonus — deterministic, zero token cost, transparent
 - **Budget tiers**: `enrichment` (review agents, ~5k tokens) and `research` (practice-seeker/lore-scholar, ~15k tokens)
-- **Default `--forge`**: threshold 0.30, max 3 agents/section, enrichment only, max 8 total
-- **`--forge --exhaustive`**: threshold 0.15, max 5 agents/section, enrichment + research, max 12 total
+- **Default forge**: threshold 0.30, max 3 agents/section, enrichment only, max 8 total
+- **`--exhaustive`**: threshold 0.15, max 5 agents/section, enrichment + research, max 12 total
 - **Custom agents** from `talisman.yml` participate via `workflows: [forge]` + `trigger.topics` + `forge:` config
 
 See `roundtable-circle/references/forge-gaze.md` for the topic registry and matching algorithm.
@@ -205,6 +206,7 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 | Reviews | `tmp/reviews/{id}/` | `{ash}.md`, `TOME.md` (with RUNE:FINDING markers), `inscription.json` |
 | Audits | `tmp/audit/{id}/` | Same pattern |
 | Plans | `tmp/plans/{id}/research/`, `plans/YYYY-MM-DD-{type}-{name}-plan.md` | Research findings, brainstorm decisions, plan document |
+| Forge | `tmp/forge/{id}/` | `{section-slug}-{agent-name}.md` enrichment files |
 | Mend | `tmp/mend/{id}/` | `resolution-report.md`, fixer outputs |
 | Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `tome.md`, `resolution-report.md`, `audit-report.md`) |
 | Arc State | `.claude/arc/{id}/` | `checkpoint.json` (persistent, NOT in tmp/) |
