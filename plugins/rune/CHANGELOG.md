@@ -7,6 +7,12 @@
 - **Elden Lord persona** — The orchestrator/lead now has a named identity. All commands use
   lore-themed greeting messages ("The Elden Lord convenes the Roundtable Circle...").
 - **Lore Glossary** — New reference table in CLAUDE.md mapping 14 Elden Ring terms to plugin concepts.
+- **Forge Gaze** — Topic-aware agent selection for `/rune:plan --forge`. Matches plan section
+  topics to specialized agents using keyword overlap scoring (deterministic, zero token cost).
+  13 agents across 2 budget tiers replace generic `forge-researcher` agents.
+  See `roundtable-circle/references/forge-gaze.md` for the topic registry and algorithm.
+- **Forge Gaze configuration** — Override thresholds, per-section caps, and total agent limits
+  via `forge:` section in `rune-config.yml`. Custom Tarnished participate via `workflows: [forge]`.
 
 ### Changed
 

@@ -128,11 +128,11 @@ When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 1. **Gathers input** — accepts a feature description or runs interactive brainstorm (`--brainstorm`)
 2. **Spawns research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Deepens sections** — optional parallel deep-dive per section (`--forge`)
-5. **Reviews document** — Scroll Reviewer checks plan quality
+4. **Forge Gaze enrichment** — optional topic-aware agent selection (`--forge`) matches plan sections to specialized agents using keyword overlap scoring. 13 agents across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds
+5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
-Output: `plans/{type}-{feature-name}-plan.md`
+Output: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
 ## Work Mode
 
@@ -305,6 +305,8 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 **Arc Pipeline** — End-to-end orchestration across 6 phases with checkpoint-based resume and per-phase tool restrictions.
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers and centralized ward check.
+
+**Forge Gaze** — Topic-aware agent selection for `--forge` enrichment. Matches plan section topics to specialized agents via keyword overlap scoring. Configurable thresholds and budget tiers.
 
 **Rune Echoes** — Project-level agent memory with 3-layer lifecycle. Agents learn across sessions without explicit compound workflows.
 
