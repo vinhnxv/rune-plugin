@@ -1,6 +1,6 @@
 # Custom Tarnished — Extensibility Guide
 
-> Register custom agents as Tarnished in `/rune:review` and `/rune:audit` workflows.
+> Register custom agents as Tarnished in `/rune:review`, `/rune:audit`, and `/rune:plan --forge` workflows.
 
 Custom Tarnished participate in the full Roundtable Circle lifecycle: they receive Truthbinding wrapper prompts, write to the standard output directory, get deduplicated in TOME.md, and are verified by Truthsight.
 
@@ -201,6 +201,8 @@ Run these checks at Phase 0 before spawning any agents:
 | Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, QUAL, FRONT, DOC | "Prefix '{prefix}' is reserved for built-in Tarnished '{name}'" |
 | Agent name safe | `agent` field matches `^[a-zA-Z0-9_:-]+$` (no path separators or `..`) | "Invalid agent name '{agent}': must contain only alphanumeric, hyphen, underscore, or colon characters" |
 | Forge fields | If `forge` in workflows: `trigger.topics` (≥2), `forge.subsection`, `forge.perspective`, `forge.budget` required | "Tarnished '{name}' has 'forge' workflow but missing required forge fields" |
+| Forge budget value | `forge.budget` must be `enrichment` or `research` | "Invalid forge budget '{value}' in Tarnished '{name}'. Must be 'enrichment' or 'research'" |
+| Topic format | Each topic in `trigger.topics` must match `^[a-z0-9_-]+$` | "Invalid topic '{value}' in Tarnished '{name}': must be lowercase keyword (a-z, 0-9, hyphens, underscores)" |
 
 **On validation failure:** Log the error, skip the invalid custom Tarnished, and continue with remaining valid entries. Do NOT abort the entire workflow.
 
@@ -235,7 +237,7 @@ for each custom Tarnished:
 
 ## Examples
 
-### Local Project Reviewer (Review + Forge)
+### Local Project Reviewer (Review + Audit + Forge)
 
 ```yaml
 # .claude/rune-config.yml

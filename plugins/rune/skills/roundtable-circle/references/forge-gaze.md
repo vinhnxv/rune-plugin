@@ -37,6 +37,9 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 | pattern-seer | patterns, conventions, naming, consistency, style, standards, anti-patterns | Pattern Alignment | codebase pattern consistency and convention adherence |
 | simplicity-warden | complexity, yagni, abstraction, over-engineering, simplicity, minimal | Simplicity Review | unnecessary complexity and YAGNI violations |
 | mimic-detector | duplication, dry, reuse, similar, copy-paste, shared | Reuse Opportunities | code duplication and reuse opportunities |
+| void-analyzer | completeness, todo, stub, placeholder, partial, implementation, missing | Completeness Gaps | incomplete implementations, stubs, and TODO coverage |
+| wraith-finder | dead-code, unused, orphan, deprecated, legacy, cleanup, removal | Dead Code Risk | dead code identification and cleanup opportunities |
+| phantom-checker | dynamic, reflection, metaprogramming, string-dispatch, runtime, magic | Dynamic Reference Analysis | dynamic references and runtime resolution concerns |
 
 ### Research Agents (Research Budget)
 
@@ -138,10 +141,12 @@ These can be overridden via `rune-config.yml`:
 
 ```yaml
 forge:
-  threshold: 0.30
-  max_per_section: 3
-  max_total_agents: 8
+  threshold: 0.30          # Range: 0.0-1.0
+  max_per_section: 3       # Hard upper bound: 5
+  max_total_agents: 8      # Hard upper bound: 15
 ```
+
+**Validation bounds**: `threshold` must be between 0.0 and 1.0. `max_per_section` capped at 5. `max_total_agents` capped at 15. Values exceeding bounds are clamped silently.
 
 ## Budget Tiers
 
@@ -216,6 +221,8 @@ This ensures Forge never produces empty enrichment — it gracefully degrades.
 
 ## Dry-Run Output
 
+> **Note**: `--dry-run` is not yet implemented in `/rune:plan`. The format below is the target specification for when it is added. Currently, Forge Gaze logs its selection transparently in the console output during Phase 3.
+
 When `--forge --dry-run` is used, display selection without spawning:
 
 ```
@@ -223,7 +230,7 @@ Forge Gaze — Agent Selection
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Plan sections: 6
-Agents available: 10 built-in + 1 custom
+Agents available: 13 built-in (11 enrichment + 2 research) + 1 custom
 
 Section: "Technical Approach"
   ✓ rune-architect (0.85) — architecture compliance

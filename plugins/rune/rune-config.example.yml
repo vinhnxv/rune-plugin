@@ -53,6 +53,7 @@ rune-gaze:
 tarnished:
   custom:
     # Example 1: A local project-specific reviewer
+    # Add 'forge' to workflows to enable Forge Gaze matching (see Example 3)
     - name: "domain-logic-reviewer"
       agent: "domain-logic-reviewer"       # Resolves to .claude/agents/domain-logic-reviewer.md
       source: local
@@ -121,6 +122,7 @@ settings:
   dedup_hierarchy:
     - SEC          # Ward Sentinel (always highest)
     - BACK         # Forge Warden
+    - API          # Custom: api-contract-reviewer
     - DOM          # Custom: domain-logic-reviewer
     - PERF         # Custom: perf-deep-scan
     - DOC          # Knowledge Keeper
@@ -138,6 +140,14 @@ settings:
 defaults:
   disable_tarnished: []
   # Example: disable_tarnished: ["knowledge-keeper"]
+
+# ──────────────────────────────────────────────
+# Forge — Forge Gaze selection overrides
+# ──────────────────────────────────────────────
+# forge:
+#   threshold: 0.30          # Score threshold for agent selection (0.0-1.0)
+#   max_per_section: 3       # Max agents per plan section (upper bound: 5)
+#   max_total_agents: 8      # Max total agents across all sections (upper bound: 15)
 
 # ──────────────────────────────────────────────
 # Echoes — Memory persistence
