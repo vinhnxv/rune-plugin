@@ -23,9 +23,7 @@
 
 ```
 Input: list of changed files (from git diff)
-Output: { code_files, doc_files, infra_files, skip_files, ash_selections }
-
-classified = false
+Output: { code_files, doc_files, minor_doc_files, infra_files, skip_files, ash_selections }
 
 for each file in changed_files:
   ext = file.extension
@@ -68,8 +66,11 @@ for each file in changed_files:
     infra_files.add(file)                # Unclassified → infra bucket
     ash_selections.add("forge-warden")   # Default to backend review
 
-# Docs-only override: when the ENTIRE diff is documentation (no code/infra files),
+# Docs-only-and-all-below-threshold override: when the ENTIRE diff is documentation
+# (no code/infra files) AND every doc file fell below DOC_LINE_THRESHOLD,
 # promote minor doc files so they are still reviewed by Knowledge Keeper.
+# Note: if ANY doc file exceeds the threshold, it goes to doc_files normally
+# and the remaining below-threshold files are discarded as minor.
 if code_files.empty AND infra_files.empty AND doc_files.empty AND minor_doc_files.not_empty:
   doc_files = minor_doc_files       # Promote all
   ash_selections.add("knowledge-keeper")
@@ -157,8 +158,11 @@ docker-compose.yml, docker-compose.yaml
 package-lock.json, yarn.lock, bun.lockb, Cargo.lock, poetry.lock, uv.lock
 Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 
-# Build output
-.min.js, .min.css, .map, .d.ts (from generated)
+# Build output (generated files — hand-written .d.ts may need review, use skip_patterns to customize)
+.min.js, .min.css, .map, .d.ts
+
+# Secrets (should never be reviewed — may contain credentials)
+.env
 
 # Config (usually boilerplate)
 .gitignore, .editorconfig, .prettierrc, .eslintrc
@@ -172,12 +176,15 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 | Only frontend | - | **Always** | **Always** | Selected | - |
 | Only docs (>= threshold) | - | **Always** | **Always** | - | Selected |
 | Only docs (< threshold, promoted) | - | **Always** | **Always** | - | Selected |
-| Only infra/config/scripts | Selected | **Always** | **Always** | - | - |
+| Only infra/scripts | Selected | **Always** | **Always** | - | - |
+| Only config | Selected | **Always** | **Always** | - | - |
 | Only `.claude/` files | - | **Always** | **Always** | - | Selected |
 | Backend + frontend | Selected | **Always** | **Always** | Selected | - |
 | Backend + docs | Selected | **Always** | **Always** | - | Selected |
 | Infra + docs | Selected | **Always** | **Always** | - | Selected |
 | All types | Selected | **Always** | **Always** | Selected | Selected |
+
+**Note:** The "Only `.claude/` files" row assumes `.claude/**/*.md`. Non-md files in `.claude/` (e.g., `.claude/talisman.yml`) follow standard classification rules and may also select Forge Warden via CONFIG_EXTENSIONS.
 
 **Max built-in Ash:** 5. With custom Ashes (via `talisman.yml`), total can reach 8 (`settings.max_ashes`). Plus 1 Runebinder (utility) for aggregation.
 

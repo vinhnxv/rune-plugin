@@ -26,14 +26,14 @@ rune-gaze:
     - .jsx
 
   # Override which extensions map to infrastructure (Forge Warden)
-  # Includes: Dockerfile, *.sh, *.sql, *.tf, CI/CD configs
+  # Subset shown — see rune-gaze.md for all defaults (.sh, .bash, .zsh, .sql, .tf, .hcl, .tfvars, .dockerfile)
   # infra_extensions:
   #   - .tf
   #   - .sh
   #   - .sql
 
   # Override which extensions map to config (Forge Warden)
-  # Includes: *.yml, *.yaml, *.json, *.toml, *.ini
+  # Subset shown — see rune-gaze.md for all defaults (.yml, .yaml, .json, .toml, .ini, .cfg, .conf, .env.example, .env.template)
   # config_extensions:
   #   - .yml
   #   - .yaml

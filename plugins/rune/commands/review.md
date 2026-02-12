@@ -73,7 +73,7 @@ fi
 **Abort conditions:**
 - No changed files → "Nothing to review. Make some changes first."
 - Only non-reviewable files (images, lock files) → "No reviewable changes found."
-- All doc-extension files fell below line threshold AND code files exist → summon only always-on Ashes (normal behavior — minor doc changes alongside code are noise)
+- All doc-extension files fell below line threshold AND code/infra files exist → summon only always-on Ashes (normal behavior — minor doc changes alongside code are noise)
 
 **Docs-only override:** If ALL non-skip files are doc-extension and ALL fall below the line threshold (no code files at all), promote them so Knowledge Keeper is still summoned. This prevents a degenerate case where a docs-only diff silently skips all files. See `rune-gaze.md` for the full algorithm.
 

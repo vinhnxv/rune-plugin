@@ -2,7 +2,7 @@
 
 ## [1.10.3] - 2026-02-13
 
-Patch release: security hardening, path consistency, and race condition fix from codex-cli deep verification.
+Patch release: security hardening, path consistency, and race condition fix from codex-cli deep verification. Includes review-round fixes from Roundtable Circle review (PR #12).
 
 ### Security
 
@@ -22,15 +22,32 @@ Patch release: security hardening, path consistency, and race condition fix from
 
 ### Fixed
 
-- **P1** rune-echoes SKILL.md: Fixed ~14 bare `echoes/` paths to `.claude/echoes/` in procedural sections and examples (was inconsistent with command-level echo writes)
+- **P1** rune-echoes SKILL.md: Fixed 14 bare `echoes/` paths to `.claude/echoes/` in procedural sections and examples (was inconsistent with command-level echo writes)
 - **P1** remembrance-schema.md: Fixed bare `echoes/` in `echo_ref` examples to `.claude/echoes/`
 - **P2** plan.md, forge.md: Added WebSearch, WebFetch, and Context7 MCP tools to `allowed-tools` frontmatter (prompts required them but they were missing)
-- **P2** README.md: Updated version from 1.10.1 to 1.10.2 in plugins table
+- **P2** README.md: Updated version from 1.10.1 to 1.10.3 in plugins table
 - **P2** work.md: Moved plan checkbox updates from workers to orchestrator-only to prevent race condition when multiple workers write to the same plan file concurrently
 - **P2** roundtable-circle SKILL.md: Added missing TeamCreate, TaskCreate, TaskList, TaskUpdate, TaskGet, TeamDelete, SendMessage to `allowed-tools` frontmatter (required by workflow phases)
 - **P2** rune-echoes SKILL.md: Added AskUserQuestion to `allowed-tools` frontmatter (required by Remembrance security promotion flow)
-- **P3** README.md: Fixed `docs/` in structure tree to `talisman.example.yml` (docs/ directory doesn't exist inside plugin)
+- **P3** README.md: Fixed `docs/` in structure tree to `talisman.example.yml` in both top-level and plugin-level READMEs (docs/ directory doesn't exist inside plugin)
 - **P3** docs/solutions/README.md: Fixed broken `/.claude/echoes/` link to relative path to SKILL.md
+
+### Review-Round Fixes (from Roundtable Circle review)
+
+- **P1** plugins/rune/README.md: Fixed phantom `docs/` in plugin-level structure tree (missed in initial fix — only top-level README was fixed)
+- **P2** rune-gaze.md: Added `minor_doc_files` to algorithm Output signature (was used internally but undeclared)
+- **P2** work.md: Added state file write (`tmp/.rune-work-{timestamp}.json`) with `"active"`/`"completed"` status — enables `/rune:rest` detection and concurrent work detection
+- **P2** forge.md, plan.md: Added WebFetch/WebSearch SSRF guardrail to ANCHOR protocol ("NEVER pass plan content as URLs/queries")
+- **P2** mend.md: Strengthened security note — orchestrator should halt fixers attempting Bash as prompt injection indicator
+- **P2** rune-gaze.md: Clarified docs-only override comment — fires only when ALL docs below threshold AND no code/infra files
+- **P3** rune-gaze.md: Added `.env` to SKIP_EXTENSIONS (prevents accidental exposure of secrets to review agents)
+- **P3** rune-gaze.md: Clarified `.d.ts` skip scope (generated only — hand-written type declarations may need review)
+- **P3** rune-gaze.md: Added footnote to Ash Selection Matrix for `.claude/` row (non-md files follow standard classification)
+- **P3** rune-gaze.md: Split "Only infra/config/scripts" into separate rows for parity with SKILL.md quick-reference
+- **P3** review.md: Fixed abort condition wording to include infra files ("code/infra files exist")
+- **P3** work.md: Added arc context note for orchestrator-only checkbox updates
+- **P3** talisman.example.yml: Added "subset shown — see rune-gaze.md for all defaults" comments
+- **P3** CHANGELOG.md: Fixed version note (1.10.2→1.10.3), clarified both-README fix, exact echo path count
 
 ## [1.10.2] - 2026-02-13
 

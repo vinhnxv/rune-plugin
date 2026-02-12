@@ -132,7 +132,16 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: "rune-work-{timestamp}" })
 
-// 2. Create task pool with dependencies
+// 2. Write state file
+Write("tmp/.rune-work-{timestamp}.json", {
+  team_name: "rune-work-{timestamp}",
+  started: new Date().toISOString(),
+  status: "active",
+  plan: planPath,
+  expected_workers: workerCount
+})
+
+// 3. Create task pool with dependencies
 for (const task of extractedTasks) {
   const id = TaskCreate({
     subject: task.subject,
@@ -317,7 +326,17 @@ try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
 }
 
-// 4. Report to user
+// 4. Update state file to completed
+Write("tmp/.rune-work-{timestamp}.json", {
+  team_name: "rune-work-{timestamp}",
+  started: startTimestamp,
+  status: "completed",
+  completed: new Date().toISOString(),
+  plan: planPath,
+  expected_workers: workerCount
+})
+
+// 5. Report to user
 ```
 
 ### Completion Report
@@ -450,3 +469,5 @@ When the orchestrator receives a "Seal: task done" message from a worker:
 4. Write updated plan file
 
 This serializes all plan file writes through a single writer, eliminating read-modify-write races.
+
+When invoked via `/rune:arc` (Phase 3), the work sub-orchestrator (team lead of the work team) handles checkbox updates — not the arc-level orchestrator.
