@@ -128,7 +128,7 @@ self_review_actions: "confirmed: 10, revised: 1, deleted: 1"
 ### Layer 2: Smart Verifier (Summoned by Lead)
 
 **Cost:** ~5-15k tokens (verifier reads outputs + samples source files)
-**When:** Roundtable Circle with 3+ Ash, or audit with 5+ Ash
+**When:** Roundtable Circle with 3+ Ashes, or audit with 5+ Ashes
 **Output:** `{output_dir}/truthsight-report.md`
 
 ### Summoning Conditions
@@ -136,7 +136,7 @@ self_review_actions: "confirmed: 10, revised: 1, deleted: 1"
 | Workflow | Condition | Model |
 |----------|-----------|-------|
 | `/rune:review` | `inscription.verification.enabled` AND 3+ Ashes | haiku |
-| `/rune:audit` | `inscription.verification.enabled` AND 5+ Ash | haiku |
+| `/rune:audit` | `inscription.verification.enabled` AND 5+ Ashes | haiku |
 | Custom | Configurable via inscription `verification` block | haiku |
 
 ### Sampling Strategy

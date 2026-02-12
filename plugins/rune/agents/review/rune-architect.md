@@ -9,6 +9,10 @@ description: |
   user: "Review the new service architecture"
   assistant: "I'll use rune-architect to check architectural compliance."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - Layer boundary enforcement
   - Dependency direction analysis

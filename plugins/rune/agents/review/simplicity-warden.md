@@ -9,6 +9,10 @@ description: |
   user: "Check if the code is over-engineered"
   assistant: "I'll use simplicity-warden to identify YAGNI violations."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - YAGNI violation detection
   - Premature abstraction flagging

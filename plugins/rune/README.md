@@ -47,7 +47,7 @@ claude --plugin-dir /path/to/rune-plugin
 # Run a full codebase audit (all files)
 /rune:audit
 /rune:audit --focus security    # Security-only audit
-/rune:audit --max-agents 3      # Limit to 3 Ash
+/rune:audit --max-agents 3      # Limit to 3 Ashes
 
 # Preview scope without summoning agents
 /rune:review --dry-run
@@ -357,6 +357,7 @@ Rune uses Elden Ring-inspired theming:
 - The **Roundtable Circle** is where reviews convene
 - The **TOME** is the unified record of all findings
 - **Rune Echoes** are memories that persist across sessions
+- The **Elden Throne** is the ultimate goal — successful pipeline completion
 - See CLAUDE.md for the full Lore Glossary
 
 ## Known Limitations

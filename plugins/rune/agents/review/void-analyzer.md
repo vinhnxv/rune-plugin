@@ -9,6 +9,10 @@ description: |
   user: "Check for incomplete implementations"
   assistant: "I'll use void-analyzer to find missing logic and stubs."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - TODO/FIXME/HACK marker detection
   - Stub function identification

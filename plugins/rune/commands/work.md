@@ -123,6 +123,8 @@ Proceed with {N} tasks and {W} workers?
 
 ```javascript
 // 1. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// Validate identifier before rm -rf
+if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid work identifier")
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
 }

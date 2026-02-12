@@ -51,7 +51,7 @@ Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 
 Plus **Runebinder** (utility) for aggregation in Phase 5.
 
-### Custom Asheses (Extensible)
+### Custom Ashes (Extensible)
 
 Projects can register additional Ash from local agents, global agents, or other plugins via `talisman.yml`. Custom Ashes join the standard lifecycle:
 
@@ -61,7 +61,7 @@ Projects can register additional Ash from local agents, global agents, or other 
 - **Verified** by Truthsight (if `settings.verification.layer_2_custom_agents: true`)
 - **Aggregated** into TOME.md by Runebinder
 
-**Max total:** 5 built-in + up to 3 custom = 8 Ash (configurable via `settings.max_ashes`). The cap exists because each Ash output (~10k tokens) consumes verifier context budget.
+**Max total:** 5 built-in + up to 3 custom = 8 Ashes (configurable via `settings.max_ashes`). The cap exists because each Ash output (~10k tokens) consumes verifier context budget.
 
 See [`custom-ashes.md`](references/custom-ashes.md) for full schema, wrapper prompt template, and examples.
 
@@ -279,7 +279,7 @@ Already performed by each Ash before sending Seal (embedded in prompts). Review 
 
 ### Layer 2: Smart Verifier (Summoned by Lead)
 
-Summon conditions: Roundtable Circle with 3+ Ash, or audit with 5+ Ash.
+Summon conditions: Roundtable Circle with 3+ Ashes, or audit with 5+ Ashes.
 
 ```
 Task({

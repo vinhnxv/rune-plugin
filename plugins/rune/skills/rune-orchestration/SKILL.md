@@ -222,7 +222,7 @@ Full spec: [Inscription Protocol](references/inscription-protocol.md)
 
 Multi-agent workflows benefit from structured reasoning at key decision points.
 
-**Three reasoning checkpoints for Tarnisheds:**
+**Three reasoning checkpoints for the Tarnished:**
 
 | Checkpoint | When | Key Action |
 |-----------|------|------------|

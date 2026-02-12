@@ -62,7 +62,7 @@ Each Ash uses a unique prefix for finding IDs:
 | Knowledge Keeper | `DOC-` | `DOC-001` | Built-in |
 | *(custom)* | *from config* | e.g., `DOM-001` | Custom |
 
-Custom Ashes define their prefix in `talisman.yml` → `ash.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Asheses.
+Custom Ashes define their prefix in `talisman.yml` → `ash.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Ashes.
 
 ### Dedup Algorithm
 

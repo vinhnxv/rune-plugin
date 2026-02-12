@@ -9,11 +9,12 @@ description: |
   user: "Validate audit coverage"
   assistant: "I'll use truthseer-validator to check finding density against file importance."
   </example>
-capabilities:
-  - Cross-reference finding density against file importance
-  - Detect under-reviewed areas (high-importance files with 0 findings)
-  - Score confidence per Ash based on evidence quality
-  - Produce coverage matrix and risk classification
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - Write
+  - SendMessage
 ---
 
 # Truthseer Validator — Audit Coverage Validation Agent

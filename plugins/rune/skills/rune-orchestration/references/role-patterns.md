@@ -94,7 +94,7 @@ Task:
 | Workflow | Condition | Verifier Scope |
 |----------|-----------|----------------|
 | `/rune:review` | `inscription.verification.enabled` AND 3+ Ashes | All Ash outputs |
-| `/rune:audit` | `inscription.verification.enabled` AND 5+ Ash | All Ash outputs |
+| `/rune:audit` | `inscription.verification.enabled` AND 5+ Ashes | All Ash outputs |
 | Custom | Configurable via inscription `verification` block | Per configuration |
 
 Full verifier prompt template: [Verifier Prompt](verifier-prompt.md)

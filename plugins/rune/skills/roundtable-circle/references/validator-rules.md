@@ -101,7 +101,7 @@ aggregate_confidence = weighted_average(
 | Condition | Action |
 |-----------|--------|
 | P1 finding with `SEC-` prefix | Always surface in TOME.md summary |
-| 2+ Ash flag same file | Escalate to P1 if any flags P2+ |
+| 2+ Ashes flag same file | Escalate to P1 if any flags P2+ |
 | Confidence < 0.5 from any Ash | Flag entire output as unreliable |
 | Self-review deleted > 25% of findings | Flag potential quality issue |
 

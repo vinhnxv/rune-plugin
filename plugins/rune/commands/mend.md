@@ -202,6 +202,8 @@ Write("tmp/.rune-mend-{id}.json", {
 })
 
 // 2. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// Validate identifier before rm -rf
+if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid mend identifier")
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/mend-{timestamp}/ ~/.claude/tasks/mend-{timestamp}/ 2>/dev/null")
 }

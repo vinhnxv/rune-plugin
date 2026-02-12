@@ -7,7 +7,7 @@
 | Workflow | Condition | Model |
 |----------|-----------|-------|
 | `/rune:review` | `inscription.verification.enabled` AND 3+ Ashes | haiku |
-| `/rune:audit` | `inscription.verification.enabled` AND 5+ Ash | haiku |
+| `/rune:audit` | `inscription.verification.enabled` AND 5+ Ashes | haiku |
 | Custom | Configurable via inscription `verification` block | haiku |
 
 ## Usage

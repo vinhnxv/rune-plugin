@@ -171,6 +171,7 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 |------|---------------|-------------------|
 | **Tarnished** | Orchestrator/lead agent | The protagonist who commands the journey |
 | **Ash** | Teammate agents (review, work, research, utility) | Spirit Ashes summoned to aid in battle |
+| **Elden Throne** | Completion state — success message on workflow finish | The ultimate goal of the Tarnished's journey |
 | **Roundtable Circle** | Review/audit orchestration lifecycle | Roundtable Hold gathering |
 | **TOME** | Aggregated findings document | Collected knowledge |
 | **Rune Echoes** | Project memory (3-layer lifecycle) | Echoes of past battles |

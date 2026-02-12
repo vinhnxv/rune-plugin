@@ -10,6 +10,10 @@ description: |
   user: "Check for duplicated code"
   assistant: "I'll use mimic-detector to find DRY violations and similar patterns."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - Copy-paste detection across files
   - Similar logic pattern identification

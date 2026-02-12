@@ -9,6 +9,10 @@ description: |
   user: "Review the order processing logic"
   assistant: "I'll use flaw-hunter to check for edge cases and logic bugs."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - Null/None handling issue detection
   - Empty collection edge cases

@@ -204,6 +204,8 @@ Write("tmp/audit/{audit_id}/inscription.json", {
 })
 
 // 5. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// Validate identifier before rm -rf
+if (!/^[a-zA-Z0-9_-]+$/.test(audit_id)) throw new Error("Invalid audit identifier")
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
 }

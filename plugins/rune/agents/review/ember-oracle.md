@@ -10,6 +10,10 @@ description: |
   user: "Check the API for performance issues"
   assistant: "I'll use ember-oracle to analyze performance bottlenecks."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - Algorithmic complexity analysis
   - Database query optimization (N+1, missing indexes)

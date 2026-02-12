@@ -10,6 +10,10 @@ description: |
   user: "Find dead code in the services"
   assistant: "I'll use wraith-finder to detect unused and orphaned code."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - Unused function/class detection
   - Unreachable code path identification

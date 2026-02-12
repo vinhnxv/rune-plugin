@@ -230,7 +230,7 @@ for each custom Ash:
 | Constraint | Value | Reason |
 |-----------|-------|--------|
 | Max total Ash | 8 (configurable) | Truthsight verifier context budget (~100k tokens). Each output ≈ 10k tokens |
-| Warning threshold | 6+ | "6+ Ash active. Verification scope may be reduced." |
+| Warning threshold | 6+ | "6+ Ashes active. Verification scope may be reduced." |
 | Wrapper prompt overhead | ~800 tokens | ANCHOR + template + RE-ANCHOR per custom Ash |
 | Finding prefix length | 2-5 chars | Balance between readability and uniqueness |
 | Max custom entries | No hard limit | Constrained by `settings.max_ashes` minus active built-ins |

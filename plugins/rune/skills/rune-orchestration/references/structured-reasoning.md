@@ -1,6 +1,6 @@
 # Structured Reasoning for Multi-Agent Orchestration
 
-> Reasoning principles for Tarnisheds and Ash teammates in multi-agent workflows.
+> Reasoning principles for the Tarnished and Ash teammates in multi-agent workflows.
 
 Applies Sequential Thinking principles to multi-agent workflows at both the **lead orchestration** and **Ash reasoning** levels. All guidance here is prompt engineering — no new tools or infrastructure required.
 
@@ -45,7 +45,7 @@ Multi-agent workflows follow a linear pipeline: summon → work → collect → 
 
 | Level | Application |
 |-------|-------------|
-| Lead (aggregation) | When 2+ Ash flag same code differently, branch to explore both interpretations before choosing |
+| Lead (aggregation) | When 2+ Ashes flag same code differently, branch to explore both interpretations before choosing |
 | Ash | **Not applicable** — Ash work in isolation and don't benefit from branching |
 
 ### Principle 4: Dynamic Scope
