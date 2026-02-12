@@ -15,12 +15,21 @@ description: |
   </example>
 user-invocable: true
 allowed-tools:
+  - Task
+  - TaskCreate
+  - TaskList
+  - TaskUpdate
+  - TaskGet
+  - TeamCreate
+  - TeamDelete
+  - SendMessage
   - Read
   - Write
   - Edit
   - Bash
   - Glob
   - Grep
+  - AskUserQuestion
 ---
 
 # /rune:echoes — Manage Rune Echoes

@@ -40,8 +40,9 @@ Parses a plan into tasks with dependencies, spawns swarm workers, and coordinate
 ## Usage
 
 ```
-/rune:work plans/feat-user-auth-plan.md   # Execute a specific plan
-/rune:work                                 # Auto-detect recent plan
+/rune:work plans/feat-user-auth-plan.md              # Execute a specific plan
+/rune:work plans/feat-user-auth-plan.md --approve    # Require plan approval per task
+/rune:work                                            # Auto-detect recent plan
 ```
 
 ## Pipeline Overview
@@ -155,12 +156,21 @@ Task({
     1. TaskList() → find unblocked, unowned implementation tasks
     2. Claim: TaskUpdate({ taskId, owner: "rune-smith", status: "in_progress" })
     3. Read task description and referenced plan
-    4. Read existing code patterns in the codebase
-    5. Implement with TDD cycle (test → implement → refactor)
-    6. Run quality gates (discovered from Makefile/package.json/pyproject.toml)
-    7. TaskUpdate({ taskId, status: "completed" })
-    8. SendMessage to lead: "Seal: task #{id} done. Files: {list}"
-    9. TaskList() → claim next or exit
+    4. IF --approve mode: write proposal to tmp/work/{id}/proposals/{task-id}.md,
+       send to leader via SendMessage, wait for approval before coding.
+       Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
+    5. Read existing code patterns in the codebase
+    6. Implement with TDD cycle (test → implement → refactor)
+    7. Run quality gates (discovered from Makefile/package.json/pyproject.toml)
+    8. IF ward passes: stage files (git add <specific files>),
+       write sanitized commit message to tmp file,
+       commit (git commit -F <msg-file>) with format:
+       "rune: <task-subject> [ward-checked]"
+       Then update plan checkboxes (- [ ] → - [x]).
+    9. IF ward fails: do NOT commit, flag task for review, continue to next.
+    10. TaskUpdate({ taskId, status: "completed" })
+    11. SendMessage to lead: "Seal: task #{id} done. Files: {list}"
+    12. TaskList() → claim next or exit
 
     EXIT: No tasks after 3 retries (30s each) → idle notification → exit
     SHUTDOWN: Approve immediately
@@ -183,12 +193,21 @@ Task({
     1. TaskList() → find unblocked, unowned test tasks
     2. Claim: TaskUpdate({ taskId, owner: "trial-forger", status: "in_progress" })
     3. Read task description and the code to be tested
-    4. Discover test patterns (framework, fixtures, assertions)
-    5. Write tests following discovered patterns
-    6. Run tests to verify they pass
-    7. TaskUpdate({ taskId, status: "completed" })
-    8. SendMessage to lead: "Seal: tests for #{id}. Pass: {count}/{total}"
-    9. TaskList() → claim next or exit
+    4. IF --approve mode: write proposal to tmp/work/{id}/proposals/{task-id}.md,
+       send to leader via SendMessage, wait for approval before writing tests.
+       Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
+    5. Discover test patterns (framework, fixtures, assertions)
+    6. Write tests following discovered patterns
+    7. Run tests to verify they pass
+    8. IF tests pass: stage files (git add <specific files>),
+       write sanitized commit message to tmp file,
+       commit (git commit -F <msg-file>) with format:
+       "rune: <task-subject> [ward-checked]"
+       Then update plan checkboxes (- [ ] → - [x]).
+    9. IF tests fail: do NOT commit, flag task for review, continue to next.
+    10. TaskUpdate({ taskId, status: "completed" })
+    11. SendMessage to lead: "Seal: tests for #{id}. Pass: {count}/{total}"
+    12. TaskList() → claim next or exit
 
     EXIT: No tasks after 3 retries (30s each) → idle notification → exit
     SHUTDOWN: Approve immediately
@@ -323,3 +342,99 @@ Next steps:
 | All workers crash | Abort, report partial progress |
 | Plan has no extractable tasks | Ask user to restructure plan |
 | Conflicting file edits | Workers write to separate files; lead resolves conflicts |
+
+## --approve Flag (Plan Approval Per Task)
+
+When `--approve` is set, each worker must propose an implementation plan before coding. This provides a genuine safety gate routed to the **human user**.
+
+### Approval Flow
+
+```
+For each task when --approve is active:
+  1. Worker reads task, proposes implementation plan
+  2. Worker writes proposal to tmp/work/{id}/proposals/{task-id}.md
+  3. Worker sends plan to leader via SendMessage
+  4. Leader presents to user via AskUserQuestion:
+     - Full file path to the proposal
+     - Complete list of files the worker intends to modify
+     - Options: Approve / Reject with feedback / Skip task
+  5. User responds:
+     - Approve → worker proceeds with implementation
+     - Reject with feedback → worker revises plan, re-proposes
+     - Skip → task marked SKIPPED, worker moves to next
+  6. Max 2 rejection cycles per task, then mark BLOCKED (do NOT auto-skip)
+  7. Timeout: 3 minutes → auto-REJECT with warning (fail-closed, not fail-open)
+```
+
+### Proposal File Format
+
+Workers write proposals to `tmp/work/{id}/proposals/{task-id}.md`:
+
+```markdown
+# Proposal: {task-subject}
+
+## Approach
+{description of implementation approach}
+
+## Files to Modify
+- path/to/file1.ts — {what changes}
+- path/to/file2.ts — {what changes}
+
+## Files to Create
+- path/to/new-file.ts — {purpose}
+
+## Risks
+- {any risks or trade-offs}
+```
+
+### Integration with Arc
+
+When used via `/rune:arc --approve`, the flag applies **only to Phase 3 (WORK)**, not to Phase 5 (MEND).
+
+## Incremental Commits (E5)
+
+After each task completion, workers commit their work incrementally. This provides atomic, traceable commits per task.
+
+### Commit Lifecycle
+
+```
+After each task completion:
+  1. Worker implements task
+  2. Ward checks run (project quality gates)
+  3. If ward passes:
+     - Stage modified files: git add <specific files>
+     - Write commit message to tmp file (sanitized)
+     - Commit: git commit -F <message-file>
+     - Update plan checkboxes
+     - Continue to next task
+  4. If ward fails:
+     - Do NOT commit
+     - Flag task for review
+     - Continue to next task (other tasks may be independent)
+```
+
+### Commit Message Format
+
+```
+rune: <task-subject> [ward-checked]
+```
+
+- Example: `rune: Add input validation to login form [ward-checked]`
+- Prefix `rune:` makes commits identifiable as machine-generated
+- `[ward-checked]` indicates automated quality gate passed (pre-review, not pre-approved)
+
+### Commit Message Sanitization
+
+Task subjects MUST be sanitized before inclusion in commit messages:
+- Strip newlines and control characters
+- Limit to 72 characters
+- Escape shell metacharacters
+- Use `git commit -F <message-file>` (not inline `-m`) to avoid shell injection
+
+### Plan Checkbox Updates
+
+After each successful commit:
+1. Read original plan file
+2. Find matching task line (fuzzy match on task subject)
+3. Update `- [ ]` to `- [x]`
+4. Write updated plan file

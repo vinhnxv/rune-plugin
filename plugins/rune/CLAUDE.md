@@ -20,9 +20,12 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
 | `/rune:audit` | Full codebase audit with up to 5 Runebearer teammates |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
-| `/rune:plan` | Multi-agent planning with parallel research and synthesis |
-| `/rune:work` | Swarm work execution with self-organizing task pool |
-| `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) |
+| `/rune:plan` | Multi-agent planning with parallel research and synthesis (+ `--forge`, `--exhaustive`) |
+| `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
+| `/rune:mend` | Parallel finding resolution from TOME |
+| `/rune:arc` | End-to-end pipeline (forge, plan review, work, review, mend, audit) |
+| `/rune:cancel-arc` | Cancel active arc pipeline |
+| `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
 
 ## Agents
@@ -68,6 +71,8 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | truthseer-validator | Audit coverage validation (Phase 5.5) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
+| mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
+| knowledge-keeper | Documentation coverage reviewer for plans |
 
 ## Key Concepts
 
@@ -121,6 +126,14 @@ Project-level agent memory in `.claude/echoes/` with 3-layer lifecycle:
 
 Agents persist learnings automatically after workflows. Future workflows read echoes to avoid repeating mistakes. See `rune-echoes` skill for full lifecycle.
 
+### Arc Pipeline
+
+End-to-end orchestration across 6 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), work (swarm implementation), code review (Roundtable Circle), mend (parallel finding resolution), and audit (final gate). Each phase spawns a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions enforce least privilege.
+
+### Mend
+
+Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->` markers with session nonce validation, groups findings by file, spawns restricted mend-fixer teammates (no Bash, no TeamCreate). Ward check runs once after all fixers complete. Bisection algorithm identifies failing fixes on ward failure.
+
 ### Context Weaving
 
 4-layer context management:
@@ -144,6 +157,9 @@ Agents persist learnings automatically after workflows. Future workflows read ec
 | Reviews | `tmp/reviews/{id}/` | `{runebearer}.md`, `TOME.md` (with RUNE:FINDING markers), `inscription.json` |
 | Audits | `tmp/audit/{id}/` | Same pattern |
 | Plans | `tmp/plans/{id}/research/` | Research findings, deepen outputs |
+| Mend | `tmp/mend/{id}/` | `resolution-report.md`, fixer outputs |
+| Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `tome.md`, `resolution-report.md`, `audit-report.md`) |
+| Arc State | `.claude/arc/{id}/` | `checkpoint.json` (persistent, NOT in tmp/) |
 | Scratch | `tmp/scratch/` | Session state |
 | Echoes | `.claude/echoes/{role}/` | `MEMORY.md`, `knowledge.md`, `archive/` |
 
@@ -185,6 +201,8 @@ echoes:
 work:
   ward_commands: ["make check", "npm test"]
   max_workers: 3
+  approve_timeout: 180                   # Seconds (default 3 min)
+  commit_format: "rune: {subject} [ward-checked]"
 ```
 
 See `roundtable-circle/references/custom-runebearers.md` for full schema and `rune-config.example.yml` at plugin root.

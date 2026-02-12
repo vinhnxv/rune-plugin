@@ -22,16 +22,27 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
+# End-to-end pipeline: plan → review → work → code review → mend → audit
+/rune:arc docs/plans/my-plan.md
+/rune:arc docs/plans/my-plan.md --skip-forge     # Skip research enrichment
+/rune:arc docs/plans/my-plan.md --approve         # Require human approval per task
+/rune:arc docs/plans/my-plan.md --resume          # Resume from checkpoint
+
 # Plan a feature with parallel research agents
 /rune:plan
 /rune:plan --brainstorm        # Start with interactive brainstorm
-/rune:plan --deep              # Include deep section-level research
+/rune:plan --forge             # Research enrichment phase
+/rune:plan --exhaustive        # Spawn ALL agents per section
 
 # Execute a plan with swarm workers
 /rune:work plans/feat-user-auth-plan.md
+/rune:work plans/my-plan.md --approve  # Require human approval per task
 
 # Run a multi-agent code review (changed files only)
 /rune:review
+
+# Resolve findings from a review TOME
+/rune:mend tmp/reviews/abc123/TOME.md
 
 # Run a full codebase audit (all files)
 /rune:audit
@@ -42,9 +53,10 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:review --dry-run
 /rune:audit --dry-run
 
-# Cancel an active review or audit
+# Cancel active workflows
 /rune:cancel-review
 /rune:cancel-audit
+/rune:cancel-arc
 
 # Clean up tmp/ artifacts from completed workflows
 /rune:rest
@@ -54,7 +66,35 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:echoes show     # View memory state
 /rune:echoes init     # Initialize memory for this project
 /rune:echoes prune    # Prune stale entries
+/rune:echoes promote  # Promote echoes to Remembrance docs
+/rune:echoes migrate  # Migrate echo names after upgrade
 ```
+
+## Arc Mode (End-to-End Pipeline)
+
+When you run `/rune:arc`, Rune chains 6 phases into one automated pipeline:
+
+1. **FORGE** — Research agents enrich the plan with best practices, codebase patterns, and past echoes
+2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
+3. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
+4. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
+5. **MEND** — Parallel fixers resolve findings from TOME
+6. **AUDIT** — Final quality gate (informational)
+
+Each phase spawns a fresh team. Checkpoint-based resume (`--resume`) validates artifact integrity with SHA-256 hashes. Feature branches auto-created when on main.
+
+## Mend Mode (Finding Resolution)
+
+When you run `/rune:mend`, Rune parses structured findings from a TOME and fixes them in parallel:
+
+1. **Parses TOME** — extracts findings with session nonce validation
+2. **Groups by file** — prevents concurrent edits to the same file
+3. **Spawns fixers** — restricted mend-fixer agents (no Bash, no TeamCreate)
+4. **Monitors progress** — stale detection, 15-minute timeout
+5. **Runs ward check** — once after all fixers complete (not per-fixer)
+6. **Produces report** — FIXED/FALSE_POSITIVE/FAILED/SKIPPED categories
+
+SEC-prefix findings require human approval for FALSE_POSITIVE marking.
 
 ## What It Does
 
@@ -88,7 +128,7 @@ When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 1. **Gathers input** — accepts a feature description or runs interactive brainstorm (`--brainstorm`)
 2. **Spawns research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Deepens sections** — optional parallel deep-dive per section (`--deep`)
+4. **Deepens sections** — optional parallel deep-dive per section (`--forge`)
 5. **Reviews document** — Scroll Reviewer checks plan quality
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
@@ -193,6 +233,8 @@ Spawned during `/rune:work` as self-organizing swarm workers:
 | truthseer-validator | Audit coverage validation (Phase 5.5, >100 files) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
+| mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
+| knowledge-keeper | Documentation coverage reviewer for plans |
 
 ## Skills
 
@@ -238,6 +280,8 @@ work:
     - "make check"
     - "npm test"
   max_workers: 3               # Max parallel swarm workers
+  approve_timeout: 180         # Seconds (default 3 min)
+  commit_format: "rune: {subject} [ward-checked]"
 ```
 
 See [`rune-config.example.yml`](rune-config.example.yml) for the full configuration schema including custom Runebearers, trigger matching, and dedup hierarchy.
@@ -258,6 +302,10 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **TOME** — The unified review summary after deduplication and prioritization.
 
+**Arc Pipeline** — End-to-end orchestration across 6 phases with checkpoint-based resume and per-phase tool restrictions.
+
+**Mend** — Parallel finding resolution from TOME with restricted fixers and centralized ward check.
+
 **Rune Echoes** — Project-level agent memory with 3-layer lifecycle. Agents learn across sessions without explicit compound workflows.
 
 ## File Structure
@@ -270,8 +318,11 @@ plugins/rune/
 │   ├── review/          # 10 review agents
 │   ├── research/        # 5 research agents (plan pipeline)
 │   ├── work/            # 2 swarm workers (work pipeline)
-│   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer
+│   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper
 ├── commands/
+│   ├── arc.md           # /rune:arc
+│   ├── cancel-arc.md    # /rune:cancel-arc
+│   ├── mend.md          # /rune:mend
 │   ├── plan.md          # /rune:plan
 │   ├── work.md          # /rune:work
 │   ├── review.md        # /rune:review
@@ -299,7 +350,7 @@ plugins/rune/
 - **Agent Teams is experimental** — Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable. Behavior may change across Claude Code releases.
 - **Context budget caps** — Each Runebearer can review a limited number of files (20-30). Large codebases will have coverage gaps reported in the TOME.
 - **No incremental audit** — `/rune:audit` scans all files each run. There is no diff-based "only audit what changed since last audit" mode yet.
-- **Concurrent sessions** — Only one `/rune:review` or `/rune:audit` can run at a time. Use `/rune:cancel-review` or `/rune:cancel-audit` to stop an active session.
+- **Concurrent sessions** — Only one `/rune:review`, `/rune:audit`, or `/rune:arc` can run at a time. Use `/rune:cancel-review`, `/rune:cancel-audit`, or `/rune:cancel-arc` to stop an active session.
 - **Manual cleanup optional** — Run `/rune:rest` to remove `tmp/` artifacts, or let the OS handle them.
 
 ## Troubleshooting

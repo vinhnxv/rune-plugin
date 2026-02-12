@@ -12,14 +12,17 @@ A Claude Code plugin marketplace featuring **Rune** — multi-agent engineering 
 ## Workflow
 
 ```
-Plan → Work → Review → Audit → Repeat
+Plan → Work → Review → Mend → Audit
+ └──────── or /rune:arc ────────┘
 ```
 
 | Command | Purpose |
 |---------|---------|
+| `/rune:arc` | End-to-end pipeline (forge, plan review, work, review, mend, audit) |
 | `/rune:plan` | Turn feature ideas into structured plans with parallel research agents |
 | `/rune:work` | Execute plans with self-organizing swarm workers |
 | `/rune:review` | Multi-agent code review before merging |
+| `/rune:mend` | Parallel finding resolution from TOME |
 | `/rune:audit` | Full codebase audit with specialized Runebearers |
 
 Each Runebearer teammate gets its own 200k context window, eliminating single-context bottlenecks.
@@ -33,7 +36,7 @@ Each Runebearer teammate gets its own 200k context window, eliminating single-co
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.5.0 |
+| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.8.0 |
 
 ## Structure
 

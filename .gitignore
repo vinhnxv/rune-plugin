@@ -1,6 +1,7 @@
 # Rune Echoes — project-level memory (secrets risk)
 # Users opt-in to version control by removing this line
 .claude/echoes/
+.claude/arc/
 
 # OS files
 .DS_Store
@@ -19,5 +20,7 @@ tmp/
 # Work files
 todos/
 plans/
+brainstorms/
 docs/todos/
 docs/plans/
+docs/brainstorms/

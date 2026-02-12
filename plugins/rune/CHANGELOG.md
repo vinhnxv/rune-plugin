@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.8.0] - 2026-XX-XX — "Knowledge & Safety"
+
+### Added
+
+- Remembrance channel — Human-readable knowledge docs in `docs/solutions/` promoted from Rune Echoes
+- `--approve` flag for `/rune:work` — Optional plan approval gate per task
+- `--exhaustive` flag for `/rune:plan --forge` — Spawn ALL agents per section
+- E8 research pipeline upgrade — Conditional research, brainstorm auto-detect, 6-agent roster, plan detail levels
+- `/rune:echoes migrate` — Echo name migration utility
+- `/rune:echoes promote` — Promote echoes to Remembrance docs
+
+### Changed
+
+- `/rune:plan` research now uses conditional spawning (local-first, external on demand)
+- `/rune:plan` post-generation options expanded to 6 (was 3)
+
+## [1.7.0] - 2026-XX-XX — "Arc Pipeline"
+
+### Added
+
+- `/rune:arc` — End-to-end orchestration pipeline (6 phases: forge → plan review → work → code review → mend → audit)
+- `/rune:cancel-arc` — Cancel active arc pipeline
+- `--forge` flag for `/rune:plan` — Research enrichment phase (replaces `--deep`)
+- `knowledge-keeper` standalone agent — Documentation coverage reviewer for arc Phase 2
+- Checkpoint-based resume (`--resume`) with artifact integrity validation (SHA-256)
+- Per-phase tool restrictions for arc pipeline (least-privilege enforcement)
+- Feature branch auto-creation (`rune/arc-{name}-{date}`) when on main
+
+## [1.6.0] - 2026-XX-XX — "Mend & Commit"
+
+### Added
+
+- `/rune:mend` — Parallel finding resolution from TOME with team member fixers
+- `mend-fixer` agent — Restricted-tool code fixer with full Truthbinding Protocol
+- Incremental commits (E5) — Auto-commit after each ward-checked task (`rune: <subject> [ward-checked]`)
+- Plan checkbox updates — Auto-mark completed tasks in plan file
+- Resolution report format with FIXED/FALSE_POSITIVE/FAILED/SKIPPED categories
+
+### Security
+
+- SEC-prefix findings require human approval for FALSE_POSITIVE marking
+- Mend fixers have restricted tool set (no Bash, no TeamCreate)
+- Commit messages sanitized via `git commit -F` (not inline `-m`)
+- `[ward-checked]` tag correctly implies automated check, not human verification
+
 ## [1.5.0] - 2026-02-12
 
 ### Added

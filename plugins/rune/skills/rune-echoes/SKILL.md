@@ -24,7 +24,7 @@ allowed-tools:
 
 Project-level agent memory that compounds knowledge across sessions. Each workflow writes learnings to `.claude/echoes/`, and future workflows read them to avoid repeating mistakes.
 
-> "The Tarnished collects runes to grow stronger. Each engineering session should do the same."
+> "The Runebearer collects runes to grow stronger. Each engineering session should do the same."
 
 ## Architecture
 
@@ -240,6 +240,125 @@ MEMORY.md files include a version header:
 
 This enables future schema migrations without breaking existing echoes.
 
+## Remembrance Channel — Human-Facing Knowledge
+
+Remembrance is a parallel knowledge axis alongside Echoes. While Echoes are agent-internal memory (`.claude/echoes/`), Remembrance documents are version-controlled solutions in `docs/solutions/` designed for human consumption.
+
+| Axis | Audience | Storage | Versioned | Based On |
+|------|----------|---------|-----------|----------|
+| **Echoes** | Agents | `.claude/echoes/` | Optional | Confidence-based lifecycle |
+| **Remembrance** | Humans | `docs/solutions/` | Always | Actionability-based promotion |
+
+### Directory Structure
+
+```
+docs/solutions/
+  build-errors/       # Build, compile, and dependency resolution
+  test-failures/      # Test setup, flaky tests, assertion patterns
+  runtime-errors/     # Production/development runtime issues
+  configuration/      # Config files, environment, deployment
+  performance/        # Query optimization, caching, scaling
+  security/           # Auth, OWASP, secrets, permissions
+  architecture/       # Design patterns, refactoring, migrations
+  tooling/            # IDE, CLI, CI/CD, dev workflow
+```
+
+### Promotion Rules
+
+An ETCHED echo becomes a Remembrance document when ALL conditions are met:
+
+1. Contains a clear problem-solution pair (`symptom` + `root_cause` + `solution_summary`)
+2. Has been validated (`confidence: high` OR referenced by 2+ sessions)
+3. Is actionable for humans (not agent-internal optimization)
+4. **Security category**: MUST have `verified_by: human` before promotion. Agents promoting security echoes MUST use `AskUserQuestion` to obtain explicit human confirmation. Agents MUST NOT set `verified_by: human` autonomously.
+
+### Promotion Flow
+
+```
+ETCHED Echo (agent memory)
+  |
+  +-- Has problem-solution pair? ---- No --> Skip
+  |   Yes v
+  +-- Confidence high OR 2+ refs? -- No --> Skip
+  |   Yes v
+  +-- Human-actionable? ------------ No --> Skip
+  |   Yes v
+  +-- Category = security?
+  |   +-- Yes --> Requires verified_by: human -- Not verified --> BLOCKED
+  |   +-- No  --> Proceed
+  |   v
+  +-- Compute content hash (SHA-256) for echo_ref cross-reference
+  |   v
+  +-- Check for duplicates (title match, root_cause similarity, 3+ tag overlap)
+  |   v
+  +-- Write to docs/solutions/{category}/{slug}.md
+```
+
+### YAML Frontmatter Schema
+
+Remembrance documents use structured YAML frontmatter. See `references/remembrance-schema.md` for the full schema specification.
+
+**Required fields**: `title`, `category`, `tags`, `date`, `symptom`, `root_cause`, `solution_summary`, `confidence`, `verified_by`
+
+**Key fields:**
+
+```yaml
+---
+title: "Descriptive title of the problem and solution"
+category: architecture        # one of the 8 categories
+tags: [n-plus-one, eager-loading]
+date: 2026-02-12
+symptom: "User list endpoint takes 5+ seconds"
+root_cause: "N+1 query pattern in user.posts association"
+solution_summary: "Added includes(:posts) to User.list scope"
+echo_ref: "echoes/reviewer/MEMORY.md#etched-004@sha256:a1b2c3..."  # cross-ref with content hash
+confidence: high              # high | medium
+verified_by: human            # human | agent — REQUIRED for security category
+requires_human_approval: false
+---
+```
+
+The `echo_ref` field uses format `{echo_path}#{entry_id}@sha256:{hash}` to cross-reference version-controlled Remembrance to non-version-controlled echoes. The promotion process MUST compute and store the SHA-256 hash.
+
+## Agent Awareness
+
+Before implementing fixes, agents SHOULD check `docs/solutions/` for existing solutions to the problem at hand. This avoids re-discovering known solutions and ensures consistency.
+
+### Remembrance Commands
+
+The `/rune:echoes` command includes Remembrance subcommands:
+
+```
+/rune:echoes remembrance [category|search]   # Query Remembrance documents
+/rune:echoes promote <echo-ref> --category <cat>  # Promote echo to Remembrance
+/rune:echoes migrate                          # Migrate echoes with old naming
+```
+
+**remembrance** — Query existing Remembrance documents by category or search term. Returns matching documents with their frontmatter metadata.
+
+**promote** — Promote an ETCHED echo to a Remembrance document. Validates promotion rules, computes content hash for `echo_ref`, checks for duplicates, and writes to `docs/solutions/{category}/`. For security category, prompts for human verification via `AskUserQuestion`.
+
+**migrate** — Scans `.claude/echoes/` and updates old agent/concept names to current terminology (RENAME-2). Useful after version upgrades that rename agents or concepts.
+
+## Echo Migration (RENAME-2)
+
+When agent or concept names change across versions, existing echoes may reference stale names. The `migrate` subcommand handles this:
+
+```
+/rune:echoes migrate
+```
+
+**Steps:**
+1. Scan all `.claude/echoes/**/*.md` files
+2. Build a rename map from old names to new names
+3. Apply renames to entry metadata (source, evidence references)
+4. Report changes made
+
+**Safety:**
+- Backup all modified files before renaming
+- Only rename in metadata fields, not in learning content
+- Report all changes for user review
+
 ## Commands
 
-See `/rune:echoes` command for user-facing echo management (show, prune, reset).
+See `/rune:echoes` command for user-facing echo management (show, prune, reset, remembrance, promote, migrate).

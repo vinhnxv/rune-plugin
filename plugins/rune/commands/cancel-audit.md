@@ -10,10 +10,14 @@ description: |
   </example>
 user-invocable: true
 allowed-tools:
+  - Task
+  - TaskCreate
   - TaskList
   - TaskUpdate
-  - SendMessage
+  - TaskGet
+  - TeamCreate
   - TeamDelete
+  - SendMessage
   - Read
   - Write
   - Bash

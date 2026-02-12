@@ -1,7 +1,7 @@
 ---
 name: rune:rest
 description: |
-  Remove tmp/ output directories from completed Rune workflows (reviews, audits, plans, work).
+  Remove tmp/ output directories from completed Rune workflows (reviews, audits, plans, work, mend, arc).
   Preserves Rune Echoes (.claude/echoes/) and active workflow state files.
   Renamed from /rune:cleanup in v1.5.0 — "rest" as in a resting place for completed artifacts.
 
@@ -11,6 +11,14 @@ description: |
   </example>
 user-invocable: true
 allowed-tools:
+  - Task
+  - TaskCreate
+  - TaskList
+  - TaskUpdate
+  - TaskGet
+  - TeamCreate
+  - TeamDelete
+  - SendMessage
   - Bash
   - Read
   - Glob
@@ -30,14 +38,18 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/plans/{id}/` | Research findings, plan artifacts | Yes |
 | `tmp/work/` | Work agent status files | Yes |
 | `tmp/scratch/` | Session scratch pads | Yes |
+| `tmp/mend/{id}/` | Mend resolution reports, fixer outputs | Yes (if completed) |
+| `tmp/arc/{id}/` | Arc pipeline artifacts (enriched plans, TOME, reports) | Yes (if completed) |
 
 ## What Is Preserved
 
 | Path | Reason |
 |------|--------|
 | `.claude/echoes/` | Persistent project memory (Rune Echoes) |
+| `.claude/arc/{id}/checkpoint.json` | Arc resume state (needed for --resume) |
 | `tmp/.rune-review-*.json` (active) | Active workflow state |
 | `tmp/.rune-audit-*.json` (active) | Active workflow state |
+| `tmp/.rune-mend-*.json` (active) | Mend concurrency detection |
 
 ## Steps
 
@@ -45,7 +57,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 
 ```bash
 # Look for active state files (status != completed, cancelled)
-ls tmp/.rune-review-*.json tmp/.rune-audit-*.json 2>/dev/null
+ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json 2>/dev/null
 ```
 
 For each state file found, read and check status:
@@ -56,7 +68,7 @@ For each state file found, read and check status:
 
 ```bash
 # List all tmp/ directories with sizes
-du -sh tmp/reviews/*/  tmp/audit/*/  tmp/plans/*/  tmp/work/  tmp/scratch/ 2>/dev/null
+du -sh tmp/reviews/*/  tmp/audit/*/  tmp/plans/*/  tmp/work/  tmp/scratch/  tmp/mend/*/  tmp/arc/*/ 2>/dev/null
 ```
 
 ### 3. Confirm with User
@@ -68,11 +80,14 @@ Cleanup Summary:
   Reviews:  3 directories (2.1 MB)
   Audits:   1 directory  (800 KB)
   Plans:    2 directories (400 KB)
+  Mend:     1 directory  (200 KB)
+  Arc:      1 directory  (1.5 MB)
   Scratch:  1 directory  (50 KB)
-  Total:    ~3.4 MB
+  Total:    ~5.1 MB
 
 Active workflows (PRESERVED):
   - tmp/.rune-review-142.json (active)
+  - .claude/arc/abc123/checkpoint.json (arc resume state)
 
 Proceed? [Y/n]
 ```
@@ -108,6 +123,12 @@ rm -rf tmp/reviews/{completed_ids}/
 # Remove completed audit directories (validated paths only)
 rm -rf tmp/audit/{completed_ids}/
 
+# Remove completed mend directories (validated paths only)
+rm -rf tmp/mend/{completed_ids}/
+
+# Remove completed arc directories (validated paths only)
+rm -rf tmp/arc/{completed_ids}/
+
 # Remove plan research artifacts
 rm -rf tmp/plans/
 
@@ -120,9 +141,10 @@ rm -rf tmp/scratch/
 # Remove completed state files
 rm tmp/.rune-review-{completed_ids}.json
 rm tmp/.rune-audit-{completed_ids}.json
+rm tmp/.rune-mend-{completed_ids}.json
 ```
 
-**Note:** `tmp/plans/`, `tmp/work/`, and `tmp/scratch/` are removed unconditionally (no active-state check). These directories do not have state files and are always safe to clean. If you need to preserve in-progress plan or work artifacts, move them out of `tmp/` before running cleanup.
+**Note:** `tmp/plans/`, `tmp/work/`, and `tmp/scratch/` are removed unconditionally (no active-state check). These directories do not have state files and are always safe to clean. `tmp/mend/` and `tmp/arc/` directories follow the same active-state check as reviews and audits. Arc checkpoint state at `.claude/arc/` is NEVER cleaned — it lives outside `tmp/` and is needed for `--resume`.
 
 ### 6. Report
 

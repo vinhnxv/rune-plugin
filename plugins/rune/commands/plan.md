@@ -11,8 +11,8 @@ description: |
   </example>
 
   <example>
-  user: "/rune:plan --brainstorm --deep"
-  assistant: "Starting full planning pipeline with brainstorm and deep research..."
+  user: "/rune:plan --brainstorm --forge"
+  assistant: "Starting full planning pipeline with brainstorm and research enrichment..."
   </example>
 user-invocable: true
 allowed-tools:
@@ -41,22 +41,27 @@ Orchestrates a planning pipeline using Agent Teams with dependency-aware task sc
 ## Usage
 
 ```
-/rune:plan                      # Standard planning (research + synthesize + review)
-/rune:plan --brainstorm         # Start with brainstorm phase
-/rune:plan --deep               # Include deep research phase
-/rune:plan --brainstorm --deep  # Full pipeline
+/rune:plan                              # Standard planning (research + synthesize + review)
+/rune:plan --brainstorm                 # Start with brainstorm phase
+/rune:plan --forge                      # Include research enrichment (replaces --deep)
+/rune:plan --forge --exhaustive         # Spawn ALL agents per section
+/rune:plan --brainstorm --forge         # Full pipeline
 ```
 
 ## Pipeline Overview
 
 ```
-Phase 0: Gather Input (brainstorm or accept description)
+Phase 0: Gather Input (brainstorm auto-detect or accept description)
     ↓
-Phase 1: Research (3-5 parallel agents)
+Phase 1: Research (up to 6 parallel agents, conditional)
+    ├─ Phase 1A: LOCAL RESEARCH (always — repo-surveyor, echo-reader, git-miner)
+    ├─ Phase 1B: RESEARCH DECISION (risk + local sufficiency scoring)
+    ├─ Phase 1C: EXTERNAL RESEARCH (conditional — practice-seeker, codex-scholar)
+    └─ Phase 1D: SPEC VALIDATION (always — flow-seer)
     ↓ (all research tasks converge)
-Phase 2: Synthesize (lead consolidates findings)
+Phase 2: Synthesize (lead consolidates findings, detail level selection)
     ↓
-Phase 3: Deepen (optional, parallel section-level research)
+Phase 3: Forge (optional — --forge flag, structured deepen per section)
     ↓
 Phase 4: Scroll Review (document quality check)
     ↓
@@ -66,6 +71,26 @@ Output: plans/{type}-{name}-plan.md
 ```
 
 ## Phase 0: Gather Input
+
+### Brainstorm Auto-Detection
+
+Before asking for input, check for recent brainstorms that match:
+
+```javascript
+// Search for recent brainstorms matching the feature
+const brainstorms = Glob("docs/brainstorms/*.md")
+// Filter: created within last 14 days, topic matches feature
+// If found: read and use as input, skip Phase 0 questioning
+// If multiple match: AskUserQuestion to select
+// If none: proceed with normal Phase 0 flow
+```
+
+**Matching thresholds**:
+- Auto-use (>= 0.85): Exact/fuzzy title match or strong tag overlap (>= 2 tags)
+- Ask user (0.70-0.85): Single semantic match, show with confirmation
+- Skip (< 0.70): No relevant brainstorm found
+
+**Recency decay**: >14 days: 0.7x, >30 days: 0.4x, >90 days: skip.
 
 ### Without `--brainstorm`
 
@@ -95,9 +120,11 @@ Run an interactive brainstorm session:
 2. Explore 2-3 approaches, recommend one
 3. Capture decisions for research phase
 
-## Phase 1: Research (Parallel)
+## Phase 1: Research (Conditional, up to 6 agents)
 
-Create an Agent Teams team and spawn parallel research tasks.
+Create an Agent Teams team and spawn research tasks using the conditional research pipeline.
+
+### Phase 1A: Local Research (always runs)
 
 ```javascript
 // 1. Create team
@@ -106,23 +133,10 @@ TeamCreate({ team_name: "rune-plan-{timestamp}" })
 // 2. Create research output directory
 mkdir -p tmp/plans/{timestamp}/research/
 
-// 3. Create parallel tasks (no dependencies)
-TaskCreate({ subject: "Research best practices", description: "..." })      // #1
-TaskCreate({ subject: "Research repo patterns", description: "..." })       // #2
-TaskCreate({ subject: "Research framework docs", description: "..." })      // #3
-TaskCreate({ subject: "Read past echoes", description: "..." })             // #4
-
-// 4. Spawn research agents
-Task({
-  team_name: "rune-plan-{timestamp}",
-  name: "practice-seeker",
-  subagent_type: "general-purpose",
-  prompt: `You are Practice Seeker. Research best practices for: {feature}.
-    Write findings to tmp/plans/{timestamp}/research/best-practices.md.
-    Claim task #1 via TaskList/TaskUpdate.
-    See agents/research/practice-seeker.md for full instructions.`,
-  run_in_background: true
-})
+// 3. Spawn local research agents (always run — these are cheap and essential)
+TaskCreate({ subject: "Research repo patterns", description: "..." })       // #1
+TaskCreate({ subject: "Read past echoes", description: "..." })             // #2
+TaskCreate({ subject: "Analyze git history", description: "..." })          // #3
 
 Task({
   team_name: "rune-plan-{timestamp}",
@@ -130,19 +144,8 @@ Task({
   subagent_type: "general-purpose",
   prompt: `You are Repo Surveyor. Explore the codebase for: {feature}.
     Write findings to tmp/plans/{timestamp}/research/repo-analysis.md.
-    Claim task #2 via TaskList/TaskUpdate.
+    Claim task #1 via TaskList/TaskUpdate.
     See agents/research/repo-surveyor.md for full instructions.`,
-  run_in_background: true
-})
-
-Task({
-  team_name: "rune-plan-{timestamp}",
-  name: "codex-scholar",
-  subagent_type: "general-purpose",
-  prompt: `You are Codex Scholar. Research framework docs for: {feature}.
-    Write findings to tmp/plans/{timestamp}/research/framework-docs.md.
-    Claim task #3 via TaskList/TaskUpdate.
-    See agents/research/codex-scholar.md for full instructions.`,
   run_in_background: true
 })
 
@@ -152,31 +155,150 @@ Task({
   subagent_type: "general-purpose",
   prompt: `You are Echo Reader. Read .claude/echoes/ for relevant past learnings.
     Write findings to tmp/plans/{timestamp}/research/past-echoes.md.
-    Claim task #4 via TaskList/TaskUpdate.
+    Claim task #2 via TaskList/TaskUpdate.
     See agents/research/echo-reader.md for full instructions.`,
+  run_in_background: true
+})
+
+Task({
+  team_name: "rune-plan-{timestamp}",
+  name: "git-miner",
+  subagent_type: "general-purpose",
+  prompt: `You are Git Miner. Analyze git history for: {feature}.
+    Look for: related past changes, contributors who touched relevant files,
+    why current patterns exist, previous attempts at similar features.
+    Write findings to tmp/plans/{timestamp}/research/git-history.md.
+    Claim task #3 via TaskList/TaskUpdate.
+    See agents/research/git-miner.md for full instructions.`,
+  run_in_background: true
+})
+```
+
+### Phase 1B: Research Decision
+
+After local research completes, evaluate whether external research is needed.
+
+**Risk classification** (multi-signal scoring):
+
+| Signal | Weight | Examples |
+|---|---|---|
+| Keywords in feature description | 40% | `security`, `auth`, `payment`, `API`, `crypto` |
+| File paths affected | 30% | `src/auth/`, `src/payments/`, `.env`, `secrets` |
+| External API integration | 20% | API calls, webhooks, third-party SDKs |
+| Framework-level changes | 10% | Upgrades, breaking changes, new dependencies |
+
+- HIGH_RISK >= 0.65: Always run external research
+- LOW_RISK < 0.35: May skip external if local sufficiency is high
+- UNCERTAIN 0.35-0.65: Always run external research
+
+**Local sufficiency scoring** (when to skip external):
+
+| Signal | Weight | Min Threshold |
+|---|---|---|
+| Matching echoes found | 35% | >= 1 Etched or >= 2 Inscribed |
+| Codebase patterns discovered | 25% | >= 2 distinct patterns with evidence |
+| Git history continuity | 20% | Recent commit (within 3 months) |
+| Documentation completeness | 15% | Clear section + examples in CLAUDE.md |
+| User familiarity flag | 5% | `--skip-research` flag |
+
+- SUFFICIENT >= 0.70: Skip external research
+- WEAK < 0.50: Must run external research
+- MODERATE 0.50-0.70: Run external to confirm
+
+### Phase 1C: External Research (conditional)
+
+Spawn only if the research decision requires external input:
+
+```javascript
+// Only spawned if risk >= 0.65 OR local sufficiency < 0.70
+TaskCreate({ subject: "Research best practices", description: "..." })      // #4
+TaskCreate({ subject: "Research framework docs", description: "..." })      // #5
+
+Task({
+  team_name: "rune-plan-{timestamp}",
+  name: "practice-seeker",
+  subagent_type: "general-purpose",
+  prompt: `You are Practice Seeker. Research best practices for: {feature}.
+    Write findings to tmp/plans/{timestamp}/research/best-practices.md.
+    Claim task #4 via TaskList/TaskUpdate.
+    See agents/research/practice-seeker.md for full instructions.`,
+  run_in_background: true
+})
+
+Task({
+  team_name: "rune-plan-{timestamp}",
+  name: "codex-scholar",
+  subagent_type: "general-purpose",
+  prompt: `You are Codex Scholar. Research framework docs for: {feature}.
+    Write findings to tmp/plans/{timestamp}/research/framework-docs.md.
+    Claim task #5 via TaskList/TaskUpdate.
+    See agents/research/codex-scholar.md for full instructions.`,
+  run_in_background: true
+})
+```
+
+If external research times out: proceed with local findings only and recommend `--forge` re-run after implementation.
+
+### Phase 1D: Spec Validation (always runs)
+
+After 1A and 1C complete, run flow analysis:
+
+```javascript
+TaskCreate({ subject: "Spec flow analysis", description: "..." })          // #6
+
+Task({
+  team_name: "rune-plan-{timestamp}",
+  name: "flow-seer",
+  subagent_type: "general-purpose",
+  prompt: `You are Flow Seer. Analyze the feature spec for completeness: {feature}.
+    Identify: user flow gaps, edge cases, missing requirements, interaction issues.
+    Write findings to tmp/plans/{timestamp}/research/specflow-analysis.md.
+    Claim task #6 via TaskList/TaskUpdate.
+    See agents/utility/flow-seer.md for full instructions.`,
   run_in_background: true
 })
 ```
 
 ### Monitor Research
 
-Poll TaskList every 30 seconds until all 4 research tasks are completed.
+Poll TaskList every 30 seconds until all active research tasks are completed.
 
 ```javascript
 while (not all research tasks completed):
   tasks = TaskList()
-  if (all 4 completed): break
+  if (all active tasks completed): break
   if (any stale > 5 min): proceed with partial
   sleep(30)
 ```
 
 ## Phase 2: Synthesize
 
-After research completes, the lead consolidates findings:
+After research completes, the lead consolidates findings.
+
+### Plan Detail Level Selection
+
+Before drafting, ask the user for detail level:
+
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: "What detail level for this plan?",
+    header: "Detail",
+    options: [
+      { label: "Standard (Recommended)", description: "Overview, solution, technical approach, criteria, references" },
+      { label: "Minimal", description: "Brief description + acceptance criteria only" },
+      { label: "Comprehensive", description: "Full spec with phases, alternatives, risks, ERD, metrics" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+### Consolidation
 
 1. Read all research output files from `tmp/plans/{timestamp}/research/`
 2. Identify common themes, conflicting advice, key patterns
-3. Draft the plan document with sections:
+3. Draft the plan document (template varies by detail level):
 
 ```markdown
 ---
@@ -205,28 +327,89 @@ date: YYYY-MM-DD
 
 4. Write to `plans/{type}-{feature-name}-plan.md`
 
-## Phase 3: Deepen (Optional — `--deep` flag)
+## Phase 3: Forge (Optional — `--forge` flag)
 
-If `--deep` is specified, spawn additional agents to enhance each plan section:
+If `--forge` is specified, spawn research agents to enrich each plan section with structured subsections.
+
+### Default --forge Mode
+
+For each major plan section, spawn a research agent that produces structured subsections:
 
 ```javascript
-// Create deepen tasks blocked by synthesis
-TaskCreate({ subject: "Deepen: {section 1}" })     // #5
-TaskCreate({ subject: "Deepen: {section 2}" })     // #6
+// Create forge tasks blocked by synthesis
+TaskCreate({ subject: "Forge: {section 1}" })
+TaskCreate({ subject: "Forge: {section 2}" })
 // ... one per major section
 
-// Each deepen task gets its own research agent
+// Each forge task gets a research agent
 Task({
   team_name: "rune-plan-{timestamp}",
-  name: "deep-researcher-{n}",
+  name: "forge-researcher-{n}",
   subagent_type: "general-purpose",
-  prompt: `Research specific best practices for: {section topic}.
-    Write enhancements to tmp/plans/{timestamp}/deepen/{section}.md`,
+  prompt: `Enrich plan section "{section}" with structured subsections.
+    Write enhancements to tmp/plans/{timestamp}/forge/{section}.md`,
   run_in_background: true
 })
 ```
 
-After deepen completes, merge enhancements into the plan document.
+Each forge agent produces these structured subsections:
+
+```markdown
+### Best Practices
+{From practice-seeker — industry standards, community conventions}
+
+### Performance Considerations
+{From ember-oracle perspective via Forge Warden Runebearer}
+
+### Security Considerations
+{From Ward Sentinel Runebearer — OWASP, auth, input validation}
+
+### Edge Cases
+{From flaw-hunter perspective via Forge Warden Runebearer}
+
+### Pattern Alignment
+{From pattern-seer perspective via Pattern Weaver Runebearer}
+
+### References
+{Consolidated links from all agents}
+```
+
+In default `--forge` mode, perspectives from review agents (ember-oracle, flaw-hunter, pattern-seer) are provided through their parent Runebearers, not as standalone agents.
+
+After forge completes, merge enrichments into the plan document.
+
+### --exhaustive Mode (`--forge --exhaustive`)
+
+When `--exhaustive` is combined with `--forge`, spawn ALL available agents per section:
+
+```
+Default --forge:    6 research agents per section
+With --exhaustive:  ALL available agents per section (max 8 per section, configurable)
+
+Agent selection for --exhaustive:
+  1. Read rune-config.yml for custom Runebearers
+  2. Collect: 6 research + 5 Runebearers (embedding 10 review perspectives) + N custom
+  3. For each plan section:
+     - Spawn ALL agents with the section as context
+     - Each agent contributes from its expertise area
+     - Two-tier aggregation: agents → per-section synthesizer → lead
+  4. Max 5 concurrent agents per phase (enforced by orchestrator)
+```
+
+In `--exhaustive` mode, review agents may be spawned individually rather than through Runebearers.
+
+**Spawn throttle enforcement**:
+1. Max 5 concurrent agents per phase
+2. Concurrent arc run prevention: check for active `.claude/arc/*/checkpoint.json`
+3. Per-section sufficiency gate: apply local sufficiency scoring, skip agents whose expertise is covered
+
+**Cost warning** (displayed before spawning):
+
+```
+--exhaustive mode will spawn {N} agents x {M} sections = {N*M} agent invocations.
+Estimated token usage: ~{estimate}M tokens (~${cost_estimate}).
+Token budget: {budget}M. Proceed? [Y/n]
+```
 
 ## Phase 4: Scroll Review
 
@@ -291,6 +474,9 @@ Next steps:
 1. /rune:work — Start implementing this plan
 2. Edit plan — Refine before implementing
 3. /rune:review — Review the plan document
+4. /forge — Enhance each section with parallel research agents
+5. Technical review — Run decree-arbiter + scroll-reviewer + knowledge-keeper
+6. Create issue — Push to GitHub Issues
 ```
 
 ## Error Handling
