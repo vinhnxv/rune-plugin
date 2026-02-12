@@ -184,7 +184,7 @@ Create `tmp/mend/{id}/inscription.json` with per-fixer contracts:
       "agent": "agents/utility/mend-fixer.md",
       "file_group": ["src/auth/login.ts"],
       "findings": ["SEC-001", "BACK-003"],
-      "tools": ["Read", "Write", "Edit", "Glob", "Grep", "TaskUpdate", "SendMessage"]
+      "tools": ["Read", "Write", "Edit", "Glob", "Grep", "TaskList", "TaskGet", "TaskUpdate", "SendMessage"]
     }
   ]
 }

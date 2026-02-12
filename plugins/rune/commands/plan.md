@@ -43,7 +43,7 @@ Orchestrates a planning pipeline using Agent Teams with dependency-aware task sc
 ```
 /rune:plan                              # Standard planning (research + synthesize + review)
 /rune:plan --brainstorm                 # Start with brainstorm phase
-/rune:plan --forge                      # Include research enrichment (replaces --deep)
+/rune:plan --forge                      # Include research enrichment
 /rune:plan --forge --exhaustive         # Spawn ALL agents per section
 /rune:plan --brainstorm --forge         # Full pipeline
 ```

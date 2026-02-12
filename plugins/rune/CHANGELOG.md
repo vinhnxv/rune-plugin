@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.8.0] - 2026-XX-XX — "Knowledge & Safety"
+## [1.8.0] - 2026-02-12 — "Knowledge & Safety"
 
 ### Added
 
@@ -18,7 +18,7 @@
 - Team lifecycle guards added to all 9 commands — pre-create guards + cleanup fallbacks with input validation (see `team-lifecycle-guard.md`)
 - Reduced allowed-tools for `/rune:echoes`, `/rune:rest`, `/rune:cancel-arc` to enforce least-privilege
 
-## [1.7.0] - 2026-XX-XX — "Arc Pipeline"
+## [1.7.0] - 2026-02-12 — "Arc Pipeline"
 
 ### Added
 
@@ -30,7 +30,7 @@
 - Per-phase tool restrictions for arc pipeline (least-privilege enforcement)
 - Feature branch auto-creation (`rune/arc-{name}-{date}`) when on main
 
-## [1.6.0] - 2026-XX-XX — "Mend & Commit"
+## [1.6.0] - 2026-02-12 — "Mend & Commit"
 
 ### Added
 

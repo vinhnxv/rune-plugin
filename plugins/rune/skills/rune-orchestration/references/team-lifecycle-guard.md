@@ -113,6 +113,7 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 ## Notes
 
 - The filesystem fallback (`rm -rf ~/.claude/teams/...`) is safe — these directories only contain Agent SDK coordination state, not user data
+- For additional defense-in-depth, commands that delete user-facing directories (e.g., `/rune:rest`) should use `realpath` containment checks in addition to team name validation
 - Callers MUST NOT interpolate unsanitized external input into team names — always validate first
 - Always update workflow state files (e.g., `tmp/.rune-review-{id}.json`) AFTER team cleanup, not before
 - The 30s wait is a best-effort grace period — some agents may need longer for complex file writes

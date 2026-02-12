@@ -21,8 +21,6 @@ allowed-tools:
   - Glob
   - Grep
   - SendMessage
-  - TaskUpdate
-  - TaskGet
 ---
 
 # Knowledge Keeper — Documentation Coverage Reviewer

@@ -333,6 +333,7 @@ plugins/rune/
 │   └── rest.md          # /rune:rest
 ├── skills/
 │   ├── rune-orchestration/  # Core coordination
+│   │   └── references/      # e.g. team-lifecycle-guard.md
 │   ├── context-weaving/     # Context management
 │   ├── roundtable-circle/   # Review orchestration
 │   │   └── references/      # e.g. rune-gaze.md, custom-runebearers.md

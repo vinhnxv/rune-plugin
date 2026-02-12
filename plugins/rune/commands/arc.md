@@ -104,6 +104,7 @@ current_branch=$(git branch --show-current)
 if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
   # Extract plan name from filename
   plan_name=$(basename "$plan_file" .md | sed 's/[^a-zA-Z0-9]/-/g')
+  plan_name=${plan_name:-unnamed}
   branch_name="rune/arc-${plan_name}-$(date +%Y%m%d)"
   git checkout -b -- "$branch_name"
 fi
@@ -245,7 +246,7 @@ Three parallel reviewers evaluate the enriched plan. ANY BLOCK verdict halts the
 ```javascript
 updateCheckpoint({ phase: "plan_review", status: "in_progress", phase_sequence: 2 })
 
-// Pre-create guard (see team-lifecycle-guard.md)
+// Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
 }
