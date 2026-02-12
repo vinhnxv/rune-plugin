@@ -1,7 +1,7 @@
 ---
 name: rune:cancel-review
 description: |
-  Cancel an active Rune Circle review and gracefully shutdown all Runebearer teammates.
+  Cancel an active Roundtable Circle review and gracefully shutdown all Runebearer teammates.
   Partial results remain in tmp/reviews/ for manual inspection.
 
   <example>
@@ -22,7 +22,7 @@ allowed-tools:
 
 # /rune:cancel-review — Cancel Active Review
 
-Cancel an active Rune Circle review and gracefully shutdown all teammates.
+Cancel an active Roundtable Circle review and gracefully shutdown all teammates.
 
 ## Steps
 

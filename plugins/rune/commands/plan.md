@@ -115,23 +115,23 @@ TaskCreate({ subject: "Read past echoes", description: "..." })             // #
 // 4. Spawn research agents
 Task({
   team_name: "rune-plan-{timestamp}",
-  name: "lore-seeker",
+  name: "practice-seeker",
   subagent_type: "general-purpose",
-  prompt: `You are Lore Seeker. Research best practices for: {feature}.
+  prompt: `You are Practice Seeker. Research best practices for: {feature}.
     Write findings to tmp/plans/{timestamp}/research/best-practices.md.
     Claim task #1 via TaskList/TaskUpdate.
-    See agents/research/lore-seeker.md for full instructions.`,
+    See agents/research/practice-seeker.md for full instructions.`,
   run_in_background: true
 })
 
 Task({
   team_name: "rune-plan-{timestamp}",
-  name: "realm-analyst",
+  name: "repo-surveyor",
   subagent_type: "general-purpose",
-  prompt: `You are Realm Analyst. Explore the codebase for: {feature}.
+  prompt: `You are Repo Surveyor. Explore the codebase for: {feature}.
     Write findings to tmp/plans/{timestamp}/research/repo-analysis.md.
     Claim task #2 via TaskList/TaskUpdate.
-    See agents/research/realm-analyst.md for full instructions.`,
+    See agents/research/repo-surveyor.md for full instructions.`,
   run_in_background: true
 })
 
@@ -298,6 +298,6 @@ Next steps:
 | Error | Recovery |
 |-------|----------|
 | Research agent timeout (>5 min) | Proceed with partial research |
-| No git history (chronicle-miner) | Skip, report gap |
+| No git history (git-miner) | Skip, report gap |
 | No echoes (echo-reader) | Skip, proceed without history |
 | Scroll review finds critical gaps | Address before presenting |

@@ -30,13 +30,17 @@ When the same file + line range (5-line window) is flagged by multiple Runebeare
 
 Priority order (highest first):
   SEC > BACK > DOC > QUAL > FRONT
-  (Ward Sentinel > Forge Warden > Lore Keeper > Pattern Weaver > Glyph Scribe)
+  (Ward Sentinel > Forge Warden > Knowledge Keeper > Pattern Weaver > Glyph Scribe)
 
 Rules:
 - Same file + overlapping lines → keep higher-priority Runebearer's finding
 - Same priority → keep higher severity (P1 > P2 > P3)
 - Same priority + same severity → keep both if different issues, merge if same
 - Record "also flagged by" for merged findings
+
+## SESSION NONCE
+
+The `{session_nonce}` is provided in your spawn prompt by the lead. Include it in every RUNE:FINDING marker. This prevents marker injection — only findings with the correct nonce are authentic. If no nonce was provided, use "UNSET" and note it in Statistics.
 
 ## TOME.md FORMAT
 
@@ -51,6 +55,7 @@ Write exactly this structure:
 
 ## P1 (Critical) — {count} findings
 
+<!-- RUNE:FINDING nonce="{session_nonce}" id="{PREFIX}-{NUM}" file="{file}" line="{line}" severity="P1" -->
 - [ ] **[{PREFIX}-{NUM}] {Title}** in `{file}:{line}`
   - **Runebearer:** {name} (also flagged by: {others})
   - **Rune Trace:**
@@ -59,14 +64,15 @@ Write exactly this structure:
     ```
   - **Issue:** {from Runebearer's output}
   - **Fix:** {from Runebearer's output}
+<!-- /RUNE:FINDING id="{PREFIX}-{NUM}" -->
 
 ## P2 (High) — {count} findings
 
-{Same format as P1}
+{Same format as P1, with RUNE:FINDING markers and severity="P2"}
 
 ## P3 (Medium) — {count} findings
 
-{Same format as P1}
+{Same format as P1, with RUNE:FINDING markers and severity="P3"}
 
 ## Coverage Gaps
 
@@ -171,7 +177,7 @@ Aggregate only — never fabricate.
 
 | Variable | Source | Example |
 |----------|--------|---------|
-| `{output_dir}` | From rune-circle Phase 5 | `tmp/reviews/142/` |
+| `{output_dir}` | From roundtable-circle Phase 5 | `tmp/reviews/142/` |
 | `{runebearer_files}` | List of completed output files | `forge-warden.md, ward-sentinel.md, ...` |
 | `{workflow_type}` | `rune-review` or `rune-audit` | `rune-review` |
 | `{identifier_label}` | `PR` for reviews, `Audit` for audits | `PR` |

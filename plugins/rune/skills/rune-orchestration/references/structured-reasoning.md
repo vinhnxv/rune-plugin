@@ -228,4 +228,4 @@ Use `isRevision: true` when reconsidering a decision. Use `branchFromThought` wh
 - Conflict resolution: `../SKILL.md` → "Conflict Resolution Rules"
 - Truthbinding Protocol: `inscription-protocol.md` → "Truthbinding Protocol"
 - Prompt engineering: `prompt-weaving.md` → 7-section template
-- Runebearer prompts: `../../rune-circle/references/runebearer-prompts/` → Self-Review Checkpoint
+- Runebearer prompts: `../../roundtable-circle/references/runebearer-prompts/` → Self-Review Checkpoint

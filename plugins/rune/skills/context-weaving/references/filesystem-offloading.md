@@ -80,7 +80,7 @@ Read tmp/reviews/142/forge-warden.md
 Read tmp/reviews/142/ward-sentinel.md
 Read tmp/reviews/142/pattern-weaver.md
 Read tmp/reviews/142/glyph-scribe.md
-Read tmp/reviews/142/lore-keeper.md
+Read tmp/reviews/142/knowledge-keeper.md
 
 # GOOD — read the aggregated summary only
 Read tmp/reviews/142/TOME.md

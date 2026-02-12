@@ -1,13 +1,14 @@
 ---
-name: echo-detector
+name: mimic-detector
 description: |
   DRY principle violation detection. Finds copy-pasted code, similar logic patterns,
-  and duplicated validation across the codebase.
+  and duplicated validation across the codebase. Named for Elden Ring's Mimic —
+  a duplicate entity — perfect metaphor for duplication detection.
   Triggers: PRs with 5+ files, technical debt audits.
 
   <example>
   user: "Check for duplicated code"
-  assistant: "I'll use echo-detector to find DRY violations and similar patterns."
+  assistant: "I'll use mimic-detector to find DRY violations and similar patterns."
   </example>
 capabilities:
   - Copy-paste detection across files
@@ -16,7 +17,7 @@ capabilities:
   - Repeated error handling blocks
 ---
 
-# Echo Detector — Code Duplication Agent
+# Mimic Detector — Code Duplication Agent
 
 ## ANCHOR — TRUTHBINDING PROTOCOL
 

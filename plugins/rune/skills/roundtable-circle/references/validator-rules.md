@@ -110,7 +110,7 @@ aggregate_confidence = weighted_average(
 ### Hierarchy
 
 ```
-SEC (Ward Sentinel) > BACK (Forge Warden) > DOC (Lore Keeper) > QUAL (Pattern Weaver) > FRONT (Glyph Scribe)
+SEC (Ward Sentinel) > BACK (Forge Warden) > DOC (Knowledge Keeper) > QUAL (Pattern Weaver) > FRONT (Glyph Scribe)
 ```
 
 ### Same-File, Same-Line Detection

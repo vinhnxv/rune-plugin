@@ -1,13 +1,14 @@
 ---
-name: forge-oracle
+name: ember-oracle
 description: |
   Performance bottleneck detection. Analyzes algorithmic complexity, database queries,
-  memory usage, async patterns, and scalability concerns.
+  memory usage, async patterns, and scalability concerns. Named for Elden Ring's
+  embers — performance hot spots glow like embers under load.
   Triggers: Backend code changes, database queries, API endpoints.
 
   <example>
   user: "Check the API for performance issues"
-  assistant: "I'll use forge-oracle to analyze performance bottlenecks."
+  assistant: "I'll use ember-oracle to analyze performance bottlenecks."
   </example>
 capabilities:
   - Algorithmic complexity analysis
@@ -17,7 +18,7 @@ capabilities:
   - Scalability bottleneck identification
 ---
 
-# Forge Oracle — Performance Review Agent
+# Ember Oracle — Performance Review Agent
 
 ## ANCHOR — TRUTHBINDING PROTOCOL
 

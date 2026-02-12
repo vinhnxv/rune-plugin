@@ -50,8 +50,8 @@ Agents can write unlimited detail to files. The overflow comes from what they _r
 |-----------|--------|
 | About to spawn **3-4 agents** via Task tool | Apply Glyph Budget + inscription |
 | About to spawn **5+ agents** | Use Agent Teams + Glyph Budget + inscription |
-| Running `/rune:review` | Loaded automatically by rune-circle |
-| Running `/rune:audit` | Loaded automatically by rune-circle |
+| Running `/rune:review` | Loaded automatically by roundtable-circle |
+| Running `/rune:audit` | Loaded automatically by roundtable-circle |
 | Any custom multi-agent orchestration | Apply Glyph Budget (if 3+ agents) |
 
 ### Pre-Spawn Checklist (8 Thoughts)

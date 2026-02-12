@@ -7,7 +7,7 @@ description: |
 
   <example>
   user: "/rune:review"
-  assistant: "Starting Rune Circle review with Agent Teams..."
+  assistant: "Starting Roundtable Circle review with Agent Teams..."
   </example>
 user-invocable: true
 allowed-tools:
@@ -28,9 +28,9 @@ allowed-tools:
 
 # /rune:review — Multi-Agent Code Review
 
-Orchestrate a multi-agent code review using the Rune Circle architecture. Each Runebearer gets its own 200k context window via Agent Teams.
+Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Runebearer gets its own 200k context window via Agent Teams.
 
-**Load skill**: `rune-circle` for full architecture reference.
+**Load skill**: `roundtable-circle` for full architecture reference.
 
 ## Flags
 
@@ -89,17 +89,17 @@ After collecting changed files, check for custom Runebearer config:
 4. Apply defaults.disable_runebearers to remove any disabled built-ins
 ```
 
-See `rune-circle/references/custom-runebearers.md` for full schema and validation rules.
+See `roundtable-circle/references/custom-runebearers.md` for full schema and validation rules.
 
 ## Phase 1: Rune Gaze (Scope Selection)
 
-Classify changed files by extension. See `rune-circle/references/rune-gaze.md`.
+Classify changed files by extension. See `roundtable-circle/references/rune-gaze.md`.
 
 ```
 for each file in changed_files:
   - *.py, *.go, *.rs, *.rb, *.java, etc. → select Forge Warden
   - *.ts, *.tsx, *.js, *.jsx, etc.       → select Glyph Scribe
-  - *.md (>= 10 lines changed)            → select Lore Keeper
+  - *.md (>= 10 lines changed)            → select Knowledge Keeper
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
 
@@ -134,7 +134,7 @@ Runebearers to spawn: {count} ({built_in_count} built-in + {custom_count} custom
   - Ward Sentinel:  {file_count} files (cap: 20)
   - Pattern Weaver: {file_count} files (cap: 30)
   - Glyph Scribe:   {file_count} files (cap: 25)  [conditional]
-  - Lore Keeper:    {file_count} files (cap: 25)  [conditional]
+  - Knowledge Keeper:    {file_count} files (cap: 25)  [conditional]
 
   Custom (from .claude/rune-config.yml):       # Only shown if custom Runebearers exist
   - {name} [{prefix}]: {file_count} files (cap: {budget}, source: {source})
@@ -163,7 +163,7 @@ Write("tmp/.rune-review-{identifier}.json", {
   expected_files: selectedRunebearers.map(r => `tmp/reviews/${id}/${r}.md`)
 })
 
-// 4. Generate inscription.json (see rune-circle/references/inscription-schema.md)
+// 4. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
 Write("tmp/reviews/{identifier}/inscription.json", { ... })
 
 // 5. Create team
@@ -189,7 +189,7 @@ Task({
   team_name: "rune-review-{identifier}",
   name: "{runebearer-name}",
   subagent_type: "general-purpose",
-  prompt: /* Load from rune-circle/references/runebearer-prompts/{role}.md
+  prompt: /* Load from roundtable-circle/references/runebearer-prompts/{role}.md
              Substitute: {changed_files}, {output_path}, {task_id}, {branch}, {timestamp} */,
   run_in_background: true
 })
@@ -200,7 +200,7 @@ Task({
   team_name: "rune-review-{identifier}",
   name: "{custom.name}",
   subagent_type: "{custom.agent}",  // local name or plugin namespace
-  prompt: /* Generate from wrapper template in rune-circle/references/custom-runebearers.md
+  prompt: /* Generate from wrapper template in roundtable-circle/references/custom-runebearers.md
              Substitute: {name}, {file_list}, {output_dir}, {finding_prefix}, {context_budget} */,
   run_in_background: true
 })
@@ -237,7 +237,7 @@ Task({
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT).
     Include custom Runebearer outputs in dedup — use their finding_prefix from config.
     Write unified summary to tmp/reviews/{id}/TOME.md.
-    See rune-circle/references/dedup-runes.md for dedup algorithm.`
+    See roundtable-circle/references/dedup-runes.md for dedup algorithm.`
 })
 ```
 

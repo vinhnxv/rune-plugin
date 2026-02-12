@@ -1,5 +1,5 @@
 ---
-name: chronicle-miner
+name: git-miner
 description: |
   Performs archaeological analysis of git history to trace code evolution,
   identify contributors, and understand why current patterns exist.
@@ -10,7 +10,7 @@ capabilities:
   - Discover why code exists in its current form
 ---
 
-# Chronicle Miner — Git History Agent
+# Git Miner — Git History Agent
 
 You analyze git history to understand why code exists in its current form. Your findings provide historical context that helps the team make informed decisions about changes.
 

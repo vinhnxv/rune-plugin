@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.5.0] - 2026-02-12
+
+### Added
+
+- **Decree Arbiter** utility agent — technical soundness review for plans with 5-dimension evaluation (feasibility, risk, efficiency, coverage, consistency), Decree Trace evidence format, and deterministic verdict markers
+- **Remembrance Channel** — human-readable knowledge documents in `docs/solutions/` promoted from high-confidence Rune Echoes, with YAML frontmatter schema, 8 categories, and security gate requiring human verification
+- **TOME structured markers** — `<!-- RUNE:FINDING nonce="{session_nonce}" id="..." file="..." line="..." severity="..." -->` for machine-parseable review findings
+
+### Changed
+
+- **Naming refresh** — selective rename of agents, commands, and skills for clarity:
+  - Review agents: `echo-detector` → `mimic-detector`, `orphan-finder` → `wraith-finder`, `forge-oracle` → `ember-oracle`
+  - Research agents: `lore-seeker` → `practice-seeker`, `realm-analyst` → `repo-surveyor`, `chronicle-miner` → `git-miner`
+  - Runebearer: `Lore Keeper` → `Knowledge Keeper`
+  - Command: `/rune:cleanup` → `/rune:rest`
+  - Skill: `rune-circle` → `roundtable-circle`
+- All internal cross-references updated across 30+ files
+
+### Removed
+
+- Deprecated alias files (`cleanup.md`, `lore-keeper.md`) — direct rename, no backward-compat aliases
+
 ## [1.4.2] - 2026-02-12
 
 ### Added
