@@ -1,12 +1,12 @@
 ---
 name: rune:cancel-audit
 description: |
-  Cancel an active Roundtable Circle audit and gracefully shutdown all Tarnished teammates.
+  Cancel an active Roundtable Circle audit and gracefully shutdown all Ash teammates.
   Partial results remain in tmp/audit/ for manual inspection.
 
   <example>
   user: "/rune:cancel-audit"
-  assistant: "The Elden Lord dismisses the audit Circle..."
+  assistant: "The Tarnished dismisses the audit Circle..."
   </example>
 user-invocable: true
 allowed-tools:

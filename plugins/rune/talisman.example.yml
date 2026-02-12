@@ -4,7 +4,7 @@
 # Resolution order:
 #   1. .claude/talisman.yml   (project, highest priority)
 #   2. ~/.claude/talisman.yml (user global)
-#   3. Plugin defaults           (5 built-in Tarnished)
+#   3. Plugin defaults           (5 built-in Ashes)
 
 version: 1
 
@@ -12,14 +12,14 @@ version: 1
 # Rune Gaze — File classification overrides
 # ──────────────────────────────────────────────
 rune-gaze:
-  # Override which extensions map to backend Tarnished (Forge Warden)
+  # Override which extensions map to backend Ash (Forge Warden)
   backend_extensions:
     - .py
     - .go
     - .rs
     - .rb
 
-  # Override which extensions map to frontend Tarnished (Glyph Scribe)
+  # Override which extensions map to frontend Ash (Glyph Scribe)
   frontend_extensions:
     - .tsx
     - .ts
@@ -37,9 +37,9 @@ rune-gaze:
     - ".claude/**/*.md"
 
 # ──────────────────────────────────────────────
-# Custom Tarnished — Extend the built-in 5
+# Custom Ashes — Extend the built-in 5
 # ──────────────────────────────────────────────
-# Each custom Tarnished joins the Roundtable Circle lifecycle:
+# Each custom Ash joins the Roundtable Circle lifecycle:
 #   - Gets a Truthbinding wrapper prompt (evidence, Seal, Glyph Budget)
 #   - Participates in dedup via its unique finding_prefix
 #   - Verified by Truthsight (if enabled)
@@ -50,7 +50,7 @@ rune-gaze:
 #   global → ~/.claude/agents/{name}.md (user-level)
 #   plugin → Full namespace like "my-plugin:review:agent-name"
 
-tarnished:
+ashes:
   custom:
     # Example 1: A local project-specific reviewer
     # Add 'forge' to workflows to enable Forge Gaze matching (see Example 3)
@@ -115,9 +115,9 @@ tarnished:
 # Settings — Global behavior adjustments
 # ──────────────────────────────────────────────
 settings:
-  # Hard cap on total Tarnished (built-in + custom)
+  # Hard cap on total Ash (built-in + custom)
   # Max recommended: 8 (verifier context budget constraint)
-  max_tarnished: 8
+  max_ashes: 8
 
   # Extended dedup hierarchy — higher = wins on conflict
   # Must include ALL active prefixes (built-in + custom)
@@ -132,17 +132,17 @@ settings:
     - QUAL         # Pattern Weaver
     - FRONT        # Glyph Scribe (lowest)
 
-  # Whether Truthsight Layer 2 verifier checks custom Tarnished outputs
+  # Whether Truthsight Layer 2 verifier checks custom Ash outputs
   verification:
     layer_2_custom_agents: true
 
 # ──────────────────────────────────────────────
-# Defaults — Disable built-in Tarnished
+# Defaults — Disable built-in Ash
 # ──────────────────────────────────────────────
-# Use this to turn off a built-in Tarnished you've replaced with a custom one
+# Use this to turn off a built-in Ash you've replaced with a custom one
 defaults:
-  disable_tarnished: []
-  # Example: disable_tarnished: ["knowledge-keeper"]
+  disable_ashes: []
+  # Example: disable_ashes: ["knowledge-keeper"]
 
 # ──────────────────────────────────────────────
 # Forge — Forge Gaze selection overrides

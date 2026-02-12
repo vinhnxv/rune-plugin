@@ -1,6 +1,6 @@
-# Task Templates — TaskCreate for Each Tarnished
+# Task Templates — TaskCreate for Each Ash
 
-> Copy-paste templates for creating tasks when summoning Tarnished.
+> Copy-paste templates for creating tasks when summoning Ash.
 
 ## Review Mode Templates
 
@@ -71,7 +71,7 @@ Identical to review mode except:
 ```
 TaskCreate({
   subject: "Aggregate findings into TOME",
-  description: "Read all Tarnished output files from {output_dir}. Deduplicate using hierarchy (SEC > BACK > DOC > QUAL > FRONT). Write TOME.md with unified findings sorted by priority.",
+  description: "Read all Ash output files from {output_dir}. Deduplicate using hierarchy (SEC > BACK > DOC > QUAL > FRONT). Write TOME.md with unified findings sorted by priority.",
   activeForm: "Aggregating findings into TOME"
 })
 ```
@@ -83,9 +83,9 @@ TaskCreate({
 ```
 Task({
   team_name: "rune-{workflow}-{id}",
-  name: "{tarnished-name}",
+  name: "{ash-name}",
   subagent_type: "general-purpose",
-  prompt: [from references/tarnished-prompts/{role}.md],
+  prompt: [from references/ash-prompts/{role}.md],
   run_in_background: true
 })
 ```
@@ -96,7 +96,7 @@ Task({
 Task({
   subagent_type: "general-purpose",
   description: "{role} review",
-  prompt: [from references/tarnished-prompts/{role}.md],
+  prompt: [from references/ash-prompts/{role}.md],
   run_in_background: true
 })
 ```
@@ -112,9 +112,9 @@ glyph-scribe   ─┤
 knowledge-keeper    ─┘
 ```
 
-All Tarnished are independent — no `blockedBy` relationships between them. The Runebinder task should be `blockedBy` all Tarnished tasks. The Truthsight Verifier (if enabled) should be `blockedBy` the Runebinder.
+All Ash are independent — no `blockedBy` relationships between them. The Runebinder task should be `blockedBy` all Ash tasks. The Truthsight Verifier (if enabled) should be `blockedBy` the Runebinder.
 
 ## References
 
-- [Circle Registry](circle-registry.md) — Agent-to-Tarnished mapping
-- [Tarnished Prompts](tarnished-prompts/) — Individual prompts to inject
+- [Circle Registry](circle-registry.md) — Agent-to-Ash mapping
+- [Ash Prompts](ash-prompts/) — Individual prompts to inject

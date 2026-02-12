@@ -1,6 +1,6 @@
 # Rune Gaze — Scope Selection
 
-> Extension-based file classification for Tarnished selection. Generic and configurable.
+> Extension-based file classification for Ash selection. Generic and configurable.
 
 ## Table of Contents
 
@@ -10,7 +10,7 @@
   - [Frontend Extensions](#frontend-extensions)
   - [Documentation Extensions](#documentation-extensions)
   - [Skip Extensions (Never Review)](#skip-extensions-never-review)
-- [Tarnished Selection Matrix](#tarnished-selection-matrix)
+- [Ash Selection Matrix](#ash-selection-matrix)
 - [Configurable Overrides](#configurable-overrides)
 - [Special File Handling](#special-file-handling)
   - [Critical Files (Always Review)](#critical-files-always-review)
@@ -21,7 +21,7 @@
 
 ```
 Input: list of changed files (from git diff)
-Output: { code_files, doc_files, skip_files, tarnished_selections }
+Output: { code_files, doc_files, skip_files, ash_selections }
 
 for each file in changed_files:
   ext = file.extension
@@ -32,22 +32,22 @@ for each file in changed_files:
 
   if ext in BACKEND_EXTENSIONS:
     code_files.add(file)
-    tarnished_selections.add("forge-warden")
+    ash_selections.add("forge-warden")
 
   if ext in FRONTEND_EXTENSIONS:
     code_files.add(file)
-    tarnished_selections.add("glyph-scribe")
+    ash_selections.add("glyph-scribe")
 
   if ext in DOC_EXTENSIONS:
     if lines_changed(file) >= 10:
       doc_files.add(file)
-      tarnished_selections.add("knowledge-keeper")
+      ash_selections.add("knowledge-keeper")
     else:
       skip_files.add(file)  # Minor doc change
 
-# Always-on Tarnished (regardless of file types)
-tarnished_selections.add("ward-sentinel")   # Security: always
-tarnished_selections.add("pattern-weaver")  # Quality: always
+# Always-on Ash (regardless of file types)
+ash_selections.add("ward-sentinel")   # Security: always
+ash_selections.add("pattern-weaver")  # Quality: always
 ```
 
 ## Extension Groups
@@ -88,7 +88,7 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 .gitignore, .editorconfig, .prettierrc, .eslintrc
 ```
 
-## Tarnished Selection Matrix
+## Ash Selection Matrix
 
 | Changed Files | Forge Warden | Ward Sentinel | Pattern Weaver | Glyph Scribe | Knowledge Keeper |
 |--------------|:------------:|:-------------:|:--------------:|:------------:|:-----------:|
@@ -99,7 +99,7 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 | Backend + docs | Selected | **Always** | **Always** | - | Selected |
 | All types | Selected | **Always** | **Always** | Selected | Selected |
 
-**Max built-in Tarnished:** 5. With custom Tarnished (via `talisman.yml`), total can reach 8 (`settings.max_tarnished`). Plus 1 Runebinder (utility) for aggregation.
+**Max built-in Ash:** 5. With custom Ashes (via `talisman.yml`), total can reach 8 (`settings.max_ashes`). Plus 1 Runebinder (utility) for aggregation.
 
 ## Configurable Overrides
 

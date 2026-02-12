@@ -1,12 +1,12 @@
 ---
 name: rune:cancel-review
 description: |
-  Cancel an active Roundtable Circle review and gracefully shutdown all Tarnished teammates.
+  Cancel an active Roundtable Circle review and gracefully shutdown all Ash teammates.
   Partial results remain in tmp/reviews/ for manual inspection.
 
   <example>
   user: "/rune:cancel-review"
-  assistant: "The Elden Lord dismisses the Roundtable Circle..."
+  assistant: "The Tarnished dismisses the Roundtable Circle..."
   </example>
 user-invocable: true
 allowed-tools:

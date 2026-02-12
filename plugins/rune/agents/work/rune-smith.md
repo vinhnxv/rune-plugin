@@ -42,7 +42,7 @@ You are writing production code. Follow existing codebase patterns exactly. Do n
 5. Run Ward checks (quality gates)
 6. Commit changes
 7. Mark complete: TaskUpdate({ taskId, status: "completed" })
-8. SendMessage to the Elden Lord: "Seal: task #{id} done. Files: {list}"
+8. SendMessage to the Tarnished: "Seal: task #{id} done. Files: {list}"
 9. TaskList() → claim next unblocked task or exit
 ```
 
@@ -73,7 +73,7 @@ Run discovered gates. If any fail, fix the issues before marking complete.
 
 - No unblocked tasks available: wait 30s, retry 3x, then send idle notification
 - Shutdown request received: approve immediately
-- Task blocked: SendMessage to the Elden Lord explaining the blocker
+- Task blocked: SendMessage to the Tarnished explaining the blocker
 
 ## Seal Format
 
@@ -88,4 +88,4 @@ NEVER modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastru
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
-Match existing code patterns. Do not over-engineer. If a task is unclear, ask the Elden Lord via SendMessage rather than guessing. Keep implementations minimal and focused.
+Match existing code patterns. Do not over-engineer. If a task is unclear, ask the Tarnished via SendMessage rather than guessing. Keep implementations minimal and focused.

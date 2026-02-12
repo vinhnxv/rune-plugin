@@ -1,13 +1,13 @@
 ---
 name: rune:review
 description: |
-  Multi-agent code review using Agent Teams. Summons up to 5 built-in Tarnished teammates
-  (plus custom Tarnished from talisman.yml), each with their own 200k context window.
+  Multi-agent code review using Agent Teams. Summons up to 5 built-in Ashes
+  (plus custom Ash from talisman.yml), each with their own 200k context window.
   Handles scope selection, team creation, review orchestration, aggregation, verification, and cleanup.
 
   <example>
   user: "/rune:review"
-  assistant: "The Elden Lord convenes the Roundtable Circle for review..."
+  assistant: "The Tarnished convenes the Roundtable Circle for review..."
   </example>
 user-invocable: true
 allowed-tools:
@@ -28,7 +28,7 @@ allowed-tools:
 
 # /rune:review — Multi-Agent Code Review
 
-Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Tarnished gets its own 200k context window via Agent Teams.
+Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams.
 
 **Load skill**: `roundtable-circle` for full architecture reference.
 
@@ -37,15 +37,15 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off (reviews all branch changes) |
-| `--dry-run` | Show scope selection and Tarnished plan without summoning agents | Off |
-| `--max-agents <N>` | Limit total Tarnished summoned (built-in + custom). Range: 1-8 | All selected |
+| `--dry-run` | Show scope selection and Ash plan without summoning agents | Off |
+| `--max-agents <N>` | Limit total Ash summoned (built-in + custom). Range: 1-8 | All selected |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
 
 **Dry-run mode** executes Phase 0 (Pre-flight) and Phase 1 (Rune Gaze) only, then displays:
 - Changed files classified by type
-- Which Tarnished would be summoned
-- File assignments per Tarnished (with context budget caps)
+- Which Ash would be summoned
+- File assignments per Ash (with context budget caps)
 - Estimated team size
 
 No teams, tasks, state files, or agents are created. Use this to preview scope before committing to a full review.
@@ -74,22 +74,22 @@ fi
 - No changed files → "Nothing to review. Make some changes first."
 - Only non-reviewable files (images, lock files) → "No reviewable changes found."
 
-### Load Custom Tarnished
+### Load Custom Ashes
 
-After collecting changed files, check for custom Tarnished config:
+After collecting changed files, check for custom Ash config:
 
 ```
 1. Read .claude/talisman.yml (project) or ~/.claude/talisman.yml (global)
-2. If tarnished.custom[] exists:
+2. If ash.custom[] exists:
    a. Validate: unique prefixes, unique names, resolvable agents, count ≤ max
    b. Filter by workflows: keep only entries with "review" in workflows[]
    c. Match triggers against changed_files (extension + path match)
    d. Skip entries with fewer matching files than trigger.min_files
-3. Merge validated custom Tarnished with built-in selections
-4. Apply defaults.disable_tarnished to remove any disabled built-ins
+3. Merge validated custom Ash with built-in selections
+4. Apply defaults.disable_ashes to remove any disabled built-ins
 ```
 
-See `roundtable-circle/references/custom-tarnished.md` for full schema and validation rules.
+See `roundtable-circle/references/custom-ashes.md` for full schema and validation rules.
 
 ## Phase 1: Rune Gaze (Scope Selection)
 
@@ -103,8 +103,8 @@ for each file in changed_files:
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
 
-# Custom Tarnished (from talisman.yml):
-for each custom in validated_custom_tarnished:
+# Custom Ashes (from talisman.yml):
+for each custom in validated_custom_ash:
   matching = files where extension in custom.trigger.extensions
                     AND (custom.trigger.paths is empty OR file starts with any path)
   if len(matching) >= custom.trigger.min_files:
@@ -128,7 +128,7 @@ Changed files: {count}
   Docs:     {count} files
   Other:    {count} files (skipped)
 
-Tarnished to summon: {count} ({built_in_count} built-in + {custom_count} custom)
+Ash to summon: {count} ({built_in_count} built-in + {custom_count} custom)
   Built-in:
   - Forge Warden:      {file_count} files (cap: 30)
   - Ward Sentinel:     {file_count} files (cap: 20)
@@ -136,7 +136,7 @@ Tarnished to summon: {count} ({built_in_count} built-in + {custom_count} custom)
   - Glyph Scribe:      {file_count} files (cap: 25)  [conditional]
   - Knowledge Keeper:  {file_count} files (cap: 25)  [conditional]
 
-  Custom (from .claude/talisman.yml):       # Only shown if custom Tarnished exist
+  Custom (from .claude/talisman.yml):       # Only shown if custom Ash exist
   - {name} [{prefix}]: {file_count} files (cap: {budget}, source: {source})
 
 Dedup hierarchy: {hierarchy from settings or default}
@@ -160,7 +160,7 @@ Write("tmp/.rune-review-{identifier}.json", {
   team_name: "rune-review-{identifier}",
   started: timestamp,
   status: "active",
-  expected_files: selectedTarnished.map(r => `tmp/reviews/${id}/${r}.md`)
+  expected_files: selectedAsh.map(r => `tmp/reviews/${id}/${r}.md`)
 })
 
 // 4. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
@@ -174,44 +174,44 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: "rune-review-{identifier}" })
 
-// 6. Create tasks (one per Tarnished)
-for (const tarnished of selectedTarnished) {
+// 6. Create tasks (one per Ash)
+for (const ash of selectedAsh) {
   TaskCreate({
-    subject: `Review as ${tarnished}`,
-    description: `Files: [...], Output: tmp/reviews/{id}/${tarnished}.md`,
-    activeForm: `${tarnished} reviewing...`
+    subject: `Review as ${ash}`,
+    description: `Files: [...], Output: tmp/reviews/{id}/${ash}.md`,
+    activeForm: `${ash} reviewing...`
   })
 }
 ```
 
-## Phase 3: Summon Tarnished
+## Phase 3: Summon Ash
 
-Summon ALL selected Tarnished in a **single message** (parallel execution):
+Summon ALL selected Ash in a **single message** (parallel execution):
 
 ```javascript
-// Built-in Tarnished: load prompt from tarnished-prompts/{role}.md
+// Built-in Ash: load prompt from ash-prompts/{role}.md
 Task({
   team_name: "rune-review-{identifier}",
-  name: "{tarnished-name}",
+  name: "{ash-name}",
   subagent_type: "general-purpose",
-  prompt: /* Load from roundtable-circle/references/tarnished-prompts/{role}.md
+  prompt: /* Load from roundtable-circle/references/ash-prompts/{role}.md
              Substitute: {changed_files}, {output_path}, {task_id}, {branch}, {timestamp} */,
   run_in_background: true
 })
 
-// Custom Tarnished: use wrapper prompt template from custom-tarnished.md
+// Custom Ash: use wrapper prompt template from custom-ashes.md
 // The wrapper injects Truthbinding Protocol + Glyph Budget + Seal format
 Task({
   team_name: "rune-review-{identifier}",
   name: "{custom.name}",
   subagent_type: "{custom.agent}",  // local name or plugin namespace
-  prompt: /* Generate from wrapper template in roundtable-circle/references/custom-tarnished.md
+  prompt: /* Generate from wrapper template in roundtable-circle/references/custom-ashes.md
              Substitute: {name}, {file_list}, {output_dir}, {finding_prefix}, {context_budget} */,
   run_in_background: true
 })
 ```
 
-**IMPORTANT**: The Elden Lord MUST NOT review code directly. Focus solely on coordination.
+**IMPORTANT**: The Tarnished MUST NOT review code directly. Focus solely on coordination.
 
 ## Phase 4: Monitor
 
@@ -223,7 +223,7 @@ while (not all tasks completed):
   for task in tasks:
     if task.status == "completed": continue
     if task.stale > 5 minutes:
-      warn("Tarnished may be stalled")
+      warn("Ash may be stalled")
   sleep(30)
 ```
 
@@ -240,7 +240,7 @@ Task({
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/reviews/{id}/.
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT).
-    Include custom Tarnished outputs in dedup — use their finding_prefix from config.
+    Include custom Ash outputs in dedup — use their finding_prefix from config.
     Write unified summary to tmp/reviews/{id}/TOME.md.
     See roundtable-circle/references/dedup-runes.md for dedup algorithm.`
 })
@@ -257,9 +257,9 @@ If inscription.json has `verification.enabled: true`:
 ## Phase 7: Cleanup & Echo Persist
 
 ```javascript
-// 1. Shutdown all Tarnished
-for (const tarnished of allTarnished) {
-  SendMessage({ type: "shutdown_request", recipient: tarnished })
+// 1. Shutdown all Ash
+for (const ash of allAsh) {
+  SendMessage({ type: "shutdown_request", recipient: ash })
 }
 
 // 2. Wait for shutdown approvals (max 30s)
@@ -293,7 +293,7 @@ Read("tmp/reviews/{identifier}/TOME.md")
 
 | Error | Recovery |
 |-------|----------|
-| Tarnished timeout (>5 min) | Proceed with partial results |
-| Tarnished crash | Report gap in TOME.md |
-| ALL Tarnished fail | Abort, notify user |
+| Ash timeout (>5 min) | Proceed with partial results |
+| Ash crash | Report gap in TOME.md |
+| ALL Ash fail | Abort, notify user |
 | Concurrent review running | Warn, offer to cancel previous |

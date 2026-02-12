@@ -1,6 +1,6 @@
 # Forge Gaze — Topic-Aware Agent Selection for Plan Enrichment
 
-> Matches plan section topics to specialized agents for `--forge` enrichment. Analogous to [Rune Gaze](rune-gaze.md) (file extensions → Tarnished for reviews).
+> Matches plan section topics to specialized agents for `--forge` enrichment. Analogous to [Rune Gaze](rune-gaze.md) (file extensions → Ash for reviews).
 
 ## Table of Contents
 
@@ -26,7 +26,7 @@
 
 Each agent declares which plan section topics it can enrich, what subsection it produces, and its perspective focus.
 
-> **Note**: Forge Gaze matches agents **individually** (each agent scores independently against section topics), unlike `/rune:review` where agents are grouped into Tarnished composites. This allows fine-grained topic matching per plan section.
+> **Note**: Forge Gaze matches agents **individually** (each agent scores independently against section topics), unlike `/rune:review` where agents are grouped into Ash composites. This allows fine-grained topic matching per plan section.
 
 ### Review Agents (Enrichment Budget)
 
@@ -185,10 +185,10 @@ Same flow but with:
 
 ## Custom Forge Agents
 
-Custom Tarnished from `talisman.yml` can participate in forge by adding `forge` to their `workflows` list and providing forge-specific config:
+Custom Ashes from `talisman.yml` can participate in forge by adding `forge` to their `workflows` list and providing forge-specific config:
 
 ```yaml
-tarnished:
+ashes:
   custom:
     - name: "api-contract-reviewer"
       agent: "api-contract-reviewer"
@@ -259,7 +259,7 @@ Estimated tokens: ~40k (enrichment only)
 
 ## References
 
-- [Rune Gaze](rune-gaze.md) — File extension → Tarnished matching (analogous system for reviews)
-- [Circle Registry](circle-registry.md) — Agent-to-Tarnished mapping
+- [Rune Gaze](rune-gaze.md) — File extension → Ash matching (analogous system for reviews)
+- [Circle Registry](circle-registry.md) — Agent-to-Ash mapping
 - [Smart Selection](smart-selection.md) — File assignment and budget enforcement
-- [Custom Tarnished](custom-tarnished.md) — Custom agent schema (extended for forge)
+- [Custom Ash](custom-ashes.md) — Custom agent schema (extended for forge)

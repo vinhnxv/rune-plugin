@@ -1,12 +1,12 @@
-# Smart Selection — Tarnished Scope Assignment
+# Smart Selection — Ash Scope Assignment
 
-> Assigns files to Tarnished based on extension, priority, and context budget.
+> Assigns files to Ash based on extension, priority, and context budget.
 
 ## File Classification
 
-### Extension → Tarnished Mapping
+### Extension → Ash Mapping
 
-| Extension Group | Tarnished | Priority Within Group |
+| Extension Group | Ash | Priority Within Group |
 |----------------|-----------|----------------------|
 | `*.py, *.go, *.rs, *.rb, *.java, *.kt, *.scala` | Forge Warden | Entry points > services > core modules > utils > tests |
 | `*.ts, *.tsx, *.js, *.jsx, *.vue, *.svelte` | Glyph Scribe | Pages/routes > components > hooks > utils |
@@ -31,14 +31,14 @@
 |---------------|---------|-------------|
 | `code` | Source code file | Forge Warden and/or Glyph Scribe + always-on |
 | `docs` | Documentation file | Knowledge Keeper + Ward Sentinel (for `.claude/`) |
-| `skip` | Non-reviewable file | No Tarnished |
+| `skip` | Non-reviewable file | No Ash |
 | `critical_deletion` | Important file deleted | Flagged in TOME.md |
 
 ### Dual Classification
 
-Some files are assigned to multiple Tarnished intentionally:
+Some files are assigned to multiple Ash intentionally:
 
-| File Type | Tarnished | Reason |
+| File Type | Ash | Reason |
 |-----------|------------|--------|
 | `.claude/**/*.md` | Knowledge Keeper + Ward Sentinel | Docs accuracy + prompt injection risk |
 | `Dockerfile` | Ward Sentinel + Forge Warden | Security + build patterns |
@@ -53,7 +53,7 @@ Some files are assigned to multiple Tarnished intentionally:
 1. Run: git diff --name-only main..HEAD
 2. Classify each file by extension
 3. Sort by recency: new files first, modified files second
-4. Cap per Tarnished by context budget
+4. Cap per Ash by context budget
 5. Files beyond budget → "Coverage Gaps" in TOME.md
 ```
 
@@ -63,13 +63,13 @@ Some files are assigned to multiple Tarnished intentionally:
 1. Run: find . -type f (filtered by skip list)
 2. Classify each file by extension
 3. Sort by importance: entry points > core > services > utils > tests
-4. Cap per Tarnished by context budget (stricter due to volume)
+4. Cap per Ash by context budget (stricter due to volume)
 5. Files beyond budget → "Coverage Gaps" in TOME.md
 ```
 
 ### Focus Mode (`--focus <area>`)
 
-| Focus Area | Tarnished Summoned | Budget Increase |
+| Focus Area | Ash Summoned | Budget Increase |
 |-----------|-------------------|-----------------|
 | `security` | Ward Sentinel only | 2x (40 files) |
 | `performance` | Forge Warden only | 2x (60 files) |
@@ -79,11 +79,11 @@ Some files are assigned to multiple Tarnished intentionally:
 | `backend` | Forge Warden + Ward Sentinel | 1.5x each |
 | `full` | All (default) | Standard |
 
-Focus mode increases context budget because fewer Tarnished compete for lead attention.
+Focus mode increases context budget because fewer Ash compete for lead attention.
 
 ## Context Budget
 
-| Tarnished | Default Budget | Audit Budget | Focus Budget |
+| Ash | Default Budget | Audit Budget | Focus Budget |
 |-----------|---------------|-------------|-------------|
 | Forge Warden | 30 files | 30 files | 60 files |
 | Ward Sentinel | 20 files | 20 files | 40 files |
@@ -94,7 +94,7 @@ Focus mode increases context budget because fewer Tarnished compete for lead att
 ### Budget Enforcement
 
 ```
-for each selected Tarnished:
+for each selected Ash:
   1. Collect files matching extension group
   2. Sort by scope priority (defined above)
   3. Cap at context budget
@@ -111,4 +111,4 @@ If a single file exceeds 500 lines, it consumes significant context. For files >
 ## References
 
 - [Rune Gaze](rune-gaze.md) — Extension classification rules
-- [Circle Registry](circle-registry.md) — Agent-to-Tarnished mapping
+- [Circle Registry](circle-registry.md) — Agent-to-Ash mapping

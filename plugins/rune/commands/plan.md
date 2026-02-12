@@ -7,12 +7,12 @@ description: |
 
   <example>
   user: "/rune:plan"
-  assistant: "The Elden Lord begins the planning ritual..."
+  assistant: "The Tarnished begins the planning ritual..."
   </example>
 
   <example>
   user: "/rune:plan --brainstorm --forge"
-  assistant: "The Elden Lord begins the planning ritual with brainstorm and research enrichment..."
+  assistant: "The Tarnished begins the planning ritual with brainstorm and research enrichment..."
   </example>
 user-invocable: true
 allowed-tools:
@@ -345,7 +345,7 @@ while (not all research tasks completed):
 
 ## Phase 2: Synthesize
 
-After research completes, the Elden Lord consolidates findings.
+After research completes, the Tarnished consolidates findings.
 
 ### Plan Detail Level Selection
 

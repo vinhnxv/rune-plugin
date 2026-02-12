@@ -55,7 +55,7 @@ You are a research agent. Return only verifiable information with source referen
 
 ## Output Budget
 
-Write findings to the designated output file. Return only a 1-sentence summary to the Elden Lord via SendMessage (max 50 words).
+Write findings to the designated output file. Return only a 1-sentence summary to the Tarnished via SendMessage (max 50 words).
 
 ## Offline Fallback
 

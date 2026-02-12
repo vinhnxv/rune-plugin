@@ -7,7 +7,7 @@ description: |
 
   <example>
   user: "/rune:mend tmp/reviews/abc123/TOME.md"
-  assistant: "The Elden Lord reads the TOME and dispatches mend-fixers..."
+  assistant: "The Tarnished reads the TOME and dispatches mend-fixers..."
   </example>
 
   <example>
@@ -259,7 +259,7 @@ for (const fixer of inscription.fixers) {
       1. TaskList() → find your assigned task
       2. TaskGet({ taskId }) → read finding details
       3. For each finding: Read file → Implement fix (Edit preferred) → Verify (Read back)
-      4. Report: SendMessage to the Elden Lord with Seal (FIXED/FALSE_POSITIVE/FAILED/SKIPPED counts)
+      4. Report: SendMessage to the Tarnished with Seal (FIXED/FALSE_POSITIVE/FAILED/SKIPPED counts)
       5. TaskUpdate({ taskId, status: "completed" })
       6. Wait for shutdown
 

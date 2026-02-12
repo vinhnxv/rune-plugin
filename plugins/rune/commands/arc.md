@@ -7,7 +7,7 @@ description: |
 
   <example>
   user: "/rune:arc docs/plans/feat-user-auth-plan.md"
-  assistant: "The Elden Lord begins the arc — 6 phases of forge, review, and mend..."
+  assistant: "The Tarnished begins the arc — 6 phases of forge, review, and mend..."
   </example>
 
   <example>
@@ -350,7 +350,7 @@ updateCheckpoint({
 
 ## Phase 4: CODE REVIEW
 
-Invoke `/rune:review` logic on the implemented changes. Summons Tarnished with Roundtable Circle lifecycle.
+Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundtable Circle lifecycle.
 
 **Team**: `arc-review-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
@@ -478,7 +478,7 @@ All worker and fixer agent prompts MUST include: "NEVER modify files in `.claude
 ## Completion Report
 
 ```
-Arc complete!
+⚔ The Tarnished has claimed the Elden Throne.
 
 Plan: {plan_file}
 Checkpoint: .claude/arc/{id}/checkpoint.json

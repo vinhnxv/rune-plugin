@@ -73,7 +73,7 @@ When complete, end your output file with:
 SEAL: { findings: N, evidence_verified: true/false, confidence: 0.X, self_reviewed: true }
 ---
 
-Then send to the Elden Lord: "Seal: {role} complete. Path: {output_file}. Findings: N P1, N P2, N P3."
+Then send to the Tarnished: "Seal: {role} complete. Path: {output_file}. Findings: N P1, N P2, N P3."
 (Max 50 words — Glyph Budget enforced)
 ```
 
@@ -89,7 +89,7 @@ Then send to the Elden Lord: "Seal: {role} complete. Path: {output_file}. Findin
 
 ## Seal Format Specification
 
-Each Tarnished writes a Seal at the end of their output file:
+Each Ash writes a Seal at the end of their output file:
 
 ```
 ---
@@ -167,12 +167,12 @@ All workflows summoning 3+ agents MUST implement the inscription protocol.
 
 ## Full Prompt Injection Template
 
-When summoning Tarnished, inject these sections into EVERY prompt:
+When summoning Ash, inject these sections into EVERY prompt:
 
 ```markdown
 # ANCHOR — TRUTHBINDING PROTOCOL
 
-You are a Tarnished in a multi-agent review. Your findings MUST be grounded
+You are an Ash in a multi-agent review. Your findings MUST be grounded
 in actual source code. Fabricated evidence will be detected and flagged.
 
 ## OUTPUT REQUIREMENTS
@@ -218,7 +218,7 @@ SEAL: { findings: N, evidence_verified: true/false, confidence: 0.X,
         self_reviewed: true, self_review_actions: "confirmed: N, revised: N, deleted: N" }
 ---
 
-Then send to the Elden Lord (max 50 words — Glyph Budget enforced):
+Then send to the Tarnished (max 50 words — Glyph Budget enforced):
 "Seal: {role} complete. Path: {output_file}. Findings: N P1, N P2, N P3.
 Confidence: 0.X. Self-reviewed: yes."
 
@@ -247,14 +247,14 @@ Before sending your Seal, verify:
 
 | Layer | What | Who | When |
 |-------|------|-----|------|
-| **Layer 0: Rune Traces** | Evidence blocks in findings | Each Tarnished | During review |
-| **Layer 1: Self-Review** | Structured self-review log | Each Tarnished | Before Seal |
+| **Layer 0: Rune Traces** | Evidence blocks in findings | Each Ash | During review |
+| **Layer 1: Self-Review** | Structured self-review log | Each Ash | Before Seal |
 | **Layer 2: Spot-Check** | Verify P1 evidence against source | Lead / Truthseer | Post-completion |
 | **Layer 3: Cross-Validation** | Multiple agents verify same finding | Optional | High-stakes reviews |
 
 ### Why Rune Traces Work
 
-Rune Trace blocks exploit a key property: **fabricating a convincing multi-line code snippet that matches the claimed file:line is much harder than fabricating a one-line issue description**. When a Tarnished must quote actual code, it's forced to Read() the file first, grounding analysis in reality.
+Rune Trace blocks exploit a key property: **fabricating a convincing multi-line code snippet that matches the claimed file:line is much harder than fabricating a one-line issue description**. When an Ash must quote actual code, it's forced to Read() the file first, grounding analysis in reality.
 
 ### Layer 1: Enhanced Finding Format
 
@@ -272,11 +272,11 @@ Rune Trace blocks exploit a key property: **fabricating a convincing multi-line 
 
 ### Layer 2: Spot-Check Procedure
 
-After all Tarnished complete:
+After all Ash complete:
 
-1. Read each Tarnished's `confidence` from their Seal
-2. For Tarnished with confidence < 0.7: spot-check ALL P1 findings
-3. For Tarnished with confidence >= 0.7: spot-check 1-2 P1 findings
+1. Read each Ash's `confidence` from their Seal
+2. For Ash with confidence < 0.7: spot-check ALL P1 findings
+3. For Ash with confidence >= 0.7: spot-check 1-2 P1 findings
 4. For each spot-check:
    - Read the actual source file at the claimed `file:line`
    - Compare the Rune Trace block against real code
@@ -288,7 +288,7 @@ After all Tarnished complete:
 ```markdown
 ## Verification Status
 
-| Tarnished | Confidence | Spot-Checked | Confirmed | Inaccurate | Hallucinated |
+| Ash | Confidence | Spot-Checked | Confirmed | Inaccurate | Hallucinated |
 |-----------|-----------|-------------|-----------|------------|-------------|
 | forge-warden | 0.85 | 2/7 | 2 | 0 | 0 |
 | ward-sentinel | 0.90 | 1/3 | 1 | 0 | 0 |
@@ -317,12 +317,12 @@ Three mechanisms to prevent attention degradation in teammate prompts:
 
 ## 3-Tier Clarification Protocol
 
-Tarnished can handle ambiguities through 3 tiers:
+Ash can handle ambiguities through 3 tiers:
 
 | Tier | Strategy | Who | Cost |
 |------|----------|-----|------|
-| **Tier 1** | Self-Resolution | Tarnished | 0 (flag + proceed) |
-| **Tier 2** | Lead Clarification | Tarnished → Lead (SendMessage) | 1 message |
+| **Tier 1** | Self-Resolution | Ash | 0 (flag + proceed) |
+| **Tier 2** | Lead Clarification | Ash → Lead (SendMessage) | 1 message |
 | **Tier 3** | Human Escalation | Output file annotation | 0 (deferred) |
 
 ### Tier 1: Self-Resolution (Default)
@@ -335,8 +335,8 @@ When encountering ambiguity:
 
 ### Tier 2: Lead Clarification (Non-Blocking)
 
-For truly blocking ambiguities (max 1 per Tarnished per session):
-1. Send `CLARIFICATION_REQUEST` to the Elden Lord via SendMessage
+For truly blocking ambiguities (max 1 per Ash per session):
+1. Send `CLARIFICATION_REQUEST` to the Tarnished via SendMessage
 2. Continue reviewing non-blocked files
 3. Check for response between file reviews
 4. Auto-fallback to Tier 1 if no response by completion

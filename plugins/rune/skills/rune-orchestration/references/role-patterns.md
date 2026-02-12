@@ -1,11 +1,11 @@
 # Agent Role Patterns
 
-## Review Tarnished (Parallel Specialists)
+## Review Ash (Parallel Specialists)
 
 Run simultaneously with isolated contexts. Each produces Report-format output.
 
 ```
-# Parallel execution — each Tarnished writes to tmp/reviews/{pr}/
+# Parallel execution — each Ash writes to tmp/reviews/{pr}/
 Task forge-warden(backend_files)     # Backend review
 Task ward-sentinel(all_files)        # Security review
 Task pattern-weaver(all_files)       # Quality patterns
@@ -13,7 +13,7 @@ Task glyph-scribe(frontend_files)    # Frontend review (conditional)
 Task knowledge-keeper(doc_files)          # Docs review (conditional)
 ```
 
-## Audit Tarnished (Fan-out / Fan-in)
+## Audit Ash (Fan-out / Fan-in)
 
 Similar to review but broader scope — all project files instead of changed files.
 
@@ -48,11 +48,11 @@ Task rune-smith-2(task-pool)         # Claims and works on tasks
 # Each writes to tmp/work/
 ```
 
-## Conditional Tarnished
+## Conditional Ash
 
 Summoned based on file types present in scope:
 
-| Trigger | Tarnished | Workflow Types |
+| Trigger | Ash | Workflow Types |
 |---------|-----------|----------------|
 | Backend files (`.py`, `.go`, `.rs`, `.rb`) | Forge Warden | Reviews, Audits |
 | Frontend files (`.ts`, `.tsx`, `.js`, `.jsx`) | Glyph Scribe | Reviews, Audits |
@@ -62,18 +62,18 @@ Summoned based on file types present in scope:
 
 ## Validation Agents (Truthsight Pipeline)
 
-Post-review agents that verify Tarnished output quality. Run AFTER all Tarnished complete.
+Post-review agents that verify Ash output quality. Run AFTER all Ash complete.
 
 ```
 # Layer 0: Inline Checks (lead runs directly — no agent)
 #   Grep-based section validation of output files
 #   Writes: {output_dir}/inline-validation.json
 
-# Layer 1: Self-Review Log (each Tarnished performs self-review)
-#   Tarnished re-read P1/P2 findings before completing
+# Layer 1: Self-Review Log (each Ash performs self-review)
+#   Ash re-read P1/P2 findings before completing
 #   Output: ## Self-Review Log table in each output file
 
-# Layer 2: Smart Verifier (summoned by lead after Tarnished complete)
+# Layer 2: Smart Verifier (summoned by lead after Ash complete)
 Task:
   subagent_type: "general-purpose"
   model: haiku
@@ -85,16 +85,16 @@ Task:
 Task:
   subagent_type: "general-purpose"
   model: haiku
-  description: "Re-verify {tarnished}-{finding}"
-  # Writes to: {output_dir}/re-verify-{tarnished}-{finding}.md
+  description: "Re-verify {ash}-{finding}"
+  # Writes to: {output_dir}/re-verify-{ash}-{finding}.md
 ```
 
 **When to summon Layer 2 verifier:**
 
 | Workflow | Condition | Verifier Scope |
 |----------|-----------|----------------|
-| `/rune:review` | `inscription.verification.enabled` AND 3+ Tarnished | All Tarnished outputs |
-| `/rune:audit` | `inscription.verification.enabled` AND 5+ Tarnished | All Tarnished outputs |
+| `/rune:review` | `inscription.verification.enabled` AND 3+ Ashes | All Ash outputs |
+| `/rune:audit` | `inscription.verification.enabled` AND 5+ Ash | All Ash outputs |
 | Custom | Configurable via inscription `verification` block | Per configuration |
 
 Full verifier prompt template: [Verifier Prompt](verifier-prompt.md)

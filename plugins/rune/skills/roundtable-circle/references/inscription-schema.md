@@ -14,7 +14,7 @@
 
   "teammates": [
     {
-      "name": "string — tarnished role name",
+      "name": "string — ash role name",
       "output_file": "string — filename relative to output_dir",
       "required_sections": ["array of section header strings"],
       "role": "string — human-readable role description",

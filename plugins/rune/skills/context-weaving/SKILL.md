@@ -29,7 +29,7 @@ Unified context management combining overflow prevention, compression strategies
 
 ## Core Principle
 
-**Control what returns to the Elden Lord context, not what agents produce.**
+**Control what returns to the Tarnished context, not what agents produce.**
 
 Agents can write unlimited detail to files. The overflow comes from what they _return_ to the caller. This skill ensures returns are minimal (file path + 1-sentence summary).
 

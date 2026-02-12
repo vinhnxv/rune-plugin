@@ -10,15 +10,15 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **context-weaving** | Unified context management (overflow prevention, rot, compression, offloading) |
 | **roundtable-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
 | **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
-| **tarnished-guide** | Agent invocation reference and Tarnished selection guide |
+| **ash-guide** | Agent invocation reference and Ash selection guide |
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/rune:review` | Multi-agent code review with up to 5 Tarnished teammates |
+| `/rune:review` | Multi-agent code review with up to 5 Ash teammates |
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
-| `/rune:audit` | Full codebase audit with up to 5 Tarnished teammates |
+| `/rune:audit` | Full codebase audit with up to 5 Ash teammates |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
 | `/rune:plan` | Multi-agent planning with parallel research, 3 detail levels, Forge Gaze topic-aware enrichment, issue creation (+ `--forge`, `--exhaustive`, `--brainstorm`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
@@ -66,7 +66,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 | Agent | Purpose |
 |-------|---------|
-| runebinder | Aggregates Tarnished findings into TOME.md |
+| runebinder | Aggregates Ash findings into TOME.md |
 | decree-arbiter | Technical soundness review for plans (5-dimension evaluation) |
 | truthseer-validator | Audit coverage validation (Phase 5.5) |
 | flow-seer | Spec flow analysis and gap detection |
@@ -76,24 +76,24 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 ## Key Concepts
 
-### The Elden Lord (Orchestrator)
+### The Tarnished (Orchestrator)
 
-The lead agent that coordinates all Rune workflows. In Elden Ring, the Elden Lord rules
-from the Erdtree throne. In Rune, the Elden Lord:
+The lead agent that coordinates all Rune workflows. In Elden Ring, the Tarnished is
+the protagonist who journeys through the Lands Between. In Rune, the Tarnished:
 - Convenes the Roundtable Circle (review/audit orchestration)
-- Coordinates Tarnished and summons research agents
+- Coordinates Ashes and summons research agents
 - Collects findings into the TOME
 - Guides the arc pipeline from forge to audit
 
-The Elden Lord is the lead agent in every team. Machine identifier: `team-lead`.
+The Tarnished is the lead agent in every team. Machine identifier: `team-lead`.
 
-### Tarnished (Consolidated Teammates)
+### Ash (Consolidated Teammates)
 
-Each Tarnished is an Agent Teams teammate with its own 200k context window. A Tarnished embeds multiple review agent perspectives into a single teammate to reduce team size.
+Each Ash is an Agent Teams teammate with its own 200k context window. An Ash embeds multiple review agent perspectives into a single teammate to reduce team size.
 
-Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Tarnished). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Tarnished prompts. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 7 perspectives via 5 dedicated agents).
+Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Ashes). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Ash prompts. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 7 perspectives via 5 dedicated agents).
 
-| Tarnished | Perspectives | Agent Source | When Summoned |
+| Ash | Perspectives | Agent Source | When Summoned |
 |-----------|-------------|-------------|-------------|
 | **Forge Warden** | Backend code quality, architecture, performance, logic, testing | Dedicated agent files | Backend files changed |
 | **Ward Sentinel** | All security perspectives | Dedicated agent files | ALWAYS |
@@ -139,7 +139,7 @@ Agents persist learnings automatically after workflows. Future workflows read ec
 
 ### Forge Gaze (Topic-Aware Agent Selection)
 
-When `--forge` is used with `/rune:plan`, Forge Gaze matches plan section topics to specialized agents. Analogous to Rune Gaze (file extensions → Tarnished for reviews), but applied to plan section topics instead.
+When `--forge` is used with `/rune:plan`, Forge Gaze matches plan section topics to specialized agents. Analogous to Rune Gaze (file extensions → Ash for reviews), but applied to plan section topics instead.
 
 - **Keyword overlap scoring** with title bonus — deterministic, zero token cost, transparent
 - **Budget tiers**: `enrichment` (review agents, ~5k tokens) and `research` (practice-seeker/lore-scholar, ~15k tokens)
@@ -169,8 +169,8 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 
 | Term | Plugin Meaning | Elden Ring Parallel |
 |------|---------------|-------------------|
-| **Elden Lord** | Orchestrator/lead agent | The ruler who commands from the Erdtree |
-| **Tarnished** | Teammate agents (review, work, research, utility) | Warriors carrying out quests |
+| **Tarnished** | Orchestrator/lead agent | The protagonist who commands the journey |
+| **Ash** | Teammate agents (review, work, research, utility) | Spirit Ashes summoned to aid in battle |
 | **Roundtable Circle** | Review/audit orchestration lifecycle | Roundtable Hold gathering |
 | **TOME** | Aggregated findings document | Collected knowledge |
 | **Rune Echoes** | Project memory (3-layer lifecycle) | Echoes of past battles |
@@ -184,7 +184,7 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 | **Forge** | Research enrichment phase | Tempering plans in fire |
 | **Mend** | Finding resolution from TOME | Repairing what was broken |
 | **Remembrance** | Promoted knowledge docs | Memories of fallen foes |
-| **Summon** | Bringing a Tarnished agent into existence | Calling spirits/cooperators to aid in battle |
+| **Summon** | Bringing an Ash into existence | Calling Spirit Ashes to aid in battle |
 | **Talisman** | Plugin configuration file (`talisman.yml`) | Equippable items that enhance abilities |
 | **Decree Arbiter** | Technical soundness reviewer for plans | A judge who weighs the merit of decrees |
 | **Flow Seer** | Spec/feature flow completeness analyzer | One who perceives the currents of fate |
@@ -201,7 +201,7 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 
 | Workflow | Directory | Files |
 |----------|----------|-------|
-| Reviews | `tmp/reviews/{id}/` | `{tarnished}.md`, `TOME.md` (with RUNE:FINDING markers), `inscription.json` |
+| Reviews | `tmp/reviews/{id}/` | `{ash}.md`, `TOME.md` (with RUNE:FINDING markers), `inscription.json` |
 | Audits | `tmp/audit/{id}/` | Same pattern |
 | Plans | `tmp/plans/{id}/research/`, `plans/YYYY-MM-DD-{type}-{name}-plan.md` | Research findings, brainstorm decisions, plan document |
 | Mend | `tmp/mend/{id}/` | `resolution-report.md`, fixer outputs |
@@ -225,8 +225,8 @@ rune-gaze:
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md", ".claude/**/*.md"]
 
-# Custom Tarnished — extend the built-in 5
-tarnished:
+# Custom Ashes — extend the built-in 5
+ashes:
   custom:
     - name: "domain-logic-reviewer"
       agent: "domain-logic-reviewer"    # local .claude/agents/ or plugin namespace
@@ -244,7 +244,7 @@ tarnished:
       finding_prefix: "DOM"
 
 settings:
-  max_tarnished: 8                   # Hard cap (5 built-in + custom)
+  max_ashes: 8                   # Hard cap (5 built-in + custom)
   dedup_hierarchy: [SEC, BACK, DOM, DOC, QUAL, FRONT]
 
 # forge:                               # Forge Gaze selection overrides
@@ -262,7 +262,7 @@ work:
   commit_format: "rune: {subject} [ward-checked]"
 ```
 
-See `roundtable-circle/references/custom-tarnished.md` for full schema and `talisman.example.yml` at plugin root.
+See `roundtable-circle/references/custom-ashes.md` for full schema and `talisman.example.yml` at plugin root.
 
 ## Coexistence
 

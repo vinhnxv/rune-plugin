@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.10.0] - 2026-02-12 — "The Elden Throne"
+
+### Changed
+
+- **Elden Lord → Tarnished** — The lead/orchestrator is now called "the Tarnished" (the protagonist).
+  In Elden Ring, the Tarnished is the player character who journeys through the Lands Between.
+- **Tarnished → Ash** — All teammates (review, work, research, utility) are now called "Ash" / "Ashes".
+  In Elden Ring, Spirit Ashes are summoned allies. "The Tarnished summons Ashes" — lore-accurate.
+- **Config keys renamed**: `tarnished:` → `ashes:`, `max_tarnished` → `max_ashes`,
+  `disable_tarnished` → `disable_ashes`. Update your `.claude/talisman.yml`.
+- Directory renames: `tarnished-prompts/` → `ash-prompts/`,
+  `tarnished-guide/` → `ash-guide/`, `custom-tarnished.md` → `custom-ashes.md`
+- **Elden Throne completion message** — Successful workflow completion now shows
+  "The Tarnished has claimed the Elden Throne." in arc and work outputs.
+- Lore Glossary updated: Tarnished = lead, Ash = teammates, Elden Lord reserved for completion state.
+
+### Unchanged (Intentional)
+
+- `recipient: "team-lead"` in all SendMessage calls — platform identifier
+- Named roles: Forge Warden, Ward Sentinel, Pattern Weaver, Glyph Scribe, Knowledge Keeper
+- `summon` verb — already lore-accurate (Tarnished summons Ashes)
+- `talisman.yml` config file name — unchanged
+- All logic, phases, and orchestration patterns
+
 ## [1.9.0] - 2026-02-12 — "The Elden Lord"
 
 ### Added

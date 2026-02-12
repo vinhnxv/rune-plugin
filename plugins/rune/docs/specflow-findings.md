@@ -21,16 +21,16 @@
 | Hung teammate detection | v0.1 | 5-min stale detection + proceed with partial |
 | `--dry-run` flag | v1.2 | Added to `/rune:review` and `/rune:audit` |
 | Extension-based tech detection | v0.1 | Rune Gaze file classification |
-| Runebinder prompt | v1.2 | `tarnished-prompts/runebinder.md` |
-| Truthseer Validator prompt | v1.2 | `tarnished-prompts/truthseer-validator.md` |
+| Runebinder prompt | v1.2 | `ash-prompts/runebinder.md` |
+| Truthseer Validator prompt | v1.2 | `ash-prompts/truthseer-validator.md` |
 | Truthsight depth (Layer 0-2) | v1.1 | Full circuit breakers, sampling, verifier output format |
-| Custom agent templates (user-defined Tarnished) | v1.4 | `custom-tarnished.md` schema, `talisman.yml` examples, trigger matching |
+| Custom agent templates (user-defined Ash) | v1.4 | `custom-ashes.md` schema, `talisman.yml` examples, trigger matching |
 | Agent Role Patterns | v1.1 | Added to `rune-orchestration/SKILL.md` |
 | JSON output format | v1.1 | `output-format.md` + `completion.json` |
-| Selective naming refresh (E7) | v1.5 | 3 review + 3 research agents + 1 Tarnished + 1 skill + 1 command renamed |
+| Selective naming refresh (E7) | v1.5 | 3 review + 3 research agents + 1 Ash + 1 skill + 1 command renamed |
 | TOME structured markers | v1.5 | `<!-- RUNE:FINDING nonce=... -->` format with session nonce validation |
 | decree-arbiter agent | v1.5 | 5-dimension plan review with Decree Trace evidence format |
-| knowledge-keeper standalone agent | v1.7 | Extracted from Tarnished prompt for arc Phase 2 use |
+| knowledge-keeper standalone agent | v1.7 | Extracted from Ash prompt for arc Phase 2 use |
 | Parallel finding resolution (`/rune:mend`) | v1.6 | Team-based fixers with restricted tools, ward check serialization (MEND-1) |
 | Mend fixer security (ANCHOR/RE-ANCHOR) | v1.6 | Full Truthbinding Protocol for highest-risk agent type |
 | SEC-prefix FALSE_POSITIVE gate | v1.6 | Human approval required before skipping security findings |
@@ -77,7 +77,7 @@
 
 ### 6. Scalability
 - Adaptive agent count based on file count and complexity
-- Progress indicators (X of Y Tarnished completed)
+- Progress indicators (X of Y Ash completed)
 
 ### 7. Reliability Tracking (Layer 3)
 - Per-agent hallucination rates over time in `.claude/echoes/`

@@ -1,8 +1,8 @@
-# Output Format — Tarnished Finding Specifications
+# Output Format — Ash Finding Specifications
 
 > Defines raw finding format, validated format, and dual output modes (Markdown + JSON).
 
-## Raw Finding Format (Written by Tarnished)
+## Raw Finding Format (Written by Ash)
 
 Each finding follows this template:
 
@@ -19,7 +19,7 @@ Each finding follows this template:
 
 ### Finding Prefixes
 
-| Tarnished | Prefix | Example |
+| Ash | Prefix | Example |
 |-----------|--------|---------|
 | Forge Warden | `BACK` | `BACK-001` |
 | Ward Sentinel | `SEC` | `SEC-001` |
@@ -46,11 +46,11 @@ After self-review, findings may be annotated:
 
 ## JSON Output (Optional, for Programmatic Consumption)
 
-In addition to Markdown, Tarnished MAY write a companion JSON file for tooling integration:
+In addition to Markdown, Ash MAY write a companion JSON file for tooling integration:
 
 ```json
 {
-  "tarnished": "forge-warden",
+  "ash": "forge-warden",
   "workflow": "rune-review",
   "identifier": "PR #142",
   "timestamp": "2026-02-11T10:45:00Z",
@@ -78,7 +78,7 @@ In addition to Markdown, Tarnished MAY write a companion JSON file for tooling i
 }
 ```
 
-JSON output file: `{output_dir}/{tarnished}-findings.json`
+JSON output file: `{output_dir}/{ash}-findings.json`
 
 ### When to Use JSON Output
 
@@ -109,11 +109,11 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 **PR:** #{pr-number}
 **Date:** {timestamp}
-**Tarnished:** {count} summoned, {count} completed
+**Ash:** {count} summoned, {count} completed
 
 ## P1 (Critical) — {count} findings
 
-{All P1 findings from all Tarnished, deduplicated}
+{All P1 findings from all Ash, deduplicated}
 
 ## P2 (High) — {count} findings
 
@@ -125,13 +125,13 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 ## Coverage Gaps
 
-| Tarnished | Status | Uncovered Scope |
+| Ash | Status | Uncovered Scope |
 |-----------|--------|-----------------|
 | {name} | {complete/partial/missing} | {files not reviewed due to budget} |
 
 ## Verification Status
 
-| Tarnished | Confidence | Spot-Checked | Result |
+| Ash | Confidence | Spot-Checked | Result |
 |-----------|-----------|-------------|--------|
 | {name} | {0.X} | {N findings} | {all confirmed/N hallucinated} |
 
@@ -139,19 +139,19 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 - Total findings: {count}
 - P1: {count}, P2: {count}, P3: {count}
-- Tarnished: {completed}/{summoned}
+- Ash: {completed}/{summoned}
 - Evidence coverage: {verified}/{total}
 ```
 
 ## Dedup Hierarchy
 
-When the same finding appears from multiple Tarnished:
+When the same finding appears from multiple Ash:
 
 ```
 SEC > BACK > DOC > QUAL > FRONT
 ```
 
-Keep the finding from the higher-priority Tarnished. See [Dedup Runes](dedup-runes.md) for full algorithm.
+Keep the finding from the higher-priority Ash. See [Dedup Runes](dedup-runes.md) for full algorithm.
 
 ## References
 
