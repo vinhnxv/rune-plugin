@@ -128,7 +128,7 @@ self_review_actions: "confirmed: 10, revised: 1, deleted: 1"
 ### Layer 2: Smart Verifier (Spawned by Lead)
 
 **Cost:** ~5-15k tokens (verifier reads outputs + samples source files)
-**When:** Rune Circle with 3+ Runebearers, or audit with 5+ Runebearers
+**When:** Roundtable Circle with 3+ Runebearers, or audit with 5+ Runebearers
 **Output:** `{output_dir}/truthsight-report.md`
 
 ### Spawning Conditions
@@ -324,4 +324,4 @@ When the verifier finds hallucinated Rune Traces, the lead may spawn targeted re
 - [Inscription Protocol](inscription-protocol.md) — Verification block in inscription.json, Truthbinding rules
 - [Prompt Weaving](prompt-weaving.md) — Self-Review Log (Layer 1), 7-section prompt template
 - [Verifier Prompt](verifier-prompt.md) — Smart Verifier prompt template with circuit breaker
-- [Validator Rules](../../rune-circle/references/validator-rules.md) — Confidence scoring, risk classification
+- [Validator Rules](../../roundtable-circle/references/validator-rules.md) — Confidence scoring, risk classification

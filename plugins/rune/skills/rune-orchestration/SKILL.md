@@ -38,7 +38,7 @@ The fundamental value lies in distributing cognitive load across separate contex
 | Category | Workflows | Orchestration Pattern |
 |----------|-----------|----------------------|
 | **Reviews** | `/rune:review` | Runebearer Specialists |
-| **Audits** | `/rune:audit` | Rune Circle (Fan-out / Fan-in) |
+| **Audits** | `/rune:audit` | Roundtable Circle (Fan-out / Fan-in) |
 | **Research** | `/rune:plan` | Parallel Exploration |
 | **Work** | `/rune:work` | Swarm Workers |
 | **Custom** | Any workflow spawning 3+ agents | Choose pattern from below |
@@ -69,7 +69,7 @@ Instead of supervisor synthesizing responses (telephone game), agents write dire
 
 The workflow: Agents write findings → Coordinator reads files → Synthesizes into Tome (TOME.md)
 
-**Structured output:** Runebearers MAY also write companion JSON files (`{runebearer}-findings.json`) for CI/CD integration. After verification, a `completion.json` summarizes the workflow result. See [Output Format](../rune-circle/references/output-format.md) for full specs.
+**Structured output:** Runebearers MAY also write companion JSON files (`{runebearer}-findings.json`) for CI/CD integration. After verification, a `completion.json` summarizes the workflow result. See [Output Format](../roundtable-circle/references/output-format.md) for full specs.
 
 ## Agent Output Formats
 
@@ -110,7 +110,7 @@ Team Lead (orchestrator)
     ├── ward-sentinel  (security review)
     ├── pattern-weaver (quality patterns)
     ├── glyph-scribe   (frontend review)
-    └── lore-keeper    (docs review)
+    └── knowledge-keeper    (docs review)
 ```
 
 **Used by:** `/rune:review`, `/rune:audit`
@@ -242,4 +242,4 @@ Full protocol: [Structured Reasoning](references/structured-reasoning.md)
 - [Truthsight Pipeline](references/truthsight-pipeline.md) — 4-layer verification spec
 - [Verifier Prompt](references/verifier-prompt.md) — Smart Verifier prompt template
 - Companion: `context-weaving` (Glyph Budget, pre-spawn checklist)
-- Review workflow: `rune-circle` skill
+- Review workflow: `roundtable-circle` skill

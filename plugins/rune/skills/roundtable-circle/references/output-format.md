@@ -25,7 +25,7 @@ Each finding follows this template:
 | Ward Sentinel | `SEC` | `SEC-001` |
 | Pattern Weaver | `QUAL` | `QUAL-001` |
 | Glyph Scribe | `FRONT` | `FRONT-001` |
-| Lore Keeper | `DOC` | `DOC-001` |
+| Knowledge Keeper | `DOC` | `DOC-001` |
 
 ### Rune Trace Requirements
 
@@ -89,9 +89,9 @@ JSON output file: `{output_dir}/{runebearer}-findings.json`
 | Automated fix tooling | ✗ | Required |
 | Human-only review | Default | Optional |
 
-## Docs-Specific Format (Lore Keeper)
+## Docs-Specific Format (Knowledge Keeper)
 
-Lore Keeper uses blockquotes instead of code blocks for evidence:
+Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 ```markdown
 - [ ] **[DOC-001] Outdated API endpoint** in `docs/api.md:45`

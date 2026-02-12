@@ -2,7 +2,7 @@
 
 > Register custom agents as Runebearers in `/rune:review` and `/rune:audit` workflows.
 
-Custom Runebearers participate in the full Rune Circle lifecycle: they receive Truthbinding wrapper prompts, write to the standard output directory, get deduplicated in TOME.md, and are verified by Truthsight.
+Custom Runebearers participate in the full Roundtable Circle lifecycle: they receive Truthbinding wrapper prompts, write to the standard output directory, get deduplicated in TOME.md, and are verified by Truthsight.
 
 ## Table of Contents
 
@@ -54,7 +54,7 @@ Define custom Runebearers in `.claude/rune-config.yml` (project) or `~/.claude/r
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `disable_runebearers` | list | `[]` | Names of built-in Runebearers to skip. Valid: `forge-warden`, `ward-sentinel`, `pattern-weaver`, `glyph-scribe`, `lore-keeper` |
+| `disable_runebearers` | list | `[]` | Names of built-in Runebearers to skip. Valid: `forge-warden`, `ward-sentinel`, `pattern-weaver`, `glyph-scribe`, `knowledge-keeper` |
 
 ## Agent Resolution
 

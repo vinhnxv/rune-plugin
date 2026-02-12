@@ -1,13 +1,14 @@
 ---
-name: orphan-finder
+name: wraith-finder
 description: |
   Dead code detection. Finds unreachable code paths, unused exports, orphaned files,
-  and commented-out code blocks.
+  and commented-out code blocks. Named for Elden Ring's Wraith —
+  a ghost/dead entity — fits dead code and orphan detection.
   Triggers: Refactoring, large PRs, after AI code generation.
 
   <example>
   user: "Find dead code in the services"
-  assistant: "I'll use orphan-finder to detect unused and orphaned code."
+  assistant: "I'll use wraith-finder to detect unused and orphaned code."
   </example>
 capabilities:
   - Unused function/class detection
@@ -17,7 +18,7 @@ capabilities:
   - Unused import flagging
 ---
 
-# Orphan Finder — Dead Code Detection Agent
+# Wraith Finder — Dead Code Detection Agent
 
 ## ANCHOR — TRUTHBINDING PROTOCOL
 
@@ -106,7 +107,7 @@ Before flagging code as dead, check for:
 - Test-only usage
 - Re-exports from `__init__.py`
 
-Use `phantom-checker` agent as a companion for thorough dynamic reference analysis.
+Use the `phantom-checker` agent as a companion for thorough dynamic reference analysis.
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

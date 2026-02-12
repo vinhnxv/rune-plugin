@@ -117,7 +117,7 @@ Limit files per Runebearer to prevent cognitive overload:
 | Ward Sentinel | 20 | All files |
 | Pattern Weaver | 30 | All files |
 | Glyph Scribe | 25 | Frontend source files |
-| Lore Keeper | 25 | Markdown files |
+| Knowledge Keeper | 25 | Markdown files |
 
 If a Runebearer is assigned more files than its budget, split into multiple tasks.
 

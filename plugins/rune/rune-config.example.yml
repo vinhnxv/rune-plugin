@@ -39,7 +39,7 @@ rune-gaze:
 # ──────────────────────────────────────────────
 # Custom Runebearers — Extend the built-in 5
 # ──────────────────────────────────────────────
-# Each custom Runebearer joins the Rune Circle lifecycle:
+# Each custom Runebearer joins the Roundtable Circle lifecycle:
 #   - Gets a Truthbinding wrapper prompt (evidence, Seal, Glyph Budget)
 #   - Participates in dedup via its unique finding_prefix
 #   - Verified by Truthsight (if enabled)
@@ -107,7 +107,7 @@ settings:
     - BACK         # Forge Warden
     - DOM          # Custom: domain-logic-reviewer
     - PERF         # Custom: perf-deep-scan
-    - DOC          # Lore Keeper
+    - DOC          # Knowledge Keeper
     - QUAL         # Pattern Weaver
     - FRONT        # Glyph Scribe (lowest)
 
@@ -121,7 +121,7 @@ settings:
 # Use this to turn off a built-in Runebearer you've replaced with a custom one
 defaults:
   disable_runebearers: []
-  # Example: disable_runebearers: ["lore-keeper"]
+  # Example: disable_runebearers: ["knowledge-keeper"]
 
 # ──────────────────────────────────────────────
 # Echoes — Memory persistence

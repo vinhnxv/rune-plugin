@@ -8,7 +8,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 |-------|---------|
 | **rune-orchestration** | Core coordination patterns, file-based handoff, output formats, conflict resolution |
 | **context-weaving** | Unified context management (overflow prevention, rot, compression, offloading) |
-| **rune-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
+| **roundtable-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
 | **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
 | **runebearer-guide** | Agent invocation reference and Runebearer selection guide |
 
@@ -23,7 +23,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:plan` | Multi-agent planning with parallel research and synthesis |
 | `/rune:work` | Swarm work execution with self-organizing task pool |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) |
-| `/rune:cleanup` | Remove tmp/ artifacts from completed workflows |
+| `/rune:rest` | Remove tmp/ artifacts from completed workflows |
 
 ## Agents
 
@@ -32,24 +32,24 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | Agent | Expertise |
 |-------|-----------|
 | ward-sentinel | Security vulnerabilities, OWASP, auth, secrets |
-| forge-oracle | Performance bottlenecks, N+1 queries, complexity |
+| ember-oracle | Performance bottlenecks, N+1 queries, complexity |
 | rune-architect | Architecture compliance, layer boundaries, SOLID |
 | simplicity-warden | YAGNI, over-engineering, premature abstraction |
 | flaw-hunter | Logic bugs, edge cases, race conditions |
-| echo-detector | DRY violations, code duplication |
+| mimic-detector | DRY violations, code duplication |
 | pattern-seer | Pattern consistency, naming conventions |
 | void-analyzer | Incomplete implementations, TODOs, stubs |
-| orphan-finder | Dead code, unused exports |
+| wraith-finder | Dead code, unused exports |
 | phantom-checker | Dynamic references, reflection analysis |
 
 ### Research Agents (`agents/research/`)
 
 | Agent | Purpose |
 |-------|---------|
-| lore-seeker | External best practices and industry patterns |
-| realm-analyst | Codebase exploration and pattern discovery |
+| practice-seeker | External best practices and industry patterns |
+| repo-surveyor | Codebase exploration and pattern discovery |
 | codex-scholar | Framework documentation and API research |
-| chronicle-miner | Git history analysis and code archaeology |
+| git-miner | Git history analysis and code archaeology |
 | echo-reader | Reads Rune Echoes to surface relevant past learnings |
 
 ### Work Agents (`agents/work/`)
@@ -64,6 +64,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | Agent | Purpose |
 |-------|---------|
 | runebinder | Aggregates Runebearer findings into TOME.md |
+| decree-arbiter | Technical soundness review for plans (5-dimension evaluation) |
 | truthseer-validator | Audit coverage validation (Phase 5.5) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
@@ -74,7 +75,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 Each Runebearer is an Agent Teams teammate with its own 200k context window. A Runebearer embeds multiple review agent perspectives into a single teammate to reduce team size.
 
-Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Runebearers). Glyph Scribe and Lore Keeper use inline perspective definitions in their Runebearer prompts.
+Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Runebearers). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Runebearer prompts.
 
 | Runebearer | Perspectives | Agent Source | When Spawned |
 |-----------|-------------|-------------|-------------|
@@ -82,7 +83,7 @@ Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent fil
 | **Ward Sentinel** | All security perspectives | Dedicated agent files | ALWAYS |
 | **Pattern Weaver** | Simplicity, patterns, duplication, logic, dead code, complexity, tests | Dedicated agent files | ALWAYS |
 | **Glyph Scribe** | Type safety, components, performance, hooks, accessibility | Inline perspectives | Frontend files changed |
-| **Lore Keeper** | Accuracy, completeness, consistency, readability, security | Inline perspectives | Docs changed (>= 10 lines) |
+| **Knowledge Keeper** | Accuracy, completeness, consistency, readability, security | Inline perspectives | Docs changed (>= 10 lines) |
 
 ### Truthbinding Protocol
 
@@ -98,6 +99,18 @@ JSON contract (`inscription.json`) that defines:
 - Required sections in output files
 - Seal Format for completion signals
 - Verification settings
+
+### TOME (Structured Findings)
+
+The unified review summary after deduplication and prioritization. Findings use structured `<!-- RUNE:FINDING -->` markers for machine parsing.
+
+### Decree Arbiter
+
+Utility agent that reviews plans for technical soundness across 5 dimensions (feasibility, risk, efficiency, coverage, consistency). Uses Decree Trace evidence format.
+
+### Remembrance Channel
+
+Human-readable knowledge documents in `docs/solutions/` promoted from high-confidence Rune Echoes. See `rune-echoes/references/remembrance-schema.md` for the promotion rules and YAML frontmatter schema.
 
 ### Rune Echoes
 
@@ -128,7 +141,7 @@ Agents persist learnings automatically after workflows. Future workflows read ec
 
 | Workflow | Directory | Files |
 |----------|----------|-------|
-| Reviews | `tmp/reviews/{id}/` | `{runebearer}.md`, `TOME.md`, `inscription.json` |
+| Reviews | `tmp/reviews/{id}/` | `{runebearer}.md`, `TOME.md` (with RUNE:FINDING markers), `inscription.json` |
 | Audits | `tmp/audit/{id}/` | Same pattern |
 | Plans | `tmp/plans/{id}/research/` | Research findings, deepen outputs |
 | Scratch | `tmp/scratch/` | Session state |
@@ -174,7 +187,7 @@ work:
   max_workers: 3
 ```
 
-See `rune-circle/references/custom-runebearers.md` for full schema and `rune-config.example.yml` at plugin root.
+See `roundtable-circle/references/custom-runebearers.md` for full schema and `rune-config.example.yml` at plugin root.
 
 ## Coexistence
 

@@ -22,7 +22,7 @@ If two Runebearers flag the same file within a 5-line range:
 **Default (built-in only):**
 
 ```
-Ward Sentinel > Forge Warden > Lore Keeper > Pattern Weaver > Glyph Scribe
+Ward Sentinel > Forge Warden > Knowledge Keeper > Pattern Weaver > Glyph Scribe
 SEC > BACK > DOC > QUAL > FRONT
 ```
 
@@ -59,7 +59,7 @@ Each Runebearer uses a unique prefix for finding IDs:
 | Forge Warden | `BACK-` | `BACK-001` | Built-in |
 | Pattern Weaver | `QUAL-` | `QUAL-001` | Built-in |
 | Glyph Scribe | `FRONT-` | `FRONT-001` | Built-in |
-| Lore Keeper | `DOC-` | `DOC-001` | Built-in |
+| Knowledge Keeper | `DOC-` | `DOC-001` | Built-in |
 | *(custom)* | *from config* | e.g., `DOM-001` | Custom |
 
 Custom Runebearers define their prefix in `rune-config.yml` → `runebearers.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Runebearers.

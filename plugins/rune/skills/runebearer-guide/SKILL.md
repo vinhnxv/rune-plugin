@@ -25,7 +25,7 @@ All Rune agents are plugin agents. Invoke with the `rune:` namespace prefix:
 
 ```
 Task rune:review:ward-sentinel("Review these files for security")
-Task rune:review:forge-oracle("Check performance bottlenecks")
+Task rune:review:ember-oracle("Check performance bottlenecks")
 Task rune:utility:runebinder("Aggregate review findings")
 ```
 
@@ -46,14 +46,14 @@ Task rune:review:ward-sentinel(...)
 | Agent | Role | Perspective |
 |-------|------|-------------|
 | `rune:review:ward-sentinel` | Security review | Vulnerabilities, auth, injection, OWASP, prompt injection |
-| `rune:review:forge-oracle` | Performance review | Bottlenecks, N+1 queries, async patterns, memory |
+| `rune:review:ember-oracle` | Performance review | Bottlenecks, N+1 queries, async patterns, memory |
 | `rune:review:rune-architect` | Architecture review | Layer violations, DDD, dependency direction |
 | `rune:review:simplicity-warden` | Simplicity review | YAGNI, over-engineering, premature abstraction |
 | `rune:review:flaw-hunter` | Logic review | Edge cases, race conditions, null handling, off-by-one |
-| `rune:review:echo-detector` | Duplication review | DRY violations, copy-paste code, similar patterns |
+| `rune:review:mimic-detector` | Duplication review | DRY violations, copy-paste code, similar patterns |
 | `rune:review:pattern-seer` | Pattern review | Naming consistency, convention adherence |
 | `rune:review:void-analyzer` | Completeness review | Missing error handling, incomplete implementations |
-| `rune:review:orphan-finder` | Dead code review | Unused functions, unwired code, orphaned files |
+| `rune:review:wraith-finder` | Dead code review | Unused functions, unwired code, orphaned files |
 | `rune:review:phantom-checker` | Dynamic reference check | Reflection, string-based imports, meta-programming |
 
 ## Runebearer Roles (Consolidated Teammates)
@@ -62,13 +62,13 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 
 | Runebearer | Agents Embedded | Scope |
 |-----------|-----------------|-------|
-| **Forge Warden** | rune-architect, forge-oracle, flaw-hunter, echo-detector | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
+| **Forge Warden** | rune-architect, ember-oracle, flaw-hunter, mimic-detector | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
 | **Ward Sentinel** | ward-sentinel | ALL files (security always) |
-| **Pattern Weaver** | simplicity-warden, pattern-seer, orphan-finder, phantom-checker | ALL files (quality patterns) |
+| **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker | ALL files (quality patterns) |
 | **Glyph Scribe** | Inline perspectives (TypeScript safety, React performance, accessibility) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
-| **Lore Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
+| **Knowledge Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
 
-**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe and Lore Keeper use inline perspective definitions in their Runebearer prompts (no dedicated agent files).
+**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Runebearer prompts (no dedicated agent files).
 
 ## Utility Agents
 
@@ -83,11 +83,11 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 
 | Agent | Role |
 |-------|------|
-| `rune:research:lore-seeker` | External best practices research |
-| `rune:research:realm-analyst` | Codebase/repo exploration |
+| `rune:research:practice-seeker` | External best practices research |
+| `rune:research:repo-surveyor` | Codebase/repo exploration |
 | `rune:research:codex-scholar` | Framework documentation research |
 | `rune:research:echo-reader` | Reads Rune Echoes (past learnings) |
-| `rune:research:chronicle-miner` | Git history archaeology |
+| `rune:research:git-miner` | Git history archaeology |
 
 ## Work Agents
 
@@ -104,9 +104,9 @@ The `/rune:review` command selects Runebearers based on file extensions (Rune Ga
 |-------------|---------------------|
 | `**/*.py` | Forge Warden + Ward Sentinel + Pattern Weaver |
 | `**/*.{ts,tsx,js,jsx}` | Glyph Scribe + Ward Sentinel + Pattern Weaver |
-| `**/*.md` (>= 10 lines changed) | Lore Keeper (conditional) |
+| `**/*.md` (>= 10 lines changed) | Knowledge Keeper (conditional) |
 | Mixed code + docs | All applicable Runebearers |
 
 Ward Sentinel and Pattern Weaver are ALWAYS selected regardless of file types.
 
-See `rune-circle` skill for full Runebearer architecture and prompts.
+See `roundtable-circle` skill for full Runebearer architecture and prompts.

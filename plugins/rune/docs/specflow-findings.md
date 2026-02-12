@@ -15,7 +15,7 @@
 | Deduplication | v0.1 | Runebinder with hierarchy (SEC > BACK > DOC > QUAL > FRONT) |
 | `/rune:audit` — full codebase scan | v0.2 | `commands/audit.md` — find-based scan |
 | Not-a-git-repo error | v0.2 | Audit works without git |
-| No cleanup for stale tmp/ | v1.2 | `/rune:cleanup` command |
+| No cleanup for stale tmp/ | v1.2 | `/rune:rest` command |
 | Partial failure policy | v0.1 | Proceed with partial results, report gaps in TOME.md |
 | Teammate output wrong format | v1.1 | Truthsight Pipeline Layer 0 (inline section validation) |
 | Hung teammate detection | v0.1 | 5-min stale detection + proceed with partial |

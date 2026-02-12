@@ -41,7 +41,7 @@ for each file in changed_files:
   if ext in DOC_EXTENSIONS:
     if lines_changed(file) >= 10:
       doc_files.add(file)
-      runebearer_selections.add("lore-keeper")
+      runebearer_selections.add("knowledge-keeper")
     else:
       skip_files.add(file)  # Minor doc change
 
@@ -90,7 +90,7 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 
 ## Runebearer Selection Matrix
 
-| Changed Files | Forge Warden | Ward Sentinel | Pattern Weaver | Glyph Scribe | Lore Keeper |
+| Changed Files | Forge Warden | Ward Sentinel | Pattern Weaver | Glyph Scribe | Knowledge Keeper |
 |--------------|:------------:|:-------------:|:--------------:|:------------:|:-----------:|
 | Only backend | Selected | **Always** | **Always** | - | - |
 | Only frontend | - | **Always** | **Always** | Selected | - |
@@ -145,7 +145,7 @@ Files that were deleted should be flagged:
 
 ## Line Count Threshold for Docs
 
-The `>= 10 lines changed` threshold for Lore Keeper prevents spawning a full doc reviewer for trivial edits (typo fixes, whitespace).
+The `>= 10 lines changed` threshold for Knowledge Keeper prevents spawning a full doc reviewer for trivial edits (typo fixes, whitespace).
 
 Calculate with:
 ```bash

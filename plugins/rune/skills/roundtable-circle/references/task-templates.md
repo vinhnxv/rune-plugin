@@ -44,12 +44,12 @@ TaskCreate({
 })
 ```
 
-### Lore Keeper (Docs)
+### Knowledge Keeper (Docs)
 
 ```
 TaskCreate({
-  subject: "Review documentation as Lore Keeper",
-  description: "Files: {doc_files}\nOutput: tmp/reviews/{id}/lore-keeper.md\nPerspectives: accuracy, completeness, anti-injection\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
+  subject: "Review documentation as Knowledge Keeper",
+  description: "Files: {doc_files}\nOutput: tmp/reviews/{id}/knowledge-keeper.md\nPerspectives: accuracy, completeness, anti-injection\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
   activeForm: "Reviewing documentation"
 })
 ```
@@ -109,7 +109,7 @@ forge-warden    ─┐
 ward-sentinel   ─┤
 pattern-weaver  ─┤── All complete ──► runebinder ──► truthsight-verifier
 glyph-scribe   ─┤
-lore-keeper    ─┘
+knowledge-keeper    ─┘
 ```
 
 All Runebearers are independent — no `blockedBy` relationships between them. The Runebinder task should be `blockedBy` all Runebearer tasks. The Truthsight Verifier (if enabled) should be `blockedBy` the Runebinder.

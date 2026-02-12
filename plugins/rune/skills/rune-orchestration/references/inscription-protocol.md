@@ -507,7 +507,7 @@ After all agents complete:
 
 ## References
 
-- [Inscription Schema](../../rune-circle/references/inscription-schema.md) — Full JSON schema
+- [Inscription Schema](../../roundtable-circle/references/inscription-schema.md) — Full JSON schema
 - [Truthsight Pipeline](truthsight-pipeline.md) — 4-layer verification spec
 - [Prompt Weaving](prompt-weaving.md) — 7-section prompt template
-- [Output Format](../../rune-circle/references/output-format.md) — Finding format specifications
+- [Output Format](../../roundtable-circle/references/output-format.md) — Finding format specifications

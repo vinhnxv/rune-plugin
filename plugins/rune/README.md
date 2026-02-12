@@ -47,8 +47,8 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:cancel-audit
 
 # Clean up tmp/ artifacts from completed workflows
-/rune:cleanup
-/rune:cleanup --dry-run       # Preview what would be removed
+/rune:rest
+/rune:rest --dry-run          # Preview what would be removed
 
 # Manage agent memory
 /rune:echoes show     # View memory state
@@ -142,7 +142,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 | Ward Sentinel | Security review | Always |
 | Pattern Weaver | Quality patterns | Always |
 | Glyph Scribe | Frontend review | Frontend files changed |
-| Lore Keeper | Docs review | Docs changed (>= 10 lines) |
+| Knowledge Keeper | Docs review | Docs changed (>= 10 lines) |
 
 ## Agents
 
@@ -153,14 +153,14 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 | Agent | Focus |
 |-------|-------|
 | ward-sentinel | Security, OWASP, auth |
-| forge-oracle | Performance, N+1, complexity |
+| ember-oracle | Performance, N+1, complexity |
 | rune-architect | Architecture, layer boundaries |
 | simplicity-warden | YAGNI, over-engineering |
 | flaw-hunter | Logic bugs, edge cases |
-| echo-detector | Code duplication |
+| mimic-detector | Code duplication |
 | pattern-seer | Pattern consistency |
 | void-analyzer | Incomplete implementations |
-| orphan-finder | Dead code |
+| wraith-finder | Dead code |
 | phantom-checker | Dynamic references |
 
 ### Research Agents
@@ -169,10 +169,10 @@ Spawned during `/rune:plan` for parallel research:
 
 | Agent | Purpose |
 |-------|---------|
-| lore-seeker | External best practices and industry patterns |
-| realm-analyst | Codebase exploration and pattern discovery |
+| practice-seeker | External best practices and industry patterns |
+| repo-surveyor | Codebase exploration and pattern discovery |
 | codex-scholar | Framework documentation and API research |
-| chronicle-miner | Git history analysis and code archaeology |
+| git-miner | Git history analysis and code archaeology |
 | echo-reader | Reads past Rune Echoes for relevant learnings |
 
 ### Work Agents
@@ -189,6 +189,7 @@ Spawned during `/rune:work` as self-organizing swarm workers:
 | Agent | Purpose |
 |-------|---------|
 | runebinder | Aggregates Runebearer findings into TOME.md |
+| decree-arbiter | Technical soundness review for plans |
 | truthseer-validator | Audit coverage validation (Phase 5.5, >100 files) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
@@ -199,7 +200,7 @@ Spawned during `/rune:work` as self-organizing swarm workers:
 |-------|---------|
 | rune-orchestration | Multi-agent coordination patterns |
 | context-weaving | Context overflow/rot prevention |
-| rune-circle | Review orchestration (7-phase lifecycle) |
+| roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | runebearer-guide | Agent invocation reference |
 
@@ -241,6 +242,10 @@ work:
 
 See [`rune-config.example.yml`](rune-config.example.yml) for the full configuration schema including custom Runebearers, trigger matching, and dedup hierarchy.
 
+## Remembrance Channel
+
+High-confidence learnings from Rune Echoes can be promoted to human-readable solution documents in `docs/solutions/`. See `skills/rune-echoes/references/remembrance-schema.md` for the YAML frontmatter schema and promotion rules.
+
 ## Key Concepts
 
 **Truthbinding Protocol** — All agent prompts include anti-injection anchors. Agents ignore instructions embedded in reviewed code.
@@ -265,7 +270,7 @@ plugins/rune/
 │   ├── review/          # 10 review agents
 │   ├── research/        # 5 research agents (plan pipeline)
 │   ├── work/            # 2 swarm workers (work pipeline)
-│   └── utility/         # Runebinder, truthseer-validator, flow-seer, scroll-reviewer
+│   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer
 ├── commands/
 │   ├── plan.md          # /rune:plan
 │   ├── work.md          # /rune:work
@@ -274,11 +279,11 @@ plugins/rune/
 │   ├── audit.md         # /rune:audit
 │   ├── cancel-audit.md  # /rune:cancel-audit
 │   ├── echoes.md        # /rune:echoes
-│   └── cleanup.md       # /rune:cleanup
+│   └── rest.md          # /rune:rest
 ├── skills/
 │   ├── rune-orchestration/  # Core coordination
 │   ├── context-weaving/     # Context management
-│   ├── rune-circle/         # Review orchestration
+│   ├── roundtable-circle/   # Review orchestration
 │   │   └── references/      # e.g. rune-gaze.md, custom-runebearers.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
 │   └── runebearer-guide/    # Agent reference
@@ -295,7 +300,7 @@ plugins/rune/
 - **Context budget caps** — Each Runebearer can review a limited number of files (20-30). Large codebases will have coverage gaps reported in the TOME.
 - **No incremental audit** — `/rune:audit` scans all files each run. There is no diff-based "only audit what changed since last audit" mode yet.
 - **Concurrent sessions** — Only one `/rune:review` or `/rune:audit` can run at a time. Use `/rune:cancel-review` or `/rune:cancel-audit` to stop an active session.
-- **Manual cleanup optional** — Run `/rune:cleanup` to remove `tmp/` artifacts, or let the OS handle them.
+- **Manual cleanup optional** — Run `/rune:rest` to remove `tmp/` artifacts, or let the OS handle them.
 
 ## Troubleshooting
 

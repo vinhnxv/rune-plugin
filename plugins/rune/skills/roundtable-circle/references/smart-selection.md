@@ -10,7 +10,7 @@
 |----------------|-----------|----------------------|
 | `*.py, *.go, *.rs, *.rb, *.java, *.kt, *.scala` | Forge Warden | Entry points > services > core modules > utils > tests |
 | `*.ts, *.tsx, *.js, *.jsx, *.vue, *.svelte` | Glyph Scribe | Pages/routes > components > hooks > utils |
-| `*.md` (>= 10 lines changed) | Lore Keeper | README > CLAUDE.md > docs/ > other .md |
+| `*.md` (>= 10 lines changed) | Knowledge Keeper | README > CLAUDE.md > docs/ > other .md |
 | ALL files | Ward Sentinel | Auth files > API routes > config > infrastructure > other |
 | ALL files | Pattern Weaver | Largest files first (highest complexity risk) |
 
@@ -30,7 +30,7 @@
 | Classification | Meaning | Assigned To |
 |---------------|---------|-------------|
 | `code` | Source code file | Forge Warden and/or Glyph Scribe + always-on |
-| `docs` | Documentation file | Lore Keeper + Ward Sentinel (for `.claude/`) |
+| `docs` | Documentation file | Knowledge Keeper + Ward Sentinel (for `.claude/`) |
 | `skip` | Non-reviewable file | No Runebearer |
 | `critical_deletion` | Important file deleted | Flagged in TOME.md |
 
@@ -40,7 +40,7 @@ Some files are assigned to multiple Runebearers intentionally:
 
 | File Type | Runebearers | Reason |
 |-----------|------------|--------|
-| `.claude/**/*.md` | Lore Keeper + Ward Sentinel | Docs accuracy + prompt injection risk |
+| `.claude/**/*.md` | Knowledge Keeper + Ward Sentinel | Docs accuracy + prompt injection risk |
 | `Dockerfile` | Ward Sentinel + Forge Warden | Security + build patterns |
 | CI/CD configs | Ward Sentinel + Pattern Weaver | Security + convention consistency |
 | Test files | Pattern Weaver + Forge Warden | Quality patterns + logic correctness |
@@ -75,7 +75,7 @@ Some files are assigned to multiple Runebearers intentionally:
 | `performance` | Forge Warden only | 2x (60 files) |
 | `quality` | Pattern Weaver only | 2x (60 files) |
 | `frontend` | Glyph Scribe only | 2x (50 files) |
-| `docs` | Lore Keeper only | 2x (50 files) |
+| `docs` | Knowledge Keeper only | 2x (50 files) |
 | `backend` | Forge Warden + Ward Sentinel | 1.5x each |
 | `full` | All (default) | Standard |
 
@@ -89,7 +89,7 @@ Focus mode increases context budget because fewer Runebearers compete for lead a
 | Ward Sentinel | 20 files | 20 files | 40 files |
 | Pattern Weaver | 30 files | 30 files | 60 files |
 | Glyph Scribe | 25 files | 25 files | 50 files |
-| Lore Keeper | 25 files | 25 files | 50 files |
+| Knowledge Keeper | 25 files | 25 files | 50 files |
 
 ### Budget Enforcement
 

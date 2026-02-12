@@ -1,5 +1,5 @@
 ---
-name: rune-circle
+name: roundtable-circle
 description: |
   Orchestrates multi-agent code reviews using Agent Teams with up to 5 Runebearer teammates.
   This skill should be used when running /rune:review or /rune:audit. Each Runebearer gets its own 200k context window.
@@ -8,7 +8,7 @@ description: |
   <example>
   Context: Running a code review
   user: "/rune:review"
-  assistant: "Loading rune-circle for Agent Teams review orchestration"
+  assistant: "Loading roundtable-circle for Agent Teams review orchestration"
   </example>
 user-invocable: false
 allowed-tools:
@@ -20,7 +20,7 @@ allowed-tools:
   - Grep
 ---
 
-# Rune Circle Skill
+# Roundtable Circle Skill
 
 Orchestrates multi-agent code reviews using Claude Code Agent Teams. Each Runebearer teammate gets its own 200k context window, eliminating single-context bottlenecks.
 
@@ -47,7 +47,7 @@ Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 | **Ward Sentinel** | Security review | ALWAYS | Vulnerabilities, auth, injection, OWASP |
 | **Pattern Weaver** | Quality patterns | ALWAYS | Simplicity, TDD, dead code, pattern consistency |
 | **Glyph Scribe** | Frontend review | Frontend files changed | TypeScript safety, React performance, accessibility |
-| **Lore Keeper** | Docs review | Docs changed (>= 10 lines) | Accuracy, completeness, anti-injection |
+| **Knowledge Keeper** | Docs review | Docs changed (>= 10 lines) | Accuracy, completeness, anti-injection |
 
 Plus **Runebinder** (utility) for aggregation in Phase 5.
 
@@ -74,7 +74,7 @@ tmp/reviews/{id}/
 ├── ward-sentinel.md         # Security review findings
 ├── pattern-weaver.md        # Quality patterns findings
 ├── glyph-scribe.md          # Frontend review findings (if spawned)
-├── lore-keeper.md           # Docs review findings (if spawned)
+├── knowledge-keeper.md           # Docs review findings (if spawned)
 ├── TOME.md                  # Aggregated + deduplicated findings
 ├── truthsight-report.md     # Verification results (if Layer 2 enabled)
 └── completion.json          # Structured completion summary
@@ -141,7 +141,7 @@ See [Rune Gaze](references/rune-gaze.md) for the full file classification algori
 |-------------|-----------|
 | `*.py, *.go, *.rs, *.rb, *.java` | Forge Warden |
 | `*.ts, *.tsx, *.js, *.jsx` | Glyph Scribe |
-| `*.md` (>= 10 lines changed) | Lore Keeper |
+| `*.md` (>= 10 lines changed) | Knowledge Keeper |
 | ALL files | Ward Sentinel (always) |
 | ALL files | Pattern Weaver (always) |
 
@@ -279,7 +279,7 @@ Already performed by each Runebearer before sending Seal (embedded in prompts). 
 
 ### Layer 2: Smart Verifier (Spawned by Lead)
 
-Spawn conditions: Rune Circle with 3+ Runebearers, or audit with 5+ Runebearers.
+Spawn conditions: Roundtable Circle with 3+ Runebearers, or audit with 5+ Runebearers.
 
 ```
 Task({

@@ -10,7 +10,7 @@ Task forge-warden(backend_files)     # Backend review
 Task ward-sentinel(all_files)        # Security review
 Task pattern-weaver(all_files)       # Quality patterns
 Task glyph-scribe(frontend_files)    # Frontend review (conditional)
-Task lore-keeper(doc_files)          # Docs review (conditional)
+Task knowledge-keeper(doc_files)          # Docs review (conditional)
 ```
 
 ## Audit Runebearers (Fan-out / Fan-in)
@@ -56,7 +56,7 @@ Spawned based on file types present in scope:
 |---------|-----------|----------------|
 | Backend files (`.py`, `.go`, `.rs`, `.rb`) | Forge Warden | Reviews, Audits |
 | Frontend files (`.ts`, `.tsx`, `.js`, `.jsx`) | Glyph Scribe | Reviews, Audits |
-| Doc files (`.md`, >= 10 lines changed) | Lore Keeper | Reviews, Audits |
+| Doc files (`.md`, >= 10 lines changed) | Knowledge Keeper | Reviews, Audits |
 | ALL scopes | Ward Sentinel (always) | Reviews, Audits |
 | ALL scopes | Pattern Weaver (always) | Reviews, Audits |
 

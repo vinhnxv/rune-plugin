@@ -49,7 +49,7 @@ The validator writes `{output_dir}/validator-summary.md` containing:
 - Scope Gaps (files not assigned to any Runebearer)
 - Risk Classification per Runebearer
 
-See `rune-circle/references/runebearer-prompts/truthseer-validator.md` for the full prompt template.
+See `roundtable-circle/references/runebearer-prompts/truthseer-validator.md` for the full prompt template.
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

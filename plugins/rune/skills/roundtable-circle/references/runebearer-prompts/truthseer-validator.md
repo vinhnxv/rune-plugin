@@ -185,7 +185,7 @@ never modify findings.
 
 | Variable | Source | Example |
 |----------|--------|---------|
-| `{output_dir}` | From rune-circle Phase 5.5 | `tmp/audit/20260211-103000/` |
+| `{output_dir}` | From roundtable-circle Phase 5.5 | `tmp/audit/20260211-103000/` |
 | `{runebearer_files}` | List of completed output files | `forge-warden.md, ward-sentinel.md, ...` |
 | `{file_importance_list}` | Ranked file list from Rune Gaze | Entry points first |
 | `{inscription_json_path}` | Path to inscription.json | `tmp/audit/20260211-103000/inscription.json` |

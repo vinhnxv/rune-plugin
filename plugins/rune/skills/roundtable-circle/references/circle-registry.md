@@ -6,16 +6,16 @@
 
 Each review agent is embedded as a "perspective" inside a Runebearer. This registry defines which perspectives belong to which Runebearer and what file scopes they target.
 
-> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Runebearers). Glyph Scribe and Lore Keeper use **inline perspective definitions** in their Runebearer prompts rather than dedicated agent files.
+> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Runebearers). Glyph Scribe and Knowledge Keeper use **inline perspective definitions** in their Runebearer prompts rather than dedicated agent files.
 
 ### Forge Warden (Backend)
 
 | Agent | Perspective | Scope Priority |
 |-------|-------------|---------------|
 | rune-architect | Architecture compliance | Entry points > services > core modules |
-| forge-oracle | Performance bottlenecks | Database queries > API handlers > utils |
+| ember-oracle | Performance bottlenecks | Database queries > API handlers > utils |
 | flaw-hunter | Logic bugs, edge cases | Business logic > data transformations |
-| echo-detector | Code duplication | Largest files first (highest risk) |
+| mimic-detector | Code duplication | Largest files first (highest risk) |
 
 **Audit file priority:** entry points > core modules > services > utils > tests
 **Context budget:** max 30 files
@@ -35,7 +35,7 @@ Each review agent is embedded as a "perspective" inside a Runebearer. This regis
 |-------|-------------|---------------|
 | simplicity-warden | YAGNI, over-engineering | Largest/most complex files first |
 | pattern-seer | Naming, conventions | All files by size descending |
-| orphan-finder | Dead code, unused exports | All files by size descending |
+| wraith-finder | Dead code, unused exports | All files by size descending |
 | phantom-checker | Dynamic references | Entry points > configuration |
 | void-analyzer | Incomplete implementations | All files (look for TODOs, stubs) |
 
@@ -55,9 +55,9 @@ Each review agent is embedded as a "perspective" inside a Runebearer. This regis
 **Audit file priority:** pages/routes > components > hooks > utils
 **Context budget:** max 25 files
 
-### Lore Keeper (Documentation)
+### Knowledge Keeper (Documentation)
 
-> **Inline perspectives** — Lore Keeper does not use dedicated agent files. Its perspectives are defined inline within the Runebearer prompt.
+> **Inline perspectives** — Knowledge Keeper does not use dedicated agent files. Its perspectives are defined inline within the Runebearer prompt.
 
 | Perspective (inline) | Focus | Scope Priority |
 |----------------------|-------|---------------|
@@ -86,7 +86,7 @@ Some files may be reviewed by multiple Runebearers:
 
 | File Type | Reviewed By |
 |-----------|------------|
-| `.claude/**/*.md` | Ward Sentinel + Lore Keeper |
+| `.claude/**/*.md` | Ward Sentinel + Knowledge Keeper |
 | `Dockerfile` | Ward Sentinel + Forge Warden |
 | CI/CD configs | Ward Sentinel + Pattern Weaver |
 | Test files | Pattern Weaver + Forge Warden |
@@ -103,7 +103,7 @@ When `/rune:audit --focus <area>` is used, only spawn the relevant Runebearer(s)
 | `performance` | Forge Warden only |
 | `quality` | Pattern Weaver only |
 | `frontend` | Glyph Scribe only |
-| `docs` | Lore Keeper only |
+| `docs` | Knowledge Keeper only |
 | `backend` | Forge Warden + Ward Sentinel |
 | `full` | All (default) |
 
