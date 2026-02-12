@@ -2,11 +2,12 @@
   "name": "rune-marketplace",
   "owner": {
     "name": "vinhnxv",
-    "url": "https://github.com/vinhnxv"
+    "email": "vinhnxv@gmail.com"
   },
   "metadata": {
     "description": "Plugin marketplace for Rune — multi-agent engineering orchestration",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "pluginRoot": "./plugins"
   },
   "plugins": [
     {
@@ -15,9 +16,22 @@
       "version": "1.10.3",
       "author": {
         "name": "vinhnxv",
-        "url": "https://github.com/vinhnxv"
+        "email": "vinhnxv@gmail.com"
       },
       "homepage": "https://github.com/vinhnxv/rune-plugin",
+      "repository": "https://github.com/vinhnxv/rune-plugin",
+      "license": "MIT",
+      "keywords": [
+        "multi-agent",
+        "agent-teams",
+        "code-review",
+        "audit",
+        "orchestration",
+        "engineering-workflow",
+        "planning",
+        "swarm"
+      ],
+      "category": "engineering",
       "tags": [
         "multi-agent",
         "agent-teams",
@@ -27,6 +41,13 @@
         "engineering-workflow",
         "planning",
         "swarm"
+      ],
+      "skills": [
+        "./skills/ash-guide",
+        "./skills/context-weaving",
+        "./skills/roundtable-circle",
+        "./skills/rune-echoes",
+        "./skills/rune-orchestration"
       ],
       "source": "./plugins/rune"
     }

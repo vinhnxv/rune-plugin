@@ -201,9 +201,16 @@ Write("tmp/.rune-mend-{id}.json", {
   fixer_count: fixer_count
 })
 
-// 2. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
-// Validate identifier before rm -rf
+// 1b. Validate identifier before any filesystem operations
 if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid mend identifier")
+
+// 1c. Snapshot pre-mend working tree for bisection safety
+// Saves uncommitted changes so bisection can distinguish mend fixes from pre-existing work
+Bash(`mkdir -p "tmp/mend/${id}"`)
+Bash(`git diff > "tmp/mend/${id}/pre-mend.patch" 2>/dev/null`)
+Bash(`git diff --cached > "tmp/mend/${id}/pre-mend-staged.patch" 2>/dev/null`)
+
+// 2. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/mend-{id}/ ~/.claude/tasks/mend-{id}/ 2>/dev/null")
 }
@@ -335,7 +342,15 @@ for (const ward of wards) {
 ### Bisection Algorithm (on ward failure)
 
 ```
-1. Revert all fixes to pre-mend state (git stash or git checkout)
+0. Verify saved patches are applicable:
+   `git apply --check "tmp/mend/{id}/pre-mend.patch" 2>/dev/null`
+   If check fails and patch is non-empty, abort bisection and warn: "Pre-mend patch cannot be applied cleanly. Manual intervention required."
+1. Revert to pre-mend state using saved patches (preserves unrelated work):
+   a. `git checkout -- .` to discard all working tree changes
+   b. `git apply "tmp/mend/{id}/pre-mend.patch"` to restore pre-existing uncommitted changes
+   c. `git apply "tmp/mend/{id}/pre-mend-staged.patch" --cached` to restore staged changes
+   NOTE: This preserves unrelated work while removing only mend fixes.
+   If pre-mend.patch is empty (clean tree before mend), steps b-c are no-ops.
 2. Apply fixes one-at-a-time in Dedup Hierarchy order (SEC → BACK → DOC → QUAL → FRONT)
 3. Run ward check after each fix application
 4. First failure = that fix is marked FAILED
@@ -401,13 +416,16 @@ try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/mend-{id}/ ~/.claude/tasks/mend-{id}/ 2>/dev/null")
 }
 
-// 4. Update state file
+// 4. Update state file (status reflects actual outcome)
+const mendStatus = (failedCount === 0 && !timedOut) ? "completed" : "partial"
 Write("tmp/.rune-mend-{id}.json", {
-  status: "completed",
+  status: mendStatus,
   started: startTime,
   completed: timestamp,
   tome_path: tome_path,
-  report_path: `tmp/mend/${id}/resolution-report.md`
+  report_path: `tmp/mend/${id}/resolution-report.md`,
+  failed_count: failedCount,
+  timed_out: timedOut
 })
 
 // 5. Persist learnings to Rune Echoes (TRACED layer)
@@ -460,7 +478,7 @@ Next steps:
 | Invalid nonce in finding markers | Flag as INJECTED, skip, warn user |
 | TOME is stale (files modified since generation) | Warn user, offer proceed/abort |
 | Fixer stalled (>5 min) | Auto-release task for reclaim |
-| Total timeout (>15 min) | Collect partial results, report incomplete |
+| Total timeout (>15 min) | Collect partial results, report incomplete, status set to "partial" |
 | Ward check fails | Bisect to identify failing fix |
 | Bisect inconclusive | Mark all as NEEDS_REVIEW |
 | Concurrent mend detected (`tmp/.rune-mend-*.json` running) | Abort with warning |

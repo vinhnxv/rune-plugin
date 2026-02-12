@@ -867,11 +867,16 @@ If scroll-reviewer reports HIGH severity issues:
 After scroll review and refinement, run deterministic checks with zero LLM hallucination risk:
 
 ```bash
-# Extensible verification — add plan-specific checks here
-# Exclude plan.md itself and CHANGELOG.md to avoid self-matching these patterns
-rg "11 commands" plugins/rune/ .claude-plugin/ --glob '!commands/plan.md'           # Must be 0 (updated to 12)
-rg -- "--skip-forge" plugins/rune/ --glob '!commands/plan.md' --glob '!CHANGELOG.md' # Must be 0 (renamed to --no-forge)
-rg "optional.*--forge" plugins/rune/ --glob '!commands/plan.md'                      # Must be 0 (forge is default)
+# Extensible verification — project-specific stale-value checks
+# Add custom patterns below to catch inconsistent counts, deprecated flags, or stale references.
+# These run with zero LLM hallucination risk (deterministic grep).
+#
+# Rune plugin-specific checks (only run when plugins/rune/ directory exists):
+if [ -d "plugins/rune" ]; then
+  rg --no-messages "11 commands" plugins/rune/ .claude-plugin/ --glob '!commands/plan.md'           # Must be 0 (updated to 12)
+  rg --no-messages -- "--skip-forge" plugins/rune/ --glob '!commands/plan.md' --glob '!CHANGELOG.md' # Must be 0 (renamed to --no-forge)
+  rg --no-messages "optional.*--forge" plugins/rune/ --glob '!commands/plan.md'                      # Must be 0 (forge is default)
+fi
 ```
 
 If any check fails: auto-fix the stale reference or flag to user before presenting the plan.
