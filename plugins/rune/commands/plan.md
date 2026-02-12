@@ -191,6 +191,8 @@ Create an Agent Teams team and summon research tasks using the conditional resea
 
 ```javascript
 // 1. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// Validate identifier before rm -rf
+if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifier")
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
 }
@@ -772,6 +774,8 @@ for (const teammate of allTeammates) {
 // 2. Wait for approvals (max 30s)
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+// Validate identifier before rm -rf
+if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifier")
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
 }

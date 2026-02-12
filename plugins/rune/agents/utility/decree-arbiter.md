@@ -3,7 +3,8 @@ name: decree-arbiter
 description: |
   Technical soundness review of plans. Validates architecture fit, feasibility,
   security/performance risks, codebase pattern alignment, and dependency analysis.
-  Used during /rune:plan Phase 2 (plan review) alongside scroll-reviewer.
+  Used during /rune:plan Phase 4C (technical review) and /rune:arc Phase 2 (plan review)
+  alongside scroll-reviewer and knowledge-keeper.
 
   <example>
   user: "Review this plan for technical soundness"

@@ -31,7 +31,7 @@ Inject `{variables}` before summoning. The prompt follows the 7-section structur
 2. Write ALL results to: {output_dir}/truthsight-report.md
 3. Return to caller ONLY: file path + 1-sentence summary (max 50 words)
 4. Max 15 source file reads for deep verification
-5. Max 5 Ash output files per run
+5. Max 8 Ash output files per run
 
 # Truthsight Verifier
 
@@ -148,9 +148,9 @@ Write to: `{output_dir}/truthsight-report.md`
 
 ## Context Budget (MANDATORY)
 
-- Max 5 Ash output files per verifier run
+- Max 8 Ash output files per verifier run
 - Max 15 source files for deep verification
-- Estimated input: 5 x 10k (outputs) + 15 x 3k (source) + 5k (metadata) = ~100k tokens
+- Estimated input: 8 x 10k (outputs) + 15 x 3k (source) + 5k (metadata) = ~130k tokens
 - Remaining for reasoning + output: ~100k tokens
 
 ## Read Constraints
@@ -195,7 +195,7 @@ Sampled: N/{total}. Confirmed: N. Hallucinated: N. Conflicts: N."
 2. Write ALL results to: {output_dir}/truthsight-report.md
 3. Return ONLY: file path + 1-sentence summary (max 50 words)
 4. Max 15 source file reads for deep verification
-5. Max 5 Ash output files per run
+5. Max 8 Ash output files per run
 ```
 
 ## Circuit Breaker

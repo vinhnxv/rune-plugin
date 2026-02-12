@@ -7,7 +7,7 @@ Custom Ashes participate in the full Roundtable Circle lifecycle: they receive T
 ## Table of Contents
 
 - [Schema Reference](#schema-reference)
-  - [`ash.custom[]` Fields](#ashcustom-fields)
+  - [`ashes.custom[]` Fields](#ashescustom-fields)
   - [`settings` Fields](#settings-fields)
   - [`defaults` Fields](#defaults-fields)
 - [Agent Resolution](#agent-resolution)
@@ -27,7 +27,7 @@ Custom Ashes participate in the full Roundtable Circle lifecycle: they receive T
 
 Define custom Ash in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml` (global).
 
-### `ash.custom[]` Fields
+### `ashes.custom[]` Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -178,13 +178,13 @@ SEAL: {
 
 | Variable | Source |
 |----------|--------|
-| `{name}` | `ash.custom[].name` |
+| `{name}` | `ashes.custom[].name` |
 | `{output_dir}` | `tmp/reviews/{id}/` or `tmp/audit/{id}/` |
 | `{workflow_type}` | "code changes" (review) or "full codebase" (audit) |
 | `{file_list}` | Files matching trigger, capped at `context_budget` |
 | `{file_count}` | Number of files assigned |
-| `{context_budget}` | `ash.custom[].context_budget` |
-| `{finding_prefix}` | `ash.custom[].finding_prefix` |
+| `{context_budget}` | `ashes.custom[].context_budget` |
+| `{finding_prefix}` | `ashes.custom[].finding_prefix` |
 
 ## Validation Rules
 

@@ -80,7 +80,7 @@ After collecting changed files, check for custom Ash config:
 
 ```
 1. Read .claude/talisman.yml (project) or ~/.claude/talisman.yml (global)
-2. If ash.custom[] exists:
+2. If ashes.custom[] exists:
    a. Validate: unique prefixes, unique names, resolvable agents, count ≤ max
    b. Filter by workflows: keep only entries with "review" in workflows[]
    c. Match triggers against changed_files (extension + path match)

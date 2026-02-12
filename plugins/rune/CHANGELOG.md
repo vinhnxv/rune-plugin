@@ -14,7 +14,7 @@
   `tarnished-guide/` → `ash-guide/`, `custom-tarnished.md` → `custom-ashes.md`
 - **Elden Throne completion message** — Successful workflow completion now shows
   "The Tarnished has claimed the Elden Throne." in arc and work outputs.
-- Lore Glossary updated: Tarnished = lead, Ash = teammates, Elden Lord reserved for completion state.
+- Lore Glossary updated: Tarnished = lead, Ash = teammates, Elden Throne = completion state.
 
 ### Unchanged (Intentional)
 

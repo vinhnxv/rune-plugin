@@ -3,7 +3,8 @@ name: knowledge-keeper
 description: |
   Documentation coverage reviewer for plans. Validates that a plan addresses
   documentation needs — README updates, API docs, inline comments, migration guides.
-  Part of /rune:arc Phase 2 (plan review) alongside decree-arbiter and scroll-reviewer.
+  Used during /rune:plan Phase 4C (technical review) and /rune:arc Phase 2 (plan review)
+  alongside decree-arbiter and scroll-reviewer.
 
   <example>
   user: "Review this plan for documentation coverage"
