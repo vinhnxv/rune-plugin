@@ -4,7 +4,7 @@
 # Resolution order:
 #   1. .claude/rune-config.yml   (project, highest priority)
 #   2. ~/.claude/rune-config.yml (user global)
-#   3. Plugin defaults           (5 built-in Runebearers)
+#   3. Plugin defaults           (5 built-in Tarnished)
 
 version: 1
 
@@ -12,14 +12,14 @@ version: 1
 # Rune Gaze — File classification overrides
 # ──────────────────────────────────────────────
 rune-gaze:
-  # Override which extensions map to backend Runebearer (Forge Warden)
+  # Override which extensions map to backend Tarnished (Forge Warden)
   backend_extensions:
     - .py
     - .go
     - .rs
     - .rb
 
-  # Override which extensions map to frontend Runebearer (Glyph Scribe)
+  # Override which extensions map to frontend Tarnished (Glyph Scribe)
   frontend_extensions:
     - .tsx
     - .ts
@@ -37,9 +37,9 @@ rune-gaze:
     - ".claude/**/*.md"
 
 # ──────────────────────────────────────────────
-# Custom Runebearers — Extend the built-in 5
+# Custom Tarnished — Extend the built-in 5
 # ──────────────────────────────────────────────
-# Each custom Runebearer joins the Roundtable Circle lifecycle:
+# Each custom Tarnished joins the Roundtable Circle lifecycle:
 #   - Gets a Truthbinding wrapper prompt (evidence, Seal, Glyph Budget)
 #   - Participates in dedup via its unique finding_prefix
 #   - Verified by Truthsight (if enabled)
@@ -50,7 +50,7 @@ rune-gaze:
 #   global → ~/.claude/agents/{name}.md (user-level)
 #   plugin → Full namespace like "my-plugin:review:agent-name"
 
-runebearers:
+tarnished:
   custom:
     # Example 1: A local project-specific reviewer
     - name: "domain-logic-reviewer"
@@ -80,7 +80,23 @@ runebearers:
       context_budget: 20
       finding_prefix: "PERF"
 
-    # Example 3: An agent from another installed plugin
+    # Example 3: A review + forge agent (participates in both workflows)
+    - name: "api-contract-reviewer"
+      agent: "api-contract-reviewer"       # Resolves to .claude/agents/api-contract-reviewer.md
+      source: local
+      workflows: [review, audit, forge]    # "forge" enables Forge Gaze topic matching
+      trigger:
+        extensions: [".py", ".ts"]         # For review/audit (file-based matching)
+        paths: ["src/api/", "api/"]
+        topics: [api, contract, endpoints, rest, graphql]  # For forge (topic-based matching)
+      forge:                               # Required when "forge" is in workflows
+        subsection: "API Contract Analysis"
+        perspective: "API design, contract compatibility, and endpoint patterns"
+        budget: enrichment                 # "enrichment" (lightweight) or "research" (web search)
+      context_budget: 15
+      finding_prefix: "API"
+
+    # Example 4: An agent from another installed plugin
     # - name: "compliance-checker"
     #   agent: "my-plugin:review:compliance-checker"
     #   source: plugin
@@ -95,9 +111,9 @@ runebearers:
 # Settings — Global behavior adjustments
 # ──────────────────────────────────────────────
 settings:
-  # Hard cap on total Runebearers (built-in + custom)
+  # Hard cap on total Tarnished (built-in + custom)
   # Max recommended: 8 (verifier context budget constraint)
-  max_runebearers: 8
+  max_tarnished: 8
 
   # Extended dedup hierarchy — higher = wins on conflict
   # Must include ALL active prefixes (built-in + custom)
@@ -111,17 +127,17 @@ settings:
     - QUAL         # Pattern Weaver
     - FRONT        # Glyph Scribe (lowest)
 
-  # Whether Truthsight Layer 2 verifier checks custom Runebearer outputs
+  # Whether Truthsight Layer 2 verifier checks custom Tarnished outputs
   verification:
     layer_2_custom_agents: true
 
 # ──────────────────────────────────────────────
-# Defaults — Disable built-in Runebearers
+# Defaults — Disable built-in Tarnished
 # ──────────────────────────────────────────────
-# Use this to turn off a built-in Runebearer you've replaced with a custom one
+# Use this to turn off a built-in Tarnished you've replaced with a custom one
 defaults:
-  disable_runebearers: []
-  # Example: disable_runebearers: ["knowledge-keeper"]
+  disable_tarnished: []
+  # Example: disable_tarnished: ["knowledge-keeper"]
 
 # ──────────────────────────────────────────────
 # Echoes — Memory persistence
@@ -137,3 +153,5 @@ work:
     - "make check"
     - "npm test"
   max_workers: 3               # Max parallel swarm workers
+  approve_timeout: 180         # Seconds to wait for ward approval (default: 180)
+  commit_format: "rune: {subject} [ward-checked]"  # Commit message template

@@ -1,8 +1,8 @@
-# Output Format — Runebearer Finding Specifications
+# Output Format — Tarnished Finding Specifications
 
 > Defines raw finding format, validated format, and dual output modes (Markdown + JSON).
 
-## Raw Finding Format (Written by Runebearers)
+## Raw Finding Format (Written by Tarnished)
 
 Each finding follows this template:
 
@@ -19,7 +19,7 @@ Each finding follows this template:
 
 ### Finding Prefixes
 
-| Runebearer | Prefix | Example |
+| Tarnished | Prefix | Example |
 |-----------|--------|---------|
 | Forge Warden | `BACK` | `BACK-001` |
 | Ward Sentinel | `SEC` | `SEC-001` |
@@ -46,11 +46,11 @@ After self-review, findings may be annotated:
 
 ## JSON Output (Optional, for Programmatic Consumption)
 
-In addition to Markdown, Runebearers MAY write a companion JSON file for tooling integration:
+In addition to Markdown, Tarnished MAY write a companion JSON file for tooling integration:
 
 ```json
 {
-  "runebearer": "forge-warden",
+  "tarnished": "forge-warden",
   "workflow": "rune-review",
   "identifier": "PR #142",
   "timestamp": "2026-02-11T10:45:00Z",
@@ -78,7 +78,7 @@ In addition to Markdown, Runebearers MAY write a companion JSON file for tooling
 }
 ```
 
-JSON output file: `{output_dir}/{runebearer}-findings.json`
+JSON output file: `{output_dir}/{tarnished}-findings.json`
 
 ### When to Use JSON Output
 
@@ -109,11 +109,11 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 **PR:** #{pr-number}
 **Date:** {timestamp}
-**Runebearers:** {count} spawned, {count} completed
+**Tarnished:** {count} spawned, {count} completed
 
 ## P1 (Critical) — {count} findings
 
-{All P1 findings from all Runebearers, deduplicated}
+{All P1 findings from all Tarnished, deduplicated}
 
 ## P2 (High) — {count} findings
 
@@ -125,13 +125,13 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 ## Coverage Gaps
 
-| Runebearer | Status | Uncovered Scope |
+| Tarnished | Status | Uncovered Scope |
 |-----------|--------|-----------------|
 | {name} | {complete/partial/missing} | {files not reviewed due to budget} |
 
 ## Verification Status
 
-| Runebearer | Confidence | Spot-Checked | Result |
+| Tarnished | Confidence | Spot-Checked | Result |
 |-----------|-----------|-------------|--------|
 | {name} | {0.X} | {N findings} | {all confirmed/N hallucinated} |
 
@@ -139,19 +139,19 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 - Total findings: {count}
 - P1: {count}, P2: {count}, P3: {count}
-- Runebearers: {completed}/{spawned}
+- Tarnished: {completed}/{spawned}
 - Evidence coverage: {verified}/{total}
 ```
 
 ## Dedup Hierarchy
 
-When the same finding appears from multiple Runebearers:
+When the same finding appears from multiple Tarnished:
 
 ```
 SEC > BACK > DOC > QUAL > FRONT
 ```
 
-Keep the finding from the higher-priority Runebearer. See [Dedup Runes](dedup-runes.md) for full algorithm.
+Keep the finding from the higher-priority Tarnished. See [Dedup Runes](dedup-runes.md) for full algorithm.
 
 ## References
 

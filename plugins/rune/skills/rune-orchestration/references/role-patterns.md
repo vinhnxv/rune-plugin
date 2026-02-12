@@ -1,11 +1,11 @@
 # Agent Role Patterns
 
-## Review Runebearers (Parallel Specialists)
+## Review Tarnished (Parallel Specialists)
 
 Run simultaneously with isolated contexts. Each produces Report-format output.
 
 ```
-# Parallel execution — each Runebearer writes to tmp/reviews/{pr}/
+# Parallel execution — each Tarnished writes to tmp/reviews/{pr}/
 Task forge-warden(backend_files)     # Backend review
 Task ward-sentinel(all_files)        # Security review
 Task pattern-weaver(all_files)       # Quality patterns
@@ -13,7 +13,7 @@ Task glyph-scribe(frontend_files)    # Frontend review (conditional)
 Task knowledge-keeper(doc_files)          # Docs review (conditional)
 ```
 
-## Audit Runebearers (Fan-out / Fan-in)
+## Audit Tarnished (Fan-out / Fan-in)
 
 Similar to review but broader scope — all project files instead of changed files.
 
@@ -48,11 +48,11 @@ Task rune-smith-2(task-pool)         # Claims and works on tasks
 # Each writes to tmp/work/
 ```
 
-## Conditional Runebearers
+## Conditional Tarnished
 
 Spawned based on file types present in scope:
 
-| Trigger | Runebearer | Workflow Types |
+| Trigger | Tarnished | Workflow Types |
 |---------|-----------|----------------|
 | Backend files (`.py`, `.go`, `.rs`, `.rb`) | Forge Warden | Reviews, Audits |
 | Frontend files (`.ts`, `.tsx`, `.js`, `.jsx`) | Glyph Scribe | Reviews, Audits |
@@ -62,18 +62,18 @@ Spawned based on file types present in scope:
 
 ## Validation Agents (Truthsight Pipeline)
 
-Post-review agents that verify Runebearer output quality. Run AFTER all Runebearers complete.
+Post-review agents that verify Tarnished output quality. Run AFTER all Tarnished complete.
 
 ```
 # Layer 0: Inline Checks (lead runs directly — no agent)
 #   Grep-based section validation of output files
 #   Writes: {output_dir}/inline-validation.json
 
-# Layer 1: Self-Review Log (each Runebearer performs self-review)
-#   Runebearers re-read P1/P2 findings before completing
+# Layer 1: Self-Review Log (each Tarnished performs self-review)
+#   Tarnished re-read P1/P2 findings before completing
 #   Output: ## Self-Review Log table in each output file
 
-# Layer 2: Smart Verifier (spawned by lead after Runebearers complete)
+# Layer 2: Smart Verifier (spawned by lead after Tarnished complete)
 Task:
   subagent_type: "general-purpose"
   model: haiku
@@ -85,16 +85,16 @@ Task:
 Task:
   subagent_type: "general-purpose"
   model: haiku
-  description: "Re-verify {runebearer}-{finding}"
-  # Writes to: {output_dir}/re-verify-{runebearer}-{finding}.md
+  description: "Re-verify {tarnished}-{finding}"
+  # Writes to: {output_dir}/re-verify-{tarnished}-{finding}.md
 ```
 
 **When to spawn Layer 2 verifier:**
 
 | Workflow | Condition | Verifier Scope |
 |----------|-----------|----------------|
-| `/rune:review` | `inscription.verification.enabled` AND 3+ Runebearers | All Runebearer outputs |
-| `/rune:audit` | `inscription.verification.enabled` AND 5+ Runebearers | All Runebearer outputs |
+| `/rune:review` | `inscription.verification.enabled` AND 3+ Tarnished | All Tarnished outputs |
+| `/rune:audit` | `inscription.verification.enabled` AND 5+ Tarnished | All Tarnished outputs |
 | Custom | Configurable via inscription `verification` block | Per configuration |
 
 Full verifier prompt template: [Verifier Prompt](verifier-prompt.md)

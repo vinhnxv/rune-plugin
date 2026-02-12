@@ -1,5 +1,5 @@
 ---
-name: runebearer-guide
+name: tarnished-guide
 description: |
   Provides a quick reference for invoking Rune agents correctly.
   This skill should be used when spawning agents, troubleshooting "agent not found" errors, or selecting review agents.
@@ -7,7 +7,7 @@ description: |
   <example>
   Context: User wants to know which agents are available
   user: "What review agents does Rune have?"
-  assistant: "Loading runebearer-guide for the agent reference table"
+  assistant: "Loading tarnished-guide for the agent reference table"
   </example>
 user-invocable: false
 allowed-tools:
@@ -15,7 +15,7 @@ allowed-tools:
   - Glob
 ---
 
-# Runebearer Guide
+# Tarnished Guide
 
 Quick reference for all Rune plugin agents, their roles, and invocation patterns.
 
@@ -41,7 +41,7 @@ Task rune:review:ward-sentinel(...)
 
 ## Review Agents
 
-10 specialized reviewers that form Runebearer teams:
+10 specialized reviewers that form Tarnished teams:
 
 | Agent | Role | Perspective |
 |-------|------|-------------|
@@ -56,11 +56,11 @@ Task rune:review:ward-sentinel(...)
 | `rune:review:wraith-finder` | Dead code review | Unused functions, unwired code, orphaned files |
 | `rune:review:phantom-checker` | Dynamic reference check | Reflection, string-based imports, meta-programming |
 
-## Runebearer Roles (Consolidated Teammates)
+## Tarnished Roles (Consolidated Teammates)
 
-In `/rune:review`, agents are grouped into max 5 Runebearers:
+In `/rune:review`, agents are grouped into max 5 Tarnished:
 
-| Runebearer | Agents Embedded | Scope |
+| Tarnished | Agents Embedded | Scope |
 |-----------|-----------------|-------|
 | **Forge Warden** | rune-architect, ember-oracle, flaw-hunter, mimic-detector | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
 | **Ward Sentinel** | ward-sentinel | ALL files (security always) |
@@ -68,7 +68,7 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 | **Glyph Scribe** | Inline perspectives (TypeScript safety, React performance, accessibility) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
 | **Knowledge Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
 
-**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Runebearer prompts (no dedicated agent files).
+**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Tarnished prompts (no dedicated agent files).
 
 ## Utility Agents
 
@@ -96,17 +96,17 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 | `rune:work:rune-smith` | Code implementation (TDD-aware) |
 | `rune:work:trial-forger` | Test generation |
 
-## Runebearer Selection Logic
+## Tarnished Selection Logic
 
-The `/rune:review` command selects Runebearers based on file extensions (Rune Gaze):
+The `/rune:review` command selects Tarnished based on file extensions (Rune Gaze):
 
-| File Pattern | Runebearers Selected |
+| File Pattern | Tarnished Selected |
 |-------------|---------------------|
 | `**/*.py` | Forge Warden + Ward Sentinel + Pattern Weaver |
 | `**/*.{ts,tsx,js,jsx}` | Glyph Scribe + Ward Sentinel + Pattern Weaver |
 | `**/*.md` (>= 10 lines changed) | Knowledge Keeper (conditional) |
-| Mixed code + docs | All applicable Runebearers |
+| Mixed code + docs | All applicable Tarnished |
 
 Ward Sentinel and Pattern Weaver are ALWAYS selected regardless of file types.
 
-See `roundtable-circle` skill for full Runebearer architecture and prompts.
+See `roundtable-circle` skill for full Tarnished architecture and prompts.

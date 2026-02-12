@@ -6,7 +6,7 @@ description: |
 
   <example>
   user: "/rune:cancel-arc"
-  assistant: "Cancelling active arc pipeline. Phase 3 (WORK) in progress — shutting down workers..."
+  assistant: "The Elden Lord halts the arc..."
   </example>
 user-invocable: true
 allowed-tools:
@@ -60,9 +60,9 @@ Delegate cancellation based on the currently-active phase:
 | **FORGE** (Phase 1) | Shutdown research team — broadcast cancellation, send shutdown requests |
 | **PLAN REVIEW** (Phase 2) | Shutdown decree-arbiter review team |
 | **WORK** (Phase 3) | Shutdown work team — broadcast cancellation, send shutdown requests to all rune-smith workers |
-| **CODE REVIEW** (Phase 4) | Delegate to `/rune:cancel-review` logic — broadcast, shutdown Runebearers, cleanup |
+| **CODE REVIEW** (Phase 4) | Delegate to `/rune:cancel-review` logic — broadcast, shutdown Tarnished, cleanup |
 | **MEND** (Phase 5) | Shutdown mend team — broadcast cancellation, send shutdown requests to all mend-fixer workers |
-| **AUDIT** (Phase 6) | Delegate to `/rune:cancel-audit` logic — broadcast, shutdown Runebearers, cleanup |
+| **AUDIT** (Phase 6) | Delegate to `/rune:cancel-audit` logic — broadcast, shutdown Tarnished, cleanup |
 
 #### 3a. Broadcast Cancellation
 

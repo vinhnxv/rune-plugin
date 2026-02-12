@@ -1,10 +1,10 @@
 # Validator Rules — Confidence Scoring and Risk Classification
 
-> Rules for validating Runebearer outputs: dedup, confidence scoring, and risk assessment.
+> Rules for validating Tarnished outputs: dedup, confidence scoring, and risk assessment.
 
 ## Inscription Validation
 
-After all Runebearers complete, validate outputs against `inscription.json`:
+After all Tarnished complete, validate outputs against `inscription.json`:
 
 ### Circuit Breaker (Check FIRST)
 
@@ -50,7 +50,7 @@ FOR each PASS file:
 
 ## Confidence Scoring
 
-### Per-Runebearer Confidence
+### Per-Tarnished Confidence
 
 | Confidence | Range | Meaning | Lead Action |
 |-----------|-------|---------|-------------|
@@ -60,7 +60,7 @@ FOR each PASS file:
 
 ### Confidence Calculation
 
-Runebearers self-assess based on:
+Tarnished self-assess based on:
 
 ```
 confidence = (findings_with_rune_trace / total_findings) *
@@ -79,8 +79,8 @@ For the overall review:
 
 ```
 aggregate_confidence = weighted_average(
-  each runebearer.confidence,
-  weight = runebearer.findings_count
+  each tarnished.confidence,
+  weight = tarnished.findings_count
 )
 ```
 
@@ -101,8 +101,8 @@ aggregate_confidence = weighted_average(
 | Condition | Action |
 |-----------|--------|
 | P1 finding with `SEC-` prefix | Always surface in TOME.md summary |
-| 2+ Runebearers flag same file | Escalate to P1 if any flags P2+ |
-| Confidence < 0.5 from any Runebearer | Flag entire output as unreliable |
+| 2+ Tarnished flag same file | Escalate to P1 if any flags P2+ |
+| Confidence < 0.5 from any Tarnished | Flag entire output as unreliable |
 | Self-review deleted > 25% of findings | Flag potential quality issue |
 
 ## Dedup Rules (Quick Reference)
@@ -117,11 +117,11 @@ SEC (Ward Sentinel) > BACK (Forge Warden) > DOC (Knowledge Keeper) > QUAL (Patte
 
 ```
 FOR each finding A in all outputs:
-  FOR each finding B (from different Runebearer):
+  FOR each finding B (from different Tarnished):
     IF A.file == B.file AND abs(A.line - B.line) <= 5:
       → Potential duplicate
-      → Keep finding from higher-priority Runebearer
-      → Note: "Also flagged by {other_runebearer}"
+      → Keep finding from higher-priority Tarnished
+      → Note: "Also flagged by {other_tarnished}"
 ```
 
 ### Same-Issue, Different-Priority
@@ -129,7 +129,7 @@ FOR each finding A in all outputs:
 ```
 IF duplicate found AND A.priority != B.priority:
   → Keep the HIGHER priority (P1 > P2 > P3)
-  → Note: "{lower_runebearer} rated this as {lower_priority}"
+  → Note: "{lower_tarnished} rated this as {lower_priority}"
 ```
 
 ## Gap Reporting
@@ -139,18 +139,18 @@ IF duplicate found AND A.priority != B.priority:
 ```markdown
 ## Coverage Gaps
 
-### Missing Runebearers
-| Runebearer | Expected | Status | Impact |
+### Missing Tarnished
+| Tarnished | Expected | Status | Impact |
 |-----------|----------|--------|--------|
 | forge-warden | Yes | Missing | Backend code not reviewed |
 
 ### Budget-Limited Coverage
-| Runebearer | Files Assigned | Files Skipped | Skipped Reason |
+| Tarnished | Files Assigned | Files Skipped | Skipped Reason |
 |-----------|---------------|--------------|----------------|
 | ward-sentinel | 20 | 15 | Context budget (20 max) |
 
 ### Incomplete Deliverables
-| Runebearer | Missing Sections | Impact |
+| Tarnished | Missing Sections | Impact |
 |-----------|-----------------|--------|
 | pattern-weaver | Self-Review Log | Cannot verify finding quality |
 ```
@@ -161,10 +161,10 @@ After validation, generate re-run recommendations:
 
 | Condition | Recommendation |
 |-----------|---------------|
-| Runebearer missing entirely | Re-run with `--focus {area}` |
-| Confidence < 0.5 | Re-run Runebearer with reduced scope |
+| Tarnished missing entirely | Re-run with `--focus {area}` |
+| Confidence < 0.5 | Re-run Tarnished with reduced scope |
 | > 50% files skipped (budget) | Re-run with `--focus {area}` for deeper coverage |
-| Multiple hallucinations detected | Re-run Runebearer with stricter evidence rules |
+| Multiple hallucinations detected | Re-run Tarnished with stricter evidence rules |
 
 ## References
 

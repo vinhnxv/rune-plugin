@@ -1,13 +1,13 @@
 ---
 name: rune:review
 description: |
-  Multi-agent code review using Agent Teams. Spawns up to 5 built-in Runebearer teammates
-  (plus custom Runebearers from rune-config.yml), each with their own 200k context window.
+  Multi-agent code review using Agent Teams. Spawns up to 5 built-in Tarnished teammates
+  (plus custom Tarnished from rune-config.yml), each with their own 200k context window.
   Handles scope selection, team creation, review orchestration, aggregation, verification, and cleanup.
 
   <example>
   user: "/rune:review"
-  assistant: "Starting Roundtable Circle review with Agent Teams..."
+  assistant: "The Elden Lord convenes the Roundtable Circle for review..."
   </example>
 user-invocable: true
 allowed-tools:
@@ -28,7 +28,7 @@ allowed-tools:
 
 # /rune:review — Multi-Agent Code Review
 
-Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Runebearer gets its own 200k context window via Agent Teams.
+Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Tarnished gets its own 200k context window via Agent Teams.
 
 **Load skill**: `roundtable-circle` for full architecture reference.
 
@@ -37,15 +37,15 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off (reviews all branch changes) |
-| `--dry-run` | Show scope selection and Runebearer plan without spawning agents | Off |
-| `--max-agents <N>` | Limit total Runebearers spawned (built-in + custom). Range: 1-8 | All selected |
+| `--dry-run` | Show scope selection and Tarnished plan without spawning agents | Off |
+| `--max-agents <N>` | Limit total Tarnished spawned (built-in + custom). Range: 1-8 | All selected |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
 
 **Dry-run mode** executes Phase 0 (Pre-flight) and Phase 1 (Rune Gaze) only, then displays:
 - Changed files classified by type
-- Which Runebearers would be spawned
-- File assignments per Runebearer (with context budget caps)
+- Which Tarnished would be spawned
+- File assignments per Tarnished (with context budget caps)
 - Estimated team size
 
 No teams, tasks, state files, or agents are created. Use this to preview scope before committing to a full review.
@@ -74,22 +74,22 @@ fi
 - No changed files → "Nothing to review. Make some changes first."
 - Only non-reviewable files (images, lock files) → "No reviewable changes found."
 
-### Load Custom Runebearers
+### Load Custom Tarnished
 
-After collecting changed files, check for custom Runebearer config:
+After collecting changed files, check for custom Tarnished config:
 
 ```
 1. Read .claude/rune-config.yml (project) or ~/.claude/rune-config.yml (global)
-2. If runebearers.custom[] exists:
+2. If tarnished.custom[] exists:
    a. Validate: unique prefixes, unique names, resolvable agents, count ≤ max
    b. Filter by workflows: keep only entries with "review" in workflows[]
    c. Match triggers against changed_files (extension + path match)
    d. Skip entries with fewer matching files than trigger.min_files
-3. Merge validated custom Runebearers with built-in selections
-4. Apply defaults.disable_runebearers to remove any disabled built-ins
+3. Merge validated custom Tarnished with built-in selections
+4. Apply defaults.disable_tarnished to remove any disabled built-ins
 ```
 
-See `roundtable-circle/references/custom-runebearers.md` for full schema and validation rules.
+See `roundtable-circle/references/custom-tarnished.md` for full schema and validation rules.
 
 ## Phase 1: Rune Gaze (Scope Selection)
 
@@ -103,8 +103,8 @@ for each file in changed_files:
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
 
-# Custom Runebearers (from rune-config.yml):
-for each custom in validated_custom_runebearers:
+# Custom Tarnished (from rune-config.yml):
+for each custom in validated_custom_tarnished:
   matching = files where extension in custom.trigger.extensions
                     AND (custom.trigger.paths is empty OR file starts with any path)
   if len(matching) >= custom.trigger.min_files:
@@ -128,15 +128,15 @@ Changed files: {count}
   Docs:     {count} files
   Other:    {count} files (skipped)
 
-Runebearers to spawn: {count} ({built_in_count} built-in + {custom_count} custom)
+Tarnished to spawn: {count} ({built_in_count} built-in + {custom_count} custom)
   Built-in:
-  - Forge Warden:   {file_count} files (cap: 30)
-  - Ward Sentinel:  {file_count} files (cap: 20)
-  - Pattern Weaver: {file_count} files (cap: 30)
-  - Glyph Scribe:   {file_count} files (cap: 25)  [conditional]
-  - Knowledge Keeper:    {file_count} files (cap: 25)  [conditional]
+  - Forge Warden:      {file_count} files (cap: 30)
+  - Ward Sentinel:     {file_count} files (cap: 20)
+  - Pattern Weaver:    {file_count} files (cap: 30)
+  - Glyph Scribe:      {file_count} files (cap: 25)  [conditional]
+  - Knowledge Keeper:  {file_count} files (cap: 25)  [conditional]
 
-  Custom (from .claude/rune-config.yml):       # Only shown if custom Runebearers exist
+  Custom (from .claude/rune-config.yml):       # Only shown if custom Tarnished exist
   - {name} [{prefix}]: {file_count} files (cap: {budget}, source: {source})
 
 Dedup hierarchy: {hierarchy from settings or default}
@@ -160,7 +160,7 @@ Write("tmp/.rune-review-{identifier}.json", {
   team_name: "rune-review-{identifier}",
   started: timestamp,
   status: "active",
-  expected_files: selectedRunebearers.map(r => `tmp/reviews/${id}/${r}.md`)
+  expected_files: selectedTarnished.map(r => `tmp/reviews/${id}/${r}.md`)
 })
 
 // 4. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
@@ -172,44 +172,44 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: "rune-review-{identifier}" })
 
-// 6. Create tasks (one per Runebearer)
-for (const runebearer of selectedRunebearers) {
+// 6. Create tasks (one per Tarnished)
+for (const tarnished of selectedTarnished) {
   TaskCreate({
-    subject: `Review as ${runebearer}`,
-    description: `Files: [...], Output: tmp/reviews/{id}/${runebearer}.md`,
-    activeForm: `${runebearer} reviewing...`
+    subject: `Review as ${tarnished}`,
+    description: `Files: [...], Output: tmp/reviews/{id}/${tarnished}.md`,
+    activeForm: `${tarnished} reviewing...`
   })
 }
 ```
 
-## Phase 3: Spawn Runebearers
+## Phase 3: Spawn Tarnished
 
-Spawn ALL selected Runebearers in a **single message** (parallel execution):
+Spawn ALL selected Tarnished in a **single message** (parallel execution):
 
 ```javascript
-// Built-in Runebearers: load prompt from runebearer-prompts/{role}.md
+// Built-in Tarnished: load prompt from tarnished-prompts/{role}.md
 Task({
   team_name: "rune-review-{identifier}",
-  name: "{runebearer-name}",
+  name: "{tarnished-name}",
   subagent_type: "general-purpose",
-  prompt: /* Load from roundtable-circle/references/runebearer-prompts/{role}.md
+  prompt: /* Load from roundtable-circle/references/tarnished-prompts/{role}.md
              Substitute: {changed_files}, {output_path}, {task_id}, {branch}, {timestamp} */,
   run_in_background: true
 })
 
-// Custom Runebearers: use wrapper prompt template from custom-runebearers.md
+// Custom Tarnished: use wrapper prompt template from custom-tarnished.md
 // The wrapper injects Truthbinding Protocol + Glyph Budget + Seal format
 Task({
   team_name: "rune-review-{identifier}",
   name: "{custom.name}",
   subagent_type: "{custom.agent}",  // local name or plugin namespace
-  prompt: /* Generate from wrapper template in roundtable-circle/references/custom-runebearers.md
+  prompt: /* Generate from wrapper template in roundtable-circle/references/custom-tarnished.md
              Substitute: {name}, {file_list}, {output_dir}, {finding_prefix}, {context_budget} */,
   run_in_background: true
 })
 ```
 
-**IMPORTANT**: The lead MUST NOT review code itself. Focus solely on coordination.
+**IMPORTANT**: The Elden Lord MUST NOT review code directly. Focus solely on coordination.
 
 ## Phase 4: Monitor
 
@@ -221,7 +221,7 @@ while (not all tasks completed):
   for task in tasks:
     if task.status == "completed": continue
     if task.stale > 5 minutes:
-      warn("Runebearer may be stalled")
+      warn("Tarnished may be stalled")
   sleep(30)
 ```
 
@@ -238,7 +238,7 @@ Task({
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/reviews/{id}/.
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT).
-    Include custom Runebearer outputs in dedup — use their finding_prefix from config.
+    Include custom Tarnished outputs in dedup — use their finding_prefix from config.
     Write unified summary to tmp/reviews/{id}/TOME.md.
     See roundtable-circle/references/dedup-runes.md for dedup algorithm.`
 })
@@ -255,9 +255,9 @@ If inscription.json has `verification.enabled: true`:
 ## Phase 7: Cleanup & Echo Persist
 
 ```javascript
-// 1. Shutdown all Runebearers
-for (const runebearer of allRunebearers) {
-  SendMessage({ type: "shutdown_request", recipient: runebearer })
+// 1. Shutdown all Tarnished
+for (const tarnished of allTarnished) {
+  SendMessage({ type: "shutdown_request", recipient: tarnished })
 }
 
 // 2. Wait for shutdown approvals (max 30s)
@@ -291,7 +291,7 @@ Read("tmp/reviews/{identifier}/TOME.md")
 
 | Error | Recovery |
 |-------|----------|
-| Runebearer timeout (>5 min) | Proceed with partial results |
-| Runebearer crash | Report gap in TOME.md |
-| ALL Runebearers fail | Abort, notify user |
+| Tarnished timeout (>5 min) | Proceed with partial results |
+| Tarnished crash | Report gap in TOME.md |
+| ALL Tarnished fail | Abort, notify user |
 | Concurrent review running | Warn, offer to cancel previous |

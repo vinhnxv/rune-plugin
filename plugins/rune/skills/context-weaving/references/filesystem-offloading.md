@@ -33,7 +33,7 @@ Every agent in a multi-agent workflow writes to file:
 
 ```
 Agent writes to: tmp/reviews/{pr}/{agent-name}.md
-Returns to lead: "Findings at {path}. 2 P1, 4 P2 issues." (max 50 words)
+Returns to the Elden Lord: "Findings at {path}. 2 P1, 4 P2 issues." (max 50 words)
 ```
 
 ### 3. Scratch Pad for Cross-Session State

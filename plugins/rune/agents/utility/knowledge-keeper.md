@@ -17,7 +17,6 @@ capabilities:
   - Assess inline comment coverage for complex logic
 allowed-tools:
   - Read
-  - Write
   - Glob
   - Grep
   - SendMessage

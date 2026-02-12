@@ -2,7 +2,7 @@
 
 Multi-agent engineering orchestration for [Claude Code](https://claude.ai/claude-code). Plan, work, review, and audit using Agent Teams.
 
-Each Runebearer teammate gets its own 200k context window, eliminating single-context bottlenecks.
+Each Tarnished teammate gets its own 200k context window, eliminating single-context bottlenecks.
 
 ## Claude Code Install
 
@@ -47,7 +47,7 @@ claude --plugin-dir /path/to/rune-plugin
 # Run a full codebase audit (all files)
 /rune:audit
 /rune:audit --focus security    # Security-only audit
-/rune:audit --max-agents 3      # Limit to 3 Runebearers
+/rune:audit --max-agents 3      # Limit to 3 Tarnished
 
 # Preview scope without spawning agents
 /rune:review --dry-run
@@ -101,9 +101,9 @@ SEC-prefix findings require human approval for FALSE_POSITIVE marking.
 When you run `/rune:review`, Rune:
 
 1. **Detects scope** — classifies changed files by extension
-2. **Selects Runebearers** — picks the right reviewers (2-5 teammates)
+2. **Selects Tarnished** — picks the right reviewers (2-5 teammates)
 3. **Spawns Agent Teams** — each reviewer gets its own 200k context window
-4. **Reviews in parallel** — Runebearers review simultaneously, writing to files
+4. **Reviews in parallel** — Tarnished review simultaneously, writing to files
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes
 6. **Verifies evidence** — Truthsight validates P1 findings against source
 7. **Presents TOME** — unified review summary
@@ -114,12 +114,12 @@ When you run `/rune:audit`, Rune scans your entire codebase instead of just chan
 
 1. **Scans codebase** — finds all project files (excluding binaries, lock files, build output)
 2. **Classifies files** — same Rune Gaze extension-based classification
-3. **Selects Runebearers** — same 2-5 Runebearer selection
-4. **Audits in parallel** — each Runebearer gets capped context budget, prioritized by importance
+3. **Selects Tarnished** — same 2-5 Tarnished selection
+4. **Audits in parallel** — each Tarnished gets capped context budget, prioritized by importance
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes
 6. **Presents TOME** — unified audit summary with coverage gaps
 
-Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. Each Runebearer's context budget limits how many files it processes, prioritized by architectural importance.
+Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. Each Tarnished's context budget limits how many files it processes, prioritized by architectural importance.
 
 ## Plan Mode
 
@@ -174,9 +174,9 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 /rune:echoes reset    # Clear all echoes (with backup)
 ```
 
-## Runebearers
+## Tarnished
 
-| Runebearer | Role | When Active |
+| Tarnished | Role | When Active |
 |-----------|------|-------------|
 | Forge Warden | Backend review | Backend files changed |
 | Ward Sentinel | Security review | Always |
@@ -188,7 +188,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 
 ### Review Agents
 
-10 specialized agents that Runebearers embed as perspectives:
+10 specialized agents that Tarnished embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -228,7 +228,7 @@ Spawned during `/rune:work` as self-organizing swarm workers:
 
 | Agent | Purpose |
 |-------|---------|
-| runebinder | Aggregates Runebearer findings into TOME.md |
+| runebinder | Aggregates Tarnished findings into TOME.md |
 | decree-arbiter | Technical soundness review for plans |
 | truthseer-validator | Audit coverage validation (Phase 5.5, >100 files) |
 | flow-seer | Spec flow analysis and gap detection |
@@ -244,7 +244,7 @@ Spawned during `/rune:work` as self-organizing swarm workers:
 | context-weaving | Context overflow/rot prevention |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
-| runebearer-guide | Agent invocation reference |
+| tarnished-guide | Agent invocation reference |
 
 ## Configuration
 
@@ -258,8 +258,8 @@ rune-gaze:
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md", ".claude/**/*.md"]
 
-runebearers:
-  custom:                              # Extend built-in Runebearers with your own
+tarnished:
+  custom:                              # Extend built-in Tarnished with your own
     - name: "my-reviewer"
       agent: "my-reviewer"             # .claude/agents/my-reviewer.md
       source: local
@@ -270,7 +270,7 @@ runebearers:
       finding_prefix: "MYR"
 
 settings:
-  max_runebearers: 8                   # Hard cap (5 built-in + custom)
+  max_tarnished: 8                   # Hard cap (5 built-in + custom)
 
 echoes:
   version_controlled: false  # Set to true to track echoes in git
@@ -284,7 +284,7 @@ work:
   commit_format: "rune: {subject} [ward-checked]"
 ```
 
-See [`rune-config.example.yml`](rune-config.example.yml) for the full configuration schema including custom Runebearers, trigger matching, and dedup hierarchy.
+See [`rune-config.example.yml`](rune-config.example.yml) for the full configuration schema including custom Tarnished, trigger matching, and dedup hierarchy.
 
 ## Remembrance Channel
 
@@ -296,7 +296,7 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **Rune Traces** — Every finding must include actual code snippets from source files. No paraphrasing.
 
-**Glyph Budget** — Agents write findings to files and return only a 1-sentence summary to the lead. Prevents context overflow.
+**Glyph Budget** — Agents write findings to files and return only a 1-sentence summary to the Elden Lord. Prevents context overflow.
 
 **Inscription Protocol** — JSON contract defining what each agent must produce, enabling automated validation.
 
@@ -336,9 +336,9 @@ plugins/rune/
 │   │   └── references/      # e.g. team-lifecycle-guard.md
 │   ├── context-weaving/     # Context management
 │   ├── roundtable-circle/   # Review orchestration
-│   │   └── references/      # e.g. rune-gaze.md, custom-runebearers.md
+│   │   └── references/      # e.g. rune-gaze.md, custom-tarnished.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
-│   └── runebearer-guide/    # Agent reference
+│   └── tarnished-guide/    # Agent reference
 ├── docs/
 │   └── specflow-findings.md
 ├── CLAUDE.md
@@ -346,10 +346,21 @@ plugins/rune/
 └── README.md
 ```
 
+## Lore
+
+Rune uses Elden Ring-inspired theming:
+
+- **You are the Elden Lord** — the orchestrator commanding each workflow
+- **Tarnished** are your teammates, each bringing specialized perspectives
+- The **Roundtable Circle** is where reviews convene
+- The **TOME** is the unified record of all findings
+- **Rune Echoes** are memories that persist across sessions
+- See CLAUDE.md for the full Lore Glossary
+
 ## Known Limitations
 
 - **Agent Teams is experimental** — Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable. Behavior may change across Claude Code releases.
-- **Context budget caps** — Each Runebearer can review a limited number of files (20-30). Large codebases will have coverage gaps reported in the TOME.
+- **Context budget caps** — Each Tarnished can review a limited number of files (20-30). Large codebases will have coverage gaps reported in the TOME.
 - **No incremental audit** — `/rune:audit` scans all files each run. There is no diff-based "only audit what changed since last audit" mode yet.
 - **Concurrent sessions** — Only one `/rune:review`, `/rune:audit`, or `/rune:arc` can run at a time. Use `/rune:cancel-review`, `/rune:cancel-audit`, or `/rune:cancel-arc` to stop an active session.
 - **Manual cleanup optional** — Run `/rune:rest` to remove `tmp/` artifacts, or let the OS handle them.
@@ -359,7 +370,7 @@ plugins/rune/
 | Issue | Solution |
 |-------|----------|
 | "Agent Teams not available" | Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in your shell profile |
-| Runebearer times out (>5 min) | Rune proceeds with partial results. Check TOME.md for coverage gaps |
+| Tarnished times out (>5 min) | Rune proceeds with partial results. Check TOME.md for coverage gaps |
 | "Concurrent review running" | Run `/rune:cancel-review` first, then retry |
 | Echo files causing merge conflicts | Add `.gitattributes` with `merge=union` for echo paths (see Configuration) |
 | No files to review | Ensure you have uncommitted changes on a feature branch (not main) |

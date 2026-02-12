@@ -7,12 +7,12 @@ description: |
 
   <example>
   user: "/rune:plan"
-  assistant: "Starting Rune planning workflow with parallel research agents..."
+  assistant: "The Elden Lord begins the planning ritual..."
   </example>
 
   <example>
   user: "/rune:plan --brainstorm --forge"
-  assistant: "Starting full planning pipeline with brainstorm and research enrichment..."
+  assistant: "The Elden Lord begins the planning ritual with brainstorm and research enrichment..."
   </example>
 user-invocable: true
 allowed-tools:
@@ -63,11 +63,15 @@ Phase 2: Synthesize (lead consolidates findings, detail level selection)
     ↓
 Phase 3: Forge (optional — --forge flag, structured deepen per section)
     ↓
-Phase 4: Scroll Review (document quality check)
+Phase 4: Plan Review (scroll review + optional iterative refinement)
     ↓
-Phase 5: Echo Persist (save learnings)
+Phase 4.5: Technical Review (optional — decree-arbiter + knowledge-keeper)
     ↓
-Output: plans/{type}-{name}-plan.md
+Phase 5: Echo Persist (save learnings to .claude/echoes/)
+    ↓
+Phase 6: Cleanup & Present (shutdown teammates, TeamDelete, present plan)
+    ↓
+Output: plans/YYYY-MM-DD-{type}-{name}-plan.md
 ```
 
 ## Phase 0: Gather Input
@@ -77,8 +81,11 @@ Output: plans/{type}-{name}-plan.md
 Before asking for input, check for recent brainstorms that match:
 
 ```javascript
-// Search for recent brainstorms matching the feature
-const brainstorms = Glob("docs/brainstorms/*.md")
+// Search for recent brainstorms in both locations
+const brainstorms = [
+  ...Glob("docs/brainstorms/*.md"),
+  ...Glob("tmp/plans/*/brainstorm-decisions.md")
+]
 // Filter: created within last 14 days, topic matches feature
 // If found: read and use as input, skip Phase 0 questioning
 // If multiple match: AskUserQuestion to select
@@ -115,10 +122,68 @@ Then ask for details. Collect until the feature is clear.
 
 ### With `--brainstorm`
 
-Run an interactive brainstorm session:
-1. Ask 3-5 questions one at a time using AskUserQuestion
-2. Explore 2-3 approaches, recommend one
-3. Capture decisions for research phase
+Run a structured brainstorm session:
+
+#### Step 1: Assess Requirement Clarity
+
+Before asking questions, assess whether brainstorming is needed:
+
+**Clear signals** (skip brainstorm, go to research):
+- User provided specific acceptance criteria
+- User referenced existing patterns to follow
+- Scope is constrained and well-defined
+
+**Brainstorm signals** (proceed with questions):
+- User used vague terms ("make it better", "add something like")
+- Multiple reasonable interpretations exist
+- Trade-offs haven't been discussed
+
+If clear: "Your requirements are clear. Proceeding directly to research."
+
+#### Step 2: Understand the Idea (3-5 questions, one at a time)
+
+Ask questions using AskUserQuestion, one at a time:
+
+| Topic | Example Questions |
+|-------|-------------------|
+| Purpose | What problem does this solve? What's the motivation? |
+| Users | Who uses this? What's their context? |
+| Constraints | Technical limitations? Timeline? Dependencies? |
+| Success | How will you measure success? |
+| Edge Cases | What shouldn't happen? Any error states? |
+
+**Prefer multiple choice** when natural options exist.
+**Exit condition**: Idea is clear OR user says "proceed".
+
+#### Step 3: Explore Approaches
+
+Propose 2-3 concrete approaches with pros/cons:
+
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: "Which approach do you prefer?",
+    header: "Approach",
+    options: [
+      { label: "Approach A (Recommended)", description: "{brief + why recommended}" },
+      { label: "Approach B", description: "{brief + tradeoff}" },
+      { label: "Approach C", description: "{brief + tradeoff}" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+#### Step 4: Capture Decisions
+
+Record brainstorm output for research phase:
+- What we're building
+- Chosen approach and why
+- Key constraints
+- Open questions to resolve during research
+
+Persist brainstorm decisions to: `tmp/plans/{timestamp}/brainstorm-decisions.md`
+This file is read by research agents to inform their search.
 
 ## Phase 1: Research (Conditional, up to 6 agents)
 
@@ -145,7 +210,8 @@ Task({
   team_name: "rune-plan-{timestamp}",
   name: "repo-surveyor",
   subagent_type: "general-purpose",
-  prompt: `You are Repo Surveyor. Explore the codebase for: {feature}.
+  prompt: `You are Repo Surveyor — a RESEARCH agent. Do not write implementation code.
+    Explore the codebase for: {feature}.
     Write findings to tmp/plans/{timestamp}/research/repo-analysis.md.
     Claim task #1 via TaskList/TaskUpdate.
     See agents/research/repo-surveyor.md for full instructions.`,
@@ -156,7 +222,8 @@ Task({
   team_name: "rune-plan-{timestamp}",
   name: "echo-reader",
   subagent_type: "general-purpose",
-  prompt: `You are Echo Reader. Read .claude/echoes/ for relevant past learnings.
+  prompt: `You are Echo Reader — a RESEARCH agent. Do not write implementation code.
+    Read .claude/echoes/ for relevant past learnings.
     Write findings to tmp/plans/{timestamp}/research/past-echoes.md.
     Claim task #2 via TaskList/TaskUpdate.
     See agents/research/echo-reader.md for full instructions.`,
@@ -167,7 +234,8 @@ Task({
   team_name: "rune-plan-{timestamp}",
   name: "git-miner",
   subagent_type: "general-purpose",
-  prompt: `You are Git Miner. Analyze git history for: {feature}.
+  prompt: `You are Git Miner — a RESEARCH agent. Do not write implementation code.
+    Analyze git history for: {feature}.
     Look for: related past changes, contributors who touched relevant files,
     why current patterns exist, previous attempts at similar features.
     Write findings to tmp/plans/{timestamp}/research/git-history.md.
@@ -221,7 +289,8 @@ Task({
   team_name: "rune-plan-{timestamp}",
   name: "practice-seeker",
   subagent_type: "general-purpose",
-  prompt: `You are Practice Seeker. Research best practices for: {feature}.
+  prompt: `You are Practice Seeker — a RESEARCH agent. Do not write implementation code.
+    Research best practices for: {feature}.
     Write findings to tmp/plans/{timestamp}/research/best-practices.md.
     Claim task #4 via TaskList/TaskUpdate.
     See agents/research/practice-seeker.md for full instructions.`,
@@ -232,7 +301,8 @@ Task({
   team_name: "rune-plan-{timestamp}",
   name: "lore-scholar",
   subagent_type: "general-purpose",
-  prompt: `You are Lore Scholar. Research framework docs for: {feature}.
+  prompt: `You are Lore Scholar — a RESEARCH agent. Do not write implementation code.
+    Research framework docs for: {feature}.
     Write findings to tmp/plans/{timestamp}/research/framework-docs.md.
     Claim task #5 via TaskList/TaskUpdate.
     See agents/research/lore-scholar.md for full instructions.`,
@@ -253,7 +323,8 @@ Task({
   team_name: "rune-plan-{timestamp}",
   name: "flow-seer",
   subagent_type: "general-purpose",
-  prompt: `You are Flow Seer. Analyze the feature spec for completeness: {feature}.
+  prompt: `You are Flow Seer — a RESEARCH agent. Do not write implementation code.
+    Analyze the feature spec for completeness: {feature}.
     Identify: user flow gaps, edge cases, missing requirements, interaction issues.
     Write findings to tmp/plans/{timestamp}/research/specflow-analysis.md.
     Claim task #6 via TaskList/TaskUpdate.
@@ -276,7 +347,7 @@ while (not all research tasks completed):
 
 ## Phase 2: Synthesize
 
-After research completes, the lead consolidates findings.
+After research completes, the Elden Lord consolidates findings.
 
 ### Plan Detail Level Selection
 
@@ -301,7 +372,36 @@ AskUserQuestion({
 
 1. Read all research output files from `tmp/plans/{timestamp}/research/`
 2. Identify common themes, conflicting advice, key patterns
-3. Draft the plan document (template varies by detail level):
+3. Draft the plan document using the template matching the selected detail level:
+
+### Minimal Template
+
+```markdown
+---
+title: "{type}: {feature description}"
+type: feat | fix | refactor
+date: YYYY-MM-DD
+---
+
+# {Feature Title}
+
+{Brief problem/feature description in 2-3 sentences}
+
+## Acceptance Criteria
+
+- [ ] Core requirement 1
+- [ ] Core requirement 2
+
+## Context
+
+{Any critical information — constraints, dependencies, deadlines}
+
+## References
+
+- Related: {links}
+```
+
+### Standard Template (default)
 
 ```markdown
 ---
@@ -313,108 +413,277 @@ date: YYYY-MM-DD
 # {Feature Title}
 
 ## Overview
-{What and why}
+
+{What and why — informed by research findings}
+
+## Problem Statement
+
+{Why this matters, who is affected}
 
 ## Proposed Solution
+
 {High-level approach informed by research}
 
 ## Technical Approach
-{Implementation details referencing codebase patterns}
+
+{Implementation details referencing codebase patterns discovered by repo-surveyor}
+
+### Stakeholders
+
+{Who is affected: end users, developers, operations}
 
 ## Acceptance Criteria
-- [ ] {Testable requirement}
+
+- [ ] Functional requirement 1
+- [ ] Functional requirement 2
+- [ ] Testing requirement
+
+## Success Metrics
+
+{How we measure success}
+
+## Dependencies & Risks
+
+{What could block or complicate this}
 
 ## References
-- {Research findings links}
+
+- Codebase patterns: {repo-surveyor findings}
+- Past learnings: {echo-reader findings}
+- Git history: {git-miner findings}
+- Best practices: {practice-seeker findings, if run}
+- Framework docs: {lore-scholar findings, if run}
+- Spec analysis: {flow-seer findings}
 ```
 
-4. Write to `plans/{type}-{feature-name}-plan.md`
+### Comprehensive Template
+
+```markdown
+---
+title: "{type}: {feature description}"
+type: feat | fix | refactor
+date: YYYY-MM-DD
+---
+
+# {Feature Title}
+
+## Overview
+
+{Executive summary}
+
+## Problem Statement
+
+{Detailed problem analysis with stakeholder impact}
+
+## Proposed Solution
+
+{Comprehensive solution design}
+
+## Technical Approach
+
+### Architecture
+
+{Detailed technical design}
+
+### Implementation Phases
+
+#### Phase 1: {Foundation}
+
+- Tasks and deliverables
+- Success criteria
+- Effort estimate: {S/M/L}
+
+#### Phase 2: {Core Implementation}
+
+- Tasks and deliverables
+- Success criteria
+- Effort estimate: {S/M/L}
+
+#### Phase 3: {Polish & Hardening}
+
+- Tasks and deliverables
+- Success criteria
+- Effort estimate: {S/M/L}
+
+### Data Model Changes
+
+{ERD mermaid diagram if applicable}
+
+` ``mermaid
+erDiagram
+    ENTITY_A ||--o{ ENTITY_B : has
+` ``
+
+## Alternative Approaches Considered
+
+| Approach | Pros | Cons | Why Rejected |
+|----------|------|------|-------------|
+| {Alt 1} | {+} | {-} | {Reason} |
+| {Alt 2} | {+} | {-} | {Reason} |
+
+## Acceptance Criteria
+
+### Functional Requirements
+
+- [ ] Detailed functional criteria
+
+### Non-Functional Requirements
+
+- [ ] Performance targets
+- [ ] Security requirements
+
+### Quality Gates
+
+- [ ] Test coverage requirements
+- [ ] Documentation completeness
+
+## Success Metrics
+
+{Detailed KPIs and measurement methods}
+
+## Dependencies & Prerequisites
+
+{Detailed dependency analysis}
+
+## Risk Analysis & Mitigation
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| {Risk 1} | H/M/L | H/M/L | {Strategy} |
+
+## Documentation Plan
+
+{What docs need updating — README, API docs, inline comments, migration guides}
+
+## References
+
+### Internal
+
+- Architecture: {file_path:line_number}
+- Similar features: {file_path:line_number}
+- Past learnings: {echo findings}
+
+### External
+
+- Framework docs: {urls}
+- Best practices: {urls}
+
+### Related Work
+
+- PRs: #{numbers}
+- Issues: #{numbers}
+```
+
+### Formatting Best Practices
+
+- Use collapsible `<details>` sections for lengthy logs or optional context
+- Add syntax-highlighted code blocks with file path references: `app/services/foo.rb:42`
+- Cross-reference related issues with `#number`, commits with SHA hashes
+- For model changes, include ERD mermaid diagrams
+- Code examples in plans are illustrative pseudocode, not implementation code
+
+4. Write to `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
 ## Phase 3: Forge (Optional — `--forge` flag)
 
-If `--forge` is specified, spawn research agents to enrich each plan section with structured subsections.
+If `--forge` is specified, use **Forge Gaze** (topic-aware agent matching) to select the best specialized agents for each plan section. See `references/forge-gaze.md` for the full topic registry and matching algorithm.
+
+### Auto-Forge Trigger
+
+If the user's message contains ultrathink keywords (ULTRATHINK, DEEP, ARCHITECT),
+automatically enable `--forge` mode even if the flag was not explicitly passed.
+Announce: "Ultrathink detected — auto-enabling forge enrichment."
 
 ### Default --forge Mode
 
-For each major plan section, spawn a research agent that produces structured subsections:
-
 ```javascript
-// Create forge tasks blocked by synthesis
-TaskCreate({ subject: "Forge: {section 1}" })
-TaskCreate({ subject: "Forge: {section 2}" })
-// ... one per major section
+// 1. Parse plan into sections (## headings)
+const sections = parsePlanSections(planDocument)
 
-// Each forge task gets a research agent
-Task({
-  team_name: "rune-plan-{timestamp}",
-  name: "forge-researcher-{n}",
-  subagent_type: "general-purpose",
-  prompt: `Enrich plan section "{section}" with structured subsections.
-    Write enhancements to tmp/plans/{timestamp}/forge/{section}.md`,
-  run_in_background: true
-})
+// 2. Run Forge Gaze matching (see references/forge-gaze.md)
+//    - Extract topics from each section title + first 200 chars of content
+//    - Score each agent against each section (keyword overlap + title bonus)
+//    - Select agents with score >= 0.30, max 3 per section
+//    - Only enrichment-budget agents in default mode
+const assignments = forgeGazeSelect(sections, topicRegistry, mode="default")
+
+// 3. Log selection transparently
+console.log("Forge Gaze Selection:")
+for (const [section, agents] of assignments) {
+  console.log(`  ${section.title}: ${agents.map(a => `${a.name} (${a.score})`).join(", ")}`)
+}
+
+// 4. Create tasks and spawn matched agents
+for (const [section, agents] of assignments) {
+  for (const agent of agents) {
+    TaskCreate({ subject: `Forge: ${section.title} (${agent.name})` })
+
+    Task({
+      team_name: "rune-plan-{timestamp}",
+      name: `forge-${agent.name}-${sectionIndex}`,
+      subagent_type: "general-purpose",
+      prompt: `You are ${agent.name} — a RESEARCH agent enriching a plan section.
+        Do not write implementation code.
+
+        ## Your Perspective
+        Focus on: ${agent.perspective}
+
+        ## Section to Enrich
+        Title: "${section.title}"
+        Content: ${section.content}
+
+        ## Output
+        Write a "${agent.subsection}" subsection for this plan section.
+        Include specific, actionable insights from your expertise.
+        Write to: tmp/plans/{timestamp}/forge/${section.slug}-${agent.name}.md
+
+        See agents/${agent.category}/${agent.name}.md for your full expertise.`,
+      run_in_background: true
+    })
+  }
+}
+
+// 5. After all forge agents complete, merge enrichments into plan
+//    Read tmp/plans/{timestamp}/forge/*.md → insert under matching sections
 ```
 
-Each forge agent produces these structured subsections:
-
-```markdown
-### Best Practices
-{From practice-seeker — industry standards, community conventions}
-
-### Performance Considerations
-{From ember-oracle perspective via Forge Warden Runebearer}
-
-### Security Considerations
-{From Ward Sentinel Runebearer — OWASP, auth, input validation}
-
-### Edge Cases
-{From flaw-hunter perspective via Forge Warden Runebearer}
-
-### Pattern Alignment
-{From pattern-seer perspective via Pattern Weaver Runebearer}
-
-### References
-{Consolidated links from all agents}
-```
-
-In default `--forge` mode, perspectives from review agents (ember-oracle, flaw-hunter, pattern-seer) are provided through their parent Runebearers, not as standalone agents.
-
-After forge completes, merge enrichments into the plan document.
+**Fallback**: If no agent scores above threshold for a section, use a generic `forge-researcher` (same as pre-v1.10 behavior). Forge never produces empty enrichment.
 
 ### --exhaustive Mode (`--forge --exhaustive`)
 
-When `--exhaustive` is combined with `--forge`, spawn ALL available agents per section:
+Exhaustive mode lowers the selection threshold and includes research-budget agents:
 
 ```
-Default --forge:    6 research agents per section
-With --exhaustive:  ALL available agents per section (max 8 per section, configurable)
+Default --forge:
+  - Threshold: 0.30
+  - Max 3 agents per section
+  - Only enrichment-budget agents (review + utility)
+  - Max 8 total agents across all sections
 
-Agent selection for --exhaustive:
-  1. Read rune-config.yml for custom Runebearers
-  2. Collect: 6 research + 5 Runebearers (embedding 10 review perspectives) + N custom
-  3. For each plan section:
-     - Spawn ALL agents with the section as context
-     - Each agent contributes from its expertise area
-     - Two-tier aggregation: agents → per-section synthesizer → lead
-  4. Max 5 concurrent agents per phase (enforced by orchestrator)
+--forge --exhaustive:
+  - Threshold: 0.15 (lower — more agents qualify)
+  - Max 5 agents per section
+  - Both enrichment AND research budget agents (adds practice-seeker, lore-scholar)
+  - Max 12 total agents
+  - Two-tier aggregation: per-section synthesizer → lead
 ```
-
-In `--exhaustive` mode, review agents may be spawned individually rather than through Runebearers.
 
 **Spawn throttle enforcement**:
 1. Max 5 concurrent agents per phase
 2. Concurrent arc run prevention: check for active `.claude/arc/*/checkpoint.json`
-3. Per-section sufficiency gate: apply local sufficiency scoring, skip agents whose expertise is covered
+3. Total agent cap enforcement via Forge Gaze `MAX_TOTAL_AGENTS`
 
 **Cost warning** (displayed before spawning):
 
 ```
---exhaustive mode will spawn {N} agents x {M} sections = {N*M} agent invocations.
+--exhaustive mode will spawn {N} agents across {M} sections = {N} agent invocations.
 Estimated token usage: ~{estimate}M tokens (~${cost_estimate}).
 Token budget: {budget}M. Proceed? [Y/n]
 ```
 
-## Phase 4: Scroll Review
+## Phase 4: Plan Review (Iterative)
+
+### 4A: Scroll Review (always)
 
 Spawn a document quality reviewer:
 
@@ -423,14 +692,53 @@ Task({
   team_name: "rune-plan-{timestamp}",
   name: "scroll-reviewer",
   subagent_type: "general-purpose",
-  prompt: `You are Scroll Reviewer. Review the plan at plans/{type}-{name}-plan.md.
+  prompt: `You are Scroll Reviewer — a RESEARCH agent. Do not write implementation code.
+    Review the plan at plans/YYYY-MM-DD-{type}-{name}-plan.md.
     Write review to tmp/plans/{timestamp}/scroll-review.md.
     See agents/utility/scroll-reviewer.md for quality criteria.`,
   run_in_background: true
 })
 ```
 
-If the review identifies HIGH severity issues, address them before proceeding.
+### 4B: Iterative Refinement (if HIGH issues found)
+
+If scroll-reviewer reports HIGH severity issues:
+
+1. Auto-fix minor issues (vague language, formatting, missing sections)
+2. Ask user approval for substantive changes (restructuring, removing sections)
+3. Re-run scroll-reviewer to verify fixes
+4. Max 2 refinement passes — diminishing returns after that
+
+### 4C: Technical Review (optional)
+
+If user requested or plan is Comprehensive detail level, spawn in parallel:
+
+```javascript
+Task({
+  team_name: "rune-plan-{timestamp}",
+  name: "decree-arbiter",
+  subagent_type: "general-purpose",
+  prompt: `You are Decree Arbiter — a RESEARCH agent. Do not write implementation code.
+    Review the plan for technical soundness.
+    Write review to tmp/plans/{timestamp}/decree-review.md.
+    See agents/utility/decree-arbiter.md for 5-dimension evaluation.`,
+  run_in_background: true
+})
+
+Task({
+  team_name: "rune-plan-{timestamp}",
+  name: "knowledge-keeper",
+  subagent_type: "general-purpose",
+  prompt: `You are Knowledge Keeper — a RESEARCH agent. Do not write implementation code.
+    Review plan for documentation coverage.
+    Write review to tmp/plans/{timestamp}/knowledge-review.md.
+    See agents/utility/knowledge-keeper.md for evaluation criteria.`,
+  run_in_background: true
+})
+```
+
+If any reviewer returns BLOCK verdict: address before presenting to user.
+If CONCERN verdicts: include as warnings in the plan presentation.
 
 ## Phase 5: Echo Persist
 
@@ -463,26 +771,67 @@ try { TeamDelete() } catch (e) {
 }
 
 // 4. Present plan to user
-Read("plans/{type}-{feature-name}-plan.md")
+Read("plans/YYYY-MM-DD-{type}-{feature-name}-plan.md")
 ```
 
 ## Output
 
-Plan file written to: `plans/{type}-{feature-name}-plan.md`
+Plan file written to: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
-After presenting the plan, offer next steps:
+**Filename examples**:
+- `plans/2026-02-12-feat-user-authentication-plan.md`
+- `plans/2026-02-12-fix-checkout-race-condition-plan.md`
+- `plans/2026-02-12-refactor-api-client-plan.md`
 
+**Bad examples**:
+- `plans/feat-thing-plan.md` (missing date, not descriptive)
+- `plans/2026-02-12-feat: auth-plan.md` (invalid characters — colon and space)
+- `plans/feat-user-auth-plan.md` (missing date prefix)
+
+After presenting the plan, offer next steps using AskUserQuestion:
+
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: `Plan ready at plans/${path}. What would you like to do next?`,
+    header: "Next step",
+    options: [
+      { label: "/rune:work (Recommended)", description: "Start implementing this plan with swarm workers" },
+      { label: "Edit plan", description: "Refine the plan before implementing" },
+      { label: "Technical review", description: "Run decree-arbiter + scroll-reviewer + knowledge-keeper" },
+      { label: "Create issue", description: "Push to GitHub Issues or Linear" }
+    ],
+    multiSelect: false
+  }]
+})
 ```
-Plan ready at plans/{type}-{name}-plan.md
 
-Next steps:
-1. /rune:work — Start implementing this plan
-2. Edit plan — Refine before implementing
-3. /rune:review — Review the plan document
-4. /forge — Enhance each section with parallel research agents
-5. Technical review — Run decree-arbiter + scroll-reviewer + knowledge-keeper
-6. Create issue — Push to GitHub Issues
-```
+**Action handlers**:
+- `/rune:work` → Invoke Skill("rune:work", plan_path)
+- Edit plan → Present plan for editing
+- Technical review → Spawn decree-arbiter + knowledge-keeper + scroll-reviewer as Agent Teams teammates
+- Create issue → See Issue Creation section
+
+## Issue Creation
+
+When user selects "Create issue":
+
+1. **Detect tracker** from CLAUDE.md or rune-config.yml:
+   - Look for `project_tracker: github` or `project_tracker: linear`
+
+2. **GitHub**:
+   ```bash
+   gh issue create --title "{type}: {title}" --body-file plans/{path}
+   ```
+
+3. **Linear**:
+   ```bash
+   linear issue create --title "{title}" --description "$(cat plans/{path})"
+   ```
+
+4. **No tracker configured**: Ask user and suggest adding `project_tracker: github` to CLAUDE.md.
+
+5. **After creation**: Display issue URL, offer to proceed to /rune:work.
 
 ## Error Handling
 
@@ -492,3 +841,11 @@ Next steps:
 | No git history (git-miner) | Skip, report gap |
 | No echoes (echo-reader) | Skip, proceed without history |
 | Scroll review finds critical gaps | Address before presenting |
+
+## Guardrails
+
+**NEVER CODE.** This command produces research and plan documents only.
+Do not generate implementation code, test files, or configuration changes.
+If a research agent or forge agent starts writing implementation code, stop it
+and redirect to plan documentation. Code examples in plans are illustrative
+pseudocode only.

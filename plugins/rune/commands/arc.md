@@ -7,7 +7,7 @@ description: |
 
   <example>
   user: "/rune:arc docs/plans/feat-user-auth-plan.md"
-  assistant: "Starting arc pipeline — 6 phases with checkpoint tracking..."
+  assistant: "The Elden Lord begins the arc — 6 phases of forge, review, and mend..."
   </example>
 
   <example>
@@ -350,7 +350,7 @@ updateCheckpoint({
 
 ## Phase 4: CODE REVIEW
 
-Invoke `/rune:review` logic on the implemented changes. Spawns Runebearers with Roundtable Circle lifecycle.
+Invoke `/rune:review` logic on the implemented changes. Spawns Tarnished with Roundtable Circle lifecycle.
 
 **Team**: `arc-review-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)

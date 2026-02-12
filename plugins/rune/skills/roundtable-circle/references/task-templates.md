@@ -1,6 +1,6 @@
-# Task Templates — TaskCreate for Each Runebearer
+# Task Templates — TaskCreate for Each Tarnished
 
-> Copy-paste templates for creating tasks when spawning Runebearers.
+> Copy-paste templates for creating tasks when spawning Tarnished.
 
 ## Review Mode Templates
 
@@ -71,7 +71,7 @@ Identical to review mode except:
 ```
 TaskCreate({
   subject: "Aggregate findings into TOME",
-  description: "Read all Runebearer output files from {output_dir}. Deduplicate using hierarchy (SEC > BACK > DOC > QUAL > FRONT). Write TOME.md with unified findings sorted by priority.",
+  description: "Read all Tarnished output files from {output_dir}. Deduplicate using hierarchy (SEC > BACK > DOC > QUAL > FRONT). Write TOME.md with unified findings sorted by priority.",
   activeForm: "Aggregating findings into TOME"
 })
 ```
@@ -83,9 +83,9 @@ TaskCreate({
 ```
 Task({
   team_name: "rune-{workflow}-{id}",
-  name: "{runebearer-name}",
+  name: "{tarnished-name}",
   subagent_type: "general-purpose",
-  prompt: [from references/runebearer-prompts/{role}.md],
+  prompt: [from references/tarnished-prompts/{role}.md],
   run_in_background: true
 })
 ```
@@ -96,7 +96,7 @@ Task({
 Task({
   subagent_type: "general-purpose",
   description: "{role} review",
-  prompt: [from references/runebearer-prompts/{role}.md],
+  prompt: [from references/tarnished-prompts/{role}.md],
   run_in_background: true
 })
 ```
@@ -112,9 +112,9 @@ glyph-scribe   ─┤
 knowledge-keeper    ─┘
 ```
 
-All Runebearers are independent — no `blockedBy` relationships between them. The Runebinder task should be `blockedBy` all Runebearer tasks. The Truthsight Verifier (if enabled) should be `blockedBy` the Runebinder.
+All Tarnished are independent — no `blockedBy` relationships between them. The Runebinder task should be `blockedBy` all Tarnished tasks. The Truthsight Verifier (if enabled) should be `blockedBy` the Runebinder.
 
 ## References
 
-- [Circle Registry](circle-registry.md) — Agent-to-Runebearer mapping
-- [Runebearer Prompts](runebearer-prompts/) — Individual prompts to inject
+- [Circle Registry](circle-registry.md) — Agent-to-Tarnished mapping
+- [Tarnished Prompts](tarnished-prompts/) — Individual prompts to inject

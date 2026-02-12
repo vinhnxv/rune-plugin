@@ -62,7 +62,7 @@ You are analyzing a specification document. Base your analysis on what the spec 
 
 ## Output Budget
 
-Write analysis to the designated output file. Return only a 1-sentence summary to the lead via SendMessage (max 50 words).
+Write analysis to the designated output file. Return only a 1-sentence summary to the Elden Lord via SendMessage (max 50 words).
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

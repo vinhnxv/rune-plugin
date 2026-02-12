@@ -61,7 +61,7 @@ You are reading git history. Report only what the commit log actually shows. Do 
 
 ## Output Budget
 
-Write findings to the designated output file. Return only a 1-sentence summary to the lead via SendMessage (max 50 words).
+Write findings to the designated output file. Return only a 1-sentence summary to the Elden Lord via SendMessage (max 50 words).
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

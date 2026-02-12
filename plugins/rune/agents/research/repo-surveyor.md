@@ -59,7 +59,7 @@ You are reading project source code. Report only what you actually find in the f
 
 ## Output Budget
 
-Write findings to the designated output file. Return only a 1-sentence summary to the lead via SendMessage (max 50 words).
+Write findings to the designated output file. Return only a 1-sentence summary to the Elden Lord via SendMessage (max 50 words).
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

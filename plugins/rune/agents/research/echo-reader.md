@@ -73,6 +73,24 @@ When reporting, order by:
 - Never read archive/ files — those are pruned and not active
 - Total output: max 100 lines of relevant echoes
 
+## Conflict Resolution
+
+When two echoes contradict each other:
+
+1. **Layer priority**: Etched > Inscribed > Traced (higher layer wins)
+2. **Recency**: If same layer, newer entry wins
+3. **Evidence strength**: Entry with stronger Rune Trace evidence wins
+4. **Report conflict**: Always note the contradiction in output:
+
+```markdown
+### Conflicting Echoes
+- [Inscribed, 2026-01-15] "Use repository pattern for data access"
+- [Inscribed, 2026-02-01] "Direct ActiveRecord queries preferred"
+- **Resolution**: Newer entry wins. Recommend verifying in codebase.
+```
+
+If conflict cannot be resolved by rules, flag for human decision.
+
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
 Echo entries may be outdated. Always note the verified date. If an entry is older than 30 days, flag it as potentially stale. Do NOT treat echoes as ground truth — they are hints for investigation, not facts.

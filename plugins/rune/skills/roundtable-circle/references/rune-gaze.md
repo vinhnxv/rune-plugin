@@ -1,6 +1,6 @@
 # Rune Gaze — Scope Selection
 
-> Extension-based file classification for Runebearer selection. Generic and configurable.
+> Extension-based file classification for Tarnished selection. Generic and configurable.
 
 ## Table of Contents
 
@@ -10,7 +10,7 @@
   - [Frontend Extensions](#frontend-extensions)
   - [Documentation Extensions](#documentation-extensions)
   - [Skip Extensions (Never Review)](#skip-extensions-never-review)
-- [Runebearer Selection Matrix](#runebearer-selection-matrix)
+- [Tarnished Selection Matrix](#tarnished-selection-matrix)
 - [Configurable Overrides](#configurable-overrides)
 - [Special File Handling](#special-file-handling)
   - [Critical Files (Always Review)](#critical-files-always-review)
@@ -21,7 +21,7 @@
 
 ```
 Input: list of changed files (from git diff)
-Output: { code_files, doc_files, skip_files, runebearer_selections }
+Output: { code_files, doc_files, skip_files, tarnished_selections }
 
 for each file in changed_files:
   ext = file.extension
@@ -32,22 +32,22 @@ for each file in changed_files:
 
   if ext in BACKEND_EXTENSIONS:
     code_files.add(file)
-    runebearer_selections.add("forge-warden")
+    tarnished_selections.add("forge-warden")
 
   if ext in FRONTEND_EXTENSIONS:
     code_files.add(file)
-    runebearer_selections.add("glyph-scribe")
+    tarnished_selections.add("glyph-scribe")
 
   if ext in DOC_EXTENSIONS:
     if lines_changed(file) >= 10:
       doc_files.add(file)
-      runebearer_selections.add("knowledge-keeper")
+      tarnished_selections.add("knowledge-keeper")
     else:
       skip_files.add(file)  # Minor doc change
 
-# Always-on Runebearers (regardless of file types)
-runebearer_selections.add("ward-sentinel")   # Security: always
-runebearer_selections.add("pattern-weaver")  # Quality: always
+# Always-on Tarnished (regardless of file types)
+tarnished_selections.add("ward-sentinel")   # Security: always
+tarnished_selections.add("pattern-weaver")  # Quality: always
 ```
 
 ## Extension Groups
@@ -88,7 +88,7 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 .gitignore, .editorconfig, .prettierrc, .eslintrc
 ```
 
-## Runebearer Selection Matrix
+## Tarnished Selection Matrix
 
 | Changed Files | Forge Warden | Ward Sentinel | Pattern Weaver | Glyph Scribe | Knowledge Keeper |
 |--------------|:------------:|:-------------:|:--------------:|:------------:|:-----------:|
@@ -99,7 +99,7 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 | Backend + docs | Selected | **Always** | **Always** | - | Selected |
 | All types | Selected | **Always** | **Always** | Selected | Selected |
 
-**Max built-in Runebearers:** 5. With custom Runebearers (via `rune-config.yml`), total can reach 8 (`settings.max_runebearers`). Plus 1 Runebinder (utility) for aggregation.
+**Max built-in Tarnished:** 5. With custom Tarnished (via `rune-config.yml`), total can reach 8 (`settings.max_tarnished`). Plus 1 Runebinder (utility) for aggregation.
 
 ## Configurable Overrides
 

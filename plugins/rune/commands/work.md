@@ -7,7 +7,7 @@ description: |
 
   <example>
   user: "/rune:work plans/feat-user-auth-plan.md"
-  assistant: "Parsing plan into tasks and spawning swarm workers..."
+  assistant: "The Elden Lord marshals the Tarnished to forge the plan..."
   </example>
 
   <example>
@@ -160,7 +160,7 @@ Task({
     2. Claim: TaskUpdate({ taskId, owner: "rune-smith", status: "in_progress" })
     3. Read task description and referenced plan
     4. IF --approve mode: write proposal to tmp/work/{id}/proposals/{task-id}.md,
-       send to leader via SendMessage, wait for approval before coding.
+       send to the Elden Lord via SendMessage, wait for approval before coding.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
     5. Read existing code patterns in the codebase
     6. Implement with TDD cycle (test → implement → refactor)
@@ -172,7 +172,7 @@ Task({
        Then update plan checkboxes (- [ ] → - [x]).
     9. IF ward fails: do NOT commit, flag task for review, continue to next.
     10. TaskUpdate({ taskId, status: "completed" })
-    11. SendMessage to lead: "Seal: task #{id} done. Files: {list}"
+    11. SendMessage to the Elden Lord: "Seal: task #{id} done. Files: {list}"
     12. TaskList() → claim next or exit
 
     EXIT: No tasks after 3 retries (30s each) → idle notification → exit
@@ -197,7 +197,7 @@ Task({
     2. Claim: TaskUpdate({ taskId, owner: "trial-forger", status: "in_progress" })
     3. Read task description and the code to be tested
     4. IF --approve mode: write proposal to tmp/work/{id}/proposals/{task-id}.md,
-       send to leader via SendMessage, wait for approval before writing tests.
+       send to the Elden Lord via SendMessage, wait for approval before writing tests.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
     5. Discover test patterns (framework, fixtures, assertions)
     6. Write tests following discovered patterns
@@ -209,7 +209,7 @@ Task({
        Then update plan checkboxes (- [ ] → - [x]).
     9. IF tests fail: do NOT commit, flag task for review, continue to next.
     10. TaskUpdate({ taskId, status: "completed" })
-    11. SendMessage to lead: "Seal: tests for #{id}. Pass: {count}/{total}"
+    11. SendMessage to the Elden Lord: "Seal: tests for #{id}. Pass: {count}/{total}"
     12. TaskList() → claim next or exit
 
     EXIT: No tasks after 3 retries (30s each) → idle notification → exit

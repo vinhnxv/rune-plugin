@@ -37,7 +37,7 @@ The fundamental value lies in distributing cognitive load across separate contex
 
 | Category | Workflows | Orchestration Pattern |
 |----------|-----------|----------------------|
-| **Reviews** | `/rune:review` | Runebearer Specialists |
+| **Reviews** | `/rune:review` | Tarnished Specialists |
 | **Audits** | `/rune:audit` | Roundtable Circle (Fan-out / Fan-in) |
 | **Research** | `/rune:plan` | Parallel Exploration |
 | **Work** | `/rune:work` | Swarm Workers |
@@ -69,7 +69,7 @@ Instead of supervisor synthesizing responses (telephone game), agents write dire
 
 The workflow: Agents write findings → Coordinator reads files → Synthesizes into Tome (TOME.md)
 
-**Structured output:** Runebearers MAY also write companion JSON files (`{runebearer}-findings.json`) for CI/CD integration. After verification, a `completion.json` summarizes the workflow result. See [Output Format](../roundtable-circle/references/output-format.md) for full specs.
+**Structured output:** Tarnished MAY also write companion JSON files (`{tarnished}-findings.json`) for CI/CD integration. After verification, a `completion.json` summarizes the workflow result. See [Output Format](../roundtable-circle/references/output-format.md) for full specs.
 
 ## Agent Output Formats
 
@@ -105,7 +105,7 @@ any agent P2 > any agent P3
 Central coordinator delegates to specialists and aggregates results.
 
 ```
-Team Lead (orchestrator)
+The Elden Lord (orchestrator)
     ├── forge-warden   (backend review)
     ├── ward-sentinel  (security review)
     ├── pattern-weaver (quality patterns)
@@ -141,11 +141,11 @@ Strategy Layer (plan)
 
 Defines how agents are organized for each workflow type, including conditional spawning rules and validation pipelines.
 
-- **Review Runebearers**: Parallel specialists writing to `tmp/reviews/{pr}/`. See [Role Patterns](references/role-patterns.md)
-- **Audit Runebearers**: Fan-out/fan-in to `tmp/audit/{id}/`. See [Role Patterns](references/role-patterns.md)
+- **Review Tarnished**: Parallel specialists writing to `tmp/reviews/{pr}/`. See [Role Patterns](references/role-patterns.md)
+- **Audit Tarnished**: Fan-out/fan-in to `tmp/audit/{id}/`. See [Role Patterns](references/role-patterns.md)
 - **Research Agents**: Parallel exploration to `tmp/research/`. See [Role Patterns](references/role-patterns.md)
 - **Work Agents (Rune Smiths)**: Swarm workers to `tmp/work/`. See [Role Patterns](references/role-patterns.md)
-- **Conditional Runebearers**: Spawned based on file types in scope. See [Role Patterns](references/role-patterns.md)
+- **Conditional Tarnished**: Spawned based on file types in scope. See [Role Patterns](references/role-patterns.md)
 - **Validation Agents (Truthsight Pipeline)**: Post-review verification. See [Role Patterns](references/role-patterns.md)
 
 ## Token Economics
@@ -195,7 +195,7 @@ Every agent in a parallel workflow MUST:
 2. Return ONLY: file path + 1-sentence summary (max 50 words)
 3. Never include analysis in the return message
 
-This prevents lead agent context overflow regardless of how many agents run.
+This prevents Elden Lord context overflow regardless of how many agents run.
 
 See `context-weaving` skill for the full Glyph Budget protocol and pre-spawn checklist.
 
@@ -222,7 +222,7 @@ Full spec: [Inscription Protocol](references/inscription-protocol.md)
 
 Multi-agent workflows benefit from structured reasoning at key decision points.
 
-**Three reasoning checkpoints for lead agents:**
+**Three reasoning checkpoints for Elden Lords:**
 
 | Checkpoint | When | Key Action |
 |-----------|------|------------|

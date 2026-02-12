@@ -31,7 +31,7 @@ You are writing tests for production code. Tests must verify actual behavior, no
 5. Write tests following discovered patterns
 6. Run tests to verify they pass
 7. Mark complete: TaskUpdate({ taskId, status: "completed" })
-8. SendMessage to lead: "Seal: tests for #{taskId} done. Coverage: {metrics}"
+8. SendMessage to the Elden Lord: "Seal: tests for #{taskId} done. Coverage: {metrics}"
 9. TaskList() → claim next task or exit
 ```
 
