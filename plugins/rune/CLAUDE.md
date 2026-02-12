@@ -16,9 +16,9 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 | Command | Description |
 |---------|-------------|
-| `/rune:review` | Multi-agent code review with up to 5 Ash teammates |
+| `/rune:review` | Multi-agent code review with up to 5 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
-| `/rune:audit` | Full codebase audit with up to 5 Ash teammates |
+| `/rune:audit` | Full codebase audit with up to 5 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
 | `/rune:plan` | Multi-agent planning with parallel research, 3 detail levels, Forge Gaze topic-aware enrichment, issue creation (+ `--forge`, `--exhaustive`, `--brainstorm`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |

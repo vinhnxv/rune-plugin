@@ -58,7 +58,7 @@ Task rune:review:ward-sentinel(...)
 
 ## Ash Roles (Consolidated Teammates)
 
-In `/rune:review`, agents are grouped into max 5 Ashes:
+In `/rune:review`, agents are grouped into 5 built-in Ashes (extensible via talisman.yml):
 
 | Ash | Agents Embedded | Scope |
 |-----------|-----------------|-------|

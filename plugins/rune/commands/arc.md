@@ -131,6 +131,7 @@ fi
 
 ```javascript
 const id = `arc-${Date.now()}`
+if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid arc identifier")
 const sessionNonce = crypto.randomBytes(6).toString('hex')
 
 Write(`.claude/arc/${id}/checkpoint.json`, {

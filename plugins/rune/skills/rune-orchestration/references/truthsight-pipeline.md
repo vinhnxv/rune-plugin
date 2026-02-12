@@ -173,7 +173,7 @@ The verifier performs 5 tasks in order:
 
 | Component | Tokens | Limit |
 |-----------|--------|-------|
-| Ash output files | ~10k each | Max 5 files per run |
+| Ash output files | ~10k each | Max 8 files per run |
 | Source files (sampled) | ~3k each | Max 15 files per run |
 | Metadata (inscription, inline-validation) | ~5k | 1 per run |
 | **Total input** | ~100k | |
