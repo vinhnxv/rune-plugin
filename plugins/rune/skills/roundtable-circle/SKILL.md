@@ -13,6 +13,13 @@ description: |
 user-invocable: false
 allowed-tools:
   - Task
+  - TaskCreate
+  - TaskList
+  - TaskUpdate
+  - TaskGet
+  - TeamCreate
+  - TeamDelete
+  - SendMessage
   - Read
   - Write
   - Bash
@@ -129,6 +136,8 @@ git diff --name-only main..HEAD
 - No files changed → "Nothing to review"
 - Only non-reviewable files (images, lock files) → "No reviewable changes"
 
+**Docs-only override:** If all non-skip files are doc-extension and all fall below the line threshold (no code files), promote them so Knowledge Keeper is still summoned. See `rune-gaze.md` for algorithm.
+
 ## Phase 1: Rune Gaze (Scope Selection)
 
 Classify changed files by extension to determine which Ash to summon.
@@ -141,7 +150,11 @@ See [Rune Gaze](references/rune-gaze.md) for the full file classification algori
 |-------------|-----------|
 | `*.py, *.go, *.rs, *.rb, *.java` | Forge Warden |
 | `*.ts, *.tsx, *.js, *.jsx` | Glyph Scribe |
+| `Dockerfile, *.sh, *.sql, *.tf, CI/CD` | Forge Warden (infra) |
+| `*.yml, *.yaml, *.json, *.toml, *.ini` | Forge Warden (config) |
 | `*.md` (>= 10 lines changed) | Knowledge Keeper |
+| `.claude/**/*.md` | Knowledge Keeper + Ward Sentinel |
+| Unclassified (not skip, not any group) | Forge Warden (catch-all) |
 | ALL files | Ward Sentinel (always) |
 | ALL files | Pattern Weaver (always) |
 

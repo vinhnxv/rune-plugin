@@ -8,6 +8,8 @@
 - [Extension Groups](#extension-groups)
   - [Backend Extensions](#backend-extensions)
   - [Frontend Extensions](#frontend-extensions)
+  - [Infrastructure Extensions](#infrastructure-extensions)
+  - [Config Extensions](#config-extensions)
   - [Documentation Extensions](#documentation-extensions)
   - [Skip Extensions (Never Review)](#skip-extensions-never-review)
 - [Ash Selection Matrix](#ash-selection-matrix)
@@ -21,10 +23,11 @@
 
 ```
 Input: list of changed files (from git diff)
-Output: { code_files, doc_files, skip_files, ash_selections }
+Output: { code_files, doc_files, minor_doc_files, infra_files, skip_files, ash_selections }
 
 for each file in changed_files:
   ext = file.extension
+  classified = false
 
   if ext in SKIP_EXTENSIONS:
     skip_files.add(file)
@@ -33,22 +36,60 @@ for each file in changed_files:
   if ext in BACKEND_EXTENSIONS:
     code_files.add(file)
     ash_selections.add("forge-warden")
+    classified = true
 
   if ext in FRONTEND_EXTENSIONS:
     code_files.add(file)
     ash_selections.add("glyph-scribe")
+    classified = true
 
   if ext in DOC_EXTENSIONS:
-    if lines_changed(file) >= 10:
+    if lines_changed(file) >= DOC_LINE_THRESHOLD:
       doc_files.add(file)
       ash_selections.add("knowledge-keeper")
     else:
-      skip_files.add(file)  # Minor doc change
+      minor_doc_files.add(file)  # Below threshold — may be promoted
+    classified = true
+
+  if ext in INFRA_EXTENSIONS OR file.name in INFRA_FILENAMES:
+    infra_files.add(file)
+    ash_selections.add("forge-warden")   # Infra → Forge Warden (backend-adjacent)
+    classified = true
+
+  if ext in CONFIG_EXTENSIONS:
+    infra_files.add(file)                # Config grouped with infra
+    ash_selections.add("forge-warden")   # Config → Forge Warden
+    classified = true
+
+  # Catch-all: file doesn't match any group and isn't skipped
+  if NOT classified:
+    infra_files.add(file)                # Unclassified → infra bucket
+    ash_selections.add("forge-warden")   # Default to backend review
+
+# Docs-only-and-all-below-threshold override: when the ENTIRE diff is documentation
+# (no code/infra files) AND every doc file fell below DOC_LINE_THRESHOLD,
+# promote minor doc files so they are still reviewed by Knowledge Keeper.
+# Note: if ANY doc file exceeds the threshold, it goes to doc_files normally
+# and the remaining below-threshold files are discarded as minor.
+if code_files.empty AND infra_files.empty AND doc_files.empty AND minor_doc_files.not_empty:
+  doc_files = minor_doc_files       # Promote all
+  ash_selections.add("knowledge-keeper")
+else:
+  skip_files.addAll(minor_doc_files) # Discard as minor
+
+# .claude/ path escalation: any .claude/ file gets Ward Sentinel with
+# explicit security-boundary context (allowed-tools, prompt injection surface)
+for each file in changed_files:
+  if file.path starts with ".claude/":
+    ash_selections.add("ward-sentinel")  # Already always-on, but marks priority
+    ash_selections.add("knowledge-keeper")  # .claude/*.md are both docs AND security
 
 # Always-on Ash (regardless of file types)
 ash_selections.add("ward-sentinel")   # Security: always
 ash_selections.add("pattern-weaver")  # Quality: always
 ```
+
+**`DOC_LINE_THRESHOLD`**: Default 10. Configurable via `talisman.yml` → `rune-gaze.doc_line_threshold`.
 
 ## Extension Groups
 
@@ -63,6 +104,42 @@ ash_selections.add("pattern-weaver")  # Quality: always
 ```
 .ts, .tsx, .js, .jsx, .vue, .svelte, .astro
 ```
+
+### Infrastructure Extensions
+
+```
+# Container / orchestration
+Dockerfile, docker-compose.yml, docker-compose.yaml
+.dockerfile
+
+# IaC
+.tf, .hcl, .tfvars
+
+# CI/CD (matched by path, see INFRA_FILENAMES)
+.github/workflows/*.yml, .gitlab-ci.yml, Jenkinsfile
+
+# Scripts
+.sh, .bash, .zsh
+
+# Database
+.sql
+```
+
+**`INFRA_FILENAMES`** (matched by exact filename, not extension):
+```
+Dockerfile, Makefile, Procfile, Vagrantfile, Rakefile, Taskfile.yml
+docker-compose.yml, docker-compose.yaml
+```
+
+### Config Extensions
+
+```
+.yml, .yaml, .json, .toml, .ini, .cfg, .conf, .env.example, .env.template
+```
+
+**Exclusion**: Files already matched by SKIP_EXTENSIONS (e.g., `package-lock.json`) are excluded before CONFIG_EXTENSIONS is checked. Also, `.json` files under `node_modules/` or `vendor/` are skipped.
+
+**Overlap note**: A file like `docker-compose.yml` matches both INFRA_FILENAMES and CONFIG_EXTENSIONS. Both branches add to `infra_files` → `forge-warden`. This is harmless (set dedup) — the file is reviewed once, not twice.
 
 ### Documentation Extensions
 
@@ -81,8 +158,11 @@ ash_selections.add("pattern-weaver")  # Quality: always
 package-lock.json, yarn.lock, bun.lockb, Cargo.lock, poetry.lock, uv.lock
 Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 
-# Build output
-.min.js, .min.css, .map, .d.ts (from generated)
+# Build output (generated files — hand-written .d.ts may need review, use skip_patterns to customize)
+.min.js, .min.css, .map, .d.ts
+
+# Secrets (should never be reviewed — may contain credentials)
+.env
 
 # Config (usually boilerplate)
 .gitignore, .editorconfig, .prettierrc, .eslintrc
@@ -94,10 +174,17 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 |--------------|:------------:|:-------------:|:--------------:|:------------:|:-----------:|
 | Only backend | Selected | **Always** | **Always** | - | - |
 | Only frontend | - | **Always** | **Always** | Selected | - |
-| Only docs (>= 10 lines) | - | **Always** | **Always** | - | Selected |
+| Only docs (>= threshold) | - | **Always** | **Always** | - | Selected |
+| Only docs (< threshold, promoted) | - | **Always** | **Always** | - | Selected |
+| Only infra/scripts | Selected | **Always** | **Always** | - | - |
+| Only config | Selected | **Always** | **Always** | - | - |
+| Only `.claude/` files | - | **Always** | **Always** | - | Selected |
 | Backend + frontend | Selected | **Always** | **Always** | Selected | - |
 | Backend + docs | Selected | **Always** | **Always** | - | Selected |
+| Infra + docs | Selected | **Always** | **Always** | - | Selected |
 | All types | Selected | **Always** | **Always** | Selected | Selected |
+
+**Note:** The "Only `.claude/` files" row assumes `.claude/**/*.md`. Non-md files in `.claude/` (e.g., `.claude/talisman.yml`) follow standard classification rules and may also select Forge Warden via CONFIG_EXTENSIONS.
 
 **Max built-in Ash:** 5. With custom Ashes (via `talisman.yml`), total can reach 8 (`settings.max_ashes`). Plus 1 Runebinder (utility) for aggregation.
 
@@ -114,6 +201,16 @@ rune-gaze:
   frontend_extensions:
     - .tsx
     - .ts
+  infra_extensions:
+    - .tf
+    - .sh
+    - .sql
+  config_extensions:
+    - .yml
+    - .yaml
+    - .json
+    - .toml
+  doc_line_threshold: 10        # Min lines changed to summon Knowledge Keeper (default: 10)
   skip_patterns:
     - "**/*.generated.ts"
     - "**/migrations/**"
@@ -130,11 +227,11 @@ If no config file exists, use the defaults above.
 
 Some files should always be reviewed regardless of extension:
 - `CLAUDE.md` — Agent instructions (security-sensitive)
-- `.claude/**/*.md` — Agent/skill definitions (security-sensitive)
-- `Dockerfile`, `docker-compose.yml` — Infrastructure
-- CI/CD configs (`.github/workflows/`, `.gitlab-ci.yml`)
+- `.claude/**/*.md` — Agent/skill definitions (security-sensitive). Gets dual classification: Documentation (Knowledge Keeper) + Security (Ward Sentinel). The `.claude/` path escalation in the algorithm ensures both Ashes see these files, since they define `allowed-tools` security boundaries, Truthbinding prompts, and orchestration logic.
+- `Dockerfile`, `docker-compose.yml` — Infrastructure (now classified via INFRA_EXTENSIONS/INFRA_FILENAMES → Forge Warden)
+- CI/CD configs (`.github/workflows/`, `.gitlab-ci.yml`) — Infrastructure (now classified via INFRA_FILENAMES)
 
-These get dual classification: normal type + security (Ward Sentinel always sees them).
+Ward Sentinel (always-on) reviews all critical files for security. Forge Warden reviews infrastructure files for correctness.
 
 ### Critical Deletions
 
@@ -145,7 +242,9 @@ Files that were deleted should be flagged:
 
 ## Line Count Threshold for Docs
 
-The `>= 10 lines changed` threshold for Knowledge Keeper prevents summoning a full doc reviewer for trivial edits (typo fixes, whitespace).
+The `>= DOC_LINE_THRESHOLD` (default: 10 lines) threshold for Knowledge Keeper prevents summoning a full doc reviewer for trivial edits (typo fixes, whitespace).
+
+**Exception — docs-only override**: When the entire diff contains only documentation files (no code files), the threshold is bypassed and all doc files are promoted to `doc_files`. This prevents a degenerate case where a docs-only diff silently drops all files below the threshold, leaving only always-on Ashes (Ward Sentinel + Pattern Weaver) with no file-specific assignments.
 
 Calculate with:
 ```bash

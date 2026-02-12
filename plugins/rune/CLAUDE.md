@@ -96,11 +96,11 @@ Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent fil
 
 | Ash | Perspectives | Agent Source | When Summoned |
 |-----------|-------------|-------------|-------------|
-| **Forge Warden** | Backend code quality, architecture, performance, logic, testing | Dedicated agent files | Backend files changed |
-| **Ward Sentinel** | All security perspectives | Dedicated agent files | ALWAYS |
+| **Forge Warden** | Backend code quality, architecture, performance, logic, testing | Dedicated agent files | Backend, infra, config, or unclassified files changed |
+| **Ward Sentinel** | All security perspectives | Dedicated agent files | ALWAYS (+ priority on `.claude/` files) |
 | **Pattern Weaver** | Simplicity, patterns, duplication, logic, dead code, complexity, tests | Dedicated agent files | ALWAYS |
 | **Glyph Scribe** | Type safety, components, performance, hooks, accessibility | Inline perspectives | Frontend files changed |
-| **Knowledge Keeper** | Accuracy, completeness, consistency, readability, security | Inline perspectives | Docs changed (>= 10 lines) |
+| **Knowledge Keeper** | Accuracy, completeness, consistency, readability, security | Inline perspectives | Docs changed (>= threshold) or `.claude/` files changed |
 
 ### Truthbinding Protocol
 

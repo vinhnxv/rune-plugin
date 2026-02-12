@@ -1,6 +1,6 @@
 # Remembrance — Human-Facing Knowledge Documents
 
-Version-controlled solutions promoted from high-confidence [Rune Echoes](/.claude/echoes/).
+Version-controlled solutions promoted from high-confidence [Rune Echoes](../../plugins/rune/skills/rune-echoes/SKILL.md).
 
 ## Categories
 

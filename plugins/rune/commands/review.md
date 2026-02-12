@@ -73,6 +73,9 @@ fi
 **Abort conditions:**
 - No changed files → "Nothing to review. Make some changes first."
 - Only non-reviewable files (images, lock files) → "No reviewable changes found."
+- All doc-extension files fell below line threshold AND code/infra files exist → summon only always-on Ashes (normal behavior — minor doc changes alongside code are noise)
+
+**Docs-only override:** If ALL non-skip files are doc-extension and ALL fall below the line threshold (no code files at all), promote them so Knowledge Keeper is still summoned. This prevents a degenerate case where a docs-only diff silently skips all files. See `rune-gaze.md` for the full algorithm.
 
 ### Load Custom Ashes
 
@@ -97,9 +100,13 @@ Classify changed files by extension. See `roundtable-circle/references/rune-gaze
 
 ```
 for each file in changed_files:
-  - *.py, *.go, *.rs, *.rb, *.java, etc. → select Forge Warden
-  - *.ts, *.tsx, *.js, *.jsx, etc.       → select Glyph Scribe
-  - *.md (>= 10 lines changed)            → select Knowledge Keeper
+  - *.py, *.go, *.rs, *.rb, *.java, etc.           → select Forge Warden
+  - *.ts, *.tsx, *.js, *.jsx, etc.                  → select Glyph Scribe
+  - Dockerfile, *.sh, *.sql, *.tf, CI/CD configs    → select Forge Warden (infra)
+  - *.yml, *.yaml, *.json, *.toml, *.ini            → select Forge Warden (config)
+  - *.md (>= 10 lines changed)                      → select Knowledge Keeper
+  - .claude/**/*.md                                  → select Knowledge Keeper + Ward Sentinel (security boundary)
+  - Unclassified (not in any group or skip list)     → select Forge Warden (catch-all)
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
 

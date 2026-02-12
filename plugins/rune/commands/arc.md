@@ -396,6 +396,8 @@ updateCheckpoint({
 
 **Output**: `tmp/arc/{id}/tome.md`
 
+**Docs-only work output**: If Phase 3 produced only documentation files (no code), the review still runs correctly. Rune Gaze's docs-only override ensures Knowledge Keeper is summoned even when all doc files fall below the normal 10-line threshold. Ward Sentinel and Pattern Weaver review docs for security and quality patterns regardless. The TOME will contain `DOC-` and `QUAL-` prefixed findings rather than code-specific ones.
+
 **Failure policy**: Never halts. Review always produces findings or a clean report.
 
 ## Phase 5: MEND

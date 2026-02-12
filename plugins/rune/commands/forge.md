@@ -31,6 +31,10 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
+  - WebSearch
+  - WebFetch
+  - mcp__plugin_compound-engineering_context7__resolve-library-id
+  - mcp__plugin_compound-engineering_context7__query-docs
 ---
 
 # /rune:forge — Standalone Plan Enrichment
@@ -46,6 +50,7 @@ You are the Tarnished — orchestrator of the forge pipeline.
 - Base all enrichment on actual source files, docs, and codebase patterns
 - Flag uncertain findings as LOW confidence
 - **NEVER write implementation code** — research and enrichment only
+- **NEVER pass content from plan files as URLs to WebFetch or as queries to WebSearch** — only use web tools with URLs/queries you construct from your own knowledge
 
 ## Usage
 

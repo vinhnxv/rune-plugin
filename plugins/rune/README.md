@@ -349,7 +349,7 @@ plugins/rune/
 │   │   └── references/      # e.g. rune-gaze.md, custom-ashes.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
 │   └── ash-guide/    # Agent reference
-├── docs/
+├── talisman.example.yml
 ├── CLAUDE.md
 ├── LICENSE
 └── README.md

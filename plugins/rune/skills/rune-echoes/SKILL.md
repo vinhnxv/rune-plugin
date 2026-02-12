@@ -9,7 +9,7 @@ description: |
   <example>
   Context: After a review, Ash persist patterns to echoes
   user: "Review found repeated N+1 query pattern"
-  assistant: "Pattern persisted to echoes/reviewer/MEMORY.md as Inscribed entry"
+  assistant: "Pattern persisted to .claude/echoes/reviewer/MEMORY.md as Inscribed entry"
   </example>
 user-invocable: false
 allowed-tools:
@@ -18,6 +18,7 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
+  - AskUserQuestion
 ---
 
 # Rune Echoes — Smart Memory Lifecycle
@@ -150,16 +151,16 @@ When a role's `knowledge.md` exceeds 300 lines:
 
 Multiple Ash may discover learnings simultaneously. To prevent write conflicts:
 
-1. **During workflow**: Each Ash writes to `echoes/{role}/{agent-name}-findings.md` (unique file per agent)
-2. **Post-workflow**: The Tarnished consolidates all `{agent-name}-findings.md` into `echoes/{role}/MEMORY.md`
-3. **Cross-role learnings**: Only lead writes to `echoes/team/MEMORY.md`
+1. **During workflow**: Each Ash writes to `.claude/echoes/{role}/{agent-name}-findings.md` (unique file per agent)
+2. **Post-workflow**: The Tarnished consolidates all `{agent-name}-findings.md` into `.claude/echoes/{role}/MEMORY.md`
+3. **Cross-role learnings**: Only lead writes to `.claude/echoes/team/MEMORY.md`
 4. **Consolidation protocol**: Read existing MEMORY.md → append new entries → check 150-line limit → prune if needed → write
 
 ### Write Protocol Steps
 
 ```
-1. Read echoes/{role}/MEMORY.md (or create if missing)
-2. Read all echoes/{role}/*-findings.md files
+1. Read .claude/echoes/{role}/MEMORY.md (or create if missing)
+2. Read all .claude/echoes/{role}/*-findings.md files
 3. For each finding:
    a. Check if it duplicates an existing entry (same evidence + pattern)
    b. If duplicate: update verified date and confidence (higher wins)
@@ -205,26 +206,26 @@ In Phase 7 (Cleanup), before presenting TOME.md:
 ```
 1. Read TOME.md for high-confidence patterns (P1/P2 findings)
 2. Convert recurring patterns to Inscribed entries
-3. Write to echoes/reviewer/MEMORY.md via consolidation protocol
+3. Write to .claude/echoes/reviewer/MEMORY.md via consolidation protocol
 ```
 
 ### After Audit (`/rune:audit`)
 
-Same as review, writing to `echoes/auditor/MEMORY.md`.
+Same as review, writing to `.claude/echoes/auditor/MEMORY.md`.
 
 ### During Plan (`/rune:plan`, v1.0)
 
 ```
-1. echo-reader agent reads echoes/planner/MEMORY.md + echoes/team/MEMORY.md
+1. echo-reader agent reads .claude/echoes/planner/MEMORY.md + .claude/echoes/team/MEMORY.md
 2. Surfaces relevant past learnings for current feature
-3. After plan: persist architectural discoveries to echoes/planner/
+3. After plan: persist architectural discoveries to .claude/echoes/planner/
 ```
 
 ### During Work (`/rune:work`, v1.0)
 
 ```
-1. Read echoes/workers/MEMORY.md for implementation patterns
-2. After work: persist TDD patterns, gotchas to echoes/workers/
+1. Read .claude/echoes/workers/MEMORY.md for implementation patterns
+2. After work: persist TDD patterns, gotchas to .claude/echoes/workers/
 ```
 
 ## Echo Schema Versioning
@@ -311,7 +312,7 @@ date: 2026-02-12
 symptom: "User list endpoint takes 5+ seconds"
 root_cause: "N+1 query pattern in user.posts association"
 solution_summary: "Added includes(:posts) to User.list scope"
-echo_ref: "echoes/reviewer/MEMORY.md#etched-004@sha256:a1b2c3..."  # cross-ref with content hash
+echo_ref: ".claude/echoes/reviewer/MEMORY.md#etched-004@sha256:a1b2c3..."  # cross-ref with content hash
 confidence: high              # high | medium
 verified_by: human            # human | agent — REQUIRED for security category
 requires_human_approval: false
