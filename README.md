@@ -43,7 +43,7 @@ Each Ash teammate gets its own 200k context window, eliminating single-context b
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.10.1 |
+| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.10.3 |
 
 ## Structure
 
@@ -58,7 +58,7 @@ rune-plugin/
         ├── agents/
         ├── commands/
         ├── skills/
-        ├── docs/
+        ├── talisman.example.yml
         ├── CLAUDE.md
         └── README.md
 ```

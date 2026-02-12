@@ -173,7 +173,6 @@ Task({
        write sanitized commit message to tmp file,
        commit (git commit -F <msg-file>) with format:
        "rune: <task-subject> [ward-checked]"
-       Then update plan checkboxes (- [ ] → - [x]).
     9. IF ward fails: do NOT commit, flag task for review, continue to next.
     10. TaskUpdate({ taskId, status: "completed" })
     11. SendMessage to the Tarnished: "Seal: task #{id} done. Files: {list}"
@@ -210,7 +209,6 @@ Task({
        write sanitized commit message to tmp file,
        commit (git commit -F <msg-file>) with format:
        "rune: <task-subject> [ward-checked]"
-       Then update plan checkboxes (- [ ] → - [x]).
     9. IF tests fail: do NOT commit, flag task for review, continue to next.
     10. TaskUpdate({ taskId, status: "completed" })
     11. SendMessage to the Tarnished: "Seal: tests for #{id}. Pass: {count}/{total}"
@@ -440,10 +438,15 @@ Task subjects MUST be sanitized before inclusion in commit messages:
 - Escape shell metacharacters
 - Use `git commit -F <message-file>` (not inline `-m`) to avoid shell injection
 
-### Plan Checkbox Updates
+### Plan Checkbox Updates (Orchestrator-Only)
 
-After each successful commit:
-1. Read original plan file
-2. Find matching task line (fuzzy match on task subject)
+To prevent race conditions when multiple workers modify the same plan file concurrently,
+**only the Tarnished (orchestrator) updates plan checkboxes** — workers MUST NOT edit the plan file.
+
+When the orchestrator receives a "Seal: task done" message from a worker:
+1. Read the plan file
+2. Find matching task line (fuzzy match on task subject from the completed task)
 3. Update `- [ ]` to `- [x]`
 4. Write updated plan file
+
+This serializes all plan file writes through a single writer, eliminating read-modify-write races.

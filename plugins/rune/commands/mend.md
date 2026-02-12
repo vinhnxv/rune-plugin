@@ -234,7 +234,7 @@ for (const fixer of inscription.fixers) {
   Task({
     team_name: "mend-{id}",
     name: fixer.name,
-    subagent_type: "general-purpose",
+    subagent_type: "rune:utility:mend-fixer",
     prompt: `You are Mend Fixer — a restricted code fixer for /rune:mend.
 
       ANCHOR — TRUTHBINDING PROTOCOL
@@ -278,6 +278,8 @@ for (const fixer of inscription.fixers) {
 **Fixer tool set (RESTRICTED)**: Read, Write, Edit, Glob, Grep, TaskList, TaskGet, TaskUpdate, SendMessage.
 
 No Bash (ward checks centralized), no TeamCreate/TeamDelete (orchestrator-only), no TaskCreate (orchestrator-only).
+
+> **Security note**: Fixers are summoned with `subagent_type: "rune:utility:mend-fixer"` which enforces the restricted tool set via the agent's `allowed-tools` frontmatter. This prevents prompt injection in untrusted source code from escalating to Bash execution. If the platform falls back to `general-purpose` (agent type not found), the prompt-level restrictions above still apply as defense-in-depth.
 
 ## Phase 4: MONITOR
 

@@ -25,6 +25,24 @@ rune-gaze:
     - .ts
     - .jsx
 
+  # Override which extensions map to infrastructure (Forge Warden)
+  # Includes: Dockerfile, *.sh, *.sql, *.tf, CI/CD configs
+  # infra_extensions:
+  #   - .tf
+  #   - .sh
+  #   - .sql
+
+  # Override which extensions map to config (Forge Warden)
+  # Includes: *.yml, *.yaml, *.json, *.toml, *.ini
+  # config_extensions:
+  #   - .yml
+  #   - .yaml
+  #   - .json
+  #   - .toml
+
+  # Min lines changed to summon Knowledge Keeper for doc files (default: 10)
+  # doc_line_threshold: 10
+
   # Files/patterns to skip entirely (glob syntax)
   skip_patterns:
     - "**/migrations/**"
