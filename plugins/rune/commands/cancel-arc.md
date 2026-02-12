@@ -50,6 +50,21 @@ const [current_phase, phase_info] = Object.entries(checkpoint.phases)
   .find(([_, v]) => v.status === "in_progress") || [null, null]
 
 phase_status = phase_info?.status
+
+// Resolve team name from checkpoint (set by arc orchestrator when phase started)
+let phase_team = phase_info?.team_name
+if (!phase_team) {
+  // Fallback for older checkpoints without team_name field
+  const legacyMap = {
+    forge: `arc-forge-${id}`,
+    plan_review: `arc-plan-review-${id}`,
+    work: `arc-work-${id}`,
+    code_review: `arc-review-${id}`,
+    mend: `arc-mend-${id}`,
+    audit: `arc-audit-${id}`
+  }
+  phase_team = legacyMap[current_phase]
+}
 ```
 
 If no phase has `status === "in_progress"`: "No active phase to cancel. Arc is idle or completed."
@@ -88,12 +103,15 @@ for (const task of tasks) {
   }
 }
 
-// Send shutdown requests to active teammates
-SendMessage({
-  type: "shutdown_request",
-  recipient: member.name,
-  content: "Arc pipeline cancelled by user"
-})
+// Read team config to discover active teammates
+const teamConfig = Read(`~/.claude/teams/${phase_team}/config.json`)
+for (const member of teamConfig.members) {
+  SendMessage({
+    type: "shutdown_request",
+    recipient: member.name,
+    content: "Arc pipeline cancelled by user"
+  })
+}
 ```
 
 #### 3c. Wait for Approvals (Max 30s)
@@ -103,18 +121,8 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 #### 3d. Delete Team
 
 ```javascript
-// Delete team with fallback (see team-lifecycle-guard.md)
-// Map all 6 arc phases to their team names
-const phaseTeamMap = {
-  forge: `arc-forge-${id}`,
-  plan_review: `arc-plan-review-${id}`,
-  work: `arc-work-${id}`,
-  code_review: `arc-review-${id}`,
-  mend: `arc-mend-${id}`,
-  audit: `arc-audit-${id}`
-}
-const phase_team = phaseTeamMap[current_phase]
-
+// phase_team resolved in Step 2 from checkpoint.phases[current_phase].team_name
+// (with legacy fallback for older checkpoints)
 try { TeamDelete() } catch (e) {
   if (phase_team && /^[a-zA-Z0-9_-]+$/.test(phase_team)) {
     Bash(`rm -rf ~/.claude/teams/${phase_team}/ ~/.claude/tasks/${phase_team}/ 2>/dev/null`)

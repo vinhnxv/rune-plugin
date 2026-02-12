@@ -195,7 +195,7 @@ Create `tmp/mend/{id}/inscription.json` with per-fixer contracts:
 ```javascript
 // 1. Create state file for concurrency detection
 Write("tmp/.rune-mend-{id}.json", {
-  status: "running",
+  status: "active",
   started: timestamp,
   tome_path: tome_path,
   fixer_count: fixer_count
@@ -203,11 +203,11 @@ Write("tmp/.rune-mend-{id}.json", {
 
 // 2. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
 // Validate identifier before rm -rf
-if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid mend identifier")
+if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid mend identifier")
 try { TeamDelete() } catch (e) {
-  Bash("rm -rf ~/.claude/teams/mend-{timestamp}/ ~/.claude/tasks/mend-{timestamp}/ 2>/dev/null")
+  Bash("rm -rf ~/.claude/teams/mend-{id}/ ~/.claude/tasks/mend-{id}/ 2>/dev/null")
 }
-TeamCreate({ team_name: "mend-{timestamp}" })
+TeamCreate({ team_name: "mend-{id}" })
 
 // 3. Create task pool — one task per file group
 for (const [file, findings] of Object.entries(fileGroups)) {
@@ -216,15 +216,10 @@ for (const [file, findings] of Object.entries(fileGroups)) {
     description: `
       File group: ${file}
       Findings:
-      ${findings.map(f => `- ${f.id}: ${f.title} (${f.severity})`).join('\n')}
-
-      For each finding:
-      - Finding ID: ${f.id}
-      - File: ${f.file}
-      - Line: ${f.line}
-      - Severity: ${f.severity}
-      - Evidence: ${f.evidence}
-      - Fix guidance: ${f.fix_guidance}
+      ${findings.map(f => `- ${f.id}: ${f.title} (${f.severity})
+        File: ${f.file}:${f.line}
+        Evidence: ${f.evidence}
+        Fix guidance: ${f.fix_guidance}`).join('\n')}
     `
   })
 }
@@ -237,7 +232,7 @@ Summon one mend-fixer teammate per file group:
 ```javascript
 for (const fixer of inscription.fixers) {
   Task({
-    team_name: "mend-{timestamp}",
+    team_name: "mend-{id}",
     name: fixer.name,
     subagent_type: "general-purpose",
     prompt: `You are Mend Fixer — a restricted code fixer for /rune:mend.
@@ -401,7 +396,7 @@ for (const fixer of allFixers) {
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
 try { TeamDelete() } catch (e) {
-  Bash("rm -rf ~/.claude/teams/mend-{timestamp}/ ~/.claude/tasks/mend-{timestamp}/ 2>/dev/null")
+  Bash("rm -rf ~/.claude/teams/mend-{id}/ ~/.claude/tasks/mend-{id}/ 2>/dev/null")
 }
 
 // 4. Update state file
@@ -416,7 +411,7 @@ Write("tmp/.rune-mend-{id}.json", {
 // 5. Persist learnings to Rune Echoes (TRACED layer)
 // NOTE: Only the orchestrator writes to echoes — not individual fixers
 if (exists(".claude/echoes/workers/")) {
-  appendEchoEntry("echoes/workers/MEMORY.md", {
+  appendEchoEntry(".claude/echoes/workers/MEMORY.md", {
     layer: "traced",
     source: "rune:mend",
     confidence: 0.3,

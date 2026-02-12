@@ -296,7 +296,7 @@ for (const ward of wards) {
 ```javascript
 if (exists(".claude/echoes/workers/")) {
   // Persist implementation patterns discovered during work
-  appendEchoEntry("echoes/workers/MEMORY.md", {
+  appendEchoEntry(".claude/echoes/workers/MEMORY.md", {
     layer: "inscribed",
     source: `rune:work ${timestamp}`,
     // ... patterns, gotchas, quality gate results

@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.10.2] - 2026-02-13
+
+Patch release: cross-command consistency fixes from codex-cli static audit.
+
+### Fixed
+
+- review.md: Standardized `{identifier}` variable (was mixed `{id}/{identifier}` causing broken paths)
+- review.md, audit.md: State files now marked `"completed"` in Phase 7 cleanup (was stuck `"active"` forever, blocking `/rune:rest` cleanup)
+- mend.md: Status field standardized to `"active"` (was `"running"`, mismatched with rest.md's expected value)
+- mend.md: Standardized `{id}` variable (was mixed `{id}/{timestamp}`) and fixed undefined `f` variable in task description template
+- forge.md: Added `mkdir -p` before `cp` backup command (was failing if directory didn't exist)
+- forge.md, plan.md: Normalized reference paths from `skills/roundtable-circle/...` to `roundtable-circle/...` (consistent with all other files)
+- arc.md: Made plan path optional with `--resume` (auto-detected from checkpoint); fixed contradictory recovery instructions
+- arc.md: Added `team_name` field to per-phase checkpoint schema (enables cancel-arc to find delegated team names)
+- cancel-arc.md: Now reads `team_name` from checkpoint instead of hardcoded phase-to-team map (was using wrong names for delegated Phases 3-6)
+- cancel-arc.md: Fixed undefined `member` variable in shutdown loop (now reads team config to discover teammates)
+- plan.md, review.md, audit.md, mend.md, work.md: Fixed echo write paths from `echoes/` to `.claude/echoes/` (was writing to wrong location)
+- rest.md: Deletion step now uses validated path list from Step 4 (was ignoring validation output)
+
 ## [1.10.1] - 2026-02-13
 
 Patch release: forge enrichment improvements and review finding fixes.

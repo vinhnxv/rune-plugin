@@ -140,7 +140,7 @@ const sections = parseSections(planContent)  // Split at ## headings
 
 ## Phase 2: Forge Gaze Selection
 
-Apply the Forge Gaze topic-matching algorithm (see `skills/roundtable-circle/references/forge-gaze.md`):
+Apply the Forge Gaze topic-matching algorithm (see `roundtable-circle/references/forge-gaze.md`):
 
 ```javascript
 const mode = flags.exhaustive ? "exhaustive" : "default"
@@ -307,6 +307,7 @@ Before any edits, back up the plan so enrichment can be reverted:
 
 ```javascript
 const backupPath = `tmp/forge/{timestamp}/original-plan.md`
+Bash(`mkdir -p "tmp/forge/{timestamp}"`)
 Bash(`cp "${planPath}" "${backupPath}"`)
 log(`Backup saved: ${backupPath}`)
 ```

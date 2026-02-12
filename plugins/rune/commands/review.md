@@ -160,7 +160,7 @@ Write("tmp/.rune-review-{identifier}.json", {
   team_name: "rune-review-{identifier}",
   started: timestamp,
   status: "active",
-  expected_files: selectedAsh.map(r => `tmp/reviews/${id}/${r}.md`)
+  expected_files: selectedAsh.map(r => `tmp/reviews/${identifier}/${r}.md`)
 })
 
 // 4. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
@@ -178,7 +178,7 @@ TeamCreate({ team_name: "rune-review-{identifier}" })
 for (const ash of selectedAsh) {
   TaskCreate({
     subject: `Review as ${ash}`,
-    description: `Files: [...], Output: tmp/reviews/{id}/${ash}.md`,
+    description: `Files: [...], Output: tmp/reviews/{identifier}/${ash}.md`,
     activeForm: `${ash} reviewing...`
   })
 }
@@ -238,10 +238,10 @@ Task({
   team_name: "rune-review-{identifier}",
   name: "runebinder",
   subagent_type: "general-purpose",
-  prompt: `Read all findings from tmp/reviews/{id}/.
+  prompt: `Read all findings from tmp/reviews/{identifier}/.
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT).
     Include custom Ash outputs in dedup — use their finding_prefix from config.
-    Write unified summary to tmp/reviews/{id}/TOME.md.
+    Write unified summary to tmp/reviews/{identifier}/TOME.md.
     See roundtable-circle/references/dedup-runes.md for dedup algorithm.`
 })
 ```
@@ -269,13 +269,22 @@ try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-review-{identifier}/ ~/.claude/tasks/rune-review-{identifier}/ 2>/dev/null")
 }
 
-// 4. Persist learnings to Rune Echoes (if .claude/echoes/ exists)
+// 4. Update state file to completed
+Write("tmp/.rune-review-{identifier}.json", {
+  team_name: "rune-review-{identifier}",
+  started: timestamp,
+  status: "completed",
+  completed: new Date().toISOString(),
+  expected_files: selectedAsh.map(r => `tmp/reviews/${identifier}/${r}.md`)
+})
+
+// 5. Persist learnings to Rune Echoes (if .claude/echoes/ exists)
 //    Extract P1/P2 patterns from TOME.md and write as Inscribed entries
 //    See rune-echoes skill for entry format and write protocol
 if (exists(".claude/echoes/reviewer/")) {
   patterns = extractRecurringPatterns("tmp/reviews/{identifier}/TOME.md")
   for (const pattern of patterns) {
-    appendEchoEntry("echoes/reviewer/MEMORY.md", {
+    appendEchoEntry(".claude/echoes/reviewer/MEMORY.md", {
       layer: "inscribed",
       source: `rune:review ${identifier}`,
       confidence: pattern.confidence,
@@ -285,7 +294,7 @@ if (exists(".claude/echoes/reviewer/")) {
   }
 }
 
-// 5. Read and present TOME.md to user
+// 6. Read and present TOME.md to user
 Read("tmp/reviews/{identifier}/TOME.md")
 ```
 

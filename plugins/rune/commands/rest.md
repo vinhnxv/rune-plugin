@@ -91,6 +91,7 @@ Before removing any directory, verify paths are within `tmp/`:
 
 ```bash
 # Validate each path resolves inside tmp/ (prevents traversal and symlink attacks)
+validated_dirs=()
 for dir in "${dirs_to_remove[@]}"; do
   # Reject symlinks — do not follow them
   if [[ -L "$dir" ]]; then
@@ -102,6 +103,7 @@ for dir in "${dirs_to_remove[@]}"; do
     echo "SKIP: $dir resolves outside tmp/ ($resolved)"
     continue
   fi
+  validated_dirs+=("$dir")
 done
 ```
 
@@ -109,32 +111,27 @@ Any path that resolves outside `tmp/` or is a symlink is skipped with a warning.
 
 ### 5. Remove Artifacts
 
+Remove only paths that passed validation in Step 4:
+
 ```bash
-# Remove completed review directories (validated paths only)
-rm -rf tmp/reviews/{completed_ids}/
+# Remove validated workflow directories (reviews, audits, mend, arc)
+for dir in "${validated_dirs[@]}"; do
+  rm -rf "$dir"
+done
 
-# Remove completed audit directories (validated paths only)
-rm -rf tmp/audit/{completed_ids}/
-
-# Remove completed mend directories (validated paths only)
-rm -rf tmp/mend/{completed_ids}/
-
-# Remove completed arc directories (validated paths only)
-rm -rf tmp/arc/{completed_ids}/
-
-# Remove plan research artifacts
+# Remove plan research artifacts (unconditional — no state file)
 rm -rf tmp/plans/
 
-# Remove work status files
+# Remove work status files (unconditional — no state file)
 rm -rf tmp/work/
 
-# Remove scratch files
+# Remove scratch files (unconditional — no state file)
 rm -rf tmp/scratch/
 
 # Remove completed state files
-rm tmp/.rune-review-{completed_ids}.json
-rm tmp/.rune-audit-{completed_ids}.json
-rm tmp/.rune-mend-{completed_ids}.json
+rm -f tmp/.rune-review-{completed_ids}.json
+rm -f tmp/.rune-audit-{completed_ids}.json
+rm -f tmp/.rune-mend-{completed_ids}.json
 ```
 
 **Note:** `tmp/plans/`, `tmp/work/`, and `tmp/scratch/` are removed unconditionally (no active-state check). These directories do not have state files and are always safe to clean. `tmp/mend/` and `tmp/arc/` directories follow the same active-state check as reviews and audits. Arc checkpoint state at `.claude/arc/` is NEVER cleaned — it lives outside `tmp/` and is needed for `--resume`.

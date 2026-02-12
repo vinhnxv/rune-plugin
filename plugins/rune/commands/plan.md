@@ -714,7 +714,7 @@ After forge, `/rune:work` can target individual shards:
 
 ## Phase 3: Forge (Default — skipped with `--quick`)
 
-Forge runs by default. Use **Forge Gaze** (topic-aware agent matching) to select the best specialized agents for each plan section. See `skills/roundtable-circle/references/forge-gaze.md` for the full topic registry and matching algorithm.
+Forge runs by default. Use **Forge Gaze** (topic-aware agent matching) to select the best specialized agents for each plan section. See `roundtable-circle/references/forge-gaze.md` for the full topic registry and matching algorithm.
 
 Skip this phase when `--quick` or `--no-forge` is passed. `--forge` is a no-op (forge is already default).
 
@@ -911,7 +911,7 @@ Persist planning learnings to Rune Echoes:
 ```javascript
 if (exists(".claude/echoes/planner/")) {
   // Write architectural discoveries and patterns found during research
-  appendEchoEntry("echoes/planner/MEMORY.md", {
+  appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
     layer: "inscribed",
     source: `rune:plan ${timestamp}`,
     // ... key learnings from this planning session
