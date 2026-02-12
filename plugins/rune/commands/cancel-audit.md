@@ -78,8 +78,10 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 ### 6. Cleanup
 
 ```javascript
-// Delete team
-TeamDelete()
+// Delete team with fallback (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash(`rm -rf ~/.claude/teams/${team_name}/ ~/.claude/tasks/${team_name}/ 2>/dev/null`)
+}
 
 // Update state file
 Write("tmp/.rune-audit-{identifier}.json", {

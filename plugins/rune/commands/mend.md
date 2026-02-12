@@ -201,7 +201,10 @@ Write("tmp/.rune-mend-{id}.json", {
   fixer_count: fixer_count
 })
 
-// 2. Create team
+// 2. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/mend-{timestamp}/ ~/.claude/tasks/mend-{timestamp}/ 2>/dev/null")
+}
 TeamCreate({ team_name: "mend-{timestamp}" })
 
 // 3. Create task pool — one task per file group
@@ -394,8 +397,10 @@ for (const fixer of allFixers) {
 
 // 2. Wait for approvals (max 30s)
 
-// 3. Cleanup team
-TeamDelete()
+// 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/mend-{id}/ ~/.claude/tasks/mend-{id}/ 2>/dev/null")
+}
 
 // 4. Update state file
 Write("tmp/.rune-mend-{id}.json", {

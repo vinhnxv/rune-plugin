@@ -104,7 +104,12 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 #### 3d. Delete Team
 
 ```javascript
-TeamDelete()
+// Delete team with fallback (see team-lifecycle-guard.md)
+// Team name depends on active phase: arc-forge-{id} or arc-plan-review-{id}
+try { TeamDelete() } catch (e) {
+  const phase_team = current_phase === "forge" ? `arc-forge-${id}` : `arc-plan-review-${id}`
+  Bash(`rm -rf ~/.claude/teams/${phase_team}/ ~/.claude/tasks/${phase_team}/ 2>/dev/null`)
+}
 ```
 
 ### 4. Update Checkpoint

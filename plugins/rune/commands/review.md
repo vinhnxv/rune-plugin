@@ -166,7 +166,10 @@ Write("tmp/.rune-review-{identifier}.json", {
 // 4. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
 Write("tmp/reviews/{identifier}/inscription.json", { ... })
 
-// 5. Create team
+// 5. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/rune-review-{identifier}/ ~/.claude/tasks/rune-review-{identifier}/ 2>/dev/null")
+}
 TeamCreate({ team_name: "rune-review-{identifier}" })
 
 // 6. Create tasks (one per Runebearer)
@@ -259,8 +262,10 @@ for (const runebearer of allRunebearers) {
 
 // 2. Wait for shutdown approvals (max 30s)
 
-// 3. Cleanup team
-TeamDelete()
+// 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/rune-review-{identifier}/ ~/.claude/tasks/rune-review-{identifier}/ 2>/dev/null")
+}
 
 // 4. Persist learnings to Rune Echoes (if .claude/echoes/ exists)
 //    Extract P1/P2 patterns from TOME.md and write as Inscribed entries

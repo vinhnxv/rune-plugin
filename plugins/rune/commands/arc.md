@@ -190,7 +190,10 @@ Spawn research agents to enrich the plan with current best practices, framework 
 // Update checkpoint
 updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1 })
 
-// Create team
+// Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash(`rm -rf ~/.claude/teams/arc-forge-${id}/ ~/.claude/tasks/arc-forge-${id}/ 2>/dev/null`)
+}
 TeamCreate({ team_name: `arc-forge-${id}` })
 
 // Spawn 5 research agents in parallel
@@ -215,8 +218,10 @@ for (const agent of agents) {
 // Monitor → collect → synthesize
 // Synthesize enriched plan → tmp/arc/{id}/enriched-plan.md
 
-// Cleanup
-TeamDelete()
+// Cleanup with fallback (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash(`rm -rf ~/.claude/teams/arc-forge-${id}/ ~/.claude/tasks/arc-forge-${id}/ 2>/dev/null`)
+}
 updateCheckpoint({
   phase: "forge",
   status: "completed",
@@ -240,6 +245,10 @@ Three parallel reviewers evaluate the enriched plan. ANY BLOCK verdict halts the
 ```javascript
 updateCheckpoint({ phase: "plan_review", status: "in_progress", phase_sequence: 2 })
 
+// Pre-create guard (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
+}
 TeamCreate({ team_name: `arc-plan-review-${id}` })
 
 // Spawn 3 reviewers in parallel
@@ -266,7 +275,10 @@ for (const reviewer of reviewers) {
 // Grep for <!-- VERDICT:...:BLOCK --> in reviewer outputs
 // Merge → tmp/arc/{id}/plan-review.md
 
-TeamDelete()
+// Cleanup with fallback (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
+}
 ```
 
 **CIRCUIT BREAKER**: Parse `<!-- VERDICT:{reviewer}:{verdict} -->` markers from each reviewer output.

@@ -127,7 +127,10 @@ Create an Agent Teams team and spawn research tasks using the conditional resear
 ### Phase 1A: Local Research (always runs)
 
 ```javascript
-// 1. Create team
+// 1. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
+}
 TeamCreate({ team_name: "rune-plan-{timestamp}" })
 
 // 2. Create research output directory
@@ -454,8 +457,10 @@ for (const teammate of allTeammates) {
 
 // 2. Wait for approvals (max 30s)
 
-// 3. Cleanup team
-TeamDelete()
+// 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
+}
 
 // 4. Present plan to user
 Read("plans/{type}-{feature-name}-plan.md")

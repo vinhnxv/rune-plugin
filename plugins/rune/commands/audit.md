@@ -203,7 +203,10 @@ Write("tmp/audit/{audit_id}/inscription.json", {
   verification: { enabled: true }
 })
 
-// 5. Create team
+// 5. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
+}
 TeamCreate({ team_name: "rune-audit-{audit_id}" })
 
 // 6. Create tasks (one per Runebearer)
@@ -308,8 +311,10 @@ for (const runebearer of allRunebearers) {
 
 // 2. Wait for shutdown approvals (max 30s)
 
-// 3. Cleanup team
-TeamDelete()
+// 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
+}
 
 // 4. Persist learnings to Rune Echoes (if .claude/echoes/ exists)
 //    Extract P1/P2 patterns from TOME.md and write as Inscribed entries

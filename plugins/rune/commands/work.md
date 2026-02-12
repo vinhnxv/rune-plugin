@@ -122,7 +122,10 @@ Proceed with {N} tasks and {W} workers?
 ## Phase 1: Forge Team
 
 ```javascript
-// 1. Create team
+// 1. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
+}
 TeamCreate({ team_name: "rune-work-{timestamp}" })
 
 // 2. Create task pool with dependencies
@@ -307,8 +310,10 @@ for (const worker of allWorkers) {
 
 // 2. Wait for approvals (max 30s)
 
-// 3. Cleanup team
-TeamDelete()
+// 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+try { TeamDelete() } catch (e) {
+  Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
+}
 
 // 4. Report to user
 ```
