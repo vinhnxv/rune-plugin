@@ -2,7 +2,7 @@
 
 Multi-agent engineering orchestration for [Claude Code](https://claude.ai/claude-code). Plan, work, review, and audit using Agent Teams.
 
-Each Runebearer teammate gets its own 200k context window, eliminating single-context bottlenecks.
+Each Ash teammate gets its own 200k context window, eliminating single-context bottlenecks.
 
 ## Claude Code Install
 
@@ -32,7 +32,7 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:plan
 /rune:plan --brainstorm        # Start with interactive brainstorm
 /rune:plan --forge             # Research enrichment phase
-/rune:plan --exhaustive        # Spawn ALL agents per section
+/rune:plan --exhaustive        # Summon ALL agents per section
 
 # Execute a plan with swarm workers
 /rune:work plans/feat-user-auth-plan.md
@@ -47,9 +47,9 @@ claude --plugin-dir /path/to/rune-plugin
 # Run a full codebase audit (all files)
 /rune:audit
 /rune:audit --focus security    # Security-only audit
-/rune:audit --max-agents 3      # Limit to 3 Runebearers
+/rune:audit --max-agents 3      # Limit to 3 Ashes
 
-# Preview scope without spawning agents
+# Preview scope without summoning agents
 /rune:review --dry-run
 /rune:audit --dry-run
 
@@ -81,7 +81,7 @@ When you run `/rune:arc`, Rune chains 6 phases into one automated pipeline:
 5. **MEND** — Parallel fixers resolve findings from TOME
 6. **AUDIT** — Final quality gate (informational)
 
-Each phase spawns a fresh team. Checkpoint-based resume (`--resume`) validates artifact integrity with SHA-256 hashes. Feature branches auto-created when on main.
+Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates artifact integrity with SHA-256 hashes. Feature branches auto-created when on main.
 
 ## Mend Mode (Finding Resolution)
 
@@ -89,7 +89,7 @@ When you run `/rune:mend`, Rune parses structured findings from a TOME and fixes
 
 1. **Parses TOME** — extracts findings with session nonce validation
 2. **Groups by file** — prevents concurrent edits to the same file
-3. **Spawns fixers** — restricted mend-fixer agents (no Bash, no TeamCreate)
+3. **Summons fixers** — restricted mend-fixer agents (no Bash, no TeamCreate)
 4. **Monitors progress** — stale detection, 15-minute timeout
 5. **Runs ward check** — once after all fixers complete (not per-fixer)
 6. **Produces report** — FIXED/FALSE_POSITIVE/FAILED/SKIPPED categories
@@ -101,9 +101,9 @@ SEC-prefix findings require human approval for FALSE_POSITIVE marking.
 When you run `/rune:review`, Rune:
 
 1. **Detects scope** — classifies changed files by extension
-2. **Selects Runebearers** — picks the right reviewers (2-5 teammates)
-3. **Spawns Agent Teams** — each reviewer gets its own 200k context window
-4. **Reviews in parallel** — Runebearers review simultaneously, writing to files
+2. **Selects Ash** — picks the right reviewers (2-8 Ashes)
+3. **Summons Agent Teams** — each reviewer gets its own 200k context window
+4. **Reviews in parallel** — Ash review simultaneously, writing to files
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes
 6. **Verifies evidence** — Truthsight validates P1 findings against source
 7. **Presents TOME** — unified review summary
@@ -114,33 +114,33 @@ When you run `/rune:audit`, Rune scans your entire codebase instead of just chan
 
 1. **Scans codebase** — finds all project files (excluding binaries, lock files, build output)
 2. **Classifies files** — same Rune Gaze extension-based classification
-3. **Selects Runebearers** — same 2-5 Runebearer selection
-4. **Audits in parallel** — each Runebearer gets capped context budget, prioritized by importance
+3. **Selects Ash** — same 2-8 Ashes selection
+4. **Audits in parallel** — each Ash gets capped context budget, prioritized by importance
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes
 6. **Presents TOME** — unified audit summary with coverage gaps
 
-Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. Each Runebearer's context budget limits how many files it processes, prioritized by architectural importance.
+Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. Each Ash's context budget limits how many files it processes, prioritized by architectural importance.
 
 ## Plan Mode
 
 When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 
 1. **Gathers input** — accepts a feature description or runs interactive brainstorm (`--brainstorm`)
-2. **Spawns research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
+2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Deepens sections** — optional parallel deep-dive per section (`--forge`)
-5. **Reviews document** — Scroll Reviewer checks plan quality
+4. **Forge Gaze enrichment** — optional topic-aware agent selection (`--forge`) matches plan sections to specialized agents using keyword overlap scoring. 13 agents across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds
+5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
-Output: `plans/{type}-{feature-name}-plan.md`
+Output: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
 ## Work Mode
 
-When you run `/rune:work`, Rune parses a plan into tasks and spawns self-organizing swarm workers:
+When you run `/rune:work`, Rune parses a plan into tasks and summons self-organizing swarm workers:
 
 1. **Parses plan** — extracts tasks with dependencies from checkbox items or numbered lists
 2. **Creates task pool** — TaskCreate with dependency chains (blockedBy)
-3. **Spawns workers** — Rune Smiths (implementation) and Trial Forgers (tests) claim tasks independently
+3. **Summons workers** — Rune Smiths (implementation) and Trial Forgers (tests) claim tasks independently
 4. **Monitors progress** — polls TaskList, detects stalled workers, releases stuck tasks
 5. **Runs quality gates** — auto-discovers wards from Makefile, package.json, pyproject.toml
 6. **Persists learnings** — saves implementation patterns to Rune Echoes
@@ -174,9 +174,9 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 /rune:echoes reset    # Clear all echoes (with backup)
 ```
 
-## Runebearers
+## Ash
 
-| Runebearer | Role | When Active |
+| Ash | Role | When Active |
 |-----------|------|-------------|
 | Forge Warden | Backend review | Backend files changed |
 | Ward Sentinel | Security review | Always |
@@ -188,7 +188,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 
 ### Review Agents
 
-10 specialized agents that Runebearers embed as perspectives:
+10 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -205,19 +205,19 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 
 ### Research Agents
 
-Spawned during `/rune:plan` for parallel research:
+Summoned during `/rune:plan` for parallel research:
 
 | Agent | Purpose |
 |-------|---------|
 | practice-seeker | External best practices and industry patterns |
 | repo-surveyor | Codebase exploration and pattern discovery |
-| codex-scholar | Framework documentation and API research |
+| lore-scholar | Framework documentation and API research |
 | git-miner | Git history analysis and code archaeology |
 | echo-reader | Reads past Rune Echoes for relevant learnings |
 
 ### Work Agents
 
-Spawned during `/rune:work` as self-organizing swarm workers:
+Summoned during `/rune:work` as self-organizing swarm workers:
 
 | Agent | Purpose |
 |-------|---------|
@@ -228,7 +228,7 @@ Spawned during `/rune:work` as self-organizing swarm workers:
 
 | Agent | Purpose |
 |-------|---------|
-| runebinder | Aggregates Runebearer findings into TOME.md |
+| runebinder | Aggregates Ash findings into TOME.md |
 | decree-arbiter | Technical soundness review for plans |
 | truthseer-validator | Audit coverage validation (Phase 5.5, >100 files) |
 | flow-seer | Spec flow analysis and gap detection |
@@ -244,22 +244,22 @@ Spawned during `/rune:work` as self-organizing swarm workers:
 | context-weaving | Context overflow/rot prevention |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
-| runebearer-guide | Agent invocation reference |
+| ash-guide | Agent invocation reference |
 
 ## Configuration
 
 Override file classification defaults in your project:
 
 ```yaml
-# .claude/rune-config.yml
+# .claude/talisman.yml
 rune-gaze:
   backend_extensions: [.py, .go]
   frontend_extensions: [.tsx, .ts]
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md", ".claude/**/*.md"]
 
-runebearers:
-  custom:                              # Extend built-in Runebearers with your own
+ashes:
+  custom:                              # Extend built-in Ashes with your own
     - name: "my-reviewer"
       agent: "my-reviewer"             # .claude/agents/my-reviewer.md
       source: local
@@ -270,7 +270,7 @@ runebearers:
       finding_prefix: "MYR"
 
 settings:
-  max_runebearers: 8                   # Hard cap (5 built-in + custom)
+  max_ashes: 8                   # Hard cap (5 built-in + custom)
 
 echoes:
   version_controlled: false  # Set to true to track echoes in git
@@ -284,7 +284,7 @@ work:
   commit_format: "rune: {subject} [ward-checked]"
 ```
 
-See [`rune-config.example.yml`](rune-config.example.yml) for the full configuration schema including custom Runebearers, trigger matching, and dedup hierarchy.
+See [`talisman.example.yml`](talisman.example.yml) for the full configuration schema including custom Ash, trigger matching, and dedup hierarchy.
 
 ## Remembrance Channel
 
@@ -296,7 +296,7 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **Rune Traces** — Every finding must include actual code snippets from source files. No paraphrasing.
 
-**Glyph Budget** — Agents write findings to files and return only a 1-sentence summary to the lead. Prevents context overflow.
+**Glyph Budget** — Agents write findings to files and return only a 1-sentence summary to the Tarnished. Prevents context overflow.
 
 **Inscription Protocol** — JSON contract defining what each agent must produce, enabling automated validation.
 
@@ -305,6 +305,8 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 **Arc Pipeline** — End-to-end orchestration across 6 phases with checkpoint-based resume and per-phase tool restrictions.
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers and centralized ward check.
+
+**Forge Gaze** — Topic-aware agent selection for `--forge` enrichment. Matches plan section topics to specialized agents via keyword overlap scoring. Configurable thresholds and budget tiers.
 
 **Rune Echoes** — Project-level agent memory with 3-layer lifecycle. Agents learn across sessions without explicit compound workflows.
 
@@ -336,9 +338,9 @@ plugins/rune/
 │   │   └── references/      # e.g. team-lifecycle-guard.md
 │   ├── context-weaving/     # Context management
 │   ├── roundtable-circle/   # Review orchestration
-│   │   └── references/      # e.g. rune-gaze.md, custom-runebearers.md
+│   │   └── references/      # e.g. rune-gaze.md, custom-ashes.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
-│   └── runebearer-guide/    # Agent reference
+│   └── ash-guide/    # Agent reference
 ├── docs/
 │   └── specflow-findings.md
 ├── CLAUDE.md
@@ -346,10 +348,22 @@ plugins/rune/
 └── README.md
 ```
 
+## Lore
+
+Rune uses Elden Ring-inspired theming:
+
+- **You are the Tarnished** — the orchestrator commanding each workflow
+- **Ash** are your teammates, each bringing specialized perspectives
+- The **Roundtable Circle** is where reviews convene
+- The **TOME** is the unified record of all findings
+- **Rune Echoes** are memories that persist across sessions
+- The **Elden Throne** is the ultimate goal — successful pipeline completion
+- See CLAUDE.md for the full Lore Glossary
+
 ## Known Limitations
 
 - **Agent Teams is experimental** — Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable. Behavior may change across Claude Code releases.
-- **Context budget caps** — Each Runebearer can review a limited number of files (20-30). Large codebases will have coverage gaps reported in the TOME.
+- **Context budget caps** — Each Ash can review a limited number of files (20-30). Large codebases will have coverage gaps reported in the TOME.
 - **No incremental audit** — `/rune:audit` scans all files each run. There is no diff-based "only audit what changed since last audit" mode yet.
 - **Concurrent sessions** — Only one `/rune:review`, `/rune:audit`, or `/rune:arc` can run at a time. Use `/rune:cancel-review`, `/rune:cancel-audit`, or `/rune:cancel-arc` to stop an active session.
 - **Manual cleanup optional** — Run `/rune:rest` to remove `tmp/` artifacts, or let the OS handle them.
@@ -359,7 +373,7 @@ plugins/rune/
 | Issue | Solution |
 |-------|----------|
 | "Agent Teams not available" | Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in your shell profile |
-| Runebearer times out (>5 min) | Rune proceeds with partial results. Check TOME.md for coverage gaps |
+| Ash times out (>5 min) | Rune proceeds with partial results. Check TOME.md for coverage gaps |
 | "Concurrent review running" | Run `/rune:cancel-review` first, then retry |
 | Echo files causing merge conflicts | Add `.gitattributes` with `merge=union` for echo paths (see Configuration) |
 | No files to review | Ensure you have uncommitted changes on a feature branch (not main) |

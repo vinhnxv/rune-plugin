@@ -1,21 +1,18 @@
 ---
 name: rune:cancel-review
 description: |
-  Cancel an active Roundtable Circle review and gracefully shutdown all Runebearer teammates.
+  Cancel an active Roundtable Circle review and gracefully shutdown all Ash teammates.
   Partial results remain in tmp/reviews/ for manual inspection.
 
   <example>
   user: "/rune:cancel-review"
-  assistant: "Cancelling active review and shutting down Runebearers..."
+  assistant: "The Tarnished dismisses the Roundtable Circle..."
   </example>
 user-invocable: true
 allowed-tools:
-  - Task
-  - TaskCreate
   - TaskList
   - TaskUpdate
   - TaskGet
-  - TeamCreate
   - TeamDelete
   - SendMessage
   - Read

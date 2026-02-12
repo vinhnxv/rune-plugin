@@ -8,6 +8,11 @@ capabilities:
   - Check for ambiguous or unclear language
   - Validate cross-references and links
   - Assess actionability of requirements
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - SendMessage
 ---
 
 # Scroll Reviewer — Document Quality Agent
@@ -59,7 +64,7 @@ You are reviewing a document for quality. Base feedback on objective criteria (c
 
 ## Output Budget
 
-Write review to the designated output file. Return only a 1-sentence summary to the lead via SendMessage (max 50 words).
+Write review to the designated output file. Return only a 1-sentence summary to the Tarnished via SendMessage (max 50 words).
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

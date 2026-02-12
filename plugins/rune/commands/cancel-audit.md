@@ -1,21 +1,18 @@
 ---
 name: rune:cancel-audit
 description: |
-  Cancel an active Roundtable Circle audit and gracefully shutdown all Runebearer teammates.
+  Cancel an active Roundtable Circle audit and gracefully shutdown all Ash teammates.
   Partial results remain in tmp/audit/ for manual inspection.
 
   <example>
   user: "/rune:cancel-audit"
-  assistant: "Cancelling active audit and shutting down Runebearers..."
+  assistant: "The Tarnished dismisses the audit Circle..."
   </example>
 user-invocable: true
 allowed-tools:
-  - Task
-  - TaskCreate
   - TaskList
   - TaskUpdate
   - TaskGet
-  - TeamCreate
   - TeamDelete
   - SendMessage
   - Read

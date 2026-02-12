@@ -1,19 +1,94 @@
 # Changelog
 
+## [1.10.0] - 2026-02-12 — "The Elden Throne"
+
+### Changed
+
+- **Elden Lord → Tarnished** — The lead/orchestrator is now called "the Tarnished" (the protagonist).
+  In Elden Ring, the Tarnished is the player character who journeys through the Lands Between.
+- **Tarnished → Ash** — All teammates (review, work, research, utility) are now called "Ash" / "Ashes".
+  In Elden Ring, Spirit Ashes are summoned allies. "The Tarnished summons Ashes" — lore-accurate.
+- **Config keys renamed**: `tarnished:` → `ashes:`, `max_tarnished` → `max_ashes`,
+  `disable_tarnished` → `disable_ashes`. Update your `.claude/talisman.yml`.
+- Directory renames: `tarnished-prompts/` → `ash-prompts/`,
+  `tarnished-guide/` → `ash-guide/`, `custom-tarnished.md` → `custom-ashes.md`
+- **Elden Throne completion message** — Successful workflow completion now shows
+  "The Tarnished has claimed the Elden Throne." in arc and work outputs.
+- Lore Glossary updated: Tarnished = lead, Ash = teammates, Elden Throne = completion state.
+
+### Unchanged (Intentional)
+
+- `recipient: "team-lead"` in all SendMessage calls — platform identifier
+- Named roles: Forge Warden, Ward Sentinel, Pattern Weaver, Glyph Scribe, Knowledge Keeper
+- `summon` verb — already lore-accurate (Tarnished summons Ashes)
+- `talisman.yml` config file name — unchanged
+- All logic, phases, and orchestration patterns
+
+## [1.9.0] - 2026-02-12 — "The Elden Lord"
+
+### Added
+
+- **Elden Lord persona** — The orchestrator/lead now has a named identity. All commands use
+  lore-themed greeting messages ("The Elden Lord convenes the Roundtable Circle...").
+- **Lore Glossary** — New reference table in CLAUDE.md mapping 18 Elden Ring terms to plugin concepts.
+- **Forge Gaze** — Topic-aware agent selection for `/rune:plan --forge`. Matches plan section
+  topics to specialized agents using keyword overlap scoring (deterministic, zero token cost).
+  13 agents across 2 budget tiers replace generic `forge-researcher` agents.
+  See `roundtable-circle/references/forge-gaze.md` for the topic registry and algorithm.
+- **Forge Gaze configuration** — Override thresholds, per-section caps, and total agent limits
+  via `forge:` section in `talisman.yml`. Custom Tarnished participate via `workflows: [forge]`.
+
+### Changed
+
+- **Runebearer → Tarnished** — All review/worker/research/utility teammates are now called
+  "Tarnished". Named roles (Forge Warden, Ward Sentinel, etc.) are unchanged.
+- **Config keys renamed**: `runebearers:` → `tarnished:`, `max_runebearers` → `max_tarnished`,
+  `disable_runebearers` → `disable_tarnished`. Update your `.claude/talisman.yml`.
+- Directory renames: `runebearer-prompts/` → `tarnished-prompts/`,
+  `runebearer-guide/` → `tarnished-guide/`, `custom-runebearers.md` → `custom-tarnished.md`
+- **Config file renamed**: `rune-config.yml` → `talisman.yml`, `rune-config.example.yml` → `talisman.example.yml`.
+  Talismans in Elden Ring are equippable items that enhance abilities — fitting for plugin configuration.
+- **spawn → summon** — All 182 references to "spawn" renamed to "summon" across 37 files.
+  In Elden Ring, you summon spirits and cooperators to aid in battle.
+- Natural-language "the lead" → "the Elden Lord" across commands, prompts, and skills.
+
+### Unchanged (Intentional)
+
+- `recipient: "team-lead"` in all SendMessage calls — platform identifier
+- Named roles: Forge Warden, Ward Sentinel, Pattern Weaver, Glyph Scribe, Knowledge Keeper
+- All logic, phases, and orchestration patterns
+
+## [1.8.2] - 2026-02-12
+
+### Added
+
+- Remembrance directory structure — `docs/solutions/` with 8 category directories and README
+
+### Fixed
+
+- SpecFlow findings updated through v1.8.1 (was stuck at v1.2.0) — added 20 resolved entries
+- Stale `codex-scholar` references in plan document updated to `lore-scholar`
+
+## [1.8.1] - 2026-02-12
+
+### Changed
+
+- **Agent rename**: `codex-scholar` → `lore-scholar` — avoids name collision with OpenAI's codex-cli. "Lore" fits the Elden Ring theme and conveys documentation research. Updated across 7 files (agent definition, commands, skills, CLAUDE.md, README, CHANGELOG).
+
 ## [1.8.0] - 2026-02-12 — "Knowledge & Safety"
 
 ### Added
 
 - Remembrance channel — Human-readable knowledge docs in `docs/solutions/` promoted from Rune Echoes
 - `--approve` flag for `/rune:work` — Optional plan approval gate per task
-- `--exhaustive` flag for `/rune:plan --forge` — Spawn ALL agents per section
+- `--exhaustive` flag for `/rune:plan --forge` — Summon ALL agents per section
 - E8 research pipeline upgrade — Conditional research, brainstorm auto-detect, 6-agent roster, plan detail levels
 - `/rune:echoes migrate` — Echo name migration utility
 - `/rune:echoes promote` — Promote echoes to Remembrance docs
 
 ### Changed
 
-- `/rune:plan` research now uses conditional spawning (local-first, external on demand)
+- `/rune:plan` research now uses conditional summoning (local-first, external on demand)
 - `/rune:plan` post-generation options expanded to 6 (was 3)
 - Team lifecycle guards added to all 9 commands — pre-create guards + cleanup fallbacks with input validation (see `team-lifecycle-guard.md`)
 - Reduced allowed-tools for `/rune:echoes`, `/rune:rest`, `/rune:cancel-arc` to enforce least-privilege
@@ -60,7 +135,7 @@
 - **Naming refresh** — selective rename of agents, commands, and skills for clarity:
   - Review agents: `echo-detector` → `mimic-detector`, `orphan-finder` → `wraith-finder`, `forge-oracle` → `ember-oracle`
   - Research agents: `lore-seeker` → `practice-seeker`, `realm-analyst` → `repo-surveyor`, `chronicle-miner` → `git-miner`
-  - Runebearer: `Lore Keeper` → `Knowledge Keeper`
+  - Tarnished: `Lore Keeper` → `Knowledge Keeper`
   - Command: `/rune:cleanup` → `/rune:rest`
   - Skill: `rune-circle` → `roundtable-circle`
 - All internal cross-references updated across 30+ files
@@ -74,7 +149,7 @@
 ### Added
 
 - **Truthbinding Protocol** for all 10 review agents — ANCHOR + RE-ANCHOR prompt injection resistance
-- **Truthbinding hardening** for utility agents (runebinder, truthseer-validator) and Runebearer prompts (forge-warden, pattern-weaver, glyph-scribe, lore-keeper)
+- **Truthbinding hardening** for utility agents (runebinder, truthseer-validator) and Tarnished prompts (forge-warden, pattern-weaver, glyph-scribe, lore-keeper)
 - **File scope restrictions** for work agents (rune-smith, trial-forger) — prevent modification of `.claude/`, `.github/`, CI/CD configs
 - **File scope restrictions** for utility agents (scroll-reviewer, flow-seer) — context budget and scope boundaries
 - **New reference files** — `rune-orchestration/references/output-formats.md` and `rune-orchestration/references/role-patterns.md` (extracted from oversized SKILL.md)
@@ -85,15 +160,15 @@
 - **P1: Missing `TaskGet` tool** in `review` and `audit` commands — task inspection during monitoring unavailable
 - **P1: Missing `Edit` tool** in `echoes` command — prune subcommand could not edit memory files
 - **P1: Missing `AskUserQuestion` tool** in `cleanup` command — user confirmation dialog unavailable
-- **P1: Missing `allowed-tools`** in `runebearer-guide` skill — added Read, Glob
+- **P1: Missing `allowed-tools`** in `tarnished-guide` skill — added Read, Glob
 - **P1: `rune-orchestration` SKILL.md** exceeded 500-line guideline (437 lines) — reduced to 245 lines via reference extraction
 - **Glyph Scribe / Lore Keeper documentation** — clarified these use inline perspectives, not dedicated agent files
-- **Agent-to-Runebearer mapping** made explicit across runebearer-guide, CLAUDE.md, circle-registry
+- **Agent-to-Tarnished mapping** made explicit across tarnished-guide, CLAUDE.md, circle-registry
 - **Skill descriptions** rewritten to third-person trigger format per Anthropic SKILL.md standard
 - **`--max-agents` default** in audit command corrected from `5` to `All selected`
-- **Malicious code warnings** added to RE-ANCHOR sections in all 4 Runebearer prompts
-- **Table of Contents** added to `custom-runebearers.md` reference
-- **`rune-gaze.md`** updated max Runebearers count to include custom Runebearers (8 via settings)
+- **Malicious code warnings** added to RE-ANCHOR sections in all 4 Tarnished prompts
+- **Table of Contents** added to `custom-tarnished.md` reference
+- **`rune-gaze.md`** updated max Tarnished count to include custom Tarnished (8 via settings)
 - **echo-reader** listing fixed in v1.0.0 changelog entry
 
 ## [1.4.1] - 2026-02-12
@@ -103,7 +178,7 @@
 - **Finding prefix naming** — unified all files to canonical prefixes (BACK/QUAL/FRONT) replacing stale FORGE/PAT/GLYPH references across 9 files
 - **Root README** — removed phantom `plugin.json` from structure diagram (only `marketplace.json` exists at root)
 - **Missing agent definition** — added `agents/utility/truthseer-validator.md` (referenced in CLAUDE.md but file was absent)
-- **Agent name validation** — added path traversal prevention rule (`^[a-zA-Z0-9_:-]+$`) to custom Runebearer validation
+- **Agent name validation** — added path traversal prevention rule (`^[a-zA-Z0-9_:-]+$`) to custom Tarnished validation
 - **Cleanup symlink safety** — added explicit symlink detection (`-L` check) before path validation in cleanup command
 - **specflow-findings.md** — moved item #7 (Custom agent templates) to Resolved table (delivered in v1.4.0)
 - **Keyword alignment** — synced `plugin.json` keywords with `marketplace.json` tags (`swarm`, `planning`)
@@ -113,22 +188,22 @@
 
 ### Added
 
-- **Custom Runebearers** — extend built-in 5 Runebearers with agents from local (`.claude/agents/`), global (`~/.claude/agents/`), or third-party plugins via `rune-config.yml`
-  - `runebearers.custom[]` config with name, agent, source, workflows, trigger, context_budget, finding_prefix
+- **Custom Tarnished** — extend built-in 5 Tarnished with agents from local (`.claude/agents/`), global (`~/.claude/agents/`), or third-party plugins via `talisman.yml`
+  - `tarnished.custom[]` config with name, agent, source, workflows, trigger, context_budget, finding_prefix
   - Truthbinding wrapper prompt auto-injected for custom agents (ANCHOR + Glyph Budget + Seal + RE-ANCHOR)
   - Trigger matching: extension + path filters with min_files threshold
   - Agent resolution: local → global → plugin namespace
-- **`rune-config.example.yml`** — complete example config at plugin root
-- **`custom-runebearers.md`** — full schema reference, wrapper prompt template, validation rules, examples
+- **`talisman.example.yml`** — complete example config at plugin root
+- **`custom-tarnished.md`** — full schema reference, wrapper prompt template, validation rules, examples
 - **Extended dedup hierarchy** — `settings.dedup_hierarchy` supports custom finding prefixes alongside built-ins
-- **`settings.max_runebearers`** — configurable hard cap (default 8) for total active Runebearers
-- **`defaults.disable_runebearers`** — optionally disable built-in Runebearers
-- **`--dry-run` output** now shows custom Runebearers with their prefix, file count, and source
+- **`settings.max_tarnished`** — configurable hard cap (default 8) for total active Tarnished
+- **`defaults.disable_tarnished`** — optionally disable built-in Tarnished
+- **`--dry-run` output** now shows custom Tarnished with their prefix, file count, and source
 
 ### Changed
 
-- `/rune:review` and `/rune:audit` Phase 0 now reads `rune-config.yml` for custom Runebearer definitions
-- Phase 3 spawning extended to include custom Runebearers with wrapper prompts
+- `/rune:review` and `/rune:audit` Phase 0 now reads `talisman.yml` for custom Tarnished definitions
+- Phase 3 summoning extended to include custom Tarnished with wrapper prompts
 - Runebinder aggregation uses extended dedup hierarchy from config
 - `--max-agents` flag range updated from 1-5 to 1-8 (to include custom)
 
@@ -138,7 +213,7 @@
 
 - **Truthsight Verifier prompt** — added 3 missing verification tasks from source architecture:
   - Task 1: Rune Trace Resolvability Scan (validates all evidence blocks are resolvable)
-  - Task 4: Cross-Runebearer Conflict Detection (flags conflicting assessments + groupthink)
+  - Task 4: Cross-Tarnished Conflict Detection (flags conflicting assessments + groupthink)
   - Task 5: Self-Review Log Validation (verifies log completeness + DELETED consistency)
 - **Truthsight Verifier prompt** — added Context Budget (100k token breakdown), Read Constraints (allowed vs prohibited reads), Seal Format for verifier output, Re-Verify Agent Specification (max 2, 3-min timeout), Timeout Recovery (15-min with partial output handling)
 - **Structured Reasoning** — added foundational "5 Principles" framework (Forced Serialization, Revision Permission, Branching, Dynamic Scope, State Externalization) with per-level application tables
@@ -154,14 +229,14 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 ### Added
 
 - `/rune:cleanup` command — remove `tmp/` artifacts from completed workflows, with `--dry-run` and `--all` flags
-- `--dry-run` flag for `/rune:review` and `/rune:audit` — preview scope selection without spawning agents
-- Runebinder aggregation prompt (`runebearer-prompts/runebinder.md`) — TOME.md generation with dedup algorithm, completion.json
-- Truthseer Validator prompt (`runebearer-prompts/truthseer-validator.md`) — audit coverage validation for Phase 5.5
+- `--dry-run` flag for `/rune:review` and `/rune:audit` — preview scope selection without summoning agents
+- Runebinder aggregation prompt (`tarnished-prompts/runebinder.md`) — TOME.md generation with dedup algorithm, completion.json
+- Truthseer Validator prompt (`tarnished-prompts/truthseer-validator.md`) — audit coverage validation for Phase 5.5
 
 ### Fixed
 
 - Stale version labels: "Deferred to v1.0" → "Deferred to v2.0" in `truthsight-pipeline.md`
-- Removed redundant "(v1.0)" suffixes from agent tables in `runebearer-guide/SKILL.md`
+- Removed redundant "(v1.0)" suffixes from agent tables in `tarnished-guide/SKILL.md`
 
 ### Changed
 
@@ -172,15 +247,15 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 ### Added
 
 - 4 new Rune Circle reference files:
-  - `smart-selection.md` — File-to-Runebearer assignment, context budgets, focus mode
-  - `task-templates.md` — TaskCreate templates for each Runebearer role
+  - `smart-selection.md` — File-to-Tarnished assignment, context budgets, focus mode
+  - `task-templates.md` — TaskCreate templates for each Tarnished role
   - `output-format.md` — Raw finding format, validated format, JSON output, TOME format
   - `validator-rules.md` — Confidence scoring, risk classification, dedup, gap reporting
-- Agent Role Patterns section in `rune-orchestration/SKILL.md` — spawn patterns for Review/Audit/Research/Work/Conditional/Validation
+- Agent Role Patterns section in `rune-orchestration/SKILL.md` — summon patterns for Review/Audit/Research/Work/Conditional/Validation
 - Truthseer Validator (Phase 5.5) for audit workflows — cross-references finding density against file importance
 - Seal Format specification in `rune-circle/SKILL.md` with field table and completion signal
 - Output Directory Structure showing all expected files per workflow
-- JSON output format (`{runebearer}-findings.json`) and `completion.json` structured summary
+- JSON output format (`{tarnished}-findings.json`) and `completion.json` structured summary
 
 ### Changed
 
@@ -205,7 +280,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 
 ### Added
 
-- Circle Registry (`rune-circle/references/circle-registry.md`) — agent-to-Runebearer mapping with audit scope priorities and context budgets
+- Circle Registry (`rune-circle/references/circle-registry.md`) — agent-to-Tarnished mapping with audit scope priorities and context budgets
 - `--focus <area>` and `--max-agents <N>` flags for `/rune:audit`
 - `--partial` flag for `/rune:review` (review staged files only)
 - Known Limitations and Troubleshooting sections in README
@@ -220,7 +295,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 ### Added
 
 - `/rune:plan` — Multi-agent planning with parallel research pipeline
-  - 3 new research agents (lore-seeker, realm-analyst, codex-scholar) plus echo-reader (from v0.3.0)
+  - 3 new research agents (lore-seeker, realm-analyst, lore-scholar) plus echo-reader (from v0.3.0)
   - Optional brainstorm phase (`--brainstorm`)
   - Optional deep section-level research (`--deep`)
   - Scroll Reviewer document quality check
@@ -255,7 +330,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 
 - `/rune:review` — Multi-agent code review with Rune Circle lifecycle
 - `/rune:cancel-review` — Cancel active review
-- 5 Runebearers (Forge Warden, Ward Sentinel, Pattern Weaver, Glyph Scribe, Lore Keeper)
+- 5 Tarnished (Forge Warden, Ward Sentinel, Pattern Weaver, Glyph Scribe, Lore Keeper)
 - 10 review agents with Truthbinding Protocol
 - Rune Gaze file classification
 - Inscription Protocol for agent contracts

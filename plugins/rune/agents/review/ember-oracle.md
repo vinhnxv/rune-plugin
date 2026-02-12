@@ -10,6 +10,10 @@ description: |
   user: "Check the API for performance issues"
   assistant: "I'll use ember-oracle to analyze performance bottlenecks."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - Algorithmic complexity analysis
   - Database query optimization (N+1, missing indexes)
@@ -93,17 +97,19 @@ active_records = await repo.find_active(limit=100, offset=page * 100)
 
 ## Output Format
 
+> **Note**: When embedded in Forge Warden Ash, use the `BACK-` finding prefix per the dedup hierarchy (`SEC > BACK > DOC > QUAL > FRONT`). The `PERF-` prefix below is used in standalone mode only.
+
 ```markdown
 ## Performance Findings
 
 ### P1 (Critical) — Measurable Impact
-- [ ] **[PERF-001] N+1 Query** in `user_service.py:35`
+- [ ] **[BACK-001] N+1 Query** in `user_service.py:35`
   - **Evidence:** Loop with individual DB queries inside
   - **Impact:** O(n) queries where O(1) is possible
   - **Fix:** Use eager loading or batch query
 
 ### P2 (High) — Scalability Risk
-- [ ] **[PERF-002] O(n²) Search** in `matcher.py:78`
+- [ ] **[BACK-002] O(n²) Search** in `matcher.py:78`
   - **Evidence:** Nested list comprehension for lookup
   - **Fix:** Use set or dictionary for O(1) lookups
 ```

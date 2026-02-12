@@ -7,7 +7,7 @@ Each agent writes findings in a format matching its workflow type. All formats r
 Used by workflows producing prioritized findings with P1/P2/P3 severity levels.
 
 ```markdown
-# {Runebearer Name} Review
+# {Ash Name} Review
 
 **PR:** #{pr-number}
 **Branch:** {branch-name}

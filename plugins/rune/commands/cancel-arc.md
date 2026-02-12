@@ -6,7 +6,7 @@ description: |
 
   <example>
   user: "/rune:cancel-arc"
-  assistant: "Cancelling active arc pipeline. Phase 3 (WORK) in progress — shutting down workers..."
+  assistant: "The Tarnished halts the arc..."
   </example>
 user-invocable: true
 allowed-tools:
@@ -41,6 +41,9 @@ If no active arc found: "No active arc pipeline to cancel."
 ```javascript
 checkpoint = Read(".claude/arc/{id}/checkpoint.json")
 
+// Validate arc id from checkpoint before using in path construction
+if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid arc id")
+
 // Derive current phase — checkpoint has no `current_phase` field,
 // scan phases object for the one with status "in_progress"
 const [current_phase, phase_info] = Object.entries(checkpoint.phases)
@@ -60,9 +63,9 @@ Delegate cancellation based on the currently-active phase:
 | **FORGE** (Phase 1) | Shutdown research team — broadcast cancellation, send shutdown requests |
 | **PLAN REVIEW** (Phase 2) | Shutdown decree-arbiter review team |
 | **WORK** (Phase 3) | Shutdown work team — broadcast cancellation, send shutdown requests to all rune-smith workers |
-| **CODE REVIEW** (Phase 4) | Delegate to `/rune:cancel-review` logic — broadcast, shutdown Runebearers, cleanup |
+| **CODE REVIEW** (Phase 4) | Delegate to `/rune:cancel-review` logic — broadcast, shutdown Ash, cleanup |
 | **MEND** (Phase 5) | Shutdown mend team — broadcast cancellation, send shutdown requests to all mend-fixer workers |
-| **AUDIT** (Phase 6) | Delegate to `/rune:cancel-audit` logic — broadcast, shutdown Runebearers, cleanup |
+| **AUDIT** (Phase 6) | Delegate to `/rune:cancel-audit` logic — broadcast, shutdown Ash, cleanup |
 
 #### 3a. Broadcast Cancellation
 

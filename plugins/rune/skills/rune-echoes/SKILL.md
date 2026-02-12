@@ -7,7 +7,7 @@ description: |
   Agents learn across sessions without manual compound workflows.
 
   <example>
-  Context: After a review, Runebearers persist patterns to echoes
+  Context: After a review, Ash persist patterns to echoes
   user: "Review found repeated N+1 query pattern"
   assistant: "Pattern persisted to echoes/reviewer/MEMORY.md as Inscribed entry"
   </example>
@@ -24,7 +24,7 @@ allowed-tools:
 
 Project-level agent memory that compounds knowledge across sessions. Each workflow writes learnings to `.claude/echoes/`, and future workflows read them to avoid repeating mistakes.
 
-> "The Runebearer collects runes to grow stronger. Each engineering session should do the same."
+> "The Tarnished collects runes to grow stronger. Each engineering session should do the same."
 
 ## Architecture
 
@@ -148,10 +148,10 @@ When a role's `knowledge.md` exceeds 300 lines:
 
 ## Concurrent Write Protocol
 
-Multiple Runebearers may discover learnings simultaneously. To prevent write conflicts:
+Multiple Ash may discover learnings simultaneously. To prevent write conflicts:
 
-1. **During workflow**: Each Runebearer writes to `echoes/{role}/{agent-name}-findings.md` (unique file per agent)
-2. **Post-workflow**: Lead agent consolidates all `{agent-name}-findings.md` into `echoes/{role}/MEMORY.md`
+1. **During workflow**: Each Ash writes to `echoes/{role}/{agent-name}-findings.md` (unique file per agent)
+2. **Post-workflow**: The Tarnished consolidates all `{agent-name}-findings.md` into `echoes/{role}/MEMORY.md`
 3. **Cross-role learnings**: Only lead writes to `echoes/team/MEMORY.md`
 4. **Consolidation protocol**: Read existing MEMORY.md → append new entries → check 150-line limit → prune if needed → write
 
@@ -191,7 +191,7 @@ If a finding triggers the filter, persist the learning but strip the sensitive e
 `.gitignore` excludes `.claude/echoes/` by default. Users opt-in to version control:
 
 ```yaml
-# .claude/rune-config.yml
+# .claude/talisman.yml
 echoes:
   version_controlled: true  # Remove .claude/echoes/ from .gitignore
 ```

@@ -1,6 +1,6 @@
 # Dedup Runes — Deduplication Hierarchy
 
-> Rules for deduplicating findings when multiple Runebearers flag the same code.
+> Rules for deduplicating findings when multiple Ash flag the same code.
 
 ## Deduplication Rules
 
@@ -8,9 +8,9 @@ When the Runebinder aggregates findings into TOME.md, it must deduplicate overla
 
 ### Same File + Same Line Range (5-line window)
 
-If two Runebearers flag the same file within a 5-line range:
+If two Ash flag the same file within a 5-line range:
 
-| Runebearer A | Runebearer B | Action |
+| Ash A | Ash B | Action |
 |-------------|-------------|--------|
 | Ward Sentinel (P1) | Forge Warden (P2) | Keep Ward Sentinel's (security wins) |
 | Forge Warden (P1) | Pattern Weaver (P1) | Keep both (different perspectives) |
@@ -26,14 +26,14 @@ Ward Sentinel > Forge Warden > Knowledge Keeper > Pattern Weaver > Glyph Scribe
 SEC > BACK > DOC > QUAL > FRONT
 ```
 
-When the same issue is found by multiple Runebearers:
-1. Keep the finding from the highest-priority Runebearer
-2. Note in TOME.md which other Runebearers also flagged it
+When the same issue is found by multiple Ash:
+1. Keep the finding from the highest-priority Ash
+2. Note in TOME.md which other Ash also flagged it
 3. Use the highest severity (P1 > P2 > P3)
 
-### Extended Hierarchy (with Custom Runebearers)
+### Extended Hierarchy (with Custom Ashes)
 
-When custom Runebearers are configured in `rune-config.yml`, the dedup hierarchy is extended via `settings.dedup_hierarchy`. Custom prefixes are slotted into the hierarchy at the position specified by the user.
+When custom Ash are configured in `talisman.yml`, the dedup hierarchy is extended via `settings.dedup_hierarchy`. Custom prefixes are slotted into the hierarchy at the position specified by the user.
 
 **Example extended hierarchy:**
 ```
@@ -46,14 +46,14 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT
   ```
   SEC > BACK > DOC > QUAL > FRONT > {custom_1} > {custom_2} > ...
   ```
-- Every active Runebearer's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
-- Reserved built-in prefixes: `SEC`, `BACK`, `QUAL`, `FRONT`, `DOC` — cannot be used by custom Runebearers
+- Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
+- Reserved built-in prefixes: `SEC`, `BACK`, `QUAL`, `FRONT`, `DOC` — cannot be used by custom Ash
 
 ### Finding ID Prefixes
 
-Each Runebearer uses a unique prefix for finding IDs:
+Each Ash uses a unique prefix for finding IDs:
 
-| Runebearer | Prefix | Example | Type |
+| Ash | Prefix | Example | Type |
 |-----------|--------|---------|------|
 | Ward Sentinel | `SEC-` | `SEC-001` | Built-in |
 | Forge Warden | `BACK-` | `BACK-001` | Built-in |
@@ -62,7 +62,7 @@ Each Runebearer uses a unique prefix for finding IDs:
 | Knowledge Keeper | `DOC-` | `DOC-001` | Built-in |
 | *(custom)* | *from config* | e.g., `DOM-001` | Custom |
 
-Custom Runebearers define their prefix in `rune-config.yml` → `runebearers.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Runebearers.
+Custom Ashes define their prefix in `talisman.yml` → `ashes.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Ashes.
 
 ### Dedup Algorithm
 
@@ -74,10 +74,10 @@ for each finding in all_findings:
     existing = seen[key]
     if finding.severity > existing.severity:
       replace existing with finding
-    elif finding.runebearer_priority > existing.runebearer_priority:
+    elif finding.ash_priority > existing.ash_priority:
       replace existing with finding
     else:
-      add finding.runebearer to existing.also_flagged_by
+      add finding.ash to existing.also_flagged_by
   else:
     seen[key] = finding
 ```
@@ -89,12 +89,12 @@ for each finding in all_findings:
 
 **PR:** #{pr-number}
 **Date:** {timestamp}
-**Runebearers:** {list of active Runebearers}
+**Ash:** {list of active Ash}
 
 ## P1 (Critical) — {count}
 
 - [ ] **[SEC-001] SQL Injection in user query** in `api/users.py:42`
-  - **Runebearer:** Ward Sentinel (also flagged by: Forge Warden)
+  - **Ash:** Ward Sentinel (also flagged by: Forge Warden)
   - **Rune Trace:**
     ```python
     # Lines 40-45 of api/users.py
@@ -113,7 +113,7 @@ for each finding in all_findings:
 
 ## Incomplete Deliverables
 
-| Runebearer | Status | Impact |
+| Ash | Status | Impact |
 |-----------|--------|--------|
 | {name} | {timeout/crash/partial} | {uncovered scope} |
 
@@ -122,5 +122,5 @@ for each finding in all_findings:
 - Total findings: {count}
 - Deduplicated: {removed_count} (from {original_count})
 - Evidence coverage: {percentage}%
-- Runebearers completed: {count}/{total}
+- Ash completed: {count}/{total}
 ```

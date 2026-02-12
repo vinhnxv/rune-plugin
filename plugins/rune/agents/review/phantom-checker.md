@@ -9,6 +9,10 @@ description: |
   user: "Check if this class is referenced dynamically"
   assistant: "I'll use phantom-checker to search for string-based references."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - String-based reference detection (getattr, globals, reflection)
   - Framework registration verification (decorators, middleware)

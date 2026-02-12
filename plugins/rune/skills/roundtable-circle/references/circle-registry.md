@@ -1,12 +1,12 @@
-# Circle Registry — Agent-to-Runebearer Mapping
+# Circle Registry — Agent-to-Ash Mapping
 
-> Maps review agent perspectives to Runebearer roles, with scope assignments for audit mode.
+> Maps review agent perspectives to Ash roles, with scope assignments for audit mode.
 
 ## Agent Registry
 
-Each review agent is embedded as a "perspective" inside a Runebearer. This registry defines which perspectives belong to which Runebearer and what file scopes they target.
+Each review agent is embedded as a "perspective" inside an Ash. This registry defines which perspectives belong to which Ash and what file scopes they target.
 
-> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Runebearers). Glyph Scribe and Knowledge Keeper use **inline perspective definitions** in their Runebearer prompts rather than dedicated agent files.
+> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Ashes). Glyph Scribe and Knowledge Keeper use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
 
 ### Forge Warden (Backend)
 
@@ -44,7 +44,7 @@ Each review agent is embedded as a "perspective" inside a Runebearer. This regis
 
 ### Glyph Scribe (Frontend)
 
-> **Inline perspectives** — Glyph Scribe does not use dedicated agent files. Its perspectives are defined inline within the Runebearer prompt.
+> **Inline perspectives** — Glyph Scribe does not use dedicated agent files. Its perspectives are defined inline within the Ash prompt.
 
 | Perspective (inline) | Focus | Scope Priority |
 |----------------------|-------|---------------|
@@ -57,7 +57,7 @@ Each review agent is embedded as a "perspective" inside a Runebearer. This regis
 
 ### Knowledge Keeper (Documentation)
 
-> **Inline perspectives** — Knowledge Keeper does not use dedicated agent files. Its perspectives are defined inline within the Runebearer prompt.
+> **Inline perspectives** — Knowledge Keeper does not use dedicated agent files. Its perspectives are defined inline within the Ash prompt.
 
 | Perspective (inline) | Focus | Scope Priority |
 |----------------------|-------|---------------|
@@ -70,19 +70,19 @@ Each review agent is embedded as a "perspective" inside a Runebearer. This regis
 
 ## Audit Scope Assignment
 
-During `/rune:audit`, each Runebearer receives a file list capped by its context budget. Files are assigned using the priority order above.
+During `/rune:audit`, each Ash receives a file list capped by its context budget. Files are assigned using the priority order above.
 
 ```
-for each selected Runebearer:
+for each selected Ash:
   1. Collect all files matching its extension group (from Rune Gaze)
   2. Sort by scope priority (defined above)
   3. Cap at context budget
   4. Files beyond budget are listed in TOME.md "Coverage Gaps" section
 ```
 
-### Cross-Runebearer File Sharing
+### Cross-Ash File Sharing
 
-Some files may be reviewed by multiple Runebearers:
+Some files may be reviewed by multiple Ash:
 
 | File Type | Reviewed By |
 |-----------|------------|
@@ -95,9 +95,9 @@ This is intentional — different perspectives catch different issues.
 
 ## Focus Mode (`--focus`)
 
-When `/rune:audit --focus <area>` is used, only spawn the relevant Runebearer(s):
+When `/rune:audit --focus <area>` is used, only summon the relevant Ash(s):
 
-| Focus Area | Runebearers Spawned |
+| Focus Area | Ash Summoned |
 |-----------|-------------------|
 | `security` | Ward Sentinel only |
 | `performance` | Forge Warden only |
@@ -107,4 +107,4 @@ When `/rune:audit --focus <area>` is used, only spawn the relevant Runebearer(s)
 | `backend` | Forge Warden + Ward Sentinel |
 | `full` | All (default) |
 
-Focus mode increases context budget per Runebearer since fewer are competing for resources.
+Focus mode increases context budget per Ash since fewer are competing for resources.

@@ -3,7 +3,7 @@ name: rune-orchestration
 description: |
   Architecture reference for multi-agent orchestration: coordination patterns, output formats, conflict resolution, and file-based handoff.
   This skill should be used when choosing orchestration architecture (supervisor vs swarm vs pipeline), defining agent output formats, or resolving conflicting agent findings.
-  For pre-spawn budgets and overflow prevention, the context-weaving skill should be used instead.
+  For pre-summon budgets and overflow prevention, the context-weaving skill should be used instead.
 
   <example>
   Context: Running multi-agent code review
@@ -37,17 +37,17 @@ The fundamental value lies in distributing cognitive load across separate contex
 
 | Category | Workflows | Orchestration Pattern |
 |----------|-----------|----------------------|
-| **Reviews** | `/rune:review` | Runebearer Specialists |
+| **Reviews** | `/rune:review` | Ash Specialists |
 | **Audits** | `/rune:audit` | Roundtable Circle (Fan-out / Fan-in) |
 | **Research** | `/rune:plan` | Parallel Exploration |
 | **Work** | `/rune:work` | Swarm Workers |
-| **Custom** | Any workflow spawning 3+ agents | Choose pattern from below |
+| **Custom** | Any workflow summoning 3+ agents | Choose pattern from below |
 
 **Generic trigger conditions:**
 - Context window constraints from single-agent approach
 - Complex tasks requiring specialized expertise in parallel
 - Need for parallel processing of independent subtasks
-- Any workflow spawning 3+ agents via Task tool or Agent Teams
+- Any workflow summoning 3+ agents via Task tool or Agent Teams
 
 ## Agent Coordination Patterns
 
@@ -69,7 +69,7 @@ Instead of supervisor synthesizing responses (telephone game), agents write dire
 
 The workflow: Agents write findings → Coordinator reads files → Synthesizes into Tome (TOME.md)
 
-**Structured output:** Runebearers MAY also write companion JSON files (`{runebearer}-findings.json`) for CI/CD integration. After verification, a `completion.json` summarizes the workflow result. See [Output Format](../roundtable-circle/references/output-format.md) for full specs.
+**Structured output:** Ash MAY also write companion JSON files (`{ash}-findings.json`) for CI/CD integration. After verification, a `completion.json` summarizes the workflow result. See [Output Format](../roundtable-circle/references/output-format.md) for full specs.
 
 ## Agent Output Formats
 
@@ -105,7 +105,7 @@ any agent P2 > any agent P3
 Central coordinator delegates to specialists and aggregates results.
 
 ```
-Team Lead (orchestrator)
+The Tarnished (orchestrator)
     ├── forge-warden   (backend review)
     ├── ward-sentinel  (security review)
     ├── pattern-weaver (quality patterns)
@@ -139,13 +139,13 @@ Strategy Layer (plan)
 
 ## Agent Role Patterns
 
-Defines how agents are organized for each workflow type, including conditional spawning rules and validation pipelines.
+Defines how agents are organized for each workflow type, including conditional summoning rules and validation pipelines.
 
-- **Review Runebearers**: Parallel specialists writing to `tmp/reviews/{pr}/`. See [Role Patterns](references/role-patterns.md)
-- **Audit Runebearers**: Fan-out/fan-in to `tmp/audit/{id}/`. See [Role Patterns](references/role-patterns.md)
+- **Review Ash**: Parallel specialists writing to `tmp/reviews/{pr}/`. See [Role Patterns](references/role-patterns.md)
+- **Audit Ash**: Fan-out/fan-in to `tmp/audit/{id}/`. See [Role Patterns](references/role-patterns.md)
 - **Research Agents**: Parallel exploration to `tmp/research/`. See [Role Patterns](references/role-patterns.md)
 - **Work Agents (Rune Smiths)**: Swarm workers to `tmp/work/`. See [Role Patterns](references/role-patterns.md)
-- **Conditional Runebearers**: Spawned based on file types in scope. See [Role Patterns](references/role-patterns.md)
+- **Conditional Ash**: Summoned based on file types in scope. See [Role Patterns](references/role-patterns.md)
 - **Validation Agents (Truthsight Pipeline)**: Post-review verification. See [Role Patterns](references/role-patterns.md)
 
 ## Token Economics
@@ -195,9 +195,9 @@ Every agent in a parallel workflow MUST:
 2. Return ONLY: file path + 1-sentence summary (max 50 words)
 3. Never include analysis in the return message
 
-This prevents lead agent context overflow regardless of how many agents run.
+This prevents Tarnished context overflow regardless of how many agents run.
 
-See `context-weaving` skill for the full Glyph Budget protocol and pre-spawn checklist.
+See `context-weaving` skill for the full Glyph Budget protocol and pre-summon checklist.
 
 ## Inscription Protocol (MANDATORY)
 
@@ -210,7 +210,7 @@ Task x 1-2 → glyph budget only (inscription optional)
 ```
 
 **Three steps:**
-1. **Generate** `inscription.json` before spawning agents/teammates
+1. **Generate** `inscription.json` before summoning agents/teammates
 2. **Inject** required sections + Seal Format into each agent prompt
 3. **Validate** output files after completion (circuit breaker → per-file → gap report)
 
@@ -222,11 +222,11 @@ Full spec: [Inscription Protocol](references/inscription-protocol.md)
 
 Multi-agent workflows benefit from structured reasoning at key decision points.
 
-**Three reasoning checkpoints for lead agents:**
+**Three reasoning checkpoints for the Tarnished:**
 
 | Checkpoint | When | Key Action |
 |-----------|------|------------|
-| Pre-spawn | Before launching agents | 8-thought checklist (see `context-weaving`) |
+| Pre-summon | Before launching agents | 8-thought checklist (see `context-weaving`) |
 | Mid-monitor | During agent execution | Intervene on timeout, clarification requests, partial failures |
 | Post-aggregate | After collecting all outputs | Resolve conflicts between agents using branching analysis |
 
@@ -235,11 +235,11 @@ Full protocol: [Structured Reasoning](references/structured-reasoning.md)
 ## References
 
 - [Output Formats](references/output-formats.md) — Report, Research, and Status output templates
-- [Role Patterns](references/role-patterns.md) — Agent organization per workflow type, conditional spawning, validation pipeline
+- [Role Patterns](references/role-patterns.md) — Agent organization per workflow type, conditional summoning, validation pipeline
 - [Structured Reasoning](references/structured-reasoning.md) — Reasoning principles for lead + teammate reasoning
 - [Inscription Protocol](references/inscription-protocol.md) — Output validation for all multi-agent workflows
 - [Prompt Weaving](references/prompt-weaving.md) — 7-section prompt template, context rot prevention, instruction anchoring
 - [Truthsight Pipeline](references/truthsight-pipeline.md) — 4-layer verification spec
 - [Verifier Prompt](references/verifier-prompt.md) — Smart Verifier prompt template
-- Companion: `context-weaving` (Glyph Budget, pre-spawn checklist)
+- Companion: `context-weaving` (Glyph Budget, pre-summon checklist)
 - Review workflow: `roundtable-circle` skill

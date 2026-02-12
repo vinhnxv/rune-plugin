@@ -14,7 +14,7 @@
 
   "teammates": [
     {
-      "name": "string — runebearer role name",
+      "name": "string — ash role name",
       "output_file": "string — filename relative to output_dir",
       "required_sections": ["array of section header strings"],
       "role": "string — human-readable role description",
@@ -38,7 +38,7 @@
       "failure_threshold": "integer — max hallucinated findings before flagging",
       "recovery_seconds": "integer — wait before retry"
     },
-    "max_reverify_agents": "integer — max re-verify agents to spawn"
+    "max_reverify_agents": "integer — max re-verify agents to summon"
   },
 
   "context_engineering": {

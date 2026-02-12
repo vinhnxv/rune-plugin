@@ -9,6 +9,10 @@ description: |
   user: "Review the authentication changes"
   assistant: "I'll use ward-sentinel to check for security vulnerabilities."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - OWASP Top 10 vulnerability detection
   - Authentication and authorization review

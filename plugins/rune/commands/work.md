@@ -2,12 +2,12 @@
 name: rune:work
 description: |
   Multi-agent work execution using Agent Teams. Parses a plan into tasks,
-  spawns swarm workers that claim and complete tasks independently,
+  summons swarm workers that claim and complete tasks independently,
   and runs quality gates before completion.
 
   <example>
   user: "/rune:work plans/feat-user-auth-plan.md"
-  assistant: "Parsing plan into tasks and spawning swarm workers..."
+  assistant: "The Tarnished marshals the Ash to forge the plan..."
   </example>
 
   <example>
@@ -35,7 +35,7 @@ allowed-tools:
 
 # /rune:work — Multi-Agent Work Execution
 
-Parses a plan into tasks with dependencies, spawns swarm workers, and coordinates parallel implementation.
+Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.
 
 ## Usage
 
@@ -52,7 +52,7 @@ Phase 0: Parse Plan → Extract tasks with dependencies
     ↓
 Phase 1: Forge Team → TeamCreate + TaskCreate pool
     ↓
-Phase 2: Spawn Workers → Self-organizing swarm
+Phase 2: Summon Workers → Self-organizing swarm
     ↓ (workers claim → implement → complete → repeat)
 Phase 3: Monitor → TaskList polling, stale detection
     ↓
@@ -123,6 +123,8 @@ Proceed with {N} tasks and {W} workers?
 
 ```javascript
 // 1. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// Validate identifier before rm -rf
+if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid work identifier")
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
 }
@@ -140,12 +142,12 @@ for (const task of extractedTasks) {
 }
 ```
 
-## Phase 2: Spawn Swarm Workers
+## Phase 2: Summon Swarm Workers
 
-Spawn workers based on task types. Default: 2 workers (1 rune-smith + 1 trial-forger). Scale up for larger plans.
+Summon workers based on task types. Default: 2 workers (1 rune-smith + 1 trial-forger). Scale up for larger plans.
 
 ```javascript
-// Spawn implementation worker
+// Summon implementation worker
 Task({
   team_name: "rune-work-{timestamp}",
   name: "rune-smith",
@@ -160,7 +162,7 @@ Task({
     2. Claim: TaskUpdate({ taskId, owner: "rune-smith", status: "in_progress" })
     3. Read task description and referenced plan
     4. IF --approve mode: write proposal to tmp/work/{id}/proposals/{task-id}.md,
-       send to leader via SendMessage, wait for approval before coding.
+       send to the Tarnished via SendMessage, wait for approval before coding.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
     5. Read existing code patterns in the codebase
     6. Implement with TDD cycle (test → implement → refactor)
@@ -172,7 +174,7 @@ Task({
        Then update plan checkboxes (- [ ] → - [x]).
     9. IF ward fails: do NOT commit, flag task for review, continue to next.
     10. TaskUpdate({ taskId, status: "completed" })
-    11. SendMessage to lead: "Seal: task #{id} done. Files: {list}"
+    11. SendMessage to the Tarnished: "Seal: task #{id} done. Files: {list}"
     12. TaskList() → claim next or exit
 
     EXIT: No tasks after 3 retries (30s each) → idle notification → exit
@@ -182,7 +184,7 @@ Task({
   run_in_background: true
 })
 
-// Spawn test worker
+// Summon test worker
 Task({
   team_name: "rune-work-{timestamp}",
   name: "trial-forger",
@@ -197,7 +199,7 @@ Task({
     2. Claim: TaskUpdate({ taskId, owner: "trial-forger", status: "in_progress" })
     3. Read task description and the code to be tested
     4. IF --approve mode: write proposal to tmp/work/{id}/proposals/{task-id}.md,
-       send to leader via SendMessage, wait for approval before writing tests.
+       send to the Tarnished via SendMessage, wait for approval before writing tests.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
     5. Discover test patterns (framework, fixtures, assertions)
     6. Write tests following discovered patterns
@@ -209,7 +211,7 @@ Task({
        Then update plan checkboxes (- [ ] → - [x]).
     9. IF tests fail: do NOT commit, flag task for review, continue to next.
     10. TaskUpdate({ taskId, status: "completed" })
-    11. SendMessage to lead: "Seal: tests for #{id}. Pass: {count}/{total}"
+    11. SendMessage to the Tarnished: "Seal: tests for #{id}. Pass: {count}/{total}"
     12. TaskList() → claim next or exit
 
     EXIT: No tasks after 3 retries (30s each) → idle notification → exit
@@ -222,7 +224,7 @@ Task({
 
 ### Scaling Workers
 
-For plans with 10+ tasks, spawn additional workers:
+For plans with 10+ tasks, summon additional workers:
 
 | Task Count | Rune Smiths | Trial Forgers |
 |-----------|-------------|---------------|
@@ -262,7 +264,7 @@ After all tasks complete, run project-wide quality gates:
 ```javascript
 // Discover wards
 wards = discoverWards()
-// Possible sources: Makefile, package.json, pyproject.toml, rune-config.yml
+// Possible sources: Makefile, package.json, pyproject.toml, talisman.yml
 
 for (const ward of wards) {
   result = Bash(ward.command)
@@ -270,7 +272,7 @@ for (const ward of wards) {
     warn(`Ward failed: ${ward.name}`)
     // Create fix task if ward fails
     TaskCreate({ subject: `Fix ${ward.name} failure`, description: result.output })
-    // Spawn worker to fix
+    // Summon worker to fix
   }
 }
 ```
@@ -283,7 +285,7 @@ for (const ward of wards) {
 3. pyproject.toml → [tool.ruff], [tool.mypy], [tool.pytest]
 4. Cargo.toml → cargo test, cargo clippy
 5. go.mod → go test, go vet
-6. .claude/rune-config.yml → ward_commands override
+6. .claude/talisman.yml → ward_commands override
 7. Fallback: skip wards, warn user
 ```
 
@@ -321,7 +323,7 @@ try { TeamDelete() } catch (e) {
 ### Completion Report
 
 ```
-Work complete!
+⚔ The Tarnished has claimed the Elden Throne.
 
 Tasks: {completed}/{total}
 Workers: {smith_count} Rune Smiths, {forger_count} Trial Forgers
@@ -343,7 +345,7 @@ Next steps:
 |-------|----------|
 | Worker stalled (>5 min) | Warn lead, release after 10 min |
 | Worker crash | Task returns to pool for reclaim |
-| Ward failure | Create fix task, spawn worker to fix |
+| Ward failure | Create fix task, summon worker to fix |
 | All workers crash | Abort, report partial progress |
 | Plan has no extractable tasks | Ask user to restructure plan |
 | Conflicting file edits | Workers write to separate files; lead resolves conflicts |

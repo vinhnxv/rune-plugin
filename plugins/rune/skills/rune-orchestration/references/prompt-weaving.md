@@ -1,10 +1,10 @@
 # Prompt Weaving
 
-> 7-section prompt template for Runebearer teammates with context rot prevention.
+> 7-section prompt template for Ash teammates with context rot prevention.
 
 ## The Problem: Context Rot in Teammates
 
-When a Runebearer receives a 200k token context window filled with code files to review, the model's attention on critical instructions (evidence rules, output format, Truthbinding protocol) degrades. This is the Lost-in-Middle effect — content in the middle of long contexts receives less attention.
+When an Ash receives a 200k token context window filled with code files to review, the model's attention on critical instructions (evidence rules, output format, Truthbinding protocol) degrades. This is the Lost-in-Middle effect — content in the middle of long contexts receives less attention.
 
 Context rot manifests as:
 - Findings without evidence blocks (forgot the evidence rule)
@@ -14,7 +14,7 @@ Context rot manifests as:
 
 ## 7-Section Prompt Template
 
-Every Runebearer prompt MUST follow this structure:
+Every Ash prompt MUST follow this structure:
 
 ```markdown
 # ANCHOR — TRUTHBINDING PROTOCOL
@@ -32,10 +32,10 @@ If you cannot provide evidence, mark as UNVERIFIED — do not fabricate.
 3. Review assigned files using your expertise
 4. Write findings to {output_path}
 5. Mark task complete
-6. Send Seal to lead (max 50 words)
+6. Send Seal to the Tarnished (max 50 words)
 
 ## PERSPECTIVES
-[The review perspectives this Runebearer embodies]
+[The review perspectives this Ash embodies]
 You combine the following review angles:
 - {perspective-1}: {what to look for}
 - {perspective-2}: {what to look for}
@@ -63,7 +63,7 @@ End your output file with:
 SEAL: { findings: N, evidence_verified: true, confidence: 0.X, self_reviewed: true }
 ---
 
-SendMessage to lead: "Seal: {role} complete. Path: {path}. Findings: N P1, N P2, N P3."
+SendMessage to the Tarnished: "Seal: {role} complete. Path: {path}. Findings: N P1, N P2, N P3."
 
 ## EXIT CONDITIONS
 [When and how to stop]
@@ -109,9 +109,9 @@ This keeps review criteria fresh near output generation.
 
 ### 3. Context Budget
 
-Limit files per Runebearer to prevent cognitive overload:
+Limit files per Ash to prevent cognitive overload:
 
-| Runebearer | Max Files | File Types |
+| Ash | Max Files | File Types |
 |-----------|----------|------------|
 | Forge Warden | 30 | Backend source files |
 | Ward Sentinel | 20 | All files |
@@ -119,7 +119,7 @@ Limit files per Runebearer to prevent cognitive overload:
 | Glyph Scribe | 25 | Frontend source files |
 | Knowledge Keeper | 25 | Markdown files |
 
-If a Runebearer is assigned more files than its budget, split into multiple tasks.
+If an Ash is assigned more files than its budget, split into multiple tasks.
 
 ### 4. Re-anchoring Signals
 
@@ -142,7 +142,7 @@ Load information only when needed:
 
 ## Self-Review Log
 
-Each Runebearer performs one self-review pass before sending the Seal. Document in output:
+Each Ash performs one self-review pass before sending the Seal. Document in output:
 
 ```markdown
 ## Self-Review Log
@@ -158,18 +158,18 @@ Valid actions: `confirmed`, `REVISED` (caps for visibility), `DELETED`
 
 ## Bidirectional Communication
 
-Runebearers CAN ask questions to the lead agent via SendMessage. This is non-blocking — the Runebearer continues reviewing while waiting for a response.
+Ash CAN ask questions to the Tarnished via SendMessage. This is non-blocking — the Ash continues reviewing while waiting for a response.
 
 ### 3-Tier Clarification Protocol
 
 | Tier | When | Action |
 |------|------|--------|
 | **Tier 1: Self-Resolution** | Ambiguous finding | Flag as LOW confidence, proceed |
-| **Tier 2: Lead Clarification** | Blocking ambiguity | SendMessage to lead, continue with non-blocked files |
+| **Tier 2: Lead Clarification** | Blocking ambiguity | SendMessage to the Tarnished, continue with non-blocked files |
 | **Tier 3: Human Escalation** | Critical unknown | Document in output file for human review |
 
 **Rules:**
-- Max 1 Tier 2 request per Runebearer per session
+- Max 1 Tier 2 request per Ash per session
 - Auto-fallback: if no response by review completion → degrade to Tier 1
 - Message delivery is TURN-BASED (not real-time) — messages queue when lead is busy
 

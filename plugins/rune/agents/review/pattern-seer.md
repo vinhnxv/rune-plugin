@@ -9,6 +9,10 @@ description: |
   user: "Check if the new code follows our patterns"
   assistant: "I'll use pattern-seer to verify pattern consistency."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - Naming convention enforcement
   - Coding style consistency checks

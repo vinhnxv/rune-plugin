@@ -10,17 +10,17 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **context-weaving** | Unified context management (overflow prevention, rot, compression, offloading) |
 | **roundtable-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
 | **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
-| **runebearer-guide** | Agent invocation reference and Runebearer selection guide |
+| **ash-guide** | Agent invocation reference and Ash selection guide |
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/rune:review` | Multi-agent code review with up to 5 Runebearer teammates |
+| `/rune:review` | Multi-agent code review with up to 5 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
-| `/rune:audit` | Full codebase audit with up to 5 Runebearer teammates |
+| `/rune:audit` | Full codebase audit with up to 5 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
-| `/rune:plan` | Multi-agent planning with parallel research and synthesis (+ `--forge`, `--exhaustive`) |
+| `/rune:plan` | Multi-agent planning with parallel research, 3 detail levels, Forge Gaze topic-aware enrichment, issue creation (+ `--forge`, `--exhaustive`, `--brainstorm`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | `/rune:mend` | Parallel finding resolution from TOME |
 | `/rune:arc` | End-to-end pipeline (forge, plan review, work, review, mend, audit) |
@@ -51,7 +51,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 |-------|---------|
 | practice-seeker | External best practices and industry patterns |
 | repo-surveyor | Codebase exploration and pattern discovery |
-| codex-scholar | Framework documentation and API research |
+| lore-scholar | Framework documentation and API research |
 | git-miner | Git history analysis and code archaeology |
 | echo-reader | Reads Rune Echoes to surface relevant past learnings |
 
@@ -66,7 +66,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 | Agent | Purpose |
 |-------|---------|
-| runebinder | Aggregates Runebearer findings into TOME.md |
+| runebinder | Aggregates Ash findings into TOME.md |
 | decree-arbiter | Technical soundness review for plans (5-dimension evaluation) |
 | truthseer-validator | Audit coverage validation (Phase 5.5) |
 | flow-seer | Spec flow analysis and gap detection |
@@ -76,13 +76,24 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 ## Key Concepts
 
-### Runebearers (Consolidated Teammates)
+### The Tarnished (Orchestrator)
 
-Each Runebearer is an Agent Teams teammate with its own 200k context window. A Runebearer embeds multiple review agent perspectives into a single teammate to reduce team size.
+The lead agent that coordinates all Rune workflows. In Elden Ring, the Tarnished is
+the protagonist who journeys through the Lands Between. In Rune, the Tarnished:
+- Convenes the Roundtable Circle (review/audit orchestration)
+- Coordinates Ashes and summons research agents
+- Collects findings into the TOME
+- Guides the arc pipeline from forge to audit
 
-Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Runebearers). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Runebearer prompts.
+The Tarnished is the lead agent in every team. Machine identifier: `team-lead`.
 
-| Runebearer | Perspectives | Agent Source | When Spawned |
+### Ash (Consolidated Teammates)
+
+Each Ash is an Agent Teams teammate with its own 200k context window. An Ash embeds multiple review agent perspectives into a single teammate to reduce team size.
+
+Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Ashes). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Ash prompts. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 7 perspectives via 5 dedicated agents).
+
+| Ash | Perspectives | Agent Source | When Summoned |
 |-----------|-------------|-------------|-------------|
 | **Forge Warden** | Backend code quality, architecture, performance, logic, testing | Dedicated agent files | Backend files changed |
 | **Ward Sentinel** | All security perspectives | Dedicated agent files | ALWAYS |
@@ -126,13 +137,25 @@ Project-level agent memory in `.claude/echoes/` with 3-layer lifecycle:
 
 Agents persist learnings automatically after workflows. Future workflows read echoes to avoid repeating mistakes. See `rune-echoes` skill for full lifecycle.
 
+### Forge Gaze (Topic-Aware Agent Selection)
+
+When `--forge` is used with `/rune:plan`, Forge Gaze matches plan section topics to specialized agents. Analogous to Rune Gaze (file extensions → Ash for reviews), but applied to plan section topics instead.
+
+- **Keyword overlap scoring** with title bonus — deterministic, zero token cost, transparent
+- **Budget tiers**: `enrichment` (review agents, ~5k tokens) and `research` (practice-seeker/lore-scholar, ~15k tokens)
+- **Default `--forge`**: threshold 0.30, max 3 agents/section, enrichment only, max 8 total
+- **`--forge --exhaustive`**: threshold 0.15, max 5 agents/section, enrichment + research, max 12 total
+- **Custom agents** from `talisman.yml` participate via `workflows: [forge]` + `trigger.topics` + `forge:` config
+
+See `roundtable-circle/references/forge-gaze.md` for the topic registry and matching algorithm.
+
 ### Arc Pipeline
 
-End-to-end orchestration across 6 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), work (swarm implementation), code review (Roundtable Circle), mend (parallel finding resolution), and audit (final gate). Each phase spawns a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions enforce least privilege.
+End-to-end orchestration across 6 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), work (swarm implementation), code review (Roundtable Circle), mend (parallel finding resolution), and audit (final gate). Each phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions enforce least privilege.
 
 ### Mend
 
-Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->` markers with session nonce validation, groups findings by file, spawns restricted mend-fixer teammates (no Bash, no TeamCreate). Ward check runs once after all fixers complete. Bisection algorithm identifies failing fixes on ward failure.
+Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->` markers with session nonce validation, groups findings by file, summons restricted mend-fixer teammates (no Bash, no TeamCreate). Ward check runs once after all fixers complete. Bisection algorithm identifies failing fixes on ward failure.
 
 ### Context Weaving
 
@@ -141,6 +164,31 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 2. **Context Rot Prevention**: Instruction anchoring, read ordering
 3. **Compression**: Session summaries when messages exceed thresholds
 4. **Filesystem Offloading**: Large outputs written to `tmp/` files
+
+### Lore Glossary
+
+| Term | Plugin Meaning | Elden Ring Parallel |
+|------|---------------|-------------------|
+| **Tarnished** | Orchestrator/lead agent | The protagonist who commands the journey |
+| **Ash** | Teammate agents (review, work, research, utility) | Spirit Ashes summoned to aid in battle |
+| **Elden Throne** | Completion state — success message on workflow finish | The ultimate goal of the Tarnished's journey |
+| **Roundtable Circle** | Review/audit orchestration lifecycle | Roundtable Hold gathering |
+| **TOME** | Aggregated findings document | Collected knowledge |
+| **Rune Echoes** | Project memory (3-layer lifecycle) | Echoes of past battles |
+| **Inscription** | JSON output contract for agents | Rune inscriptions defining purpose |
+| **Seal** | Completion signal from agents | A mark of duty fulfilled |
+| **Rune Gaze** | File classification by extension | Perceiving the nature of runes |
+| **Forge Gaze** | Topic-to-agent matching for plan enrichment | Perceiving which expertise to forge |
+| **Truthbinding** | Anti-prompt-injection protocol | An oath against deception |
+| **Ward** | Quality gate (tests/lint) | Protective enchantments |
+| **Arc** | End-to-end pipeline | A hero's journey |
+| **Forge** | Research enrichment phase | Tempering plans in fire |
+| **Mend** | Finding resolution from TOME | Repairing what was broken |
+| **Remembrance** | Promoted knowledge docs | Memories of fallen foes |
+| **Summon** | Bringing an Ash into existence | Calling Spirit Ashes to aid in battle |
+| **Talisman** | Plugin configuration file (`talisman.yml`) | Equippable items that enhance abilities |
+| **Decree Arbiter** | Technical soundness reviewer for plans | A judge who weighs the merit of decrees |
+| **Flow Seer** | Spec/feature flow completeness analyzer | One who perceives the currents of fate |
 
 ## Multi-Agent Rules
 
@@ -154,9 +202,9 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 
 | Workflow | Directory | Files |
 |----------|----------|-------|
-| Reviews | `tmp/reviews/{id}/` | `{runebearer}.md`, `TOME.md` (with RUNE:FINDING markers), `inscription.json` |
+| Reviews | `tmp/reviews/{id}/` | `{ash}.md`, `TOME.md` (with RUNE:FINDING markers), `inscription.json` |
 | Audits | `tmp/audit/{id}/` | Same pattern |
-| Plans | `tmp/plans/{id}/research/` | Research findings, deepen outputs |
+| Plans | `tmp/plans/{id}/research/`, `plans/YYYY-MM-DD-{type}-{name}-plan.md` | Research findings, brainstorm decisions, plan document |
 | Mend | `tmp/mend/{id}/` | `resolution-report.md`, fixer outputs |
 | Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `tome.md`, `resolution-report.md`, `audit-report.md`) |
 | Arc State | `.claude/arc/{id}/` | `checkpoint.json` (persistent, NOT in tmp/) |
@@ -169,7 +217,7 @@ Echo files in `.claude/echoes/` are persistent and survive across sessions.
 
 ## Configuration
 
-Projects can override defaults via `.claude/rune-config.yml` (project) or `~/.claude/rune-config.yml` (global):
+Projects can override defaults via `.claude/talisman.yml` (project) or `~/.claude/talisman.yml` (global):
 
 ```yaml
 rune-gaze:
@@ -178,22 +226,32 @@ rune-gaze:
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md", ".claude/**/*.md"]
 
-# Custom Runebearers — extend the built-in 5
-runebearers:
+# Custom Ashes — extend the built-in 5
+ashes:
   custom:
     - name: "domain-logic-reviewer"
       agent: "domain-logic-reviewer"    # local .claude/agents/ or plugin namespace
       source: local                     # local | global | plugin
-      workflows: [review, audit]
+      workflows: [review, audit, forge] # forge enables Forge Gaze matching
       trigger:
         extensions: [".py", ".rb"]
         paths: ["src/domain/"]
+        topics: [domain, business-logic, models, services]  # For forge
+      forge:
+        subsection: "Domain Logic Analysis"
+        perspective: "domain model integrity and business rule correctness"
+        budget: enrichment
       context_budget: 20
       finding_prefix: "DOM"
 
 settings:
-  max_runebearers: 8                   # Hard cap (5 built-in + custom)
+  max_ashes: 8                   # Hard cap (5 built-in + custom)
   dedup_hierarchy: [SEC, BACK, DOM, DOC, QUAL, FRONT]
+
+# forge:                               # Forge Gaze selection overrides
+#   threshold: 0.30                    # Score threshold (0.0-1.0)
+#   max_per_section: 3                 # Max agents per section (cap: 5)
+#   max_total_agents: 8                # Max total agents (cap: 15)
 
 echoes:
   version_controlled: false
@@ -205,7 +263,7 @@ work:
   commit_format: "rune: {subject} [ward-checked]"
 ```
 
-See `roundtable-circle/references/custom-runebearers.md` for full schema and `rune-config.example.yml` at plugin root.
+See `roundtable-circle/references/custom-ashes.md` for full schema and `talisman.example.yml` at plugin root.
 
 ## Coexistence
 

@@ -1,6 +1,6 @@
 # Pattern Weaver — Quality Patterns Reviewer Prompt
 
-> Template for spawning the Pattern Weaver Runebearer. Substitute `{variables}` at runtime.
+> Template for summoning the Pattern Weaver Ash. Substitute `{variables}` at runtime.
 
 ```
 # ANCHOR — TRUTHBINDING PROTOCOL
@@ -19,7 +19,7 @@ You review ALL file types, focusing on code quality, simplicity, and consistency
 4. Review from ALL quality perspectives simultaneously
 5. Write findings to: {output_path}
 6. Mark complete: TaskUpdate({ taskId: "{task_id}", status: "completed" })
-7. Send to lead: SendMessage({ type: "message", recipient: "team-lead", content: "Seal: Pattern Weaver complete. Path: {output_path}", summary: "Quality review complete" })
+7. Send Seal to the Tarnished: SendMessage({ type: "message", recipient: "team-lead", content: "Seal: Pattern Weaver complete. Path: {output_path}", summary: "Quality review complete" })
 8. Check TaskList for more tasks → repeat or exit
 
 ## Read Ordering Strategy

@@ -2,12 +2,12 @@
 name: rune:mend
 description: |
   Parallel finding resolution from TOME. Parses structured findings, groups by file,
-  spawns mend-fixer teammates to apply targeted fixes, runs ward check once after all
+  summons mend-fixer teammates to apply targeted fixes, runs ward check once after all
   fixers complete, and produces a resolution report.
 
   <example>
   user: "/rune:mend tmp/reviews/abc123/TOME.md"
-  assistant: "Parsing TOME findings and spawning fixers..."
+  assistant: "The Tarnished reads the TOME and dispatches mend-fixers..."
   </example>
 
   <example>
@@ -35,7 +35,7 @@ allowed-tools:
 
 # /rune:mend — Parallel Finding Resolution
 
-Parses a TOME file for structured findings, groups them by file to prevent concurrent edits, spawns restricted mend-fixer teammates, and produces a resolution report.
+Parses a TOME file for structured findings, groups them by file to prevent concurrent edits, summons restricted mend-fixer teammates, and produces a resolution report.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`
 
@@ -62,7 +62,7 @@ Phase 1: PLAN → Analyze dependencies, determine fixer count
     ↓
 Phase 2: FORGE TEAM → TeamCreate + TaskCreate per file group
     ↓
-Phase 3: SPAWN FIXERS → One mend-fixer per file group
+Phase 3: SUMMON FIXERS → One mend-fixer per file group
     ↓ (fixers read → fix → verify → report)
 Phase 4: MONITOR → Poll TaskList, stale/timeout detection
     ↓
@@ -202,6 +202,8 @@ Write("tmp/.rune-mend-{id}.json", {
 })
 
 // 2. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// Validate identifier before rm -rf
+if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid mend identifier")
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/mend-{timestamp}/ ~/.claude/tasks/mend-{timestamp}/ 2>/dev/null")
 }
@@ -228,9 +230,9 @@ for (const [file, findings] of Object.entries(fileGroups)) {
 }
 ```
 
-## Phase 3: SPAWN FIXERS
+## Phase 3: SUMMON FIXERS
 
-Spawn one mend-fixer teammate per file group:
+Summon one mend-fixer teammate per file group:
 
 ```javascript
 for (const fixer of inscription.fixers) {
@@ -259,7 +261,7 @@ for (const fixer of inscription.fixers) {
       1. TaskList() → find your assigned task
       2. TaskGet({ taskId }) → read finding details
       3. For each finding: Read file → Implement fix (Edit preferred) → Verify (Read back)
-      4. Report: SendMessage to lead with Seal (FIXED/FALSE_POSITIVE/FAILED/SKIPPED counts)
+      4. Report: SendMessage to the Tarnished with Seal (FIXED/FALSE_POSITIVE/FAILED/SKIPPED counts)
       5. TaskUpdate({ taskId, status: "completed" })
       6. Wait for shutdown
 

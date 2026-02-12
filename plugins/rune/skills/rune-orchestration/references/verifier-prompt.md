@@ -1,13 +1,13 @@
 # Truthsight Verifier Agent Prompt
 
-> Prompt template for the Layer 2 Smart Verifier agent. Spawned as a `general-purpose` Task subagent (not a teammate) after all Runebearers complete and Layer 0 inline checks pass.
+> Prompt template for the Layer 2 Smart Verifier agent. Summoned as a `general-purpose` Task subagent (not a teammate) after all Ash complete and Layer 0 inline checks pass.
 
-## When to Spawn
+## When to Summon
 
 | Workflow | Condition | Model |
 |----------|-----------|-------|
-| `/rune:review` | `inscription.verification.enabled` AND 3+ Runebearers | haiku |
-| `/rune:audit` | `inscription.verification.enabled` AND 5+ Runebearers | haiku |
+| `/rune:review` | `inscription.verification.enabled` AND 3+ Ashes | haiku |
+| `/rune:audit` | `inscription.verification.enabled` AND 5+ Ashes | haiku |
 | Custom | Configurable via inscription `verification` block | haiku |
 
 ## Usage
@@ -22,7 +22,7 @@ Task:
 
 ## Prompt Template
 
-Inject `{variables}` before spawning. The prompt follows the 7-section structure but compressed for a verification-only agent.
+Inject `{variables}` before summoning. The prompt follows the 7-section structure but compressed for a verification-only agent.
 
 ```markdown
 # CRITICAL RULES (Read First)
@@ -31,27 +31,27 @@ Inject `{variables}` before spawning. The prompt follows the 7-section structure
 2. Write ALL results to: {output_dir}/truthsight-report.md
 3. Return to caller ONLY: file path + 1-sentence summary (max 50 words)
 4. Max 15 source file reads for deep verification
-5. Max 5 Runebearer output files per run
+5. Max 8 Ash output files per run
 
 # Truthsight Verifier
 
 You are a Smart Verifier. Your job is to validate the accuracy of findings
-from Runebearer review agents by checking their evidence against actual source code.
+from Ash review agents by checking their evidence against actual source code.
 
 ## Input Files
 
 - `{output_dir}/inline-validation.json` — Layer 0 structural validation results
-- `{output_dir}/*.md` — Runebearer output files
+- `{output_dir}/*.md` — Ash output files
 - `{output_dir}/inscription.json` — expected deliverables and agent metadata
 
 ## Task 1: Rune Trace Resolvability Scan
 
-For ALL Runebearer output files that PASSED inline validation:
+For ALL Ash output files that PASSED inline validation:
 1. Extract every `**Rune Trace:**` code block
 2. Parse `file_path:line_number` references from each block
 3. Use `Grep` to check if the cited pattern exists at the stated location
 4. If Grep returns no match, use `Read` with offset/limit to verify the file and line exist
-5. Score each Runebearer: `{ runebearer, total_trace_blocks, resolvable, unresolvable }`
+5. Score each Ash: `{ ash, total_trace_blocks, resolvable, unresolvable }`
 
 **Judgment criteria:** Does the cited code match the actual code at the stated location?
 Pass if the code intent and structure match, even with minor whitespace or formatting differences.
@@ -60,7 +60,7 @@ Pass if the code intent and structure match, even with minor whitespace or forma
 
 Using Rune Trace resolvability scores + confidence from Seal messages + inline validation:
 
-| Finding Priority | Default Rate | If Runebearer confidence < 0.7 | If inline checks FAILED |
+| Finding Priority | Default Rate | If Ash confidence < 0.7 | If inline checks FAILED |
 |-----------------|-------------|-------------------------------|------------------------|
 | P1 (Critical) | 100% | 100% | 100% |
 | P2 (High) | ~30% (every 3rd) | 100% | 100% |
@@ -86,16 +86,16 @@ For each sampled finding:
 - Rune Trace partially matches but finding overstates severity
 - Code has changed since review (uncommon in same-session)
 
-## Task 4: Cross-Runebearer Conflict Detection
+## Task 4: Cross-Ash Conflict Detection
 
-1. Group all findings from all Runebearers by file path
+1. Group all findings from all Ash by file path
 2. Within each file, identify findings with overlapping line ranges (+-5 lines)
 3. Flag **conflicts**: same code location, different assessments (e.g., one says P1, another says acceptable)
-4. Flag **groupthink**: 3+ Runebearers with identical finding on same location (potential training bias)
+4. Flag **groupthink**: 3+ Ashes with identical finding on same location (potential training bias)
 
 ## Task 5: Self-Review Log Validation
 
-For each Runebearer output:
+For each Ash output:
 1. Count rows in `## Self-Review Log` table
 2. Compare against P1 + P2 finding count — should match
 3. Verify any DELETED items are actually removed from the Findings sections
@@ -115,16 +115,16 @@ Write to: `{output_dir}/truthsight-report.md`
 **Verifier model:** haiku
 
 ## Summary
-- Runebearers verified: {verified}/{total}
+- Ash verified: {verified}/{total}
 - Findings sampled: {sampled}/{total_findings} ({percentage}%)
 - Verified correct: {correct}/{sampled} ({accuracy}%)
 - Hallucinations found: {count}
 - Conflicts found: {count}
 - Re-verifications recommended: {count}
 
-## Per-Runebearer Results
+## Per-Ash Results
 
-### {runebearer-name} (confidence: {confidence})
+### {ash-name} (confidence: {confidence})
 - Inline validation: {PASS/WARN/FAIL}
 - Rune Trace resolvability: {resolvable}/{total} ({percentage}%)
 - Sampled: {count} findings ({breakdown by priority})
@@ -134,23 +134,23 @@ Write to: `{output_dir}/truthsight-report.md`
 - Self-Review Log: {reviewed}/{expected} findings reviewed, {deleted} deleted
 
 ## Conflicts
-{List of cross-Runebearer conflicts, or "None detected."}
+{List of cross-Ash conflicts, or "None detected."}
 
 ## Hallucination Details
 {For each hallucinated finding:}
-- **{Runebearer} {Finding ID}**: {brief description of what was claimed vs actual}
+- **{Ash} {Finding ID}**: {brief description of what was claimed vs actual}
 
 ## Re-Verification Recommendations
 {Findings that should be re-verified by a targeted agent}
 - Max 2 re-verify agents per workflow run
-- Each re-verify targets: 1 hallucinated finding + 2 correlated findings from same Runebearer
+- Each re-verify targets: 1 hallucinated finding + 2 correlated findings from same Ash
 ```
 
 ## Context Budget (MANDATORY)
 
-- Max 5 Runebearer output files per verifier run
+- Max 8 Ash output files per verifier run
 - Max 15 source files for deep verification
-- Estimated input: 5 x 10k (outputs) + 15 x 3k (source) + 5k (metadata) = ~100k tokens
+- Estimated input: 8 x 10k (outputs) + 15 x 3k (source) + 5k (metadata) = ~130k tokens
 - Remaining for reasoning + output: ~100k tokens
 
 ## Read Constraints
@@ -170,7 +170,7 @@ Return to caller ONLY: the output file path + 1-sentence summary (max 50 words)
 DO NOT include full analysis in return message.
 
 Example return:
-"Findings written to {output_dir}/truthsight-report.md. Verified 8/15 findings across 4 Runebearers; 1 hallucination detected in forge-warden, re-verification recommended."
+"Findings written to {output_dir}/truthsight-report.md. Verified 8/15 findings across 4 Ashes; 1 hallucination detected in forge-warden, re-verification recommended."
 
 ## Seal Format
 
@@ -185,7 +185,7 @@ SEAL: {
 }
 ---
 
-Then send to lead (max 50 words — Glyph Budget enforced):
+Then send to the Tarnished (max 50 words — Glyph Budget enforced):
 "Seal: Truthsight complete. Path: {output_dir}/truthsight-report.md.
 Sampled: N/{total}. Confirmed: N. Hallucinated: N. Conflicts: N."
 
@@ -195,7 +195,7 @@ Sampled: N/{total}. Confirmed: N. Hallucinated: N. Conflicts: N."
 2. Write ALL results to: {output_dir}/truthsight-report.md
 3. Return ONLY: file path + 1-sentence summary (max 50 words)
 4. Max 15 source file reads for deep verification
-5. Max 5 Runebearer output files per run
+5. Max 8 Ash output files per run
 ```
 
 ## Circuit Breaker
@@ -204,15 +204,15 @@ Layer 2 has its own circuit breaker, independent of Layer 0:
 
 | State | Behavior | Transition |
 |-------|----------|------------|
-| CLOSED (normal) | Spawn verifier agent | -> OPEN after 2 consecutive verifier failures/timeouts |
+| CLOSED (normal) | Summon verifier agent | -> OPEN after 2 consecutive verifier failures/timeouts |
 | OPEN (bypassed) | Skip verification, rely on Layer 0 only | -> HALF_OPEN after 120s recovery |
-| HALF_OPEN (testing) | Spawn verifier with reduced scope (P1s only) | -> CLOSED if success, -> OPEN if fail |
+| HALF_OPEN (testing) | Summon verifier with reduced scope (P1s only) | -> CLOSED if success, -> OPEN if fail |
 
 Configuration: `layer_2_circuit: { failure_threshold: 2, recovery_seconds: 120 }`
 
 ## Re-Verify Agent Specification
 
-When the verifier finds hallucinated Rune Traces, the lead may spawn targeted re-verify agents:
+When the verifier finds hallucinated Rune Traces, the Tarnished may summon targeted re-verify agents:
 
 | Property | Value |
 |----------|-------|
@@ -220,7 +220,7 @@ When the verifier finds hallucinated Rune Traces, the lead may spawn targeted re
 | Model | haiku |
 | Max per workflow | 2 |
 | Timeout | 3 minutes |
-| Output | `{output_dir}/re-verify-{runebearer}-{finding-id}.md` |
+| Output | `{output_dir}/re-verify-{ash}-{finding-id}.md` |
 
 **Re-verify agent Seal format:**
 ```

@@ -1,6 +1,6 @@
-# Task Templates — TaskCreate for Each Runebearer
+# Task Templates — TaskCreate for Each Ash
 
-> Copy-paste templates for creating tasks when spawning Runebearers.
+> Copy-paste templates for creating tasks when summoning Ash.
 
 ## Review Mode Templates
 
@@ -71,21 +71,21 @@ Identical to review mode except:
 ```
 TaskCreate({
   subject: "Aggregate findings into TOME",
-  description: "Read all Runebearer output files from {output_dir}. Deduplicate using hierarchy (SEC > BACK > DOC > QUAL > FRONT). Write TOME.md with unified findings sorted by priority.",
+  description: "Read all Ash output files from {output_dir}. Deduplicate using hierarchy (SEC > BACK > DOC > QUAL > FRONT). Write TOME.md with unified findings sorted by priority.",
   activeForm: "Aggregating findings into TOME"
 })
 ```
 
-## Spawn Templates
+## Summon Templates
 
 ### Background Teammate (Agent Teams)
 
 ```
 Task({
   team_name: "rune-{workflow}-{id}",
-  name: "{runebearer-name}",
+  name: "{ash-name}",
   subagent_type: "general-purpose",
-  prompt: [from references/runebearer-prompts/{role}.md],
+  prompt: [from references/ash-prompts/{role}.md],
   run_in_background: true
 })
 ```
@@ -96,7 +96,7 @@ Task({
 Task({
   subagent_type: "general-purpose",
   description: "{role} review",
-  prompt: [from references/runebearer-prompts/{role}.md],
+  prompt: [from references/ash-prompts/{role}.md],
   run_in_background: true
 })
 ```
@@ -112,9 +112,9 @@ glyph-scribe   ─┤
 knowledge-keeper    ─┘
 ```
 
-All Runebearers are independent — no `blockedBy` relationships between them. The Runebinder task should be `blockedBy` all Runebearer tasks. The Truthsight Verifier (if enabled) should be `blockedBy` the Runebinder.
+All Ash are independent — no `blockedBy` relationships between them. The Runebinder task should be `blockedBy` all Ash tasks. The Truthsight Verifier (if enabled) should be `blockedBy` the Runebinder.
 
 ## References
 
-- [Circle Registry](circle-registry.md) — Agent-to-Runebearer mapping
-- [Runebearer Prompts](runebearer-prompts/) — Individual prompts to inject
+- [Circle Registry](circle-registry.md) — Agent-to-Ash mapping
+- [Ash Prompts](ash-prompts/) — Individual prompts to inject

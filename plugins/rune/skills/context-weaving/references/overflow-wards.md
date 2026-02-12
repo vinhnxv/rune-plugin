@@ -1,10 +1,10 @@
 # Overflow Wards
 
-> Detailed pre-spawn protocol and Glyph Budget enforcement for multi-agent workflows.
+> Detailed pre-summon protocol and Glyph Budget enforcement for multi-agent workflows.
 
 ## Glyph Budget Injection Text
 
-**Copy-paste this into EVERY agent prompt** when spawning in a multi-agent workflow:
+**Copy-paste this into EVERY agent prompt** when summoning in a multi-agent workflow:
 
 ```
 GLYPH BUDGET PROTOCOL (MANDATORY):
@@ -52,8 +52,8 @@ After all agents complete, use the Runebinder to process raw files:
 | Raw files | Action |
 |-----------|--------|
 | 1-3 files | Read directly (aggregator adds overhead) |
-| 4+ files | Spawn Runebinder agent |
-| 10+ files | MUST spawn Runebinder (never read all directly) |
+| 4+ files | Summon Runebinder agent |
+| 10+ files | MUST summon Runebinder (never read all directly) |
 
 ### How to Invoke
 
@@ -74,7 +74,7 @@ Read ONLY the TOME.md file. Do NOT also read raw files (that defeats the purpose
 ## Decision Tree Summary
 
 ```
-About to spawn agents?
+About to summon agents?
 ├── 1-2 agents (no TeamCreate)
 │   └── Glyph Budget only. No inscription needed.
 ├── 3-4 agents (no TeamCreate)

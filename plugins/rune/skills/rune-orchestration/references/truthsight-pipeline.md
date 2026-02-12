@@ -1,33 +1,33 @@
 # Truthsight Pipeline
 
-> 4-layer verification pipeline for Runebearer outputs.
+> 4-layer verification pipeline for Ash outputs.
 
 ## Overview
 
-Truthsight validates that Runebearer findings are grounded in actual code, not hallucinated. Each layer adds a verification level, with earlier layers being cheaper and later layers more thorough.
+Truthsight validates that Ash findings are grounded in actual code, not hallucinated. Each layer adds a verification level, with earlier layers being cheaper and later layers more thorough.
 
 ## 4 Layers
 
-### Layer 0: Inline Checks (Lead Agent)
+### Layer 0: Inline Checks (Tarnished)
 
 **Cost:** ~0 extra tokens (lead runs Grep directly)
-**When:** Always active for 3+ Runebearer workflows
+**When:** Always active for 3+ Ashes workflows
 **Output:** `{output_dir}/inline-validation.json`
 
-The lead agent performs grep-based validation on each output file:
+The Tarnished performs grep-based validation on each output file:
 
 ### Procedure
 
 ```
-For each Runebearer output file:
-  1. Read required_sections from inscription.agents[runebearer].required_sections
+For each Ash output file:
+  1. Read required_sections from inscription.agents[ash].required_sections
   2. Grep for each "## Section Name" header in the output file
   3. Parse Seal for required fields:
      - findings, evidence_verified, confidence,
        self_reviewed, self_review_actions
   4. Check Self-Review Log exists: Grep for "confirmed|REVISED|DELETED"
   5. Check evidence blocks exist: Grep for "Rune Trace" patterns
-  6. Record result per Runebearer
+  6. Record result per Ash
 ```
 
 ### Output Format
@@ -48,7 +48,7 @@ For each Runebearer output file:
       }
     }
   },
-  "runebearers_checked": 4
+  "ash_checked": 4
 }
 ```
 
@@ -56,7 +56,7 @@ For each Runebearer output file:
 
 | Outcome | Action |
 |---------|--------|
-| ALL PASS | Proceed to Layer 2 (spawn verifier) |
+| ALL PASS | Proceed to Layer 2 (summon verifier) |
 | PARTIAL | Proceed with skip list (verifier skips invalid files) |
 | ALL FAIL | Skip verification, flag workflow for human review |
 | TOOL ERROR | Treat as PASS, rely on Layer 2 |
@@ -67,17 +67,17 @@ For each Runebearer output file:
 |-------|----------|------------|
 | CLOSED (normal) | Run all checks | → OPEN after 3 consecutive ALL FAIL |
 | OPEN (bypassed) | Skip Layer 0, warn lead | → HALF_OPEN after 60s recovery |
-| HALF_OPEN (testing) | Run checks on 1 Runebearer only | → CLOSED if pass, → OPEN if fail |
+| HALF_OPEN (testing) | Run checks on 1 Ash only | → CLOSED if pass, → OPEN if fail |
 
 Configuration: `layer_0_circuit: { failure_threshold: 3, recovery_seconds: 60 }`
 
-### Layer 1: Verifiable Self-Review (Each Runebearer)
+### Layer 1: Verifiable Self-Review (Each Ash)
 
-**Cost:** ~0 extra tokens (Runebearers do it themselves)
-**When:** Always active (embedded in Runebearer prompts)
-**Output:** `## Self-Review Log` table appended to each Runebearer's output file
+**Cost:** ~0 extra tokens (Ash do it themselves)
+**When:** Always active (embedded in Ash prompts)
+**Output:** `## Self-Review Log` table appended to each Ash's output file
 
-Before sending the Seal, each Runebearer:
+Before sending the Seal, each Ash:
 1. Re-reads their P1 and P2 findings
 2. For each finding: verifies evidence exists in the actual source file
 3. Actions: `confirmed` / `REVISED` / `DELETED`
@@ -125,23 +125,23 @@ self_review_actions: "confirmed: 10, revised: 1, deleted: 1"
 | Log completeness | 100% of P1+P2 | >80% | <80% |
 | REVISED with changes | All REVISED have edits | Some missing | No edits visible |
 
-### Layer 2: Smart Verifier (Spawned by Lead)
+### Layer 2: Smart Verifier (Summoned by Lead)
 
 **Cost:** ~5-15k tokens (verifier reads outputs + samples source files)
-**When:** Roundtable Circle with 3+ Runebearers, or audit with 5+ Runebearers
+**When:** Roundtable Circle with 3+ Ashes, or audit with 5+ Ashes
 **Output:** `{output_dir}/truthsight-report.md`
 
-### Spawning Conditions
+### Summoning Conditions
 
 | Workflow | Condition | Model |
 |----------|-----------|-------|
-| `/rune:review` | `inscription.verification.enabled` AND 3+ Runebearers | haiku |
-| `/rune:audit` | `inscription.verification.enabled` AND 5+ Runebearers | haiku |
+| `/rune:review` | `inscription.verification.enabled` AND 3+ Ashes | haiku |
+| `/rune:audit` | `inscription.verification.enabled` AND 5+ Ashes | haiku |
 | Custom | Configurable via inscription `verification` block | haiku |
 
 ### Sampling Strategy
 
-| Finding Priority | Default Rate | If Runebearer confidence < 0.7 | If inline checks FAILED |
+| Finding Priority | Default Rate | If Ash confidence < 0.7 | If inline checks FAILED |
 |-----------------|-------------|-------------------------------|------------------------|
 | P1 (Critical) | 100% | 100% | 100% |
 | P2 (High) | ~30% (every 3rd) | 100% | 100% |
@@ -154,7 +154,7 @@ The verifier performs 5 tasks in order:
 1. **Rune Trace Resolvability Scan** — Extract every `**Rune Trace:**` code block, parse file:line references, use Grep to check if cited pattern exists
 2. **Sampling Selection** — Select specific findings to deep-verify based on sampling rates above
 3. **Deep Verification** — Read source files at cited lines (offset/limit), compare against Rune Trace, assign verdict: CONFIRMED / INACCURATE / HALLUCINATED
-4. **Cross-Runebearer Conflict Detection** — Group findings by file path, identify overlapping assessments, flag conflicts and groupthink
+4. **Cross-Ash Conflict Detection** — Group findings by file path, identify overlapping assessments, flag conflicts and groupthink
 5. **Self-Review Log Validation** — Verify log row counts match finding counts, DELETED items removed, action counts consistent
 
 ### Hallucination Criteria
@@ -173,7 +173,7 @@ The verifier performs 5 tasks in order:
 
 | Component | Tokens | Limit |
 |-----------|--------|-------|
-| Runebearer output files | ~10k each | Max 5 files per run |
+| Ash output files | ~10k each | Max 8 files per run |
 | Source files (sampled) | ~3k each | Max 15 files per run |
 | Metadata (inscription, inline-validation) | ~5k | 1 per run |
 | **Total input** | ~100k | |
@@ -199,16 +199,16 @@ The verifier performs 5 tasks in order:
 **Verifier model:** haiku
 
 ## Summary
-- Runebearers verified: {verified}/{total}
+- Ash verified: {verified}/{total}
 - Findings sampled: {sampled}/{total_findings} ({percentage}%)
 - Verified correct: {correct}/{sampled} ({accuracy}%)
 - Hallucinations found: {count}
 - Conflicts found: {count}
 - Re-verifications recommended: {count}
 
-## Per-Runebearer Results
+## Per-Ash Results
 
-### {runebearer-name} (confidence: {confidence})
+### {ash-name} (confidence: {confidence})
 - Inline validation: {PASS/WARN/FAIL}
 - Rune Trace resolvability: {resolvable}/{total} ({percentage}%)
 - Sampled: {count} findings ({breakdown by priority})
@@ -217,7 +217,7 @@ The verifier performs 5 tasks in order:
 - Self-Review Log: {reviewed}/{expected} findings reviewed, {deleted} deleted
 
 ## Conflicts
-{List of cross-Runebearer conflicts, or "None detected."}
+{List of cross-Ash conflicts, or "None detected."}
 
 ## Hallucination Details
 {For each hallucinated finding: what was claimed vs actual}
@@ -230,9 +230,9 @@ The verifier performs 5 tasks in order:
 
 | State | Behavior | Transition |
 |-------|----------|------------|
-| CLOSED (normal) | Spawn verifier agent | → OPEN after 2 consecutive failures/timeouts |
+| CLOSED (normal) | Summon verifier agent | → OPEN after 2 consecutive failures/timeouts |
 | OPEN (bypassed) | Skip verification, rely on Layer 0 only | → HALF_OPEN after 120s recovery |
-| HALF_OPEN (testing) | Spawn verifier with reduced scope (P1s only) | → CLOSED if success, → OPEN if fail |
+| HALF_OPEN (testing) | Summon verifier with reduced scope (P1s only) | → CLOSED if success, → OPEN if fail |
 
 Configuration: `layer_2_circuit: { failure_threshold: 2, recovery_seconds: 120 }`
 
@@ -283,7 +283,7 @@ Add to `inscription.json`:
 
 ## Re-Verification
 
-When the verifier finds hallucinated Rune Traces, the lead may spawn targeted re-verify agents:
+When the verifier finds hallucinated Rune Traces, the Tarnished may summon targeted re-verify agents:
 
 | Property | Value |
 |----------|-------|
@@ -291,7 +291,7 @@ When the verifier finds hallucinated Rune Traces, the lead may spawn targeted re
 | Model | haiku |
 | Max per workflow | 2 |
 | Timeout | 3 minutes |
-| Output | `{output_dir}/re-verify-{runebearer}-{finding-id}.md` |
+| Output | `{output_dir}/re-verify-{ash}-{finding-id}.md` |
 
 **Decision logic:**
 - If re-verify says HALLUCINATED: remove finding from TOME.md with note
@@ -316,7 +316,7 @@ When the verifier finds hallucinated Rune Traces, the lead may spawn targeted re
 ├── inline-validation.json      # Layer 0 results
 ├── truthsight-report.md        # Layer 2 results
 ├── re-verify-{name}-{id}.md    # Re-verify agent results (if hallucination found)
-└── {runebearer}.md             # Runebearer outputs (include Self-Review Log from Layer 1)
+└── {ash}.md             # Ash outputs (include Self-Review Log from Layer 1)
 ```
 
 ## References

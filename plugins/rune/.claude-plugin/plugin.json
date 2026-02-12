@@ -1,7 +1,7 @@
 {
   "name": "rune",
-  "version": "1.8.0",
-  "description": "Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams",
+  "version": "1.10.0",
+  "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, and audit with Agent Teams. Includes 10 specialized review agents, 5 research agents, 11 commands, and 5 skills.",
   "author": {
     "name": "vinhnxv",
     "url": "https://github.com/vinhnxv"

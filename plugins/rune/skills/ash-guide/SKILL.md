@@ -1,13 +1,13 @@
 ---
-name: runebearer-guide
+name: ash-guide
 description: |
   Provides a quick reference for invoking Rune agents correctly.
-  This skill should be used when spawning agents, troubleshooting "agent not found" errors, or selecting review agents.
+  This skill should be used when summoning agents, troubleshooting "agent not found" errors, or selecting review agents.
 
   <example>
   Context: User wants to know which agents are available
   user: "What review agents does Rune have?"
-  assistant: "Loading runebearer-guide for the agent reference table"
+  assistant: "Loading ash-guide for the agent reference table"
   </example>
 user-invocable: false
 allowed-tools:
@@ -15,7 +15,7 @@ allowed-tools:
   - Glob
 ---
 
-# Runebearer Guide
+# Ash Guide
 
 Quick reference for all Rune plugin agents, their roles, and invocation patterns.
 
@@ -41,7 +41,7 @@ Task rune:review:ward-sentinel(...)
 
 ## Review Agents
 
-10 specialized reviewers that form Runebearer teams:
+10 specialized reviewers that form Ash teams:
 
 | Agent | Role | Perspective |
 |-------|------|-------------|
@@ -56,19 +56,19 @@ Task rune:review:ward-sentinel(...)
 | `rune:review:wraith-finder` | Dead code review | Unused functions, unwired code, orphaned files |
 | `rune:review:phantom-checker` | Dynamic reference check | Reflection, string-based imports, meta-programming |
 
-## Runebearer Roles (Consolidated Teammates)
+## Ash Roles (Consolidated Teammates)
 
-In `/rune:review`, agents are grouped into max 5 Runebearers:
+In `/rune:review`, agents are grouped into 5 built-in Ashes (extensible via talisman.yml):
 
-| Runebearer | Agents Embedded | Scope |
+| Ash | Agents Embedded | Scope |
 |-----------|-----------------|-------|
 | **Forge Warden** | rune-architect, ember-oracle, flaw-hunter, mimic-detector | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
 | **Ward Sentinel** | ward-sentinel | ALL files (security always) |
-| **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker | ALL files (quality patterns) |
+| **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker, void-analyzer | ALL files (quality patterns) |
 | **Glyph Scribe** | Inline perspectives (TypeScript safety, React performance, accessibility) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
 | **Knowledge Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
 
-**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Runebearer prompts (no dedicated agent files).
+**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Ash prompts (no dedicated agent files).
 
 ## Utility Agents
 
@@ -78,6 +78,9 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 | `rune:utility:truthseer-validator` | Audit coverage validation (Phase 5.5) |
 | `rune:utility:flow-seer` | Spec flow analysis |
 | `rune:utility:scroll-reviewer` | Document quality review |
+| `rune:utility:decree-arbiter` | Technical soundness review for plans |
+| `rune:utility:mend-fixer` | Parallel code fixer for /rune:mend findings |
+| `rune:utility:knowledge-keeper` | Documentation coverage reviewer for plans |
 
 ## Research Agents
 
@@ -85,7 +88,7 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 |-------|------|
 | `rune:research:practice-seeker` | External best practices research |
 | `rune:research:repo-surveyor` | Codebase/repo exploration |
-| `rune:research:codex-scholar` | Framework documentation research |
+| `rune:research:lore-scholar` | Framework documentation research |
 | `rune:research:echo-reader` | Reads Rune Echoes (past learnings) |
 | `rune:research:git-miner` | Git history archaeology |
 
@@ -96,17 +99,17 @@ In `/rune:review`, agents are grouped into max 5 Runebearers:
 | `rune:work:rune-smith` | Code implementation (TDD-aware) |
 | `rune:work:trial-forger` | Test generation |
 
-## Runebearer Selection Logic
+## Ash Selection Logic
 
-The `/rune:review` command selects Runebearers based on file extensions (Rune Gaze):
+The `/rune:review` command selects Ash based on file extensions (Rune Gaze):
 
-| File Pattern | Runebearers Selected |
+| File Pattern | Ash Selected |
 |-------------|---------------------|
 | `**/*.py` | Forge Warden + Ward Sentinel + Pattern Weaver |
 | `**/*.{ts,tsx,js,jsx}` | Glyph Scribe + Ward Sentinel + Pattern Weaver |
 | `**/*.md` (>= 10 lines changed) | Knowledge Keeper (conditional) |
-| Mixed code + docs | All applicable Runebearers |
+| Mixed code + docs | All applicable Ash |
 
 Ward Sentinel and Pattern Weaver are ALWAYS selected regardless of file types.
 
-See `roundtable-circle` skill for full Runebearer architecture and prompts.
+See `roundtable-circle` skill for full Ash architecture and prompts.
