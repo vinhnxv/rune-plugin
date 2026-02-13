@@ -24,3 +24,13 @@ brainstorms/
 docs/todos/
 docs/plans/
 docs/brainstorms/
+.coverage
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Test outputs
+tests/reports/

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 from typing import Iterator
 
@@ -42,30 +41,29 @@ def sample_tome(fixtures_dir: Path) -> str:
 
 @pytest.fixture
 def isolated_claude_config() -> Iterator[Path]:
-    """Set up ~/.claude-rune-plugin-test/ with auth preserved.
+    """Validate ~/.claude-rune-plugin-test/ exists for isolated E2E testing.
 
-    Wipes and recreates the fixed config directory with:
-    - Auth files copied from ~/.claude/ (settings.json, settings.local.json)
-    - Empty state directories (teams/, tasks/, projects/, agent-memory/)
+    This fixture expects the isolated config directory to be set up manually
+    before running E2E tests. It never reads from or touches ~/.claude/.
 
-    Cleaned up after the test.
+    Manual setup:
+        mkdir -p ~/.claude-rune-plugin-test
+        # Copy any needed settings into it manually
+
+    The harness uses CLAUDE_CONFIG_DIR=~/.claude-rune-plugin-test to redirect
+    all Claude Code state (teams, tasks, memory) to this directory.
     """
     from helpers.claude_runner import ClaudeRunner
 
     config_dir = ClaudeRunner.default_config_dir()
-    if config_dir.exists():
-        shutil.rmtree(config_dir)
-    config_dir.mkdir()
+    if not config_dir.exists():
+        pytest.skip(
+            f"Isolated config dir not found: {config_dir}\n"
+            f"Create it manually: mkdir -p {config_dir}"
+        )
 
-    real_config = Path.home() / ".claude"
-    for auth_file in ("settings.json", "settings.local.json"):
-        src = real_config / auth_file
-        if src.exists():
-            shutil.copy2(src, config_dir / auth_file)
-
+    # Ensure state subdirs exist (non-destructive)
     for state_dir in ("teams", "tasks", "projects", "agent-memory"):
-        (config_dir / state_dir).mkdir()
+        (config_dir / state_dir).mkdir(exist_ok=True)
 
     yield config_dir
-
-    shutil.rmtree(config_dir, ignore_errors=True)

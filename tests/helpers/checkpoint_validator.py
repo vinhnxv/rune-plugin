@@ -84,8 +84,8 @@ def validate_checkpoint(checkpoint: dict, workspace: Path | None = None) -> Chec
 
     # --- Session nonce ---
     nonce = checkpoint.get("session_nonce", "")
-    if not isinstance(nonce, str) or len(nonce) != 12:
-        report.add_error(None, f"session_nonce should be 12-char hex, got '{nonce}'")
+    if not isinstance(nonce, str) or len(nonce) < 8:
+        report.add_error(None, f"session_nonce should be at least 8 chars, got '{nonce}'")
 
     # --- Phases ---
     phases = checkpoint.get("phases", {})
@@ -132,12 +132,14 @@ def validate_checkpoint(checkpoint: dict, workspace: Path | None = None) -> Chec
                     report.add_error(phase_name, f"Artifact missing: {artifact_path}")
                 elif expected_hash:
                     actual_hash = sha256_file(full_path)
-                    matches = actual_hash == expected_hash
+                    # Strip "sha256:" prefix if present for comparison
+                    expected_bare = expected_hash.removeprefix("sha256:")
+                    matches = actual_hash == expected_bare
                     report.hash_checks[phase_name] = matches
                     if not matches:
                         report.add_error(
                             phase_name,
-                            f"Hash mismatch: expected {expected_hash[:16]}..., got {actual_hash[:16]}...",
+                            f"Hash mismatch: expected {expected_bare[:16]}..., got {actual_hash[:16]}...",
                         )
             elif phase_name not in ORCHESTRATOR_ONLY:
                 report.add_warning(phase_name, "Completed phase has no artifact path")

@@ -15,7 +15,6 @@ from helpers.tome_parser import (
     FINDING_PATTERN,
     SPOT_FINDING_PATTERN,
     Finding,
-    TomeReport,
     count_findings,
     is_spot_clean,
     parse_spot_findings,

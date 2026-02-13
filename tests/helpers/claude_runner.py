@@ -59,10 +59,8 @@ class ClaudeRunner:
     verbose: bool = False
     isolated_config_dir: Path | None = None
 
-    # Fixed isolated config location in user home
+    # Fixed isolated config location in user home (never touches ~/.claude/)
     CONFIG_DIR_NAME = ".claude-rune-plugin-test"
-    # Auth files to preserve from real ~/.claude/ when isolating
-    _AUTH_FILES = ("settings.json", "settings.local.json")
     # State dirs to create fresh in isolated config
     _STATE_DIRS = ("teams", "tasks", "projects", "agent-memory")
 
@@ -72,28 +70,24 @@ class ClaudeRunner:
         return Path.home() / cls.CONFIG_DIR_NAME
 
     def setup_isolated_config(self) -> Path:
-        """Create isolated Claude config dir at ~/.claude-rune-plugin-test/.
+        """Validate that the isolated config dir ~/.claude-rune-plugin-test/ exists.
 
-        Wipes and recreates the directory each time for a clean slate:
-        - Auth files copied from ~/.claude/ (settings.json, settings.local.json)
-        - Empty state directories (teams/, tasks/, projects/, agent-memory/)
+        The directory must be set up manually before running E2E tests.
+        This method only validates its existence and ensures required state
+        subdirectories are present — it never deletes or recreates the directory.
 
-        This ensures each E2E run starts fresh for Agent Teams,
-        arc checkpoints, and agent memory — without losing auth.
+        Raises:
+            FileNotFoundError: If ~/.claude-rune-plugin-test/ does not exist.
         """
         config_dir = self.default_config_dir()
-        if config_dir.exists():
-            shutil.rmtree(config_dir)
-        config_dir.mkdir()
+        if not config_dir.exists():
+            raise FileNotFoundError(
+                f"Isolated config directory not found: {config_dir}\n"
+                f"Please create it manually before running E2E tests:\n"
+                f"  mkdir -p {config_dir}"
+            )
 
-        # Preserve auth from real config
-        real_config = Path.home() / ".claude"
-        for auth_file in self._AUTH_FILES:
-            src = real_config / auth_file
-            if src.exists():
-                shutil.copy2(src, config_dir / auth_file)
-
-        # Create empty state dirs so Claude doesn't fail on missing paths
+        # Ensure state subdirs exist (non-destructive)
         for subdir in self._STATE_DIRS:
             (config_dir / subdir).mkdir(exist_ok=True)
 
@@ -101,14 +95,35 @@ class ClaudeRunner:
         return config_dir
 
     def cleanup_config(self) -> None:
-        """Wipe the isolated config directory contents (keeps the dir)."""
-        if self.isolated_config_dir and self.isolated_config_dir.exists():
-            shutil.rmtree(self.isolated_config_dir, ignore_errors=True)
-            self.isolated_config_dir = None
+        """Clear memory/state from the isolated config dir.
+
+        Removes contents of state subdirectories (agent-memory, cache, debug,
+        tasks, teams, todos, plans, projects, shell-snapshots) and backup files.
+        Never deletes the directory itself.
+        """
+        if not self.isolated_config_dir or not self.isolated_config_dir.exists():
+            return
+
+        # Clear state subdirectories (non-destructive to the dirs themselves)
+        state_items = list(self._STATE_DIRS) + ["cache", "debug", "shell-snapshots", "todos", "plans"]
+        for subdir in state_items:
+            d = self.isolated_config_dir / subdir
+            if d.exists():
+                shutil.rmtree(d, ignore_errors=True)
+                d.mkdir(exist_ok=True)
+
+        # Remove history and backups, keep .claude.json
+        history = self.isolated_config_dir / "history.jsonl"
+        if history.exists():
+            history.unlink()
+        for backup in self.isolated_config_dir.glob(".claude.json.backup.*"):
+            backup.unlink(missing_ok=True)
 
     def _build_env(self) -> dict[str, str]:
         """Build isolated environment for Claude CLI."""
         env = os.environ.copy()
+        # Marker for identifying test-spawned processes (inherited by teammates)
+        env["RUNE_TEST_HARNESS"] = "1"
         # Disable memory and telemetry for hermetic testing
         env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = "1"
         env["DISABLE_TELEMETRY"] = "1"

@@ -32,15 +32,15 @@ from pathlib import Path
 TESTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(TESTS_DIR))
 
-from helpers.checkpoint_validator import (
+from helpers.checkpoint_validator import (  # noqa: E402
     CheckpointReport,
     load_checkpoint,
     validate_checkpoint,
 )
-from helpers.claude_runner import ClaudeRunner, RunResult
-from helpers.code_evaluator import QualityReport, evaluate_all
-from helpers.report_generator import generate_report, write_report
-from helpers.tome_parser import TomeReport, parse_tome
+from helpers.claude_runner import ClaudeRunner, RunResult  # noqa: E402
+from helpers.code_evaluator import QualityReport, evaluate_all  # noqa: E402
+from helpers.report_generator import generate_report, write_report  # noqa: E402
+from helpers.tome_parser import TomeReport, parse_tome  # noqa: E402
 
 
 def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path, Path | None]:
@@ -62,10 +62,11 @@ def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path
     plan_dest = plans_dir / challenge_plan.name
     shutil.copy2(challenge_plan, plan_dest)
 
-    # Copy functional tests if they exist
+    # Copy functional tests if they exist (skip __pycache__ to avoid stale bytecode)
     eval_dir = challenge_plan.parent / "evaluation"
     if eval_dir.exists():
-        shutil.copytree(eval_dir, workspace / "evaluation")
+        shutil.copytree(eval_dir, workspace / "evaluation",
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
     # Create minimal pyproject.toml for ward discovery
     pyproject = workspace / "pyproject.toml"
@@ -210,10 +211,11 @@ def evaluate_workspace(workspace: Path, isolated_config_dir: Path | None = None)
 
     # 5. Run external functional tests if available
     eval_dir = workspace / "evaluation"
-    if eval_dir.exists() and list(eval_dir.glob("*.py")):
+    eval_files = list(eval_dir.glob("*.py")) if eval_dir.exists() else []
+    if eval_files:
         print("  Running functional tests...")
         func_result = subprocess.run(
-            [sys.executable, "-m", "pytest", str(eval_dir), "-v", "--tb=short"],
+            [sys.executable, "-m", "pytest", *[str(f) for f in eval_files], "-v", "--tb=short"],
             cwd=workspace,
             capture_output=True,
             text=True,

@@ -6,6 +6,7 @@ to verify schema validation, migration logic, and artifact integrity checks.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -15,7 +16,6 @@ from helpers.checkpoint_validator import (
     ORCHESTRATOR_ONLY,
     PHASE_ORDER,
     VALID_STATUSES,
-    CheckpointReport,
     migrate_checkpoint,
     validate_checkpoint,
 )
@@ -118,6 +118,19 @@ class TestValidateErrors:
         report = validate_checkpoint(cp)
         assert report.valid is False
         assert any("nonce" in i.message.lower() for i in report.issues)
+
+    def test_arc_style_nonce_accepted(self) -> None:
+        """Arc generates nonces like 'arc1770998459' (arc + timestamp)."""
+        cp = {
+            "id": "arc-123",
+            "schema_version": 4,
+            "session_nonce": "arc1770998459",
+            "phases": {p: {"status": "pending", "artifact": None, "artifact_hash": None, "team_name": None} for p in PHASE_ORDER},
+            "convergence": {"round": 0, "max_rounds": 2, "history": []},
+        }
+        report = validate_checkpoint(cp)
+        nonce_issues = [i for i in report.issues if "nonce" in i.message.lower()]
+        assert len(nonce_issues) == 0, f"Arc-style nonce should be accepted: {nonce_issues}"
 
     def test_missing_phase(self) -> None:
         phases = {p: {"status": "pending", "artifact": None, "artifact_hash": None, "team_name": None} for p in PHASE_ORDER}
@@ -274,6 +287,64 @@ class TestArtifactChecks:
         report = validate_checkpoint(cp, workspace=tmp_path)
         assert report.artifact_checks.get("forge") is False
         assert report.valid is False
+
+    def test_hash_with_sha256_prefix(self, tmp_path: Path) -> None:
+        """Arc stores hashes as 'sha256:<hex>' — validator must strip prefix."""
+        artifact_dir = tmp_path / "tmp" / "arc" / "arc-123"
+        artifact_dir.mkdir(parents=True)
+        artifact = artifact_dir / "enriched-plan.md"
+        content = "# Plan content with hash test"
+        artifact.write_text(content)
+        expected_hex = hashlib.sha256(content.encode()).hexdigest()
+
+        phases = {p: {"status": "pending", "artifact": None, "artifact_hash": None, "team_name": None} for p in PHASE_ORDER}
+        phases["forge"] = {
+            "status": "completed",
+            "artifact": "tmp/arc/arc-123/enriched-plan.md",
+            "artifact_hash": f"sha256:{expected_hex}",
+            "team_name": "arc-forge-team",
+        }
+
+        cp = {
+            "id": "arc-123",
+            "schema_version": 4,
+            "session_nonce": "aabbccddeeff",
+            "phases": phases,
+            "convergence": {"round": 0, "max_rounds": 2, "history": []},
+        }
+
+        report = validate_checkpoint(cp, workspace=tmp_path)
+        assert report.hash_checks.get("forge") is True
+        assert report.valid is True
+
+    def test_hash_without_prefix_still_works(self, tmp_path: Path) -> None:
+        """Bare hex hashes (no prefix) should also match."""
+        artifact_dir = tmp_path / "tmp" / "arc" / "arc-123"
+        artifact_dir.mkdir(parents=True)
+        artifact = artifact_dir / "enriched-plan.md"
+        content = "# Bare hash test"
+        artifact.write_text(content)
+        expected_hex = hashlib.sha256(content.encode()).hexdigest()
+
+        phases = {p: {"status": "pending", "artifact": None, "artifact_hash": None, "team_name": None} for p in PHASE_ORDER}
+        phases["forge"] = {
+            "status": "completed",
+            "artifact": "tmp/arc/arc-123/enriched-plan.md",
+            "artifact_hash": expected_hex,
+            "team_name": "arc-forge-team",
+        }
+
+        cp = {
+            "id": "arc-123",
+            "schema_version": 4,
+            "session_nonce": "aabbccddeeff",
+            "phases": phases,
+            "convergence": {"round": 0, "max_rounds": 2, "history": []},
+        }
+
+        report = validate_checkpoint(cp, workspace=tmp_path)
+        assert report.hash_checks.get("forge") is True
+        assert report.valid is True
 
 
 # ---------------------------------------------------------------------------
