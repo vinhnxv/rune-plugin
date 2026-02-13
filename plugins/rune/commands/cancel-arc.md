@@ -61,6 +61,8 @@ if (!phase_team) {
     plan_refine: null,        // Orchestrator-only phase, no team
     verification: null,       // Orchestrator-only phase, no team
     work: `arc-work-${id}`,
+    gap_analysis: null,       // Orchestrator-only phase, no team
+    verify_mend: null,        // Orchestrator-only phase, no team (convergence gate)
     code_review: `arc-review-${id}`,
     mend: `arc-mend-${id}`,
     audit: `arc-audit-${id}`
@@ -68,7 +70,7 @@ if (!phase_team) {
   phase_team = legacyMap[current_phase]
 }
 
-// Orchestrator-only phases (plan_refine, verification) have no team.
+// Orchestrator-only phases (plan_refine, verification, gap_analysis, verify_mend) have no team.
 // Skip team cancellation (Steps 3a-3d), go directly to Step 4.
 if (phase_team === null || phase_team === undefined) {
   // No team to cancel — update checkpoint directly (Step 4)
@@ -88,8 +90,10 @@ Delegate cancellation based on the currently-active phase:
 | **PLAN REFINEMENT** (Phase 2.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **VERIFICATION** (Phase 2.7) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **WORK** (Phase 5) | Shutdown work team — broadcast cancellation, send shutdown requests to all rune-smith workers |
+| **GAP ANALYSIS** (Phase 5.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **CODE REVIEW** (Phase 6) | Delegate to `/rune:cancel-review` logic — broadcast, shutdown Ash, cleanup |
 | **MEND** (Phase 7) | Shutdown mend team — broadcast cancellation, send shutdown requests to all mend-fixer workers |
+| **VERIFY MEND** (Phase 7.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **AUDIT** (Phase 8) | Delegate to `/rune:cancel-audit` logic — broadcast, shutdown Ash, cleanup |
 
 #### 3a. Broadcast Cancellation
@@ -171,8 +175,10 @@ Completed phases preserved:
 - Phase 2.5 (PLAN REFINEMENT): {status}
 - Phase 2.7 (VERIFICATION): {status}
 - Phase 5 (WORK): {status}
+- Phase 5.5 (GAP ANALYSIS): {status}
 - Phase 6 (CODE REVIEW): {status}
 - Phase 7 (MEND): {status}
+- Phase 7.5 (VERIFY MEND): {status}
 - Phase 8 (AUDIT): {status}
 
 Artifacts remain in: .claude/arc/{id}/

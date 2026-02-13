@@ -1,0 +1,227 @@
+"""Checkpoint schema validation and artifact integrity checking.
+
+Validates checkpoint.json against the v4 schema, checks artifact
+file existence, and verifies SHA-256 hashes.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass, field
+from pathlib import Path
+
+# Canonical phase ordering from arc.md
+PHASE_ORDER = [
+    "forge", "plan_review", "plan_refine", "verification", "work",
+    "gap_analysis", "code_review", "mend", "verify_mend", "audit",
+]
+
+VALID_STATUSES = {"pending", "in_progress", "completed", "failed", "skipped", "timeout", "cancelled"}
+
+PHASE_FIELDS = {"status", "artifact", "artifact_hash", "team_name"}
+
+# Orchestrator-only phases (no team)
+ORCHESTRATOR_ONLY = {"plan_refine", "verification", "gap_analysis", "verify_mend"}
+
+
+@dataclass
+class ValidationIssue:
+    severity: str  # "error" | "warning"
+    phase: str | None
+    message: str
+
+
+@dataclass
+class CheckpointReport:
+    """Result of validating a checkpoint."""
+
+    valid: bool = True
+    schema_version: int = 0
+    phase_statuses: dict[str, str] = field(default_factory=dict)
+    issues: list[ValidationIssue] = field(default_factory=list)
+    artifact_checks: dict[str, bool] = field(default_factory=dict)
+    hash_checks: dict[str, bool] = field(default_factory=dict)
+    completed_phases: int = 0
+    total_phases: int = len(PHASE_ORDER)
+
+    def add_error(self, phase: str | None, message: str) -> None:
+        self.issues.append(ValidationIssue("error", phase, message))
+        self.valid = False
+
+    def add_warning(self, phase: str | None, message: str) -> None:
+        self.issues.append(ValidationIssue("warning", phase, message))
+
+
+def sha256_file(path: Path) -> str:
+    """Compute SHA-256 hex digest of a file."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def validate_checkpoint(checkpoint: dict, workspace: Path | None = None) -> CheckpointReport:
+    """Validate a checkpoint dict against the v4 schema.
+
+    Args:
+        checkpoint: Parsed checkpoint.json contents.
+        workspace: If provided, also checks artifact files exist and hashes match.
+    """
+    report = CheckpointReport()
+
+    # --- Schema version ---
+    sv = checkpoint.get("schema_version")
+    report.schema_version = sv or 0
+    if sv != 4:
+        report.add_error(None, f"Expected schema_version 4, got {sv}")
+
+    # --- ID format ---
+    arc_id = checkpoint.get("id", "")
+    if not arc_id or not isinstance(arc_id, str):
+        report.add_error(None, "Missing or invalid 'id' field")
+
+    # --- Session nonce ---
+    nonce = checkpoint.get("session_nonce", "")
+    if not isinstance(nonce, str) or len(nonce) < 8:
+        report.add_error(None, f"session_nonce should be at least 8 chars, got '{nonce}'")
+
+    # --- Phases ---
+    phases = checkpoint.get("phases", {})
+    if not isinstance(phases, dict):
+        report.add_error(None, "'phases' must be a dict")
+        return report
+
+    for phase_name in PHASE_ORDER:
+        if phase_name not in phases:
+            report.add_error(phase_name, f"Missing phase '{phase_name}' in checkpoint")
+            continue
+
+        phase = phases[phase_name]
+        report.phase_statuses[phase_name] = phase.get("status", "MISSING")
+
+        # Check required fields
+        missing = PHASE_FIELDS - set(phase.keys())
+        if missing:
+            report.add_error(phase_name, f"Missing fields: {missing}")
+
+        # Check status value
+        status = phase.get("status")
+        if status not in VALID_STATUSES:
+            report.add_error(phase_name, f"Invalid status: '{status}'")
+
+        if status == "completed":
+            report.completed_phases += 1
+
+        # Check orchestrator-only phases have no team
+        if phase_name in ORCHESTRATOR_ONLY and phase.get("team_name") is not None:
+            report.add_warning(phase_name, "Orchestrator-only phase has team_name set")
+
+        # --- Artifact integrity (if workspace provided) ---
+        if workspace and status == "completed":
+            artifact_path = phase.get("artifact")
+            expected_hash = phase.get("artifact_hash")
+
+            if artifact_path:
+                full_path = workspace / artifact_path
+                exists = full_path.exists()
+                report.artifact_checks[phase_name] = exists
+
+                if not exists:
+                    report.add_error(phase_name, f"Artifact missing: {artifact_path}")
+                elif expected_hash:
+                    actual_hash = sha256_file(full_path)
+                    # Strip "sha256:" prefix if present for comparison
+                    expected_bare = expected_hash.removeprefix("sha256:")
+                    matches = actual_hash == expected_bare
+                    report.hash_checks[phase_name] = matches
+                    if not matches:
+                        report.add_error(
+                            phase_name,
+                            f"Hash mismatch: expected {expected_bare[:16]}..., got {actual_hash[:16]}...",
+                        )
+            elif phase_name not in ORCHESTRATOR_ONLY:
+                report.add_warning(phase_name, "Completed phase has no artifact path")
+
+    # --- Convergence object ---
+    conv = checkpoint.get("convergence")
+    if not isinstance(conv, dict):
+        report.add_error(None, "Missing or invalid 'convergence' object")
+    else:
+        if "round" not in conv or "max_rounds" not in conv or "history" not in conv:
+            report.add_error(None, "Convergence missing required fields (round, max_rounds, history)")
+        if conv.get("max_rounds", 0) > 2:
+            report.add_warning(None, f"max_rounds ({conv['max_rounds']}) exceeds CONVERGENCE_MAX_ROUNDS (2)")
+
+    # Check for unexpected phases
+    extra = set(phases.keys()) - set(PHASE_ORDER)
+    if extra:
+        report.add_warning(None, f"Unexpected phases in checkpoint: {extra}")
+
+    return report
+
+
+def migrate_checkpoint(checkpoint: dict) -> dict:
+    """Migrate a checkpoint from any schema version to v4.
+
+    Returns a new dict (does not mutate input).
+    """
+    cp = json.loads(json.dumps(checkpoint))  # deep copy
+    sv = cp.get("schema_version", 1)
+
+    skipped_phase = {"status": "skipped", "artifact": None, "artifact_hash": None, "team_name": None}
+
+    if sv < 2:
+        cp.setdefault("phases", {})
+        cp["phases"].setdefault("plan_refine", {**skipped_phase})
+        cp["phases"].setdefault("verification", {**skipped_phase})
+        cp["schema_version"] = 2
+        sv = 2
+
+    if sv < 3:
+        cp["phases"].setdefault("verify_mend", {**skipped_phase})
+        cp.setdefault("convergence", {"round": 0, "max_rounds": 2, "history": []})
+        cp["schema_version"] = 3
+        sv = 3
+
+    if sv < 4:
+        cp["phases"].setdefault("gap_analysis", {**skipped_phase})
+        cp["schema_version"] = 4
+
+    return cp
+
+
+def load_checkpoint(workspace: Path, extra_search_dirs: list[Path] | None = None) -> dict | None:
+    """Find and load the most recent checkpoint from a workspace.
+
+    Searches multiple locations for checkpoint.json:
+    1. {workspace}/.claude/arc/*/checkpoint.json (project-local)
+    2. {workspace}/tmp/arc/*/checkpoint.json (tmp artifacts)
+    3. Any extra_search_dirs (e.g., isolated config dir)
+
+    Returns the most recently modified checkpoint found.
+    """
+    search_roots = [
+        workspace / ".claude" / "arc",
+        workspace / "tmp" / "arc",
+    ]
+    if extra_search_dirs:
+        for d in extra_search_dirs:
+            search_roots.append(d / "arc")
+            # Also check project-specific paths inside config dir
+            for sub in d.iterdir() if d.exists() else []:
+                arc_sub = sub / "arc" if sub.is_dir() else None
+                if arc_sub and arc_sub.exists():
+                    search_roots.append(arc_sub)
+
+    all_checkpoints: list[Path] = []
+    for root in search_roots:
+        if root.exists():
+            all_checkpoints.extend(root.glob("*/checkpoint.json"))
+
+    if not all_checkpoints:
+        return None
+
+    newest = max(all_checkpoints, key=lambda p: p.stat().st_mtime)
+    return json.loads(newest.read_text())

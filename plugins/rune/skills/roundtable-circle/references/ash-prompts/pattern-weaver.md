@@ -48,11 +48,15 @@ You review ALL file types, focusing on code quality, simplicity, and consistency
 - Feature flags or config for things that could just be code
 - Helper/utility functions used only once
 
-### 2. Pattern Consistency
-- Deviations from established codebase patterns
-- Inconsistent naming conventions
-- Mixed paradigms (OOP + functional without reason)
-- Inconsistent error handling strategies
+### 2. Cross-Cutting Consistency (pattern-seer)
+- Inconsistent naming across layers (DB field → API field → event field → frontend)
+- Inconsistent error handling (different response formats, HTTP status usage, error codes)
+- Inconsistent API design (mixed URL patterns, pagination schemes, response envelopes)
+- Inconsistent data modeling (timestamp formats, boolean representations, soft delete patterns)
+- Inconsistent auth/authz (middleware vs business logic checks, RBAC vs ABAC vs hardcoded)
+- Inconsistent state management (same entity, different state machines across services)
+- Inconsistent logging (structured vs plain text, different correlation ID headers)
+- Compare new code against existing codebase patterns — flag deviations from dominant convention
 
 ### 3. Code Duplication (DRY)
 - Copy-pasted logic across files
@@ -67,23 +71,49 @@ You review ALL file types, focusing on code quality, simplicity, and consistency
 - Silent failures (empty catch blocks)
 - Missing exhaustive handling (switch/match)
 
-### 5. Dead Code & Unused Exports
+### 5. Dead Code, Unwired Code & Unused Exports (wraith-finder)
 - Unreachable code paths
 - Unused functions, variables, imports
 - Commented-out code blocks
 - Orphaned files not referenced anywhere
+- **DI wiring gaps** — services registered but never injected, or injected but never registered
+- **Unregistered routes** — router/controller files not included in app
+- **Unsubscribed handlers** — event handlers defined but never subscribed
+- **AI-generated orphans** — new code with 0 consumers (critical after AI generation)
+- For each finding: apply Double-Check Protocol (4 steps) and classify root cause (Case A: forgotten inject, B: truly dead, C: premature, D: partially wired)
 
-### 6. Code Complexity
-- Functions exceeding ~50 lines
+### 6. Code Complexity & Quality Metrics
+- Functions exceeding 40 lines MUST be split — each costs -1.0 quality score (P2 finding)
 - Cyclomatic complexity > 10
 - Deeply nested conditionals (> 3 levels)
 - God objects or functions with too many responsibilities
+- Missing documentation on ANY function, class, method, or type definition — coverage below 80% is a P2 finding
+  - Python: docstrings on all `def`/`class` (including private `_` prefixed)
+  - TypeScript: JSDoc on all `function`/`class`/exported `const`
+  - Rust: `///` doc comments on all `pub` items, `//` on private items
 
-### 7. Test Quality
+### 7. Test Quality (trial-oracle)
 - Test-first commit order verification
-- Missing edge case tests
+- Source files without corresponding test files
 - Tests that don't actually assert anything meaningful
 - Over-mocked tests that verify nothing real
+- Missing edge case tests (empty, null, boundary, error paths)
+- Missing async test markers (Python: `@pytest.mark.asyncio`; TS: proper async handling; Rust: `#[tokio::test]`)
+- Test naming doesn't follow framework conventions (Python: `test_<unit>_<scenario>_<expected>`; TS: `describe`/`it` blocks; Rust: `#[test] fn test_...`)
+- Missing type annotations on test functions and fixtures
+- AAA (Arrange-Act-Assert) structure not followed
+- Test coverage below 90% for new code — flag uncovered lines as P2 finding
+- Test functions and fixtures missing documentation (docstrings, JSDoc, or doc comments)
+
+### 8. Async & Concurrency Patterns (tide-watcher)
+- Sequential await / waterfall pattern (3+ independent awaits in sequence → use gather/join)
+- Unbounded concurrency (gather/spawn/goroutine in loop without semaphore or limit)
+- Structured concurrency violations (create_task/spawn without TaskGroup/JoinSet)
+- Cancellation handling (except Exception swallowing CancelledError, missing AbortController)
+- Race conditions (TOCTOU check-then-act, shared mutable state without locks in async)
+- Timer and resource cleanup (setInterval without clearInterval, spawned tasks without join/abort)
+- Blocking calls in async context (time.sleep, std::fs, readFileSync in async functions)
+- Frontend timing (stale async responses without request cancellation, animation races, boolean flags for mutually exclusive states)
 
 ## OUTPUT FORMAT
 
@@ -94,7 +124,7 @@ Write markdown to `{output_path}`:
 
 **Branch:** {branch}
 **Date:** {timestamp}
-**Perspectives:** Simplicity, Patterns, Duplication, Logic, Dead Code, Complexity, Tests
+**Perspectives:** Simplicity, Cross-Cutting Consistency, Duplication, Logic, Dead Code & Unwired Code, Complexity, TDD & Test Quality, Async & Concurrency
 
 ## P1 (Critical)
 - [ ] **[QUAL-001] Title** in `file:line`

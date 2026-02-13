@@ -50,7 +50,9 @@ Parses a plan into tasks with dependencies, summons swarm workers, and coordinat
 ## Pipeline Overview
 
 ```
-Phase 0: Parse Plan → Extract tasks with dependencies
+Phase 0: Parse Plan → Extract tasks, clarify ambiguities
+    ↓
+Phase 0.5: Environment Setup → Branch check, stash dirty files
     ↓
 Phase 1: Forge Team → TeamCreate + TaskCreate pool
     ↓
@@ -58,11 +60,17 @@ Phase 2: Summon Workers → Self-organizing swarm
     ↓ (workers claim → implement → complete → repeat)
 Phase 3: Monitor → TaskList polling, stale detection
     ↓
-Phase 4: Ward Check → Project quality gates
+Phase 3.5: Commit Broker → Apply patches, commit (orchestrator-only)
+    ↓
+Phase 4: Ward Check → Quality gates + verification checklist
     ↓
 Phase 5: Echo Persist → Save learnings
     ↓
-Output: Implemented feature with commits
+Phase 6: Cleanup → Shutdown workers, TeamDelete
+    ↓
+Phase 6.5: Ship → Push + PR creation (optional)
+    ↓
+Output: Feature branch with commits + PR (optional)
 ```
 
 ## Phase 0: Parse Plan
@@ -76,6 +84,15 @@ ls -t plans/*.md 2>/dev/null | head -5
 ```
 
 If multiple found, ask user which to execute. If none found, suggest `/rune:plan` first.
+
+### Validate Plan Path
+
+```javascript
+// SECURITY: Validate plan path before any Read or display (consistent with forge.md/arc.md)
+if (!/^[a-zA-Z0-9._\/-]+$/.test(planPath) || planPath.includes('..')) {
+  throw new Error(`Invalid plan path: ${planPath}`)
+}
+```
 
 ### Extract Tasks
 
@@ -101,6 +118,33 @@ tasks = [
 ]
 ```
 
+### Identify Ambiguities
+
+After extracting tasks, scan for potential issues before asking the user to confirm:
+
+1. **Vague task descriptions**: Tasks with no file references, no acceptance criteria, or generic verbs ("improve", "update", "handle")
+2. **Missing dependencies**: Tasks that reference components not covered by other tasks
+3. **Unclear scope**: Tasks where the plan says "etc." or "and similar"
+4. **Conflicting instructions**: Tasks where the plan gives contradictory guidance
+
+If ambiguities found (>= 1):
+
+```javascript
+AskUserQuestion({
+  questions: [{
+    question: `Found ${count} ambiguities in the plan:\n${ambiguityList}\n\nClarify now or proceed as-is?`,
+    header: "Clarify",
+    options: [
+      { label: "Clarify now (Recommended)", description: "Answer questions before workers start" },
+      { label: "Proceed as-is", description: "Workers will interpret ambiguities on their own" }
+    ],
+    multiSelect: false
+  }]
+})
+```
+
+If user chooses to clarify: ask specific questions one at a time (max 3), then append clarifications to the task descriptions before creating the task pool. Default on timeout: "Proceed as-is" (fail-safe).
+
 ### Confirm with User
 
 Present extracted tasks and ask for confirmation:
@@ -120,6 +164,91 @@ Tests:
 
 Proceed with {N} tasks and {W} workers?
 ```
+
+## Phase 0.5: Environment Setup
+
+Before forging the team, verify the git environment is safe for work.
+
+**Skip condition**: When invoked via `/rune:arc`, skip Phase 0.5 entirely — arc handles branch creation in its Pre-flight phase (COMMIT-1). Detection: check for active arc checkpoint at `.claude/arc/*/checkpoint.json` with any phase status `"in_progress"`.
+
+**Talisman override**: `work.skip_branch_check: true` disables this phase for experienced users who manage branches manually.
+
+### Branch Check
+
+```javascript
+// 1. Detect current branch and default branch
+const currentBranch = Bash("git branch --show-current").trim()
+const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
+  || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
+// SECURITY: Guard against detached HEAD (empty string from git branch --show-current)
+if (currentBranch === "") {
+  throw new Error("Detached HEAD detected. Checkout a branch before running /rune:work: git checkout -b <branch>")
+}
+// SECURITY: Validate branch names before display or shell interpolation
+const BRANCH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
+if (!BRANCH_RE.test(currentBranch)) throw new Error(`Invalid current branch name: ${currentBranch}`)
+if (!BRANCH_RE.test(defaultBranch)) throw new Error(`Unexpected default branch name: ${defaultBranch}`)
+
+if (currentBranch === defaultBranch) {
+  // On default branch — must create feature branch
+  AskUserQuestion({
+    questions: [{
+      question: `You're on \`${defaultBranch}\`. Workers will commit here. Create a feature branch?`,
+      header: "Branch",
+      options: [
+        { label: "Create branch (Recommended)", description: "Create a feature branch from current HEAD" },
+        { label: "Continue on " + defaultBranch, description: "Workers commit directly to " + defaultBranch }
+      ],
+      multiSelect: false
+    }]
+  })
+  // If create branch:
+  //   Read talisman prefix and validate BEFORE concatenation (defense-in-depth):
+  //   const branchPrefix = talisman?.work?.branch_prefix ?? "rune/work"
+  //   SECURITY: Validate prefix early — block shell metacharacters at input, not just at final name
+  //   if (!/^[a-zA-Z0-9][a-zA-Z0-9_\/-]*$/.test(branchPrefix)) {
+  //     throw new Error(`Invalid branch_prefix in talisman.yml: ${branchPrefix}`)
+  //   }
+  //   Derive slug and timestamp:
+  //   const planSlug = basename(planFile, ".md").replace(/[^a-zA-Z0-9]/g, "-") || "unnamed"
+  //   const timestamp = Bash("date +%Y%m%d-%H%M%S").trim()  // Local time, consistent with arc.md
+  //   const branchName = `${branchPrefix}-${planSlug}-${timestamp}`
+  //   SECURITY: Validate final branch name (catches interactions between prefix + slug)
+  //   if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(branchName) || branchName.includes('//')) {
+  //     throw new Error("Invalid branch name derived from plan file")
+  //   }
+  //   Bash(`git checkout -b -- "${branchName}"`)
+  // If continue on default:
+  //   Require explicit "yes" confirmation (fail-closed)
+}
+```
+
+### Dirty Working Tree Check
+
+```javascript
+// 2. Check for uncommitted changes
+const status = Bash("git status --porcelain").trim()
+if (status !== "") {
+  AskUserQuestion({
+    questions: [{
+      question: "Uncommitted changes found. How to proceed?",
+      header: "Git state",
+      options: [
+        { label: "Stash changes (Recommended)", description: "git stash — restore after work completes" },
+        { label: "Continue anyway", description: "Workers may conflict with uncommitted changes" }
+      ],
+      multiSelect: false
+    }]
+  })
+  // If stash:
+  //   const stashResult = Bash("git stash push -m 'rune-work-pre-flight'")
+  //   didStash = (stashResult.exitCode === 0)
+  // Default on timeout: stash (fail-safe)
+}
+let didStash = false  // Set to true if stash was applied above; consumed by Phase 6 cleanup
+```
+
+**Branch name derivation**: `rune/work-{slugified-plan-name}-{YYYYMMDD-HHMMSS}` matching arc.md's COMMIT-1 convention. Timestamp uses local time (consistent with arc.md `$(date +%Y%m%d-%H%M%S)`).
 
 ## Phase 1: Forge Team
 
@@ -168,12 +297,20 @@ Write(`tmp/work/${timestamp}/inscription.json`, {
 })
 
 // 5. Create task pool and map symbolic refs to real IDs
+const QUALITY_CONTRACT = `
+Quality requirements (mandatory):
+- Type annotations on ALL function signatures (params + return types)
+- Use \`from __future__ import annotations\` at top of every Python file
+- Docstrings on all public functions, classes, and modules
+- Specific exception types (no bare except, no broad Exception catch)
+- Tests must cover edge cases (empty input, None values, type mismatches)`
+
 const idMap = {}  // Map symbolic refs (#1, #2...) to actual task IDs
 for (let i = 0; i < extractedTasks.length; i++) {
   const task = extractedTasks[i]
   const id = TaskCreate({
     subject: task.subject,
-    description: `${task.description}\n\nPlan: ${planPath}\nType: ${task.type}`
+    description: `${task.description}\n\nPlan: ${planPath}\nType: ${task.type}\n${QUALITY_CONTRACT}`
   })
   idMap[`#${i + 1}`] = id  // Map symbolic ref to real task ID
 }
@@ -192,7 +329,20 @@ for (let i = 0; i < extractedTasks.length; i++) {
 
 ## Phase 2: Summon Swarm Workers
 
-Summon workers based on task types. Default: 2 workers (1 rune-smith + 1 trial-forger). Scale up for larger plans.
+Summon workers based on task types and plan size. Scale workers to match workload:
+
+```javascript
+// Worker scaling: match parallelism to task count
+const implTasks = extractedTasks.filter(t => t.type === "impl").length
+const testTasks = extractedTasks.filter(t => t.type === "test").length
+const maxWorkers = talisman?.work?.max_workers || 3
+
+// Scale: 1 smith per 3-4 impl tasks, 1 forger per 4-5 test tasks (cap at max_workers)
+const smithCount = Math.min(Math.max(1, Math.ceil(implTasks / 3)), maxWorkers)
+const forgerCount = Math.min(Math.max(1, Math.ceil(testTasks / 4)), maxWorkers)
+```
+
+Default: 2 workers (1 rune-smith + 1 trial-forger) for small plans (≤4 tasks). Scales up to `max_workers` (default 3) per role for larger plans.
 
 ```javascript
 // Summon implementation worker
@@ -212,8 +362,20 @@ Task({
     4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before coding.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
-    5. Read existing code patterns in the codebase
+    5. Read FULL target files (not just the function — read the entire file to understand
+       imports, constants, sibling functions, and naming conventions)
+    NOTE: If the plan contains pseudocode, implement from the plan's CONTRACT
+    (Inputs/Outputs/Preconditions/Error handling), not by copying code verbatim. Plan pseudocode
+    is illustrative — verify all variables are defined, all helpers exist, and all
+    Bash calls have error handling before using plan code as reference.
     6. Implement with TDD cycle (test → implement → refactor)
+    6.5. SELF-REVIEW before ward:
+         - Re-read every file you changed (full file, not just your diff)
+         - Check: Are all identifiers defined? Any self-referential assignments?
+         - Check: Do function signatures match all call sites?
+         - Check: Are regex patterns correct? Test edge cases mentally.
+         - Check: No dead code left behind (unused imports, unreachable branches)
+         - If ANY issue found → fix it NOW, before ward check
     7. Run quality gates (discovered from Makefile/package.json/pyproject.toml)
     8. IF ward passes:
        a. Mark new files for diff tracking: git add -N <new-files>
@@ -260,8 +422,13 @@ Task({
     4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before writing tests.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
-    5. Discover test patterns (framework, fixtures, assertions)
+    5. Read FULL source files being tested (understand all exports, types, edge cases)
     6. Write tests following discovered patterns
+    6.5. SELF-REVIEW before running:
+         - Re-read each test file you wrote
+         - Check: Do imports match actual export names?
+         - Check: Are test fixtures consistent with source types?
+         - Check: No copy-paste errors (wrong function name, wrong assertion)
     7. Run tests to verify they pass
     8. IF tests pass:
        a. Mark new files for diff tracking: git add -N <new-files>
@@ -353,7 +520,7 @@ function commitBroker(taskId) {
   const metaPath = `tmp/work/${timestamp}/patches/${taskId}.json`
 
   // 1. Validate patch path
-  if (!patchPath.match(/^tmp\/work\/\d+\/patches\/[\w-]+\.patch$/)) {
+  if (!patchPath.match(/^tmp\/work\/[\w-]+\/patches\/[\w-]+\.patch$/)) {
     warn(`Invalid patch path for task ${taskId}`)
     return
   }
@@ -385,7 +552,7 @@ function commitBroker(taskId) {
   // SECURITY: Validate each file path against safe character set to prevent shell injection
   const SAFE_PATH = /^[a-zA-Z0-9._\-\/]+$/
   for (const file of meta.files) {
-    if (!SAFE_PATH.test(file)) {
+    if (!SAFE_PATH.test(file) || file.includes('..')) {
       warn(`Task ${taskId}: unsafe file path "${file}" — skipping`)
       return
     }
@@ -448,6 +615,66 @@ for (const ward of wards) {
 7. Fallback: skip wards, warn user
 ```
 
+### Post-Ward Verification Checklist
+
+After ward commands pass, run a deterministic verification pass at zero LLM cost:
+
+```javascript
+const checks = []
+
+// 1. All tasks completed
+const tasks = TaskList()
+const incomplete = tasks.filter(t => t.status !== "completed")
+if (incomplete.length > 0) {
+  checks.push(`WARN: ${incomplete.length} tasks not completed: ${incomplete.map(t => t.subject).join(", ")}`)
+}
+
+// 2. Plan checkboxes all checked
+const planContent = Read(planPath)
+const unchecked = (planContent.match(/- \[ \]/g) || []).length
+if (unchecked > 0) {
+  checks.push(`WARN: ${unchecked} unchecked items remain in plan`)
+}
+
+// 3. No BLOCKED tasks
+const blocked = tasks.filter(t => t.status === "pending" && t.blockedBy?.length > 0)
+if (blocked.length > 0) {
+  checks.push(`WARN: ${blocked.length} tasks still blocked`)
+}
+
+// 4. No uncommitted patches
+// Helper: extract task ID from patch filename (e.g., "tmp/.../patches/task-42.patch" → "task-42")
+function extractTaskId(patchPath) {
+  return patchPath.match(/([a-zA-Z0-9_-]+)\.patch$/)?.[1] ?? null
+}
+// committedTaskIds: Set<string> — accumulated during Phase 3.5 Commit Broker loop (see commitBroker function)
+const unapplied = Glob("tmp/work/{timestamp}/patches/*.patch")
+  .filter(p => !committedTaskIds.has(extractTaskId(p)))
+if (unapplied.length > 0) {
+  checks.push(`WARN: ${unapplied.length} patches not committed`)
+}
+
+// 5. No merge conflict markers in tracked files
+const conflictMarkers = Bash("git diff --check HEAD 2>&1 || true").trim()
+if (conflictMarkers !== "") {
+  checks.push(`WARN: Merge conflict markers detected in working tree`)
+}
+
+// 6. No uncommitted changes in tracked files (clean state for PR)
+// Use git diff for tracked files only — avoids false positives from tmp/, logs, or .gitignore'd artifacts
+const dirtyTracked = (Bash("git diff --name-only HEAD").trim() + "\n" +
+                      Bash("git diff --cached --name-only").trim()).trim()
+if (dirtyTracked !== "") {
+  const fileCount = dirtyTracked.split('\n').filter(Boolean).length
+  checks.push(`WARN: Uncommitted changes in tracked files (${fileCount} files)`)
+}
+
+// Report — non-blocking, report to user but don't halt
+if (checks.length > 0) {
+  warn("Verification warnings:\n" + checks.join("\n"))
+}
+```
+
 ## Phase 5: Echo Persist
 
 ```javascript
@@ -464,6 +691,11 @@ if (exists(".claude/echoes/workers/")) {
 ## Phase 6: Cleanup & Report
 
 ```javascript
+// 0. Cache task list BEFORE team cleanup (TaskList() requires active team)
+const allTasks = TaskList()
+const completedTasks = allTasks.filter(t => t.status === "completed")
+const blockedTasks = allTasks.filter(t => t.status === "pending" && t.blockedBy?.length > 0)
+
 // 1. Shutdown all workers
 for (const worker of allWorkers) {
   SendMessage({ type: "shutdown_request", recipient: worker })
@@ -477,6 +709,14 @@ try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
 }
 
+// 3.5 Restore stashed changes if Phase 0.5 stashed (honor the "restore after work completes" promise)
+if (didStash) {
+  const popResult = Bash("git stash pop 2>/dev/null")
+  if (popResult.exitCode !== 0) {
+    warn("Stash pop failed — manual restore needed: git stash list")
+  }
+}
+
 // 4. Update state file to completed
 Write("tmp/.rune-work-{timestamp}.json", {
   team_name: "rune-work-{timestamp}",
@@ -487,7 +727,178 @@ Write("tmp/.rune-work-{timestamp}.json", {
   expected_workers: workerCount
 })
 
-// 5. Report to user
+// 5. Report to user (see Completion Report below)
+```
+
+## Phase 6.5: Ship (Optional)
+
+After cleanup, offer to push and create a PR. This phase completes the developer workflow from "parse plan" to "ship feature."
+
+### Pre-check: gh CLI Availability
+
+```javascript
+const ghAvailable = Bash("command -v gh >/dev/null 2>&1 && gh auth status 2>&1 | grep -q 'Logged in' && echo 'ok'").trim() === "ok"
+if (!ghAvailable) {
+  warn("GitHub CLI (gh) not available or not authenticated. PR creation will be skipped.")
+  warn("Install: https://cli.github.com/ — then run: gh auth login")
+  // Fall back to manual push instructions
+}
+```
+
+### Ship Decision
+
+```javascript
+// Track PR state for Smart Next Steps (hoisted — must be in scope on all paths: Create PR, Skip, Push only)
+let prCreated = false
+let prUrl = ""
+
+// Only offer if on a feature branch (not default branch)
+const currentBranch = Bash("git branch --show-current").trim()
+const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
+  || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
+// SECURITY: Validate branch names before display interpolation (defense-in-depth — also validated in PR Template)
+if (currentBranch === "") { warn("Detached HEAD — skipping ship phase"); return }
+if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(currentBranch) || !/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(defaultBranch)) {
+  warn("Invalid branch name detected — skipping ship phase")
+  return
+}
+
+if (currentBranch !== defaultBranch) {
+  const options = [
+    { label: "Skip", description: "Don't push — review locally first" }
+  ]
+  if (ghAvailable) {
+    // "Create PR" includes push — no separate "Push only" needed (user can push manually via "Other")
+    options.unshift(
+      { label: "Create PR (Recommended)", description: "Push branch and open a pull request" }
+    )
+  } else {
+    options.unshift(
+      { label: "Push only", description: "Push to remote (gh CLI not available for PR)" }
+    )
+  }
+  AskUserQuestion({
+    questions: [{
+      question: `Work complete on \`${currentBranch}\`. Ship it?`,
+      header: "Ship",
+      options: options,
+      multiSelect: false
+    }]
+  })
+  // Default on timeout: Skip (fail-safe — don't push without explicit consent)
+}
+```
+
+### PR Template
+
+When user selects "Create PR":
+
+```javascript
+// NOTE: prCreated/prUrl declared in Ship Decision scope (outer block) — accessible here and in Smart Next Steps
+
+// 1. Push branch
+// SECURITY: Validate branch name before shell interpolation
+if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(currentBranch)) {
+  throw new Error(`Invalid branch name for push: ${currentBranch}`)
+}
+const pushResult = Bash(`git push -u origin -- "${currentBranch}"`)
+if (pushResult.exitCode !== 0) {
+  warn("Push failed. Check remote access and try manually: git push -u origin " + currentBranch)
+  return  // Skip PR creation, fall through to completion report
+}
+
+// 2. Generate PR title from plan
+// Extract title: try frontmatter `title:` field, fallback to plan filename
+const planContent = Read(planPath)
+const titleMatch = planContent.match(/^---\n[\s\S]*?^title:\s*(.+?)$/m)
+const planTitle = titleMatch ? titleMatch[1].trim() : basename(planPath, '.md').replace(/^\d{4}-\d{2}-\d{2}-/, '')
+// Extract type: try frontmatter `type:` field, fallback to filename prefix pattern ({type}-{name})
+const typeMatch = planContent.match(/^type:\s*(\w+)/m) || planPath.match(/\/(\w+)-/)
+const planType = typeMatch ? typeMatch[1] : 'feat'  // feat | fix | refactor
+const prTitle = `${planType}: ${planTitle}`
+// Sanitize: allow only safe chars (matches commit message pattern), limit to 70 chars
+const safePrTitle = prTitle.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 70) || "Work completed"
+
+// 3. Build file change summary
+// SECURITY: Validate defaultBranch before shell interpolation (currentBranch validated above)
+if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(defaultBranch)) {
+  throw new Error(`Invalid default branch name: ${defaultBranch}`)
+}
+const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`).trim()
+
+// 4. Read talisman for PR overrides (defaults documented here)
+// readTalisman(): Read .claude/talisman.yml (project) or ~/.claude/talisman.yml (user), parse YAML.
+// Returns null if neither exists. Same lookup used in arc.md and plan.md.
+const talisman = readTalisman()
+const monitoringRequired = talisman?.work?.pr_monitoring ?? false    // Default: false
+const coAuthors = talisman?.work?.co_authors ?? []                   // Default: [] (no co-authors)
+// Note: auto_push and pr_template config keys reserved for a future release
+// auto_push: skip Ship Decision AskUserQuestion and push automatically (requires safety guards)
+// pr_template: minimal template variant (reduced PR body)
+
+// 5. Build co-author lines
+// SECURITY: Validate "Name <email>" format — reject entries with newlines or missing angle brackets
+const validCoAuthors = coAuthors.filter(a => /^[^<>\n]+\s+<[^@\n]+@[^>\n]+>$/.test(a))
+const coAuthorLines = validCoAuthors.map(a => `Co-Authored-By: ${a}`).join('\n')
+
+// 6. Capture variables from earlier phases for PR body
+// NOTE: allTasks/completedTasks/blockedTasks cached in Phase 6 step 0 (before TeamDelete)
+// Those variables are in outer scope and reused here and in Smart Next Steps
+// wardResults: Array<{name, exitCode}> — accumulated during Phase 4 Ward Check
+// commitCount: number — from committedTaskIds.size (Phase 3.5 Commit Broker)
+// verificationWarnings: Array<string> — from checks[] in Post-Ward Verification Checklist
+const commitCount = committedTaskIds.size
+const verificationWarnings = checks  // From Post-Ward Verification Checklist above
+
+// 7. Write PR body to file (avoid shell injection via -m flag)
+// Sanitize task subjects for markdown (consistent with commit subject sanitization at line ~522)
+const safeSubject = (s) => s.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 120)
+// SECURITY: Sanitize planPath for markdown rendering (escape backticks and $)
+const safePlanPath = planPath.replace(/[`$]/g, '\\$&')
+const prBody = `## Summary
+
+Implemented from plan: \`${safePlanPath}\`
+
+### Changes
+\`\`\`
+${diffStat}
+\`\`\`
+
+### Tasks Completed
+${completedTasks.map(t => `- [x] ${safeSubject(t.subject)}`).join("\n")}
+${blockedTasks.length > 0 ? `\n### Blocked Tasks\n${blockedTasks.map(t => `- [ ] ${safeSubject(t.subject)}`).join("\n")}` : ""}
+
+## Testing
+- Ward checks passed: ${wardResults.map(w => w.name).join(", ")}
+- ${commitCount} incremental commits, each ward-checked
+
+## Quality
+- All plan checkboxes checked
+- ${verificationWarnings.length === 0 ? "No verification warnings" : `${verificationWarnings.length} warnings`}
+${monitoringRequired ? `
+## Post-Deploy Monitoring
+<!-- Fill in before merging -->
+- **What to monitor**:
+- **Expected healthy behavior**:
+- **Failure signals / rollback trigger**:
+- **Validation window**:
+` : ""}
+---
+Generated with [Claude Code](https://claude.ai/code) via Rune Plugin
+${coAuthorLines}`
+
+// SECURITY: Re-validate timestamp for file path (defense-in-depth — validated at Phase 1)
+// Format: YYYYMMDD-HHMMSS (e.g., 20260213-143022) — must match Phase 1 regex
+if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid work timestamp")
+Write(`tmp/work/${timestamp}/pr-body.md`, prBody)
+const prResult = Bash(`gh pr create --title "${safePrTitle}" --body-file "tmp/work/${timestamp}/pr-body.md"`)
+if (prResult.exitCode !== 0) {
+  warn("PR creation failed. Branch was pushed successfully. Create PR manually: gh pr create")
+} else {
+  prUrl = prResult.stdout.trim()
+  prCreated = true
+  log(`PR created: ${prUrl}`)
+}
 ```
 
 ### Completion Report
@@ -495,18 +906,73 @@ Write("tmp/.rune-work-{timestamp}.json", {
 ```
 ⚔ The Tarnished has claimed the Elden Throne.
 
+Plan: {planPath}
+Branch: {currentBranch}
+
 Tasks: {completed}/{total}
 Workers: {smith_count} Rune Smiths, {forger_count} Trial Forgers
 Wards: {passed}/{total} passed
 Commits: {commit_count}
+Time: {duration}
 
 Files changed:
 - {file list with change summary}
 
-Next steps:
-1. /rune:review — Review the implementation
-2. git push — Push to remote
-3. Create PR
+Artifacts: tmp/work/{timestamp}/
+```
+
+### Smart Next Steps
+
+After the completion report, present interactive next steps.
+**NOTE**: Smart Next Steps re-derives branch names independently (not from Phase 6.5 scope, which is conditional).
+
+```javascript
+// Compute review recommendation based on changeset analysis
+// defaultBranch and currentBranch: re-derive here since Phase 6.5 scope is conditional.
+// Guard: if on default branch (no diff possible), skip review recommendation.
+const snCurrentBranch = Bash("git branch --show-current").trim()
+const snDefaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
+  || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
+const BRANCH_RE_SN = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
+if (!snCurrentBranch || !BRANCH_RE_SN.test(snCurrentBranch) || !BRANCH_RE_SN.test(snDefaultBranch) || snCurrentBranch === snDefaultBranch) {
+  // On default branch or invalid state — skip diff-based recommendation, show generic options
+  var filesChanged = 0, hasSecurityFiles = false, hasConfigFiles = false
+} else {
+  const diffFiles = Bash(`git diff --name-only "${snDefaultBranch}"..."${snCurrentBranch}"`).trim().split('\n').filter(Boolean)
+  var filesChanged = diffFiles.length
+  var hasSecurityFiles = diffFiles.some(f => /auth|secret|token|crypt|password|session|\.env/i.test(f))
+  var hasConfigFiles = diffFiles.some(f => /\.claude\/|talisman|CLAUDE\.md/i.test(f))
+}
+const taskCount = completedTasks.length
+
+let reviewRecommendation
+if (hasSecurityFiles) {
+  reviewRecommendation = "/rune:review (Recommended) — security-sensitive files changed"
+} else if (filesChanged >= 10 || taskCount >= 8) {
+  reviewRecommendation = "/rune:review (Recommended) — large changeset"
+} else if (hasConfigFiles) {
+  reviewRecommendation = "/rune:review (Suggested) — configuration files changed"
+} else {
+  reviewRecommendation = "/rune:review (Optional) — small, focused changeset"
+}
+
+AskUserQuestion({
+  questions: [{
+    question: `Work complete. What next?`,
+    header: "Next",
+    options: [
+      { label: reviewRecommendation.split(" — ")[0], description: reviewRecommendation.split(" — ")[1] || "Review the implementation" },
+      // Show "View PR" if Phase 6.5 already created one; otherwise show "Create PR"
+      ...(prCreated
+        ? [{ label: "View PR", description: `Open ${prUrl} in browser` }]
+        : [{ label: "Create PR", description: "Push and open a pull request" }]),
+      { label: "/rune:rest", description: "Clean up tmp/ artifacts" }
+    ],
+    multiSelect: false
+  }]
+})
+// AskUserQuestion auto-provides "Other" free-text option.
+// "Other" handlers: "arc --resume" → continue arc; "push" → git push; "diff" → git diff
 ```
 
 ## Error Handling
@@ -522,6 +988,11 @@ Next steps:
 | Conflicting file edits | Workers write to separate files; lead resolves conflicts |
 | Empty patch (worker reverted own changes) | Skip commit, log as "completed-no-change" |
 | Patch conflict (two workers on same file) | `git apply --3way` fallback; mark NEEDS_MANUAL_MERGE on failure |
+| `git push` failure (Phase 6.5) | Warn user, skip PR creation, show manual push command in completion report |
+| `gh pr create` failure (Phase 6.5) | Warn user (branch was pushed), show `gh pr create` manual command |
+| Detached HEAD state | Abort with error — require user to checkout a branch first |
+| `git stash push` failure (Phase 0.5) | Warn and continue with dirty tree |
+| `git stash pop` failure (Phase 6) | Warn user — manual restore needed: `git stash list` |
 
 ## --approve Flag (Plan Approval Per Task)
 
@@ -628,3 +1099,37 @@ When the orchestrator receives a "Seal: task done" message from a worker:
 This serializes all plan file writes through a single writer, eliminating read-modify-write races.
 
 When invoked via `/rune:arc` (Phase 5), the work sub-orchestrator (team lead of the work team) handles checkbox updates — not the arc-level orchestrator.
+
+## Key Principles
+
+### For the Tarnished (Orchestrator)
+
+- **Ship complete features**: Don't stop at "tasks done" — verify wards pass, plan checkboxes are checked, and offer to create a PR.
+- **Fail fast on ambiguity**: Ask clarifying questions in Phase 0, not after workers have started implementing.
+- **Branch safety first**: Never let workers commit to `main` without explicit user confirmation.
+- **Serialize git operations**: All commits go through the commit broker. Never let workers run `git add` or `git commit` directly.
+
+### For Workers (Rune Smiths & Trial Forgers)
+
+- **Match existing patterns**: Read similar code before writing new code. The plan references exist for a reason.
+- **Test as you go**: Run wards after each task, not just at the end. Fix failures immediately.
+- **One task, one patch**: Each task produces exactly one patch. Don't bundle unrelated changes.
+- **Don't over-engineer**: Implement what the task says. No extra features, no speculative abstractions.
+- **Self-review before ward**: Re-read every changed file before running quality gates. Catch undefined variables, wrong identifiers, and dead code before the reviewer does.
+- **Exit cleanly**: No tasks after 3 retries → idle notification → exit. Approve shutdown requests immediately.
+
+## Common Pitfalls
+
+| Pitfall | Prevention |
+|---------|------------|
+| Committing to `main` | Phase 0.5 branch check (fail-closed) |
+| Building wrong thing from ambiguous plan | Phase 0 clarification sub-step |
+| 80% done syndrome — work "completes" but PR never created | Phase 6.5 ship phase |
+| Over-reviewing simple changes | Review guidance heuristic in completion report |
+| Workers editing same files | Task extraction classifies dependencies; commit broker handles conflicts |
+| Stale worker blocking pipeline | Stale detection (5 min warn, 10 min auto-release) |
+| Ward failure cascade | Auto-create fix task, summon fresh worker |
+| Dirty working tree conflicts | Phase 0.5 stash check |
+| `gh` CLI not installed | Pre-check with fallback to manual instructions |
+| Partial file reads → undefined refs | Step 5: "Read FULL target files" |
+| Fixes that introduce new bugs | Step 6.5: Self-review checklist |

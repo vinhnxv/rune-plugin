@@ -36,12 +36,18 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 | ember-oracle | performance, scalability, caching, database, queries, n-plus-one, latency, memory, async | Performance Considerations | performance bottlenecks and optimization opportunities |
 | rune-architect | architecture, layers, boundaries, solid, dependencies, services, patterns, design | Architecture Analysis | architectural compliance and structural integrity |
 | flaw-hunter | edge-cases, null-handling, race-conditions, concurrency, error-handling, validation, boundaries | Edge Cases & Risk Analysis | logic bugs, race conditions, and edge case coverage |
-| pattern-seer | patterns, conventions, naming, consistency, style, standards, anti-patterns | Pattern Alignment | codebase pattern consistency and convention adherence |
+| pattern-seer | patterns, conventions, naming, consistency, style, standards, api-design, error-handling, data-modeling, auth-patterns, state-management, logging, observability-format | Cross-Cutting Consistency | naming, error handling, API design, data modeling, auth, state, and logging consistency |
 | simplicity-warden | complexity, yagni, abstraction, over-engineering, simplicity, minimal | Simplicity Review | unnecessary complexity and YAGNI violations |
 | mimic-detector | duplication, dry, reuse, similar, copy-paste, shared | Reuse Opportunities | code duplication and reuse opportunities |
 | void-analyzer | completeness, todo, stub, placeholder, partial, implementation, missing | Completeness Gaps | incomplete implementations, stubs, and TODO coverage |
-| wraith-finder | dead-code, unused, orphan, deprecated, legacy, cleanup, removal | Dead Code Risk | dead code identification and cleanup opportunities |
+| wraith-finder | dead-code, unused, orphan, deprecated, legacy, cleanup, removal, unwired, di-wiring, router-registration, event-subscription, ai-orphan | Dead Code & Unwired Code Risk | dead code, unwired DI services, orphaned routes/handlers, and AI-generated orphan detection |
 | phantom-checker | dynamic, reflection, metaprogramming, string-dispatch, runtime, magic | Dynamic Reference Analysis | dynamic references and runtime resolution concerns |
+| type-warden | types, type-safety, mypy, annotations, hints, python, idioms, async, docstrings | Type Safety Analysis | type annotation coverage, language idioms, and async correctness |
+| trial-oracle | testing, tdd, coverage, assertions, test-quality, pytest, edge-cases, fixtures | Test Quality Analysis | TDD compliance, test coverage gaps, and assertion quality |
+| depth-seer | missing-logic, error-handling, validation, state-machine, complexity, rollback, boundaries | Missing Logic Analysis | incomplete error handling, state machine gaps, and complexity hotspots |
+| blight-seer | anti-patterns, god-service, leaky-abstraction, temporal-coupling, observability, consistency-model, failure-modes, primitive-obsession, design-smells | Design Anti-Pattern Analysis | architectural smells, design flaws, and systemic quality degradation |
+| forge-keeper | migration, schema, database, transaction, integrity, reversibility, lock, cascade, referential, privacy, pii, audit, backfill | Data Integrity Analysis | migration safety, transaction boundaries, and data integrity verification |
+| tide-watcher | async, concurrency, await, waterfall, race-condition, cancellation, semaphore, timer, cleanup, structured-concurrency, promise, goroutine, tokio, asyncio | Async & Concurrency Analysis | async correctness, concurrency patterns, and race condition detection |
 
 ### Research Agents (Research Budget)
 

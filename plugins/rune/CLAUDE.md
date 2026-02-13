@@ -24,7 +24,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | `/rune:mend` | Parallel finding resolution from TOME |
-| `/rune:arc` | End-to-end pipeline (forge, plan review, plan refinement, verification, work, review, mend, audit) |
+| `/rune:arc` | End-to-end pipeline (forge, plan review, plan refinement, verification, work, review, mend, verify mend, audit) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
@@ -41,10 +41,16 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | simplicity-warden | YAGNI, over-engineering, premature abstraction |
 | flaw-hunter | Logic bugs, edge cases, race conditions |
 | mimic-detector | DRY violations, code duplication |
-| pattern-seer | Pattern consistency, naming conventions |
+| pattern-seer | Cross-cutting consistency: naming, error handling, API design, data modeling, auth, state, logging |
 | void-analyzer | Incomplete implementations, TODOs, stubs |
-| wraith-finder | Dead code, unused exports |
+| wraith-finder | Dead code, unwired code, DI wiring gaps, orphaned routes/handlers, AI orphan detection |
 | phantom-checker | Dynamic references, reflection analysis |
+| type-warden | Type safety, mypy strict, Python idioms, async correctness |
+| trial-oracle | TDD compliance, test quality, coverage gaps, assertions |
+| depth-seer | Missing logic, incomplete state machines, complexity hotspots |
+| blight-seer | Design anti-patterns, God Service, leaky abstractions, temporal coupling |
+| forge-keeper | Data integrity, migration safety, reversibility, lock analysis, transaction boundaries |
+| tide-watcher | Async/concurrency patterns, waterfall awaits, unbounded concurrency, cancellation, race conditions |
 
 ### Research Agents (`agents/research/`)
 
@@ -68,7 +74,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | Agent | Purpose |
 |-------|---------|
 | runebinder | Aggregates Ash findings into TOME.md |
-| decree-arbiter | Technical soundness review for plans (6-dimension evaluation) |
+| decree-arbiter | Technical soundness review for plans (8-dimension evaluation) |
 | truthseer-validator | Audit coverage validation (Phase 5.5) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
@@ -85,6 +91,15 @@ the protagonist who journeys through the Lands Between. In Rune, the Tarnished:
 - Coordinates Ashes and summons research agents
 - Collects findings into the TOME
 - Guides the arc pipeline from forge to audit
+- Runs deterministic gap analysis between work and code review
+
+### Implementation Gap Analysis (Phase 5.5)
+
+Deterministic, orchestrator-only phase between WORK and CODE REVIEW. Cross-references plan acceptance criteria against committed code changes. Categories: ADDRESSED, MISSING, PARTIAL. Advisory only — warns but never halts.
+
+### Plan Section Convention
+
+Plans with pseudocode must include contract headers (Inputs/Outputs/Preconditions/Error handling) before code blocks. Phase 2.7 verification gate enforces this. Workers implement from contracts, not by copying pseudocode verbatim.
 
 The Tarnished is the lead agent in every team. Machine identifier: `team-lead`.
 
@@ -92,13 +107,13 @@ The Tarnished is the lead agent in every team. Machine identifier: `team-lead`.
 
 Each Ash is an Agent Teams teammate with its own 200k context window. An Ash embeds multiple review agent perspectives into a single teammate to reduce team size.
 
-Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Ashes). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Ash prompts. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 7 perspectives via 5 dedicated agents).
+Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents across 3 Ashes). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Ash prompts. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 8 perspectives via 7 dedicated agents).
 
 | Ash | Perspectives | Agent Source | When Summoned |
 |-----------|-------------|-------------|-------------|
-| **Forge Warden** | Backend code quality, architecture, performance, logic, testing | Dedicated agent files | Backend, infra, config, or unclassified files changed |
+| **Forge Warden** | Backend code quality, architecture, performance, logic, testing, type safety, missing logic, design anti-patterns, data integrity | Dedicated agent files | Backend, infra, config, or unclassified files changed |
 | **Ward Sentinel** | All security perspectives | Dedicated agent files | ALWAYS (+ priority on `.claude/` files) |
-| **Pattern Weaver** | Simplicity, patterns, duplication, logic, dead code, complexity, tests | Dedicated agent files | ALWAYS |
+| **Pattern Weaver** | Simplicity, patterns, duplication, logic, dead code, complexity, TDD & test quality, async & concurrency | Dedicated agent files | ALWAYS |
 | **Glyph Scribe** | Type safety, components, performance, hooks, accessibility | Inline perspectives | Frontend files changed |
 | **Knowledge Keeper** | Accuracy, completeness, consistency, readability, security | Inline perspectives | Docs changed (>= threshold) or `.claude/` files changed |
 
@@ -123,7 +138,7 @@ The unified review summary after deduplication and prioritization. Findings use 
 
 ### Decree Arbiter
 
-Utility agent that reviews plans for technical soundness across 6 dimensions (feasibility, risk, efficiency, coverage, consistency, internal consistency). Uses Decree Trace evidence format.
+Utility agent that reviews plans for technical soundness across 8 dimensions (architecture fit, feasibility, security/performance risks, dependency impact, pattern alignment, internal consistency, design anti-pattern risk, consistency convention). Uses Decree Trace evidence format.
 
 ### Remembrance Channel
 
@@ -152,7 +167,7 @@ See `roundtable-circle/references/forge-gaze.md` for the topic registry and matc
 
 ### Arc Pipeline
 
-End-to-end orchestration across 8 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), plan refinement (concern extraction, orchestrator-only), verification gate (deterministic checks, zero-LLM), work (swarm implementation), code review (Roundtable Circle), mend (parallel finding resolution), and audit (final gate). Each delegated phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions and time budgets enforce least privilege.
+End-to-end orchestration across 10 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), plan refinement (concern extraction, orchestrator-only), verification gate (deterministic checks, zero-LLM), work (swarm implementation), gap analysis (plan-to-code compliance, deterministic, orchestrator-only), code review (Roundtable Circle), mend (parallel finding resolution), verify mend (convergence gate with regression detection and retry loop, max 2 retries), and audit (final gate). Each delegated phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions and time budgets enforce least privilege.
 
 ### Mend
 
@@ -208,7 +223,7 @@ Inscription verification scales with team size: Layer 0 for small teams (1-2 tea
 | Plans | `tmp/plans/{id}/research/`, `plans/YYYY-MM-DD-{type}-{name}-plan.md` | Research findings, brainstorm decisions, plan document |
 | Forge | `tmp/forge/{id}/` | `{section-slug}-{agent-name}.md` enrichment files |
 | Mend | `tmp/mend/{id}/` | `resolution-report.md`, fixer outputs |
-| Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `concern-context.md`, `verification-report.md`, `work-summary.md`, `tome.md`, `resolution-report.md`, `audit-report.md`) |
+| Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `concern-context.md`, `verification-report.md`, `work-summary.md`, `tome.md`, `resolution-report.md`, `spot-check-round-{N}.md`, `audit-report.md`) |
 | Arc State | `.claude/arc/{id}/` | `checkpoint.json` (persistent, NOT in tmp/) |
 | Scratch | `tmp/scratch/` | Session state |
 | Echoes | `.claude/echoes/{role}/` | `MEMORY.md`, `knowledge.md`, `archive/` |
@@ -263,6 +278,12 @@ work:
   max_workers: 3
   approve_timeout: 180                   # Seconds (default 3 min)
   commit_format: "rune: {subject} [ward-checked]"
+  skip_branch_check: false               # Skip Phase 0.5 branch check
+  branch_prefix: "rune/work"             # Branch name prefix (alphanumeric, _, -, / only)
+  pr_monitoring: false                    # Post-deploy monitoring in PR body
+  # pr_template: default                 # Reserved for a future release (default | minimal)
+  # auto_push: false                     # Reserved for a future release (auto-push without confirmation)
+  co_authors: []                         # Co-Authored-By lines in "Name <email>" format
 ```
 
 See `roundtable-circle/references/custom-ashes.md` for full schema and `talisman.example.yml` at plugin root.

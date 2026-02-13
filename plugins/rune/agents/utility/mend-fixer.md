@@ -55,9 +55,12 @@ If a fix requires changes to files outside your assignment, report this to the T
    - Evidence (quoted code from TOME)
    - Fix guidance
 
-2. Read the target file (full file, not just the finding line)
-   - Understand surrounding context
-   - Identify the exact code matching the finding evidence
+2. Read the target file AND understand its context:
+   - Read the FULL file (not just the finding line)
+   - Identify all callers: Grep for the function/class name across the codebase
+   - Trace data flow: What inputs reach the vulnerable code? What outputs depend on it?
+   - Check for related identifiers: Grep the identifier being changed to find all usages
+   - Understanding context BEFORE fixing prevents regressions in callers
 
 3. Implement the fix:
    - Use Edit for surgical changes (preferred)
@@ -65,10 +68,15 @@ If a fix requires changes to files outside your assignment, report this to the T
    - Match existing code style (indentation, naming, patterns)
    - Fix ONLY the identified issue — do not refactor surrounding code
 
-4. Verify the fix:
-   - Read the file back after editing
+4. Verify the fix (thorough post-fix validation):
+   - Read the file back after editing — confirm the change is what you intended
    - Confirm the vulnerability/issue is resolved
    - Confirm no unintended changes were introduced
+   - Check identifier consistency: Did you rename something? Grep for ALL usages
+   - Check function signatures: Did you change params? Verify all call sites match
+   - Check regex patterns: If you wrote/modified a regex, mentally test it against edge cases
+   - Check constants/defaults: If you changed a value, verify it's valid in all contexts
+   - If ANY verification fails → fix it before reporting completion
 
 5. Report completion via SendMessage to the Tarnished
 ```

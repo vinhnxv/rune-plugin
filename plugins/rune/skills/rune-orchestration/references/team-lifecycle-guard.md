@@ -105,11 +105,11 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 | `/rune:work` | `rune-work-{timestamp}` |
 | `/rune:review` | `rune-review-{identifier}` |
 | `/rune:audit` | `rune-audit-{audit_id}` |
-| `/rune:mend` | `mend-{timestamp}` |
+| `/rune:mend` | `rune-mend-{id}` |
 | `/rune:arc` Phase 1 | `arc-forge-{id}` |
 | `/rune:arc` Phase 2 | `arc-plan-review-{id}` |
-| `/rune:arc` Phases 2.5, 2.7 | Orchestrator-only (no team) |
-| `/rune:arc` Phases 5-8 | Delegated to work/review/mend/audit commands |
+| `/rune:arc` Phases 2.5, 2.7, 5.5, 7.5 | Orchestrator-only (no team) |
+| `/rune:arc` Phases 5-8 (excl. 7.5) | Delegated to work/review/mend/audit commands |
 
 ## Notes
 

@@ -3,8 +3,9 @@ name: decree-arbiter
 description: |
   Technical soundness review of plans. Validates architecture fit, feasibility,
   security/performance risks, codebase pattern alignment, dependency analysis,
-  and internal consistency. Used during /rune:plan Phase 4C (technical review)
-  and /rune:arc Phase 2 (plan review) alongside scroll-reviewer and knowledge-keeper.
+  internal consistency, and design anti-pattern risk. Used during /rune:plan Phase 4C
+  (technical review) and /rune:arc Phase 2 (plan review) alongside scroll-reviewer
+  and knowledge-keeper.
 
   <example>
   user: "Review this plan for technical soundness"
@@ -53,7 +54,7 @@ Before writing ANY findings, you MUST:
 
 Include `codebase_files_read: N` in your output. If 0, your output is flagged as unreliable.
 
-## 6-Dimension Evaluation Framework
+## 8-Dimension Evaluation Framework
 
 | Dimension | What It Checks | Evidence Method |
 |---|---|---|
@@ -63,6 +64,8 @@ Include `codebase_files_read: N` in your output. If 0, your output is flagged as
 | Dependency Impact | What existing code breaks? Consumer count? | Grep for usages of modified interfaces |
 | Pattern Alignment | Follows codebase conventions? | Compare against discovered conventions |
 | Internal Consistency | Do claims match across sections? Counts correct? | Cross-reference sections within the plan |
+| Design Anti-Pattern Risk | Does the proposed design introduce known architectural smells? | Pattern match against anti-pattern catalog |
+| Consistency Convention | Does the plan establish or violate naming, error, API, and data conventions? | Compare against existing codebase conventions |
 
 ### Internal Consistency Checks
 
@@ -74,6 +77,44 @@ This dimension catches hallucination, mismatches, and false claims within the pl
 4. **Acceptance criteria coverage** — Every proposed change must have at least one acceptance criterion
 5. **Risk-to-mitigation alignment** — Every risk in Risk Analysis must have a corresponding mitigation
 6. **Version/branch consistency** — Version bumps must match branch naming and semver conventions
+
+### Design Anti-Pattern Checks
+
+This dimension catches architectural smells BEFORE code is written. Check the plan for:
+
+1. **God Service risk** — Does the plan propose a single service with >5 distinct responsibilities?
+2. **Leaky Abstraction risk** — Does the plan expose implementation details across module boundaries?
+3. **Temporal Coupling risk** — Does the plan require operations in a specific order without enforcing it?
+4. **Missing Observability** — Does the plan address logging, metrics, tracing for critical paths?
+5. **Wrong Consistency Model** — Does the plan mix eventual/strong consistency without documenting trade-offs?
+6. **Premature Optimization** — Does the plan introduce infrastructure complexity disproportionate to current scale?
+7. **Failure Mode blindspots** — Does the plan address what happens when external dependencies fail?
+8. **Primitive Obsession** — Does the plan use raw strings/ints for domain concepts instead of typed models?
+
+**Verdict rules:**
+- Any God Service or Wrong Consistency Model → CONCERN
+- Missing Observability on payment/auth paths → CONCERN
+- 3+ anti-pattern signals → BLOCK
+- 0-1 minor signals → PASS
+
+### Consistency Convention Checks
+
+This dimension catches inconsistency risks BEFORE code is written. Check the plan for:
+
+1. **Naming convention** — Does the plan use the same terms as existing codebase? (Grep for existing field names, class names)
+2. **Error handling convention** — Does the plan specify error format? Is it consistent with existing APIs?
+3. **API design convention** — Does the plan follow existing URL patterns, pagination schemes, response envelopes?
+4. **Data modeling convention** — Does the plan specify timestamp format, ID types, boolean patterns matching existing tables?
+5. **Auth pattern convention** — Does the plan specify where auth checks happen, matching existing patterns?
+6. **State management** — Does the plan define state transitions that align with existing state machines?
+7. **Logging/observability** — Does the plan address logging format, correlation IDs, metrics matching existing infrastructure?
+
+**Verdict rules:**
+- Plan introduces new conventions without mentioning migration strategy → CONCERN
+- Plan contradicts established conventions without justification → CONCERN
+- Plan omits error handling/auth/logging conventions for new API endpoints → CONCERN
+- 3+ convention gaps → BLOCK
+- Conventions align with codebase or explicitly document divergence → PASS
 
 ## Deterministic Verdict Derivation
 
@@ -116,6 +157,14 @@ No judgment calls — use this table:
 - **Decree Trace:** [evidence]
 
 ## Internal Consistency
+**Verdict:** PASS | CONCERN | BLOCK
+- **Decree Trace:** [evidence]
+
+## Design Anti-Pattern Risk
+**Verdict:** PASS | CONCERN | BLOCK
+- **Decree Trace:** [evidence]
+
+## Consistency Convention
 **Verdict:** PASS | CONCERN | BLOCK
 - **Decree Trace:** [evidence]
 

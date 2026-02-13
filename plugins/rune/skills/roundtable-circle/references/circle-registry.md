@@ -6,7 +6,7 @@
 
 Each review agent is embedded as a "perspective" inside an Ash. This registry defines which perspectives belong to which Ash and what file scopes they target.
 
-> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (10 agents across 3 Ashes). Glyph Scribe and Knowledge Keeper use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
+> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents across 3 Ashes). Glyph Scribe and Knowledge Keeper use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
 
 ### Forge Warden (Backend)
 
@@ -16,6 +16,10 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 | ember-oracle | Performance bottlenecks | Database queries > API handlers > utils |
 | flaw-hunter | Logic bugs, edge cases | Business logic > data transformations |
 | mimic-detector | Code duplication | Largest files first (highest risk) |
+| type-warden | Type safety, language idioms | All backend source files |
+| depth-seer | Missing logic, complexity | Services > handlers > core modules |
+| blight-seer | Design anti-patterns, architectural smells | Entry points > services > core modules |
+| forge-keeper | Data integrity, migration safety, lock analysis | Migration files > model files > transaction code |
 
 **Audit file priority:** entry points > core modules > services > utils > tests
 **Context budget:** max 30 files
@@ -35,9 +39,11 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 |-------|-------------|---------------|
 | simplicity-warden | YAGNI, over-engineering | Largest/most complex files first |
 | pattern-seer | Naming, conventions | All files by size descending |
-| wraith-finder | Dead code, unused exports | All files by size descending |
+| wraith-finder | Dead code, unwired code, DI wiring, orphaned routes/handlers | All files by size descending |
 | phantom-checker | Dynamic references | Entry points > configuration |
 | void-analyzer | Incomplete implementations | All files (look for TODOs, stubs) |
+| trial-oracle | TDD compliance, test quality | Test files > source files |
+| tide-watcher | Async/concurrency patterns, race conditions | Async code > event handlers > frontend |
 
 **Audit file priority:** largest files first (highest complexity risk)
 **Context budget:** max 30 files (all file types)
