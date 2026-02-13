@@ -155,7 +155,8 @@ When you run `/rune:work`, Rune parses a plan into tasks and summons self-organi
 6. **Commits via broker** — orchestrator applies patches and commits (prevents index.lock contention)
 7. **Runs quality gates** — auto-discovers wards + post-ward verification checklist
 8. **Persists learnings** — saves implementation patterns to Rune Echoes
-9. **Ships (optional)** — push + PR creation with generated template (Phase 6.5)
+9. **Cleans up** — shutdown workers, TeamDelete (Phase 6)
+10. **Ships (optional)** — push + PR creation with generated template (Phase 6.5)
 
 Workers scale automatically based on task count (1-5 tasks: 2 workers, 20+ tasks: 5 workers).
 

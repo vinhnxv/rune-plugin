@@ -171,6 +171,9 @@ Before forging the team, verify the git environment is safe for work.
 const currentBranch = Bash("git branch --show-current").trim()
 const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
   || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
+// SECURITY: Validate branch names before display or shell interpolation
+const BRANCH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
+if (!BRANCH_RE.test(defaultBranch)) throw new Error(`Unexpected default branch name: ${defaultBranch}`)
 
 if (currentBranch === defaultBranch) {
   // On default branch — must create feature branch
@@ -186,12 +189,18 @@ if (currentBranch === defaultBranch) {
     }]
   })
   // If create branch:
-  //   Derive name from plan (use planSlug from Phase 0, timestamp = Date.now()):
-  //   plan_slug = basename(planFile, ".md").replace(/[^a-zA-Z0-9]/g, "-")
-  //   branch_name = `${branchPrefix}-${plan_slug}-${YYYYMMDD-HHMMSS}`
-  //   (branchPrefix from talisman?.work?.branch_prefix ?? "rune/work")
-  //   SECURITY: Validate branch name after derivation
-  //   if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(branchName)) {
+  //   Read talisman prefix and validate BEFORE concatenation (defense-in-depth):
+  //   const branchPrefix = talisman?.work?.branch_prefix ?? "rune/work"
+  //   SECURITY: Validate prefix early — block shell metacharacters at input, not just at final name
+  //   if (!/^[a-zA-Z0-9][a-zA-Z0-9_\/-]*$/.test(branchPrefix)) {
+  //     throw new Error(`Invalid branch_prefix in talisman.yml: ${branchPrefix}`)
+  //   }
+  //   Derive slug and timestamp:
+  //   const planSlug = basename(planFile, ".md").replace(/[^a-zA-Z0-9]/g, "-") || "unnamed"
+  //   const timestamp = Bash("date +%Y%m%d-%H%M%S").trim()  // Local time, consistent with arc.md
+  //   const branchName = `${branchPrefix}-${planSlug}-${timestamp}`
+  //   SECURITY: Validate final branch name (catches interactions between prefix + slug)
+  //   if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(branchName) || branchName.includes('//')) {
   //     throw new Error("Invalid branch name derived from plan file")
   //   }
   //   Bash(`git checkout -b -- "${branchName}"`)
@@ -579,6 +588,11 @@ if (blocked.length > 0) {
 }
 
 // 4. No uncommitted patches
+// Helper: extract task ID from patch filename (e.g., "tmp/.../patches/task-42.patch" → "task-42")
+function extractTaskId(patchPath) {
+  return patchPath.match(/([a-zA-Z0-9_-]+)\.patch$/)?.[1] ?? null
+}
+// committedTaskIds: Set<string> — accumulated during Phase 3.5 Commit Broker loop (see commitBroker function)
 const unapplied = Glob("tmp/work/{timestamp}/patches/*.patch")
   .filter(p => !committedTaskIds.has(extractTaskId(p)))
 if (unapplied.length > 0) {
@@ -591,10 +605,13 @@ if (conflictMarkers !== "") {
   checks.push(`WARN: Merge conflict markers detected in working tree`)
 }
 
-// 6. No uncommitted changes in working tree (clean state for PR)
-const dirtyFiles = Bash("git status --porcelain").trim()
-if (dirtyFiles !== "") {
-  checks.push(`WARN: Uncommitted changes in working tree (${dirtyFiles.split('\n').length} files)`)
+// 6. No uncommitted changes in tracked files (clean state for PR)
+// Use git diff for tracked files only — avoids false positives from tmp/, logs, or .gitignore'd artifacts
+const dirtyTracked = (Bash("git diff --name-only HEAD").trim() + "\n" +
+                      Bash("git diff --cached --name-only").trim()).trim()
+if (dirtyTracked !== "") {
+  const fileCount = dirtyTracked.split('\n').filter(Boolean).length
+  checks.push(`WARN: Uncommitted changes in tracked files (${fileCount} files)`)
 }
 
 // Report — non-blocking, report to user but don't halt
@@ -673,9 +690,9 @@ if (currentBranch !== defaultBranch) {
     { label: "Skip", description: "Don't push — review locally first" }
   ]
   if (ghAvailable) {
+    // "Create PR" includes push — no separate "Push only" needed (user can push manually via "Other")
     options.unshift(
-      { label: "Create PR (Recommended)", description: "Push branch and open a pull request" },
-      { label: "Push only", description: "Push to remote without creating a PR" }
+      { label: "Create PR (Recommended)", description: "Push branch and open a pull request" }
     )
   } else {
     options.unshift(
@@ -700,32 +717,58 @@ When user selects "Create PR":
 
 ```javascript
 // 1. Push branch
-Bash(`git push -u origin "${currentBranch}"`)
+// SECURITY: Validate branch name before shell interpolation
+if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(currentBranch)) {
+  throw new Error(`Invalid branch name for push: ${currentBranch}`)
+}
+Bash(`git push -u origin -- "${currentBranch}"`)
 
 // 2. Generate PR title from plan
-const planTitle = extractPlanTitle(planPath)  // From plan frontmatter
-const planType = extractPlanType(planPath)    // feat | fix | refactor
+// Extract title: try frontmatter `title:` field, fallback to plan filename
+const planContent = Read(planPath)
+const titleMatch = planContent.match(/^---\n[\s\S]*?^title:\s*(.+?)$/m)
+const planTitle = titleMatch ? titleMatch[1].trim() : basename(planPath, '.md').replace(/^\d{4}-\d{2}-\d{2}-/, '')
+// Extract type: try frontmatter `type:` field, fallback to filename prefix pattern ({type}-{name})
+const typeMatch = planContent.match(/^type:\s*(\w+)/m) || planPath.match(/\/(\w+)-/)
+const planType = typeMatch ? typeMatch[1] : 'feat'  // feat | fix | refactor
 const prTitle = `${planType}: ${planTitle}`
 // Sanitize: allow only safe chars (matches commit message pattern), limit to 70 chars
 const safePrTitle = prTitle.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 70) || "Work completed"
 
 // 3. Build file change summary
-const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`).trim()
+// SECURITY: Validate defaultBranch before shell interpolation (currentBranch validated above)
+if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(defaultBranch)) {
+  throw new Error(`Invalid default branch name: ${defaultBranch}`)
+}
+const diffStat = Bash(`git diff --stat -- "${defaultBranch}"..."${currentBranch}"`).trim()
 
 // 4. Read talisman for PR overrides (defaults documented here)
+// readTalisman(): Read .claude/talisman.yml (project) or ~/.claude/talisman.yml (user), parse YAML.
+// Returns null if neither exists. Same lookup used in arc.md and plan.md.
 const talisman = readTalisman()
 const monitoringRequired = talisman?.work?.pr_monitoring ?? false    // Default: false
-const prTemplate = talisman?.work?.pr_template ?? 'default'          // Default: 'default' (vs 'minimal')
 const autoPush = talisman?.work?.auto_push ?? false                  // Default: false
 const coAuthors = talisman?.work?.co_authors ?? []                   // Default: [] (no co-authors)
+// Note: pr_template config key reserved for v1.13.0 (minimal template variant)
 
 // 5. Build co-author lines
-const coAuthorLines = coAuthors.map(a => `Co-Authored-By: ${a}`).join('\n')
+// SECURITY: Validate "Name <email>" format — reject entries with newlines or missing angle brackets
+const validCoAuthors = coAuthors.filter(a => /^[^<>\n]+\s+<[^@\n]+@[^>\n]+>$/.test(a))
+const coAuthorLines = validCoAuthors.map(a => `Co-Authored-By: ${a}`).join('\n')
 
-// 6. Write PR body to file (avoid shell injection via -m flag)
+// 6. Capture variables from earlier phases for PR body
+// wardResults: Array<{name, exitCode}> — accumulated during Phase 4 Ward Check
+// commitCount: number — from committedTaskIds.size (Phase 3.5 Commit Broker)
+// verificationWarnings: Array<string> — from checks[] in Post-Ward Verification Checklist
+const commitCount = committedTaskIds.size
+const verificationWarnings = checks  // From Post-Ward Verification Checklist above
+
+// 7. Write PR body to file (avoid shell injection via -m flag)
+// SECURITY: Sanitize planPath for markdown rendering (escape backticks and $)
+const safePlanPath = planPath.replace(/[`$]/g, '\\$&')
 const prBody = `## Summary
 
-Implemented from plan: \`${planPath}\`
+Implemented from plan: \`${safePlanPath}\`
 
 ### Changes
 ${diffStat}
@@ -753,6 +796,8 @@ ${monitoringRequired ? `
 Generated with [Claude Code](https://claude.ai/code) via Rune Plugin
 ${coAuthorLines}`
 
+// SECURITY: Re-validate timestamp for file path (defense-in-depth — validated at Phase 1 line 232)
+if (!/^\d+$/.test(timestamp)) throw new Error("Invalid work timestamp")
 Write(`tmp/work/${timestamp}/pr-body.md`, prBody)
 Bash(`gh pr create --title "${safePrTitle}" --body-file "tmp/work/${timestamp}/pr-body.md"`)
 ```
@@ -779,11 +824,14 @@ Artifacts: tmp/work/{timestamp}/
 
 ### Smart Next Steps
 
-After the completion report, present interactive next steps:
+After the completion report, present interactive next steps.
+**NOTE**: Compute `changedFiles` once before the Completion Report (e.g., after Phase 6 Cleanup) and reuse in both the report and Smart Next Steps to avoid redundant git diff calls.
 
 ```javascript
 // Compute review recommendation based on changeset analysis
-const changedFiles = Bash(`git diff --name-only "${defaultBranch}"..."${currentBranch}"`).trim().split('\n').filter(Boolean)
+// NOTE: defaultBranch and currentBranch already validated in Phase 6.5 PR Template (SEC-1, SEC-2)
+// Reuse changedFiles if already computed for Completion Report; otherwise compute here:
+const changedFiles = changedFiles ?? Bash(`git diff --name-only -- "${defaultBranch}"..."${currentBranch}"`).trim().split('\n').filter(Boolean)
 const filesChanged = changedFiles.length
 const hasSecurityFiles = changedFiles.some(f => /auth|secret|token|crypt|password|session|\.env/i.test(f))
 const hasConfigFiles = changedFiles.some(f => /\.claude\/|talisman|CLAUDE\.md/i.test(f))

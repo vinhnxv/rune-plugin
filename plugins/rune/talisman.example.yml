@@ -231,5 +231,5 @@ work:
   pr_monitoring: false          # Include post-deploy monitoring section in PR body (default: false)
   pr_template: default          # PR body template: default | minimal (default: default)
   auto_push: false              # Auto-push after completion without confirmation (default: false)
-  co_authors:                   # Additional Co-Authored-By lines in PR body
-    - "Claude <noreply@anthropic.com>"
+  co_authors: []                # Additional Co-Authored-By lines in "Name <email>" format (default: [])
+  # Example: ["Claude <noreply@anthropic.com>", "Alice <alice@example.com>"]

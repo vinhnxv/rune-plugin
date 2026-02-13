@@ -264,12 +264,11 @@ work:
   approve_timeout: 180                   # Seconds (default 3 min)
   commit_format: "rune: {subject} [ward-checked]"
   skip_branch_check: false               # Skip Phase 0.5 branch check
-  branch_prefix: "rune/work"             # Branch name prefix
+  branch_prefix: "rune/work"             # Branch name prefix (alphanumeric, _, -, / only)
   pr_monitoring: false                    # Post-deploy monitoring in PR body
-  pr_template: default                   # PR template: default | minimal
+  pr_template: default                   # PR template: default | minimal (enum)
   auto_push: false                       # Auto-push without confirmation
-  co_authors:                            # Co-Authored-By lines in PR
-    - "Claude <noreply@anthropic.com>"
+  co_authors: []                         # Co-Authored-By lines in "Name <email>" format
 ```
 
 See `roundtable-circle/references/custom-ashes.md` for full schema and `talisman.example.yml` at plugin root.
