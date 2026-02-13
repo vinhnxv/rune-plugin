@@ -201,12 +201,11 @@ See `context-weaving` skill for the full Glyph Budget protocol and pre-summon ch
 
 ## Inscription Protocol (MANDATORY)
 
-**RULE: `TeamCreate` (any count) OR `Task` x 3+ agents → `inscription.json` REQUIRED. No exceptions.**
+**RULE: All Rune multi-agent workflows use Agent Teams (`TeamCreate`) + `inscription.json`. No exceptions.**
 
 ```
-TeamCreate → inscription.json REQUIRED (always, any teammate count)
-Task x 3+  → inscription.json REQUIRED (parallel agents)
-Task x 1-2 → glyph budget only (inscription optional)
+Rune command (any agent count) → Agent Teams + inscription.json REQUIRED
+Custom workflow (3+ agents)    → Agent Teams + inscription.json REQUIRED
 ```
 
 **Three steps:**

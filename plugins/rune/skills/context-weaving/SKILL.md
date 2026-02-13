@@ -2,7 +2,7 @@
 name: context-weaving
 description: |
   Unified context management: overflow prevention, compression, and filesystem offloading.
-  Should be loaded before summoning 3+ agents to enforce Glyph Budgets, plan orchestration, and prevent "Prompt is too long" errors.
+  Should be loaded for any Rune multi-agent workflow to enforce Glyph Budgets, plan orchestration, and prevent "Prompt is too long" errors.
   Also applicable for long sessions (50+ messages) to compress context.
 
   <example>
@@ -37,7 +37,7 @@ Agents can write unlimited detail to files. The overflow comes from what they _r
 
 | Layer | Problem | Solution | When |
 |-------|---------|----------|------|
-| **Overflow Prevention** | Agent returns flood lead context | Glyph Budget: file-only output | Before summoning 3+ agents |
+| **Overflow Prevention** | Agent returns flood lead context | Glyph Budget: file-only output | Before any Rune multi-agent command |
 | **Context Rot** | Attention degrades in long contexts | Instruction anchoring, re-anchoring signals | Always (in prompts) |
 | **Compression** | Session grows beyond 50+ messages | Anchored iterative summarization | During long sessions |
 | **Filesystem Offloading** | Tool outputs consume 83.9% of context | Write outputs to files, read on demand | During any workflow |
@@ -48,11 +48,8 @@ Agents can write unlimited detail to files. The overflow comes from what they _r
 
 | Condition | Action |
 |-----------|--------|
-| About to summon **3-4 agents** via Task tool | Apply Glyph Budget + inscription |
-| About to summon **5+ agents** | Use Agent Teams + Glyph Budget + inscription |
-| Running `/rune:review` | Loaded automatically by roundtable-circle |
-| Running `/rune:audit` | Loaded automatically by roundtable-circle |
-| Any custom multi-agent orchestration | Apply Glyph Budget (if 3+ agents) |
+| Any Rune multi-agent command | Agent Teams + Glyph Budget + inscription (loaded automatically) |
+| Custom multi-agent orchestration (3+ agents) | Agent Teams + Glyph Budget + inscription |
 
 ### Pre-Summon Checklist (8 Thoughts)
 
@@ -72,9 +69,8 @@ Estimated return tokens (with budget): [count] x 150 = [total]
 #### Thought 2: Choose Strategy
 
 ```
-- 1-2 agents → Glyph Budget only. No inscription needed.
-- 3-4 agents → Glyph Budget + inscription.json REQUIRED.
-- 5+ agents OR TeamCreate → Agent Teams + Glyph Budget + inscription REQUIRED.
+- All Rune commands → Agent Teams + Glyph Budget + inscription.json REQUIRED.
+- Custom workflows (3+ agents) → Agent Teams + Glyph Budget + inscription.json REQUIRED.
 
 My choice: [strategy]
 ```

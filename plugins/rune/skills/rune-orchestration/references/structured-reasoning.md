@@ -76,7 +76,7 @@ Before launching Ash, use the 8-thought pre-summon checklist from `context-weavi
 | Thought | Purpose | Key Question |
 |---------|---------|-------------|
 | 1 | Count and Estimate | How many Ash? What's the token budget? |
-| 2 | Choose Strategy | Task-only, Agent Teams, or hybrid? |
+| 2 | Choose Strategy | Agent Teams (all Rune commands). Verify inscription + Glyph Budget. |
 | 3 | Output Directory + Inscription | Where do Ash write? Generate inscription.json |
 | 4 | Verify Protocol Injection | Does each Ash prompt include Glyph Budget + Seal format? |
 | 5 | Post-Completion Validation | How will I verify outputs after completion? |
@@ -84,7 +84,7 @@ Before launching Ash, use the 8-thought pre-summon checklist from `context-weavi
 | **7** | **Fallback Strategies** | If an Ash times out or MCP is unavailable, what's Plan B? Document in inscription |
 | **8** | **Verification Planning** | Which layers of Truthsight to enable? When to summon verifier? |
 
-**When to use**: Always use for 3+ Ashes. Use Thoughts 1-5 only for 1-2 Ashes (skip 6-8 unless complex).
+**When to use**: Always use for all Rune multi-agent commands. Use Thoughts 1-5 for small teams (1-2 teammates), add Thoughts 6-8 for larger teams (3+) or complex workflows.
 
 ### 2. Mid-Monitor (Tarnished)
 

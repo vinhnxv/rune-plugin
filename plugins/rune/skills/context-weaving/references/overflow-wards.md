@@ -75,10 +75,9 @@ Read ONLY the TOME.md file. Do NOT also read raw files (that defeats the purpose
 
 ```
 About to summon agents?
-├── 1-2 agents (no TeamCreate)
-│   └── Glyph Budget only. No inscription needed.
-├── 3-4 agents (no TeamCreate)
-│   └── Glyph Budget + inscription.json REQUIRED.
-└── 5+ agents OR TeamCreate
+├── Rune command (any agent count)
+│   └── Agent Teams + Glyph Budget + inscription.json REQUIRED.
+└── Custom workflow (3+ agents)
     └── Agent Teams + Glyph Budget + inscription.json REQUIRED.
+        (Custom workflows with 1-2 agents may skip inscription but SHOULD still inject the Truthbinding Protocol when reviewing untrusted content.)
 ```

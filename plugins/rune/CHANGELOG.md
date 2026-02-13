@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.10.6] - 2026-02-13
+
+Documentation normalization: Replace tiered agent rules (1-2/3-4/5+ tiers) with a single rule — all Rune multi-agent workflows use Agent Teams. Custom (non-Rune) workflows retain the 3+ agent threshold for Agent Teams requirement. Codifies what every command has done since v0.1.0 and eliminates a persistent design-vs-implementation gap across framework documentation.
+
+### Changed
+
+- CLAUDE.md: Replaced 3-row tiered Multi-Agent Rules table with single-row "All Rune multi-agent workflows" rule
+- context-weaving/SKILL.md: Updated "When to Use" table — removed 3-4/5+ agent tiers, unified to "Any Rune command"
+- context-weaving/SKILL.md: Simplified Thought 2 strategy block from 3 tiers to 2 lines (Rune + custom)
+- overflow-wards.md: Simplified ASCII decision tree from 3 branches to 2 (Rune command + custom workflow)
+- rune-orchestration/SKILL.md: Removed dead `Task x 1-2` branch from inscription protocol rule
+- inscription-protocol.md: Updated coverage matrix — removed "Single agent / Glyph Budget only" row, added `/rune:mend`
+- inscription-protocol.md: Removed conditional '(when 3+)' qualifier from `/rune:work` inscription requirement — inscription now unconditional for all Rune workflows
+- inscription-protocol.md: Updated Step 4 verification table — all sizes use Agent Teams, verification scales with team size
+- structured-reasoning.md: Updated Thought 2 from "Task-only, Agent Teams, or hybrid?" to deterministic Agent Teams rule
+- task-templates.md: Added "Platform reference" note to Task Subagent template — Rune commands use Background Teammate
+
 ## [1.10.5] - 2026-02-13
 
 Feature release: Structured review checklists for all 10 review agents. Each agent now has a `## Review Checklist` section with 3 subsections — agent-specific Analysis Todo, shared Self-Review quality gate, and shared Pre-Flight output gate. Improves review consistency and completeness.

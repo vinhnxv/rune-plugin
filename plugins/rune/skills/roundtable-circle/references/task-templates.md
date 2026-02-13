@@ -90,7 +90,11 @@ Task({
 })
 ```
 
-### Task Subagent (Non-Teams)
+### Task Subagent (Platform Reference)
+
+> **Note**: This template is a platform reference for non-Rune workflows. All Rune commands use the Background Teammate template above with Agent Teams (`TeamCreate` + `TaskCreate`).
+
+> **Security**: Custom workflows using this template with 3+ agents reviewing untrusted code MUST inject the Truthbinding Protocol and Glyph Budget. See `inscription-protocol.md` for the full prompt injection template.
 
 ```
 Task({
