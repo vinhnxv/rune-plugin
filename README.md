@@ -44,7 +44,7 @@ Each Ash teammate gets its own 200k context window, eliminating single-context b
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.11.0 |
+| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.16.0 |
 
 ## Structure
 

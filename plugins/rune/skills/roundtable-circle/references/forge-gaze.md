@@ -64,6 +64,8 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 
 ### Elicitation Methods (Method Budget — zero token cost)
 
+> **Note**: This table is derived from `skills/elicitation/methods.csv`. Re-verify after CSV changes.
+
 Methods are prompt modifiers injected into matched agents' prompts. They do NOT spawn agents and do NOT count toward `MAX_TOTAL_AGENTS`. Maximum `MAX_METHODS_PER_SECTION = 2` methods per section.
 
 Methods are scored using the same algorithm as agents (keyword overlap + title bonus) but selected independently. A section can have up to `MAX_PER_SECTION` (3) agents AND up to `MAX_METHODS_PER_SECTION` (2) methods.
