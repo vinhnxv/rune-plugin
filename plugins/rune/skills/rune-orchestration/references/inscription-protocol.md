@@ -154,7 +154,7 @@ TaskList `completed` status  >  Seal message  >  file existence
 
 ## Coverage Matrix
 
-All workflows summoning 3+ agents MUST implement the inscription protocol.
+All Rune multi-agent workflows MUST implement the inscription protocol.
 
 | Workflow | Agent Count | Inscription Required | Verification |
 |----------|-------------|---------------------|-------------|

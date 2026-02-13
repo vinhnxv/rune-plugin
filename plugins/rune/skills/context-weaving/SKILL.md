@@ -2,7 +2,7 @@
 name: context-weaving
 description: |
   Unified context management: overflow prevention, compression, and filesystem offloading.
-  Should be loaded before summoning 3+ agents to enforce Glyph Budgets, plan orchestration, and prevent "Prompt is too long" errors.
+  Should be loaded for any Rune multi-agent workflow to enforce Glyph Budgets, plan orchestration, and prevent "Prompt is too long" errors.
   Also applicable for long sessions (50+ messages) to compress context.
 
   <example>
@@ -37,7 +37,7 @@ Agents can write unlimited detail to files. The overflow comes from what they _r
 
 | Layer | Problem | Solution | When |
 |-------|---------|----------|------|
-| **Overflow Prevention** | Agent returns flood lead context | Glyph Budget: file-only output | Before summoning 3+ agents |
+| **Overflow Prevention** | Agent returns flood lead context | Glyph Budget: file-only output | Before any Rune multi-agent command |
 | **Context Rot** | Attention degrades in long contexts | Instruction anchoring, re-anchoring signals | Always (in prompts) |
 | **Compression** | Session grows beyond 50+ messages | Anchored iterative summarization | During long sessions |
 | **Filesystem Offloading** | Tool outputs consume 83.9% of context | Write outputs to files, read on demand | During any workflow |

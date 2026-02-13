@@ -79,4 +79,5 @@ About to summon agents?
 │   └── Agent Teams + Glyph Budget + inscription.json REQUIRED.
 └── Custom workflow (3+ agents)
     └── Agent Teams + Glyph Budget + inscription.json REQUIRED.
+    (Custom workflows with 1-2 agents may skip inscription.)
 ```
