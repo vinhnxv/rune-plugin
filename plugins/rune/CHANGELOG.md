@@ -1,5 +1,77 @@
 # Changelog
 
+## [1.13.0] - 2026-02-13
+
+Feature release: 4-part quality improvement for `/rune:arc` pipeline.
+
+**Part 1 — Convergence Gate**: Phase 7.5 (VERIFY MEND) between mend and audit detects regressions introduced by mend fixes, retries mend up to 2x if P1 findings remain, and halts on divergence (whack-a-mole prevention).
+
+**Part 2 — Work/Mend Agent Quality**: Self-review steps, pre-fix context analysis, and expanded verification reduce bugs at source. Root cause: 57% of review findings originated in the work phase, 43% in mend regressions.
+
+**Part 3 — Plan Section Convention**: Requires contract headers (Inputs/Outputs/Preconditions/Error handling) before pseudocode blocks in plans. Root cause: 73% of work-origin bugs traced back to the plan itself — undefined variables, missing error handling, and plan-omitted details. Plans with contracts (v1.11.0) needed only 2 fix rounds; plans without (v1.12.0) needed 5.
+
+**Part 4 — Implementation Gap Analysis**: Phase 5.5 between WORK and CODE REVIEW. Deterministic, orchestrator-only check that cross-references plan acceptance criteria against committed code. Zero LLM cost. Advisory only (warns but never halts). Fills an ecosystem-wide gap — no AI coding agent performs automated plan-to-code compliance checking.
+
+### Added
+
+- arc.md: Phase 7.5 VERIFY MEND — orchestrator-only convergence gate with single Explore subagent spot-check. Parses mend resolution report for modified files, runs targeted regression detection (removed error handling, broken imports, logic inversions, type errors), compares finding counts against TOME baseline.
+- arc.md: Convergence decision matrix — CONVERGED (no P1 + findings decreased), RETRY (P1 remaining + rounds left), HALTED (diverging or circuit breaker exhausted). Max 2 retries (3 total mend passes).
+- arc.md: Mini-TOME generation for retry rounds — converts SPOT:FINDING markers to RUNE:FINDING format so mend can parse them normally. Findings prefixed `SPOT-R{round}-{NNN}`.
+- arc.md: Checkpoint schema v3 with `convergence` object tracking round count, max rounds, and per-round history (findings before/after, P1 count, verdict, timestamp).
+- arc.md: Schema v2→v3 migration in `--resume` logic (adds verify_mend as "skipped" + empty convergence object for backward compatibility).
+- arc.md: Reduced mend timeout for retry rounds (8 min vs 16 min initial) since retry rounds target fewer findings.
+- cancel-arc.md: Added verify_mend to legacyMap (orchestrator-only, no team) and cancellation table.
+- plan.md: Plan Section Convention — "Contracts Before Code" subsection with required structure template (Inputs/Outputs/Preconditions/Error handling before pseudocode), 4 rules for pseudocode in plans, good/bad examples.
+- arc.md: Phase 2.7 check #6 — contract header verification for pseudocode sections (checks **Inputs**, **Outputs**, **Error handling** headers before code blocks).
+- work.md: Worker NOTE about plan pseudocode — implement from contracts, not by copying code verbatim.
+- work.md: Self-review step 6.5 for rune-smith prompt — re-read changed files, verify identifiers, function signatures, no dead code.
+- work.md: Self-review step 6.5 for trial-forger prompt — check test isolation, imports, assertion specificity.
+- work.md: Self-review key principle and 2 additional pitfall rows (copy-paste from plan, mend regressions).
+- rune-smith.md: Rule 7 — self-review before completion (re-read files, check identifiers, function signatures).
+- rune-smith.md: Rule 8 — plan pseudocode is guidance, not gospel (implement from contracts, verify variables exist).
+- mend-fixer.md: Step 2 expanded with pre-fix context analysis (Grep for callers, trace data flow, check identifiers).
+- mend-fixer.md: Step 4 expanded with thorough post-fix validation (identifier consistency, function signatures, regex patterns, constants/defaults).
+- mend.md: Inline fixer prompt lifecycle expanded to 3-step (PRE-FIX analysis, implement, POST-FIX verification).
+- arc.md: Phase 5.5 IMPLEMENTATION GAP ANALYSIS — deterministic, orchestrator-only check that cross-references plan acceptance criteria against committed code. Zero LLM cost. Gap categories: ADDRESSED, MISSING, PARTIAL. Advisory only — warns but never halts.
+- arc.md: Checkpoint schema v4 with `gap_analysis` phase entry + v3→v4 migration in `--resume` logic.
+- arc.md: Truthbinding ANCHOR/RE-ANCHOR sections added to spot-check Explore subagent prompt (was the only agent prompt without them).
+- arc.md: Mini-TOME description sanitization — strips HTML comments, newlines, truncates to 500 chars to prevent marker corruption.
+- arc.md: Spot-check finding scope validation — filters to only files in mendModifiedFiles and valid P1/P2/P3 severity.
+- arc.md: Empty convergence history guard — prevents array index error on first round.
+- arc.md: Checkpoint max_rounds capped against CONVERGENCE_MAX_ROUNDS constant.
+
+### Changed
+
+- arc.md: PHASE_ORDER expanded from 8 to 10 phases (added gap_analysis between work and code_review, verify_mend between mend and audit)
+- arc.md: Pipeline Overview diagram updated with Phase 7.5 and convergence loop arrows
+- arc.md: Phase Transition Contracts table updated with MEND→VERIFY_MEND and VERIFY_MEND→MEND (retry) handoffs
+- arc.md: Completion Report now includes convergence summary with per-round finding trend
+- arc.md: Checkpoint initialized with schema_version 4 (was 3)
+- arc.md: Spot-check no-output default changed from "converged" to "halted" (fail-closed)
+- plan.md: Line 657 "illustrative pseudocode" strengthened with cross-reference to Plan Section Convention
+- plan.md: Comprehensive Template's Technical Approach section now references Plan Section Convention
+- rune-smith.md: Rule 1 expanded from "Read before write" to "Read the FULL target file" (understand imports, constants, siblings)
+- mend-fixer.md: Steps 2 and 4 now require context analysis before fixes and thorough validation after
+- CLAUDE.md: Arc Pipeline description updated to mention gap analysis and convergence gate (10 phases)
+- CLAUDE.md: Key Concepts updated with Implementation Gap Analysis (Phase 5.5) and Plan Section Convention
+- README.md: Arc Mode section updated to 10 phases with GAP ANALYSIS and VERIFY MEND descriptions
+- README.md: Key Concepts updated with Plan Section Convention
+- team-lifecycle-guard.md: Arc phase table updated (Phases 2.5, 2.7, 5.5, 7.5 are orchestrator-only)
+- team-lifecycle-guard.md: Mend team naming pattern corrected from `mend-{timestamp}` to `rune-mend-{id}`
+- cancel-arc.md: Added gap_analysis to legacyMap and cancellation table (orchestrator-only)
+- rune-smith.md: Step 6 changed from "Commit changes" to "Generate patch for commit broker"
+- plan.md: Fixed unquoted shell paths and invalid `result.matchCount` in talisman verification patterns
+- All files: "Reserved for v1.13.0" references updated to "Reserved for a future release"
+- plugin.json: version 1.12.0 → 1.13.0
+
+### Migration Notes
+
+- **No breaking changes** — existing checkpoints auto-migrate v2→v3→v4 on `--resume`
+- The convergence gate is automatic and requires no user configuration
+- Gap analysis is advisory only — warns but never halts the pipeline
+- Standalone `/rune:mend` and `/rune:review` are completely unaffected
+- Old checkpoints resumed with new code skip verify_mend and gap_analysis (marked "skipped")
+
 ## [1.12.0] - 2026-02-13
 
 Feature release: Ship workflow gaps — adds branch setup, plan clarification, quality verification checklist, PR creation, enhanced completion report, and key principles to `/rune:work`. Closes the "last mile" from plan → commits → PR in a single invocation.

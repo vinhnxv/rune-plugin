@@ -196,8 +196,8 @@ defaults:
 # Arc — Pipeline timeout overrides (v1.12.0+)
 # ──────────────────────────────────────────────
 # Per-phase timeout overrides for /rune:arc. Values in milliseconds.
-# Hardcoded defaults are used in v1.11.0 — talisman-configurable timeouts
-# are planned for v1.12.0+.
+# Hardcoded defaults — talisman-configurable timeouts are planned for a
+# future release.
 # arc:
 #   timeouts:
 #     forge: 600000           # 10 minutes (default)
@@ -205,8 +205,10 @@ defaults:
 #     plan_refine: 180000     # 3 minutes (default, orchestrator-only)
 #     verification: 30000     # 30 seconds (default, orchestrator-only, deterministic)
 #     work: 1860000           # 31 minutes (default)
+#     gap_analysis: 60000     # 1 minute (default, orchestrator-only, deterministic)
 #     code_review: 660000     # 11 minutes (default)
 #     mend: 960000            # 16 minutes (default)
+#     verify_mend: 240000     # 4 minutes (default, orchestrator-only)
 #     audit: 960000           # 16 minutes (default)
 #     total: 5400000          # 90 minutes total pipeline (default)
 
@@ -229,7 +231,7 @@ work:
   skip_branch_check: false     # Skip Phase 0.5 branch/environment check (default: false)
   branch_prefix: "rune/work"   # Branch name prefix (must match /^[a-zA-Z0-9][a-zA-Z0-9_\-\/]*$/, default: "rune/work")
   pr_monitoring: false          # Include post-deploy monitoring section in PR body (default: false)
-  # pr_template: default        # Reserved for v1.13.0 — only "default" currently implemented
-  # auto_push: false            # Reserved for v1.13.0 — auto-push without confirmation
+  # pr_template: default        # Reserved for a future release — only "default" currently implemented
+  # auto_push: false            # Reserved for a future release — auto-push without confirmation
   co_authors: []                # Additional Co-Authored-By lines in "Name <email>" format (default: [])
   # Example: ["Claude <noreply@anthropic.com>", "Alice <alice@example.com>"]

@@ -551,6 +551,8 @@ date: YYYY-MM-DD
 
 {Detailed technical design}
 
+> Each implementation phase that includes pseudocode must follow the Plan Section Convention (Inputs/Outputs/Preconditions/Error handling before code blocks).
+
 ### Implementation Phases
 
 #### Phase 1: {Foundation}
@@ -654,7 +656,67 @@ erDiagram
 - Add syntax-highlighted code blocks with file path references: `app/services/foo.rb:42`
 - Cross-reference related issues with `#number`, commits with SHA hashes
 - For model changes, include ERD mermaid diagrams
-- Code examples in plans are illustrative pseudocode, not implementation code
+- Code examples in plans are illustrative pseudocode, not implementation code. Sections with pseudocode MUST include contract headers (Inputs/Outputs/Preconditions/Error handling) — see Plan Section Convention below
+
+### Plan Section Convention — Contracts Before Code
+
+When a plan section includes pseudocode (JavaScript/Bash code blocks), it MUST include contract headers BEFORE the code block. This prevents undefined variables, missing error handling, and gaps from propagating to implementation.
+
+**Required structure for sections with pseudocode:**
+
+```
+## Section Name
+
+**Inputs**: List all variables this section consumes (name, type, where defined)
+**Outputs**: What this section produces (artifacts, state changes, return values)
+**Preconditions**: What must be true before this section runs
+**Error handling**: How failures are handled (for each Bash/external call)
+
+```javascript
+// Pseudocode — illustrative only
+// All variables must appear in Inputs list above (or be defined in this block)
+// All Bash() calls must have error handling described above
+```
+```
+
+**Rules for pseudocode in plans:**
+1. Every variable used in a code block must either appear in the **Inputs** list or be defined within the block
+2. Every `Bash()` call must have a corresponding entry in **Error handling**
+3. Every helper function called (e.g., `extractPlanTitle()`) must either be defined in the plan or listed as "defined by worker" in **Inputs**
+4. Pseudocode is *illustrative* — workers should implement from the contract (Inputs/Outputs/Preconditions), using pseudocode as guidance, not as copy-paste source
+
+**Example (good):**
+
+```
+## Phase 6.5: Ship
+
+**Inputs**: currentBranch (string, from Phase 0.5), defaultBranch (string, from Phase 0.5),
+planPath (string, from Phase 0), completedTasks (Task[], from TaskList before TeamDelete),
+wardResults ({name, exitCode}[], from Phase 4)
+**Outputs**: PR URL (string) or skip message; branch pushed to origin
+**Preconditions**: On feature branch (not default), gh CLI authenticated
+**Error handling**: git push failure → warn + manual command; gh pr create failure → warn (branch already pushed)
+
+```javascript
+// Validate branch before shell interpolation
+// Push branch with error check
+// Generate PR title from plan frontmatter (sanitize for shell safety)
+// Build PR body from completedTasks + wardResults + diffStat
+// Write body to file (not -m flag), create PR via gh CLI
+```
+```
+
+**Example (bad — current pattern that causes bugs):**
+
+```
+## Phase 6.5: Ship
+
+```javascript
+const planTitle = extractPlanTitle(planPath)  // ← undefined function
+const prTitle = `${planType}: ${planTitle}`    // ← planType undefined
+Bash(`git push -u origin "${currentBranch}"`)  // ← no error handling
+```
+```
 
 4. Write to `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
@@ -898,8 +960,8 @@ for (const pattern of customPatterns) {
     warn(`Skipping verification pattern "${pattern.description}": contains unsafe characters`)
     continue
   }
-  const result = Bash(`rg --no-messages -- "${pattern.regex}" ${pattern.paths} ${pattern.exclusions || ''}`)
-  if (pattern.expect_zero && result.matchCount > 0) {
+  const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
+  if (pattern.expect_zero && result.stdout.trim().length > 0) {
     warn(`Stale reference: ${pattern.description}`)
     // Auto-fix or flag to user before presenting the plan
   }

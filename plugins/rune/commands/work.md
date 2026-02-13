@@ -341,8 +341,20 @@ Task({
     4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before coding.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
-    5. Read existing code patterns in the codebase
+    5. Read FULL target files (not just the function — read the entire file to understand
+       imports, constants, sibling functions, and naming conventions)
+    NOTE: If the plan contains pseudocode, implement from the plan's CONTRACT
+    (Inputs/Outputs/Preconditions/Error handling), not by copying code verbatim. Plan pseudocode
+    is illustrative — verify all variables are defined, all helpers exist, and all
+    Bash calls have error handling before using plan code as reference.
     6. Implement with TDD cycle (test → implement → refactor)
+    6.5. SELF-REVIEW before ward:
+         - Re-read every file you changed (full file, not just your diff)
+         - Check: Are all identifiers defined? Any self-referential assignments?
+         - Check: Do function signatures match all call sites?
+         - Check: Are regex patterns correct? Test edge cases mentally.
+         - Check: No dead code left behind (unused imports, unreachable branches)
+         - If ANY issue found → fix it NOW, before ward check
     7. Run quality gates (discovered from Makefile/package.json/pyproject.toml)
     8. IF ward passes:
        a. Mark new files for diff tracking: git add -N <new-files>
@@ -389,8 +401,13 @@ Task({
     4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before writing tests.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
-    5. Discover test patterns (framework, fixtures, assertions)
+    5. Read FULL source files being tested (understand all exports, types, edge cases)
     6. Write tests following discovered patterns
+    6.5. SELF-REVIEW before running:
+         - Re-read each test file you wrote
+         - Check: Do imports match actual export names?
+         - Check: Are test fixtures consistent with source types?
+         - Check: No copy-paste errors (wrong function name, wrong assertion)
     7. Run tests to verify they pass
     8. IF tests pass:
        a. Mark new files for diff tracking: git add -N <new-files>
@@ -794,7 +811,7 @@ const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`)
 const talisman = readTalisman()
 const monitoringRequired = talisman?.work?.pr_monitoring ?? false    // Default: false
 const coAuthors = talisman?.work?.co_authors ?? []                   // Default: [] (no co-authors)
-// Note: auto_push and pr_template config keys reserved for v1.13.0
+// Note: auto_push and pr_template config keys reserved for a future release
 // auto_push: skip Ship Decision AskUserQuestion and push automatically (requires safety guards)
 // pr_template: minimal template variant (reduced PR body)
 
@@ -1077,6 +1094,7 @@ When invoked via `/rune:arc` (Phase 5), the work sub-orchestrator (team lead of 
 - **Test as you go**: Run wards after each task, not just at the end. Fix failures immediately.
 - **One task, one patch**: Each task produces exactly one patch. Don't bundle unrelated changes.
 - **Don't over-engineer**: Implement what the task says. No extra features, no speculative abstractions.
+- **Self-review before ward**: Re-read every changed file before running quality gates. Catch undefined variables, wrong identifiers, and dead code before the reviewer does.
 - **Exit cleanly**: No tasks after 3 retries → idle notification → exit. Approve shutdown requests immediately.
 
 ## Common Pitfalls
@@ -1092,3 +1110,5 @@ When invoked via `/rune:arc` (Phase 5), the work sub-orchestrator (team lead of 
 | Ward failure cascade | Auto-create fix task, summon fresh worker |
 | Dirty working tree conflicts | Phase 0.5 stash check |
 | `gh` CLI not installed | Pre-check with fallback to manual instructions |
+| Partial file reads → undefined refs | Step 5: "Read FULL target files" |
+| Fixes that introduce new bugs | Step 6.5: Self-review checklist |

@@ -40,7 +40,7 @@ You are writing production code. Follow existing codebase patterns exactly. Do n
    b. Implement code to pass (GREEN)
    c. Refactor if needed (REFACTOR)
 5. Run Ward checks (quality gates)
-6. Commit changes
+6. Generate patch for commit broker
 7. Mark complete: TaskUpdate({ taskId, status: "completed" })
 8. SendMessage to the Tarnished: "Seal: task #{id} done. Files: {list}"
 9. TaskList() → claim next unblocked task or exit
@@ -62,12 +62,14 @@ Run discovered gates. If any fail, fix the issues before marking complete.
 
 ## Implementation Rules
 
-1. **Read before write**: Always read existing files before modifying them
+1. **Read before write**: Read the FULL target file before modifying (not just the function — understand imports, constants, siblings, naming patterns)
 2. **Match patterns**: Follow existing naming, structure, and style conventions
 3. **Small changes**: Prefer minimal, focused changes over sweeping refactors
 4. **Test coverage**: Every implementation must have corresponding tests
 5. **No new deps**: Do not add new dependencies without explicit task instruction
 6. **Commit safety**: Sanitize commit messages — strip newlines/control chars, limit to 72 chars, escape shell metacharacters. Use `git commit -F <message-file>` (not inline `-m`) to avoid shell injection.
+7. **Self-review before completion**: Re-read every file you changed. Check: all identifiers defined? No self-referential assignments? Function signatures match call sites? No dead code?
+8. **Plan pseudocode is guidance, not gospel**: If your task references plan pseudocode, implement from the plan's contracts (Inputs/Outputs/Preconditions). Verify all variables exist and all helpers are defined — don't copy plan code blindly.
 
 ## Exit Conditions
 

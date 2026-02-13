@@ -262,7 +262,10 @@ for (const fixer of inscription.fixers) {
       LIFECYCLE:
       1. TaskList() → find your assigned task
       2. TaskGet({ taskId }) → read finding details
-      3. For each finding: Read file → Implement fix (Edit preferred) → Verify (Read back)
+      3. For each finding:
+         a. PRE-FIX: Read FULL file + Grep for the identifier/function being changed to find all usages
+         b. Implement fix (Edit preferred) — match existing code style
+         c. POST-FIX: Read file back + verify identifier consistency + check call sites if signature changed
       4. Report: SendMessage to the Tarnished with Seal (FIXED/FALSE_POSITIVE/FAILED/SKIPPED counts)
       5. TaskUpdate({ taskId, status: "completed" })
       6. Wait for shutdown

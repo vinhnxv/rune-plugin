@@ -27,7 +27,7 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
-# End-to-end pipeline: plan → review → work → code review → mend → audit
+# End-to-end pipeline: plan → review → work → gap analysis → code review → mend → verify → audit
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
@@ -79,15 +79,17 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## Arc Mode (End-to-End Pipeline)
 
-When you run `/rune:arc`, Rune chains 8 phases into one automated pipeline:
+When you run `/rune:arc`, Rune chains 10 phases into one automated pipeline:
 
 1. **FORGE** — Research agents enrich the plan with best practices, codebase patterns, and past echoes
 2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
 2.5. **PLAN REFINEMENT** — Extracts CONCERN verdicts into concern-context.md for worker awareness (orchestrator-only)
 2.7. **VERIFICATION GATE** — Deterministic checks (file refs, headings, acceptance criteria) with zero LLM cost
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
+5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code (zero LLM cost, advisory)
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
 7. **MEND** — Parallel fixers resolve findings from TOME
+7.5. **VERIFY MEND** — Convergence gate: spot-checks mend fixes for regressions, retries up to 2x if P1s remain, halts on divergence
 8. **AUDIT** — Final quality gate (informational)
 
 Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates artifact integrity with SHA-256 hashes. Feature branches auto-created when on main.
@@ -160,7 +162,7 @@ When you run `/rune:work`, Rune parses a plan into tasks and summons self-organi
 
 Workers scale automatically based on task count (1-5 tasks: 2 workers, 20+ tasks: 5 workers).
 
-New talisman work keys: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `co_authors`. Reserved for v1.13.0: `pr_template`, `auto_push`.
+New talisman work keys: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `co_authors`. Reserved for a future release: `pr_template`, `auto_push`. See [`talisman.example.yml`](talisman.example.yml) for defaults.
 
 ## Rune Echoes (Memory)
 
@@ -301,8 +303,8 @@ work:
   branch_prefix: "rune/work"  # Feature branch prefix (alphanumeric, _, -, / only)
   pr_monitoring: false         # Post-deploy monitoring section in PR body
   co_authors: []               # Co-Authored-By lines in "Name <email>" format
-  # pr_template: default       # Reserved for v1.13.0
-  # auto_push: false           # Reserved for v1.13.0
+  # pr_template: default       # Reserved for a future release
+  # auto_push: false           # Reserved for a future release
 ```
 
 See [`talisman.example.yml`](talisman.example.yml) for the full configuration schema including custom Ash, trigger matching, and dedup hierarchy.
@@ -323,9 +325,11 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **TOME** — The unified review summary after deduplication and prioritization.
 
-**Arc Pipeline** — End-to-end orchestration across 8 phases with checkpoint-based resume, per-phase tool restrictions, and time budgets.
+**Arc Pipeline** — End-to-end orchestration across 10 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), and time budgets.
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers and centralized ward check.
+
+**Plan Section Convention** — Plans with pseudocode must include contract headers (Inputs/Outputs/Preconditions/Error handling) before code blocks. Phase 2.7 verification gate enforces this. Workers implement from contracts, not by copying pseudocode verbatim.
 
 **Forge Gaze** — Topic-aware agent selection for plan enrichment (default in `/rune:plan` and `/rune:forge`). Matches plan section topics to specialized agents via keyword overlap scoring. Configurable thresholds and budget tiers.
 
@@ -398,7 +402,7 @@ Rune uses Elden Ring-inspired theming:
 | "Concurrent review running" | Run `/rune:cancel-review` first, then retry |
 | Echo files causing merge conflicts | Add `.gitattributes` with `merge=union` for echo paths (see Configuration) |
 | No files to review | Ensure you have uncommitted changes on a feature branch (not main) |
-| `/rune:work` stalled workers | Workers auto-release after 3 minutes. Lead re-assigns stuck tasks |
+| `/rune:work` stalled workers | Workers are warned at 5 minutes and auto-released at 10 minutes. Lead re-assigns stuck tasks |
 
 ## Security
 

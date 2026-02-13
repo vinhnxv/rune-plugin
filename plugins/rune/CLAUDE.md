@@ -24,7 +24,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | `/rune:mend` | Parallel finding resolution from TOME |
-| `/rune:arc` | End-to-end pipeline (forge, plan review, plan refinement, verification, work, review, mend, audit) |
+| `/rune:arc` | End-to-end pipeline (forge, plan review, plan refinement, verification, work, review, mend, verify mend, audit) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
@@ -85,6 +85,15 @@ the protagonist who journeys through the Lands Between. In Rune, the Tarnished:
 - Coordinates Ashes and summons research agents
 - Collects findings into the TOME
 - Guides the arc pipeline from forge to audit
+- Runs deterministic gap analysis between work and code review
+
+### Implementation Gap Analysis (Phase 5.5)
+
+Deterministic, orchestrator-only phase between WORK and CODE REVIEW. Cross-references plan acceptance criteria against committed code changes. Categories: ADDRESSED, MISSING, PARTIAL. Advisory only — warns but never halts.
+
+### Plan Section Convention
+
+Plans with pseudocode must include contract headers (Inputs/Outputs/Preconditions/Error handling) before code blocks. Phase 2.7 verification gate enforces this. Workers implement from contracts, not by copying pseudocode verbatim.
 
 The Tarnished is the lead agent in every team. Machine identifier: `team-lead`.
 
@@ -152,7 +161,7 @@ See `roundtable-circle/references/forge-gaze.md` for the topic registry and matc
 
 ### Arc Pipeline
 
-End-to-end orchestration across 8 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), plan refinement (concern extraction, orchestrator-only), verification gate (deterministic checks, zero-LLM), work (swarm implementation), code review (Roundtable Circle), mend (parallel finding resolution), and audit (final gate). Each delegated phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions and time budgets enforce least privilege.
+End-to-end orchestration across 10 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), plan refinement (concern extraction, orchestrator-only), verification gate (deterministic checks, zero-LLM), work (swarm implementation), gap analysis (plan-to-code compliance, deterministic, orchestrator-only), code review (Roundtable Circle), mend (parallel finding resolution), verify mend (convergence gate with regression detection and retry loop, max 2 retries), and audit (final gate). Each delegated phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions and time budgets enforce least privilege.
 
 ### Mend
 
@@ -208,7 +217,7 @@ Inscription verification scales with team size: Layer 0 for small teams (1-2 tea
 | Plans | `tmp/plans/{id}/research/`, `plans/YYYY-MM-DD-{type}-{name}-plan.md` | Research findings, brainstorm decisions, plan document |
 | Forge | `tmp/forge/{id}/` | `{section-slug}-{agent-name}.md` enrichment files |
 | Mend | `tmp/mend/{id}/` | `resolution-report.md`, fixer outputs |
-| Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `concern-context.md`, `verification-report.md`, `work-summary.md`, `tome.md`, `resolution-report.md`, `audit-report.md`) |
+| Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `concern-context.md`, `verification-report.md`, `work-summary.md`, `tome.md`, `resolution-report.md`, `spot-check-round-{N}.md`, `audit-report.md`) |
 | Arc State | `.claude/arc/{id}/` | `checkpoint.json` (persistent, NOT in tmp/) |
 | Scratch | `tmp/scratch/` | Session state |
 | Echoes | `.claude/echoes/{role}/` | `MEMORY.md`, `knowledge.md`, `archive/` |
@@ -266,8 +275,8 @@ work:
   skip_branch_check: false               # Skip Phase 0.5 branch check
   branch_prefix: "rune/work"             # Branch name prefix (alphanumeric, _, -, / only)
   pr_monitoring: false                    # Post-deploy monitoring in PR body
-  # pr_template: default                 # Reserved for v1.13.0 (default | minimal)
-  # auto_push: false                     # Reserved for v1.13.0 (auto-push without confirmation)
+  # pr_template: default                 # Reserved for a future release (default | minimal)
+  # auto_push: false                     # Reserved for a future release (auto-push without confirmation)
   co_authors: []                         # Co-Authored-By lines in "Name <email>" format
 ```
 
