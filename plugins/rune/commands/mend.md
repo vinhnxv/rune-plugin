@@ -155,6 +155,11 @@ Check for cross-file dependencies between findings:
    → B's file group must complete before A's
 2. Within a file group, order by severity (P1 → P2 → P3)
 3. Within same severity, order by line number (top-down)
+4. Triage threshold: if total findings > 20, instruct fixers to:
+   - MUST FIX: all P1 (crashes, data corruption, security)
+   - SHOULD FIX: P2 (incorrect behavior, logic bugs)
+   - MAY SKIP: P3 (style, naming, minor improvements) — mark as "skipped:low-priority"
+   This prevents mend from spending time on cosmetic issues when critical bugs exist.
 ```
 
 ### Determine Fixer Count

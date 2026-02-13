@@ -297,12 +297,20 @@ Write(`tmp/work/${timestamp}/inscription.json`, {
 })
 
 // 5. Create task pool and map symbolic refs to real IDs
+const QUALITY_CONTRACT = `
+Quality requirements (mandatory):
+- Type annotations on ALL function signatures (params + return types)
+- Use \`from __future__ import annotations\` at top of every Python file
+- Docstrings on all public functions, classes, and modules
+- Specific exception types (no bare except, no broad Exception catch)
+- Tests must cover edge cases (empty input, None values, type mismatches)`
+
 const idMap = {}  // Map symbolic refs (#1, #2...) to actual task IDs
 for (let i = 0; i < extractedTasks.length; i++) {
   const task = extractedTasks[i]
   const id = TaskCreate({
     subject: task.subject,
-    description: `${task.description}\n\nPlan: ${planPath}\nType: ${task.type}`
+    description: `${task.description}\n\nPlan: ${planPath}\nType: ${task.type}\n${QUALITY_CONTRACT}`
   })
   idMap[`#${i + 1}`] = id  // Map symbolic ref to real task ID
 }
@@ -321,7 +329,20 @@ for (let i = 0; i < extractedTasks.length; i++) {
 
 ## Phase 2: Summon Swarm Workers
 
-Summon workers based on task types. Default: 2 workers (1 rune-smith + 1 trial-forger). Scale up for larger plans.
+Summon workers based on task types and plan size. Scale workers to match workload:
+
+```javascript
+// Worker scaling: match parallelism to task count
+const implTasks = extractedTasks.filter(t => t.type === "impl").length
+const testTasks = extractedTasks.filter(t => t.type === "test").length
+const maxWorkers = talisman?.work?.max_workers || 3
+
+// Scale: 1 smith per 3-4 impl tasks, 1 forger per 4-5 test tasks (cap at max_workers)
+const smithCount = Math.min(Math.max(1, Math.ceil(implTasks / 3)), maxWorkers)
+const forgerCount = Math.min(Math.max(1, Math.ceil(testTasks / 4)), maxWorkers)
+```
+
+Default: 2 workers (1 rune-smith + 1 trial-forger) for small plans (≤4 tasks). Scales up to `max_workers` (default 3) per role for larger plans.
 
 ```javascript
 // Summon implementation worker

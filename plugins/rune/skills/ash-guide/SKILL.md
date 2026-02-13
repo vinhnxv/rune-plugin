@@ -57,7 +57,7 @@ Tool restriction is enforced via prompt instructions (defense-in-depth).
 
 ## Review Agents
 
-10 specialized reviewers that form Ash teams:
+16 specialized reviewers that form Ash teams:
 
 | Agent | Role | Perspective |
 |-------|------|-------------|
@@ -69,8 +69,14 @@ Tool restriction is enforced via prompt instructions (defense-in-depth).
 | `rune:review:mimic-detector` | Duplication review | DRY violations, copy-paste code, similar patterns |
 | `rune:review:pattern-seer` | Pattern review | Naming consistency, convention adherence |
 | `rune:review:void-analyzer` | Completeness review | Missing error handling, incomplete implementations |
-| `rune:review:wraith-finder` | Dead code review | Unused functions, unwired code, orphaned files |
+| `rune:review:wraith-finder` | Dead code & unwired code review | Unused functions, DI wiring gaps, orphaned routes/handlers, AI orphan detection |
 | `rune:review:phantom-checker` | Dynamic reference check | Reflection, string-based imports, meta-programming |
+| `rune:review:type-warden` | Type safety review | Type hints, mypy strict, Python idioms, async correctness |
+| `rune:review:trial-oracle` | TDD compliance review | Test-first order, coverage gaps, assertion quality |
+| `rune:review:depth-seer` | Missing logic review | Error handling gaps, state machines, complexity hotspots |
+| `rune:review:blight-seer` | Design anti-pattern review | God Service, leaky abstractions, temporal coupling, observability |
+| `rune:review:forge-keeper` | Data integrity review | Migration safety, reversibility, lock analysis, transaction boundaries, PII |
+| `rune:review:tide-watcher` | Async/concurrency review | Waterfall awaits, unbounded concurrency, cancellation, race conditions |
 
 ## Ash Roles (Consolidated Teammates)
 
@@ -78,9 +84,9 @@ In `/rune:review`, agents are grouped into 5 built-in Ashes (extensible via tali
 
 | Ash | Agents Embedded | Scope |
 |-----------|-----------------|-------|
-| **Forge Warden** | rune-architect, ember-oracle, flaw-hunter, mimic-detector | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
+| **Forge Warden** | rune-architect, ember-oracle, flaw-hunter, mimic-detector, type-warden, depth-seer, blight-seer, forge-keeper | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
 | **Ward Sentinel** | ward-sentinel | ALL files (security always) |
-| **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker, void-analyzer | ALL files (quality patterns) |
+| **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker, void-analyzer, trial-oracle, tide-watcher | ALL files (quality patterns) |
 | **Glyph Scribe** | Inline perspectives (TypeScript safety, React performance, accessibility) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
 | **Knowledge Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
 

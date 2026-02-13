@@ -702,10 +702,25 @@ createFeatureBranchIfNeeded()
 // Input: enriched plan (or original if --no-forge)
 // If --approve: propagate to work mode (routes to human via AskUserQuestion)
 // Incremental commits after each ward-checked task: [ward-checked] prefix
-// If concern-context.md exists, include in work team prompt:
-const workContext = exists(`tmp/arc/${id}/concern-context.md`)
-  ? `\n\n## Reviewer Concerns\nThe following concerns were raised during plan review. Workers should be aware of deferred concerns and attempt to address them during implementation.\nSee tmp/arc/${id}/concern-context.md for full details.`
-  : ""
+// Propagate upstream phase context to workers (context handoff)
+let workContext = ""
+
+// Include reviewer concerns if any
+if (exists(`tmp/arc/${id}/concern-context.md`)) {
+  workContext += `\n\n## Reviewer Concerns\nThe following concerns were raised during plan review. Workers should be aware of deferred concerns and attempt to address them during implementation.\nSee tmp/arc/${id}/concern-context.md for full details.`
+}
+
+// Include verification warnings if any
+if (exists(`tmp/arc/${id}/verification-report.md`)) {
+  const verReport = Read(`tmp/arc/${id}/verification-report.md`)
+  const issueCount = (verReport.match(/^- /gm) || []).length
+  if (issueCount > 0) {
+    workContext += `\n\n## Verification Warnings (${issueCount} issues)\nSee tmp/arc/${id}/verification-report.md. Address these during implementation where applicable.`
+  }
+}
+
+// Include quality contract for all workers
+workContext += `\n\n## Quality Contract\nAll code MUST include:\n- Type annotations on all function signatures (use \`from __future__ import annotations\`)\n- Docstrings on all public functions, classes, and modules\n- Error handling with specific exception types (no bare except)\n- Test coverage target: ≥80% for new code`
 
 // Capture team_name from work command for cancel-arc discovery
 const workTeamName = /* team name created by /rune:work logic */
@@ -862,6 +877,18 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 // Invoke /rune:review logic
 // Scope: changes since arc branch creation (or since Phase 5 start)
 // TOME session nonce: use arc session_nonce for marker integrity
+
+// Propagate gap analysis to reviewers as additional context
+let reviewContext = ""
+if (exists(`tmp/arc/${id}/gap-analysis.md`)) {
+  const gapReport = Read(`tmp/arc/${id}/gap-analysis.md`)
+  const missingCount = (gapReport.match(/MISSING/g) || []).length
+  const partialCount = (gapReport.match(/PARTIAL/g) || []).length
+  if (missingCount > 0 || partialCount > 0) {
+    reviewContext = `\n\nGap Analysis Context: ${missingCount} MISSING, ${partialCount} PARTIAL criteria.\nSee tmp/arc/${id}/gap-analysis.md. Pay special attention to unimplemented acceptance criteria.`
+  }
+}
+
 // Capture team_name from review command for cancel-arc discovery
 const reviewTeamName = /* team name created by /rune:review logic */
 updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 6, team_name: reviewTeamName })
@@ -1285,6 +1312,37 @@ Next steps:
 3. Create PR for branch {branch_name}
 4. /rune:rest — Clean up tmp/ artifacts when done
 ```
+
+### Post-Arc Echo Persist
+
+After the completion report, persist arc quality metrics to echoes for cross-session learning:
+
+```javascript
+if (exists(".claude/echoes/")) {
+  const metrics = {
+    plan: checkpoint.plan_file,
+    duration_minutes: Math.round(totalDuration / 60),
+    phases_completed: Object.values(checkpoint.phases).filter(p => p.status === "completed").length,
+    tome_findings: { p1: p1Count, p2: p2Count, p3: p3Count },
+    convergence_rounds: checkpoint.convergence.history.length,
+    mend_fixed: mendFixedCount,
+    gap_addressed: addressedCount,
+    gap_missing: missingCount,
+  }
+
+  appendEchoEntry(".claude/echoes/orchestrator/MEMORY.md", {
+    layer: "inscribed",
+    source: `rune:arc ${id}`,
+    content: `Arc completed: ${metrics.phases_completed}/10 phases, ` +
+      `${metrics.tome_findings.p1} P1 findings, ` +
+      `${metrics.convergence_rounds} mend round(s), ` +
+      `${metrics.gap_missing} missing criteria. ` +
+      `Duration: ${metrics.duration_minutes}min.`
+  })
+}
+```
+
+This allows future forge/plan phases to learn from past arc performance (e.g., "previous arcs on this codebase had type safety issues — emphasize type annotations in plan").
 
 ## Error Handling
 

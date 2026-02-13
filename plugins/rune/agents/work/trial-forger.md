@@ -69,6 +69,8 @@ Before writing any tests, discover existing patterns:
 3. **Descriptive names**: Test names should read as documentation
 4. **No flaky tests**: No timing dependencies, random data, or network calls
 5. **Arrange-Act-Assert**: Structure every test clearly
+6. **Type annotations required**: All test functions and fixtures MUST have type annotations (parameters and return types). Use `from __future__ import annotations` at the top of every test file.
+7. **Docstrings on test classes**: Every test class MUST have a docstring explaining what it tests. Individual test methods should have descriptive names instead of docstrings.
 
 ## Exit Conditions
 
