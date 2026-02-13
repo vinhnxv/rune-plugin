@@ -52,6 +52,17 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 ```bash
 # Look for active state files (status != completed, cancelled)
 ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json tmp/.rune-work-*.json 2>/dev/null
+
+# Check for active arc sessions via checkpoint.json
+# Arc uses .claude/arc/*/checkpoint.json instead of tmp/.rune-arc-*.json state files
+for f in .claude/arc/*/checkpoint.json; do
+  [ -f "$f" ] || continue
+  if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then
+    arc_id=$(basename "$(dirname "$f")")
+    echo "SKIP: tmp/arc/${arc_id}/ — active arc session detected"
+    # Mark this arc's tmp dir as active (skip in cleanup)
+  fi
+done
 ```
 
 For each state file found, read and check status:
@@ -116,9 +127,16 @@ Any path that resolves outside `tmp/` or is a symlink is skipped with a warning.
 Remove only paths that passed validation in Step 4:
 
 ```bash
-# Remove validated workflow directories (reviews, audits, mend, arc)
+# Remove validated workflow directories — re-verify at deletion time (close TOCTOU window)
 for dir in "${validated_dirs[@]}"; do
-  rm -rf "$dir"
+  # Re-verify immediately before deletion (mitigates TOCTOU race)
+  [[ -L "$dir" ]] && { echo "SKIP: $dir became a symlink (TOCTOU detected)"; continue; }
+  resolved=$(realpath "$dir" 2>/dev/null)
+  if [[ "$resolved" == "$(realpath tmp 2>/dev/null)"/* ]]; then
+    rm -rf "$resolved"
+  else
+    echo "SKIP: $dir now resolves outside tmp/ (TOCTOU detected: $resolved)"
+  fi
 done
 
 # Remove plan research artifacts (unconditional — no state file)
@@ -136,8 +154,31 @@ else
   echo "SKIP: tmp/work/ — active work team detected"
 fi
 
+# Remove arc artifacts — conditional on no active arc sessions
+# Arc uses .claude/arc/*/checkpoint.json (not tmp/.rune-arc-*.json state files)
+active_arc=""
+for f in .claude/arc/*/checkpoint.json; do
+  [ -f "$f" ] || continue
+  if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then
+    active_arc="$f"
+    arc_id=$(basename "$(dirname "$f")")
+    echo "SKIP: tmp/arc/${arc_id}/ — active arc session"
+  fi
+done
+if [ -z "$active_arc" ]; then
+  rm -rf tmp/arc/
+else
+  echo "SKIP: tmp/arc/ — active arc session detected (see above)"
+fi
+
 # Remove scratch files (unconditional — no state file)
 rm -rf tmp/scratch/
+
+# Clean up stale git worktrees from mend bisection (if any)
+git worktree list 2>/dev/null | grep 'bisect-worktree' | awk '{print $1}' | while read wt; do
+  git worktree remove "$wt" --force 2>/dev/null
+done
+git worktree prune 2>/dev/null
 
 # Remove completed state files
 rm -f tmp/.rune-review-{completed_ids}.json
@@ -146,7 +187,7 @@ rm -f tmp/.rune-mend-{completed_ids}.json
 rm -f tmp/.rune-work-{completed_ids}.json
 ```
 
-**Note:** `tmp/plans/` and `tmp/scratch/` are removed unconditionally (no active-state check). `tmp/work/` is conditionally removed — it checks for active work teams first (work proposals in `tmp/work/{id}/proposals/` are needed during `--approve` mode). `tmp/mend/` and `tmp/arc/` directories follow the same active-state check as reviews and audits. Arc checkpoint state at `.claude/arc/` is NEVER cleaned — it lives outside `tmp/` and is needed for `--resume`.
+**Note:** `tmp/plans/` and `tmp/scratch/` are removed unconditionally (no active-state check). `tmp/work/` is conditionally removed — it checks for active work teams first (work proposals in `tmp/work/{timestamp}/proposals/` are needed during `--approve` mode). `tmp/mend/` directories follow the same active-state check as reviews and audits. `tmp/arc/` directories are checked via `.claude/arc/*/checkpoint.json` — if any phase has `in_progress` status, the associated `tmp/arc/{id}/` directory is preserved. Arc checkpoint state at `.claude/arc/` is NEVER cleaned — it lives outside `tmp/` and is needed for `--resume`.
 
 ### 6. Report
 
@@ -195,3 +236,4 @@ Would preserve:
 - Rune Echoes are NEVER touched by cleanup (they live in `.claude/echoes/`, not `tmp/`)
 - Completed/cancelled state files are removed along with their output directories
 - If `tmp/` directory doesn't exist, reports "Nothing to clean"
+- Stale git worktrees from mend bisection are cleaned up (`git worktree prune`)

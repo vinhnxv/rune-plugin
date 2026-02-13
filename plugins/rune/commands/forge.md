@@ -205,6 +205,23 @@ TeamCreate({ team_name: "rune-forge-{timestamp}" })
 // Create output directory before agents write to it
 Bash(`mkdir -p "tmp/forge/${timestamp}"`)
 
+// Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
+Write(`tmp/forge/${timestamp}/inscription.json`, {
+  workflow: "rune-forge",
+  timestamp: timestamp,
+  plan: planPath,
+  output_dir: `tmp/forge/${timestamp}/`,
+  teammates: assignments.flatMap(([section, agents]) =>
+    agents.map(([agent, score]) => ({
+      name: agent.name,
+      role: "enrichment",
+      output_file: `${section.slug}-${agent.name}.md`,
+      required_sections: ["Best Practices", "Implementation Details", "Edge Cases"]
+    }))
+  ),
+  verification: { enabled: false }
+})
+
 // Create tasks for each agent assignment
 for (const [section, agents] of assignments) {
   for (const [agent, score] of agents) {

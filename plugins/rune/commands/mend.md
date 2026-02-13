@@ -175,7 +175,7 @@ Create `tmp/mend/{id}/inscription.json` with per-fixer contracts:
 
 ```json
 {
-  "session": "mend-{id}",
+  "session": "rune-mend-{id}",
   "tome_path": "{tome_path}",
   "tome_nonce": "{session_nonce}",
   "fixers": [
@@ -193,16 +193,16 @@ Create `tmp/mend/{id}/inscription.json` with per-fixer contracts:
 ## Phase 2: FORGE TEAM
 
 ```javascript
-// 1. Create state file for concurrency detection
+// 1. Validate identifier before any filesystem operations
+if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid mend identifier")
+
+// 1b. Create state file for concurrency detection
 Write("tmp/.rune-mend-{id}.json", {
   status: "active",
   started: timestamp,
   tome_path: tome_path,
   fixer_count: fixer_count
 })
-
-// 1b. Validate identifier before any filesystem operations
-if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid mend identifier")
 
 // 1c. Snapshot pre-mend working tree for bisection safety
 // Saves uncommitted changes so bisection can distinguish mend fixes from pre-existing work
@@ -212,9 +212,9 @@ Bash(`git diff --cached > "tmp/mend/${id}/pre-mend-staged.patch" 2>/dev/null`)
 
 // 2. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
 try { TeamDelete() } catch (e) {
-  Bash("rm -rf ~/.claude/teams/mend-{id}/ ~/.claude/tasks/mend-{id}/ 2>/dev/null")
+  Bash("rm -rf ~/.claude/teams/rune-mend-{id}/ ~/.claude/tasks/rune-mend-{id}/ 2>/dev/null")
 }
-TeamCreate({ team_name: "mend-{id}" })
+TeamCreate({ team_name: "rune-mend-{id}" })
 
 // 3. Create task pool — one task per file group
 for (const [file, findings] of Object.entries(fileGroups)) {
@@ -239,7 +239,7 @@ Summon one mend-fixer teammate per file group:
 ```javascript
 for (const fixer of inscription.fixers) {
   Task({
-    team_name: "mend-{id}",
+    team_name: "rune-mend-{id}",
     name: fixer.name,
     subagent_type: "rune:utility:mend-fixer",
     prompt: `You are Mend Fixer — a restricted code fixer for /rune:mend.
@@ -294,7 +294,8 @@ Poll TaskList to track fixer progress:
 
 ```javascript
 const POLL_INTERVAL = 30_000   // 30 seconds
-const STALE_THRESHOLD = 300_000 // 5 minutes
+const STALE_THRESHOLD = 300_000 // 5 minutes — warn about stalled fixer
+const STALE_RELEASE = 600_000   // 10 minutes — release task for reclaim
 const TOTAL_TIMEOUT = 900_000   // 15 minutes
 const startTime = Date.now()
 
@@ -308,9 +309,11 @@ while (not all tasks completed):
 
   // Stale detection
   for (task of tasks.filter(t => t.status === "in_progress")):
-    if (task.stale > STALE_THRESHOLD):
-      warn("Fixer stalled on task #{task.id} — auto-releasing")
+    if (task.stale > STALE_RELEASE):
+      warn("Fixer stalled on task #{task.id} (>${STALE_RELEASE/60_000}min) — auto-releasing")
       TaskUpdate({ taskId: task.id, owner: "", status: "pending" })
+    else if (task.stale > STALE_THRESHOLD):
+      warn("Fixer slow on task #{task.id} (>${STALE_THRESHOLD/60_000}min)")
 
   // Total timeout
   if (Date.now() - startTime > TOTAL_TIMEOUT):
@@ -318,6 +321,9 @@ while (not all tasks completed):
     break
 
   sleep(POLL_INTERVAL)
+
+// Final sweep: re-read TaskList once more before reporting timeout
+tasks = TaskList()
 ```
 
 ## Phase 5: RESOLUTION REPORT
@@ -330,7 +336,13 @@ Ward checks run **once after all fixers complete**, not per-fixer:
 // Discover wards (same protocol as /rune:work)
 wards = discoverWards()
 
+const SAFE_WARD = /^[a-zA-Z0-9._\-\/ ]+$/
 for (const ward of wards) {
+  if (!SAFE_WARD.test(ward.command)) {
+    warn(`Ward "${ward.name}": command contains unsafe characters — skipping`)
+    warn(`  Blocked command: ${ward.command.slice(0, 80)}`)
+    continue
+  }
   result = Bash(ward.command)
   if (result.exitCode !== 0) {
     // Ward failed — bisect to identify failing fix
@@ -339,31 +351,72 @@ for (const ward of wards) {
 }
 ```
 
-### Bisection Algorithm (on ward failure)
+### Bisection Algorithm (on ward failure) — Worktree Isolation
 
+Bisection uses a **git worktree** so the user's working tree is NEVER modified during bisection. All destructive operations happen in a disposable worktree.
+
+```javascript
+// PRE-CREATE: Clean stale worktree entries
+Bash(`git worktree prune 2>/dev/null`)
+Bash(`git worktree remove "tmp/mend/${id}/bisect-worktree" --force 2>/dev/null`)
+Bash(`rm -rf "tmp/mend/${id}/bisect-worktree" 2>/dev/null`)
+
+// CREATE: Isolated worktree
+const wtResult = Bash(`git worktree add "tmp/mend/${id}/bisect-worktree" HEAD`)
+if (wtResult.exitCode !== 0) {
+  // FALLBACK: Worktree unavailable (shallow clone, bare repo, etc.)
+  // Fall back to patch-based revert with user confirmation
+  warn("Worktree isolation unavailable. Bisection will use pre-mend patches, " +
+       "which temporarily reverts ALL local changes (not just mend fixes).")
+  const proceed = AskUserQuestion({ questions: [{
+    question: "Proceed with patch-based bisection?",
+    header: "Fallback",
+    options: [
+      { label: "Proceed", description: "Use pre-mend.patch to revert and bisect" },
+      { label: "Abort", description: "Skip bisection, mark all as NEEDS_REVIEW" }
+    ],
+    multiSelect: false
+  }]})
+  if (proceed === "Abort") { markAllNeedsReview(); return }
+  // ... use existing patch-based approach as fallback
+}
+
+// POST-CREATE: Initialize submodules if present
+Bash(`cd "tmp/mend/${id}/bisect-worktree" && \
+  [ -f .gitmodules ] && git submodule update --init --recursive 2>/dev/null || true`)
+
+// BISECTION: Cumulative strategy (apply fixes incrementally in worktree)
+// 1. Apply fix A alone → run ward → pass → keep A
+// 2. Apply fix B on top of A → run ward → pass → keep A+B
+// 3. Apply fix C on top of A+B → run ward → FAILS → C is culprit in context of A+B
+// 4. If interaction effects are non-linear → NEEDS_REVIEW
+// Order: Dedup Hierarchy (SEC → BACK → DOC → QUAL → FRONT)
+
+// Ward execution: Copy each bisection state back to main tree for ward compatibility
+// (main tree has node_modules, .venv, vendor — worktree may not)
+
+// CLEANUP (always runs — try/finally):
+try {
+  // ... bisection logic ...
+} finally {
+  Bash(`git worktree remove "tmp/mend/${id}/bisect-worktree" --force 2>/dev/null`)
+  Bash(`rm -rf "tmp/mend/${id}/bisect-worktree" 2>/dev/null`)
+  Bash(`git worktree prune 2>/dev/null`)
+}
 ```
-0. Verify saved patches are applicable:
-   `git apply --check "tmp/mend/{id}/pre-mend.patch" 2>/dev/null`
-   If check fails and patch is non-empty, abort bisection and warn: "Pre-mend patch cannot be applied cleanly. Manual intervention required."
-1. Revert to pre-mend state using saved patches (preserves unrelated work):
-   a. `git checkout -- .` to discard all working tree changes
-   b. `git apply "tmp/mend/{id}/pre-mend.patch"` to restore pre-existing uncommitted changes
-   c. `git apply "tmp/mend/{id}/pre-mend-staged.patch" --cached` to restore staged changes
-   NOTE: This preserves unrelated work while removing only mend fixes.
-   If pre-mend.patch is empty (clean tree before mend), steps b-c are no-ops.
-2. Apply fixes one-at-a-time in Dedup Hierarchy order (SEC → BACK → DOC → QUAL → FRONT)
-3. Run ward check after each fix application
-4. First failure = that fix is marked FAILED
-5. If inconclusive (all individual passes but combined fails) → mark ALL as NEEDS_REVIEW
-6. Re-apply all FIXED fixes, skip FAILED ones
-```
+
+**Key safety property**: The user's working tree is NEVER modified during bisection. All destructive operations happen in the disposable worktree. If bisection crashes, the worktree is simply deleted with no impact on the user's state.
+
+After bisection completes:
+1. Re-apply all FIXED fixes to the user's working tree (skip FAILED ones)
+2. Stage and present changes for user review
 
 ### Produce Report
 
 Write `tmp/mend/{id}/resolution-report.md`:
 
 ```markdown
-# Resolution Report — mend-{id}
+# Resolution Report — rune-mend-{id}
 Generated: {timestamp}
 TOME: {tome_path}
 
@@ -412,8 +465,9 @@ for (const fixer of allFixers) {
 // 2. Wait for approvals (max 30s)
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+// id validated at Phase 2: /^[a-zA-Z0-9_-]+$/
 try { TeamDelete() } catch (e) {
-  Bash("rm -rf ~/.claude/teams/mend-{id}/ ~/.claude/tasks/mend-{id}/ 2>/dev/null")
+  Bash("rm -rf ~/.claude/teams/rune-mend-{id}/ ~/.claude/tasks/rune-mend-{id}/ 2>/dev/null")
 }
 
 // 4. Update state file (status reflects actual outcome)

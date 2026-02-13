@@ -19,7 +19,9 @@ allowed-tools:
 
 Quick reference for all Rune plugin agents, their roles, and invocation patterns.
 
-## Agent Invocation
+## Invocation Models
+
+### Direct Invocation (standalone tasks, custom workflows)
 
 All Rune agents are plugin agents. Invoke with the `rune:` namespace prefix:
 
@@ -38,6 +40,20 @@ Task ward-sentinel(...)
 # CORRECT - full namespace
 Task rune:review:ward-sentinel(...)
 ```
+
+### Composite Ash Invocation (review/audit workflows)
+
+The `/rune:review` and `/rune:audit` commands use `general-purpose` subagents with composite
+Ash prompt templates from `roundtable-circle/references/ash-prompts/`. Each Ash embeds
+multiple agent perspectives into a single teammate. This is intentional — composite Ashes
+don't map 1:1 to individual agent files.
+
+```
+Task({ subagent_type: "general-purpose", prompt: /* from ash-prompts/{role}.md */ })
+```
+
+The agent file `allowed-tools` are not enforced at runtime for composite Ashes.
+Tool restriction is enforced via prompt instructions (defense-in-depth).
 
 ## Review Agents
 

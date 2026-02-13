@@ -132,7 +132,10 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: "rune-work-{timestamp}" })
 
-// 2. Write state file
+// 2. Create output directories
+Bash(`mkdir -p "tmp/work/${timestamp}/patches" "tmp/work/${timestamp}/proposals"`)
+
+// 3. Write state file
 Write("tmp/.rune-work-{timestamp}.json", {
   team_name: "rune-work-{timestamp}",
   started: new Date().toISOString(),
@@ -141,7 +144,30 @@ Write("tmp/.rune-work-{timestamp}.json", {
   expected_workers: workerCount
 })
 
-// 3. Create task pool and map symbolic refs to real IDs
+// 4. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
+Write(`tmp/work/${timestamp}/inscription.json`, {
+  workflow: "rune-work",
+  timestamp: timestamp,
+  plan: planPath,
+  output_dir: `tmp/work/${timestamp}/`,
+  teammates: [
+    {
+      name: "rune-smith",
+      role: "implementation",
+      output_file: "patches/*.patch",
+      required_sections: ["implementation", "ward-check"]
+    },
+    {
+      name: "trial-forger",
+      role: "test",
+      output_file: "patches/*.patch",
+      required_sections: ["tests", "ward-check"]
+    }
+  ],
+  verification: { enabled: false }  // Work uses ward checks, not finding verification
+})
+
+// 5. Create task pool and map symbolic refs to real IDs
 const idMap = {}  // Map symbolic refs (#1, #2...) to actual task IDs
 for (let i = 0; i < extractedTasks.length; i++) {
   const task = extractedTasks[i]
@@ -152,7 +178,7 @@ for (let i = 0; i < extractedTasks.length; i++) {
   idMap[`#${i + 1}`] = id  // Map symbolic ref to real task ID
 }
 
-// 4. Link dependencies using mapped IDs
+// 6. Link dependencies using mapped IDs
 for (let i = 0; i < extractedTasks.length; i++) {
   const task = extractedTasks[i]
   if (task.blockedBy.length > 0) {
@@ -183,24 +209,30 @@ Task({
     1. TaskList() → find unblocked, unowned implementation tasks
     2. Claim: TaskUpdate({ taskId, owner: "rune-smith", status: "in_progress" })
     3. Read task description and referenced plan
-    4. IF --approve mode: write proposal to tmp/work/{id}/proposals/{task-id}.md,
+    4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before coding.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
     5. Read existing code patterns in the codebase
     6. Implement with TDD cycle (test → implement → refactor)
     7. Run quality gates (discovered from Makefile/package.json/pyproject.toml)
     8. IF ward passes:
-       a. Stage files (git add <specific files>)
-       b. Write sanitized commit message to tmp file
-       c. Commit (git commit -F <msg-file>) with format:
-          "rune: <task-subject> [ward-checked]"
-       d. TaskUpdate({ taskId, status: "completed" })
-       e. SendMessage to the Tarnished: "Seal: task #{id} done. Files: {list}"
+       a. Mark new files for diff tracking: git add -N <new-files>
+       b. Generate patch: git diff --binary HEAD -- <specific files> > tmp/work/{timestamp}/patches/{task-id}.patch
+       c. Write commit metadata: Write tmp/work/{timestamp}/patches/{task-id}.json with:
+          { task_id, subject, files: [...], patch_path }
+       d. Do NOT run git add or git commit — the Tarnished handles all commits
+       e. TaskUpdate({ taskId, status: "completed" })
+       f. SendMessage to the Tarnished: "Seal: task #{id} done. Files: {list}"
     9. IF ward fails:
-       a. Do NOT commit
+       a. Do NOT generate patch
        b. TaskUpdate({ taskId, status: "pending", owner: "" })
        c. SendMessage to the Tarnished: "Ward failed on task #{id}: {failure summary}"
     10. TaskList() → claim next or exit
+
+    IMPORTANT: You MUST NOT run git add or git commit directly. All commits are
+    serialized through the Tarnished's commit broker to prevent index.lock contention.
+    The --approve mode proposal flow (steps 4-5) is unaffected — approval happens
+    before coding; patch generation replaces only step 8.
 
     RETRY LIMIT: Do NOT reclaim a task you just released due to ward failure.
     Track failed task IDs internally and skip them when scanning TaskList.
@@ -225,24 +257,28 @@ Task({
     1. TaskList() → find unblocked, unowned test tasks
     2. Claim: TaskUpdate({ taskId, owner: "trial-forger", status: "in_progress" })
     3. Read task description and the code to be tested
-    4. IF --approve mode: write proposal to tmp/work/{id}/proposals/{task-id}.md,
+    4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before writing tests.
        Max 2 rejections → mark BLOCKED. Timeout 3 min → auto-REJECT.
     5. Discover test patterns (framework, fixtures, assertions)
     6. Write tests following discovered patterns
     7. Run tests to verify they pass
     8. IF tests pass:
-       a. Stage files (git add <specific files>)
-       b. Write sanitized commit message to tmp file
-       c. Commit (git commit -F <msg-file>) with format:
-          "rune: <task-subject> [ward-checked]"
-       d. TaskUpdate({ taskId, status: "completed" })
-       e. SendMessage to the Tarnished: "Seal: tests for #{id}. Pass: {count}/{total}"
+       a. Mark new files for diff tracking: git add -N <new-files>
+       b. Generate patch: git diff --binary HEAD -- <specific files> > tmp/work/{timestamp}/patches/{task-id}.patch
+       c. Write commit metadata: Write tmp/work/{timestamp}/patches/{task-id}.json with:
+          { task_id, subject, files: [...], patch_path }
+       d. Do NOT run git add or git commit — the Tarnished handles all commits
+       e. TaskUpdate({ taskId, status: "completed" })
+       f. SendMessage to the Tarnished: "Seal: tests for #{id}. Pass: {count}/{total}"
     9. IF tests fail:
-       a. Do NOT commit
+       a. Do NOT generate patch
        b. TaskUpdate({ taskId, status: "pending", owner: "" })
        c. SendMessage to the Tarnished: "Tests failed on task #{id}: {failure summary}"
     10. TaskList() → claim next or exit
+
+    IMPORTANT: You MUST NOT run git add or git commit directly. All commits are
+    serialized through the Tarnished's commit broker to prevent index.lock contention.
 
     RETRY LIMIT: Do NOT reclaim a task you just released due to test failure.
     Track failed task IDs internally and skip them when scanning TaskList.
@@ -267,9 +303,15 @@ For plans with 10+ tasks, summon additional workers:
 
 ## Phase 3: Monitor
 
-Poll TaskList to track progress:
+Poll TaskList with timeout guard to track progress:
 
 ```javascript
+const POLL_INTERVAL = 30_000      // 30 seconds
+const STALE_THRESHOLD = 300_000   // 5 minutes — warn about stalled worker
+const STALE_RELEASE = 600_000     // 10 minutes — release task for reclaim
+const TOTAL_TIMEOUT = 1_800_000   // 30 minutes (work involves implementation + ward checks)
+const startTime = Date.now()
+
 while (not all tasks completed):
   tasks = TaskList()
   completed = tasks.filter(t => t.status === "completed").length
@@ -280,14 +322,92 @@ while (not all tasks completed):
 
   // Stale detection
   for (task of tasks.filter(t => t.status === "in_progress")):
-    if (task.stale > 5 minutes):
+    if (task.stale > STALE_THRESHOLD):
       warn("Worker may be stalled on task #{task.id}")
-      // After 10 min: release task for reclaim
-      if (task.stale > 10 minutes):
-        TaskUpdate({ taskId: task.id, owner: "", status: "pending" })
+    if (task.stale > STALE_RELEASE):
+      TaskUpdate({ taskId: task.id, owner: "", status: "pending" })
 
-  sleep(30)
+  // Commit broker: process completed task patches (see Phase 3.5)
+
+  // Total timeout
+  if (Date.now() - startTime > TOTAL_TIMEOUT):
+    warn("Work timeout reached (30 min). Collecting partial results.")
+    break
+
+  sleep(POLL_INTERVAL)
+
+// Final sweep: re-read TaskList once more before reporting timeout
+tasks = TaskList()
 ```
+
+**Total timeout**: Hard limit of 30 minutes (work legitimately takes longer due to implementation + ward checks). After timeout, a final sweep collects any results that completed during the last poll interval.
+
+### Phase 3.5: Commit Broker (Orchestrator-Only)
+
+The Tarnished is the **sole committer** — workers generate patches, the orchestrator applies and commits them. This serializes all git index operations through a single writer, eliminating `.git/index.lock` contention entirely.
+
+```javascript
+// On receiving "Seal: task #{id} done" from worker:
+function commitBroker(taskId) {
+  const patchPath = `tmp/work/${timestamp}/patches/${taskId}.patch`
+  const metaPath = `tmp/work/${timestamp}/patches/${taskId}.json`
+
+  // 1. Validate patch path
+  if (!patchPath.match(/^tmp\/work\/\d+\/patches\/[\w-]+\.patch$/)) {
+    warn(`Invalid patch path for task ${taskId}`)
+    return
+  }
+
+  // 2. Read patch and metadata
+  const patchContent = Read(patchPath)
+  const meta = Read(metaPath)
+
+  // 3. Skip empty patches (worker reverted own changes)
+  if (patchContent.trim() === "") {
+    log(`Task ${taskId}: completed-no-change (empty patch)`)
+    return
+  }
+
+  // 4. Deduplicate: reject if taskId already committed
+  if (committedTaskIds.has(taskId)) {
+    warn(`Task ${taskId}: duplicate Seal — already committed`)
+    return
+  }
+
+  // 5. Apply with 3-way merge fallback
+  result = Bash(`git apply --3way "${patchPath}"`)
+  if (result.exitCode !== 0) {
+    warn(`Task ${taskId}: patch conflict — marking NEEDS_MANUAL_MERGE`)
+    return
+  }
+
+  // 6. Validate and stage files
+  // SECURITY: Validate each file path against safe character set to prevent shell injection
+  const SAFE_PATH = /^[a-zA-Z0-9._\-\/]+$/
+  for (const file of meta.files) {
+    if (!SAFE_PATH.test(file)) {
+      warn(`Task ${taskId}: unsafe file path "${file}" — skipping`)
+      return
+    }
+  }
+  // Quote each path individually for shell safety (SAFE_PATH already rejects spaces)
+  Bash(`git add ${meta.files.map(f => `"${f}"`).join(' ')}`)
+  // Sanitize commit subject: strip control chars, limit length, write to file (not -m)
+  const safeSubject = meta.subject.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 72)
+  Write(`tmp/work/${timestamp}/patches/${taskId}-msg.txt`,
+    `rune: ${safeSubject} [ward-checked]`)
+  Bash(`git commit -F "tmp/work/${timestamp}/patches/${taskId}-msg.txt"`)
+
+  // 7. Record commit SHA
+  const sha = Bash("git rev-parse HEAD").trim()
+  committedTaskIds.add(taskId)
+  commitSHAs.push(sha)
+
+  // 8. Update plan checkboxes (existing single-writer pattern)
+}
+```
+
+**Recovery on restart**: Scan `tmp/work/{timestamp}/patches/` for metadata JSON with no recorded commit SHA → re-apply unapplied patches.
 
 ## Phase 4: Ward Check
 
@@ -298,7 +418,14 @@ After all tasks complete, run project-wide quality gates:
 wards = discoverWards()
 // Possible sources: Makefile, package.json, pyproject.toml, talisman.yml
 
+// SECURITY: Validate ward commands — block shell metacharacters from talisman.yml commands
+const SAFE_WARD = /^[a-zA-Z0-9._\-\/ ]+$/
 for (const ward of wards) {
+  if (!SAFE_WARD.test(ward.command)) {
+    warn(`Ward "${ward.name}": command contains unsafe characters — skipping`)
+    warn(`  Blocked command: ${ward.command.slice(0, 80)}`)
+    continue
+  }
   result = Bash(ward.command)
   if (result.exitCode !== 0) {
     warn(`Ward failed: ${ward.name}`)
@@ -345,6 +472,7 @@ for (const worker of allWorkers) {
 // 2. Wait for approvals (max 30s)
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+// timestamp validated at Phase 1: /^[a-zA-Z0-9_-]+$/
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
 }
@@ -386,11 +514,14 @@ Next steps:
 | Error | Recovery |
 |-------|----------|
 | Worker stalled (>5 min) | Warn lead, release after 10 min |
+| Total timeout (>30 min) | Final sweep, collect partial results, commit applied patches |
 | Worker crash | Task returns to pool for reclaim |
 | Ward failure | Create fix task, summon worker to fix |
 | All workers crash | Abort, report partial progress |
 | Plan has no extractable tasks | Ask user to restructure plan |
 | Conflicting file edits | Workers write to separate files; lead resolves conflicts |
+| Empty patch (worker reverted own changes) | Skip commit, log as "completed-no-change" |
+| Patch conflict (two workers on same file) | `git apply --3way` fallback; mark NEEDS_MANUAL_MERGE on failure |
 
 ## --approve Flag (Plan Approval Per Task)
 
@@ -401,7 +532,7 @@ When `--approve` is set, each worker must propose an implementation plan before 
 ```
 For each task when --approve is active:
   1. Worker reads task, proposes implementation plan
-  2. Worker writes proposal to tmp/work/{id}/proposals/{task-id}.md
+  2. Worker writes proposal to tmp/work/{timestamp}/proposals/{task-id}.md
   3. Worker sends plan to leader via SendMessage
   4. Leader presents to user via AskUserQuestion:
      - Full file path to the proposal
@@ -417,7 +548,7 @@ For each task when --approve is active:
 
 ### Proposal File Format
 
-Workers write proposals to `tmp/work/{id}/proposals/{task-id}.md`:
+Workers write proposals to `tmp/work/{timestamp}/proposals/{task-id}.md`:
 
 ```markdown
 # Proposal: {task-subject}
@@ -444,23 +575,26 @@ When used via `/rune:arc --approve`, the flag applies **only to Phase 3 (WORK)**
 
 After each task completion, workers commit their work incrementally. This provides atomic, traceable commits per task.
 
-### Commit Lifecycle
+### Commit Lifecycle (via Commit Broker)
 
 ```
 After each task completion:
   1. Worker implements task
   2. Ward checks run (project quality gates)
   3. If ward passes:
-     - Stage modified files: git add <specific files>
-     - Write commit message to tmp file (sanitized)
-     - Commit: git commit -F <message-file>
-     - Update plan checkboxes
-     - Continue to next task
+     - Worker generates patch: git diff --binary HEAD -- <files> > patches/{task-id}.patch
+     - Worker writes metadata: patches/{task-id}.json
+     - Worker sends Seal to Tarnished
+     - Tarnished commit broker applies patch, stages, and commits
+     - Tarnished updates plan checkboxes
+     - Worker continues to next task
   4. If ward fails:
-     - Do NOT commit
-     - Flag task for review
-     - Continue to next task (other tasks may be independent)
+     - Worker does NOT generate patch
+     - Worker flags task for review
+     - Worker continues to next task (other tasks may be independent)
 ```
+
+**Why a commit broker?** With up to 5 parallel workers (3 Rune Smiths + 2 Trial Forgers), direct `git add`/`git commit` from workers causes `.git/index.lock` contention. The broker serializes only the fast commit step (sub-second) — worker parallelism is unaffected.
 
 ### Commit Message Format
 

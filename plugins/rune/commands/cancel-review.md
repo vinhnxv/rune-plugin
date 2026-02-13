@@ -19,6 +19,7 @@ allowed-tools:
   - Write
   - Bash
   - Glob
+  - AskUserQuestion
 ---
 
 # /rune:cancel-review — Cancel Active Review
@@ -38,10 +39,10 @@ If no state files found: "No active review to cancel."
 
 ### 2. Select & Read State
 
-Read each state file and filter to active ones. If multiple active reviews exist, cancel the most recent:
+Read each state file and filter to active ones. If multiple active reviews exist, let the user choose which to cancel:
 
 ```javascript
-// Read each state file, find most recent active one
+// Read each state file, find active ones
 const activeStates = stateFiles
   .map(f => ({ path: f, state: Read(f) }))
   .filter(s => s.state.status === "active")
@@ -51,14 +52,32 @@ if (activeStates.length === 0) {
   return "No active review to cancel."
 }
 
-// Use most recent active review (sorted by started timestamp)
-state = activeStates[0].state
-identifier = state.team_name.replace("rune-review-", "")
-if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) { warn("Invalid derived identifier: " + identifier); continue }
-team_name = state.team_name
+let state, identifier, team_name
 
-if (activeStates.length > 1) {
-  warn(`Multiple active reviews found (${activeStates.length}). Cancelling most recent: ${team_name}`)
+if (activeStates.length === 1) {
+  // Single active review — auto-select
+  state = activeStates[0].state
+  identifier = state.team_name.replace("rune-review-", "")
+  if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) { warn("Invalid derived identifier: " + identifier); return }
+  team_name = state.team_name
+} else {
+  // Multiple active — ask user which to cancel
+  const choice = AskUserQuestion({
+    questions: [{
+      question: `Multiple active reviews found (${activeStates.length}). Which to cancel?`,
+      header: "Session",
+      options: activeStates.map(s => ({
+        label: s.state.team_name,
+        description: `Started: ${s.state.started}, Files: ${s.state.expected_files?.length || '?'}`
+      })),
+      multiSelect: false
+    }]
+  })
+  const selected = activeStates.find(s => s.state.team_name === choice)
+  state = selected.state
+  identifier = state.team_name.replace("rune-review-", "")
+  if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) { warn("Invalid derived identifier: " + identifier); return }
+  team_name = state.team_name
 }
 ```
 
@@ -100,6 +119,9 @@ if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) throw new Error("Invalid team_name")
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/${team_name}/ ~/.claude/tasks/${team_name}/ 2>/dev/null`)
 }
+
+// NOTE: identifier is derived from team_name via .replace("rune-review-", "").
+// The team_name regex guard above implicitly validates identifier (it's a substring).
 
 // Update state file
 Write("tmp/.rune-review-{identifier}.json", {

@@ -354,7 +354,7 @@ For decisions beyond agent capability:
 |----------|-----------|------------|-------------|----------|
 | `/rune:review` | `tmp/reviews/{pr}/` | Runebinder → TOME.md | Layer 0 + Layer 2 | P1, P2, P3, Self-Review Log, Summary |
 | `/rune:audit` | `tmp/audit/{id}/` | Runebinder → TOME.md | Layer 0 + Layer 2 + Validator | P1, P2, P3, Self-Review Log, Summary |
-| `/rune:plan` | `tmp/research/` | Lead reads directly | Layer 0 only | Key Findings, Recommendations, Summary |
+| `/rune:plan` | `tmp/plans/{timestamp}/research/` | Lead reads directly | Layer 0 only | Key Findings, Recommendations, Summary |
 | `/rune:work` | `tmp/work/` | Lead reads directly | None (status-only) | Status, Files Changed, Tests |
 
 ## State File Integration
@@ -474,7 +474,7 @@ After all agents complete:
 ```json
 {
   "workflow": "rune-deep-research",
-  "output_dir": "tmp/research/auth-patterns/",
+  "output_dir": "tmp/plans/{timestamp}/research/auth-patterns/",
   "teammates": [
     {
       "name": "framework-researcher",

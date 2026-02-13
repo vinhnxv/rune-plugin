@@ -83,8 +83,7 @@ tmp/reviews/{id}/
 ├── glyph-scribe.md          # Frontend review findings (if summoned)
 ├── knowledge-keeper.md      # Docs review findings (if summoned)
 ├── TOME.md                  # Aggregated + deduplicated findings
-├── truthsight-report.md     # Verification results (if Layer 2 enabled)
-└── completion.json          # Structured completion summary
+└── truthsight-report.md     # Verification results (if Layer 2 enabled)
 ```
 
 ### Audit Mode
@@ -126,10 +125,12 @@ See [Validator Rules](references/validator-rules.md) for confidence scoring and 
 ## Phase 0: Pre-flight
 
 ```bash
-# Check for changes to review
-git diff --name-only HEAD~1..HEAD
-# OR for PRs:
-git diff --name-only main..HEAD
+# Unified scope (see /rune:review command for full implementation):
+# committed: git diff --name-only --diff-filter=ACMR "${default_branch}...HEAD"
+# staged: git diff --cached --name-only --diff-filter=ACMR
+# unstaged: git diff --name-only
+# untracked: git ls-files --others --exclude-standard
+# Merged, deduplicated, filtered for existence and non-symlinks
 ```
 
 **Abort conditions:**
@@ -313,24 +314,9 @@ The verifier:
 
 **Circuit breaker:** 2+ HALLUCINATED findings from same Ash → flag entire output as unreliable.
 
-### completion.json
+### completion.json (Legacy)
 
-After verification, write structured completion summary:
-
-```json
-{
-  "workflow": "rune-review",
-  "identifier": "PR #142",
-  "completed_at": "2026-02-11T11:00:00Z",
-  "ash": {
-    "forge-warden": { "status": "complete", "findings": 7, "confidence": 0.85 },
-    "ward-sentinel": { "status": "complete", "findings": 3, "confidence": 0.90 },
-    "pattern-weaver": { "status": "partial", "findings": 2, "confidence": 0.60 }
-  },
-  "aggregation": { "tome_path": "tmp/reviews/142/TOME.md", "total_findings": 12 },
-  "verification": { "layer_0_passed": true, "layer_2_hallucinated": 0 }
-}
-```
+> **Note:** `completion.json` was defined in early versions but is not written by review/audit commands. The Seal metadata (embedded in each Ash output) + state files (`tmp/.rune-{type}-*.json`) serve the same purpose. The structured output from the rune-orchestration File-Based Handoff Pattern references it for custom workflows, but the built-in review/audit lifecycle relies on Seal + TOME.md instead.
 
 Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/truthsight-pipeline.md)
 
@@ -340,7 +326,8 @@ Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/t
 1. SendMessage(type: "shutdown_request") to each Ash
 2. Wait for shutdown approvals
 3. TeamDelete()
-4. Read TOME.md and present to user
+4. Persist learnings to Rune Echoes (.claude/echoes/)
+5. Read TOME.md and present to user
 ```
 
 ## Error Handling

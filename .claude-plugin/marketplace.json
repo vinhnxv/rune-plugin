@@ -2,7 +2,7 @@
   "name": "rune-marketplace",
   "owner": {
     "name": "vinhnxv",
-    "email": "vinhnxv@gmail.com"
+    "email": "vinhnxv@users.noreply.github.com"
   },
   "metadata": {
     "description": "Plugin marketplace for Rune — multi-agent engineering orchestration",
@@ -13,10 +13,10 @@
     {
       "name": "rune",
       "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, and audit with Agent Teams. Includes 10 specialized review agents, 5 research agents, 12 commands, and 5 skills.",
-      "version": "1.10.3",
+      "version": "1.10.5",
       "author": {
         "name": "vinhnxv",
-        "email": "vinhnxv@gmail.com"
+        "email": "vinhnxv@users.noreply.github.com"
       },
       "homepage": "https://github.com/vinhnxv/rune-plugin",
       "repository": "https://github.com/vinhnxv/rune-plugin",
