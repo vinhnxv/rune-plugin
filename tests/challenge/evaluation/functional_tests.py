@@ -8,10 +8,14 @@ after the arc run completes.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
 import pytest
+
+# Workspace root: the parent of evaluation/ where arc generated the code
+_WORKSPACE = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture
@@ -41,13 +45,20 @@ def tmp_data(tmp_path: Path) -> Path:
 
 
 def _run_dataweaver(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
-    """Run the dataweaver CLI."""
+    """Run the dataweaver CLI.
+
+    Uses PYTHONPATH to ensure the workspace-generated dataweaver package
+    is importable, regardless of the subprocess cwd (which points at
+    tmp_data for test file access).
+    """
+    env = {**os.environ, "PYTHONPATH": str(_WORKSPACE)}
     return subprocess.run(
         ["python", "-m", "dataweaver", *args],
         cwd=cwd,
         capture_output=True,
         text=True,
         timeout=30,
+        env=env,
     )
 
 

@@ -84,12 +84,14 @@ def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path
         "ignore_missing_imports = true\n"
     )
 
-    # Initialize git repo
-    subprocess.run(["git", "init"], cwd=workspace, capture_output=True)
-    subprocess.run(["git", "add", "."], cwd=workspace, capture_output=True)
+    # Initialize git repo (with local user config for CI environments)
+    subprocess.run(["git", "init"], cwd=workspace, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "rune-harness"], cwd=workspace, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "harness@test.local"], cwd=workspace, capture_output=True, check=True)
+    subprocess.run(["git", "add", "."], cwd=workspace, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-m", "Initial setup with challenge plan"],
-        cwd=workspace, capture_output=True,
+        cwd=workspace, capture_output=True, check=True,
     )
 
     # Set up isolated Claude config at ~/.claude-rune-plugin-test/
@@ -396,6 +398,9 @@ Examples:
         shutil.rmtree(workspace, ignore_errors=True)
 
     # Exit code based on results
+    if run_result and run_result.exit_code != 0:
+        print(f"\nFAIL: /rune:arc exited with code {run_result.exit_code}")
+        sys.exit(1)
     if quality and not quality.passed:
         sys.exit(1)
     if checkpoint and not checkpoint.valid:
