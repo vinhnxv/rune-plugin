@@ -118,6 +118,47 @@ tasks = [
 ]
 ```
 
+### Previous Shard Context (Multi-Shard Plans Only)
+
+When the plan is a shard (filename matches `*-shard-N-*`), inject context from completed sibling shards into worker prompts. This prevents workers from reinventing patterns already established in earlier shards.
+
+**Inputs**: planPath (string, from Phase 0 plan parsing), dirname/basename (stdlib path utilities)
+**Outputs**: shardContext (string, injected into worker prompts in Phase 2)
+**Preconditions**: Plan file exists and matches shard naming pattern (`-shard-\d+-`)
+**Error handling**: Read(sibling) failure → skip sibling, log warning, continue with remaining shards
+
+```javascript
+// Detect shard plan
+const shardMatch = planPath.match(/-shard-(\d+)-/)
+if (shardMatch) {
+  const shardNum = parseInt(shardMatch[1])
+  const planDir = dirname(planPath)
+  const planBase = basename(planPath).replace(/-shard-\d+-[^-]+-plan\.md$/, '')
+
+  // Find completed sibling shards (lower shard numbers)
+  const siblingShards = Glob(`${planDir}/${planBase}-shard-*-plan.md`)
+    .filter(p => {
+      const n = parseInt(p.match(/-shard-(\d+)-/)?.[1] ?? "0")
+      return n < shardNum
+    })
+    .sort()
+
+  // Build context summary from sibling shards
+  let shardContext = ""
+  for (const sibling of siblingShards) {
+    const content = Read(sibling)
+    // Extract: checked acceptance criteria + Technical Approach section (first 500 chars)
+    const checked = content.match(/- \[x\].+/g) || []
+    const techMatch = content.match(/## Technical Approach\n([\s\S]{0,500})/)
+    shardContext += `\n### Shard: ${basename(sibling)}\nCompleted: ${checked.length} criteria\n`
+    if (techMatch) shardContext += `Patterns: ${techMatch[1].trim().slice(0, 300)}\n`
+  }
+
+  // shardContext is injected into worker spawn prompts (Phase 2) as:
+  // "PREVIOUS SHARD CONTEXT:\n{shardContext}\nReuse patterns from earlier shards."
+}
+```
+
 ### Identify Ambiguities
 
 After extracting tasks, scan for potential issues before asking the user to confirm:
@@ -375,6 +416,10 @@ Task({
          - Check: Do function signatures match all call sites?
          - Check: Are regex patterns correct? Test edge cases mentally.
          - Check: No dead code left behind (unused imports, unreachable branches)
+         - DISASTER PREVENTION:
+           - Reinventing wheels: Does similar code/utility already exist? Search before creating new.
+           - Wrong file location: Do new files follow the directory conventions of their siblings?
+           - Existing test regression: Run tests related to modified files BEFORE writing new code.
          - If ANY issue found → fix it NOW, before ward check
     7. Run quality gates (discovered from Makefile/package.json/pyproject.toml)
     8. IF ward passes:
@@ -429,6 +474,10 @@ Task({
          - Check: Do imports match actual export names?
          - Check: Are test fixtures consistent with source types?
          - Check: No copy-paste errors (wrong function name, wrong assertion)
+         - DISASTER PREVENTION:
+           - Reinventing fixtures: Do similar test fixtures/helpers already exist? Reuse them.
+           - Wrong test location: Does the test file live next to the source or in tests/? Follow existing convention.
+           - Run existing tests on modified files FIRST to catch regressions before adding new tests.
     7. Run tests to verify they pass
     8. IF tests pass:
        a. Mark new files for diff tracking: git add -N <new-files>
@@ -667,6 +716,49 @@ const dirtyTracked = (Bash("git diff --name-only HEAD").trim() + "\n" +
 if (dirtyTracked !== "") {
   const fileCount = dirtyTracked.split('\n').filter(Boolean).length
   checks.push(`WARN: Uncommitted changes in tracked files (${fileCount} files)`)
+}
+
+// 7. Documentation: new public functions/classes missing docstrings
+//    Scan committed files for def/class without preceding docstring
+//    Currently Python only — JS/TS, Rust, Go, Ruby detection is TODO
+//    Only check files touched in this work session (committed patches)
+// Validate defaultBranch before shell interpolation (prevent injection)
+if (!/^[a-zA-Z0-9._\/-]+$/.test(defaultBranch)) throw new Error("Invalid branch name")
+const changedFiles = Bash(`git diff --name-only "${defaultBranch}"...HEAD 2>/dev/null`).trim().split('\n').filter(Boolean)
+const codeFiles = changedFiles.filter(f => /\.(py|ts|js|rs|go|rb)$/.test(f))
+for (const file of codeFiles) {
+  const content = Read(file)
+  // Python: public function/class (no leading _) without docstring on next non-blank line
+  // Heuristic — may false-positive on decorated functions or blank lines before docstrings
+  if (file.endsWith('.py')) {
+    const missing = content.match(/^(def|class) (?!_).*:\n(\s*\n)*(?!\s*("""|'''))/gm)
+    if (missing && missing.length > 0) {
+      checks.push(`WARN: ${file}: ${missing.length} public function(s)/class(es) missing docstrings`)
+    }
+  }
+}
+
+// 8. Import hygiene: unused imports in changed files
+//    Quick heuristic: for each import name, check if it appears elsewhere in the file
+//    This is a lightweight check — not a full linter, just a smell detector
+//    Skip if ward commands already include a linter (ruff, eslint, etc.)
+const wardIncludesLinter = wards.some(w => /ruff|eslint|flake8|pylint|clippy/.test(w.command))
+if (!wardIncludesLinter) {
+  checks.push(`INFO: No linter in ward commands — consider adding ruff/eslint for import hygiene`)
+}
+
+// 9. Code duplication: new files that may duplicate existing functionality
+//    Lightweight check: for each NEW file (not modified), search for files with similar names
+const newFiles = Bash(`git diff --name-only --diff-filter=A "${defaultBranch}"...HEAD 2>/dev/null`).trim().split('\n').filter(Boolean)
+for (const file of newFiles) {
+  const fileBase = file.split('/').pop().replace(/\.(py|ts|js|rs|go|rb)$/, '')
+  if (fileBase.length < 4) continue  // Skip very short names (e.g., "app.py")
+  // Escape glob metacharacters to prevent pattern injection from filenames (e.g., Next.js [slug].tsx)
+  const safeBase = fileBase.replace(/[[\]{}*?]/g, '\\$&')
+  const similar = Glob(`**/*${safeBase}*`).filter(f => f !== file)
+  if (similar.length > 0) {
+    checks.push(`INFO: New file ${file} has similar existing file(s): ${similar.slice(0, 3).join(", ")}`)
+  }
 }
 
 // Report — non-blocking, report to user but don't halt

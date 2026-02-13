@@ -13,7 +13,7 @@
     {
       "name": "rune",
       "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, and audit with Agent Teams. Includes 16 specialized review agents, 5 research agents, 12 commands, and 5 skills. Multi-language quality guidance (Python, TypeScript, Rust).",
-      "version": "1.14.0",
+      "version": "1.15.0",
       "author": {
         "name": "vinhnxv",
         "email": "vinh.ngxv@gmail.com"

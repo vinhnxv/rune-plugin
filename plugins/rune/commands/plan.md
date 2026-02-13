@@ -209,6 +209,21 @@ Create an Agent Teams team and summon research tasks using the conditional resea
 
 ### Phase 1A: Local Research (always runs)
 
+#### Research Scope Preview
+
+Before spawning agents, announce the research scope transparently (non-blocking — no user gate):
+
+```
+Research scope for: {feature}
+  Agents:     repo-surveyor, echo-reader, git-miner (always)
+  Conditional: practice-seeker, lore-scholar (after risk scoring in Phase 1B)
+  Validation:  flow-seer (always, after research)
+  Dimensions:  codebase patterns, past learnings, git history, spec completeness
+               + best practices, framework docs (if external research triggered)
+```
+
+This preview helps the user understand what will be researched and catch misalignment early. If the user redirects ("skip git history" or "also research X"), adjust agent selection before spawning.
+
 ```javascript
 // 1. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
 // Validate identifier before rm -rf
@@ -972,6 +987,38 @@ for (const pattern of customPatterns) {
 //    b. No broken internal links: check ## heading references resolve
 //    c. Acceptance criteria present: grep for "- [ ]" items
 //    d. No TODO/FIXME markers left in plan prose (outside code blocks)
+//    e. No time estimates: reject patterns like ~N hours, N-N days, ETA, estimated time,
+//       level of effort, takes about, approximately N minutes/hours/days/weeks
+//       Regex: /~?\d+\s*(hours?|days?|weeks?|minutes?|mins?|hrs?)/i,
+//              /\b(ETA|estimated time|level of effort|takes about|approximately \d+)\b/i
+//       Focus on steps, dependencies, and outputs — never durations.
+//       Exception: T-shirt sizing (S/M/L/XL) is allowed — it's relative, not temporal.
+//    f. CommonMark compliance:
+//       - Code blocks must have language identifiers (flag bare ``` without language tag)
+//         Regex: /^```\s*$/m (bare fence without language)
+//       - Headers must use ATX-style (# not underline) — already standard in templates
+//       - No skipped heading levels (h1 → h3 without h2)
+//       - No bare URLs outside code blocks (must be [text](url) or <url>)
+//         Regex: /(?<!\[|<|`)(https?:\/\/[^\s)>\]]+)(?![\]>`])/
+//    g. Acceptance criteria measurability: scan "- [ ]" lines for vague language.
+//       Flag subjective adjectives that resist measurement:
+//         Regex: /- \[[ x]\].*\b(fast|easy|simple|intuitive|good|better|seamless|responsive|robust|elegant|clean|nice|proper|adequate)\b/i
+//       Flag vague quantifiers that lack specifics:
+//         Regex: /- \[[ x]\].*\b(multiple|several|many|few|various|some|numerous|a lot of|a number of)\b/i
+//       Suggestion: replace with measurable targets (e.g., "fast" → "< 200ms p95",
+//       "multiple" → "at least 3", "easy" → "completable in under 2 clicks").
+//    h. Information density: flag filler phrases that add words without meaning.
+//       Regex patterns (case-insensitive):
+//         /\b(it is important to note that|it should be noted that)\b/i → delete phrase
+//         /\b(due to the fact that)\b/i → "because"
+//         /\b(in order to)\b/i → "to"
+//         /\b(at this point in time)\b/i → "now"
+//         /\b(in the event that)\b/i → "if"
+//         /\b(for the purpose of)\b/i → "to" or "for"
+//         /\b(on a .+ basis)\b/i → adverb (e.g., "on a daily basis" → "daily")
+//         /\b(the system will allow users to)\b/i → "[Actor] can [capability]"
+//         /\b(it is (also )?(worth|important|necessary) (to|that))\b/i → delete or rephrase
+//       Severity: >10 filler instances = WARNING, >20 = HIGH. Auto-suggest replacements.
 ```
 
 If any check fails: auto-fix the stale reference or flag to user before presenting the plan.
@@ -990,7 +1037,7 @@ Task({
   prompt: `You are Decree Arbiter — a RESEARCH agent. Do not write implementation code.
     Review the plan for technical soundness.
     Write review to tmp/plans/{timestamp}/decree-review.md.
-    See agents/utility/decree-arbiter.md for 6-dimension evaluation.`,
+    See agents/utility/decree-arbiter.md for 8-dimension evaluation.`,
   run_in_background: true
 })
 
