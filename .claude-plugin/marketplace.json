@@ -2,7 +2,7 @@
   "name": "rune-marketplace",
   "owner": {
     "name": "vinhnxv",
-    "email": "vinhnxv@users.noreply.github.com"
+    "email": "vinh.ngxv@gmail.com"
   },
   "metadata": {
     "description": "Plugin marketplace for Rune — multi-agent engineering orchestration",
@@ -16,7 +16,7 @@
       "version": "1.10.5",
       "author": {
         "name": "vinhnxv",
-        "email": "vinhnxv@users.noreply.github.com"
+        "email": "vinh.ngxv@gmail.com"
       },
       "homepage": "https://github.com/vinhnxv/rune-plugin",
       "repository": "https://github.com/vinhnxv/rune-plugin",
