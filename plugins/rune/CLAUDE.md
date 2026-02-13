@@ -266,8 +266,8 @@ work:
   skip_branch_check: false               # Skip Phase 0.5 branch check
   branch_prefix: "rune/work"             # Branch name prefix (alphanumeric, _, -, / only)
   pr_monitoring: false                    # Post-deploy monitoring in PR body
-  pr_template: default                   # PR template: default | minimal (enum)
-  auto_push: false                       # Auto-push without confirmation
+  # pr_template: default                 # Reserved for v1.13.0 (default | minimal)
+  # auto_push: false                     # Reserved for v1.13.0 (auto-push without confirmation)
   co_authors: []                         # Co-Authored-By lines in "Name <email>" format
 ```
 

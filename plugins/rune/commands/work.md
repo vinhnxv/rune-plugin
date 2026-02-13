@@ -85,6 +85,15 @@ ls -t plans/*.md 2>/dev/null | head -5
 
 If multiple found, ask user which to execute. If none found, suggest `/rune:plan` first.
 
+### Validate Plan Path
+
+```javascript
+// SECURITY: Validate plan path before any Read or display (consistent with forge.md/arc.md)
+if (!/^[a-zA-Z0-9._\/-]+$/.test(planPath) || planPath.includes('..')) {
+  throw new Error(`Invalid plan path: ${planPath}`)
+}
+```
+
 ### Extract Tasks
 
 Read the plan and extract implementation tasks:
@@ -171,8 +180,13 @@ Before forging the team, verify the git environment is safe for work.
 const currentBranch = Bash("git branch --show-current").trim()
 const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
   || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
+// SECURITY: Guard against detached HEAD (empty string from git branch --show-current)
+if (currentBranch === "") {
+  throw new Error("Detached HEAD detected. Checkout a branch before running /rune:work: git checkout -b <branch>")
+}
 // SECURITY: Validate branch names before display or shell interpolation
 const BRANCH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
+if (!BRANCH_RE.test(currentBranch)) throw new Error(`Invalid current branch name: ${currentBranch}`)
 if (!BRANCH_RE.test(defaultBranch)) throw new Error(`Unexpected default branch name: ${defaultBranch}`)
 
 if (currentBranch === defaultBranch) {
@@ -649,6 +663,14 @@ try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
 }
 
+// 3.5 Restore stashed changes if Phase 0.5 stashed (honor the "restore after work completes" promise)
+if (didStash) {
+  const popResult = Bash("git stash pop 2>/dev/null")
+  if (popResult.exitCode !== 0) {
+    warn("Stash pop failed — manual restore needed: git stash list")
+  }
+}
+
 // 4. Update state file to completed
 Write("tmp/.rune-work-{timestamp}.json", {
   team_name: "rune-work-{timestamp}",
@@ -684,6 +706,12 @@ if (!ghAvailable) {
 const currentBranch = Bash("git branch --show-current").trim()
 const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
   || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
+// SECURITY: Validate branch names before display interpolation (defense-in-depth — also validated in PR Template)
+if (currentBranch === "") { warn("Detached HEAD — skipping ship phase"); return }
+if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(currentBranch) || !/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(defaultBranch)) {
+  warn("Invalid branch name detected — skipping ship phase")
+  return
+}
 
 if (currentBranch !== defaultBranch) {
   const options = [
@@ -716,12 +744,20 @@ if (currentBranch !== defaultBranch) {
 When user selects "Create PR":
 
 ```javascript
+// 0. Track PR state for Smart Next Steps
+let prCreated = false
+let prUrl = ""
+
 // 1. Push branch
 // SECURITY: Validate branch name before shell interpolation
 if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(currentBranch)) {
   throw new Error(`Invalid branch name for push: ${currentBranch}`)
 }
-Bash(`git push -u origin -- "${currentBranch}"`)
+const pushResult = Bash(`git push -u origin -- "${currentBranch}"`)
+if (pushResult.exitCode !== 0) {
+  warn("Push failed. Check remote access and try manually: git push -u origin " + currentBranch)
+  return  // Skip PR creation, fall through to completion report
+}
 
 // 2. Generate PR title from plan
 // Extract title: try frontmatter `title:` field, fallback to plan filename
@@ -747,9 +783,10 @@ const diffStat = Bash(`git diff --stat -- "${defaultBranch}"..."${currentBranch}
 // Returns null if neither exists. Same lookup used in arc.md and plan.md.
 const talisman = readTalisman()
 const monitoringRequired = talisman?.work?.pr_monitoring ?? false    // Default: false
-const autoPush = talisman?.work?.auto_push ?? false                  // Default: false
 const coAuthors = talisman?.work?.co_authors ?? []                   // Default: [] (no co-authors)
-// Note: pr_template config key reserved for v1.13.0 (minimal template variant)
+// Note: auto_push and pr_template config keys reserved for v1.13.0
+// auto_push: skip Ship Decision AskUserQuestion and push automatically (requires safety guards)
+// pr_template: minimal template variant (reduced PR body)
 
 // 5. Build co-author lines
 // SECURITY: Validate "Name <email>" format — reject entries with newlines or missing angle brackets
@@ -757,6 +794,10 @@ const validCoAuthors = coAuthors.filter(a => /^[^<>\n]+\s+<[^@\n]+@[^>\n]+>$/.te
 const coAuthorLines = validCoAuthors.map(a => `Co-Authored-By: ${a}`).join('\n')
 
 // 6. Capture variables from earlier phases for PR body
+// Derive task lists from final TaskList (computed once, reused in PR body and Smart Next Steps)
+const allTasks = TaskList()
+const completedTasks = allTasks.filter(t => t.status === "completed")
+const blockedTasks = allTasks.filter(t => t.status === "pending" && t.blockedBy?.length > 0)
 // wardResults: Array<{name, exitCode}> — accumulated during Phase 4 Ward Check
 // commitCount: number — from committedTaskIds.size (Phase 3.5 Commit Broker)
 // verificationWarnings: Array<string> — from checks[] in Post-Ward Verification Checklist
@@ -771,7 +812,9 @@ const prBody = `## Summary
 Implemented from plan: \`${safePlanPath}\`
 
 ### Changes
+\`\`\`
 ${diffStat}
+\`\`\`
 
 ### Tasks Completed
 ${completedTasks.map(t => `- [x] ${t.subject}`).join("\n")}
@@ -796,10 +839,18 @@ ${monitoringRequired ? `
 Generated with [Claude Code](https://claude.ai/code) via Rune Plugin
 ${coAuthorLines}`
 
-// SECURITY: Re-validate timestamp for file path (defense-in-depth — validated at Phase 1 line 232)
-if (!/^\d+$/.test(timestamp)) throw new Error("Invalid work timestamp")
+// SECURITY: Re-validate timestamp for file path (defense-in-depth — validated at Phase 1)
+// Format: YYYYMMDD-HHMMSS (e.g., 20260213-143022) — must match Phase 1 regex
+if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid work timestamp")
 Write(`tmp/work/${timestamp}/pr-body.md`, prBody)
-Bash(`gh pr create --title "${safePrTitle}" --body-file "tmp/work/${timestamp}/pr-body.md"`)
+const prResult = Bash(`gh pr create --title "${safePrTitle}" --body-file "tmp/work/${timestamp}/pr-body.md"`)
+if (prResult.exitCode !== 0) {
+  warn("PR creation failed. Branch was pushed successfully. Create PR manually: gh pr create")
+} else {
+  prUrl = prResult.stdout.trim()
+  prCreated = true
+  log(`PR created: ${prUrl}`)
+}
 ```
 
 ### Completion Report
@@ -825,16 +876,27 @@ Artifacts: tmp/work/{timestamp}/
 ### Smart Next Steps
 
 After the completion report, present interactive next steps.
-**NOTE**: Compute `changedFiles` once before the Completion Report (e.g., after Phase 6 Cleanup) and reuse in both the report and Smart Next Steps to avoid redundant git diff calls.
+**NOTE**: Smart Next Steps re-derives branch names independently (not from Phase 6.5 scope, which is conditional). Optionally, compute `changedFiles` once before the Completion Report and pass as `_changedFiles` to avoid redundant git diff calls.
 
 ```javascript
 // Compute review recommendation based on changeset analysis
-// NOTE: defaultBranch and currentBranch already validated in Phase 6.5 PR Template (SEC-1, SEC-2)
-// Reuse changedFiles if already computed for Completion Report; otherwise compute here:
-const changedFiles = changedFiles ?? Bash(`git diff --name-only -- "${defaultBranch}"..."${currentBranch}"`).trim().split('\n').filter(Boolean)
-const filesChanged = changedFiles.length
-const hasSecurityFiles = changedFiles.some(f => /auth|secret|token|crypt|password|session|\.env/i.test(f))
-const hasConfigFiles = changedFiles.some(f => /\.claude\/|talisman|CLAUDE\.md/i.test(f))
+// NOTE: changedFiles may already be computed before Completion Report (Phase 6 scope).
+// defaultBranch and currentBranch: re-derive here since Phase 6.5 scope is conditional.
+// Guard: if on default branch (no diff possible), skip review recommendation.
+const snCurrentBranch = Bash("git branch --show-current").trim()
+const snDefaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
+  || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
+const BRANCH_RE_SN = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
+if (!snCurrentBranch || !BRANCH_RE_SN.test(snCurrentBranch) || !BRANCH_RE_SN.test(snDefaultBranch) || snCurrentBranch === snDefaultBranch) {
+  // On default branch or invalid state — skip diff-based recommendation, show generic options
+  var filesChanged = 0, hasSecurityFiles = false, hasConfigFiles = false
+} else {
+  // Reuse changedFiles if already computed; otherwise compute from branch diff
+  const diffFiles = _changedFiles ?? Bash(`git diff --name-only -- "${snDefaultBranch}"..."${snCurrentBranch}"`).trim().split('\n').filter(Boolean)
+  var filesChanged = diffFiles.length
+  var hasSecurityFiles = diffFiles.some(f => /auth|secret|token|crypt|password|session|\.env/i.test(f))
+  var hasConfigFiles = diffFiles.some(f => /\.claude\/|talisman|CLAUDE\.md/i.test(f))
+}
 const taskCount = completedTasks.length
 
 let reviewRecommendation
@@ -854,7 +916,10 @@ AskUserQuestion({
     header: "Next",
     options: [
       { label: reviewRecommendation.split(" — ")[0], description: reviewRecommendation.split(" — ")[1] || "Review the implementation" },
-      { label: "Create PR", description: "Push and open a pull request" },
+      // Show "View PR" if Phase 6.5 already created one; otherwise show "Create PR"
+      ...(prCreated
+        ? [{ label: "View PR", description: `Open ${prUrl} in browser` }]
+        : [{ label: "Create PR", description: "Push and open a pull request" }]),
       { label: "/rune:rest", description: "Clean up tmp/ artifacts" }
     ],
     multiSelect: false
@@ -877,6 +942,11 @@ AskUserQuestion({
 | Conflicting file edits | Workers write to separate files; lead resolves conflicts |
 | Empty patch (worker reverted own changes) | Skip commit, log as "completed-no-change" |
 | Patch conflict (two workers on same file) | `git apply --3way` fallback; mark NEEDS_MANUAL_MERGE on failure |
+| `git push` failure (Phase 6.5) | Warn user, skip PR creation, show manual push command in completion report |
+| `gh pr create` failure (Phase 6.5) | Warn user (branch was pushed), show `gh pr create` manual command |
+| Detached HEAD state | Abort with error — require user to checkout a branch first |
+| `git stash push` failure (Phase 0.5) | Warn and continue with dirty tree |
+| `git stash pop` failure (Phase 6) | Warn user — manual restore needed: `git stash list` |
 
 ## --approve Flag (Plan Approval Per Task)
 

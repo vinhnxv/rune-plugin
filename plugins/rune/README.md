@@ -297,6 +297,12 @@ work:
   max_workers: 3               # Max parallel swarm workers
   approve_timeout: 180         # Seconds (default 3 min)
   commit_format: "rune: {subject} [ward-checked]"
+  skip_branch_check: false     # Skip Phase 0.5 branch check
+  branch_prefix: "rune/work"  # Feature branch prefix (alphanumeric, _, -, / only)
+  pr_monitoring: false         # Post-deploy monitoring section in PR body
+  co_authors: []               # Co-Authored-By lines in "Name <email>" format
+  # pr_template: default       # Reserved for v1.13.0
+  # auto_push: false           # Reserved for v1.13.0
 ```
 
 See [`talisman.example.yml`](talisman.example.yml) for the full configuration schema including custom Ash, trigger matching, and dedup hierarchy.

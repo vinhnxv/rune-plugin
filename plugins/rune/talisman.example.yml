@@ -229,7 +229,7 @@ work:
   skip_branch_check: false     # Skip Phase 0.5 branch/environment check (default: false)
   branch_prefix: "rune/work"   # Branch name prefix (must match /^[a-zA-Z0-9_\-\/]+$/, default: "rune/work")
   pr_monitoring: false          # Include post-deploy monitoring section in PR body (default: false)
-  pr_template: default          # PR body template: default | minimal (default: default)
-  auto_push: false              # Auto-push after completion without confirmation (default: false)
+  # pr_template: default        # Reserved for v1.13.0 — only "default" currently implemented
+  # auto_push: false            # Reserved for v1.13.0 — auto-push without confirmation
   co_authors: []                # Additional Co-Authored-By lines in "Name <email>" format (default: [])
   # Example: ["Claude <noreply@anthropic.com>", "Alice <alice@example.com>"]
