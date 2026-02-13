@@ -161,9 +161,9 @@ All workflows summoning 3+ agents MUST implement the inscription protocol.
 | `/rune:review` | 3-5 | **Yes** (built-in) | Layer 0 + Layer 2 |
 | `/rune:audit` | 3-5 | **Yes** (built-in) | Layer 0 + Layer 2 + Validator |
 | `/rune:plan` | 3-5 | **Yes** | Layer 0 only |
-| `/rune:work` (swarm) | 2+ | **Yes** (when 3+) | None (status-only) |
+| `/rune:work` (swarm) | 2+ | **Yes** | None (status-only) |
+| `/rune:mend` | 1+ | **Yes** | None (fixer-only) |
 | Custom (3+ agents) | Varies | **Yes** | Configurable |
-| Single agent | 1 | No | Glyph Budget only |
 
 ## Full Prompt Injection Template
 
@@ -453,12 +453,12 @@ Append the Full Prompt Injection Template (above) to every agent prompt. Replace
 
 #### Step 4: Choose Verification Level
 
-| Agent Count | Verification |
-|-------------|-------------|
-| 1-2 agents | Glyph Budget only, no inscription required |
-| 3-4 agents | Inscription + Layer 0 (inline checks) |
-| 5+ agents | Inscription + Layer 0 + Layer 2 (Smart Verifier) |
-| Findings-free (status-only) | Inscription for structure, skip verification |
+| Team Size | Verification |
+|-----------|-------------|
+| 1-2 teammates | Agent Teams + Glyph Budget + inscription (Layer 0 optional) |
+| 3-4 teammates | Agent Teams + Glyph Budget + inscription + Layer 0 |
+| 5+ teammates | Agent Teams + Glyph Budget + inscription + Layer 0 + Layer 2 (Smart Verifier) |
+| Findings-free (status-only) | Agent Teams + inscription for structure, skip verification |
 
 #### Step 5: Post-Completion Validation
 

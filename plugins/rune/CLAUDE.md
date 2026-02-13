@@ -193,11 +193,11 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 
 ## Multi-Agent Rules
 
-| Agent Count | Required Protocol |
-|-------------|-------------------|
-| 1-2 agents (no TeamCreate) | Output budget only |
-| 3+ agents OR any TeamCreate | Output budget + inscription.json |
-| 5+ agents | MUST use Agent Teams (TeamCreate + TaskCreate) |
+| Scope | Required Protocol |
+|-------|-------------------|
+| All Rune multi-agent workflows | Agent Teams (`TeamCreate` + `TaskCreate`) + Glyph Budget + `inscription.json` |
+
+Inscription verification scales with team size: Layer 0 for small teams (1-2 teammates), Layer 0 + Layer 2 for larger teams (5+). Non-Rune custom workflows may use standalone `Task` agents without `TeamCreate`.
 
 ## Output Conventions
 

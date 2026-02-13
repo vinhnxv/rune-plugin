@@ -90,7 +90,9 @@ Task({
 })
 ```
 
-### Task Subagent (Non-Teams)
+### Task Subagent (Platform Reference)
+
+> **Note**: This template is a platform reference for non-Rune workflows. All Rune commands use the Background Teammate template above with Agent Teams (`TeamCreate` + `TaskCreate`).
 
 ```
 Task({

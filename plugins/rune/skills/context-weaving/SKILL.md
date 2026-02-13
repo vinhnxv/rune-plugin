@@ -48,11 +48,10 @@ Agents can write unlimited detail to files. The overflow comes from what they _r
 
 | Condition | Action |
 |-----------|--------|
-| About to summon **3-4 agents** via Task tool | Apply Glyph Budget + inscription |
-| About to summon **5+ agents** | Use Agent Teams + Glyph Budget + inscription |
+| Any Rune multi-agent command | Agent Teams + Glyph Budget + inscription (loaded automatically) |
 | Running `/rune:review` | Loaded automatically by roundtable-circle |
 | Running `/rune:audit` | Loaded automatically by roundtable-circle |
-| Any custom multi-agent orchestration | Apply Glyph Budget (if 3+ agents) |
+| Custom multi-agent orchestration (3+ agents) | Agent Teams + Glyph Budget + inscription |
 
 ### Pre-Summon Checklist (8 Thoughts)
 
@@ -72,9 +71,8 @@ Estimated return tokens (with budget): [count] x 150 = [total]
 #### Thought 2: Choose Strategy
 
 ```
-- 1-2 agents → Glyph Budget only. No inscription needed.
-- 3-4 agents → Glyph Budget + inscription.json REQUIRED.
-- 5+ agents OR TeamCreate → Agent Teams + Glyph Budget + inscription REQUIRED.
+- All Rune commands → Agent Teams + Glyph Budget + inscription.json REQUIRED.
+- Custom workflows (3+ agents) → Agent Teams + Glyph Budget + inscription.json REQUIRED.
 
 My choice: [strategy]
 ```
