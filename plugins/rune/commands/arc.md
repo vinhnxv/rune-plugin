@@ -373,6 +373,20 @@ for (const reviewer of reviewers) {
   })
 }
 
+// Parse verdicts using anchored regex (defined before first use in timeout handler)
+const parseVerdict = (reviewer, output) => {
+  const pattern = /^<!-- VERDICT:([a-zA-Z_-]+):(PASS|CONCERN|BLOCK) -->$/m
+  const match = output.match(pattern)
+  if (!match) {
+    warn(`Reviewer ${reviewer} output lacks verdict marker — defaulting to CONCERN.`)
+    return "CONCERN"
+  }
+  if (match[1] !== reviewer) {
+    warn(`Verdict marker reviewer mismatch: expected ${reviewer}, found ${match[1]}. Using marker verdict.`)
+  }
+  return match[2]  // PASS | CONCERN | BLOCK
+}
+
 // Monitor with timeout
 const reviewStart = Date.now()
 while (true) {
@@ -399,24 +413,17 @@ while (true) {
     break
   }
 
+  // 3. Stale detection
+  for (const task of tasks.filter(t => t.status === "in_progress")) {
+    if (task.stale > STALE_THRESHOLD) {
+      warn(`Reviewer ${task.owner || task.id} may be stalled (${Math.round(task.stale/60000)}min)`)
+    }
+  }
+
   sleep(30_000)
 }
 // Final sweep
 tasks = TaskList()
-
-// Parse verdicts using anchored regex
-const parseVerdict = (reviewer, output) => {
-  const pattern = /^<!-- VERDICT:([a-zA-Z_-]+):(PASS|CONCERN|BLOCK) -->$/m
-  const match = output.match(pattern)
-  if (!match) {
-    warn(`Reviewer ${reviewer} output lacks verdict marker — defaulting to CONCERN.`)
-    return "CONCERN"
-  }
-  if (match[1] !== reviewer) {
-    warn(`Verdict marker reviewer mismatch: expected ${reviewer}, found ${match[1]}. Using marker verdict.`)
-  }
-  return match[2]  // PASS | CONCERN | BLOCK
-}
 
 // Collect verdicts
 // Grep for <!-- VERDICT:...:BLOCK --> in reviewer outputs
@@ -471,11 +478,17 @@ for (const reviewer of reviewers) {
   const output = Read(outputPath)
   const verdict = parseVerdict(reviewer.name, output)
   if (verdict === "CONCERN") {
-    // Extract finding details from reviewer markdown
+    // Extract finding summary — truncate to first 2000 chars to prevent prompt injection
+    // chain (plan -> reviewer output -> concern-context.md -> worker context).
+    // Strip HTML comments and code blocks before truncation for safety.
+    const sanitized = output
+      .replace(/<!--[\s\S]*?-->/g, '')  // Strip HTML comments
+      .replace(/```[\s\S]*?```/g, '[code block removed]')  // Strip code blocks
+      .slice(0, 2000)
     concerns.push({
       reviewer: reviewer.name,
       verdict: "CONCERN",
-      content: output  // Full reviewer output for worker context
+      content: sanitized
     })
   }
 }
@@ -498,7 +511,12 @@ if (concerns.length === 0) {
     concernContext)
 
   // 3. All-CONCERN escalation (3x CONCERN, 0 PASS)
-  const allConcern = reviewers.every(r => parseVerdict(r.name, Read(`tmp/arc/${id}/reviews/${r.name}-verdict.md`)) === "CONCERN")
+  // Guard: missing reviewer files (timeout path) default to CONCERN
+  const allConcern = reviewers.every(r => {
+    const verdictPath = `tmp/arc/${id}/reviews/${r.name}-verdict.md`
+    if (!exists(verdictPath)) return true  // Missing file = timeout = CONCERN
+    return parseVerdict(r.name, Read(verdictPath)) === "CONCERN"
+  })
   if (allConcern) {
     const forgeNote = checkpoint.flags.no_forge
       ? "\n\nNote: Forge enrichment was skipped (--no-forge). CONCERNs may be more likely on a raw plan."
@@ -591,8 +609,10 @@ for (const pattern of customPatterns) {
     warn(`Skipping pattern "${pattern.description}": unsafe characters`)
     continue
   }
-  const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" ${pattern.exclusions || ''}`)
-  if (pattern.expect_zero && result.matchCount > 0) {
+  const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
+  // NOTE: All three interpolations are quoted to prevent shell glob expansion and word splitting.
+  // SAFE_PATTERN allows * and space which are safe inside double quotes but dangerous unquoted.
+  if (pattern.expect_zero && result.stdout.trim().length > 0) {
     issues.push(`Stale reference: ${pattern.description}`)
   }
 }
