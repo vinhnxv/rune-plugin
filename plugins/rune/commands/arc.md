@@ -40,7 +40,7 @@ allowed-tools:
 
 Chains ten phases into a single automated pipeline: forge, plan review, plan refinement, verification, work, gap analysis, code review, mend, verify mend (convergence gate), and audit. Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, and 7.5). Artifact-based handoff connects phases. Checkpoint state enables resume after failure. The convergence gate between mend and audit detects regressions, retries mend up to 2 times, and halts if findings diverge.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`
 
 ## Usage
 

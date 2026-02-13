@@ -1,0 +1,154 @@
+---
+name: rune:elicit
+description: |
+  Interactive elicitation method selection and execution.
+  Provides structured reasoning techniques from the BMAD-derived 22-method registry.
+  Methods include Tree of Thoughts, Pre-mortem Analysis, Red Team vs Blue Team,
+  5 Whys Deep Dive, and more.
+
+  <example>
+  user: "/rune:elicit"
+  assistant: "The Tarnished consults the elicitation grimoire..."
+  </example>
+
+  <example>
+  user: "/rune:elicit --method 11"
+  assistant: "Applying Tree of Thoughts to current context..."
+  </example>
+
+  <example>
+  user: "/rune:elicit --phase plan:0"
+  assistant: "Showing methods available for planning brainstorm phase..."
+  </example>
+user-invocable: true
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - AskUserQuestion
+  - Write
+---
+
+# /rune:elicit — Standalone Elicitation Method Selection
+
+**Load skills**: `elicitation`
+
+Interactive elicitation session using Rune's BMAD-derived method registry. Select and apply structured reasoning techniques to any context.
+
+## Usage
+
+```
+/rune:elicit                    # Interactive: context-aware method selection
+/rune:elicit --method 11        # Direct: apply Tree of Thoughts to current context
+/rune:elicit --phase plan:0     # Show methods for a specific phase
+/rune:elicit --list             # Show full 22-method registry
+```
+
+## Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--method N` | Apply method number N directly | (none) |
+| `--phase X:Y` | Filter methods for phase X:Y (e.g., `plan:0`, `forge:3`) | Auto-detect |
+| `--list` | Display full method registry with tiers | (none) |
+| `--tier 1\|2` | Filter by tier (1=auto-suggest, 2=optional) | All tiers |
+
+## Workflow
+
+### Interactive Mode (default)
+
+```
+1. Analyze current context:
+   - Read recent conversation for topic keywords
+   - Check for active plan files (Glob "plans/*.md", "tmp/arc/*/enriched-plan.md")
+   - Identify current workflow phase (if inside arc/plan/review pipeline)
+
+2. Load method registry:
+   - Read skills/elicitation/methods.csv
+   - Parse per CSV schema (see SKILL.md for parsing rules)
+   - Filter by detected phase (if applicable)
+
+3. Score and select 5 methods:
+   - Use method selection algorithm from SKILL.md
+   - Phase filter → tier filter → topic scoring → top 5
+   - Include both Tier 1 and Tier 2 in interactive mode
+
+4. Present via AskUserQuestion:
+   question: "Which elicitation method would you like to apply?"
+   header: "Method"
+   options:
+     - { label: "{method_name}", description: "{description} (Tier {tier})" }
+     - ... (up to 4 methods)
+   # User can also type "Other" for: reshuffle, list all, skip
+
+5. Execute selected method:
+   - Read method's output_pattern from CSV
+   - Expand pattern into structured template (see SKILL.md for expansion rules)
+   - Read examples from references/examples.md for the selected method
+   - Apply method template to current context
+   - Display structured output to user
+
+6. Loop:
+   - After displaying output, ask: "Apply another method or proceed?"
+   - If "proceed" → exit
+   - If another method → return to step 4
+```
+
+### Direct Mode (`--method N`)
+
+```
+1. Read methods.csv
+2. Find method where num = N
+3. If not found: show error with available method numbers
+4. Apply method template to current context
+5. Display structured output
+```
+
+### Phase Filter Mode (`--phase X:Y`)
+
+```
+1. Read methods.csv
+2. Filter methods where phases contains X:Y
+3. Display filtered methods in table format:
+   | # | Method | Category | Tier | Description |
+4. Ask user to select one to apply (or skip)
+```
+
+### List Mode (`--list`)
+
+```
+1. Read methods.csv
+2. Display full registry grouped by tier:
+
+   ## Tier 1 — Auto-Suggested (14 methods)
+   | # | Method | Category | Phases | Topics |
+   ...
+
+   ## Tier 2 — Optional (8 methods)
+   | # | Method | Category | Phases | Topics |
+   ...
+```
+
+## Output
+
+Write elicitation output to `tmp/elicitation/` for persistence:
+
+```
+tmp/elicitation/
+  {timestamp}-{method_name}.md    # Each method application
+```
+
+## Persona
+
+Use Rune's Elden Ring-inspired tone:
+
+```
+The Tarnished consults the elicitation grimoire...
+
+5 methods illuminate the path:
+1. Tree of Thoughts — explore 3 reasoning paths, select the strongest
+2. Pre-mortem Analysis — declare failure, trace causes, design prevention
+...
+
+Which technique shall guide your reasoning, Tarnished?
+```

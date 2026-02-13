@@ -39,7 +39,7 @@ allowed-tools:
 
 # /rune:plan — Multi-Agent Planning Workflow
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`
 
 Orchestrates a planning pipeline using Agent Teams with dependency-aware task scheduling.
 
@@ -190,6 +190,33 @@ AskUserQuestion({
     multiSelect: false
   }]
 })
+```
+
+#### Step 3.5: Elicitation Methods (Optional)
+
+After approach selection, offer structured reasoning methods for deeper exploration:
+
+```
+// 1. Load elicitation skill's methods.csv
+// 2. Filter methods where phases includes "plan:0" AND auto_suggest=true
+// 3. Score filtered methods by topic keyword overlap with feature description
+// 4. Select top 3-5 methods
+// 5. Present via AskUserQuestion:
+AskUserQuestion({
+  questions: [{
+    question: "Apply a structured reasoning method to deepen your brainstorm?",
+    header: "Elicitation",
+    options: [
+      { label: "{top_method_1}", description: "{description}" },
+      { label: "{top_method_2}", description: "{description}" },
+      { label: "Skip", description: "Proceed without elicitation" }
+    ],
+    multiSelect: false
+  }]
+})
+// 6. If user selects a method: expand output_pattern into template, apply to context
+// 7. Append method insights to brainstorm output
+// 8. If "Skip": proceed to Step 4
 ```
 
 #### Step 4: Capture Decisions

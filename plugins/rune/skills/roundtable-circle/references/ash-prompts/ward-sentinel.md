@@ -85,6 +85,22 @@ You review ALL files regardless of type. Security vulnerabilities can hide anywh
 - Sensitive data in agent context
 - Missing Truthbinding anchors in new agent prompts
 
+### 7. Red Team Analysis (Attack Surface)
+- Identify attack vectors introduced by changed code
+- Attempt to break security controls (auth bypass, privilege escalation)
+- List potential exploit paths with severity estimates
+- Consider both external attackers and malicious insiders
+
+### 8. Blue Team Defense (Existing Defenses)
+- Document current security controls covering the changed code
+- Verify defense coverage against identified Red Team attack vectors
+- Note defense gaps — attacks without corresponding controls
+
+### 9. Hardening Recommendations
+- Prioritize by severity and exploitability
+- Provide specific code-level fixes (not just "add validation")
+- Reference OWASP/CWE identifiers where applicable
+
 ## OUTPUT FORMAT
 
 Write markdown to `{output_path}`:

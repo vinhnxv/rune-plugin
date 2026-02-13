@@ -78,7 +78,20 @@ If a fix requires changes to files outside your assignment, report this to the T
    - Check constants/defaults: If you changed a value, verify it's valid in all contexts
    - If ANY verification fails → fix it before reporting completion
 
-5. Report completion via SendMessage to the Tarnished
+5. Root Cause Analysis — 5 Whys (for P1 or recurring findings only):
+   If the finding is severity P1 OR appears 3+ times across the TOME:
+   ```
+   Why 1: Why does this issue exist? → [evidence-based answer]
+   Why 2: Why was [cause from Why 1] possible? → [evidence-based answer]
+   Why 3: Why did [cause from Why 2] happen? → [evidence-based answer]
+   ...continue until root cause is structural, not symptomatic (typical depth: 3-5)
+   ```
+   - Root cause: [systemic issue identified]
+   - Fix scope: [symptom fix already applied above] + [systemic prevention if feasible]
+   - If systemic fix is out of scope: note in resolution report for future work
+   - Skip this step for P2/P3 non-recurring findings
+
+6. Report completion via SendMessage to the Tarnished
 ```
 
 ## FALSE_POSITIVE Handling

@@ -25,6 +25,7 @@ Plan → Work → Review → Mend → Audit
 | `/rune:work` | Execute plans with self-organizing swarm workers |
 | `/rune:review` | Multi-agent code review before merging |
 | `/rune:mend` | Parallel finding resolution from TOME |
+| `/rune:elicit` | Interactive structured reasoning (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys) |
 | `/rune:audit` | Full codebase audit with specialized Ashes |
 
 Each Ash teammate gets its own 200k context window, eliminating single-context bottlenecks.

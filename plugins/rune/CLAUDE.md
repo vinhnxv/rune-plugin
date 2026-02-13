@@ -11,6 +11,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **roundtable-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
 | **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
 | **ash-guide** | Agent invocation reference and Ash selection guide |
+| **elicitation** | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 
 ## Commands
 
@@ -27,6 +28,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:arc` | End-to-end pipeline (forge, plan review, plan refinement, verification, work, review, mend, verify mend, audit) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
+| `/rune:elicit` | Interactive elicitation method selection (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) |
 | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
 
 ## Agents
