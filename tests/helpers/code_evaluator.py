@@ -73,14 +73,14 @@ def evaluate_functional(workspace: Path, test_dir: str = "tests") -> DimensionSc
     if result.returncode == -1:
         return DimensionScore("functional", 0.0, WEIGHTS["functional"], "pytest not available", result.stderr)
 
-    # Parse pytest output for pass/fail counts
+    # Parse pytest output for pass/fail/error counts
     # The summary line looks like: "====== 34 passed in 0.27s ======" or "== 2 failed, 34 passed =="
     lines = result.stdout.strip().split("\n")
     summary_line = lines[-1] if lines else ""
     # Strip the '=' decoration so split() gives us the numbers
     summary_clean = summary_line.strip("= ").strip()
 
-    passed = failed = 0
+    passed = failed = errors = 0
     for part in summary_clean.split(","):
         part = part.strip()
         if "passed" in part:
@@ -93,8 +93,13 @@ def evaluate_functional(workspace: Path, test_dir: str = "tests") -> DimensionSc
                 failed = int(part.split()[0])
             except (ValueError, IndexError):
                 pass
+        if "error" in part:
+            try:
+                errors = int(part.split()[0])
+            except (ValueError, IndexError):
+                pass
 
-    total = passed + failed
+    total = passed + failed + errors
     if total == 0:
         return DimensionScore("functional", 0.0, WEIGHTS["functional"], "No tests found", result.stdout)
 
@@ -244,6 +249,56 @@ def evaluate_documentation(workspace: Path) -> DimensionScore:
     return DimensionScore("documentation", score, WEIGHTS["documentation"], f"{with_docstring}/{total_defs} have docstrings ({pct:.0%})")
 
 
+def evaluate_edge_cases(workspace: Path) -> DimensionScore:
+    """Run external functional tests from evaluation/ directory.
+
+    These are challenge-provided acceptance tests that exercise edge cases
+    and integration scenarios beyond the project's own unit tests.
+    """
+    eval_dir = workspace / "evaluation"
+    if not eval_dir.exists() or not list(eval_dir.glob("*.py")):
+        return DimensionScore("edge_cases", 5.0, WEIGHTS["edge_cases"], "No evaluation tests found (neutral score)")
+
+    result = _run_cmd(
+        [sys.executable, "-m", "pytest", "evaluation", "-v", "--tb=short"],
+        cwd=workspace,
+    )
+
+    if result.returncode == -1:
+        return DimensionScore("edge_cases", 0.0, WEIGHTS["edge_cases"], "pytest unavailable", result.stderr)
+
+    lines = result.stdout.strip().split("\n")
+    summary_line = lines[-1] if lines else ""
+    summary_clean = summary_line.strip("= ").strip()
+
+    passed = failed = errors = 0
+    for part in summary_clean.split(","):
+        part = part.strip()
+        if "passed" in part:
+            try:
+                passed = int(part.split()[0])
+            except (ValueError, IndexError):
+                pass
+        if "failed" in part:
+            try:
+                failed = int(part.split()[0])
+            except (ValueError, IndexError):
+                pass
+        if "error" in part:
+            try:
+                errors = int(part.split()[0])
+            except (ValueError, IndexError):
+                pass
+
+    total = passed + failed + errors
+    if total == 0:
+        return DimensionScore("edge_cases", 0.0, WEIGHTS["edge_cases"], "No edge case tests found", result.stdout)
+
+    rate = passed / total
+    score = rate * 10.0
+    return DimensionScore("edge_cases", score, WEIGHTS["edge_cases"], f"{passed}/{total} edge cases passed ({rate:.0%})", result.stdout)
+
+
 def evaluate_all(workspace: Path, functional_test_dir: str = "tests") -> QualityReport:
     """Run all quality evaluations and produce aggregate report."""
     report = QualityReport()
@@ -256,7 +311,7 @@ def evaluate_all(workspace: Path, functional_test_dir: str = "tests") -> Quality
         evaluate_error_handling(workspace),
         evaluate_structure(workspace),
         evaluate_documentation(workspace),
-        # edge_cases evaluated via external functional tests (same as functional)
+        evaluate_edge_cases(workspace),
     ]
 
     report.compute_total()
