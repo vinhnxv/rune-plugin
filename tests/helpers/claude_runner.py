@@ -152,6 +152,7 @@ class ClaudeRunner:
             "--output-format", "json",
             "--no-session-persistence",
             "--max-turns", str(self.max_turns),
+            "--max-budget-usd", str(self.max_budget_usd),
             "--dangerously-skip-permissions",
         ]
         if self.model:
@@ -179,7 +180,7 @@ class ClaudeRunner:
             duration = time.monotonic() - start
             return RunResult(
                 exit_code=-1,
-                stdout=(e.stdout or b"").decode(errors="replace"),
+                stdout=e.stdout if isinstance(e.stdout, str) else "",
                 stderr=f"TIMEOUT after {duration:.0f}s",
                 duration_seconds=duration,
             )

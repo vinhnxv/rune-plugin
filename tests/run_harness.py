@@ -68,7 +68,7 @@ def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path
         shutil.copytree(eval_dir, workspace / "evaluation",
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
 
-    # Create minimal pyproject.toml for ward discovery
+    # Create pyproject.toml for ward discovery (ruff + mypy + pytest)
     pyproject = workspace / "pyproject.toml"
     pyproject.write_text(
         '[project]\nname = "challenge"\nversion = "0.1.0"\n'
@@ -76,7 +76,12 @@ def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path
         "[tool.pytest.ini_options]\n"
         'testpaths = ["tests"]\n\n'
         "[tool.ruff]\n"
-        'target-version = "py311"\n'
+        'target-version = "py311"\n\n'
+        "[tool.mypy]\n"
+        "python_version = \"3.11\"\n"
+        "warn_return_any = true\n"
+        "warn_unused_configs = true\n"
+        "ignore_missing_imports = true\n"
     )
 
     # Initialize git repo
@@ -130,28 +135,38 @@ def _find_artifact(workspace: Path, filename: str, extra_dirs: list[Path] | None
     3. workspace/**/{filename} (anywhere in workspace)
     4. extra_dirs/**/{filename} (isolated config, etc.)
     """
+    def _newest(matches: list[Path]) -> Path | None:
+        """Return the most recently modified match, or None."""
+        if not matches:
+            return None
+        return max(matches, key=lambda p: p.stat().st_mtime)
+
     # Arc artifacts (most specific)
     arc_tmp = workspace / "tmp" / "arc"
     if arc_tmp.exists():
-        for match in arc_tmp.rglob(filename):
-            return match
+        found = _newest(list(arc_tmp.rglob(filename)))
+        if found:
+            return found
 
     # Review artifacts
     review_tmp = workspace / "tmp" / "reviews"
     if review_tmp.exists():
-        for match in review_tmp.rglob(filename):
-            return match
+        found = _newest(list(review_tmp.rglob(filename)))
+        if found:
+            return found
 
     # Anywhere in workspace
-    for match in workspace.rglob(filename):
-        return match
+    found = _newest(list(workspace.rglob(filename)))
+    if found:
+        return found
 
     # Extra search dirs (e.g., isolated config dir)
     if extra_dirs:
         for d in extra_dirs:
             if d.exists():
-                for match in d.rglob(filename):
-                    return match
+                found = _newest(list(d.rglob(filename)))
+                if found:
+                    return found
 
     return None
 
@@ -384,6 +399,8 @@ Examples:
     if quality and not quality.passed:
         sys.exit(1)
     if checkpoint and not checkpoint.valid:
+        sys.exit(1)
+    if eval_results.get("functional_test_passed") is False:
         sys.exit(1)
     sys.exit(0)
 
