@@ -11,7 +11,7 @@ Feature release: Arc pipeline expanded from 6 to 8 phases with plan refinement, 
 - arc.md: `PHASE_ORDER` constant — canonical 8-element array for resume validation by name, not sequence numbers
 - arc.md: `PHASE_TIMEOUTS` — per-phase hardcoded time budgets (delegated phases use inner-timeout + 60s buffer). `ARC_TOTAL_TIMEOUT` (90 min) and `STALE_THRESHOLD` (5 min)
 - arc.md: Checkpoint schema v2 — adds `schema_version: 2`, `plan_refine` and `verification` phase entries
-- arc.md: Backward-compatible checkpoint migration — auto-upgrades v1 checkpoints on read (inserts new phases as "pending")
+- arc.md: Backward-compatible checkpoint migration — auto-upgrades v1 checkpoints on read (inserts new phases as "skipped")
 - arc.md: Timeout monitoring in Phase 1 (FORGE) and Phase 2 (PLAN REVIEW) polling loops with completion-before-timeout check, stale detection, and final sweep
 - arc.md: `parseVerdict()` function with anchored regex for structured verdict extraction
 - arc.md: Concern context propagation — Phase 5 (WORK) worker prompts include concern-context.md when available

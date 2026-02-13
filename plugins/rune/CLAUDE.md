@@ -208,7 +208,7 @@ Inscription verification scales with team size: Layer 0 for small teams (1-2 tea
 | Plans | `tmp/plans/{id}/research/`, `plans/YYYY-MM-DD-{type}-{name}-plan.md` | Research findings, brainstorm decisions, plan document |
 | Forge | `tmp/forge/{id}/` | `{section-slug}-{agent-name}.md` enrichment files |
 | Mend | `tmp/mend/{id}/` | `resolution-report.md`, fixer outputs |
-| Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `concern-context.md`, `verification-report.md`, `tome.md`, `resolution-report.md`, `audit-report.md`) |
+| Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `concern-context.md`, `verification-report.md`, `work-summary.md`, `tome.md`, `resolution-report.md`, `audit-report.md`) |
 | Arc State | `.claude/arc/{id}/` | `checkpoint.json` (persistent, NOT in tmp/) |
 | Scratch | `tmp/scratch/` | Session state |
 | Echoes | `.claude/echoes/{role}/` | `MEMORY.md`, `knowledge.md`, `archive/` |

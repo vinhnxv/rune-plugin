@@ -547,8 +547,14 @@ updateCheckpoint({ phase: "verification", status: "in_progress", phase_sequence:
 const issues = []
 
 // 1. Check plan file references exist
+const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
 const filePaths = extractFileReferences(enrichedPlanPath)
 for (const fp of filePaths) {
+  // Validate file path before shell interpolation (prevents command substitution)
+  if (!SAFE_FILE_PATH.test(fp)) {
+    issues.push(`File reference with unsafe characters: ${fp.slice(0, 80)}`)
+    continue
+  }
   if (!exists(fp)) {
     // Use git history to distinguish deleted files vs forward-references
     const gitExists = Bash(`git log --all --oneline -- "${fp}" 2>/dev/null | head -1`)
@@ -585,7 +591,7 @@ for (const pattern of customPatterns) {
     warn(`Skipping pattern "${pattern.description}": unsafe characters`)
     continue
   }
-  const result = Bash(`rg --no-messages -- "${pattern.regex}" ${pattern.paths} ${pattern.exclusions || ''}`)
+  const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" ${pattern.exclusions || ''}`)
   if (pattern.expect_zero && result.matchCount > 0) {
     issues.push(`Stale reference: ${pattern.description}`)
   }
