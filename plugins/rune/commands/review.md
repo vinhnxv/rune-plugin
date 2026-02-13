@@ -298,6 +298,28 @@ Task({
 })
 ```
 
+### Zero-Finding Warning
+
+After Runebinder produces TOME.md, check for suspiciously empty Ash outputs:
+
+```javascript
+// For each Ash that reviewed >15 files but produced 0 findings: flag in TOME
+for (const ash of selectedAsh) {
+  const ashOutput = Read(`tmp/reviews/${identifier}/${ash.name}.md`)
+  const findingCount = (ashOutput.match(/<!-- RUNE:FINDING/g) || []).length
+  const fileCount = ash.files.length
+
+  if (fileCount > 15 && findingCount === 0) {
+    warn(`${ash.name} reviewed ${fileCount} files with 0 findings — verify review thoroughness`)
+    // Runebinder appends a NOTE (not a finding) to TOME.md:
+    // "NOTE: {ash.name} reviewed {fileCount} files and reported no findings.
+    //  This may indicate a thorough codebase or an incomplete review."
+  }
+}
+```
+
+This is a transparency flag, not a hard minimum. Zero findings on a small changeset is normal. Zero findings on 20+ files warrants a second look.
+
 ## Phase 6: Verify (Truthsight)
 
 If inscription.json has `verification.enabled: true`:
@@ -349,6 +371,32 @@ if (exists(".claude/echoes/reviewer/")) {
 
 // 6. Read and present TOME.md to user
 Read("tmp/reviews/{identifier}/TOME.md")
+
+// 7. Offer next steps based on findings
+const tomeContent = Read(`tmp/reviews/${identifier}/TOME.md`)
+const p1Count = (tomeContent.match(/severity="P1"/g) || []).length
+const p2Count = (tomeContent.match(/severity="P2"/g) || []).length
+const totalFindings = p1Count + p2Count
+
+if (totalFindings > 0) {
+  AskUserQuestion({
+    questions: [{
+      question: `Review complete: ${p1Count} critical + ${p2Count} major findings. What next?`,
+      header: "Next",
+      options: [
+        { label: "/rune:mend (Recommended)", description: `Auto-fix ${totalFindings} P1/P2 findings from TOME` },
+        { label: "Review TOME manually", description: "Read findings and fix manually" },
+        { label: "/rune:rest", description: "Clean up tmp/ artifacts" }
+      ],
+      multiSelect: false
+    }]
+  })
+  // /rune:mend → Skill("rune:mend", `tmp/reviews/${identifier}/TOME.md`)
+  // Manual → user reviews TOME.md
+  // /rune:rest → Skill("rune:rest")
+} else {
+  log("No P1/P2 findings. Codebase looks clean.")
+}
 ```
 
 ## Error Handling

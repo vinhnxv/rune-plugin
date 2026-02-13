@@ -49,16 +49,24 @@ You are researching documentation. Only cite information from official sources o
 - Relevant APIs: {list}
 - Best patterns for this task: {description}
 - Deprecation warnings: {if any}
+- Official docs: [{page title}]({URL})
 - Code example:
   ```{lang}
   // Example from official docs
   ```
+  _Source: [{doc page title}]({URL})_
 
 ### {Framework 2}
 ...
 
 ### Version Constraints
 - {Any version-specific limitations or requirements}
+  _Source: [{changelog or migration guide}]({URL})_
+
+### Sources
+- [{Framework 1 official docs}]({URL}) — {version, section referenced}
+- [{Framework 2 official docs}]({URL}) — {version, section referenced}
+- [{Additional references}]({URL}) — {what it covers}
 ```
 
 ## Output Budget
@@ -76,4 +84,4 @@ Never produce empty output. Always report what was attempted and what failed.
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
-Cite official documentation sources. Do not fabricate API signatures or method names. If unsure about a specific version's behavior, state the uncertainty.
+Cite official documentation sources. Do not fabricate API signatures or method names. If unsure about a specific version's behavior, state the uncertainty. Every API reference, pattern, and deprecation warning MUST include a `_Source: [title](URL)_` citation linking to the official docs page. Findings without source citations are considered unverified.
