@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.12.0] - 2026-02-13
+
+Feature release: Ship workflow gaps — adds branch setup, plan clarification, quality verification checklist, PR creation, enhanced completion report, and key principles to `/rune:work`. Closes the "last mile" from plan → commits → PR in a single invocation.
+
+### Added
+
+- work.md: Phase 0.5 ENVIRONMENT SETUP — branch safety check warns when on default branch, offers feature branch creation with `rune/work-{slug}-{timestamp}` naming (reuses arc COMMIT-1 pattern). Dirty working tree detection with stash offer. Skip detection for arc invocation.
+- work.md: Phase 0 PLAN CLARIFICATION — ambiguity detection sub-step after task extraction. Flags vague descriptions, missing dependencies, unclear scope. AskUserQuestion with clarify-now vs proceed-as-is options.
+- work.md: Phase 4 POST-WARD VERIFICATION CHECKLIST — deterministic checks at zero LLM cost: incomplete tasks, unchecked plan items, blocked tasks, uncommitted patches, merge conflict markers, dirty working tree.
+- work.md: Phase 6.5 SHIP — optional PR creation after cleanup. Pre-checks `gh` CLI availability and auth. PR body generated from plan context (diff stats, task list, ward results) and written to file (shell injection prevention). Talisman-configurable monitoring section and co-authors.
+- work.md: ENHANCED COMPLETION REPORT — includes branch name, duration, artifact paths. Smart review recommendation heuristic (security files → recommended, large changeset → recommended, config files → suggested, small → optional). Interactive AskUserQuestion next steps.
+- work.md: KEY PRINCIPLES section — orchestrator guidelines (ship complete, fail fast on ambiguity, branch safety, serialize git) and worker guidelines (match patterns, test as you go, one task one patch, don't over-engineer, exit cleanly).
+- work.md: COMMON PITFALLS table — 9 pitfalls with prevention strategies.
+- talisman.example.yml: 6 new keys under `work:` — `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `pr_template`, `auto_push`, `co_authors`.
+- Updated Pipeline Overview diagram to show all phases including 0.5, 3.5, 6, and 6.5.
+
+### Changed
+
+- work.md: Pipeline Overview expanded from 7 to 12 phases (including sub-phases)
+- plugin.json: version 1.11.0 → 1.12.0
+
+### Migration Notes
+
+- **No breaking changes** — all new features are opt-in
+- Users on default branch will see new branch creation prompt (disable via `work.skip_branch_check: true`)
+- PR creation requires GitHub CLI (`gh`) authentication — install: https://cli.github.com/
+
 ## [1.11.0] - 2026-02-13
 
 Feature release: Arc pipeline expanded from 6 to 8 phases with plan refinement, verification gate, per-phase time budgets, and checkpoint schema v2.

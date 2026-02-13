@@ -147,14 +147,19 @@ Output: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
 When you run `/rune:work`, Rune parses a plan into tasks and summons self-organizing swarm workers:
 
-1. **Parses plan** — extracts tasks with dependencies from checkbox items or numbered lists
-2. **Creates task pool** — TaskCreate with dependency chains (blockedBy)
-3. **Summons workers** — Rune Smiths (implementation) and Trial Forgers (tests) claim tasks independently
-4. **Monitors progress** — polls TaskList, detects stalled workers, releases stuck tasks
-5. **Runs quality gates** — auto-discovers wards from Makefile, package.json, pyproject.toml
-6. **Persists learnings** — saves implementation patterns to Rune Echoes
+1. **Parses plan** — extracts tasks with dependencies, clarifies ambiguities via AskUserQuestion
+2. **Sets up environment** — branch safety check (warns on `main`), stash dirty files (Phase 0.5)
+3. **Creates task pool** — TaskCreate with dependency chains (blockedBy)
+4. **Summons workers** — Rune Smiths (implementation) and Trial Forgers (tests) claim tasks independently
+5. **Monitors progress** — polls TaskList, detects stalled workers, releases stuck tasks
+6. **Commits via broker** — orchestrator applies patches and commits (prevents index.lock contention)
+7. **Runs quality gates** — auto-discovers wards + post-ward verification checklist
+8. **Persists learnings** — saves implementation patterns to Rune Echoes
+9. **Ships (optional)** — push + PR creation with generated template (Phase 6.5)
 
 Workers scale automatically based on task count (1-5 tasks: 2 workers, 20+ tasks: 5 workers).
+
+New talisman work keys: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `pr_template`, `auto_push`, `co_authors`.
 
 ## Rune Echoes (Memory)
 
