@@ -569,7 +569,7 @@ Workers write proposals to `tmp/work/{timestamp}/proposals/{task-id}.md`:
 
 ### Integration with Arc
 
-When used via `/rune:arc --approve`, the flag applies **only to Phase 3 (WORK)**, not to Phase 5 (MEND).
+When used via `/rune:arc --approve`, the flag applies **only to Phase 5 (WORK)**, not to Phase 7 (MEND).
 
 ## Incremental Commits (E5)
 
@@ -627,4 +627,4 @@ When the orchestrator receives a "Seal: task done" message from a worker:
 
 This serializes all plan file writes through a single writer, eliminating read-modify-write races.
 
-When invoked via `/rune:arc` (Phase 3), the work sub-orchestrator (team lead of the work team) handles checkbox updates — not the arc-level orchestrator.
+When invoked via `/rune:arc` (Phase 5), the work sub-orchestrator (team lead of the work team) handles checkbox updates — not the arc-level orchestrator.

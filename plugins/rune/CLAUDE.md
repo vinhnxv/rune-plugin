@@ -24,7 +24,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | `/rune:mend` | Parallel finding resolution from TOME |
-| `/rune:arc` | End-to-end pipeline (forge, plan review, work, review, mend, audit) |
+| `/rune:arc` | End-to-end pipeline (forge, plan review, plan refinement, verification, work, review, mend, audit) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
@@ -152,7 +152,7 @@ See `roundtable-circle/references/forge-gaze.md` for the topic registry and matc
 
 ### Arc Pipeline
 
-End-to-end orchestration across 6 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), work (swarm implementation), code review (Roundtable Circle), mend (parallel finding resolution), and audit (final gate). Each phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions enforce least privilege.
+End-to-end orchestration across 8 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), plan refinement (concern extraction, orchestrator-only), verification gate (deterministic checks, zero-LLM), work (swarm implementation), code review (Roundtable Circle), mend (parallel finding resolution), and audit (final gate). Each delegated phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions and time budgets enforce least privilege.
 
 ### Mend
 
@@ -208,7 +208,7 @@ Inscription verification scales with team size: Layer 0 for small teams (1-2 tea
 | Plans | `tmp/plans/{id}/research/`, `plans/YYYY-MM-DD-{type}-{name}-plan.md` | Research findings, brainstorm decisions, plan document |
 | Forge | `tmp/forge/{id}/` | `{section-slug}-{agent-name}.md` enrichment files |
 | Mend | `tmp/mend/{id}/` | `resolution-report.md`, fixer outputs |
-| Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `tome.md`, `resolution-report.md`, `audit-report.md`) |
+| Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `concern-context.md`, `verification-report.md`, `tome.md`, `resolution-report.md`, `audit-report.md`) |
 | Arc State | `.claude/arc/{id}/` | `checkpoint.json` (persistent, NOT in tmp/) |
 | Scratch | `tmp/scratch/` | Session state |
 | Echoes | `.claude/echoes/{role}/` | `MEMORY.md`, `knowledge.md`, `archive/` |
