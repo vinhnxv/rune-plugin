@@ -69,8 +69,15 @@ Before writing any tests, discover existing patterns:
 3. **Descriptive names**: Test names should read as documentation
 4. **No flaky tests**: No timing dependencies, random data, or network calls
 5. **Arrange-Act-Assert**: Structure every test clearly
-6. **Type annotations required**: All test functions and fixtures MUST have type annotations (parameters and return types). Use `from __future__ import annotations` at the top of every test file.
-7. **Docstrings on test classes**: Every test class MUST have a docstring explaining what it tests. Individual test methods should have descriptive names instead of docstrings.
+6. **Type annotations required**: All test functions and fixtures MUST have explicit type annotations (parameters and return types). Match the language's type system conventions.
+7. **Documentation on ALL test definitions**: Every test class, test method, and fixture MUST have documentation. Quality tools count ALL definitions — including test helpers. Use a one-line description of the behavior being verified.
+    - Python: docstrings (`"""Filter excludes rows below threshold."""`)
+    - TypeScript: JSDoc (`/** Verifies filter excludes rows below threshold. */`)
+    - Rust: doc comments (`/// Verifies filter excludes rows below threshold.`)
+8. **Target 95%+ test coverage**: After writing tests, run the project's coverage tool and identify uncovered lines. Write additional tests to cover the gaps. Report final coverage percentage in your Seal.
+    - Python: `pytest --cov=. --cov-report=term-missing -q`
+    - TypeScript: `vitest --coverage` or `jest --coverage`
+    - Rust: `cargo llvm-cov --text`
 
 ## Exit Conditions
 

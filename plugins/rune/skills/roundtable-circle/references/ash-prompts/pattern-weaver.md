@@ -82,11 +82,15 @@ You review ALL file types, focusing on code quality, simplicity, and consistency
 - **AI-generated orphans** — new code with 0 consumers (critical after AI generation)
 - For each finding: apply Double-Check Protocol (4 steps) and classify root cause (Case A: forgotten inject, B: truly dead, C: premature, D: partially wired)
 
-### 6. Code Complexity
-- Functions exceeding ~50 lines
+### 6. Code Complexity & Quality Metrics
+- Functions exceeding 40 lines MUST be split — each costs -1.0 quality score (P2 finding)
 - Cyclomatic complexity > 10
 - Deeply nested conditionals (> 3 levels)
 - God objects or functions with too many responsibilities
+- Missing documentation on ANY function, class, method, or type definition — coverage below 80% is a P2 finding
+  - Python: docstrings on all `def`/`class` (including private `_` prefixed)
+  - TypeScript: JSDoc on all `function`/`class`/exported `const`
+  - Rust: `///` doc comments on all `pub` items, `//` on private items
 
 ### 7. Test Quality (trial-oracle)
 - Test-first commit order verification
@@ -94,10 +98,12 @@ You review ALL file types, focusing on code quality, simplicity, and consistency
 - Tests that don't actually assert anything meaningful
 - Over-mocked tests that verify nothing real
 - Missing edge case tests (empty, null, boundary, error paths)
-- Missing async test markers (@pytest.mark.asyncio)
-- Test naming doesn't follow test_<unit>_<scenario>_<expected> convention
+- Missing async test markers (Python: `@pytest.mark.asyncio`; TS: proper async handling; Rust: `#[tokio::test]`)
+- Test naming doesn't follow framework conventions (Python: `test_<unit>_<scenario>_<expected>`; TS: `describe`/`it` blocks; Rust: `#[test] fn test_...`)
 - Missing type annotations on test functions and fixtures
 - AAA (Arrange-Act-Assert) structure not followed
+- Test coverage below 90% for new code — flag uncovered lines as P2 finding
+- Test functions and fixtures missing documentation (docstrings, JSDoc, or doc comments)
 
 ### 8. Async & Concurrency Patterns (tide-watcher)
 - Sequential await / waterfall pattern (3+ independent awaits in sequence → use gather/join)

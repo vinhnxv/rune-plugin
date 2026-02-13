@@ -60,17 +60,32 @@ Before marking a task complete, discover and run project quality gates:
 
 Run discovered gates. If any fail, fix the issues before marking complete.
 
-### Mandatory Quality Checks (Python projects)
+### Mandatory Quality Checks
 
-In addition to discovered wards, ALWAYS run these for Python files you modified:
+In addition to discovered wards, ALWAYS run language-appropriate checks for files you modified:
 
+**Python:**
 ```
 1. ruff check <your-files> — fix any lint violations
 2. python -m mypy <your-files> --ignore-missing-imports — fix type errors
-3. Verify docstrings exist on all public defs in your files
+3. Verify documentation exists on ALL defs (including private ones)
 ```
 
-If mypy or ruff fail, fix the issues BEFORE generating your patch. Do not mark the task complete with type errors.
+**TypeScript:**
+```
+1. eslint <your-files> — fix any lint violations
+2. tsc --noEmit — fix type errors (ensure strict mode)
+3. Verify JSDoc exists on all exported functions, classes, and constants
+```
+
+**Rust:**
+```
+1. cargo clippy -- -D warnings — fix all clippy lints
+2. cargo check — ensure compilation succeeds
+3. Verify doc comments (///) exist on all pub items
+```
+
+If any lint or type check fails, fix the issues BEFORE generating your patch. Do not mark the task complete with type errors.
 
 ## Implementation Rules
 
@@ -81,9 +96,16 @@ If mypy or ruff fail, fix the issues BEFORE generating your patch. Do not mark t
 5. **No new deps**: Do not add new dependencies without explicit task instruction
 6. **Commit safety**: Sanitize commit messages — strip newlines/control chars, limit to 72 chars, escape shell metacharacters. Use `git commit -F <message-file>` (not inline `-m`) to avoid shell injection.
 7. **Self-review before completion**: Re-read every file you changed. Check: all identifiers defined? No self-referential assignments? Function signatures match call sites? No dead code?
-8. **Plan pseudocode is guidance, not gospel**: If your task references plan pseudocode, implement from the plan's contracts (Inputs/Outputs/Preconditions). Verify all variables exist and all helpers are defined — don't copy plan code blindly.
-9. **Type annotations required**: All function signatures MUST have type annotations for parameters and return types. Use `from __future__ import annotations` at the top of every Python file. Use standard library types (`list`, `dict`, `tuple`) in annotations. Add `py.typed` marker file if creating a package.
-10. **Docstrings required**: Every public function, class, and module MUST have a docstring. Use imperative mood for the first line (e.g., "Parse pipeline definition from YAML file."). Keep docstrings concise — one line for simple functions, multi-line with Args/Returns for complex ones.
+8. **Maximum function length: 40 lines**: Any function exceeding 40 lines of code MUST be split into smaller helper functions. Extract logical blocks into well-named helpers. This is a hard quality gate — do not mark a task complete if you have functions over 40 lines.
+9. **Plan pseudocode is guidance, not gospel**: If your task references plan pseudocode, implement from the plan's contracts (Inputs/Outputs/Preconditions). Verify all variables exist and all helpers are defined — don't copy plan code blindly.
+10. **Type annotations required**: All function signatures MUST have explicit type annotations for parameters and return types.
+    - Python: `from __future__ import annotations`, standard library types (`list`, `dict`), `py.typed` marker
+    - TypeScript: strict mode (`"strict": true` in tsconfig), no `any` — use `unknown` or proper types
+    - Rust: explicit return types on all `pub fn` (Rust enforces params already)
+11. **Documentation on ALL definitions**: Every function, class, method, and type MUST have documentation — including private/internal ones. Quality tools count ALL definitions. Use imperative mood for the first line.
+    - Python: docstrings (`"""..."""`) on every `def` and `class`
+    - TypeScript/JavaScript: JSDoc (`/** ... */`) on every `function`, `class`, and exported `const`
+    - Rust: doc comments (`///`) on every `pub` item, regular comments (`//`) on private items
 
 ## Exit Conditions
 
