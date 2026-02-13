@@ -227,7 +227,7 @@ work:
   approve_timeout: 180         # Seconds to wait for ward approval (default: 180)
   commit_format: "rune: {subject} [ward-checked]"  # Commit message template
   skip_branch_check: false     # Skip Phase 0.5 branch/environment check (default: false)
-  branch_prefix: "rune/work"   # Branch name prefix (must match /^[a-zA-Z0-9_\-\/]+$/, default: "rune/work")
+  branch_prefix: "rune/work"   # Branch name prefix (must match /^[a-zA-Z0-9][a-zA-Z0-9_\-\/]*$/, default: "rune/work")
   pr_monitoring: false          # Include post-deploy monitoring section in PR body (default: false)
   # pr_template: default        # Reserved for v1.13.0 — only "default" currently implemented
   # auto_push: false            # Reserved for v1.13.0 — auto-push without confirmation

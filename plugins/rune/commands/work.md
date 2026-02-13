@@ -240,9 +240,12 @@ if (status !== "") {
       multiSelect: false
     }]
   })
-  // If stash: Bash("git stash push -m 'rune-work-pre-flight'")
+  // If stash:
+  //   const stashResult = Bash("git stash push -m 'rune-work-pre-flight'")
+  //   didStash = (stashResult.exitCode === 0)
   // Default on timeout: stash (fail-safe)
 }
+let didStash = false  // Set to true if stash was applied above; consumed by Phase 6 cleanup
 ```
 
 **Branch name derivation**: `rune/work-{slugified-plan-name}-{YYYYMMDD-HHMMSS}` matching arc.md's COMMIT-1 convention. Timestamp uses local time (consistent with arc.md `$(date +%Y%m%d-%H%M%S)`).
@@ -479,7 +482,7 @@ function commitBroker(taskId) {
   const metaPath = `tmp/work/${timestamp}/patches/${taskId}.json`
 
   // 1. Validate patch path
-  if (!patchPath.match(/^tmp\/work\/\d+\/patches\/[\w-]+\.patch$/)) {
+  if (!patchPath.match(/^tmp\/work\/[\w-]+\/patches\/[\w-]+\.patch$/)) {
     warn(`Invalid patch path for task ${taskId}`)
     return
   }
@@ -650,6 +653,11 @@ if (exists(".claude/echoes/workers/")) {
 ## Phase 6: Cleanup & Report
 
 ```javascript
+// 0. Cache task list BEFORE team cleanup (TaskList() requires active team)
+const allTasks = TaskList()
+const completedTasks = allTasks.filter(t => t.status === "completed")
+const blockedTasks = allTasks.filter(t => t.status === "pending" && t.blockedBy?.length > 0)
+
 // 1. Shutdown all workers
 for (const worker of allWorkers) {
   SendMessage({ type: "shutdown_request", recipient: worker })
@@ -702,6 +710,10 @@ if (!ghAvailable) {
 ### Ship Decision
 
 ```javascript
+// Track PR state for Smart Next Steps (hoisted — must be in scope on all paths: Create PR, Skip, Push only)
+let prCreated = false
+let prUrl = ""
+
 // Only offer if on a feature branch (not default branch)
 const currentBranch = Bash("git branch --show-current").trim()
 const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
@@ -744,9 +756,7 @@ if (currentBranch !== defaultBranch) {
 When user selects "Create PR":
 
 ```javascript
-// 0. Track PR state for Smart Next Steps
-let prCreated = false
-let prUrl = ""
+// NOTE: prCreated/prUrl declared in Ship Decision scope (outer block) — accessible here and in Smart Next Steps
 
 // 1. Push branch
 // SECURITY: Validate branch name before shell interpolation
@@ -794,10 +804,8 @@ const validCoAuthors = coAuthors.filter(a => /^[^<>\n]+\s+<[^@\n]+@[^>\n]+>$/.te
 const coAuthorLines = validCoAuthors.map(a => `Co-Authored-By: ${a}`).join('\n')
 
 // 6. Capture variables from earlier phases for PR body
-// Derive task lists from final TaskList (computed once, reused in PR body and Smart Next Steps)
-const allTasks = TaskList()
-const completedTasks = allTasks.filter(t => t.status === "completed")
-const blockedTasks = allTasks.filter(t => t.status === "pending" && t.blockedBy?.length > 0)
+// NOTE: allTasks/completedTasks/blockedTasks cached in Phase 6 step 0 (before TeamDelete)
+// Those variables are in outer scope and reused here and in Smart Next Steps
 // wardResults: Array<{name, exitCode}> — accumulated during Phase 4 Ward Check
 // commitCount: number — from committedTaskIds.size (Phase 3.5 Commit Broker)
 // verificationWarnings: Array<string> — from checks[] in Post-Ward Verification Checklist
@@ -817,8 +825,10 @@ ${diffStat}
 \`\`\`
 
 ### Tasks Completed
-${completedTasks.map(t => `- [x] ${t.subject}`).join("\n")}
-${blockedTasks.length > 0 ? `\n### Blocked Tasks\n${blockedTasks.map(t => `- [ ] ${t.subject}`).join("\n")}` : ""}
+// Sanitize task subjects for markdown (consistent with commit subject sanitization at line ~522)
+const safeSubject = (s) => s.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 120)
+${completedTasks.map(t => `- [x] ${safeSubject(t.subject)}`).join("\n")}
+${blockedTasks.length > 0 ? `\n### Blocked Tasks\n${blockedTasks.map(t => `- [ ] ${safeSubject(t.subject)}`).join("\n")}` : ""}
 
 ## Testing
 - Ward checks passed: ${wardResults.map(w => w.name).join(", ")}
@@ -876,11 +886,10 @@ Artifacts: tmp/work/{timestamp}/
 ### Smart Next Steps
 
 After the completion report, present interactive next steps.
-**NOTE**: Smart Next Steps re-derives branch names independently (not from Phase 6.5 scope, which is conditional). Optionally, compute `changedFiles` once before the Completion Report and pass as `_changedFiles` to avoid redundant git diff calls.
+**NOTE**: Smart Next Steps re-derives branch names independently (not from Phase 6.5 scope, which is conditional).
 
 ```javascript
 // Compute review recommendation based on changeset analysis
-// NOTE: changedFiles may already be computed before Completion Report (Phase 6 scope).
 // defaultBranch and currentBranch: re-derive here since Phase 6.5 scope is conditional.
 // Guard: if on default branch (no diff possible), skip review recommendation.
 const snCurrentBranch = Bash("git branch --show-current").trim()
@@ -891,8 +900,7 @@ if (!snCurrentBranch || !BRANCH_RE_SN.test(snCurrentBranch) || !BRANCH_RE_SN.tes
   // On default branch or invalid state — skip diff-based recommendation, show generic options
   var filesChanged = 0, hasSecurityFiles = false, hasConfigFiles = false
 } else {
-  // Reuse changedFiles if already computed; otherwise compute from branch diff
-  const diffFiles = _changedFiles ?? Bash(`git diff --name-only -- "${snDefaultBranch}"..."${snCurrentBranch}"`).trim().split('\n').filter(Boolean)
+  const diffFiles = Bash(`git diff --name-only -- "${snDefaultBranch}"..."${snCurrentBranch}"`).trim().split('\n').filter(Boolean)
   var filesChanged = diffFiles.length
   var hasSecurityFiles = diffFiles.some(f => /auth|secret|token|crypt|password|session|\.env/i.test(f))
   var hasConfigFiles = diffFiles.some(f => /\.claude\/|talisman|CLAUDE\.md/i.test(f))

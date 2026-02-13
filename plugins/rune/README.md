@@ -160,7 +160,7 @@ When you run `/rune:work`, Rune parses a plan into tasks and summons self-organi
 
 Workers scale automatically based on task count (1-5 tasks: 2 workers, 20+ tasks: 5 workers).
 
-New talisman work keys: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `pr_template`, `auto_push`, `co_authors`.
+New talisman work keys: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `co_authors`. Reserved for v1.13.0: `pr_template`, `auto_push`.
 
 ## Rune Echoes (Memory)
 
