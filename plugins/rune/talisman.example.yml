@@ -193,6 +193,24 @@ defaults:
 #       description: "Flag renamed to --no-forge"
 
 # ──────────────────────────────────────────────
+# Arc — Pipeline timeout overrides (v1.12.0+)
+# ──────────────────────────────────────────────
+# Per-phase timeout overrides for /rune:arc. Values in milliseconds.
+# Hardcoded defaults are used in v1.11.0 — talisman-configurable timeouts
+# are planned for v1.12.0+.
+# arc:
+#   timeouts:
+#     forge: 600000           # 10 minutes (default)
+#     plan_review: 600000     # 10 minutes (default)
+#     plan_refine: 180000     # 3 minutes (default, orchestrator-only)
+#     verification: 30000     # 30 seconds (default, orchestrator-only, deterministic)
+#     work: 1860000           # 31 minutes (default)
+#     code_review: 660000     # 11 minutes (default)
+#     mend: 960000            # 16 minutes (default)
+#     audit: 960000           # 16 minutes (default)
+#     total: 5400000          # 90 minutes total pipeline (default)
+
+# ──────────────────────────────────────────────
 # Echoes — Memory persistence
 # ──────────────────────────────────────────────
 echoes:

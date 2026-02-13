@@ -79,14 +79,16 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## Arc Mode (End-to-End Pipeline)
 
-When you run `/rune:arc`, Rune chains 6 phases into one automated pipeline:
+When you run `/rune:arc`, Rune chains 8 phases into one automated pipeline:
 
 1. **FORGE** — Research agents enrich the plan with best practices, codebase patterns, and past echoes
 2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
-3. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
-4. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
-5. **MEND** — Parallel fixers resolve findings from TOME
-6. **AUDIT** — Final quality gate (informational)
+2.5. **PLAN REFINEMENT** — Extracts CONCERN verdicts into concern-context.md for worker awareness (orchestrator-only)
+2.7. **VERIFICATION GATE** — Deterministic checks (file refs, headings, acceptance criteria) with zero LLM cost
+5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
+6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
+7. **MEND** — Parallel fixers resolve findings from TOME
+8. **AUDIT** — Final quality gate (informational)
 
 Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates artifact integrity with SHA-256 hashes. Feature branches auto-created when on main.
 
@@ -309,7 +311,7 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **TOME** — The unified review summary after deduplication and prioritization.
 
-**Arc Pipeline** — End-to-end orchestration across 6 phases with checkpoint-based resume and per-phase tool restrictions.
+**Arc Pipeline** — End-to-end orchestration across 8 phases with checkpoint-based resume, per-phase tool restrictions, and time budgets.
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers and centralized ward check.
 

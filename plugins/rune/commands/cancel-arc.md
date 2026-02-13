@@ -58,12 +58,20 @@ if (!phase_team) {
   const legacyMap = {
     forge: `arc-forge-${id}`,
     plan_review: `arc-plan-review-${id}`,
+    plan_refine: null,        // Orchestrator-only phase, no team
+    verification: null,       // Orchestrator-only phase, no team
     work: `arc-work-${id}`,
     code_review: `arc-review-${id}`,
     mend: `arc-mend-${id}`,
     audit: `arc-audit-${id}`
   }
   phase_team = legacyMap[current_phase]
+}
+
+// Orchestrator-only phases (plan_refine, verification) have no team.
+// Skip team cancellation (Steps 3a-3d), go directly to Step 4.
+if (phase_team === null || phase_team === undefined) {
+  // No team to cancel — update checkpoint directly (Step 4)
 }
 ```
 
@@ -77,10 +85,12 @@ Delegate cancellation based on the currently-active phase:
 |-------|--------|
 | **FORGE** (Phase 1) | Shutdown research team — broadcast cancellation, send shutdown requests |
 | **PLAN REVIEW** (Phase 2) | Shutdown decree-arbiter review team |
-| **WORK** (Phase 3) | Shutdown work team — broadcast cancellation, send shutdown requests to all rune-smith workers |
-| **CODE REVIEW** (Phase 4) | Delegate to `/rune:cancel-review` logic — broadcast, shutdown Ash, cleanup |
-| **MEND** (Phase 5) | Shutdown mend team — broadcast cancellation, send shutdown requests to all mend-fixer workers |
-| **AUDIT** (Phase 6) | Delegate to `/rune:cancel-audit` logic — broadcast, shutdown Ash, cleanup |
+| **PLAN REFINEMENT** (Phase 2.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
+| **VERIFICATION** (Phase 2.7) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
+| **WORK** (Phase 5) | Shutdown work team — broadcast cancellation, send shutdown requests to all rune-smith workers |
+| **CODE REVIEW** (Phase 6) | Delegate to `/rune:cancel-review` logic — broadcast, shutdown Ash, cleanup |
+| **MEND** (Phase 7) | Shutdown mend team — broadcast cancellation, send shutdown requests to all mend-fixer workers |
+| **AUDIT** (Phase 8) | Delegate to `/rune:cancel-audit` logic — broadcast, shutdown Ash, cleanup |
 
 #### 3a. Broadcast Cancellation
 
@@ -158,7 +168,12 @@ Phase {N} ({PHASE_NAME}) was in progress — cancelled.
 Completed phases preserved:
 - Phase 1 (FORGE): {status}
 - Phase 2 (PLAN REVIEW): {status}
-- ...
+- Phase 2.5 (PLAN REFINEMENT): {status}
+- Phase 2.7 (VERIFICATION): {status}
+- Phase 5 (WORK): {status}
+- Phase 6 (CODE REVIEW): {status}
+- Phase 7 (MEND): {status}
+- Phase 8 (AUDIT): {status}
 
 Artifacts remain in: .claude/arc/{id}/
 To resume: /rune:arc --resume

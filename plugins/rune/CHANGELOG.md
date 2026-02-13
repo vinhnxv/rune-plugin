@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.11.0] - 2026-02-13
+
+Feature release: Arc pipeline expanded from 6 to 8 phases with plan refinement, verification gate, per-phase time budgets, and checkpoint schema v2.
+
+### Added
+
+- arc.md: Phase 2.5 PLAN REFINEMENT — orchestrator-only concern extraction from CONCERN verdicts into `concern-context.md` for worker awareness. All-CONCERN escalation via AskUserQuestion
+- arc.md: Phase 2.7 VERIFICATION GATE — deterministic zero-LLM checks (file references, heading links, acceptance criteria, TODO/FIXME, talisman patterns). Git history annotation for stale file references
+- arc.md: `PHASE_ORDER` constant — canonical 8-element array for resume validation by name, not sequence numbers
+- arc.md: `PHASE_TIMEOUTS` — per-phase hardcoded time budgets (delegated phases use inner-timeout + 60s buffer). `ARC_TOTAL_TIMEOUT` (90 min) and `STALE_THRESHOLD` (5 min)
+- arc.md: Checkpoint schema v2 — adds `schema_version: 2`, `plan_refine` and `verification` phase entries
+- arc.md: Backward-compatible checkpoint migration — auto-upgrades v1 checkpoints on read (inserts new phases as "skipped")
+- arc.md: Timeout monitoring in Phase 1 (FORGE) and Phase 2 (PLAN REVIEW) polling loops with completion-before-timeout check, stale detection, and final sweep
+- arc.md: `parseVerdict()` function with anchored regex for structured verdict extraction
+- arc.md: Concern context propagation — Phase 5 (WORK) worker prompts include concern-context.md when available
+- cancel-arc.md: Added `plan_refine` and `verification` to legacy team name map (both null — orchestrator-only)
+- cancel-arc.md: Null-team guard — orchestrator-only phases skip team cancellation (Steps 3a-3d)
+- cancel-arc.md: Updated cancellation table and report template to 8 phases
+- talisman.example.yml: Commented-out `arc.timeouts` section documenting per-phase defaults (for v1.12.0+)
+
+### Changed
+
+- arc.md: Renumbered phases — WORK (3→5), CODE REVIEW (4→6), MEND (5→7), AUDIT (6→8)
+- arc.md: Updated all tables (Phase Transition Contracts, Tool Restrictions, Failure Policy, Completion Report, Error Handling)
+- arc.md: `--approve` flag documentation updated "Phase 3 only" → "Phase 5 only"
+- arc.md: Branch strategy updated "Before Phase 3" → "Before Phase 5"
+- work.md: Updated arc cross-references — Phase 3 → Phase 5, Phase 5 → Phase 7
+- CLAUDE.md: Arc pipeline description updated to 8 phases with plan refinement and verification
+- CLAUDE.md: Arc artifact list updated with `concern-context.md` and `verification-report.md`
+- README.md: Arc phase list expanded to 8 phases with Phase 2.5 and 2.7
+- README.md: "6 phases" → "8 phases" in Key Concepts
+- Root README.md: Pipeline diagram and command table updated for 8-phase arc
+- team-lifecycle-guard.md: Updated arc phase rows for Phases 2.5/2.7 (orchestrator-only) and 5-8 (delegated)
+
 ## [1.10.6] - 2026-02-13
 
 Documentation normalization: Replace tiered agent rules (1-2/3-4/5+ tiers) with a single rule — all Rune multi-agent workflows use Agent Teams. Custom (non-Rune) workflows retain the 3+ agent threshold for Agent Teams requirement. Codifies what every command has done since v0.1.0 and eliminates a persistent design-vs-implementation gap across framework documentation.
