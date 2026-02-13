@@ -514,7 +514,7 @@ function commitBroker(taskId) {
   // SECURITY: Validate each file path against safe character set to prevent shell injection
   const SAFE_PATH = /^[a-zA-Z0-9._\-\/]+$/
   for (const file of meta.files) {
-    if (!SAFE_PATH.test(file)) {
+    if (!SAFE_PATH.test(file) || file.includes('..')) {
       warn(`Task ${taskId}: unsafe file path "${file}" — skipping`)
       return
     }
@@ -786,7 +786,7 @@ const safePrTitle = prTitle.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 70) ||
 if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(defaultBranch)) {
   throw new Error(`Invalid default branch name: ${defaultBranch}`)
 }
-const diffStat = Bash(`git diff --stat -- "${defaultBranch}"..."${currentBranch}"`).trim()
+const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`).trim()
 
 // 4. Read talisman for PR overrides (defaults documented here)
 // readTalisman(): Read .claude/talisman.yml (project) or ~/.claude/talisman.yml (user), parse YAML.
@@ -813,6 +813,8 @@ const commitCount = committedTaskIds.size
 const verificationWarnings = checks  // From Post-Ward Verification Checklist above
 
 // 7. Write PR body to file (avoid shell injection via -m flag)
+// Sanitize task subjects for markdown (consistent with commit subject sanitization at line ~522)
+const safeSubject = (s) => s.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 120)
 // SECURITY: Sanitize planPath for markdown rendering (escape backticks and $)
 const safePlanPath = planPath.replace(/[`$]/g, '\\$&')
 const prBody = `## Summary
@@ -825,8 +827,6 @@ ${diffStat}
 \`\`\`
 
 ### Tasks Completed
-// Sanitize task subjects for markdown (consistent with commit subject sanitization at line ~522)
-const safeSubject = (s) => s.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 120)
 ${completedTasks.map(t => `- [x] ${safeSubject(t.subject)}`).join("\n")}
 ${blockedTasks.length > 0 ? `\n### Blocked Tasks\n${blockedTasks.map(t => `- [ ] ${safeSubject(t.subject)}`).join("\n")}` : ""}
 
@@ -900,7 +900,7 @@ if (!snCurrentBranch || !BRANCH_RE_SN.test(snCurrentBranch) || !BRANCH_RE_SN.tes
   // On default branch or invalid state — skip diff-based recommendation, show generic options
   var filesChanged = 0, hasSecurityFiles = false, hasConfigFiles = false
 } else {
-  const diffFiles = Bash(`git diff --name-only -- "${snDefaultBranch}"..."${snCurrentBranch}"`).trim().split('\n').filter(Boolean)
+  const diffFiles = Bash(`git diff --name-only "${snDefaultBranch}"..."${snCurrentBranch}"`).trim().split('\n').filter(Boolean)
   var filesChanged = diffFiles.length
   var hasSecurityFiles = diffFiles.some(f => /auth|secret|token|crypt|password|session|\.env/i.test(f))
   var hasConfigFiles = diffFiles.some(f => /\.claude\/|talisman|CLAUDE\.md/i.test(f))
