@@ -2,7 +2,7 @@
 
 ## [1.10.6] - 2026-02-13
 
-Documentation normalization: Replace tiered agent rules (1-2/3-4/5+ tiers) with a single rule — all Rune multi-agent workflows use Agent Teams. Codifies what every command has done since v0.1.0 and eliminates a persistent design-vs-implementation gap across framework documentation.
+Documentation normalization: Replace tiered agent rules (1-2/3-4/5+ tiers) with a single rule — all Rune multi-agent workflows use Agent Teams. Custom (non-Rune) workflows retain the 3+ agent threshold for Agent Teams requirement. Codifies what every command has done since v0.1.0 and eliminates a persistent design-vs-implementation gap across framework documentation.
 
 ### Changed
 
@@ -12,6 +12,7 @@ Documentation normalization: Replace tiered agent rules (1-2/3-4/5+ tiers) with 
 - overflow-wards.md: Simplified ASCII decision tree from 3 branches to 2 (Rune command + custom workflow)
 - rune-orchestration/SKILL.md: Removed dead `Task x 1-2` branch from inscription protocol rule
 - inscription-protocol.md: Updated coverage matrix — removed "Single agent / Glyph Budget only" row, added `/rune:mend`
+- inscription-protocol.md: Removed conditional '(when 3+)' qualifier from `/rune:work` inscription requirement — inscription now unconditional for all Rune workflows
 - inscription-protocol.md: Updated Step 4 verification table — all sizes use Agent Teams, verification scales with team size
 - structured-reasoning.md: Updated Thought 2 from "Task-only, Agent Teams, or hybrid?" to deterministic Agent Teams rule
 - task-templates.md: Added "Platform reference" note to Task Subagent template — Rune commands use Background Teammate

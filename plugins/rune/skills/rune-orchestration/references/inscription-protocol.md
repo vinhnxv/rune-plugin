@@ -156,8 +156,8 @@ TaskList `completed` status  >  Seal message  >  file existence
 
 All Rune multi-agent workflows MUST implement the inscription protocol.
 
-| Workflow | Agent Count | Inscription Required | Verification |
-|----------|-------------|---------------------|-------------|
+| Workflow | Typical Team Size | Inscription Required | Verification |
+|----------|-------------------|---------------------|-------------|
 | `/rune:review` | 3-5 | **Yes** (built-in) | Layer 0 + Layer 2 |
 | `/rune:audit` | 3-5 | **Yes** (built-in) | Layer 0 + Layer 2 + Validator |
 | `/rune:plan` | 3-5 | **Yes** | Layer 0 only |

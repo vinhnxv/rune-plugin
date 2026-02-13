@@ -49,8 +49,6 @@ Agents can write unlimited detail to files. The overflow comes from what they _r
 | Condition | Action |
 |-----------|--------|
 | Any Rune multi-agent command | Agent Teams + Glyph Budget + inscription (loaded automatically) |
-| Running `/rune:review` | Loaded automatically by roundtable-circle |
-| Running `/rune:audit` | Loaded automatically by roundtable-circle |
 | Custom multi-agent orchestration (3+ agents) | Agent Teams + Glyph Budget + inscription |
 
 ### Pre-Summon Checklist (8 Thoughts)
