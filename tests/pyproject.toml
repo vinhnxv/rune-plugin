@@ -1,0 +1,28 @@
+[project]
+name = "rune-test-harness"
+version = "0.1.0"
+description = "End-to-end test harness for the Rune Arc pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest>=8.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+eval = [
+    "ruff>=0.4",
+]
+
+[project.scripts]
+rune-harness = "run_harness:main"
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+markers = [
+    "expensive: marks tests that invoke Claude CLI (deselect with '-m \"not expensive\"')",
+    "unit: marks fast unit tests with no API cost",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120

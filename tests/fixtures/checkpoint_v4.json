@@ -1,0 +1,38 @@
+{
+  "id": "arc-1707849600000",
+  "schema_version": 4,
+  "plan_file": "plans/2026-02-13-feat-dataweaver-plan.md",
+  "flags": { "approve": false, "no_forge": false },
+  "session_nonce": "a1b2c3d4e5f6",
+  "phase_sequence": 0,
+  "phases": {
+    "forge":        { "status": "completed", "artifact": "tmp/arc/arc-1707849600000/enriched-plan.md", "artifact_hash": "abc123", "team_name": "arc-forge-arc-1707849600000" },
+    "plan_review":  { "status": "completed", "artifact": "tmp/arc/arc-1707849600000/plan-review.md", "artifact_hash": "def456", "team_name": "arc-plan-review-arc-1707849600000" },
+    "plan_refine":  { "status": "skipped", "artifact": null, "artifact_hash": null, "team_name": null },
+    "verification": { "status": "completed", "artifact": "tmp/arc/arc-1707849600000/verification-report.md", "artifact_hash": "ghi789", "team_name": null },
+    "work":         { "status": "completed", "artifact": "tmp/arc/arc-1707849600000/work-summary.md", "artifact_hash": "jkl012", "team_name": "arc-work-arc-1707849600000" },
+    "gap_analysis": { "status": "completed", "artifact": "tmp/arc/arc-1707849600000/gap-analysis.md", "artifact_hash": "mno345", "team_name": null },
+    "code_review":  { "status": "completed", "artifact": "tmp/arc/arc-1707849600000/tome.md", "artifact_hash": "pqr678", "team_name": "arc-review-arc-1707849600000" },
+    "mend":         { "status": "completed", "artifact": "tmp/arc/arc-1707849600000/resolution-report.md", "artifact_hash": "stu901", "team_name": "arc-mend-arc-1707849600000" },
+    "verify_mend":  { "status": "completed", "artifact": "tmp/arc/arc-1707849600000/spot-check-round-0.md", "artifact_hash": "vwx234", "team_name": null },
+    "audit":        { "status": "completed", "artifact": "tmp/arc/arc-1707849600000/audit-report.md", "artifact_hash": "yza567", "team_name": "arc-audit-arc-1707849600000" }
+  },
+  "convergence": {
+    "round": 0,
+    "max_rounds": 2,
+    "history": [
+      {
+        "round": 0,
+        "findings_before": 12,
+        "findings_after": 0,
+        "p1_remaining": 0,
+        "files_modified": 5,
+        "verdict": "converged",
+        "timestamp": "2026-02-13T12:00:00Z"
+      }
+    ]
+  },
+  "commits": ["abc1234", "def5678"],
+  "started_at": "2026-02-13T11:00:00Z",
+  "updated_at": "2026-02-13T12:00:00Z"
+}

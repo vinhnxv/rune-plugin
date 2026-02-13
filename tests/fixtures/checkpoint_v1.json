@@ -1,0 +1,16 @@
+{
+  "id": "arc-1707849600000",
+  "schema_version": 1,
+  "plan_file": "plans/old-plan.md",
+  "flags": { "approve": false, "no_forge": false },
+  "session_nonce": "aabbccddeeff",
+  "phase_sequence": 0,
+  "phases": {
+    "forge":       { "status": "completed", "artifact": null, "artifact_hash": null, "team_name": null },
+    "plan_review": { "status": "completed", "artifact": null, "artifact_hash": null, "team_name": null },
+    "work":        { "status": "pending", "artifact": null, "artifact_hash": null, "team_name": null },
+    "code_review": { "status": "pending", "artifact": null, "artifact_hash": null, "team_name": null },
+    "mend":        { "status": "pending", "artifact": null, "artifact_hash": null, "team_name": null },
+    "audit":       { "status": "pending", "artifact": null, "artifact_hash": null, "team_name": null }
+  }
+}

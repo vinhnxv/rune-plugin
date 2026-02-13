@@ -1,0 +1,24 @@
+{
+  "id": "arc-1707849600000",
+  "schema_version": 3,
+  "plan_file": "plans/v3-plan.md",
+  "flags": { "approve": false, "no_forge": false },
+  "session_nonce": "112233445566",
+  "phase_sequence": 0,
+  "phases": {
+    "forge":        { "status": "completed", "artifact": null, "artifact_hash": null, "team_name": null },
+    "plan_review":  { "status": "completed", "artifact": null, "artifact_hash": null, "team_name": null },
+    "plan_refine":  { "status": "skipped", "artifact": null, "artifact_hash": null, "team_name": null },
+    "verification": { "status": "skipped", "artifact": null, "artifact_hash": null, "team_name": null },
+    "work":         { "status": "pending", "artifact": null, "artifact_hash": null, "team_name": null },
+    "code_review":  { "status": "pending", "artifact": null, "artifact_hash": null, "team_name": null },
+    "mend":         { "status": "pending", "artifact": null, "artifact_hash": null, "team_name": null },
+    "verify_mend":  { "status": "pending", "artifact": null, "artifact_hash": null, "team_name": null },
+    "audit":        { "status": "pending", "artifact": null, "artifact_hash": null, "team_name": null }
+  },
+  "convergence": {
+    "round": 0,
+    "max_rounds": 2,
+    "history": []
+  }
+}
