@@ -18,7 +18,7 @@ Feature release: Ship workflow gaps — adds branch setup, plan clarification, q
 
 ### Changed
 
-- work.md: Pipeline Overview expanded from 7 to 12 phases (including sub-phases)
+- work.md: Pipeline Overview expanded from 7 to 10 phases (including sub-phases 0.5, 3.5, 6.5)
 - plugin.json: version 1.11.0 → 1.12.0
 
 ### Migration Notes

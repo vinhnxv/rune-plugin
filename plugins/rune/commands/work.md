@@ -134,13 +134,7 @@ AskUserQuestion({
 })
 ```
 
-If user chooses to clarify: ask specific questions one at a time (max 3), then append clarifications to the task descriptions before creating the task pool.
-
-AskUserQuestion constraints:
-- Header max 12 characters
-- 2-4 options per question
-- 60-second timeout — safe default: "Proceed as-is"
-- Platform auto-provides "Other" free-text option
+If user chooses to clarify: ask specific questions one at a time (max 3), then append clarifications to the task descriptions before creating the task pool. Default on timeout: "Proceed as-is" (fail-safe).
 
 ### Confirm with User
 
@@ -166,7 +160,7 @@ Proceed with {N} tasks and {W} workers?
 
 Before forging the team, verify the git environment is safe for work.
 
-**Skip condition**: When invoked via `/rune:arc`, skip Phase 0.5 entirely — arc handles branch creation in its pre-flight COMMIT-1 section. Detection: check for active arc checkpoint at `.claude/arc/*/checkpoint.json` with any phase status `"in_progress"`.
+**Skip condition**: When invoked via `/rune:arc`, skip Phase 0.5 entirely — arc handles branch creation in its Pre-flight phase (COMMIT-1). Detection: check for active arc checkpoint at `.claude/arc/*/checkpoint.json` with any phase status `"in_progress"`.
 
 **Talisman override**: `work.skip_branch_check: true` disables this phase for experienced users who manage branches manually.
 
@@ -192,10 +186,14 @@ if (currentBranch === defaultBranch) {
     }]
   })
   // If create branch:
-  //   Derive name from plan: rune/work-{plan-name-slug}-{YYYYMMDD-HHMMSS}
-  //   Pattern from arc.md COMMIT-1:
-  //   plan_name = basename(planFile, ".md").replace(/[^a-zA-Z0-9]/g, "-")
-  //   branch_name = `rune/work-${plan_name}-${timestamp}`
+  //   Derive name from plan (use planSlug from Phase 0, timestamp = Date.now()):
+  //   plan_slug = basename(planFile, ".md").replace(/[^a-zA-Z0-9]/g, "-")
+  //   branch_name = `${branchPrefix}-${plan_slug}-${YYYYMMDD-HHMMSS}`
+  //   (branchPrefix from talisman?.work?.branch_prefix ?? "rune/work")
+  //   SECURITY: Validate branch name after derivation
+  //   if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(branchName)) {
+  //     throw new Error("Invalid branch name derived from plan file")
+  //   }
   //   Bash(`git checkout -b -- "${branchName}"`)
   // If continue on default:
   //   Require explicit "yes" confirmation (fail-closed)
@@ -224,7 +222,7 @@ if (status !== "") {
 }
 ```
 
-**Branch name derivation**: `rune/work-{slugified-plan-name}-{YYYYMMDD-HHMMSS}` matching arc.md's COMMIT-1 convention.
+**Branch name derivation**: `rune/work-{slugified-plan-name}-{YYYYMMDD-HHMMSS}` matching arc.md's COMMIT-1 convention. Timestamp uses local time (consistent with arc.md `$(date +%Y%m%d-%H%M%S)`).
 
 ## Phase 1: Forge Team
 
@@ -668,7 +666,7 @@ if (!ghAvailable) {
 // Only offer if on a feature branch (not default branch)
 const currentBranch = Bash("git branch --show-current").trim()
 const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
-  || "main"
+  || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
 
 if (currentBranch !== defaultBranch) {
   const options = [
@@ -708,16 +706,18 @@ Bash(`git push -u origin "${currentBranch}"`)
 const planTitle = extractPlanTitle(planPath)  // From plan frontmatter
 const planType = extractPlanType(planPath)    // feat | fix | refactor
 const prTitle = `${planType}: ${planTitle}`
-// Sanitize: strip non-ASCII, limit to 70 chars
-const safePrTitle = prTitle.replace(/[^\x20-\x7E]/g, '').slice(0, 70)
+// Sanitize: allow only safe chars (matches commit message pattern), limit to 70 chars
+const safePrTitle = prTitle.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 70) || "Work completed"
 
 // 3. Build file change summary
 const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`).trim()
 
-// 4. Read talisman for PR overrides
+// 4. Read talisman for PR overrides (defaults documented here)
 const talisman = readTalisman()
-const monitoringRequired = talisman?.work?.pr_monitoring ?? false
-const coAuthors = talisman?.work?.co_authors ?? []
+const monitoringRequired = talisman?.work?.pr_monitoring ?? false    // Default: false
+const prTemplate = talisman?.work?.pr_template ?? 'default'          // Default: 'default' (vs 'minimal')
+const autoPush = talisman?.work?.auto_push ?? false                  // Default: false
+const coAuthors = talisman?.work?.co_authors ?? []                   // Default: [] (no co-authors)
 
 // 5. Build co-author lines
 const coAuthorLines = coAuthors.map(a => `Co-Authored-By: ${a}`).join('\n')
@@ -783,7 +783,8 @@ After the completion report, present interactive next steps:
 
 ```javascript
 // Compute review recommendation based on changeset analysis
-const filesChanged = parseInt(Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}" | tail -1 | awk '{print $1}'`).trim()) || 0
+const changedFiles = Bash(`git diff --name-only "${defaultBranch}"..."${currentBranch}"`).trim().split('\n').filter(Boolean)
+const filesChanged = changedFiles.length
 const hasSecurityFiles = changedFiles.some(f => /auth|secret|token|crypt|password|session|\.env/i.test(f))
 const hasConfigFiles = changedFiles.some(f => /\.claude\/|talisman|CLAUDE\.md/i.test(f))
 const taskCount = completedTasks.length
