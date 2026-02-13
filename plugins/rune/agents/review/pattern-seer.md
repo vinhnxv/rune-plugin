@@ -71,6 +71,33 @@ services/user_service.py  → business logic
 handlers/user_handler.py  → thin HTTP layer
 ```
 
+## Review Checklist
+
+### Analysis Todo
+1. [ ] Verify **naming conventions** match codebase standard (snake_case, camelCase, etc.)
+2. [ ] Check **file organization** follows established directory conventions
+3. [ ] Verify **error handling pattern** is consistent (Result types vs exceptions vs error codes)
+4. [ ] Check **import ordering** and grouping follows convention
+5. [ ] Verify **service/class naming** follows established suffixes (Service, Repository, Handler)
+6. [ ] Check **API response format** consistency across endpoints
+7. [ ] Verify **configuration pattern** matches existing approach (env vars, config files, etc.)
+
+### Self-Review
+After completing analysis, verify:
+- [ ] Every finding references a **specific file:line** with evidence
+- [ ] **False positives considered** — checked context before flagging
+- [ ] **Confidence level** is appropriate (don't flag uncertain items as P1)
+- [ ] All files in scope were **actually read**, not just assumed
+- [ ] Findings are **actionable** — each has a concrete fix suggestion
+
+### Pre-Flight
+Before writing output file, confirm:
+- [ ] Output follows the **prescribed Output Format** below
+- [ ] Finding prefixes match role (**QUAL-NNN** format)
+- [ ] Priority levels (**P1/P2/P3**) assigned to every finding
+- [ ] **Evidence** section included for each finding
+- [ ] **Fix** suggestion included for each finding
+
 ## Output Format
 
 ```markdown

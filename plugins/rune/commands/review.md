@@ -59,15 +59,34 @@ default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@
 if [ -z "$default_branch" ]; then
   default_branch=$(git rev-parse --verify origin/main >/dev/null 2>&1 && echo "main" || echo "master")
 fi
+repo_root=$(git rev-parse --show-toplevel)
 
-# Get changed files
+# Get changed files — unified scope builder
 if [ "--partial" in flags ]; then
-  # Partial mode: only staged files
-  changed_files=$(git diff --cached --name-only)
+  # Partial mode: staged files only (explicit choice — user knows what they're reviewing)
+  changed_files=$(git -C "$repo_root" diff --cached --name-only)
 else
-  # Default: full branch diff
-  changed_files=$(git diff --name-only ${default_branch}...HEAD)
+  # Default: full scope — committed + staged + unstaged + untracked
+  committed=$(git -C "$repo_root" diff --name-only --diff-filter=ACMR "${default_branch}...HEAD")
+  staged=$(git -C "$repo_root" diff --cached --name-only --diff-filter=ACMR)
+  unstaged=$(git -C "$repo_root" diff --name-only)
+  untracked=$(git -C "$repo_root" ls-files --others --exclude-standard)
+  # Merge and deduplicate, remove non-existent files and symlinks
+  changed_files=$(echo "$committed"$'\n'"$staged"$'\n'"$unstaged"$'\n'"$untracked" | sort -u | grep -v '^$')
+  changed_files=$(echo "$changed_files" | while read f; do
+    [ -f "$repo_root/$f" ] && [ ! -L "$repo_root/$f" ] && echo "$f"
+  done)
 fi
+```
+
+**Scope summary** (displayed after file collection in non-partial mode):
+```
+Review scope:
+  Committed: {N} files (vs {default_branch})
+  Staged: {N} files
+  Unstaged: {N} files (local modifications)
+  Untracked: {N} files (new, not yet in git)
+  Total: {N} unique files
 ```
 
 **Abort conditions:**
@@ -195,6 +214,12 @@ for (const ash of selectedAsh) {
 
 Summon ALL selected Ash in a **single message** (parallel execution):
 
+<!-- NOTE: Ashes are summoned as general-purpose (not namespaced agent types) because
+     Ash prompts are composite — each Ash embeds multiple review perspectives from
+     agents/review/*.md. The agent file allowed-tools are NOT enforced at runtime.
+     Tool restriction is enforced via prompt instructions (defense-in-depth).
+     Future improvement: create composite Ash agent files with restricted allowed-tools. -->
+
 ```javascript
 // Built-in Ash: load prompt from ash-prompts/{role}.md
 Task({
@@ -222,19 +247,36 @@ Task({
 
 ## Phase 4: Monitor
 
-Poll TaskList every 30 seconds until all tasks complete:
+Poll TaskList with timeout guard until all tasks complete:
 
-```
+```javascript
+const POLL_INTERVAL = 30_000   // 30 seconds
+const STALE_THRESHOLD = 300_000 // 5 minutes
+const TOTAL_TIMEOUT = 600_000   // 10 minutes (reviews are faster than mend)
+const startTime = Date.now()
+
 while (not all tasks completed):
   tasks = TaskList()
   for task in tasks:
     if task.status == "completed": continue
-    if task.stale > 5 minutes:
+    if task.stale > STALE_THRESHOLD:
       warn("Ash may be stalled")
-  sleep(30)
+      // No STALE_RELEASE: review Ashes produce unique findings that can't be reclaimed by another Ash.
+      // Compare with work.md/mend.md which auto-release stuck tasks after 10 min.
+
+  // Total timeout
+  if (Date.now() - startTime > TOTAL_TIMEOUT):
+    warn("Review timeout reached (10 min). Collecting partial results.")
+    break
+
+  sleep(POLL_INTERVAL)
+
+// Final sweep: re-read TaskList once more before reporting timeout
+tasks = TaskList()
 ```
 
 **Stale detection**: If a task is `in_progress` for > 5 minutes, proceed with partial results.
+**Total timeout**: Hard limit of 10 minutes. After timeout, a final sweep collects any results that completed during the last poll interval.
 
 ## Phase 5: Aggregate (Runebinder)
 
@@ -314,6 +356,7 @@ Read("tmp/reviews/{identifier}/TOME.md")
 | Error | Recovery |
 |-------|----------|
 | Ash timeout (>5 min) | Proceed with partial results |
+| Total timeout (>10 min) | Final sweep, collect partial results, report incomplete |
 | Ash crash | Report gap in TOME.md |
 | ALL Ash fail | Abort, notify user |
 | Concurrent review running | Warn, offer to cancel previous |

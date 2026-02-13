@@ -77,6 +77,32 @@ plugin_class = getattr(module, class_name)
 from .utils import format_date  # Re-exported for public API
 ```
 
+## Review Checklist
+
+### Analysis Todo
+1. [ ] Search for **string-based references** (getattr, globals, reflection, eval)
+2. [ ] Check **framework registration** (decorators, middleware, signal handlers)
+3. [ ] Verify **plugin/extension systems** (entry points, importlib, class discovery)
+4. [ ] Check **re-exports** (__init__.py barrel files, public API surface)
+5. [ ] Search for **partial string matches** (f-string patterns, string concatenation)
+6. [ ] Check **config/YAML/JSON references** (class names in config files)
+
+### Self-Review
+After completing analysis, verify:
+- [ ] Every finding references a **specific file:line** with evidence
+- [ ] **False positives considered** — checked context before flagging
+- [ ] **Confidence level** is appropriate (don't flag uncertain items as P1)
+- [ ] All files in scope were **actually read**, not just assumed
+- [ ] Findings are **actionable** — each has a concrete fix suggestion
+
+### Pre-Flight
+Before writing output file, confirm:
+- [ ] Output follows the **prescribed Output Format** below
+- [ ] Findings categorized as **Confirmed Dynamic / Confirmed Dead / Uncertain**
+- [ ] Priority levels (**P1/P2/P3**) assigned where applicable
+- [ ] **Evidence** section included for each finding
+- [ ] **Search strategy used** is documented per finding
+
 ## Output Format
 
 ```markdown

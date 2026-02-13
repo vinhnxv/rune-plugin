@@ -225,6 +225,12 @@ for (const ash of selectedAsh) {
 
 Summon ALL selected Ash in a **single message** (parallel execution):
 
+<!-- NOTE: Ashes are summoned as general-purpose (not namespaced agent types) because
+     Ash prompts are composite — each Ash embeds multiple review perspectives from
+     agents/review/*.md. The agent file allowed-tools are NOT enforced at runtime.
+     Tool restriction is enforced via prompt instructions (defense-in-depth).
+     Future improvement: create composite Ash agent files with restricted allowed-tools. -->
+
 ```javascript
 // Built-in Ash: load prompt from ash-prompts/{role}.md
 Task({
@@ -253,19 +259,36 @@ Task({
 
 ## Phase 4: Monitor
 
-Poll TaskList every 30 seconds until all tasks complete:
+Poll TaskList with timeout guard until all tasks complete:
 
-```
+```javascript
+const POLL_INTERVAL = 30_000   // 30 seconds
+const STALE_THRESHOLD = 300_000 // 5 minutes
+const TOTAL_TIMEOUT = 900_000   // 15 minutes (audits cover more files than reviews)
+const startTime = Date.now()
+
 while (not all tasks completed):
   tasks = TaskList()
   for task in tasks:
     if task.status == "completed": continue
-    if task.stale > 5 minutes:
+    if task.stale > STALE_THRESHOLD:
       warn("Ash may be stalled")
-  sleep(30)
+      // No STALE_RELEASE: audit Ashes produce unique findings that can't be reclaimed by another Ash.
+      // Compare with work.md/mend.md which auto-release stuck tasks after 10 min.
+
+  // Total timeout
+  if (Date.now() - startTime > TOTAL_TIMEOUT):
+    warn("Audit timeout reached (15 min). Collecting partial results.")
+    break
+
+  sleep(POLL_INTERVAL)
+
+// Final sweep: re-read TaskList once more before reporting timeout
+tasks = TaskList()
 ```
 
 **Stale detection**: If a task is `in_progress` for > 5 minutes, proceed with partial results.
+**Total timeout**: Hard limit of 15 minutes. After timeout, a final sweep collects any results that completed during the last poll interval.
 
 ## Phase 5: Aggregate (Runebinder)
 
@@ -393,6 +416,7 @@ Read("tmp/audit/{audit_id}/TOME.md")
 | Error | Recovery |
 |-------|----------|
 | Ash timeout (>5 min) | Proceed with partial results |
+| Total timeout (>15 min) | Final sweep, collect partial results, report incomplete |
 | Ash crash | Report gap in TOME.md |
 | ALL Ash fail | Abort, notify user |
 | Concurrent audit running | Warn, offer to cancel previous |

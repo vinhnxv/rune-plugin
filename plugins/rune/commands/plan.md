@@ -221,7 +221,21 @@ TeamCreate({ team_name: "rune-plan-{timestamp}" })
 // 2. Create research output directory
 mkdir -p tmp/plans/{timestamp}/research/
 
-// 3. Summon local research agents (always run — these are cheap and essential)
+// 3. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
+Write(`tmp/plans/${timestamp}/inscription.json`, {
+  workflow: "rune-plan",
+  timestamp: timestamp,
+  output_dir: `tmp/plans/${timestamp}/`,
+  teammates: [
+    { name: "repo-surveyor", role: "research", output_file: "research/repo-analysis.md" },
+    { name: "echo-reader", role: "research", output_file: "research/past-echoes.md" },
+    { name: "git-miner", role: "research", output_file: "research/git-history.md" }
+    // + conditional entries for practice-seeker, lore-scholar, flow-seer
+  ],
+  verification: { enabled: false }
+})
+
+// 4. Summon local research agents (always run — these are cheap and essential)
 TaskCreate({ subject: "Research repo patterns", description: "..." })       // #1
 TaskCreate({ subject: "Read past echoes", description: "..." })             // #2
 TaskCreate({ subject: "Analyze git history", description: "..." })          // #3
@@ -561,6 +575,7 @@ date: YYYY-MM-DD
 
 {ERD mermaid diagram if applicable}
 
+<!-- NOTE: Remove space in "` ``" fences when using this template — spaces are an escape for nested code blocks -->
 ` ``mermaid
 erDiagram
     ENTITY_A ||--o{ ENTITY_B : has
@@ -866,22 +881,40 @@ If scroll-reviewer reports HIGH severity issues:
 
 After scroll review and refinement, run deterministic checks with zero LLM hallucination risk:
 
-```bash
-# Extensible verification — project-specific stale-value checks
-# Add custom patterns below to catch inconsistent counts, deprecated flags, or stale references.
-# These run with zero LLM hallucination risk (deterministic grep).
-#
-# Rune plugin-specific checks (only run when plugins/rune/ directory exists):
-if [ -d "plugins/rune" ]; then
-  rg --no-messages "11 commands" plugins/rune/ .claude-plugin/ --glob '!commands/plan.md'           # Must be 0 (updated to 12)
-  rg --no-messages -- "--skip-forge" plugins/rune/ --glob '!commands/plan.md' --glob '!CHANGELOG.md' # Must be 0 (renamed to --no-forge)
-  rg --no-messages "optional.*--forge" plugins/rune/ --glob '!commands/plan.md'                      # Must be 0 (forge is default)
-fi
+```javascript
+// 1. Check for project-specific verification patterns in talisman.yml
+const talisman = readTalisman()  // .claude/talisman.yml or ~/.claude/talisman.yml
+const customPatterns = talisman?.plan?.verification_patterns || []
+
+// 2. Run custom patterns (if configured)
+// SECURITY: Validate each field against safe character set before shell interpolation
+// NOTE: '*' is allowed for glob patterns in paths/exclusions — rg handles globs safely,
+// and shell expansion of '*' in paths is intentional (talisman.yml is user-controlled config).
+const SAFE_PATTERN = /^[a-zA-Z0-9._\-\/ *]+$/
+for (const pattern of customPatterns) {
+  if (!SAFE_PATTERN.test(pattern.regex) ||
+      !SAFE_PATTERN.test(pattern.paths) ||
+      (pattern.exclusions && !SAFE_PATTERN.test(pattern.exclusions))) {
+    warn(`Skipping verification pattern "${pattern.description}": contains unsafe characters`)
+    continue
+  }
+  const result = Bash(`rg --no-messages -- "${pattern.regex}" ${pattern.paths} ${pattern.exclusions || ''}`)
+  if (pattern.expect_zero && result.matchCount > 0) {
+    warn(`Stale reference: ${pattern.description}`)
+    // Auto-fix or flag to user before presenting the plan
+  }
+}
+
+// 3. Universal checks (work in any repo — no project-specific knowledge needed)
+//    a. Plan references files that exist: grep file paths, verify with ls
+//    b. No broken internal links: check ## heading references resolve
+//    c. Acceptance criteria present: grep for "- [ ]" items
+//    d. No TODO/FIXME markers left in plan prose (outside code blocks)
 ```
 
 If any check fails: auto-fix the stale reference or flag to user before presenting the plan.
 
-This gate is extensible — each plan implementation can define plan-specific grep patterns to catch stale values, inconsistent counts, or deprecated flags.
+This gate is extensible via talisman.yml `plan.verification_patterns`. See `talisman.example.yml` for the schema. Project-specific checks (like command counts or renamed flags) belong in the talisman, not hardcoded in the plan command.
 
 ### 4C: Technical Review (optional)
 

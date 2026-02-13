@@ -81,6 +81,32 @@ async def safe_save(repo, entity):
         raise ConflictError(f"Already exists")
 ```
 
+## Review Checklist
+
+### Analysis Todo
+1. [ ] Search for **identical logic blocks** across files (same function body, different name)
+2. [ ] Check for **duplicated validation** logic in multiple locations
+3. [ ] Look for **repeated error handling** patterns (same try/except in multiple methods)
+4. [ ] Check for **copy-pasted test setup** (similar before/setup blocks)
+5. [ ] Verify **near-duplicates** (same structure, minor parameter differences)
+6. [ ] Distinguish **intentional similarity** from actual DRY violations
+
+### Self-Review
+After completing analysis, verify:
+- [ ] Every finding references a **specific file:line** with evidence
+- [ ] **False positives considered** — checked context before flagging
+- [ ] **Confidence level** is appropriate (don't flag uncertain items as P1)
+- [ ] All files in scope were **actually read**, not just assumed
+- [ ] Findings are **actionable** — each has a concrete fix suggestion
+
+### Pre-Flight
+Before writing output file, confirm:
+- [ ] Output follows the **prescribed Output Format** below
+- [ ] Finding prefixes match role (**DUP-NNN** standalone or **QUAL-NNN** when embedded)
+- [ ] Priority levels (**P1/P2/P3**) assigned to every finding
+- [ ] **Evidence** section included for each finding
+- [ ] **Fix** suggestion included for each finding
+
 ## Output Format
 
 ```markdown

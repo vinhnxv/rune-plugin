@@ -84,6 +84,32 @@ import json  # json never used in file
 from typing import Optional, List, Dict  # Optional unused
 ```
 
+## Review Checklist
+
+### Analysis Todo
+1. [ ] Grep for **unused functions/classes** (0 callers across codebase)
+2. [ ] Check for **unreachable code** (code after unconditional return/raise)
+3. [ ] Scan for **commented-out code blocks** (>3 lines)
+4. [ ] Check for **unused imports** in each file
+5. [ ] Look for **orphaned files** (no imports from other modules)
+6. [ ] **Cross-check with phantom-checker** before confirming dead (dynamic references)
+
+### Self-Review
+After completing analysis, verify:
+- [ ] Every finding references a **specific file:line** with evidence
+- [ ] **False positives considered** — checked context before flagging
+- [ ] **Confidence level** is appropriate (don't flag uncertain items as P1)
+- [ ] All files in scope were **actually read**, not just assumed
+- [ ] Findings are **actionable** — each has a concrete fix suggestion
+
+### Pre-Flight
+Before writing output file, confirm:
+- [ ] Output follows the **prescribed Output Format** below
+- [ ] Finding prefixes match role (**DEAD-NNN** standalone or **QUAL-NNN** when embedded)
+- [ ] Priority levels (**P1/P2/P3**) assigned to every finding
+- [ ] **Evidence** section included for each finding
+- [ ] **Fix** suggestion included for each finding
+
 ## Output Format
 
 ```markdown

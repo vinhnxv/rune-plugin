@@ -77,6 +77,32 @@ API_URL = "http://localhost:8080"  # Dev URL in production code
 DEFAULT_EMAIL = "test@example.com"  # Test data leaked
 ```
 
+## Review Checklist
+
+### Analysis Todo
+1. [ ] Grep for **TODO/FIXME/HACK/XXX** markers in code
+2. [ ] Check for **stub functions** (`return True`, `pass`, `NotImplementedError`)
+3. [ ] Look for **missing error handling** (happy-path-only functions)
+4. [ ] Scan for **placeholder values** (magic numbers, localhost URLs, test emails)
+5. [ ] Check for **partial implementations** (feature flag behind disabled code)
+6. [ ] Verify **promised functionality** in docstrings matches actual implementation
+
+### Self-Review
+After completing analysis, verify:
+- [ ] Every finding references a **specific file:line** with evidence
+- [ ] **False positives considered** — checked context before flagging
+- [ ] **Confidence level** is appropriate (don't flag uncertain items as P1)
+- [ ] All files in scope were **actually read**, not just assumed
+- [ ] Findings are **actionable** — each has a concrete fix suggestion
+
+### Pre-Flight
+Before writing output file, confirm:
+- [ ] Output follows the **prescribed Output Format** below
+- [ ] Finding prefixes match role (**VOID-NNN** standalone or **QUAL-NNN** when embedded)
+- [ ] Priority levels (**P1/P2/P3**) assigned to every finding
+- [ ] **Evidence** section included for each finding
+- [ ] **Fix** suggestion included for each finding
+
 ## Output Format
 
 ```markdown

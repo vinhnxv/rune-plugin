@@ -175,6 +175,24 @@ defaults:
 #   max_total_agents: 8      # Max total agents across all sections (upper bound: 15)
 
 # ──────────────────────────────────────────────
+# Plan — Verification gate patterns
+# ──────────────────────────────────────────────
+# Custom patterns for the plan verification gate (Phase 4B.5).
+# Each pattern runs with zero LLM hallucination risk (deterministic grep).
+# plan:
+#   verification_patterns:
+#     - regex: '"11 commands"'
+#       paths: "plugins/rune/ .claude-plugin/"
+#       exclusions: "--glob '!commands/plan.md'"
+#       expect_zero: true
+#       description: "Command count updated to 12"
+#     - regex: '"--skip-forge"'
+#       paths: "plugins/rune/"
+#       exclusions: "--glob '!commands/plan.md' --glob '!CHANGELOG.md'"
+#       expect_zero: true
+#       description: "Flag renamed to --no-forge"
+
+# ──────────────────────────────────────────────
 # Echoes — Memory persistence
 # ──────────────────────────────────────────────
 echoes:

@@ -195,8 +195,8 @@ Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->`
 
 | Agent Count | Required Protocol |
 |-------------|-------------------|
-| 1-2 agents | Output budget only |
-| 3-4 agents | Output budget + inscription.json |
+| 1-2 agents (no TeamCreate) | Output budget only |
+| 3+ agents OR any TeamCreate | Output budget + inscription.json |
 | 5+ agents | MUST use Agent Teams (TeamCreate + TaskCreate) |
 
 ## Output Conventions

@@ -92,6 +92,33 @@ greeting = f"Hello, {format_user_name(user.first, user.last)}"
 greeting = f"Hello, {user.first} {user.last}"
 ```
 
+## Review Checklist
+
+### Analysis Todo
+1. [ ] Check for **abstract classes with single implementation**
+2. [ ] Look for **factory/builder patterns** that just wrap `new()`
+3. [ ] Find **one-use helper functions** that should be inlined
+4. [ ] Check for **speculative configuration** (feature flags always on, never-changed constants)
+5. [ ] Look for **unnecessary indirection layers** (wrapper classes, pass-through methods)
+6. [ ] Check for **over-parameterized functions** (options never used by callers)
+7. [ ] Verify **new abstractions are justified** (>1 implementation or clear future need)
+
+### Self-Review
+After completing analysis, verify:
+- [ ] Every finding references a **specific file:line** with evidence
+- [ ] **False positives considered** — checked context before flagging
+- [ ] **Confidence level** is appropriate (don't flag uncertain items as P1)
+- [ ] All files in scope were **actually read**, not just assumed
+- [ ] Findings are **actionable** — each has a concrete fix suggestion
+
+### Pre-Flight
+Before writing output file, confirm:
+- [ ] Output follows the **prescribed Output Format** below
+- [ ] Finding prefixes match role (**SIMP-NNN** standalone or **QUAL-NNN** when embedded)
+- [ ] Priority levels (**P1/P2/P3**) assigned to every finding
+- [ ] **Evidence** section included for each finding
+- [ ] **Fix** suggestion included for each finding
+
 ## Output Format
 
 ```markdown

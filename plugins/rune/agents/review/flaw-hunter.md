@@ -102,6 +102,34 @@ except OperationError as e:
     raise
 ```
 
+## Review Checklist
+
+### Analysis Todo
+1. [ ] Check all **nullable returns** for unguarded access
+2. [ ] Verify **empty collection** handling (first/last element, min/max, reduce)
+3. [ ] Look for **off-by-one errors** in loops and range boundaries
+4. [ ] Scan for **race conditions** in async/concurrent code paths
+5. [ ] Check for **silent failures** (empty catch, swallowed errors, `except: pass`)
+6. [ ] Verify **exhaustive handling** in switch/match/if-else chains
+7. [ ] Look for **TOCTOU bugs** (check-then-act without atomicity)
+8. [ ] Check for **missing await** on coroutines/promises
+
+### Self-Review
+After completing analysis, verify:
+- [ ] Every finding references a **specific file:line** with evidence
+- [ ] **False positives considered** — checked context before flagging
+- [ ] **Confidence level** is appropriate (don't flag uncertain items as P1)
+- [ ] All files in scope were **actually read**, not just assumed
+- [ ] Findings are **actionable** — each has a concrete fix suggestion
+
+### Pre-Flight
+Before writing output file, confirm:
+- [ ] Output follows the **prescribed Output Format** below
+- [ ] Finding prefixes match role (**FLAW-NNN** standalone or **BACK-NNN** when embedded)
+- [ ] Priority levels (**P1/P2/P3**) assigned to every finding
+- [ ] **Evidence** section included for each finding
+- [ ] **Fix** suggestion included for each finding
+
 ## Output Format
 
 ```markdown

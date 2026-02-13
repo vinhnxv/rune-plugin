@@ -34,7 +34,7 @@ Run simultaneously to gather knowledge from different angles. Produce Research-f
 Task repo-analyst(topic)             # Repo patterns + conventions
 Task best-practices(topic)           # External best practices
 Task framework-docs(topic)           # Framework documentation
-# Each writes to tmp/research/
+# Each writes to tmp/plans/{timestamp}/research/
 ```
 
 ## Work Agents (Rune Smiths)
