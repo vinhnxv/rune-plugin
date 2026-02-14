@@ -258,9 +258,9 @@ work:
 #   name:        Unique identifier (kebab-case)
 #   description: Human-readable explanation of what stays in sync
 #   source:
-#     path:      File that holds the canonical value (glob OK for count checks)
-#     extractor: How to pull the value — "json_field", "line_count", "regex"
-#     field:     JSONPath (json_field), regex group (regex), or omitted (line_count)
+#     file:      File that holds the canonical value (glob OK for glob_count extractor)
+#     extractor: How to pull the value — "json_field", "line_count", "glob_count", "regex_capture"
+#     field:     Dot-path for json_field (e.g., "version", "name.first"), regex group for regex_capture, or omitted for line_count/glob_count
 #   targets:     Array of files that must agree with the source value
 #     - path:    Target file path (relative to repo root)
 #       pattern: Regex or literal that must contain the source value.
@@ -275,7 +275,7 @@ work:
 #       - name: version_sync
 #         description: "Plugin version in plugin.json must match CLAUDE.md and README.md"
 #         source:
-#           path: ".claude-plugin/plugin.json"
+#           file: ".claude-plugin/plugin.json"
 #           extractor: json_field
 #           field: "version"             # Plain dot-path (not JSONPath). Examples: "version", "name.first"
 #         targets:
@@ -289,7 +289,7 @@ work:
 #       - name: agent_count
 #         description: "Number of review agents must match CLAUDE.md and plugin.json"
 #         source:
-#           path: "agents/review/*.md"
+#           file: "agents/review/*.md"
 #           extractor: glob_count        # glob_count: count files matching a glob pattern (e.g., *.md)
                                          # line_count: count lines in a single file
 #         targets:
@@ -303,7 +303,7 @@ work:
 #       - name: method_count
 #         description: "Elicitation method count in methods.csv must match SKILL.md and phase-mapping.md"
 #         source:
-#           path: "skills/elicitation/references/methods.csv"
+#           file: "skills/elicitation/references/methods.csv"
 #           extractor: line_count
 #         targets:
 #           - path: "skills/elicitation/SKILL.md"

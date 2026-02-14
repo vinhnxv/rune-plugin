@@ -266,7 +266,8 @@ Forge Gaze — Agent Selection
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Plan sections: 6
-Agents available: 13 built-in (11 enrichment + 2 research) + 7 methods + 1 custom
+Agents available: 18 built-in (16 review + 2 research) + 1 custom
+Methods available: 7 (prompt modifiers, not agents — separate from MAX_TOTAL_AGENTS cap)
 
 Section: "Technical Approach"
   ✓ rune-architect (0.85) — architecture compliance
