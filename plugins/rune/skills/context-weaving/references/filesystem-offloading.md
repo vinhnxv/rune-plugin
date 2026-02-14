@@ -13,7 +13,7 @@ Tool outputs consume up to 83.9% of context in long sessions. Offloading large o
 | < 10 lines | Keep inline |
 | 10-50 lines | Consider offloading |
 | > 50 lines | MUST offload to file |
-| Agent output | ALWAYS offload (via Glyph Budget) |
+| Agent output | Offload (via Glyph Budget) |
 
 ## Offload Patterns
 

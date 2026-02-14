@@ -146,7 +146,7 @@ Write to: `{output_dir}/truthsight-report.md`
 - Each re-verify targets: 1 hallucinated finding + 2 correlated findings from same Ash
 ```
 
-## Context Budget (MANDATORY)
+## Context Budget
 
 - Max 8 Ash output files per verifier run
 - Max 15 source files for deep verification
@@ -163,7 +163,7 @@ Write to: `{output_dir}/truthsight-report.md`
 - `Read file.py` without offset/limit (full file reads waste verifier context)
 - Reading files not referenced in findings (scope creep)
 
-## GLYPH BUDGET (MANDATORY)
+## GLYPH BUDGET
 
 Write ALL detailed findings to: `{output_dir}/truthsight-report.md`
 Return to caller ONLY: the output file path + 1-sentence summary (max 50 words)

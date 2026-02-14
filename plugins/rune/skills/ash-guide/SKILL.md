@@ -133,6 +133,6 @@ The `/rune:review` command selects Ash based on file extensions (Rune Gaze):
 | `**/*.md` (>= 10 lines changed) | Knowledge Keeper (conditional) |
 | Mixed code + docs | All applicable Ash |
 
-Ward Sentinel and Pattern Weaver are ALWAYS selected regardless of file types.
+Ward Sentinel and Pattern Weaver are selected for every review regardless of file types.
 
 See `roundtable-circle` skill for full Ash architecture and prompts.

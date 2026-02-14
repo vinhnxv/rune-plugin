@@ -94,7 +94,7 @@ Review scope:
 - Only non-reviewable files (images, lock files) → "No reviewable changes found."
 - All doc-extension files fell below line threshold AND code/infra files exist → summon only always-on Ashes (normal behavior — minor doc changes alongside code are noise)
 
-**Docs-only override:** If ALL non-skip files are doc-extension and ALL fall below the line threshold (no code files at all), promote them so Knowledge Keeper is still summoned. This prevents a degenerate case where a docs-only diff silently skips all files. See `rune-gaze.md` for the full algorithm.
+**Docs-only override:** Promote all doc files when no code files exist. See `rune-gaze.md` for the full algorithm.
 
 ### Load Custom Ashes
 
@@ -254,39 +254,28 @@ Task({
 })
 ```
 
-**IMPORTANT**: The Tarnished MUST NOT review code directly. Focus solely on coordination.
+The Tarnished does not review code directly. Focus solely on coordination.
 
 ## Phase 4: Monitor
 
-Poll TaskList with timeout guard until all tasks complete:
+Poll TaskList with timeout guard until all tasks complete. Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
 ```javascript
-const POLL_INTERVAL = 30_000   // 30 seconds
-const STALE_THRESHOLD = 300_000 // 5 minutes
-const TOTAL_TIMEOUT = 600_000   // 10 minutes (reviews are faster than mend)
-const startTime = Date.now()
+// See skills/roundtable-circle/references/monitor-utility.md
+const result = waitForCompletion(teamName, ashCount, {
+  timeoutMs: 600_000,        // 10 minutes
+  staleWarnMs: 300_000,      // 5 minutes
+  pollIntervalMs: 30_000,    // 30 seconds
+  label: "Review"
+  // No autoReleaseMs: review Ashes produce unique findings that can't be reclaimed by another Ash.
+})
 
-while (not all tasks completed):
-  tasks = TaskList()
-  for task in tasks:
-    if task.status == "completed": continue
-    if task.stale > STALE_THRESHOLD:
-      warn("Ash may be stalled")
-      // No STALE_RELEASE: review Ashes produce unique findings that can't be reclaimed by another Ash.
-      // Compare with work.md/mend.md which auto-release stuck tasks after 10 min.
-
-  // Total timeout
-  if (Date.now() - startTime > TOTAL_TIMEOUT):
-    warn("Review timeout reached (10 min). Collecting partial results.")
-    break
-
-  sleep(POLL_INTERVAL)
-
-// Final sweep: re-read TaskList once more before reporting timeout
-tasks = TaskList()
+if (result.timedOut) {
+  log(`Review completed with partial results: ${result.completed.length}/${ashCount} Ashes`)
+}
 ```
 
-**Stale detection**: If a task is `in_progress` for > 5 minutes, proceed with partial results.
+**Stale detection**: If a task is `in_progress` for > 5 minutes, a warning is logged. No auto-release — review Ash findings are non-fungible (compare with `work.md`/`mend.md` which auto-release stuck tasks after 10 min).
 **Total timeout**: Hard limit of 10 minutes. After timeout, a final sweep collects any results that completed during the last poll interval.
 
 ## Phase 5: Aggregate (Runebinder)
@@ -302,7 +291,7 @@ Task({
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/reviews/{identifier}/TOME.md.
-    IMPORTANT: Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
+    Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
     Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.
     The session_nonce is from inscription.json. Without these markers, /rune:mend cannot parse findings.
     See roundtable-circle/references/dedup-runes.md for dedup algorithm.`

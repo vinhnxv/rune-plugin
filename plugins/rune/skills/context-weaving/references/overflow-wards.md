@@ -7,7 +7,7 @@
 **Copy-paste this into EVERY agent prompt** when summoning in a multi-agent workflow:
 
 ```
-GLYPH BUDGET PROTOCOL (MANDATORY):
+GLYPH BUDGET PROTOCOL:
 - Write ALL detailed findings to: {output-directory}/{agent-name}.md
 - Return to caller ONLY: the output file path + 1-sentence summary (max 50 words)
 - DO NOT include full analysis, code examples, or detailed recommendations in return message
@@ -24,7 +24,7 @@ When calling the Task tool, append the protocol to the prompt:
 Task(agent-name, "
 [Your actual review/analysis prompt here]
 
-GLYPH BUDGET PROTOCOL (MANDATORY):
+GLYPH BUDGET PROTOCOL:
 - Write ALL detailed findings to: tmp/reviews/142/ward-sentinel.md
 - Return to caller ONLY: the output file path + 1-sentence summary (max 50 words)
 - DO NOT include full analysis in return message

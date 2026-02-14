@@ -98,7 +98,7 @@ codex:
 
 ## Security Prerequisites
 
-### .codexignore (MANDATORY for --full-auto)
+### .codexignore (required for --full-auto)
 
 Before invoking `codex exec --full-auto`, verify `.codexignore` exists at repo root.
 `--full-auto` grants the external model unrestricted read access to ALL repository files.
@@ -131,7 +131,7 @@ Before invoking `codex exec --full-auto`, verify `.codexignore` exists at repo r
 | `workspace-write` | Refactoring, editing | `--sandbox workspace-write --full-auto` |
 | `danger-full-access` | Full system access | Requires explicit `--dangerously-auto-approve` |
 
-Rune ALWAYS uses `read-only` for review/audit/forge workflows. Only `/rune:work` advisory
+Rune uses `read-only` for review/audit/forge workflows. Only `/rune:work` advisory
 may use `workspace-write` in the future (currently read-only).
 
 ## Execution Pattern
@@ -206,7 +206,7 @@ Resume inherits original configuration. Do not reapply flags.
 
 ## Hallucination Guard
 
-**MANDATORY** for all Codex output. GPT models can fabricate findings.
+Required for all Codex output. GPT models can fabricate findings.
 
 After receiving Codex output, verify EVERY finding:
 
@@ -239,7 +239,7 @@ designated path. Even skip/error messages are written so downstream phases know 
 ## Architecture Rules
 
 1. **Separate teammate**: Codex MUST always run on a separate teammate (`Task` with `run_in_background: true`),
-   NEVER inline in the orchestrator. This isolates untrusted codex output from the main context window.
+   Do not inline in the orchestrator. This isolates untrusted codex output from the main context window.
 
 2. **Always write to MD file**: Every outcome produces an MD file at the designated output path.
 

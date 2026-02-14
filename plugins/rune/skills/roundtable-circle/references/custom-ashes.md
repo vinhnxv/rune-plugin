@@ -119,7 +119,7 @@ You are the "{name}" Ash reviewing {workflow_type}.
 
 **Output file:** {output_dir}/{name}.md
 
-# OUTPUT FORMAT (MANDATORY)
+# OUTPUT FORMAT
 
 Use finding prefix: {finding_prefix}
 
@@ -154,7 +154,7 @@ After writing all findings, re-read your output and verify:
 |---------|------------------|--------|
 | {prefix}-001 | Yes/No | KEPT / REVISED / DELETED |
 
-# SEAL FORMAT (MANDATORY)
+# SEAL FORMAT
 
 When complete, end your output file with:
 ---

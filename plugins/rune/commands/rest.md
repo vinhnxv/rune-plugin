@@ -120,7 +120,7 @@ for dir in "${dirs_to_remove[@]}"; do
 done
 ```
 
-Any path that resolves outside `tmp/` or is a symlink is skipped with a warning. This prevents accidental deletion from symlinks or malformed state file entries.
+Any path that resolves outside `tmp/` or is a symlink is skipped with a warning.
 
 ### 5. Remove Artifacts
 
@@ -187,7 +187,7 @@ rm -f tmp/.rune-mend-{completed_ids}.json
 rm -f tmp/.rune-work-{completed_ids}.json
 ```
 
-**Note:** `tmp/plans/` and `tmp/scratch/` are removed unconditionally (no active-state check). `tmp/work/` is conditionally removed — it checks for active work teams first (work proposals in `tmp/work/{timestamp}/proposals/` are needed during `--approve` mode). `tmp/mend/` directories follow the same active-state check as reviews and audits. `tmp/arc/` directories are checked via `.claude/arc/*/checkpoint.json` — if any phase has `in_progress` status, the associated `tmp/arc/{id}/` directory is preserved. Arc checkpoint state at `.claude/arc/` is NEVER cleaned — it lives outside `tmp/` and is needed for `--resume`.
+**Note:** `tmp/plans/` and `tmp/scratch/` are removed unconditionally (no active-state check). `tmp/work/` is conditionally removed — it checks for active work teams first (work proposals in `tmp/work/{timestamp}/proposals/` are needed during `--approve` mode). `tmp/mend/` directories follow the same active-state check as reviews and audits. `tmp/arc/` directories are checked via `.claude/arc/*/checkpoint.json` — if any phase has `in_progress` status, the associated `tmp/arc/{id}/` directory is preserved. Arc checkpoint state at `.claude/arc/` is not cleaned — it lives outside `tmp/` and is needed for `--resume`.
 
 ### 6. Report
 
@@ -233,7 +233,7 @@ Would preserve:
 ## Notes
 
 - This command is safe to run at any time — active workflows are detected and preserved
-- Rune Echoes are NEVER touched by cleanup (they live in `.claude/echoes/`, not `tmp/`)
+- Rune Echoes are not touched by cleanup (they live in `.claude/echoes/`, not `tmp/`)
 - Completed/cancelled state files are removed along with their output directories
 - If `tmp/` directory doesn't exist, reports "Nothing to clean"
 - Stale git worktrees from mend bisection are cleaned up (`git worktree prune`)

@@ -106,7 +106,7 @@ Calculate Echo Score for each entry and archive low-scoring ones.
    - Report: "Pruned 3 entries. Backups in archive/"
 
 **Safety:**
-- Etched entries are NEVER candidates for pruning
+- Etched entries are not candidates for pruning
 - Always backup before any modification
 - User must confirm before pruning proceeds
 

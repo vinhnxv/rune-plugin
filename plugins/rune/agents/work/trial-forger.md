@@ -93,7 +93,7 @@ Seal: tests for #{id} done. Files: {test_files}. Tests: {pass_count}/{total}. Co
 
 ## File Scope Restrictions
 
-NEVER modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
+Do not modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

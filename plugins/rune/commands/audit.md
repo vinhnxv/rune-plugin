@@ -263,41 +263,30 @@ Task({
 })
 ```
 
-**IMPORTANT**: The Tarnished MUST NOT audit code directly. Focus solely on coordination.
+The Tarnished does not audit code directly. Focus solely on coordination.
 
 **Substitution note:** The `{changed_files}` variable in Ash prompts is populated with the audit file list (filtered by extension and capped by context budget) rather than git diff output. The Ash prompts are designed to work with any file list.
 
 ## Phase 4: Monitor
 
-Poll TaskList with timeout guard until all tasks complete:
+Poll TaskList with timeout guard until all tasks complete. Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
 ```javascript
-const POLL_INTERVAL = 30_000   // 30 seconds
-const STALE_THRESHOLD = 300_000 // 5 minutes
-const TOTAL_TIMEOUT = 900_000   // 15 minutes (audits cover more files than reviews)
-const startTime = Date.now()
+// See skills/roundtable-circle/references/monitor-utility.md
+const result = waitForCompletion(teamName, ashCount, {
+  timeoutMs: 900_000,        // 15 minutes (audits cover more files than reviews)
+  staleWarnMs: 300_000,      // 5 minutes
+  pollIntervalMs: 30_000,    // 30 seconds
+  label: "Audit"
+  // No autoReleaseMs: audit Ashes produce unique findings that can't be reclaimed by another Ash.
+})
 
-while (not all tasks completed):
-  tasks = TaskList()
-  for task in tasks:
-    if task.status == "completed": continue
-    if task.stale > STALE_THRESHOLD:
-      warn("Ash may be stalled")
-      // No STALE_RELEASE: audit Ashes produce unique findings that can't be reclaimed by another Ash.
-      // Compare with work.md/mend.md which auto-release stuck tasks after 10 min.
-
-  // Total timeout
-  if (Date.now() - startTime > TOTAL_TIMEOUT):
-    warn("Audit timeout reached (15 min). Collecting partial results.")
-    break
-
-  sleep(POLL_INTERVAL)
-
-// Final sweep: re-read TaskList once more before reporting timeout
-tasks = TaskList()
+if (result.timedOut) {
+  log(`Audit completed with partial results: ${result.completed.length}/${ashCount} Ashes`)
+}
 ```
 
-**Stale detection**: If a task is `in_progress` for > 5 minutes, proceed with partial results.
+**Stale detection**: If a task is `in_progress` for > 5 minutes, a warning is logged. No auto-release — audit Ash findings are non-fungible (compare with `work.md`/`mend.md` which auto-release stuck tasks after 10 min).
 **Total timeout**: Hard limit of 15 minutes. After timeout, a final sweep collects any results that completed during the last poll interval.
 
 ## Phase 5: Aggregate (Runebinder)
@@ -313,7 +302,7 @@ Task({
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/audit/{audit_id}/TOME.md.
-    IMPORTANT: Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
+    Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
     Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.
     The session_nonce is from inscription.json. Without these markers, /rune:mend cannot parse findings.
     See roundtable-circle/references/dedup-runes.md for dedup algorithm.
