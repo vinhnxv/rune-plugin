@@ -39,7 +39,7 @@ allowed-tools:
 
 # /rune:plan — Multi-Agent Planning Workflow
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`
 
 Orchestrates a planning pipeline using Agent Teams with dependency-aware task scheduling.
 
@@ -407,7 +407,7 @@ If `codex` CLI is available and `codex.workflows` includes `"plan"`, summon Code
 **Inputs**: feature (string, from Phase 0), timestamp (string, from Phase 1A), talisman (object, from readTalisman()), codexAvailable (boolean, from CLI detection)
 **Outputs**: `tmp/plans/{timestamp}/research/codex-analysis.md`
 **Preconditions**: Codex detection passes (see `codex-detection.md`), `codex.workflows` includes "plan"
-**Error handling**: codex exec timeout (5 min) → write "Codex research timed out" to output, mark complete. codex exec failure → classify error and write user-facing message (see `codex-detection.md` ## Runtime Error Classification), mark complete. Auth error → "run `codex login`". jq not available → skip JSONL parsing, capture raw output.
+**Error handling**: codex exec timeout (10 min) → write "Codex research timed out" to output, mark complete. codex exec failure → classify error and write user-facing message (see `codex-detection.md` ## Runtime Error Classification), mark complete. Auth error → "run `codex login`". jq not available → skip JSONL parsing, capture raw output.
 
 ```javascript
 // CANONICAL ALGORITHM: See codex-detection.md (roundtable-circle/references/codex-detection.md)
@@ -419,11 +419,11 @@ if (codexAvailable && !codexDisabled) {
   const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
   if (codexWorkflows.includes("plan")) {
     // SEC-002: Validate talisman codex config before shell interpolation
-    // SINGLE DEFINITION — These allowlists are used by BOTH Phase 1C and Phase 4C Codex
-    // invocations. If updated, search for 'CODEX_MODEL_ALLOWLIST' in this file to verify
-    // all occurrences are in sync.
-    const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
+    // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST — see security-patterns.md
+    // Also declared in Phase 4C — keep in sync. Canonical source: security-patterns.md
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+    // Security pattern: SAFE_FEATURE_PATTERN — see security-patterns.md
     const SAFE_FEATURE_PATTERN = /^[a-zA-Z0-9 ._\-]+$/
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
     const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "high"
@@ -447,7 +447,7 @@ if (codexAvailable && !codexDisabled) {
         2. Check codex availability: Bash("command -v codex")
            - If unavailable: write "Codex CLI not available" to output, mark complete, exit
         3. Run codex exec for research:
-           Bash: timeout 300 codex exec \\
+           Bash: timeout 600 codex exec \\
              -m "${codexModel}" \\
              --config model_reasoning_effort="${codexReasoning}" \\
              --sandbox read-only \\
@@ -658,6 +658,22 @@ date: YYYY-MM-DD
 
 {What could block or complicate this}
 
+## Documentation Impact
+
+Files that must be updated when this feature ships:
+
+### Files Referencing This Feature
+- [ ] {file}: {what reference needs updating}
+
+### Count/Version Changes
+- [ ] plugin.json: version bump to {target}
+- [ ] CLAUDE.md: {count or version reference}
+- [ ] README.md: {count or version reference}
+- [ ] CHANGELOG.md: new entry for {version}
+
+### Priority/Registry Updates
+- [ ] {registry file}: add/update entry for {feature}
+
 ## Cross-File Consistency
 
 Files that must stay in sync when this plan's changes are applied:
@@ -796,9 +812,30 @@ Files that must stay in sync when this plan's changes are applied:
 - [ ] talisman.example.yml reflects any new config fields
 - [ ] CLAUDE.md configuration section matches talisman schema
 
-## Documentation Plan
+## Documentation Impact & Plan
 
-{What docs need updating — README, API docs, inline comments, migration guides}
+Files that must be updated when this feature ships:
+
+### Files Referencing This Feature
+- [ ] {file}: {what reference needs updating}
+
+### Count/Version Changes
+- [ ] plugin.json: version bump to {target}
+- [ ] CLAUDE.md: {count or version reference}
+- [ ] README.md: {count or version reference}
+- [ ] CHANGELOG.md: new entry for {version}
+
+### Priority/Registry Updates
+- [ ] {registry file}: add/update entry for {feature}
+
+### New Documentation
+- [ ] {new doc file}: {purpose}
+
+### Updated Documentation
+- [ ] {existing doc}: {what changes}
+
+### Inline Comments / Migration Guides
+- [ ] {migration guide or inline comment updates}
 
 ## AI-Era Considerations (optional)
 
@@ -1130,9 +1167,8 @@ const customPatterns = talisman?.plan?.verification_patterns || []
 // Only patterns whose phase array includes currentPhase are executed.
 const currentPhase = "plan"  // In plan.md context, always "plan"
 // SECURITY: Validate each field against safe character set before shell interpolation
-// !! DUPLICATED PATTERN — Canonical source: roundtable-circle/references/security-patterns.md
-// Also in: work.md, mend.md, arc.md. If changed here, update ALL locations.
-// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards, no spaces)
+// Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN — see security-patterns.md
+// Also in: work.md, mend.md, arc.md. Canonical source: security-patterns.md
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -1209,7 +1245,7 @@ Task({
   prompt: `You are Decree Arbiter — a RESEARCH agent. Do not write implementation code.
     Review the plan for technical soundness.
     Write review to tmp/plans/{timestamp}/decree-review.md.
-    See agents/utility/decree-arbiter.md for 8-dimension evaluation.`,
+    See agents/utility/decree-arbiter.md for 9-dimension evaluation.`,
   run_in_background: true
 })
 
@@ -1232,7 +1268,7 @@ If `codex` CLI is available and `codex.workflows` includes `"plan"`, add Codex O
 **Inputs**: planPath (string, from Phase 0), timestamp (string, from Phase 1A), talisman (object), codexAvailable (boolean)
 **Outputs**: `tmp/plans/{timestamp}/codex-plan-review.md` with `[CDX-PLAN-NNN]` findings
 **Preconditions**: Phase 4A scroll review complete, Codex detection passes (see `codex-detection.md`), codex.workflows includes "plan"
-**Error handling**: codex exec timeout (5 min) → skip review, log "Codex Oracle: timeout". codex exec auth failure → log "Codex Oracle: authentication required — run `codex login`". codex exec failure → classify error per `codex-detection.md` ## Runtime Error Classification, skip, proceed with other reviewers.
+**Error handling**: codex exec timeout (10 min) → skip review, log "Codex Oracle: timeout". codex exec auth failure → log "Codex Oracle: authentication required — run `codex login`". codex exec failure → classify error per `codex-detection.md` ## Runtime Error Classification, skip, proceed with other reviewers.
 
 ```javascript
 // Codex Oracle plan reviewer — optional, parallel with decree-arbiter and knowledge-keeper
@@ -1244,9 +1280,9 @@ const codexDisabled = talisman?.codex?.disabled === true
 if (codexAvailable && !codexDisabled) {
   const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
   if (codexWorkflows.includes("plan")) {
-    // SEC-002: Validate talisman codex config before shell interpolation
-    // RE-DECLARED for Phase 4C — keep in sync with Phase 1C definition at line ~412
-    const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
+    // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST — see security-patterns.md
+    // Also declared in Phase 1C — keep in sync. Canonical source: security-patterns.md
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
     const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "high"
@@ -1269,7 +1305,7 @@ if (codexAvailable && !codexDisabled) {
 
         1. Read the plan at ${planPath}
         2. Run codex exec with plan review prompt:
-           Bash: timeout 300 codex exec \\
+           Bash: timeout 600 codex exec \\
              -m "${codexModel}" \\
              --config model_reasoning_effort="${codexReasoning}" \\
              --sandbox read-only \\

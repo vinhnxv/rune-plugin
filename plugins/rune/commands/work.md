@@ -37,7 +37,7 @@ allowed-tools:
 
 Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.
 
-**Load skills**: `context-weaving`, `rune-echoes`, `rune-orchestration`
+**Load skills**: `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
 
 ## Usage
 
@@ -63,6 +63,8 @@ Phase 3: Monitor → TaskList polling, stale detection
 Phase 3.5: Commit Broker → Apply patches, commit (orchestrator-only)
     ↓
 Phase 4: Ward Check → Quality gates + verification checklist
+    ↓
+Phase 4.3: Doc-Consistency → Non-blocking version/count drift detection (orchestrator-only)
     ↓
 Phase 4.5: Codex Advisory → Optional plan-vs-implementation review (non-blocking)
     ↓
@@ -600,7 +602,7 @@ function commitBroker(taskId) {
   }
 
   // 6. Validate and stage files
-  // SECURITY: Validate each file path against safe character set to prevent shell injection
+  // Security pattern: SAFE_PATH_PATTERN (alias: SAFE_PATH) — see security-patterns.md
   const SAFE_PATH = /^[a-zA-Z0-9._\-\/]+$/
   for (const file of meta.files) {
     if (file.startsWith('/') || file.includes('..') || !SAFE_PATH.test(file)) {
@@ -636,7 +638,7 @@ After all tasks complete, run project-wide quality gates:
 wards = discoverWards()
 // Possible sources: Makefile, package.json, pyproject.toml, talisman.yml
 
-// SECURITY: Validate ward commands — block shell metacharacters from talisman.yml commands
+// Security pattern: SAFE_WARD — see security-patterns.md
 const SAFE_WARD = /^[a-zA-Z0-9._\-\/ ]+$/
 for (const ward of wards) {
   if (!SAFE_WARD.test(ward.command)) {
@@ -769,9 +771,8 @@ for (const file of newFiles) {
 const talisman = readTalisman()  // .claude/talisman.yml or ~/.claude/talisman.yml
 const customPatterns = talisman?.plan?.verification_patterns || []
 // SECURITY: Validate each field against safe character set before shell interpolation
-// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards)
-// NOTE: This pattern is duplicated in arc.md and plan.md.
-// If changed, update ALL three files + talisman.example.yml schema comments.
+// Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN — see security-patterns.md
+// Also in: plan.md, arc.md, mend.md. Canonical source: security-patterns.md
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -796,6 +797,156 @@ for (const pattern of customPatterns) {
 // Report — non-blocking, report to user but don't halt
 if (checks.length > 0) {
   warn("Verification warnings:\n" + checks.join("\n"))
+}
+```
+
+### Phase 4.3: Doc-Consistency Check (orchestrator-only, non-blocking)
+
+After the ward check passes, run lightweight doc-consistency checks to detect version/count drift between source-of-truth files and their downstream targets. Uses the same extractor algorithm as arc.md Phase 5.5, but scoped to files committed during this work session.
+
+**Inputs**: committedFiles (from Phase 3.5 commit broker or git diff), talisman (re-read, not cached)
+**Outputs**: PASS/DRIFT/SKIP results appended to work-summary.md
+**Preconditions**: Ward check passed (Phase 4), all workers completed
+**Error handling**: DRIFT is non-blocking (warn). Extraction failure → SKIP with reason. Talisman parse error → fall back to defaults.
+
+```javascript
+// Phase 4.3: Doc-Consistency Check (orchestrator-only)
+// Runs AFTER final ward pass (not between ward attempts).
+// If ward fails and fixer is summoned, Phase 4.3 waits until fixer completes.
+
+// Read talisman config — see security-patterns.md for validators
+let consistencyChecks
+try {
+  const talisman = readTalisman()
+  consistencyChecks = talisman?.work?.consistency?.checks
+    || talisman?.arc?.consistency?.checks  // Fallback: reuse arc checks
+    || DEFAULT_CONSISTENCY_CHECKS
+} catch (e) {
+  warn(`Phase 4.3: talisman parse error — using defaults: ${e.message}`)
+  consistencyChecks = DEFAULT_CONSISTENCY_CHECKS
+}
+
+// Security patterns: SAFE_PATH_PATTERN, SAFE_REGEX_PATTERN_CC — see security-patterns.md
+const SAFE_PATH_PATTERN_43 = /^[a-zA-Z0-9._\-\/]+$/
+const SAFE_REGEX_PATTERN_CC_43 = /^[a-zA-Z0-9._\-\/ \\\[\]{}^+?*]+$/
+const SAFE_GLOB_PATH_43 = /^[a-zA-Z0-9._\-\/*]+$/
+const VALID_EXTRACTORS_43 = ["glob_count", "regex_capture", "json_field", "line_count"]
+
+// Derive committedFiles from patch metadata or git diff
+const committedFiles43 = []
+if (typeof committedTaskIds !== 'undefined' && committedTaskIds.size > 0) {
+  for (const taskId of committedTaskIds) {
+    try {
+      const meta = Read(`tmp/work/${timestamp}/patches/${taskId}.json`)
+      if (meta?.files) committedFiles43.push(...meta.files)
+    } catch (e) { /* skip missing patch metadata */ }
+  }
+} else {
+  const diffResult = Bash(`git diff --name-only "${defaultBranch}...HEAD" 2>/dev/null`)
+  committedFiles43.push(...diffResult.stdout.trim().split('\n').filter(f => f.length > 0))
+}
+const uniqueCommitted = [...new Set(committedFiles43)]
+
+// Short-circuit: skip if no files committed or no source files modified
+if (uniqueCommitted.length === 0) {
+  log("Doc-consistency: no files committed — skipping")
+  // Append: "Doc-consistency: SKIP (no files committed)"
+} else {
+  const sourceFiles = consistencyChecks.map(c => c.source.file)
+  const modifiedSources = uniqueCommitted.filter(f => sourceFiles.includes(f))
+
+  if (modifiedSources.length === 0) {
+    log("Doc-consistency: no source files modified — skipping")
+    // Append: "Doc-consistency: SKIP (no sources modified)"
+  } else {
+    // Run extractor-based checks (same algorithm as arc.md Phase 5.5 STEP 4.5)
+    // Security pattern: FORBIDDEN_KEYS — see security-patterns.md (hoisted above loop)
+    const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+    const results43 = []
+    for (const check of consistencyChecks) {
+      if (!check.name || !check.source || !Array.isArray(check.targets)) {
+        results43.push({ name: check.name || "unknown", status: "SKIP", reason: "Malformed check" })
+        continue
+      }
+      const pathValidator = check.source.extractor === "glob_count" ? SAFE_GLOB_PATH_43 : SAFE_PATH_PATTERN_43
+      if (!pathValidator.test(check.source.file)) {
+        results43.push({ name: check.name, status: "SKIP", reason: "Unsafe source path" })
+        continue
+      }
+      // Path traversal and absolute path check (SAFE_PATH_PATTERN does not block ..)
+      if (check.source.file.includes('..') || check.source.file.startsWith('/')) {
+        results43.push({ name: check.name, status: "SKIP", reason: "Path traversal or absolute path in source" })
+        continue
+      }
+      if (!VALID_EXTRACTORS_43.includes(check.source.extractor)) {
+        results43.push({ name: check.name, status: "SKIP", reason: "Invalid extractor" })
+        continue
+      }
+
+      // Extract source value (same logic as arc Phase 5.5)
+      let sourceValue = null
+      try {
+        if (check.source.extractor === "json_field") {
+          const content = Read(check.source.file)
+          const parsed = JSON.parse(content)
+          sourceValue = String(check.source.field.split('.').reduce((obj, key) => {
+            if (FORBIDDEN_KEYS.has(key)) throw new Error(`Forbidden path key: ${key}`)
+            return obj[key]
+          }, parsed) ?? "")
+        } else if (check.source.extractor === "glob_count") {
+          const globResult = Bash(`ls -1 ${check.source.file} 2>/dev/null | wc -l`)
+          sourceValue = globResult.stdout.trim()
+        } else if (check.source.extractor === "line_count") {
+          const lcResult = Bash(`wc -l < "${check.source.file}" 2>/dev/null`)
+          sourceValue = lcResult.stdout.trim()
+        } else if (check.source.extractor === "regex_capture") {
+          if (!check.source.pattern || !SAFE_REGEX_PATTERN_CC_43.test(check.source.pattern)) {
+            results43.push({ name: check.name, status: "SKIP", reason: "Unsafe source regex" })
+            continue
+          }
+          const rgResult = Bash(`rg --no-messages -o -- "${check.source.pattern}" "${check.source.file}" | head -1`)
+          sourceValue = rgResult.stdout.trim()
+        }
+      } catch (e) {
+        results43.push({ name: check.name, status: "SKIP", reason: `Extraction failed: ${e.message}` })
+        continue
+      }
+
+      if (!sourceValue) {
+        results43.push({ name: check.name, status: "SKIP", reason: "Source value empty" })
+        continue
+      }
+
+      // Compare against targets
+      for (const target of check.targets) {
+        if (!target.path || !SAFE_PATH_PATTERN_43.test(target.path)) continue
+        if (target.pattern && !SAFE_REGEX_PATTERN_CC_43.test(target.pattern)) continue
+        let targetStatus = "SKIP"
+        try {
+          if (target.pattern) {
+            const tResult = Bash(`rg --no-messages -o -- "${target.pattern}" "${target.path}" 2>/dev/null | head -1`)
+            targetStatus = tResult.stdout.trim().includes(sourceValue) ? "PASS" : "DRIFT"
+          } else {
+            const gResult = Bash(`rg --no-messages -l "${sourceValue}" "${target.path}" 2>/dev/null`)
+            targetStatus = gResult.stdout.trim().length > 0 ? "PASS" : "DRIFT"
+          }
+        } catch (e) { targetStatus = "SKIP" }
+        results43.push({ name: `${check.name}→${target.path}`, status: targetStatus, sourceValue })
+      }
+    }
+
+    // Report results
+    const driftCount = results43.filter(r => r.status === "DRIFT").length
+    const passCount = results43.filter(r => r.status === "PASS").length
+    if (driftCount > 0) {
+      warn(`Doc-consistency: ${driftCount} drift(s) detected`)
+      for (const r of results43.filter(r => r.status === "DRIFT")) {
+        warn(`  DRIFT: ${r.name} (source: "${r.sourceValue}")`)
+      }
+    }
+    // Append to work-summary.md: "Doc-consistency: {PASS|WARN} ({passCount} pass, {driftCount} drift)"
+    // Note: may be superseded by arc Phase 5.5 when invoked via /rune:arc
+  }
 }
 ```
 
@@ -831,8 +982,8 @@ if (codexAvailable && !codexDisabled) {
     const rawMaxDiff = Number(talisman?.codex?.work_advisory?.max_diff_size)
     const maxDiffSize = Math.max(1000, Math.min(50000, Number.isFinite(rawMaxDiff) ? rawMaxDiff : 15000))
 
-    // SEC-001: Validate codex model and reasoning against allowlists before shell interpolation
-    const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
+    // Security pattern: CODEX_MODEL_ALLOWLIST — see security-patterns.md
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
       ? talisman.codex.model
@@ -887,18 +1038,21 @@ if (codexAvailable && !codexDisabled) {
            - Include plan content (truncated to 6000 chars) and diff
            - Mark content sections as UNTRUSTED with nonces
            Write("tmp/work/${timestamp}/codex-prompt.txt", promptContent)
-        7. Run codex exec on the temp file:
-           Bash: timeout 300 codex exec \\
+        7. Read prompt and run codex exec:
+           // SEC-005: Use Read tool to load prompt content, avoiding $(cat) command substitution
+           // which could execute shell metacharacters embedded in the prompt file.
+           const codexPrompt = Read("tmp/work/${timestamp}/codex-prompt.txt")
+           Bash: timeout 600 codex exec \\
              -m "${codexModel}" \\
              --config model_reasoning_effort="${codexReasoning}" \\
              --sandbox read-only \\
              --full-auto \\
              --skip-git-repo-check \\
              --json \\
-             "$(cat "\${CLAUDE_PROJECT_DIR}/tmp/work/${timestamp}/codex-prompt.txt")" 2>/dev/null | \\
+             "${codexPrompt}" 2>/dev/null | \\
              jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
         8. Classify errors (see codex-detection.md ## Runtime Error Classification):
-           - Exit 124 → timeout: log "timeout after 5 min — reduce context_budget in talisman.yml"
+           - Exit 124 → timeout: log "timeout after 10 min — reduce context_budget in talisman.yml"
            - stderr "auth"/"not authenticated" → log "authentication required — run \`codex login\`"
            - stderr "rate limit"/"429" → log "API rate limit — try again later"
            - stderr "network"/"connection" → log "network error — check internet connection"
@@ -940,9 +1094,9 @@ if (codexAvailable && !codexDisabled) {
       run_in_background: true
     })
 
-    // Monitor: wait for codex-advisory to complete (max 6 min — codex timeout is 5 min + overhead)
+    // Monitor: wait for codex-advisory to complete (max 11 min — codex timeout is 10 min + overhead)
     const codexStart = Date.now()
-    const CODEX_TIMEOUT = 360_000  // 6 minutes
+    const CODEX_TIMEOUT = 660_000  // 11 minutes
     while (true) {
       const tasks = TaskList()
       const codexTask = tasks.find(t => t.subject?.includes("Codex Advisory"))
@@ -1000,9 +1154,11 @@ const allTasks = TaskList()
 const completedTasks = allTasks.filter(t => t.status === "completed")
 const blockedTasks = allTasks.filter(t => t.status === "pending" && t.blockedBy?.length > 0)
 
-// 1. Shutdown all workers
-for (const worker of allWorkers) {
-  SendMessage({ type: "shutdown_request", recipient: worker })
+// 1. Shutdown all workers + utility teammates (codex-advisory from Phase 4.5)
+const allTeammates = [...allWorkers]
+if (codexAdvisorySummoned) allTeammates.push("codex-advisory")
+for (const teammate of allTeammates) {
+  SendMessage({ type: "shutdown_request", recipient: teammate })
 }
 
 // 2. Wait for approvals (max 30s)

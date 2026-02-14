@@ -12,6 +12,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
 | **ash-guide** | Agent invocation reference and Ash selection guide |
 | **elicitation** | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
+| **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config, security prerequisites |
 
 ## Commands
 
@@ -76,7 +77,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | Agent | Purpose |
 |-------|---------|
 | runebinder | Aggregates Ash findings into TOME.md |
-| decree-arbiter | Technical soundness review for plans (8-dimension evaluation) |
+| decree-arbiter | Technical soundness review for plans (9-dimension evaluation) |
 | truthseer-validator | Audit coverage validation (Roundtable Phase 5.5) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
@@ -109,13 +110,13 @@ The Tarnished is the lead agent in every team. Machine identifier: `team-lead`.
 
 Each Ash is an Agent Teams teammate with its own 200k context window. An Ash embeds multiple review agent perspectives into a single teammate to reduce team size.
 
-Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents across 3 Ashes). Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts. Codex Oracle wraps `codex exec` via Bash to provide cross-model verification using GPT-5.3-codex. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 8 perspectives via 7 dedicated agents).
+Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents distributed across 3 Ashes — see circle-registry.md for mapping). Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts. Codex Oracle wraps `codex exec` via Bash to provide cross-model verification using GPT-5.3-codex. The "Perspectives" column lists review focus areas aligned with dedicated agent files (e.g., Forge Warden's 8 perspectives map to 8 agents in `agents/review/`). Duplication detection (mimic-detector) is part of Forge Warden, not Pattern Weaver.
 
 | Ash | Perspectives | Agent Source | When Summoned |
 |-----------|-------------|-------------|-------------|
-| **Forge Warden** | Backend code quality, architecture, performance, logic, testing, type safety, missing logic, design anti-patterns, data integrity | Dedicated agent files | Backend, infra, config, or unclassified files changed |
+| **Forge Warden** | Architecture, performance, logic, testing, type safety, missing logic, design anti-patterns, data integrity | Dedicated agent files | Backend, infra, config, or unclassified files changed |
 | **Ward Sentinel** | All security perspectives | Dedicated agent files | ALWAYS (+ priority on `.claude/` files) |
-| **Pattern Weaver** | Simplicity, patterns, duplication, logic, dead code, complexity, TDD & test quality, async & concurrency | Dedicated agent files | ALWAYS |
+| **Pattern Weaver** | Simplicity, patterns, logic, dead code, complexity, TDD & test quality, async & concurrency | Dedicated agent files | ALWAYS |
 | **Glyph Scribe** | Type safety, components, performance, hooks, accessibility | Inline perspectives | Frontend files changed |
 | **Knowledge Keeper** | Accuracy, completeness, consistency, readability, security | Inline perspectives | Docs changed (>= threshold) or `.claude/` files changed |
 | **Codex Oracle** | Cross-model security, logic, quality (via GPT-5.3-codex) | Inline perspectives (codex exec) | `codex` CLI available AND `talisman.codex.disabled` is not true |
@@ -141,7 +142,7 @@ The unified review summary after deduplication and prioritization. Findings use 
 
 ### Decree Arbiter
 
-Utility agent that reviews plans for technical soundness across 8 dimensions (architecture fit, feasibility, security/performance risks, dependency impact, pattern alignment, internal consistency, design anti-pattern risk, consistency convention). Uses Decree Trace evidence format.
+Utility agent that reviews plans for technical soundness across 9 dimensions (architecture fit, feasibility, security/performance risks, dependency impact, pattern alignment, internal consistency, design anti-pattern risk, consistency convention, documentation impact). Uses Decree Trace evidence format.
 
 ### Remembrance Channel
 

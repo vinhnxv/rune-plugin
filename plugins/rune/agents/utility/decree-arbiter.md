@@ -54,7 +54,7 @@ Before writing ANY findings, you MUST:
 
 Include `codebase_files_read: N` in your output. If 0, your output is flagged as unreliable.
 
-## 8-Dimension Evaluation Framework
+## 9-Dimension Evaluation Framework
 
 | Dimension | What It Checks | Evidence Method |
 |---|---|---|
@@ -66,6 +66,7 @@ Include `codebase_files_read: N` in your output. If 0, your output is flagged as
 | Internal Consistency | Do claims match across sections? Counts correct? | Cross-reference sections within the plan |
 | Design Anti-Pattern Risk | Does the proposed design introduce known architectural smells? | Pattern match against anti-pattern catalog |
 | Consistency Convention | Does the plan establish or violate naming, error, API, and data conventions? | Compare against existing codebase conventions |
+| Documentation Impact | Does the plan identify all files needing doc updates? Version bumps? CHANGELOG? | Cross-reference proposed changes against Documentation Impact section |
 
 ### Internal Consistency Checks
 
@@ -165,6 +166,10 @@ No judgment calls — use this table:
 - **Decree Trace:** [evidence]
 
 ## Consistency Convention
+**Verdict:** PASS | CONCERN | BLOCK
+- **Decree Trace:** [evidence]
+
+## Documentation Impact
 **Verdict:** PASS | CONCERN | BLOCK
 - **Decree Trace:** [evidence]
 
