@@ -20,11 +20,11 @@ Canonical detection logic for the Codex Oracle built-in Ash. Used by review, aud
      a. Log: "Codex Oracle: CLI found but cannot execute — skipping (reinstall: npm install -g @openai/codex)"
      b. Skip Codex Oracle entirely
 5. Check authentication status:
-   Bash: codex auth status 2>&1
+   Bash: codex login status 2>&1
    - If exit code != 0 OR output contains "not logged in" / "not authenticated":
-     a. Log: "Codex Oracle: not authenticated — skipping (run: codex auth login)"
+     a. Log: "Codex Oracle: not authenticated — skipping (run: codex login)"
      b. Skip Codex Oracle entirely
-   - Note: If `codex auth status` is not a valid subcommand (older CLI versions),
+   - Note: If `codex login status` is not a valid subcommand (older CLI versions),
      fall through and let step 7 catch auth errors at runtime.
 6. Check jq availability (needed for JSONL parsing of Codex output):
    Bash: command -v jq >/dev/null 2>&1 && echo "available" || echo "unavailable"
@@ -48,7 +48,7 @@ user-facing message so the user knows how to fix it:
 ```
 | Exit / stderr pattern             | User message                                                        |
 |-----------------------------------|---------------------------------------------------------------------|
-| "not authenticated" / "auth"      | "Codex Oracle: authentication required — run `codex auth login`"    |
+| "not authenticated" / "auth"      | "Codex Oracle: authentication required — run `codex login`"         |
 | "rate limit" / "429"              | "Codex Oracle: API rate limit — try again later or reduce batches"  |
 | "model not found" / "invalid"     | "Codex Oracle: model unavailable — check talisman.codex.model"      |
 | "network" / "connection" / "ECON" | "Codex Oracle: network error — check internet connection"           |

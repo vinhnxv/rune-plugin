@@ -1,0 +1,167 @@
+version: 1
+
+# ──────────────────────────────────────────────
+# Rune Gaze — File classification overrides
+# ──────────────────────────────────────────────
+rune-gaze:
+  backend_extensions:
+    - .py
+    - .go
+    - .rs
+    - .rb
+
+  frontend_extensions:
+    - .tsx
+    - .ts
+    - .jsx
+
+  skip_patterns:
+    - "**/migrations/**"
+    - "**/*.generated.ts"
+    - "**/vendor/**"
+
+  always_review:
+    - "CLAUDE.md"
+    - ".claude/**/*.md"
+
+# ──────────────────────────────────────────────
+# Settings — Global behavior adjustments
+# ──────────────────────────────────────────────
+settings:
+  max_ashes: 8
+  dedup_hierarchy:
+    - SEC
+    - BACK
+    - DOC
+    - QUAL
+    - FRONT
+    - CDX
+  verification:
+    layer_2_custom_agents: true
+
+# ──────────────────────────────────────────────
+# Defaults
+# ──────────────────────────────────────────────
+defaults:
+  disable_ashes: []
+
+# ──────────────────────────────────────────────
+# Echoes — Memory persistence
+# ──────────────────────────────────────────────
+echoes:
+  version_controlled: false
+
+# ──────────────────────────────────────────────
+# Work — Swarm execution settings
+# ──────────────────────────────────────────────
+# This is a documentation-only plugin (no compiled code / test suite).
+# Ward commands validate markdown structure and cross-file consistency.
+work:
+  ward_commands:
+    - "echo 'ward: checking plugin.json sync' && diff <(jq -r .version plugins/rune/.claude-plugin/plugin.json) <(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)"
+  max_workers: 3
+  approve_timeout: 180
+  commit_format: "rune: {subject} [ward-checked]"
+  skip_branch_check: false
+  branch_prefix: "rune/work"
+  pr_monitoring: false
+  co_authors: []
+
+# ──────────────────────────────────────────────
+# Forge — Forge Gaze selection overrides
+# ──────────────────────────────────────────────
+# Defaults are fine for this project. Uncomment to override.
+# forge:
+#   threshold: 0.30
+#   max_per_section: 3
+#   max_total_agents: 8
+
+# ──────────────────────────────────────────────
+# Plan — Verification gate patterns
+# ──────────────────────────────────────────────
+plan:
+  verification_patterns:
+    # Catch stale codex auth references (the bug we just fixed in v1.18.1)
+    - regex: 'codex auth (status|login)'
+      paths: "plugins/rune/"
+      expect_zero: true
+      description: "No stale codex auth references (correct: codex login / codex login status)"
+      phase: ["plan", "post-work"]
+
+    # Catch stale --skip-forge flag (renamed to --no-forge in v1.13.0)
+    - regex: '--skip-forge'
+      paths: "plugins/rune/"
+      exclusions: "--glob '!plugins/rune/CHANGELOG.md'"
+      expect_zero: true
+      description: "Flag renamed to --no-forge"
+      phase: ["plan", "post-work"]
+
+# ──────────────────────────────────────────────
+# Codex Oracle — Cross-model verification (v1.18.0+)
+# ──────────────────────────────────────────────
+codex:
+  disabled: false
+  model: "gpt-5.3-codex"
+  reasoning: "high"
+  sandbox: "read-only"
+  context_budget: 20
+  confidence_threshold: 80
+  workflows: [review, audit, plan, forge, work]
+  work_advisory:
+    enabled: true
+    max_diff_size: 15000
+  verification:
+    enabled: true
+    fuzzy_match_threshold: 0.7
+    cross_model_bonus: 0.15
+
+# ──────────────────────────────────────────────
+# Arc — Cross-file consistency checks (v1.17.0+)
+# ──────────────────────────────────────────────
+arc:
+  consistency:
+    checks:
+      # Version must match between plugin.json and marketplace.json
+      - name: version_sync
+        description: "Plugin version in plugin.json must match marketplace.json"
+        source:
+          file: "plugins/rune/.claude-plugin/plugin.json"
+          extractor: json_field
+          field: "version"
+        targets:
+          - path: ".claude-plugin/marketplace.json"
+            pattern: '"version": "{value}"'
+        phase: ["plan", "post-work", "arc"]
+
+      # Review agent count (16) must match CLAUDE.md
+      - name: review_agent_count
+        description: "Number of review agent files must match CLAUDE.md documentation"
+        source:
+          file: "plugins/rune/agents/review/*.md"
+          extractor: glob_count
+        targets:
+          - path: "plugins/rune/CLAUDE.md"
+            pattern: "{value} specialized review agents"
+        phase: ["plan", "post-work"]
+
+      # Command count (13) must match CLAUDE.md
+      - name: command_count
+        description: "Number of command files must match CLAUDE.md documentation"
+        source:
+          file: "plugins/rune/commands/*.md"
+          extractor: glob_count
+        targets:
+          - path: "plugins/rune/CLAUDE.md"
+            pattern: "{value} commands"
+        phase: ["plan", "post-work"]
+
+      # Skill count (6) must match CLAUDE.md
+      - name: skill_count
+        description: "Number of skill directories must match CLAUDE.md documentation"
+        source:
+          file: "plugins/rune/skills/*/SKILL.md"
+          extractor: glob_count
+        targets:
+          - path: "plugins/rune/CLAUDE.md"
+            pattern: "{value} skills"
+        phase: ["plan", "post-work"]

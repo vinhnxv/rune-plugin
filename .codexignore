@@ -1,0 +1,11 @@
+# .codexignore — Prevent Codex from reading sensitive files
+# Required for codex exec --full-auto (security prerequisite)
+
+# Secrets and credentials
+*.pem
+*.key
+*.p12
+
+# OS files
+.DS_Store
+Thumbs.db

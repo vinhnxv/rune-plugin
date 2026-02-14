@@ -407,7 +407,7 @@ If `codex` CLI is available and `codex.workflows` includes `"plan"`, summon Code
 **Inputs**: feature (string, from Phase 0), timestamp (string, from Phase 1A), talisman (object, from readTalisman()), codexAvailable (boolean, from CLI detection)
 **Outputs**: `tmp/plans/{timestamp}/research/codex-analysis.md`
 **Preconditions**: Codex detection passes (see `codex-detection.md`), `codex.workflows` includes "plan"
-**Error handling**: codex exec timeout (5 min) → write "Codex research timed out" to output, mark complete. codex exec failure → classify error and write user-facing message (see `codex-detection.md` ## Runtime Error Classification), mark complete. Auth error → "run `codex auth login`". jq not available → skip JSONL parsing, capture raw output.
+**Error handling**: codex exec timeout (5 min) → write "Codex research timed out" to output, mark complete. codex exec failure → classify error and write user-facing message (see `codex-detection.md` ## Runtime Error Classification), mark complete. Auth error → "run `codex login`". jq not available → skip JSONL parsing, capture raw output.
 
 ```javascript
 // CANONICAL ALGORITHM: See codex-detection.md (roundtable-circle/references/codex-detection.md)
@@ -1232,7 +1232,7 @@ If `codex` CLI is available and `codex.workflows` includes `"plan"`, add Codex O
 **Inputs**: planPath (string, from Phase 0), timestamp (string, from Phase 1A), talisman (object), codexAvailable (boolean)
 **Outputs**: `tmp/plans/{timestamp}/codex-plan-review.md` with `[CDX-PLAN-NNN]` findings
 **Preconditions**: Phase 4A scroll review complete, Codex detection passes (see `codex-detection.md`), codex.workflows includes "plan"
-**Error handling**: codex exec timeout (5 min) → skip review, log "Codex Oracle: timeout". codex exec auth failure → log "Codex Oracle: authentication required — run `codex auth login`". codex exec failure → classify error per `codex-detection.md` ## Runtime Error Classification, skip, proceed with other reviewers.
+**Error handling**: codex exec timeout (5 min) → skip review, log "Codex Oracle: timeout". codex exec auth failure → log "Codex Oracle: authentication required — run `codex login`". codex exec failure → classify error per `codex-detection.md` ## Runtime Error Classification, skip, proceed with other reviewers.
 
 ```javascript
 // Codex Oracle plan reviewer — optional, parallel with decree-arbiter and knowledge-keeper

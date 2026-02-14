@@ -806,7 +806,7 @@ After the Post-Ward Verification Checklist passes, optionally run Codex Oracle a
 **Inputs**: planPath (string, from Phase 0), timestamp (string, from Phase 1), defaultBranch (string, from Phase 0.5), talisman (object, from readTalisman()), checks (string[], from Post-Ward Verification Checklist)
 **Outputs**: `tmp/work/{timestamp}/codex-advisory.md` with `[CDX-WORK-NNN]` warnings (INFO-level)
 **Preconditions**: Post-Ward Verification Checklist complete, Codex detection passes (see `codex-detection.md`), codex.workflows includes "work", codex.work_advisory.enabled is not false
-**Error handling**: codex exec errors are classified per `codex-detection.md` ## Runtime Error Classification. Timeout → log with suggestion to reduce context_budget. Auth error → log with `codex auth login` guidance. Network error → log with connectivity check. All errors non-fatal — pipeline continues without Codex findings. jq not available → capture raw output.
+**Error handling**: codex exec errors are classified per `codex-detection.md` ## Runtime Error Classification. Timeout → log with suggestion to reduce context_budget. Auth error → log with `codex login` guidance. Network error → log with connectivity check. All errors non-fatal — pipeline continues without Codex findings. jq not available → capture raw output.
 
 ```javascript
 // Phase 4.5: Codex Advisory — optional, non-blocking
@@ -876,10 +876,10 @@ if (codexAvailable && !codexDisabled) {
            - If "unavailable": write "Codex CLI not available — skipping (install: npm install -g @openai/codex)" to output, mark complete, exit
         3. Validate codex can execute: Bash("codex --version 2>&1")
            - If exit code != 0: write "Codex CLI found but cannot execute — reinstall: npm install -g @openai/codex" to output, mark complete, exit
-        4. Check authentication: Bash("codex auth status 2>&1")
+        4. Check authentication: Bash("codex login status 2>&1")
            - If exit code != 0 or output contains "not logged in" / "not authenticated":
-             write "Codex not authenticated — run \`codex auth login\` to set up your OpenAI account" to output, mark complete, exit
-           - If "codex auth status" is not a valid subcommand, skip this check (older CLI)
+             write "Codex not authenticated — run \`codex login\` to set up your OpenAI account" to output, mark complete, exit
+           - If "codex login status" is not a valid subcommand, skip this check (older CLI)
         5. Gather context:
            a. Read the plan: Read("${planPath}")
            b. Get the diff: Bash("git diff --stat \\"${defaultBranch}\\"...HEAD && git diff \\"${defaultBranch}\\"...HEAD -- '*.py' '*.ts' '*.js' '*.rs' '*.go' '*.rb' | head -c ${maxDiffSize}")
@@ -899,7 +899,7 @@ if (codexAvailable && !codexDisabled) {
              jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
         8. Classify errors (see codex-detection.md ## Runtime Error Classification):
            - Exit 124 → timeout: log "timeout after 5 min — reduce context_budget in talisman.yml"
-           - stderr "auth"/"not authenticated" → log "authentication required — run \`codex auth login\`"
+           - stderr "auth"/"not authenticated" → log "authentication required — run \`codex login\`"
            - stderr "rate limit"/"429" → log "API rate limit — try again later"
            - stderr "network"/"connection" → log "network error — check internet connection"
            - Other non-zero → log "exec failed (exit {code}) — run \`codex exec\` manually to debug"
