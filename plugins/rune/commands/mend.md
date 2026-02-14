@@ -502,15 +502,29 @@ if (skippedCrossFile.length === 0) {
     // Format-aware: each file may use different formatting
     const editLog = []  // [{file, old_string, new_string}] for atomic rollback
 
+    // deriveFix: Orchestrator-provided function that determines the minimal edit
+    // for a single file based on finding guidance + file content.
+    // Inputs: finding (with .guidance, .id), fileContent (string), filePath (string)
+    // Returns: { old_string, new_string } for Edit tool, or { old_string: null } if no edit needed.
+    // The orchestrator uses the finding's fix guidance text and the file's current content
+    // to identify the exact string to replace and its replacement.
+    function deriveFix(finding, fileContent, filePath) {
+      // Extract the pattern/value to find from finding guidance
+      // Match it against the file content to get the exact old_string
+      // Compute the new_string based on the fix guidance
+      // Return { old_string, new_string } or { old_string: null } if not applicable
+      const guidance = finding.guidance || ""
+      // Implementation: orchestrator uses LLM reasoning constrained to:
+      // 1. old_string MUST exist verbatim in fileContent
+      // 2. new_string MUST differ from old_string
+      // 3. Edit scope MUST be minimal (no surrounding context changes)
+      return { old_string: /* matched text */, new_string: /* replacement */ }
+    }
+
     // Apply the fix based on finding guidance
-    // The orchestrator determines the correct replacement for each file
-    // based on the finding's fix guidance and the file's existing format
     let fixApplied = true
     for (const file of fileSet) {
       try {
-        // Derive old_string/new_string from finding guidance + file content
-        // The orchestrator reads the finding's fix guidance and the file's current content,
-        // then determines the minimal edit (old_string → new_string) to apply the fix.
         const { old_string, new_string } = deriveFix(finding, fileContents[file], file)
         if (!old_string || !new_string || old_string === new_string) {
           warn(`Finding ${finding.id}: no actionable edit for ${file} — skipping`)
