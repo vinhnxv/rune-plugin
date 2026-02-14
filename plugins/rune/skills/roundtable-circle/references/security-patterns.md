@@ -31,7 +31,7 @@
 **Threat model**: Like SAFE_PATH_PATTERN but allows `*` for glob expansion.
 MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glob expansion.
 **ReDoS safe**: Yes
-**Consumers**: arc.md (glob_count extractor)
+**Consumers**: arc.md (glob_count extractor), work.md (Phase 4.3 glob_count extractor)
 
 ## Regex Validators
 
@@ -79,7 +79,7 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 ### FORBIDDEN_KEYS
 **Value**: `Set(['__proto__', 'constructor', 'prototype'])`
 **Threat model**: Prevents prototype pollution in JSON dot-path traversal.
-**Consumers**: arc.md (consistency extractor), mend.md (consistency extractor)
+**Consumers**: arc.md (consistency extractor), mend.md (consistency extractor), work.md (Phase 4.3 consistency extractor)
 
 ## Branch Validators
 

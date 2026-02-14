@@ -423,6 +423,7 @@ if (codexAvailable && !codexDisabled) {
     // SINGLE DEFINITION — used by BOTH Phase 1C and Phase 4C Codex invocations.
     const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+    // Security pattern: SAFE_FEATURE_PATTERN — see security-patterns.md
     const SAFE_FEATURE_PATTERN = /^[a-zA-Z0-9 ._\-]+$/
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
     const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "high"

@@ -343,7 +343,7 @@ while (not all tasks completed):
 tasks = TaskList()
 ```
 
-## Phase 5: RESOLUTION REPORT
+## Phase 5: WARD CHECK
 
 ### Ward Check (MEND-1)
 
@@ -438,10 +438,14 @@ After all single-file fixers complete AND ward check passes, the orchestrator pr
 ```javascript
 // Phase 5.5: Cross-File Mend (orchestrator-only)
 
+// Persist edit log at mend-level scope for Phase 5.6 rollback access
+const crossFileEditLog = []
+
 // 1. Collect SKIPPED findings with "cross-file dependency" reason
 const skippedCrossFile = resolutionEntries
   .filter(e => e.status === "SKIPPED" && e.reason.includes("cross-file"))
-  .slice(0, 5)  // Cap at 5 findings
+  .sort((a, b) => ({ P1: 1, P2: 2, P3: 3 }[a.severity] || 9) - ({ P1: 1, P2: 2, P3: 3 }[b.severity] || 9))
+  .slice(0, 5)  // Cap at 5 findings (P1 first after sort)
 
 if (skippedCrossFile.length === 0) {
   log("Cross-file mend: no SKIPPED cross-file findings — skipping Phase 5.5")
@@ -450,7 +454,11 @@ if (skippedCrossFile.length === 0) {
   for (const finding of skippedCrossFile) {
     // Parse relatedFiles from fixer SKIPPED message
     // Format: "SKIPPED: {id} (reason: cross-file dependency, needs: [file1, file2])"
-    const fileSet = finding.relatedFiles || []
+    const needsMatch = (finding.reason || "").match(/needs:\s*\[([^\]]+)\]/)
+    finding.relatedFiles = needsMatch
+      ? needsMatch[1].split(',').map(f => f.trim()).filter(f => f.length > 0)
+      : []
+    const fileSet = finding.relatedFiles
     if (fileSet.length === 0 || fileSet.length > 5) {
       finding.status = "SKIPPED"
       finding.reason = fileSet.length > 5
@@ -461,7 +469,11 @@ if (skippedCrossFile.length === 0) {
 
     // Validate all file paths — see security-patterns.md: SAFE_PATH_PATTERN
     // Security pattern: SAFE_PATH_PATTERN — see security-patterns.md
-    const allPathsSafe = fileSet.every(f => /^[a-zA-Z0-9._\-\/]+$/.test(f))
+    const allPathsSafe = fileSet.every(f =>
+      /^[a-zA-Z0-9._\-\/]+$/.test(f) &&
+      !f.includes('..') &&
+      !f.startsWith('/')
+    )
     if (!allPathsSafe) {
       warn(`Finding ${finding.id}: unsafe file path in relatedFiles — SKIPPED`)
       finding.status = "SKIPPED"
@@ -496,8 +508,16 @@ if (skippedCrossFile.length === 0) {
     let fixApplied = true
     for (const file of fileSet) {
       try {
-        // Apply fix (orchestrator determines correct Edit per file)
-        // editLog.push({ file, old_string, new_string })
+        // Derive old_string/new_string from finding guidance + file content
+        // The orchestrator reads the finding's fix guidance and the file's current content,
+        // then determines the minimal edit (old_string → new_string) to apply the fix.
+        const { old_string, new_string } = deriveFix(finding, fileContents[file], file)
+        if (!old_string || !new_string || old_string === new_string) {
+          warn(`Finding ${finding.id}: no actionable edit for ${file} — skipping`)
+          continue
+        }
+        Edit(file, { old_string, new_string })
+        editLog.push({ file, old_string, new_string })
       } catch (e) {
         fixApplied = false
         break
@@ -514,6 +534,8 @@ if (skippedCrossFile.length === 0) {
       continue
     }
 
+    // Persist edit log for Phase 5.6 rollback access
+    crossFileEditLog.push(...editLog)
     finding.status = "FIXED_CROSS_FILE"
   }
 }
@@ -536,12 +558,18 @@ if (crossFileFixed.length === 0) {
     const result = Bash(ward.command)
     if (result.exitCode !== 0) {
       warn(`Phase 5.6: ward "${ward.name}" failed after cross-file fixes`)
-      // Revert all cross-file fixes (conservative approach)
+      // Revert all cross-file file edits using persisted edit log
+      for (const edit of crossFileEditLog.reverse()) {
+        try { Edit(edit.file, { old_string: edit.new_string, new_string: edit.old_string }) } catch (e) {
+          warn(`Phase 5.6: rollback failed for ${edit.file}: ${e.message}`)
+        }
+      }
+      // Mark all cross-file findings as SKIPPED
       for (const finding of crossFileFixed) {
         finding.status = "SKIPPED"
         finding.reason = "cross-file fix reverted — ward check failed"
       }
-      // No bisection for cross-file fixes — simply revert
+      // No bisection for cross-file fixes — simply revert all
       break
     }
   }
@@ -595,7 +623,7 @@ if (modifiedSources.length === 0) {
 else {
   // Security pattern: SAFE_PATH_PATTERN — see security-patterns.md
   const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
-  // Separate validator for consistency check patterns — no pipe, parens, dollar
+  // Security pattern: SAFE_CONSISTENCY_PATTERN — see security-patterns.md
   // NOTE: bare * is intentionally allowed here (unlike SAFE_REGEX_PATTERN) because
   // consistency check patterns are used for glob matching (e.g., 'agents/review/*.md'),
   // NOT as regex patterns. Glob * is safe; regex * would cause ReDoS.
@@ -758,6 +786,7 @@ else {
 }
 
 // --- Extractors (uses arc.md taxonomy: json_field, regex_capture, glob_count, line_count) ---
+// Security pattern: FORBIDDEN_KEYS — see security-patterns.md
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 function extract(content, spec) {
   if (spec.extractor === "json_field") {
@@ -842,7 +871,11 @@ TOME: {tome_path}
 <!-- /RESOLVED:CONSIST-001 -->
 ```
 
-## Phase 6: CLEANUP
+## Phase 6: RESOLUTION REPORT
+
+Generate the resolution report (see Resolution Report section below for format).
+
+## Phase 7: CLEANUP
 
 ```javascript
 // 1. Shutdown all fixers

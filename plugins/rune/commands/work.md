@@ -871,6 +871,11 @@ if (uniqueCommitted.length === 0) {
         results43.push({ name: check.name, status: "SKIP", reason: "Unsafe source path" })
         continue
       }
+      // Path traversal and absolute path check (SAFE_PATH_PATTERN does not block ..)
+      if (check.source.file.includes('..') || check.source.file.startsWith('/')) {
+        results43.push({ name: check.name, status: "SKIP", reason: "Path traversal or absolute path in source" })
+        continue
+      }
       if (!VALID_EXTRACTORS_43.includes(check.source.extractor)) {
         results43.push({ name: check.name, status: "SKIP", reason: "Invalid extractor" })
         continue
@@ -882,6 +887,7 @@ if (uniqueCommitted.length === 0) {
         if (check.source.extractor === "json_field") {
           const content = Read(check.source.file)
           const parsed = JSON.parse(content)
+          // Security pattern: FORBIDDEN_KEYS — see security-patterns.md
           const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
           sourceValue = String(check.source.field.split('.').reduce((obj, key) => {
             if (FORBIDDEN_KEYS.has(key)) throw new Error(`Forbidden path key: ${key}`)

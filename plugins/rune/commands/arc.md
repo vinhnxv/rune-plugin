@@ -681,12 +681,14 @@ for (const section of sections) {
 // Grep command files for SAFE_* or ALLOWLIST declarations without a security-patterns.md reference
 const commandFiles = Glob("plugins/rune/commands/*.md")
 for (const cmdFile of commandFiles) {
-  const content = Read(cmdFile)
+  const rawContent = Read(cmdFile)
+  // Strip fenced code blocks to avoid false positives from examples
+  const content = rawContent.replace(/```[\s\S]*?```/g, '')
   const lines = content.split('\n')
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     // Match pattern declarations: const SAFE_* = or const *_ALLOWLIST =
-    if (/const\s+(SAFE_|CODEX_\w*ALLOWLIST)/.test(line)) {
+    if (/const\s+(SAFE_|CODEX_\w*ALLOWLIST|BRANCH_RE|FORBIDDEN_KEYS|VALID_EXTRACTORS)/.test(line)) {
       // Check preceding 3 lines for security-patterns.md reference
       const context = lines.slice(Math.max(0, i - 3), i + 1).join('\n')
       if (!context.includes('security-patterns.md')) {
@@ -1061,7 +1063,7 @@ if (consistencyGuardPass) {
 }
 
 // --- STEP 4.7: Plan Section Coverage ---
-// Cross-reference plan H2/H3 headings against committed code changes
+// Cross-reference plan H2 headings against committed code changes
 let planSectionCoverageSection = ""
 
 if (diffFiles.length === 0) {
@@ -1094,13 +1096,19 @@ if (diffFiles.length === 0) {
     // Combine, filter, deduplicate
     const stopwords = new Set(['Create', 'Add', 'Update', 'Fix', 'Implement', 'Section', 'Phase', 'Check', 'Remove', 'Delete'])
     const identifiers = [...new Set([...filePaths, ...backtickIds, ...caseNames])]
-      .filter(id => id.length >= 4 && !stopwords.has(id))
+      .filter(id => id.length >= 4 && id.length <= 100 && !stopwords.has(id))
+      .filter(id => !/^\d+(\.\d+)*$/.test(id))  // Exclude version strings (e.g., 1.19.0)
+      .slice(0, 20)  // Cap identifiers per section to limit grep invocations
+
+    // Pre-validate diffFiles against SAFE_PATH_PATTERN
+    const safeDiffFiles = diffFiles.filter(f => /^[a-zA-Z0-9._\-\/]+$/.test(f) && !f.includes('..'))
 
     let status = "MISSING"
     for (const id of identifiers) {
       if (!/^[a-zA-Z0-9._\-\/]+$/.test(id)) continue
+      if (safeDiffFiles.length === 0) break
       // Check if identifier appears in any committed file
-      const grepResult = Bash(`grep -rl -- "${id}" ${diffFiles.map(f => `"${f}"`).join(' ')} 2>/dev/null`)
+      const grepResult = Bash(`rg -l --max-count 1 -- "${id}" ${safeDiffFiles.map(f => `"${f}"`).join(' ')} 2>/dev/null`)
       if (grepResult.stdout.trim().length > 0) {
         status = "ADDRESSED"
         break
