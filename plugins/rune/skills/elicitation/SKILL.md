@@ -67,8 +67,9 @@ To parse methods.csv:
    - `agents`: Split on comma → array of agent names. Empty string = applicable to any agent.
    - `topics`: Split on comma → array of keywords for scoring
 5. **Validate required fields**: `num`, `method_name`, `tier`, `phases` must be non-empty
-6. **Validate tier**: Must be `1` or `2`
-7. **Validate phase syntax**: Each phase must match pattern `command:number` (e.g., `plan:0`, `arc:7.5`)
+6. **Sanitize `method_name`**: Must match `/^[a-zA-Z0-9 '\-]+$/` (alphanumeric, spaces, apostrophes, hyphens only). Reject rows where `method_name` contains special characters, markdown formatting, or HTML tags. Log warning: `"Invalid method_name '{value}' — contains disallowed characters, skipping row"`
+7. **Validate tier**: Must be `1` or `2`
+8. **Validate phase syntax**: Each phase must match pattern `command:number` (e.g., `plan:0`, `arc:7.5`)
 
 ### Error Handling
 
@@ -78,7 +79,7 @@ To parse methods.csv:
 - Invalid phase syntax: Skip that phase entry, keep row. If ALL phase entries for a row are invalid after filtering, skip entire row with warning: `"Method {method_name} has no valid phase entries — skipping row"`
 - Empty file or unreadable: Fall back to empty registry. Log WARNING to orchestrator: `"⚠️ Elicitation registry unavailable — proceeding without method injection."` Append this warning to method selection output so auto-mode callers (forge, arc) are aware methods were not injected.
 
-**Security note**: `description` and `output_pattern` fields are display-only strings. Never interpolate them into executable contexts (shell commands, code blocks). Treat all CSV field values as untrusted when extending the registry.
+**Security note**: `method_name`, `description`, and `output_pattern` fields are display-only strings. Never interpolate them into executable contexts (shell commands, code blocks). The `method_name` field is used in agent prompts and AskUserQuestion labels — it must pass sanitization (step 6) before use. Treat all CSV field values as untrusted when extending the registry.
 
 ## Method Selection Algorithm
 
@@ -198,12 +199,12 @@ For full expansion examples, see [references/examples.md](references/examples.md
 | Category | Tier 1 Count | Tier 2 Count | Primary Phases |
 |----------|-------------|-------------|----------------|
 | collaboration | 4 | 2 | plan:0, forge:3, work:5 |
-| advanced | 2 | 0 | forge:3, plan:4 |
+| advanced | 2 | 0 | forge:3, work:5, plan:4, arc:7.5 |
 | competitive | 1 | 1 | review:6, arc:8 |
-| technical | 1 | 1 | forge:3, review:6 |
+| technical | 1 | 1 | forge:3, plan:2, review:6, arc:8 |
 | research | 1 | 0 | plan:1, forge:3 |
 | risk | 2 | 1 | plan:2.5, plan:4, review:6, arc:5.5, arc:8 |
-| core | 3 | 0 | plan:4, review:6, arc:7 |
+| core | 3 | 0 | plan:0, forge:3, plan:4, work:5, review:6, arc:7, arc:7.5 |
 | creative | 0 | 2 | plan:2, plan:2.5 |
 | philosophical | 0 | 1 | forge:3, review:6 |
 

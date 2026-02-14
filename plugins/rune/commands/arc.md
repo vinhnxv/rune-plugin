@@ -626,17 +626,18 @@ if (todos.length > 0) issues.push(`${todos.length} TODO/FIXME markers in plan pr
 // 5. Run talisman verification_patterns (if configured)
 const talisman = readTalisman()
 const customPatterns = talisman?.plan?.verification_patterns || []
-const SAFE_PATTERN = /^[a-zA-Z0-9._\-\/ *]+$/
+// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards)
+const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
+const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
-  if (!SAFE_PATTERN.test(pattern.regex) ||
-      !SAFE_PATTERN.test(pattern.paths) ||
-      (pattern.exclusions && !SAFE_PATTERN.test(pattern.exclusions))) {
+  if (!SAFE_REGEX_PATTERN.test(pattern.regex) ||
+      !SAFE_PATH_PATTERN.test(pattern.paths) ||
+      (pattern.exclusions && !SAFE_PATH_PATTERN.test(pattern.exclusions))) {
     warn(`Skipping pattern "${pattern.description}": unsafe characters`)
     continue
   }
   const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
   // NOTE: All three interpolations are quoted to prevent shell glob expansion and word splitting.
-  // SAFE_PATTERN allows * and space which are safe inside double quotes but dangerous unquoted.
   if (pattern.expect_zero && result.stdout.trim().length > 0) {
     issues.push(`Stale reference: ${pattern.description}`)
   }

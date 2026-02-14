@@ -992,13 +992,13 @@ const customPatterns = talisman?.plan?.verification_patterns || []
 
 // 2. Run custom patterns (if configured)
 // SECURITY: Validate each field against safe character set before shell interpolation
-// NOTE: '*' is allowed for glob patterns in paths/exclusions — rg handles globs safely,
-// and shell expansion of '*' in paths is intentional (talisman.yml is user-controlled config).
-const SAFE_PATTERN = /^[a-zA-Z0-9._\-\/ *]+$/
+// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards)
+const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
+const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
-  if (!SAFE_PATTERN.test(pattern.regex) ||
-      !SAFE_PATTERN.test(pattern.paths) ||
-      (pattern.exclusions && !SAFE_PATTERN.test(pattern.exclusions))) {
+  if (!SAFE_REGEX_PATTERN.test(pattern.regex) ||
+      !SAFE_PATH_PATTERN.test(pattern.paths) ||
+      (pattern.exclusions && !SAFE_PATH_PATTERN.test(pattern.exclusions))) {
     warn(`Skipping verification pattern "${pattern.description}": contains unsafe characters`)
     continue
   }

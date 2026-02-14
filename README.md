@@ -14,12 +14,12 @@ A Claude Code plugin marketplace featuring **Rune** — multi-agent engineering 
 ```
 Plan → Work → Review → Mend → Audit
  └──────────── or /rune:arc ──────────────────────────────┘
- (Forge → Plan Review → Refinement → Verification → Work → Review → Mend → Audit)
+ (Forge → Plan Review → Refinement → Verification → Work → Gap Analysis → Review → Mend → Verify Mend → Audit)
 ```
 
 | Command | Purpose |
 |---------|---------|
-| `/rune:arc` | End-to-end pipeline (forge, plan review, refinement, verification, work, review, mend, audit) |
+| `/rune:arc` | End-to-end pipeline (forge, plan review, refinement, verification, work, gap analysis, review, mend, verify mend, audit) |
 | `/rune:plan` | Turn feature ideas into structured plans with parallel research agents |
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment |
 | `/rune:work` | Execute plans with self-organizing swarm workers |

@@ -60,6 +60,10 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:review --dry-run
 /rune:audit --dry-run
 
+# Interactive structured reasoning (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys)
+/rune:elicit
+/rune:elicit "Which auth approach is best for this API?"
+
 # Cancel active workflows
 /rune:cancel-review
 /rune:cancel-audit
@@ -139,7 +143,7 @@ When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 1. **Gathers input** — runs interactive brainstorm by default (auto-skips when requirements are clear)
 2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 13 agents across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
+4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 19 agents across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
 5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
@@ -261,6 +265,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | context-weaving | Context overflow/rot prevention |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
+| elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | ash-guide | Agent invocation reference |
 
 ## Configuration

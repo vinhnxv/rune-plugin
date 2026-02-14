@@ -72,7 +72,7 @@ Methods are scored using the same algorithm as agents (keyword overlap + title b
 
 | Method | Topics | Output Template | Integration |
 |--------|--------|----------------|-------------|
-| Tree of Thoughts | architecture, design, complex, multiple-approaches, decisions | paths → evaluation → selection | Prompt modifier for matched agent |
+| Tree of Thoughts | architecture, design, complex, multiple-approaches, decisions | paths → evaluation → selection | Prompt modifier for decree-arbiter |
 | Architecture Decision Records | architecture, design, trade-offs, decisions, ADR | options → trade-offs → decision → rationale | Prompt modifier for decree-arbiter |
 | Comparative Analysis Matrix | approach, comparison, evaluation, selection, criteria | options → criteria → scores → recommendation | Prompt modifier for matched agent |
 | Pre-mortem Analysis | risk, deployment, migration, breaking-change, failure | failure → causes → prevention | Prompt modifier for matched agent |
@@ -266,7 +266,7 @@ Forge Gaze — Agent Selection
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Plan sections: 6
-Agents available: 13 built-in (11 enrichment + 2 research) + 1 custom
+Agents available: 19 built-in (17 enrichment + 2 research) + 1 custom
 
 Section: "Technical Approach"
   ✓ rune-architect (0.85) — architecture compliance
