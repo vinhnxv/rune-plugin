@@ -39,7 +39,7 @@ allowed-tools:
 
 # /rune:plan — Multi-Agent Planning Workflow
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`
 
 Orchestrates a planning pipeline using Agent Teams with dependency-aware task scheduling.
 
@@ -190,6 +190,33 @@ AskUserQuestion({
     multiSelect: false
   }]
 })
+```
+
+#### Step 3.5: Elicitation Methods (Optional)
+
+After approach selection, offer structured reasoning methods for deeper exploration:
+
+```
+// 1. Load elicitation skill's methods.csv
+// 2. Filter methods where phases includes "plan:0" AND auto_suggest=true
+// 3. Score filtered methods by topic keyword overlap with feature description
+// 4. Select top 3-5 methods
+// 5. Present via AskUserQuestion:
+AskUserQuestion({
+  questions: [{
+    question: "Apply a structured reasoning method to deepen your brainstorm?",
+    header: "Elicitation",
+    options: [
+      { label: "{top_method_1}", description: "{description}" },
+      { label: "{top_method_2}", description: "{description}" },
+      { label: "Skip", description: "Proceed without elicitation" }
+    ],
+    multiSelect: false
+  }]
+})
+// 6. If user selects a method: expand output_pattern into template, apply to context
+// 7. Append method insights to brainstorm output
+// 8. If "Skip": proceed to Step 4
 ```
 
 #### Step 4: Capture Decisions
@@ -527,6 +554,14 @@ date: YYYY-MM-DD
 
 {What could block or complicate this}
 
+## Cross-File Consistency
+
+Files that must stay in sync when this plan's changes are applied:
+
+- [ ] Version: plugin.json, CLAUDE.md, README.md
+- [ ] Counts: {list files where counts change}
+- [ ] References: {list files that cross-reference each other}
+
 ## References
 
 - Codebase patterns: {repo-surveyor findings}
@@ -634,6 +669,27 @@ erDiagram
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
 | {Risk 1} | H/M/L | H/M/L | {Strategy} |
+
+## Cross-File Consistency
+
+Files that must stay in sync when this plan's changes are applied:
+
+### Version Strings
+- [ ] plugin.json `version` field
+- [ ] CLAUDE.md version reference
+- [ ] README.md version badge / header
+
+### Counts & Registries
+- [ ] {list files where counts change — e.g., agent count, command count, method count}
+- [ ] {list registry files that enumerate items — e.g., CLAUDE.md tables, plugin.json arrays}
+
+### Cross-References
+- [ ] {list files that reference each other — e.g., SKILL.md ↔ phase-mapping.md}
+- [ ] {list docs that cite the same source of truth — e.g., talisman schema ↔ example}
+
+### Talisman Sync
+- [ ] talisman.example.yml reflects any new config fields
+- [ ] CLAUDE.md configuration section matches talisman schema
 
 ## Documentation Plan
 
@@ -964,18 +1020,28 @@ const talisman = readTalisman()  // .claude/talisman.yml or ~/.claude/talisman.y
 const customPatterns = talisman?.plan?.verification_patterns || []
 
 // 2. Run custom patterns (if configured)
+// Phase filtering: each pattern may specify a `phase` array (e.g., ["plan", "post-work"]).
+// If omitted, defaults to ["plan"] for backward compatibility.
+// Only patterns whose phase array includes currentPhase are executed.
+const currentPhase = "plan"  // In plan.md context, always "plan"
 // SECURITY: Validate each field against safe character set before shell interpolation
-// NOTE: '*' is allowed for glob patterns in paths/exclusions — rg handles globs safely,
-// and shell expansion of '*' in paths is intentional (talisman.yml is user-controlled config).
-const SAFE_PATTERN = /^[a-zA-Z0-9._\-\/ *]+$/
+// Canonical definition: arc.md:630 — also in work.md:771, mend.md:466
+// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards, no spaces)
+const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
+const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
-  if (!SAFE_PATTERN.test(pattern.regex) ||
-      !SAFE_PATTERN.test(pattern.paths) ||
-      (pattern.exclusions && !SAFE_PATTERN.test(pattern.exclusions))) {
+  // Phase gate: skip patterns not intended for this pipeline phase
+  const patternPhases = pattern.phase || ["plan"]
+  if (!patternPhases.includes(currentPhase)) continue
+
+  if (!SAFE_REGEX_PATTERN.test(pattern.regex) ||
+      !SAFE_PATH_PATTERN.test(pattern.paths) ||
+      (pattern.exclusions && !SAFE_PATH_PATTERN.test(pattern.exclusions))) {
     warn(`Skipping verification pattern "${pattern.description}": contains unsafe characters`)
     continue
   }
-  const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
+  // SECURITY: Timeout prevents ReDoS — regex must be linear-time safe (avoid nested quantifiers)
+  const result = Bash(`timeout 5 rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
   if (pattern.expect_zero && result.stdout.trim().length > 0) {
     warn(`Stale reference: ${pattern.description}`)
     // Auto-fix or flag to user before presenting the plan

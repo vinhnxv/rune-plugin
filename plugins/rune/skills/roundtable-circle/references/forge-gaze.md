@@ -62,6 +62,32 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 |-------|--------|------------|-------------|
 | flow-seer | user-flow, ux, interaction, workflow, requirements, gaps, completeness | User Flow Analysis | user flow completeness and requirement gaps |
 
+### Elicitation Methods (Method Budget — zero token cost)
+
+> **Note**: This table is derived from `skills/elicitation/methods.csv`. Re-verify after CSV changes.
+
+Methods are prompt modifiers injected into matched agents' prompts. They do NOT spawn agents and do NOT count toward `MAX_TOTAL_AGENTS`. Maximum `MAX_METHODS_PER_SECTION = 2` methods per section.
+
+Methods are scored using the same algorithm as agents (keyword overlap + title bonus) but selected independently. A section can have up to `MAX_PER_SECTION` (3) agents AND up to `MAX_METHODS_PER_SECTION` (2) methods.
+
+| Method | Topics | Output Template | Integration |
+|--------|--------|----------------|-------------|
+| Tree of Thoughts | architecture, design, complex, multiple-approaches, decisions | paths → evaluation → selection | Prompt modifier for decree-arbiter |
+| Architecture Decision Records | architecture, design, trade-offs, decisions, ADR | options → trade-offs → decision → rationale | Prompt modifier for decree-arbiter |
+| Comparative Analysis Matrix | approach, comparison, evaluation, selection, criteria | options → criteria → scores → recommendation | Prompt modifier for matched agent |
+| Pre-mortem Analysis | risk, deployment, migration, breaking-change, failure | failure → causes → prevention | Prompt modifier for matched agent |
+| First Principles Analysis | novel, assumptions, first-principles, fundamentals | assumptions → truths → new approach | Prompt modifier for matched agent |
+| Red Team vs Blue Team | security, auth, injection, api, secrets, vulnerability | defense → attack → hardening | Prompt modifier for ward-sentinel |
+| Debate Club Showdown | approaches, comparison, trade-offs, alternatives | thesis → antithesis → synthesis | Prompt modifier for matched agent |
+
+When a method is selected for a section, its output template is appended to the matched agent's prompt as:
+```
+### Structured Reasoning: {method_name}
+For this section, apply {method_name}: {output_template}
+```
+
+Method injection is logged in dry-run output (see [Dry-Run Output](#dry-run-output)).
+
 ## Matching Algorithm
 
 ### Topic Extraction
@@ -240,7 +266,8 @@ Forge Gaze — Agent Selection
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Plan sections: 6
-Agents available: 13 built-in (11 enrichment + 2 research) + 1 custom
+Agents available: 18 built-in (16 review + 2 research) + 1 custom
+Methods available: 7 (prompt modifiers, not agents — separate from MAX_TOTAL_AGENTS cap)
 
 Section: "Technical Approach"
   ✓ rune-architect (0.85) — architecture compliance

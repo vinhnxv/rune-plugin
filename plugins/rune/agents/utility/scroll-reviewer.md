@@ -39,6 +39,8 @@ You are reviewing a document for quality. Base feedback on objective criteria (c
    - **No Time Estimates**: Flag any durations, level-of-effort, or completion time language (e.g., "~2 hours", "takes about a day", "ETA", "estimated time"). Plans should describe steps, dependencies, and outputs — never durations.
    - **Writing Style**: Flag passive voice in action items ("should be implemented" → "implement"), future tense in descriptions ("will handle" → "handles"), and vague quantifiers ("various", "some", "etc." without specifics).
    - **Traceability**: Check that acceptance criteria connect to the stated Overview/Problem Statement. Flag orphan criteria — items in "Acceptance Criteria" that introduce concepts, features, or terms not mentioned anywhere in Overview, Problem Statement, or Proposed Solution sections. This catches scope creep and disconnected requirements.
+   - **Self-Consistency**: Check if plan sections are internally consistent — do proposed solutions match the problem statement? Do acceptance criteria match the technical approach? Flag contradictions between sections.
+   - **Critical Challenge**: Apply devil's advocate lens — identify the weakest assumptions in the plan and challenge them. What could go wrong that the plan doesn't address?
 
 3. Report findings:
 
