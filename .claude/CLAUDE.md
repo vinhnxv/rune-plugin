@@ -407,3 +407,9 @@ Update `plugin.json` version before distributing. Document changes in CHANGELOG.
 - Hooks run with FULL user permissions
 - `bypassPermissions` skips ALL checks — use with extreme caution
 - `allowed-tools` = security boundary — apply least-privilege
+
+
+## Project Rules
+
+- Don't commit plan files (`./plans/*.md`)
+- Always ensure plugin version is in sync between `.claude-plugin/marketplace.json` and `plugins/rune/.claude-plugin/plugin.json`
