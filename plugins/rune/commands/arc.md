@@ -430,43 +430,29 @@ const parseVerdict = (reviewer, output) => {
   return match[2]  // PASS | CONCERN | BLOCK
 }
 
-// Monitor with timeout
-const reviewStart = Date.now()
-while (true) {
-  tasks = TaskList()
+// Monitor with timeout — see skills/roundtable-circle/references/monitor-utility.md
+const result = waitForCompletion(`arc-plan-review-${id}`, reviewers.length, {
+  timeoutMs: PHASE_TIMEOUTS.plan_review,
+  staleWarnMs: STALE_THRESHOLD,
+  pollIntervalMs: 30_000,
+  label: "Arc: Plan Review"
+})
 
-  // 1. Check completion FIRST (prevents timeout race)
-  if (tasks.every(t => t.status === "completed")) break
-
-  // 2. Then check timeout
-  if (Date.now() - reviewStart > PHASE_TIMEOUTS.plan_review) {
-    warn("Phase 2 (PLAN REVIEW) timed out.")
-    // Handle missing verdicts: double-check output files before defaulting
-    for (const reviewer of reviewers) {
-      if (!reviewer.completed) {
-        const outputPath = `tmp/arc/${id}/reviews/${reviewer.name}-verdict.md`
-        if (exists(outputPath)) {
-          reviewer.verdict = parseVerdict(reviewer.name, Read(outputPath))
-        } else {
-          warn(`Reviewer ${reviewer.name} produced no output — defaulting to CONCERN.`)
-          reviewer.verdict = "CONCERN"
-        }
+// Handle missing verdicts on timeout
+if (result.timedOut) {
+  warn("Phase 2 (PLAN REVIEW) timed out.")
+  for (const reviewer of reviewers) {
+    if (!reviewer.completed) {
+      const outputPath = `tmp/arc/${id}/reviews/${reviewer.name}-verdict.md`
+      if (exists(outputPath)) {
+        reviewer.verdict = parseVerdict(reviewer.name, Read(outputPath))
+      } else {
+        warn(`Reviewer ${reviewer.name} produced no output — defaulting to CONCERN.`)
+        reviewer.verdict = "CONCERN"
       }
     }
-    break
   }
-
-  // 3. Stale detection
-  for (const task of tasks.filter(t => t.status === "in_progress")) {
-    if (task.stale > STALE_THRESHOLD) {
-      warn(`Reviewer ${task.owner || task.id} may be stalled (${Math.round(task.stale/60000)}min)`)
-    }
-  }
-
-  sleep(30_000)
 }
-// Final sweep
-tasks = TaskList()
 
 // Collect verdicts
 // Grep for <!-- VERDICT:...:BLOCK --> in reviewer outputs

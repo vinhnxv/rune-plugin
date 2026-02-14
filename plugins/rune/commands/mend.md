@@ -315,40 +315,17 @@ No Bash (ward checks centralized), no TeamCreate/TeamDelete (orchestrator-only),
 
 ## Phase 4: MONITOR
 
-Poll TaskList to track fixer progress:
+Poll TaskList to track fixer progress. See [monitor-utility.md](../skills/roundtable-circle/references/monitor-utility.md) for the shared polling utility.
 
 ```javascript
-const POLL_INTERVAL = 30_000   // 30 seconds
-const STALE_THRESHOLD = 300_000 // 5 minutes — warn about stalled fixer
-const STALE_RELEASE = 600_000   // 10 minutes — release task for reclaim
-const TOTAL_TIMEOUT = 900_000   // 15 minutes
-const startTime = Date.now()
-
-while (not all tasks completed):
-  tasks = TaskList()
-  completed = tasks.filter(t => t.status === "completed").length
-  total = tasks.length
-
-  // Progress report
-  log(`Mend progress: ${completed}/${total} file groups resolved`)
-
-  // Stale detection
-  for (task of tasks.filter(t => t.status === "in_progress")):
-    if (task.stale > STALE_RELEASE):
-      warn("Fixer stalled on task #{task.id} (>${STALE_RELEASE/60_000}min) — auto-releasing")
-      TaskUpdate({ taskId: task.id, owner: "", status: "pending" })
-    else if (task.stale > STALE_THRESHOLD):
-      warn("Fixer slow on task #{task.id} (>${STALE_THRESHOLD/60_000}min)")
-
-  // Total timeout
-  if (Date.now() - startTime > TOTAL_TIMEOUT):
-    warn("Mend timeout reached (15 min). Collecting partial results.")
-    break
-
-  sleep(POLL_INTERVAL)
-
-// Final sweep: re-read TaskList once more before reporting timeout
-tasks = TaskList()
+// See skills/roundtable-circle/references/monitor-utility.md
+const result = waitForCompletion(teamName, fixerCount, {
+  timeoutMs: 900_000,        // 15 minutes
+  staleWarnMs: 300_000,      // 5 minutes — warn about stalled fixer
+  autoReleaseMs: 600_000,    // 10 minutes — release task for reclaim
+  pollIntervalMs: 30_000,
+  label: "Mend"
+})
 ```
 
 ## Phase 5: WARD CHECK

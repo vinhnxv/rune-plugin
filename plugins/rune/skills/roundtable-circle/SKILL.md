@@ -232,17 +232,16 @@ See `references/ash-prompts/` for individual prompts.
 
 ## Phase 4: Monitor
 
-Poll TaskList every 30 seconds:
+Use the shared monitoring utility to poll TaskList with timeout and stale detection. See [references/monitor-utility.md](references/monitor-utility.md) for the full utility specification and per-command configuration table.
 
-```
-while (not all tasks completed):
-  tasks = TaskList()
-  for task in tasks:
-    if task.status == "completed":
-      continue
-    if task.stale > 5 minutes:
-      warn("Ash {name} may be stalled")
-  sleep(30)
+```javascript
+// See references/monitor-utility.md
+const result = waitForCompletion(teamName, ashCount, {
+  timeoutMs: TOTAL_TIMEOUT,
+  staleWarnMs: 300_000,
+  pollIntervalMs: 30_000,
+  label: "Review"
+})
 ```
 
 **Stale detection:** If a task has been `in_progress` for > 5 minutes:

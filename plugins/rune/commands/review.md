@@ -258,35 +258,24 @@ Task({
 
 ## Phase 4: Monitor
 
-Poll TaskList with timeout guard until all tasks complete:
+Poll TaskList with timeout guard until all tasks complete. Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
 ```javascript
-const POLL_INTERVAL = 30_000   // 30 seconds
-const STALE_THRESHOLD = 300_000 // 5 minutes
-const TOTAL_TIMEOUT = 600_000   // 10 minutes (reviews are faster than mend)
-const startTime = Date.now()
+// See skills/roundtable-circle/references/monitor-utility.md
+const result = waitForCompletion(teamName, ashCount, {
+  timeoutMs: 600_000,        // 10 minutes
+  staleWarnMs: 300_000,      // 5 minutes
+  pollIntervalMs: 30_000,    // 30 seconds
+  label: "Review"
+  // No autoReleaseMs: review Ashes produce unique findings that can't be reclaimed by another Ash.
+})
 
-while (not all tasks completed):
-  tasks = TaskList()
-  for task in tasks:
-    if task.status == "completed": continue
-    if task.stale > STALE_THRESHOLD:
-      warn("Ash may be stalled")
-      // No STALE_RELEASE: review Ashes produce unique findings that can't be reclaimed by another Ash.
-      // Compare with work.md/mend.md which auto-release stuck tasks after 10 min.
-
-  // Total timeout
-  if (Date.now() - startTime > TOTAL_TIMEOUT):
-    warn("Review timeout reached (10 min). Collecting partial results.")
-    break
-
-  sleep(POLL_INTERVAL)
-
-// Final sweep: re-read TaskList once more before reporting timeout
-tasks = TaskList()
+if (result.timedOut) {
+  log(`Review completed with partial results: ${result.completed.length}/${ashCount} Ashes`)
+}
 ```
 
-**Stale detection**: If a task is `in_progress` for > 5 minutes, proceed with partial results.
+**Stale detection**: If a task is `in_progress` for > 5 minutes, a warning is logged. No auto-release — review Ash findings are non-fungible (compare with `work.md`/`mend.md` which auto-release stuck tasks after 10 min).
 **Total timeout**: Hard limit of 10 minutes. After timeout, a final sweep collects any results that completed during the last poll interval.
 
 ## Phase 5: Aggregate (Runebinder)

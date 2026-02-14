@@ -364,21 +364,17 @@ Agents should produce **concrete, actionable** recommendations with evidence fro
 
 ### Monitor
 
-```javascript
-while (not all tasks completed) {
-  tasks = TaskList()
-  completed = tasks.filter(t => t.status === "completed").length
-  total = tasks.length
-  log(`Forge progress: ${completed}/${total} enrichments`)
+Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
-  // Stale detection: release tasks stuck > 5 minutes
-  for (task of tasks.filter(t => t.status === "in_progress")) {
-    if (task.stale > 5 minutes) {
-      TaskUpdate({ taskId: task.id, owner: "", status: "pending" })
-    }
-  }
-  sleep(30)
-}
+```javascript
+// See skills/roundtable-circle/references/monitor-utility.md
+const result = waitForCompletion(teamName, totalEnrichmentTasks, {
+  staleWarnMs: 300_000,      // 5 minutes
+  autoReleaseMs: 300_000,    // 5 minutes — enrichment tasks are reassignable
+  pollIntervalMs: 30_000,    // 30 seconds
+  label: "Forge"
+  // No timeoutMs — forge has no hard timeout
+})
 ```
 
 ## Phase 5: Merge Enrichments

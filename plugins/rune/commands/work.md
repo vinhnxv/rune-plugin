@@ -523,41 +523,19 @@ For plans with 10+ tasks, summon additional workers:
 
 ## Phase 3: Monitor
 
-Poll TaskList with timeout guard to track progress:
+Poll TaskList with timeout guard to track progress. See [monitor-utility.md](../skills/roundtable-circle/references/monitor-utility.md) for the shared polling utility.
 
 ```javascript
-const POLL_INTERVAL = 30_000      // 30 seconds
-const STALE_THRESHOLD = 300_000   // 5 minutes — warn about stalled worker
-const STALE_RELEASE = 600_000     // 10 minutes — release task for reclaim
-const TOTAL_TIMEOUT = 1_800_000   // 30 minutes (work involves implementation + ward checks)
-const startTime = Date.now()
+// See skills/roundtable-circle/references/monitor-utility.md
+const result = waitForCompletion(teamName, taskCount, {
+  timeoutMs: 1_800_000,      // 30 minutes (work involves implementation + ward checks)
+  staleWarnMs: 300_000,      // 5 minutes — warn about stalled worker
+  autoReleaseMs: 600_000,    // 10 minutes — release task for reclaim
+  pollIntervalMs: 30_000,
+  label: "Work"
+})
 
-while (not all tasks completed):
-  tasks = TaskList()
-  completed = tasks.filter(t => t.status === "completed").length
-  total = tasks.length
-
-  // Progress report (every 2 minutes)
-  log(`Progress: ${completed}/${total} tasks complete`)
-
-  // Stale detection
-  for (task of tasks.filter(t => t.status === "in_progress")):
-    if (task.stale > STALE_THRESHOLD):
-      warn("Worker may be stalled on task #{task.id}")
-    if (task.stale > STALE_RELEASE):
-      TaskUpdate({ taskId: task.id, owner: "", status: "pending" })
-
-  // Commit broker: process completed task patches (see Phase 3.5)
-
-  // Total timeout
-  if (Date.now() - startTime > TOTAL_TIMEOUT):
-    warn("Work timeout reached (30 min). Collecting partial results.")
-    break
-
-  sleep(POLL_INTERVAL)
-
-// Final sweep: re-read TaskList once more before reporting timeout
-tasks = TaskList()
+// Commit broker: process completed task patches (see Phase 3.5)
 ```
 
 **Total timeout**: Hard limit of 30 minutes (work legitimately takes longer due to implementation + ward checks). After timeout, a final sweep collects any results that completed during the last poll interval.

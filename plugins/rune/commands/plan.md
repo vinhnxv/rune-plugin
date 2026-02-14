@@ -514,14 +514,17 @@ Task({
 
 ### Monitor Research
 
-Poll TaskList every 30 seconds until all active research tasks are completed.
+Poll TaskList until all active research tasks are completed. Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
 ```javascript
-while (not all research tasks completed):
-  tasks = TaskList()
-  if (all active tasks completed): break
-  if (any stale > 5 min): proceed with partial
-  sleep(30)
+// See skills/roundtable-circle/references/monitor-utility.md
+const result = waitForCompletion(teamName, researchTaskCount, {
+  staleWarnMs: 300_000,      // 5 minutes
+  pollIntervalMs: 30_000,    // 30 seconds
+  label: "Plan Research"
+  // No timeoutMs — plan research has no hard timeout
+  // No autoReleaseMs — research tasks are non-fungible
+})
 ```
 
 ## Phase 1.5: Research Consolidation Validation
