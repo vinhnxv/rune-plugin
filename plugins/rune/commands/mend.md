@@ -344,6 +344,7 @@ Ward checks run **once after all fixers complete**, not per-fixer:
 // Discover wards (same protocol as /rune:work)
 wards = discoverWards()
 
+// Security pattern: SAFE_WARD — see security-patterns.md
 const SAFE_WARD = /^[a-zA-Z0-9._\-\/ ]+$/
 for (const ward of wards) {
   if (!SAFE_WARD.test(ward.command)) {
@@ -464,7 +465,7 @@ if (modifiedSources.length === 0) {
 
 // --- STEP 3: Build DAG and detect cycles ---
 else {
-  // Canonical definition: arc.md:631 — keep in sync (no spaces, matches arc/plan/work)
+  // Security pattern: SAFE_PATH_PATTERN — see security-patterns.md
   const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
   // Separate validator for consistency check patterns — no pipe, parens, dollar
   // NOTE: bare * is intentionally allowed here (unlike SAFE_REGEX_PATTERN) because

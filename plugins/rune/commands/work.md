@@ -600,7 +600,7 @@ function commitBroker(taskId) {
   }
 
   // 6. Validate and stage files
-  // SECURITY: Validate each file path against safe character set to prevent shell injection
+  // Security pattern: SAFE_PATH_PATTERN (alias: SAFE_PATH) — see security-patterns.md
   const SAFE_PATH = /^[a-zA-Z0-9._\-\/]+$/
   for (const file of meta.files) {
     if (file.startsWith('/') || file.includes('..') || !SAFE_PATH.test(file)) {
@@ -636,7 +636,7 @@ After all tasks complete, run project-wide quality gates:
 wards = discoverWards()
 // Possible sources: Makefile, package.json, pyproject.toml, talisman.yml
 
-// SECURITY: Validate ward commands — block shell metacharacters from talisman.yml commands
+// Security pattern: SAFE_WARD — see security-patterns.md
 const SAFE_WARD = /^[a-zA-Z0-9._\-\/ ]+$/
 for (const ward of wards) {
   if (!SAFE_WARD.test(ward.command)) {
@@ -769,9 +769,8 @@ for (const file of newFiles) {
 const talisman = readTalisman()  // .claude/talisman.yml or ~/.claude/talisman.yml
 const customPatterns = talisman?.plan?.verification_patterns || []
 // SECURITY: Validate each field against safe character set before shell interpolation
-// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards)
-// NOTE: This pattern is duplicated in arc.md and plan.md.
-// If changed, update ALL three files + talisman.example.yml schema comments.
+// Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN — see security-patterns.md
+// Also in: plan.md, arc.md, mend.md. Canonical source: security-patterns.md
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -831,7 +830,7 @@ if (codexAvailable && !codexDisabled) {
     const rawMaxDiff = Number(talisman?.codex?.work_advisory?.max_diff_size)
     const maxDiffSize = Math.max(1000, Math.min(50000, Number.isFinite(rawMaxDiff) ? rawMaxDiff : 15000))
 
-    // SEC-001: Validate codex model and reasoning against allowlists before shell interpolation
+    // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST — see security-patterns.md
     const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")

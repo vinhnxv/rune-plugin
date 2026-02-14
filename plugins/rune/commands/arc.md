@@ -289,86 +289,86 @@ Demoting Phase 2 to "pending" — will re-run plan review.
 
 ## Phase 1: FORGE (skippable with --no-forge)
 
-Summon research agents to enrich the plan with current best practices, framework docs, codebase patterns, git history, and past echoes.
+Delegate to `/rune:forge` logic for Forge Gaze topic-aware enrichment. Forge manages its own team lifecycle (TeamCreate/TeamDelete). The arc orchestrator wraps with checkpoint management and provides a working copy of the plan.
 
-**Team**: `arc-forge-{id}`
-**Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
+**Team**: Delegated to `/rune:forge` — the forge command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md). The arc orchestrator invokes the forge logic; it does NOT create the team directly.
+**Tools**: Delegated — forge agents receive read-only tools (Read, Glob, Grep, Write for own output file only)
+
+**Forge Gaze features (via delegation)**:
+- Topic-to-agent matching: each plan section gets specialized agents based on keyword overlap scoring
+- Codex Oracle: conditional cross-model enrichment (if `codex` CLI available)
+- Custom Ashes: talisman.yml `ashes.custom` with `workflows: [forge]`
+- Section-level enrichment: Enrichment Output Format (Best Practices, Performance, Edge Cases, etc.)
+
+**Inputs**: planFile (string, validated at arc init), id (string, validated at arc init)
+**Outputs**: `tmp/arc/{id}/enriched-plan.md` (enriched copy of original plan)
+**Preconditions**: planFile exists, noForgeFlag is false
+**Error handling**: Forge timeout (10 min) → proceed with original plan copy (warn user, offer `--no-forge`). Team lifecycle failure → delegated to forge pre-create guard. Forge produces no enrichments → use original plan copy as enriched-plan.md.
 
 ```javascript
-// Update checkpoint
-updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1, team_name: `arc-forge-${id}` })
+// Phase 1: FORGE — delegate to /rune:forge logic
+// Follows the same delegation pattern as Phase 5 (WORK), Phase 6 (CODE REVIEW),
+// and Phase 8 (AUDIT): the command manages its own team lifecycle, arc wraps
+// with checkpoint management.
 
-// Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
-// id validated at init: /^arc-[a-zA-Z0-9_-]+$/
-try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/arc-forge-${id}/ ~/.claude/tasks/arc-forge-${id}/ 2>/dev/null`)
-}
-TeamCreate({ team_name: `arc-forge-${id}` })
+updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1, team_name: null })
 
-// Summon 5 research agents in parallel
-const agents = [
-  { name: "practice-seeker", task: "External best practices for: {plan_sections}" },
-  { name: "lore-scholar", task: "Framework documentation relevant to: {plan_sections}" },
-  { name: "repo-surveyor", task: "Codebase patterns relevant to: {plan_sections}" },
-  { name: "git-miner", task: "Git history context for: {plan_sections}" },
-  { name: "echo-reader", task: "Past learnings from Rune Echoes relevant to: {plan_sections}" }
-]
+// 1. Create a working copy of the plan for forge to enrich
+//    Forge edits in-place via Edit; arc needs the original preserved for --resume
+//    and for the plan_file reference in checkpoint.
+Bash(`mkdir -p "tmp/arc/${id}"`)
+Bash(`cp "${planFile}" "tmp/arc/${id}/enriched-plan.md"`)
 
-for (const agent of agents) {
-  Task({
-    team_name: `arc-forge-${id}`,
-    name: agent.name,
-    subagent_type: "general-purpose",
-    prompt: `${agent.task}\n\nWrite findings to tmp/arc/${id}/research/${agent.name}.md`,
-    run_in_background: true
-  })
-}
+const forgePlanPath = `tmp/arc/${id}/enriched-plan.md`
 
-// Monitor with timeout
+// 2. Invoke /rune:forge logic on the working copy
+//    Arc context adaptations (detected by forge via path prefix "tmp/arc/"):
+//    - Phase 3 (scope confirmation): SKIPPED — arc is automated, no user gate
+//    - Phase 6 (post-enhancement options): SKIPPED — arc continues to Phase 2
+//    - Forge Gaze mode: "default" (standard thresholds)
+//    - Forge manages its own TeamCreate/TeamDelete with pre-create guards
+//
+//    What forge provides (that the previous inline implementation did NOT):
+//    - Forge Gaze topic-to-agent matching (section-level enrichment)
+//    - Codex Oracle (conditional — if CLI available and talisman.codex.disabled != true)
+//    - Custom Ashes from talisman.yml (if configured with workflows: [forge])
+//    - Enrichment Output Format (Best Practices, Performance, Edge Cases, etc.)
+//    - Fallback generic enrichment for sections with no agent match
+
+// Capture team_name from forge command for cancel-arc discovery
+const forgeTeamName = /* team name created by /rune:forge logic */
+updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1, team_name: forgeTeamName })
+
+// 3. Arc-level timeout safety net
+//    Forge has its own internal monitoring; this is the outer guard only.
+//    If forge times out, the working copy from step 1 still exists.
 const forgeStart = Date.now()
-while (true) {
-  tasks = TaskList()
-
-  // 1. Check completion FIRST (prevents timeout race)
-  if (tasks.every(t => t.status === "completed")) break
-
-  // 2. Then check timeout
-  if (Date.now() - forgeStart > PHASE_TIMEOUTS.forge) {
-    warn("Phase 1 (FORGE) timed out. Proceeding with partial research.")
-    break
-  }
-
-  // 3. Stale detection
-  for (const task of tasks.filter(t => t.status === "in_progress")) {
-    if (task.stale > STALE_THRESHOLD) {
-      warn(`Research agent ${task.owner || task.id} may be stalled (${Math.round(task.stale/60000)}min)`)
-    }
-  }
-
-  sleep(30_000)  // 30 second polling interval
+if (Date.now() - forgeStart > PHASE_TIMEOUTS.forge) {
+  warn("Phase 1 (FORGE) timed out. Proceeding with original plan copy.")
+  // enriched-plan.md is the unmodified copy from step 1 — safe to continue
 }
-// Final sweep: re-read TaskList for last-interval completions
-tasks = TaskList()
 
-// Synthesize enriched plan → tmp/arc/{id}/enriched-plan.md
-
-// Cleanup with fallback (see team-lifecycle-guard.md)
-// id validated at init: /^arc-[a-zA-Z0-9_-]+$/
-try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/arc-forge-${id}/ ~/.claude/tasks/arc-forge-${id}/ 2>/dev/null`)
+// 4. Verify enriched plan exists and has content
+const enrichedPlan = Read(forgePlanPath)
+if (!enrichedPlan || enrichedPlan.trim().length === 0) {
+  warn("Forge produced empty output. Using original plan.")
+  Bash(`cp "${planFile}" "${forgePlanPath}"`)
 }
+
+// Compute hash from written file (not in-memory)
+const writtenContent = Read(forgePlanPath)
 updateCheckpoint({
   phase: "forge",
   status: "completed",
-  artifact: `tmp/arc/${id}/enriched-plan.md`,
-  artifact_hash: sha256(enrichedPlan),
+  artifact: forgePlanPath,
+  artifact_hash: sha256(writtenContent),
   phase_sequence: 1
 })
 ```
 
 **Output**: `tmp/arc/{id}/enriched-plan.md`
 
-If research times out: proceed with original plan + warn user. Offer `--no-forge` on retry.
+If forge times out or fails: proceed with original plan copy + warn user. Offer `--no-forge` on retry.
 
 ## Phase 2: PLAN REVIEW (circuit breaker)
 
@@ -599,6 +599,7 @@ updateCheckpoint({ phase: "verification", status: "in_progress", phase_sequence:
 const issues = []
 
 // 1. Check plan file references exist
+// Security pattern: SAFE_PATH_PATTERN (alias: SAFE_FILE_PATH) — see security-patterns.md
 const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
 const filePaths = extractFileReferences(enrichedPlanPath)
 for (const fp of filePaths) {
@@ -635,8 +636,8 @@ if (todos.length > 0) issues.push(`${todos.length} TODO/FIXME markers in plan pr
 // 5. Run talisman verification_patterns (if configured)
 const talisman = readTalisman()
 const customPatterns = talisman?.plan?.verification_patterns || []
-// Canonical safe-character validators (also in plan.md:1029, work.md:771, Phase 5.5 below as _CC variants)
-// Regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards, no spaces)
+// Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN — see security-patterns.md
+// Also in: plan.md, work.md, mend.md. Canonical source: security-patterns.md
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -676,7 +677,26 @@ for (const section of sections) {
   }
 }
 
-// 7. Write verification report
+// 7. Check for undocumented security pattern declarations (R1 enforcement)
+// Grep command files for SAFE_* or ALLOWLIST declarations without a security-patterns.md reference
+const commandFiles = Glob("plugins/rune/commands/*.md")
+for (const cmdFile of commandFiles) {
+  const content = Read(cmdFile)
+  const lines = content.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    // Match pattern declarations: const SAFE_* = or const *_ALLOWLIST =
+    if (/const\s+(SAFE_|CODEX_\w*ALLOWLIST)/.test(line)) {
+      // Check preceding 3 lines for security-patterns.md reference
+      const context = lines.slice(Math.max(0, i - 3), i + 1).join('\n')
+      if (!context.includes('security-patterns.md')) {
+        issues.push(`Undocumented security pattern at ${cmdFile}:${i + 1} — missing security-patterns.md reference`)
+      }
+    }
+  }
+}
+
+// 8. Write verification report
 const verificationReport = `# Verification Gate Report\n\n` +
   `Status: ${issues.length === 0 ? "PASS" : "WARN"}\n` +
   `Issues: ${issues.length}\n` +
@@ -879,15 +899,11 @@ if (consistencyGuardPass) {
 
   const checks = customChecks.length > 0 ? customChecks : DEFAULT_CONSISTENCY_CHECKS
 
-  // Shared validation patterns (reuse from Phase 2.7 — MUST stay identical)
-  // NOTE: Duplicated in plan.md and work.md. If changed, update all three files.
-  // Updated to exclude shell metacharacters: pipe, parens, dollar (SEC-001)
+  // Security patterns: SAFE_REGEX_PATTERN_CC, SAFE_PATH_PATTERN, SAFE_GLOB_PATH_PATTERN — see security-patterns.md
+  // Canonical source: security-patterns.md. Also used in: work.md (Phase 4.3), mend.md (MEND-3)
   const SAFE_REGEX_PATTERN_CC = /^[a-zA-Z0-9._\-\/ \\\[\]{}^+?*]+$/
   const SAFE_PATH_PATTERN_CC = /^[a-zA-Z0-9._\-\/]+$/
-  // Glob paths allow * for glob_count extractor (e.g., "agents/review/*.md")
-  // MUST NOT include spaces — ls -1 ${unquoted} relies on word-splitting for glob expansion
   const SAFE_GLOB_PATH_PATTERN = /^[a-zA-Z0-9._\-\/*]+$/
-  // Additional validator for JSON dot-path fields (e.g., "version", "name")
   const SAFE_DOT_PATH = /^[a-zA-Z0-9._]+$/
   const VALID_EXTRACTORS = ["glob_count", "regex_capture", "json_field", "line_count"]
 
@@ -1470,7 +1486,7 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 
 | Phase | Tools | Rationale |
 |-------|-------|-----------|
-| Phase 1 (FORGE) | Read, Glob, Grep, Write (own output file only) | Research — no codebase modification |
+| Phase 1 (FORGE) | Delegated to `/rune:forge` (read-only agents + Edit for enrichment merge) | Forge manages own tools — enrichment only, no codebase modification |
 | Phase 2 (PLAN REVIEW) | Read, Glob, Grep, Write (own output file only) | Review — no codebase modification |
 | Phase 2.5 (PLAN REFINEMENT) | Read, Write, Glob, Grep | Orchestrator-only — extraction, no team |
 | Phase 2.7 (VERIFICATION) | Read, Glob, Grep, Write, Bash (git history) | Orchestrator-only — deterministic checks |

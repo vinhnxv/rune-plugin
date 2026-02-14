@@ -419,9 +419,8 @@ if (codexAvailable && !codexDisabled) {
   const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
   if (codexWorkflows.includes("plan")) {
     // SEC-002: Validate talisman codex config before shell interpolation
-    // SINGLE DEFINITION — These allowlists are used by BOTH Phase 1C and Phase 4C Codex
-    // invocations. If updated, search for 'CODEX_MODEL_ALLOWLIST' in this file to verify
-    // all occurrences are in sync.
+    // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST — see security-patterns.md
+    // SINGLE DEFINITION — used by BOTH Phase 1C and Phase 4C Codex invocations.
     const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
     const SAFE_FEATURE_PATTERN = /^[a-zA-Z0-9 ._\-]+$/
@@ -1130,9 +1129,8 @@ const customPatterns = talisman?.plan?.verification_patterns || []
 // Only patterns whose phase array includes currentPhase are executed.
 const currentPhase = "plan"  // In plan.md context, always "plan"
 // SECURITY: Validate each field against safe character set before shell interpolation
-// !! DUPLICATED PATTERN — Canonical source: roundtable-circle/references/security-patterns.md
-// Also in: work.md, mend.md, arc.md. If changed here, update ALL locations.
-// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards, no spaces)
+// Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN — see security-patterns.md
+// Also in: work.md, mend.md, arc.md. Canonical source: security-patterns.md
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -1244,8 +1242,8 @@ const codexDisabled = talisman?.codex?.disabled === true
 if (codexAvailable && !codexDisabled) {
   const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
   if (codexWorkflows.includes("plan")) {
-    // SEC-002: Validate talisman codex config before shell interpolation
-    // RE-DECLARED for Phase 4C — keep in sync with Phase 1C definition at line ~412
+    // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST — see security-patterns.md
+    // RE-DECLARED for Phase 4C — keep in sync with Phase 1C definition above
     const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
