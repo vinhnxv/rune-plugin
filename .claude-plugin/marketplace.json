@@ -13,7 +13,7 @@
     {
       "name": "rune",
       "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, and audit with Agent Teams. Includes 16 specialized review agents, 5 research agents, 13 commands, and 6 skills. BMAD-derived elicitation methods for structured reasoning. Multi-language quality guidance (Python, TypeScript, Rust).",
-      "version": "1.17.0",
+      "version": "1.18.0",
       "author": {
         "name": "vinhnxv",
         "email": "vinh.ngxv@gmail.com",
@@ -29,8 +29,9 @@
         "audit",
         "orchestration",
         "engineering-workflow",
+        "swarm",
         "planning",
-        "swarm"
+        "rune"
       ],
       "category": "engineering",
       "tags": [
@@ -40,8 +41,9 @@
         "audit",
         "orchestration",
         "engineering-workflow",
+        "swarm",
         "planning",
-        "swarm"
+        "rune"
       ],
       "skills": [
         "./skills/ash-guide",
