@@ -657,6 +657,22 @@ date: YYYY-MM-DD
 
 {What could block or complicate this}
 
+## Documentation Impact
+
+Files that must be updated when this feature ships:
+
+### Files Referencing This Feature
+- [ ] {file}: {what reference needs updating}
+
+### Count/Version Changes
+- [ ] plugin.json: version bump to {target}
+- [ ] CLAUDE.md: {count or version reference}
+- [ ] README.md: {count or version reference}
+- [ ] CHANGELOG.md: new entry for {version}
+
+### Priority/Registry Updates
+- [ ] {registry file}: add/update entry for {feature}
+
 ## Cross-File Consistency
 
 Files that must stay in sync when this plan's changes are applied:
@@ -795,9 +811,30 @@ Files that must stay in sync when this plan's changes are applied:
 - [ ] talisman.example.yml reflects any new config fields
 - [ ] CLAUDE.md configuration section matches talisman schema
 
-## Documentation Plan
+## Documentation Impact & Plan
 
-{What docs need updating — README, API docs, inline comments, migration guides}
+Files that must be updated when this feature ships:
+
+### Files Referencing This Feature
+- [ ] {file}: {what reference needs updating}
+
+### Count/Version Changes
+- [ ] plugin.json: version bump to {target}
+- [ ] CLAUDE.md: {count or version reference}
+- [ ] README.md: {count or version reference}
+- [ ] CHANGELOG.md: new entry for {version}
+
+### Priority/Registry Updates
+- [ ] {registry file}: add/update entry for {feature}
+
+### New Documentation
+- [ ] {new doc file}: {purpose}
+
+### Updated Documentation
+- [ ] {existing doc}: {what changes}
+
+### Inline Comments / Migration Guides
+- [ ] {migration guide or inline comment updates}
 
 ## AI-Era Considerations (optional)
 

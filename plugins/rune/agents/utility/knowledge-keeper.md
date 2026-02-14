@@ -62,6 +62,7 @@ Include `codebase_files_read: N` in your output. If 0, your output is flagged as
 | Migration Guides | Are breaking changes covered with upgrade paths? | Check for migration/upgrade sections in plan |
 | README Coverage | Are top-level READMEs updated for new features? | Read existing READMEs, compare against plan scope |
 | Inline Comments | Does plan mention comment updates for complex logic? | Grep for complex sections referenced in plan |
+| Documentation Impact | Does plan have a Documentation Impact section with version bumps, CHANGELOG, registry updates? | Check for ## Documentation Impact heading and completeness of checklist items |
 
 ## Deterministic Verdict Derivation
 
