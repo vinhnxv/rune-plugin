@@ -236,7 +236,9 @@ Task({
   name: "{ash-name}",
   subagent_type: "general-purpose",
   prompt: /* Load from roundtable-circle/references/ash-prompts/{role}.md
-             Substitute: {changed_files}, {output_path}, {task_id}, {branch}, {timestamp} */,
+             Substitute: {changed_files}, {output_path}, {task_id}, {branch}, {timestamp}
+             // Codex Oracle additionally requires: {context_budget}, {codex_model}, {codex_reasoning}, {file_batch}
+             // These are resolved from talisman.codex.* config. See codex-oracle.md header for full contract. */,
   run_in_background: true
 })
 
@@ -473,7 +475,11 @@ if (totalFindings > 0) {
 | Ash crash | Report gap in TOME.md |
 | ALL Ash fail | Abort, notify user |
 | Concurrent review running | Warn, offer to cancel previous |
-| Codex CLI unavailable | Skip Codex Oracle silently, other Ashes continue normally |
-| Codex exec timeout (>5 min) | Codex Oracle reports partial results; Phase 5.5 verifies what is available |
-| Codex exec failure (non-zero exit) | Log warning, skip Codex findings, other Ashes unaffected |
+| Codex CLI not installed | Skip Codex Oracle, log: "CLI not found, skipping (install: npm install -g @openai/codex)" |
+| Codex CLI broken (can't execute) | Skip Codex Oracle, log: "CLI found but cannot execute — reinstall" |
+| Codex not authenticated | Skip Codex Oracle, log: "not authenticated — run `codex auth login`" |
+| Codex disabled in talisman.yml | Skip Codex Oracle, log: "disabled via talisman.yml" |
+| Codex exec timeout (>5 min) | Codex Oracle reports partial results, log: "timeout — reduce context_budget" |
+| Codex exec auth error at runtime | Log: "authentication required — run `codex auth login`", skip batch |
+| Codex exec failure (non-zero exit) | Classify error per `codex-detection.md`, log user-facing message, other Ashes unaffected |
 | jq unavailable | Codex Oracle uses raw text fallback instead of JSONL parsing |

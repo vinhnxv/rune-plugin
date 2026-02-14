@@ -186,7 +186,7 @@ Wire Codex Oracle through arc pipeline and update all documentation.
 **Success criteria:**
 - [ ] `/rune:arc` uses Codex Oracle in review, work, and audit phases
 - [ ] All documentation reflects Codex Oracle feature
-- [ ] Version bumped to 1.16.0
+- [ ] Version bumped to 1.18.0
 - [ ] talisman.example.yml has codex section with examples
 
 ### Data Model Changes
@@ -207,7 +207,7 @@ plugins/rune/
 ├── talisman.example.yml              # MODIFIED: codex section
 ├── CLAUDE.md                         # MODIFIED: Ash count 5→6
 ├── README.md                         # MODIFIED: feature description
-├── CHANGELOG.md                      # MODIFIED: v1.16.0 entry
+├── CHANGELOG.md                      # MODIFIED: v1.18.0 entry
 └── .claude-plugin/plugin.json        # MODIFIED: version bump
 ```
 
@@ -453,7 +453,7 @@ New `codex` top-level key in talisman.yml:
 
 ```yaml
 # ──────────────────────────────────────────────
-# Codex Oracle — Cross-model verification (v1.16.0+)
+# Codex Oracle — Cross-model verification (v1.18.0+)
 # ──────────────────────────────────────────────
 # Codex Oracle is auto-detected when `codex` CLI is installed.
 # Disable it here if you don't want cross-model review.
@@ -818,7 +818,7 @@ codex:
 |----------|-------------|-------------|
 | `README.md` | Add section | Codex Oracle feature, prerequisites, configuration |
 | `CLAUDE.md` | Update | Ash count 5→6, mention cross-model verification |
-| `CHANGELOG.md` | Add entry | v1.16.0 feature description |
+| `CHANGELOG.md` | Add entry | v1.18.0 feature description |
 | `talisman.example.yml` | Add section | `codex:` configuration block with comments |
 | `circle-registry.md` | Add entry | Codex Oracle agent mapping |
 | `output-format.md` | Add prefix | `CDX` finding prefix |

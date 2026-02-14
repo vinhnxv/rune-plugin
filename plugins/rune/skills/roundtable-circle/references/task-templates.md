@@ -54,6 +54,16 @@ TaskCreate({
 })
 ```
 
+### Codex Oracle (Cross-Model)
+
+```
+TaskCreate({
+  subject: "Review code as Codex Oracle (cross-model verification)",
+  description: "Files: {codex_files}\nOutput: tmp/reviews/{id}/codex-oracle.md\nPerspectives: cross-model security, logic, quality (GPT-5.3-codex)\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary\nNote: Requires codex CLI. Conditional — skipped if CLI unavailable.",
+  activeForm: "Running cross-model review via Codex Oracle"
+})
+```
+
 ## Audit Mode Templates
 
 Identical to review mode except:
@@ -112,8 +122,9 @@ Task({
 forge-warden    ─┐
 ward-sentinel   ─┤
 pattern-weaver  ─┤── All complete ──► runebinder ──► truthsight-verifier
-glyph-scribe   ─┤
-knowledge-keeper    ─┘
+glyph-scribe    ─┤
+knowledge-keeper ─┤
+codex-oracle    ─┘
 ```
 
 All Ash are independent — no `blockedBy` relationships between them. The Runebinder task should be `blockedBy` all Ash tasks. The Truthsight Verifier (if enabled) should be `blockedBy` the Runebinder.

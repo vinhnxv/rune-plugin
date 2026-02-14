@@ -55,12 +55,18 @@ For each batch of files (max 5 per invocation):
 
 Bash:
 // Values resolved from talisman.codex config at runtime
+# SECURITY: {file_batch} MUST be shell-escaped before interpolation.
+# Orchestrator should write file list to tmp file and use $(cat ...) instead.
+# See SEC-004 mitigation.
 timeout 300 codex exec \
   -m {codex_model} \
   --config model_reasoning_effort="{codex_reasoning}" \
   --sandbox read-only \
   // SECURITY NOTE: --full-auto grants maximum autonomy to external model.
   // --sandbox read-only mitigates write risk. Codex findings are advisory only (never auto-applied).
+  // WARNING: --full-auto allows external model to read ALL repo files including .env, *.pem, *.key.
+  // Mitigations: (1) --sandbox read-only prevents writes, (2) findings are advisory-only,
+  // (3) consider adding .codexignore for sensitive files if supported by CLI.
   // Consider talisman.codex.skip_git_check: false to re-enable git repo check.
   --full-auto \
   --skip-git-repo-check \
@@ -79,18 +85,24 @@ timeout 300 codex exec \
    - Suggested fix
    - Confidence level (0-100%)
    Only report issues with confidence >= 80%.
-   Files: {file_batch}" 2>/dev/null | \
+   Files: $(cat "{output_dir}/file-batch-{N}.txt")" 2>/dev/null | \
   jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
 
 **Fallback (if jq unavailable):** If `command -v jq` fails, use grep-based parsing:
 Bash:
 // Values resolved from talisman.codex config at runtime
+# SECURITY: {file_batch} MUST be shell-escaped before interpolation.
+# Orchestrator should write file list to tmp file and use $(cat ...) instead.
+# See SEC-004 mitigation.
 timeout 300 codex exec \
   -m {codex_model} \
   --config model_reasoning_effort="{codex_reasoning}" \
   --sandbox read-only \
   // SECURITY NOTE: --full-auto grants maximum autonomy to external model.
   // --sandbox read-only mitigates write risk. Codex findings are advisory only (never auto-applied).
+  // WARNING: --full-auto allows external model to read ALL repo files including .env, *.pem, *.key.
+  // Mitigations: (1) --sandbox read-only prevents writes, (2) findings are advisory-only,
+  // (3) consider adding .codexignore for sensitive files if supported by CLI.
   // Consider talisman.codex.skip_git_check: false to re-enable git repo check.
   --full-auto \
   --skip-git-repo-check \
@@ -108,10 +120,18 @@ timeout 300 codex exec \
    - Suggested fix
    - Confidence level (0-100%)
    Only report issues with confidence >= 80%.
-   Files: {file_batch}" 2>/dev/null
+   Files: $(cat "{output_dir}/file-batch-{N}.txt")" 2>/dev/null
 
-**Error handling:** If codex exec returns non-zero or times out, log the error
-and continue with remaining batches. Do NOT retry failed invocations.
+**Error handling:** If codex exec returns non-zero or times out, classify the error
+and log a user-facing message. See `codex-detection.md` ## Runtime Error Classification
+for the full error→message mapping. Key patterns:
+- Exit 124 (timeout): log "Codex Oracle: timeout after 5 min — reduce context_budget"
+- stderr contains "auth" / "not authenticated": log "Codex Oracle: authentication required — run `codex auth login`"
+- stderr contains "rate limit" / "429": log "Codex Oracle: API rate limit — try again later"
+- stderr contains "network" / "connection": log "Codex Oracle: network error — check internet connection"
+- Other non-zero: log "Codex Oracle: exec failed (exit {code}) — run `codex exec` manually to debug"
+Continue with remaining batches. Do NOT retry failed invocations.
+All errors are non-fatal — the review continues without Codex Oracle findings for failed batches.
 
 ## HALLUCINATION GUARD (CRITICAL — MANDATORY)
 
@@ -220,8 +240,10 @@ SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {ou
 ## EXIT CONDITIONS
 
 - No tasks available: wait 30s, retry 3x, then exit
-- Codex CLI unavailable: write skip message, mark complete, exit
-- All codex invocations fail: write "Codex exec failed" to output, mark complete, exit
+- Codex CLI unavailable: write "Codex CLI not available — skipping (install: npm install -g @openai/codex)" to output, mark complete, exit
+- Codex CLI can't execute: write "Codex CLI found but cannot execute — reinstall with: npm install -g @openai/codex" to output, mark complete, exit
+- Codex not authenticated: write "Codex not authenticated — run `codex auth login` to set up your OpenAI account" to output, mark complete, exit
+- All codex invocations fail: write classified error message (see Error handling above) to output, mark complete, exit
 - Shutdown request: SendMessage({ type: "shutdown_response", request_id: "<from request>", approve: true })
 
 ## CLARIFICATION PROTOCOL

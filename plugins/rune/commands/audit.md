@@ -101,28 +101,7 @@ See `roundtable-circle/references/custom-ashes.md` for full schema and validatio
 
 After custom Ash loading, check whether the Codex Oracle should be summoned. Codex Oracle is a built-in Ash that wraps the OpenAI `codex` CLI, providing cross-model verification (GPT-5.3-codex alongside Claude). It is auto-detected and gracefully skipped when unavailable.
 
-```
-1. Read talisman.yml (project or global)
-2. If talisman.codex.disabled is true:
-   - Log: "Codex Oracle: disabled via talisman.yml"
-   - Skip Codex Oracle entirely
-3. Otherwise, check CLI availability:
-   Bash: command -v codex >/dev/null 2>&1 && echo "available" || echo "unavailable"
-   - If "available":
-     a. Add "codex-oracle" to the Ash selection (always-on when available, like Ward Sentinel)
-     b. Log: "Codex Oracle: CLI detected, adding cross-model reviewer"
-   - If "unavailable":
-     a. Log: "Codex Oracle: CLI not found, skipping (install: npm install -g @openai/codex)"
-4. Check jq availability (needed for JSONL parsing of Codex output):
-   Bash: command -v jq >/dev/null 2>&1 && echo "available" || echo "unavailable"
-   - If "unavailable":
-     a. Log: "Warning: jq not found — Codex Oracle will use raw text fallback instead of JSONL parsing"
-     b. Set codex_jq_available = false (Codex Oracle Ash prompt will skip jq-based parsing)
-   - If "available":
-     a. Set codex_jq_available = true
-5. Check talisman.codex.workflows (default: [review, audit, plan, forge, work])
-   - If "audit" is NOT in the workflows list, remove codex-oracle from Ash selection
-```
+See `roundtable-circle/references/codex-detection.md` for the canonical Codex detection algorithm.
 
 **Note:** CLI detection is fast (no network call, <100ms). When Codex Oracle is selected, it counts toward the `max_ashes` cap. Codex Oracle findings use the `CDX` prefix and participate in standard dedup, TOME aggregation, and Truthsight verification.
 
@@ -453,7 +432,11 @@ Read("tmp/audit/{audit_id}/TOME.md")
 | Concurrent audit running | Warn, offer to cancel previous |
 | File count exceeds 150 | Warn about partial coverage, proceed with capped budgets |
 | Not a git repo | Works fine — audit uses `find`, not `git diff` |
-| Codex CLI unavailable | Skip Codex Oracle silently, other Ashes continue normally |
-| Codex exec timeout (>5 min) | Codex Oracle reports partial results; verification checks what is available |
-| Codex exec failure (non-zero exit) | Log warning, skip Codex findings, other Ashes unaffected |
+| Codex CLI not installed | Skip Codex Oracle, log: "CLI not found, skipping (install: npm install -g @openai/codex)" |
+| Codex CLI broken (can't execute) | Skip Codex Oracle, log: "CLI found but cannot execute — reinstall" |
+| Codex not authenticated | Skip Codex Oracle, log: "not authenticated — run `codex auth login`" |
+| Codex disabled in talisman.yml | Skip Codex Oracle, log: "disabled via talisman.yml" |
+| Codex exec timeout (>5 min) | Codex Oracle reports partial results, log: "timeout — reduce context_budget" |
+| Codex exec auth error at runtime | Log: "authentication required — run `codex auth login`", skip batch |
+| Codex exec failure (non-zero exit) | Classify error per `codex-detection.md`, log user-facing message, other Ashes unaffected |
 | jq unavailable | Codex Oracle uses raw text fallback instead of JSONL parsing |
