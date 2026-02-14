@@ -169,6 +169,54 @@ Workers scale automatically based on task count (1-5 tasks: 2 workers, 20+ tasks
 
 New talisman work keys: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `co_authors`. Reserved for a future release: `pr_template`, `auto_push`. See [`talisman.example.yml`](talisman.example.yml) for defaults.
 
+## Codex Oracle (Cross-Model Verification)
+
+When the `codex` CLI is installed, Rune automatically detects it and adds **Codex Oracle** as a 6th built-in Ash. Codex Oracle provides cross-model verification — a second AI perspective (GPT-5.3-codex) alongside Claude Code's review agents — catching issues that single-model blind spots miss.
+
+### How It Works
+
+- **Review/Audit**: Codex Oracle joins the Roundtable Circle as a teammate, reviewing assigned files via `codex exec` in read-only sandbox mode. Its findings go through the standard TOME aggregation pipeline with `CDX-NNN` prefix.
+- **Plan**: Codex Oracle serves as both a research agent (Phase 1C) and an optional plan reviewer (Phase 4C) with `[CDX-PLAN-NNN]` findings.
+- **Work**: After ward checks pass, an optional Phase 4.5 advisory compares the implementation diff against the plan to catch semantic drift. Non-blocking `[CDX-WORK-NNN]` warnings.
+- **Forge**: Codex Oracle participates in Forge Gaze topic matching for plan enrichment.
+
+### Cross-Model Verification
+
+Codex findings go through a verification layer before entering the TOME:
+1. File existence check (does the referenced file exist?)
+2. Code snippet match (does the Rune Trace match actual code at the referenced line?)
+3. Cross-Ash correlation (did any Claude Ash flag the same issue? If so, confidence boost)
+4. Only CONFIRMED findings proceed; HALLUCINATED and UNVERIFIED findings are filtered out
+
+### Prerequisites
+
+- `codex` CLI installed: `npm install -g @openai/codex`
+- OpenAI account with API access (Codex CLI handles authentication)
+- No Rune configuration needed — auto-detected when CLI is available
+
+### Configuration
+
+```yaml
+# .claude/talisman.yml
+codex:
+  disabled: false                   # Set true to disable Codex Oracle entirely
+  model: "gpt-5.3-codex"           # Codex model (gpt-5-codex, gpt-5.2-codex, gpt-5.3-codex)
+  reasoning: "high"                 # Reasoning effort (high, medium, low)
+  sandbox: "read-only"              # Sandbox mode (always read-only for review)
+  context_budget: 20                # Max files to review (default: 20)
+  confidence_threshold: 80          # Min confidence to report finding (default: 80)
+  workflows: [review, audit, plan, forge, work]  # Which workflows use Codex Oracle
+  work_advisory:
+    enabled: true                   # Set false to skip advisory in work pipeline
+    max_diff_size: 15000            # Truncate diff to this many chars (default: 15000)
+  verification:
+    enabled: true                   # Cross-model verification (recommended: true)
+    fuzzy_match_threshold: 0.7      # Code snippet match threshold (0.0-1.0)
+    cross_model_bonus: 0.15         # Confidence boost when Claude+Codex agree
+```
+
+When Codex Oracle is disabled (via `codex.disabled: true`) or the CLI is not installed, all workflows proceed normally without it — no error, just an info-level log message.
+
 ## Rune Echoes (Memory)
 
 Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After each review or audit, agents persist patterns and learnings. Future sessions read these echoes to avoid repeating mistakes.
@@ -205,6 +253,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 | Pattern Weaver | Quality patterns | Always |
 | Glyph Scribe | Frontend review | Frontend files changed |
 | Knowledge Keeper | Docs review | Docs changed (>= 10 lines) |
+| Codex Oracle | Cross-model review (GPT-5.3-codex) | `codex` CLI available |
 
 ## Agents
 
@@ -299,7 +348,7 @@ ashes:
       finding_prefix: "MYR"
 
 settings:
-  max_ashes: 8                   # Hard cap (5 built-in + custom)
+  max_ashes: 8                   # Hard cap (6 built-in + custom)
 
 echoes:
   version_controlled: false  # Set to true to track echoes in git
@@ -454,6 +503,7 @@ Rune uses Elden Ring-inspired theming:
 
 - Claude Code with Agent Teams support
 - `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable enabled
+- **Optional**: `codex` CLI for cross-model verification (`npm install -g @openai/codex`)
 
 ## License
 

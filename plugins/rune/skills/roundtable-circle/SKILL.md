@@ -1,7 +1,7 @@
 ---
 name: roundtable-circle
 description: |
-  Orchestrates multi-agent code reviews using Agent Teams with up to 8 Ashes teammates (5 built-in + custom).
+  Orchestrates multi-agent code reviews using Agent Teams with up to 8 Ashes teammates (6 built-in + custom).
   This skill should be used when running /rune:review or /rune:audit. Each Ash gets its own 200k context window.
   Handles scope selection, team creation, inscription generation, Ash summoning, monitoring, aggregation, verification, and cleanup.
 
@@ -46,7 +46,7 @@ Phase 6: Verify          → Truthsight validation on P1 findings
 Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 ```
 
-### Built-in Ash Roles (Max 5)
+### Built-in Ash Roles (Max 6)
 
 | Ash | Role | When Selected | Perspectives |
 |-----------|------|---------------|-------------|
@@ -55,6 +55,7 @@ Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 | **Pattern Weaver** | Quality patterns | ALWAYS | Simplicity, TDD, dead code, pattern consistency |
 | **Glyph Scribe** | Frontend review | Frontend files changed | TypeScript safety, React performance, accessibility |
 | **Knowledge Keeper** | Docs review | Docs changed (>= 10 lines) | Accuracy, completeness, anti-injection |
+| **Codex Oracle** | Cross-model review | `codex` CLI available | Cross-model security, logic, quality (GPT-5.3-codex) |
 
 Plus **Runebinder** (utility) for aggregation in Phase 5.
 
@@ -68,7 +69,7 @@ Projects can register additional Ash from local agents, global agents, or other 
 - **Verified** by Truthsight (if `settings.verification.layer_2_custom_agents: true`)
 - **Aggregated** into TOME.md by Runebinder
 
-**Max total:** 5 built-in + up to 3 custom = 8 Ashes (configurable via `settings.max_ashes`). The cap exists because each Ash output (~10k tokens) consumes verifier context budget.
+**Max total:** 6 built-in + up to 2 custom = 8 Ashes (configurable via `settings.max_ashes`). The cap exists because each Ash output (~10k tokens) consumes verifier context budget.
 
 See [`custom-ashes.md`](references/custom-ashes.md) for full schema, wrapper prompt template, and examples.
 
@@ -82,6 +83,7 @@ tmp/reviews/{id}/
 ├── pattern-weaver.md        # Quality patterns findings
 ├── glyph-scribe.md          # Frontend review findings (if summoned)
 ├── knowledge-keeper.md      # Docs review findings (if summoned)
+├── codex-oracle.md          # Cross-model review findings (if codex CLI available)
 ├── TOME.md                  # Aggregated + deduplicated findings
 └── truthsight-report.md     # Verification results (if Layer 2 enabled)
 ```

@@ -1,7 +1,7 @@
 ---
 name: rune:audit
 description: |
-  Full codebase audit using Agent Teams. Summons up to 5 built-in Ashes
+  Full codebase audit using Agent Teams. Summons up to 6 built-in Ashes
   (plus custom Ash from talisman.yml), each with their own 200k context window.
   Scans entire project (or current directory) instead of git diff changes. Uses the same
   7-phase Roundtable Circle lifecycle.
@@ -97,6 +97,35 @@ After scanning files, check for custom Ash config:
 
 See `roundtable-circle/references/custom-ashes.md` for full schema and validation rules.
 
+### Detect Codex Oracle (CLI-Gated Built-in Ash)
+
+After custom Ash loading, check whether the Codex Oracle should be summoned. Codex Oracle is a built-in Ash that wraps the OpenAI `codex` CLI, providing cross-model verification (GPT-5.3-codex alongside Claude). It is auto-detected and gracefully skipped when unavailable.
+
+```
+1. Read talisman.yml (project or global)
+2. If talisman.codex.disabled is true:
+   - Log: "Codex Oracle: disabled via talisman.yml"
+   - Skip Codex Oracle entirely
+3. Otherwise, check CLI availability:
+   Bash: command -v codex >/dev/null 2>&1 && echo "available" || echo "unavailable"
+   - If "available":
+     a. Add "codex-oracle" to the Ash selection (always-on when available, like Ward Sentinel)
+     b. Log: "Codex Oracle: CLI detected, adding cross-model reviewer"
+   - If "unavailable":
+     a. Log: "Codex Oracle: CLI not found, skipping (install: npm install -g @openai/codex)"
+4. Check jq availability (needed for JSONL parsing of Codex output):
+   Bash: command -v jq >/dev/null 2>&1 && echo "available" || echo "unavailable"
+   - If "unavailable":
+     a. Log: "Warning: jq not found — Codex Oracle will use raw text fallback instead of JSONL parsing"
+     b. Set codex_jq_available = false (Codex Oracle Ash prompt will skip jq-based parsing)
+   - If "available":
+     a. Set codex_jq_available = true
+5. Check talisman.codex.workflows (default: [review, audit, plan, forge, work])
+   - If "audit" is NOT in the workflows list, remove codex-oracle from Ash selection
+```
+
+**Note:** CLI detection is fast (no network call, <100ms). When Codex Oracle is selected, it counts toward the `max_ashes` cap. Codex Oracle findings use the `CDX` prefix and participate in standard dedup, TOME aggregation, and Truthsight verification.
+
 ## Phase 1: Rune Gaze (Scope Selection)
 
 Classify ALL project files by extension. Adapted from `roundtable-circle/references/rune-gaze.md` — audit uses **total file lines** instead of `lines_changed` since there is no git diff.
@@ -135,6 +164,7 @@ limits what they can review. Some files may not be fully covered.
 - Pattern Weaver (max 30): largest files first (highest complexity risk)
 - Glyph Scribe (max 25): pages/routes > components > hooks > utils
 - Knowledge Keeper (max 25): README > CLAUDE.md > docs/ > other .md files
+- Codex Oracle (max 20): new files > modified files > high-risk files > other (conditional — requires codex CLI)
 
 ### Dry-Run Exit Point
 
@@ -158,6 +188,7 @@ Ash to summon: {count} ({built_in_count} built-in + {custom_count} custom)
   - Pattern Weaver:    {file_count} files (cap: 30)
   - Glyph Scribe:      {file_count} files (cap: 25)  [conditional]
   - Knowledge Keeper:  {file_count} files (cap: 25)  [conditional]
+  - Codex Oracle:      {file_count} files (cap: 20)  [conditional — requires codex CLI]
 
   Custom (from .claude/talisman.yml):       # Only shown if custom Ash exist
   - {name} [{prefix}]: {file_count} files (cap: {budget}, source: {source})
@@ -300,8 +331,8 @@ Task({
   name: "runebinder",
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/audit/{audit_id}/.
-    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT).
-    Include custom Ash outputs in dedup — use their finding_prefix from config.
+    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT > CDX).
+    Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/audit/{audit_id}/TOME.md.
     IMPORTANT: Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
     Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.
@@ -422,3 +453,7 @@ Read("tmp/audit/{audit_id}/TOME.md")
 | Concurrent audit running | Warn, offer to cancel previous |
 | File count exceeds 150 | Warn about partial coverage, proceed with capped budgets |
 | Not a git repo | Works fine — audit uses `find`, not `git diff` |
+| Codex CLI unavailable | Skip Codex Oracle silently, other Ashes continue normally |
+| Codex exec timeout (>5 min) | Codex Oracle reports partial results; verification checks what is available |
+| Codex exec failure (non-zero exit) | Log warning, skip Codex findings, other Ashes unaffected |
+| jq unavailable | Codex Oracle uses raw text fallback instead of JSONL parsing |

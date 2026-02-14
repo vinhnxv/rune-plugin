@@ -74,6 +74,21 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 **Audit file priority:** README > CLAUDE.md > docs/ > other .md files
 **Context budget:** max 25 files
 
+### Codex Oracle (Cross-Model)
+
+> **External CLI** — Codex Oracle invokes `codex exec` via Bash, unlike other Ashes which use Claude Code tools directly. Auto-detected, conditionally summoned. Uses **inline perspective definitions** (like Glyph Scribe and Knowledge Keeper).
+
+| Perspective (inline) | Focus | Scope Priority |
+|----------------------|-------|---------------|
+| Cross-model security | Issues that Claude Ashes might miss | Auth files > API routes > infrastructure |
+| Cross-model logic | Edge cases, concurrency, error handling | Business logic > data transformations |
+| Cross-model quality | Duplication, API design, validation gaps | All file types |
+
+**Activation:** `command -v codex` returns 0 AND `talisman.codex.disabled` is not true
+**Audit file priority:** new files > modified files > high-risk files > other
+**Context budget:** max 20 files (configurable via talisman)
+**Finding prefix:** `CDX`
+
 ## Audit Scope Assignment
 
 During `/rune:audit`, each Ash receives a file list capped by its context budget. Files are assigned using the priority order above.
@@ -96,6 +111,7 @@ Some files may be reviewed by multiple Ash:
 | `Dockerfile` | Ward Sentinel + Forge Warden |
 | CI/CD configs | Ward Sentinel + Pattern Weaver |
 | Test files | Pattern Weaver + Forge Warden |
+| ALL files (when codex available) | Codex Oracle (cross-model perspective) |
 
 This is intentional — different perspectives catch different issues.
 
@@ -111,6 +127,7 @@ When `/rune:audit --focus <area>` is used, only summon the relevant Ash(s):
 | `frontend` | Glyph Scribe only |
 | `docs` | Knowledge Keeper only |
 | `backend` | Forge Warden + Ward Sentinel |
+| `cross-model` | Codex Oracle only |
 | `full` | All (default) |
 
 Focus mode increases context budget per Ash since fewer are competing for resources.

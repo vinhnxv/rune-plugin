@@ -22,8 +22,8 @@ If two Ash flag the same file within a 5-line range:
 **Default (built-in only):**
 
 ```
-Ward Sentinel > Forge Warden > Knowledge Keeper > Pattern Weaver > Glyph Scribe
-SEC > BACK > DOC > QUAL > FRONT
+Ward Sentinel > Forge Warden > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle
+SEC > BACK > DOC > QUAL > FRONT > CDX
 ```
 
 When the same issue is found by multiple Ash:
@@ -44,10 +44,10 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT
 - If `settings.dedup_hierarchy` is defined in config, use it as-is (user controls the order)
 - If NOT defined, append custom prefixes AFTER built-in hierarchy (lowest priority):
   ```
-  SEC > BACK > DOC > QUAL > FRONT > {custom_1} > {custom_2} > ...
+  SEC > BACK > DOC > QUAL > FRONT > CDX > {custom_1} > {custom_2} > ...
   ```
 - Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
-- Reserved built-in prefixes: `SEC`, `BACK`, `QUAL`, `FRONT`, `DOC` — cannot be used by custom Ash
+- Reserved built-in prefixes: `SEC`, `BACK`, `QUAL`, `FRONT`, `DOC`, `CDX` — cannot be used by custom Ash
 
 ### Finding ID Prefixes
 
@@ -60,6 +60,7 @@ Each Ash uses a unique prefix for finding IDs:
 | Pattern Weaver | `QUAL-` | `QUAL-001` | Built-in |
 | Glyph Scribe | `FRONT-` | `FRONT-001` | Built-in |
 | Knowledge Keeper | `DOC-` | `DOC-001` | Built-in |
+| Codex Oracle | `CDX-` | `CDX-001` | Built-in |
 | *(custom)* | *from config* | e.g., `DOM-001` | Custom |
 
 Custom Ashes define their prefix in `talisman.yml` → `ashes.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Ashes.
