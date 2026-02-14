@@ -58,9 +58,17 @@ Interactive elicitation session using Rune's BMAD-derived method registry. Selec
 | `--list` | Display full method registry with tiers | (none) |
 | `--tier 1\|2` | Filter by tier (1=auto-suggest, 2=optional) | All tiers |
 
+**Flag precedence** (highest first): `--list` > `--method N` > `--phase X:Y` > interactive (default).
+If multiple mode flags are specified, use the highest-priority flag and warn:
+`"Multiple modes detected, using {winner} (highest priority). Ignoring {others}."`
+
 ## Workflow
 
 ### Interactive Mode (default)
+
+Three helper workflows compose the interactive mode:
+
+#### Step A: Detect Context
 
 ```
 1. Analyze current context:
@@ -72,11 +80,17 @@ Interactive elicitation session using Rune's BMAD-derived method registry. Selec
    - Read skills/elicitation/methods.csv
    - Parse per CSV schema (see SKILL.md for parsing rules)
    - Filter by detected phase (if applicable)
+```
 
+#### Step B: Select Method
+
+```
 3. Score and select 5 methods:
    - Use method selection algorithm from SKILL.md
-   - Phase filter → tier filter → topic scoring → top 5
+   - Phase filter → agent filter → tier filter → topic scoring → top 5
    - Include both Tier 1 and Tier 2 in interactive mode
+   - If zero methods matched: inform user "No methods match current context"
+     and offer to browse the full registry (--list fallback)
 
 4. Present via AskUserQuestion:
    question: "Which elicitation method would you like to apply?"
@@ -85,18 +99,33 @@ Interactive elicitation session using Rune's BMAD-derived method registry. Selec
      - { label: "{method_name}", description: "{description} (Tier {tier})" }
      - ... (up to 4 methods)
    # User can also type "Other" for: reshuffle, list all, skip
+```
 
-5. Execute selected method:
+#### Step C: Execute and Loop
+
+```
+5. Pre-flight: Verify tmp/elicitation/ exists and is writable.
+   If not, create directory. On write failure, warn user but continue (non-blocking).
+
+6. Execute selected method:
    - Read method's output_pattern from CSV
    - Expand pattern into structured template (see SKILL.md for expansion rules)
    - Read examples from references/examples.md for the selected method
+   - If no example exists for the method (e.g., Tier 2), use only the output_pattern expansion
    - Apply method template to current context
    - Display structured output to user
 
-6. Loop:
-   - After displaying output, ask: "Apply another method or proceed?"
-   - If "proceed" → exit
-   - If another method → return to step 4
+7. Loop (max 10 iterations per session):
+   - After displaying output, ask via AskUserQuestion:
+     question: "Apply another method or proceed?"
+     options:
+       - { label: "Try another method", description: "Return to method selection" }
+       - { label: "Proceed", description: "Exit elicitation session" }
+       - { label: "Cancel", description: "Discard and exit" }
+   - If "Proceed" or "Cancel" → exit
+   - If "Try another method" → return to step 4
+   - If unrecognized input → re-present the 3 options above
+   - If 10 iterations reached → warn "Session limit reached" and exit
 ```
 
 ### Direct Mode (`--method N`)
@@ -104,9 +133,12 @@ Interactive elicitation session using Rune's BMAD-derived method registry. Selec
 ```
 1. Read methods.csv
 2. Find method where num = N
-3. If not found: show error with available method numbers
+3. If not found: display error "Method {N} not found. Available: {comma-separated nums}"
+   and EXIT. Do NOT fall back to interactive mode.
 4. Apply method template to current context
-5. Display structured output
+5. Read examples from references/examples.md for the selected method
+   If no example exists (e.g., Tier 2 method), use only the output_pattern expansion
+6. Display structured output
 ```
 
 ### Phase Filter Mode (`--phase X:Y`)

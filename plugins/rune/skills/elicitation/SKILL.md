@@ -72,11 +72,11 @@ To parse methods.csv:
 
 ### Error Handling
 
-- Malformed CSV row (wrong column count): Skip row, log warning
+- Malformed CSV row (wrong column count): Skip row, log warning: `"Row {N} has {count} columns (expected 10): {first_80_chars}"`
 - Missing required field: Skip row, log warning
-- Invalid tier value: Default to `2` (non-auto-suggest)
-- Invalid phase syntax: Skip that phase entry, keep row
-- Empty file or unreadable: Fall back to empty registry (no methods available, standard workflow)
+- Invalid tier value: Skip row, log warning: `"Invalid tier '{value}' for method {method_name} — skipping row"`. Do NOT default to tier 2 silently.
+- Invalid phase syntax: Skip that phase entry, keep row. If ALL phase entries for a row are invalid after filtering, skip entire row with warning: `"Method {method_name} has no valid phase entries — skipping row"`
+- Empty file or unreadable: Fall back to empty registry. Log WARNING to orchestrator: `"⚠️ Elicitation registry unavailable — proceeding without method injection."` Append this warning to method selection output so auto-mode callers (forge, arc) are aware methods were not injected.
 
 **Security note**: `description` and `output_pattern` fields are display-only strings. Never interpolate them into executable contexts (shell commands, code blocks). Treat all CSV field values as untrusted when extending the registry.
 
@@ -90,25 +90,50 @@ Context-aware selection pipeline (rule-based v1):
    Filter: methods WHERE phases CONTAINS current_phase
    Output: phase_matched_methods[]
 
+1.5. AGENT FILTER (optional)
+   Input: current_agent (e.g., "forge-keeper", "pattern-seer")
+   If current_agent is specified:
+     Filter: phase_matched_methods WHERE agents IS EMPTY OR agents CONTAINS current_agent
+   If current_agent is not specified:
+     Keep all phase_matched_methods (no agent filtering)
+   Output: agent_filtered_methods[]
+
 2. TIER FILTER
    If auto_mode:
-     Filter: phase_matched_methods WHERE auto_suggest = true (Tier 1 only)
+     Filter: agent_filtered_methods WHERE auto_suggest = true (Tier 1 only)
    If manual_mode:
-     Keep all phase_matched_methods (Tier 1 + Tier 2)
+     Keep all agent_filtered_methods (Tier 1 + Tier 2)
    Output: tier_filtered_methods[]
 
 3. TOPIC SCORING
    Input: section_title, section_text (untrusted — plan section or feature description)
+   Extract section_keywords from section_title + section_text.
+   If section_text is empty, use only section_title keywords.
+   If zero keywords extracted, skip section with DEBUG log — no methods scored.
    For each method in tier_filtered_methods:
      score = keyword_overlap(method.topics, section_keywords) / len(method.topics)
      If method.method_name appears in section_title: score += 0.3 (title bonus)
+     Title bonus uses case-insensitive full-word match.
+     "Architecture Decision Records" matches "architecture decision records" but NOT "architectural" or partial words.
      Note: title bonus checks section TITLE only, not full content (consistent with forge-gaze.md)
-     MAX_METHODS_PER_SECTION = 2 (cap per section, see forge-gaze.md)
+     MAX_METHODS_PER_SECTION = 2 (cap per section — applies to forge enrichment only, see forge-gaze.md)
+     Standalone /rune:elicit uses top 5 for interactive selection (no per-section limit).
    Output: scored_methods[] sorted by score DESC
 
 4. SELECT TOP N
    Take top 3-5 methods (configurable, default 5)
    Output: selected_methods[]
+
+5. EMPTY RESULT HANDLING
+   If selected_methods[] is empty after step 4:
+     Return NO_MATCH status with reason:
+       - "No methods match phase {current_phase}" (phase filter returned 0)
+       - "No methods scored above 0.0 for topics {section_keywords}" (scoring returned all zeros)
+     In auto_mode (forge enrichment): proceed silently — methods are optional enrichment.
+       Log: "No elicitation methods matched for section '{section_title}' — proceeding without method injection."
+     In manual_mode (/rune:elicit interactive): inform user:
+       "No methods match your current context. Would you like to browse the full registry?"
+       Offer --list as fallback.
 ```
 
 ### Worked Example
