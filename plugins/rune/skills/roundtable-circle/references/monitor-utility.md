@@ -48,6 +48,7 @@ function waitForCompletion(teamName, expectedCount, opts) {
     const tasks = TaskList()
     const completed = tasks.filter(t => t.status === "completed")
     const inProgress = tasks.filter(t => t.status === "in_progress")
+    // task.stale: elapsed ms since task entered in_progress (derived from platform TaskList metadata)
 
     log(`${label} progress: ${completed.length}/${expectedCount} tasks`)
 
@@ -94,13 +95,13 @@ Each command passes its own `opts` to `waitForCompletion`:
 | `work` | 1,800,000 (30 min) | 300,000 (5 min) | 600,000 (10 min) | 30,000 (30s) | `"Work"` |
 | `mend` | 900,000 (15 min) | 300,000 (5 min) | 600,000 (10 min) | 30,000 (30s) | `"Mend"` |
 | `plan` | — (none) | 300,000 (5 min) | — | 30,000 (30s) | `"Plan Research"` |
-| `forge` | — (none) | 300,000 (5 min) | 300,000 (5 min) | 30,000 (30s) | `"Forge"` |
+| `forge` | — (none) | 300,000 (5 min) | 300,000 (5 min)* | 30,000 (30s) | `"Forge"` |
 | `arc` | Per-phase (varies) | 300,000 (5 min) | — | 30,000 (30s) | `"Arc: {phase}"` |
 
 **Key differences**:
 - `review` and `audit` have no `autoReleaseMs` because each Ash produces unique findings that cannot be reclaimed by another Ash.
 - `work` and `mend` enable auto-release because their tasks are fungible (any worker can pick up a released task).
-- `forge` enables auto-release (5 min) because enrichment tasks are reassignable.
+- `forge` enables auto-release (5 min) because enrichment tasks are reassignable. *When `staleWarnMs === autoReleaseMs` (as in forge), warn and release fire on the same poll tick — this is by design since forge's stale detection and release are a single action.
 - `plan` and `forge` have no `timeoutMs` — polling continues until all tasks complete or stale detection intervenes.
 - `arc` uses `PHASE_TIMEOUTS` from its constants (see `arc.md`) which vary per phase.
 

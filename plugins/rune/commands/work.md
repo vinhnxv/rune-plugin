@@ -534,9 +534,9 @@ const result = waitForCompletion(teamName, taskCount, {
   pollIntervalMs: 30_000,
   label: "Work"
 })
-
-// Commit broker: process completed task patches (see Phase 3.5)
 ```
+
+**Note:** The commit broker (Phase 3.5) runs after `waitForCompletion` returns, processing all accumulated patches in sequence. This means commits happen in a batch after monitoring completes, not incrementally during polling. The commit broker checks each completed task's output for patches to apply.
 
 **Total timeout**: Hard limit of 30 minutes (work legitimately takes longer due to implementation + ward checks). After timeout, a final sweep collects any results that completed during the last poll interval.
 

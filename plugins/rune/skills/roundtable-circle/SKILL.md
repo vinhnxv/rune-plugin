@@ -237,7 +237,7 @@ Use the shared monitoring utility to poll TaskList with timeout and stale detect
 ```javascript
 // See references/monitor-utility.md
 const result = waitForCompletion(teamName, ashCount, {
-  timeoutMs: TOTAL_TIMEOUT,
+  timeoutMs: 600_000,         // 10 min for review; varies per command — see monitor-utility.md
   staleWarnMs: 300_000,
   pollIntervalMs: 30_000,
   label: "Review"

@@ -430,12 +430,18 @@ const parseVerdict = (reviewer, output) => {
   return match[2]  // PASS | CONCERN | BLOCK
 }
 
-// Monitor with timeout — see skills/roundtable-circle/references/monitor-utility.md
+// Monitor with timeout — see [monitor-utility.md](../skills/roundtable-circle/references/monitor-utility.md)
 const result = waitForCompletion(`arc-plan-review-${id}`, reviewers.length, {
   timeoutMs: PHASE_TIMEOUTS.plan_review,
   staleWarnMs: STALE_THRESHOLD,
   pollIntervalMs: 30_000,
   label: "Arc: Plan Review"
+})
+
+// Map completed tasks back to reviewer array for timeout handler
+result.completed.forEach(t => {
+  const r = reviewers.find(r => r.name === t.owner)
+  if (r) r.completed = true
 })
 
 // Handle missing verdicts on timeout
