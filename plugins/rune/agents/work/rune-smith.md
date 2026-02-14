@@ -62,7 +62,7 @@ Run discovered gates. If any fail, fix the issues before marking complete.
 
 ### Mandatory Quality Checks
 
-In addition to discovered wards, ALWAYS run language-appropriate checks for files you modified:
+In addition to discovered wards, run language-appropriate checks for all files you modified:
 
 **Python:**
 ```
@@ -122,7 +122,7 @@ Seal: task #{id} done. Files: {changed_files}. Tests: {pass_count}/{total}.
 
 ## File Scope Restrictions
 
-NEVER modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
+Do not modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

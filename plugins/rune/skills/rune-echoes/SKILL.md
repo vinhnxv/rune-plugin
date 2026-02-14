@@ -271,7 +271,7 @@ An ETCHED echo becomes a Remembrance document when ALL conditions are met:
 1. Contains a clear problem-solution pair (`symptom` + `root_cause` + `solution_summary`)
 2. Has been validated (`confidence: high` OR referenced by 2+ sessions)
 3. Is actionable for humans (not agent-internal optimization)
-4. **Security category**: MUST have `verified_by: human` before promotion. Agents promoting security echoes MUST use `AskUserQuestion` to obtain explicit human confirmation. Agents MUST NOT set `verified_by: human` autonomously.
+4. **Security category**: Require `verified_by: human` before promotion. Agents promoting security echoes use `AskUserQuestion` to obtain explicit human confirmation. Do not set `verified_by: human` autonomously.
 
 ### Promotion Flow
 

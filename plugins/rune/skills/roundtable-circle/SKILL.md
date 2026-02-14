@@ -51,8 +51,8 @@ Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 | Ash | Role | When Selected | Perspectives |
 |-----------|------|---------------|-------------|
 | **Forge Warden** | Backend review | Backend files changed | Architecture, performance, logic bugs, duplication |
-| **Ward Sentinel** | Security review | ALWAYS | Vulnerabilities, auth, injection, OWASP |
-| **Pattern Weaver** | Quality patterns | ALWAYS | Simplicity, TDD, dead code, pattern consistency |
+| **Ward Sentinel** | Security review | Every review | Vulnerabilities, auth, injection, OWASP |
+| **Pattern Weaver** | Quality patterns | Every review | Simplicity, TDD, dead code, pattern consistency |
 | **Glyph Scribe** | Frontend review | Frontend files changed | TypeScript safety, React performance, accessibility |
 | **Knowledge Keeper** | Docs review | Docs changed (>= 10 lines) | Accuracy, completeness, anti-injection |
 | **Codex Oracle** | Cross-model review | `codex` CLI available | Cross-model security, logic, quality (GPT-5.3-codex) |
@@ -319,7 +319,7 @@ The verifier:
 
 ### completion.json (Legacy)
 
-> **Note:** `completion.json` was defined in early versions but is not written by review/audit commands. The Seal metadata (embedded in each Ash output) + state files (`tmp/.rune-{type}-*.json`) serve the same purpose. The structured output from the rune-orchestration File-Based Handoff Pattern references it for custom workflows, but the built-in review/audit lifecycle relies on Seal + TOME.md instead.
+> **Note:** `completion.json` was defined in early versions but is not written by review/audit commands. Use Seal metadata + TOME.md instead. The Seal metadata (embedded in each Ash output) + state files (`tmp/.rune-{type}-*.json`) serve the same purpose. The structured output from the rune-orchestration File-Based Handoff Pattern references it for custom workflows, but the built-in review/audit lifecycle relies on Seal + TOME.md instead.
 
 Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/truthsight-pipeline.md)
 

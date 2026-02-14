@@ -252,7 +252,7 @@ Files that were deleted should be flagged:
 
 The `>= DOC_LINE_THRESHOLD` (default: 10 lines) threshold for Knowledge Keeper prevents summoning a full doc reviewer for trivial edits (typo fixes, whitespace).
 
-**Exception — docs-only override**: When the entire diff contains only documentation files (no code files), the threshold is bypassed and all doc files are promoted to `doc_files`. This prevents a degenerate case where a docs-only diff silently drops all files below the threshold, leaving only always-on Ashes (Ward Sentinel + Pattern Weaver) with no file-specific assignments.
+**Exception**: Docs-only diffs bypass threshold — all doc files are promoted when no code files exist.
 
 Calculate with:
 ```bash

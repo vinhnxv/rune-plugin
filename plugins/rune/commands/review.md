@@ -94,7 +94,7 @@ Review scope:
 - Only non-reviewable files (images, lock files) → "No reviewable changes found."
 - All doc-extension files fell below line threshold AND code/infra files exist → summon only always-on Ashes (normal behavior — minor doc changes alongside code are noise)
 
-**Docs-only override:** If ALL non-skip files are doc-extension and ALL fall below the line threshold (no code files at all), promote them so Knowledge Keeper is still summoned. This prevents a degenerate case where a docs-only diff silently skips all files. See `rune-gaze.md` for the full algorithm.
+**Docs-only override:** Promote all doc files when no code files exist. See `rune-gaze.md` for the full algorithm.
 
 ### Load Custom Ashes
 
@@ -254,7 +254,7 @@ Task({
 })
 ```
 
-**IMPORTANT**: The Tarnished MUST NOT review code directly. Focus solely on coordination.
+The Tarnished does not review code directly. Focus solely on coordination.
 
 ## Phase 4: Monitor
 
@@ -291,7 +291,7 @@ Task({
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/reviews/{identifier}/TOME.md.
-    IMPORTANT: Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
+    Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
     Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.
     The session_nonce is from inscription.json. Without these markers, /rune:mend cannot parse findings.
     See roundtable-circle/references/dedup-runes.md for dedup algorithm.`

@@ -263,7 +263,7 @@ Task({
 })
 ```
 
-**IMPORTANT**: The Tarnished MUST NOT audit code directly. Focus solely on coordination.
+The Tarnished does not audit code directly. Focus solely on coordination.
 
 **Substitution note:** The `{changed_files}` variable in Ash prompts is populated with the audit file list (filtered by extension and capped by context budget) rather than git diff output. The Ash prompts are designed to work with any file list.
 
@@ -302,7 +302,7 @@ Task({
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/audit/{audit_id}/TOME.md.
-    IMPORTANT: Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
+    Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
     Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.
     The session_nonce is from inscription.json. Without these markers, /rune:mend cannot parse findings.
     See roundtable-circle/references/dedup-runes.md for dedup algorithm.
