@@ -80,7 +80,7 @@ Tool restriction is enforced via prompt instructions (defense-in-depth).
 
 ## Ash Roles (Consolidated Teammates)
 
-In `/rune:review`, agents are grouped into 5 built-in Ashes (extensible via talisman.yml):
+In `/rune:review`, agents are grouped into 6 built-in Ashes (extensible via talisman.yml):
 
 | Ash | Agents Embedded | Scope |
 |-----------|-----------------|-------|
@@ -89,8 +89,9 @@ In `/rune:review`, agents are grouped into 5 built-in Ashes (extensible via tali
 | **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker, void-analyzer, trial-oracle, tide-watcher | ALL files (quality patterns) |
 | **Glyph Scribe** | Inline perspectives (TypeScript safety, React performance, accessibility) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
 | **Knowledge Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
+| **Codex Oracle** | Inline perspectives (cross-model security, logic, quality via `codex exec`) | ALL files (when `codex` CLI available) |
 
-**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Ash prompts (no dedicated agent files).
+**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts (no dedicated agent files). Codex Oracle is CLI-gated and wraps the external `codex exec` command.
 
 ## Utility Agents
 

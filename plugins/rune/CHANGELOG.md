@@ -1,5 +1,60 @@
 # Changelog
 
+## [1.18.0] - 2026-02-14
+
+Feature release: Codex Oracle — cross-model verification Ash using OpenAI's Codex CLI (GPT-5.3-codex). Auto-detected when `codex` CLI is installed, providing a second AI perspective across review, audit, plan, forge, and work pipelines.
+
+### Added
+
+- plan.md: Phase 1C Codex Oracle research agent — conditional third external research agent alongside practice-seeker and lore-scholar, with HALLUCINATION GUARD and `[UNVERIFIED]` marking for unverifiable claims
+- plan.md: Phase 4.5 (Plan Review) Codex plan reviewer (formerly Phase 4C) — optional plan review with `[CDX-PLAN-NNN]` finding format, parallel with decree-arbiter and knowledge-keeper
+- plan.md: Cross-model research dimension in Standard/Comprehensive template References section
+- plan.md: Updated research scope preview and pipeline overview to show Codex Oracle conditionals
+- work.md: Phase 4.5 Codex Advisory — non-blocking, plan-aware implementation review after Post-Ward Verification Checklist. Compares diff against plan for requirement coverage gaps. `[CDX-WORK-NNN]` warnings at INFO level.
+- work.md: Codex advisory reference in PR body template
+- forge.md: Codex Oracle in Forge Gaze topic registry — cross-model enrichment with threshold_override 0.25, topics: security, performance, api, architecture, testing, quality
+- CLAUDE.md: Codex Oracle added to Ash table (6th built-in Ash) with inline perspectives via codex exec
+- README.md: Codex Oracle feature section with How It Works, Cross-Model Verification, Prerequisites, and Configuration
+- README.md: Optional codex CLI in Requirements section
+
+### Changed
+
+- plugin.json: version 1.17.0 → 1.18.0
+- CLAUDE.md: "5 built-in Ashes" → "6 built-in Ashes" in review and audit command descriptions
+- CLAUDE.md: max_ashes comment updated from "5 built-in + custom" to "6 built-in + custom"
+- CLAUDE.md: dedup_hierarchy updated to include CDX prefix: `[SEC, BACK, DOC, QUAL, FRONT, CDX]`
+- README.md: Ash table expanded with Codex Oracle row
+- README.md: max_ashes comment updated from "5 built-in + custom" to "6 built-in + custom"
+
+### Configuration
+
+New `codex` top-level key in talisman.yml:
+
+```yaml
+codex:
+  disabled: false
+  model: "gpt-5.3-codex"
+  reasoning: "high"
+  sandbox: "read-only"
+  context_budget: 20
+  confidence_threshold: 80
+  workflows: [review, audit, plan, forge, work]
+  work_advisory:
+    enabled: true
+    max_diff_size: 15000
+  verification:
+    enabled: true
+    fuzzy_match_threshold: 0.7
+    cross_model_bonus: 0.15
+```
+
+### Migration Notes
+
+- **No breaking changes** — Codex Oracle is purely additive, auto-detected when CLI available
+- Existing workflows unaffected when `codex` CLI is not installed (silent skip)
+- Disable via `codex.disabled: true` in talisman.yml as runtime kill switch
+- Codex Oracle counts toward max_ashes cap (6 built-in + 2 custom = 8 default cap)
+
 ## [1.17.0] - 2026-02-14
 
 Feature release: Doc-consistency ward with cross-file drift prevention for arc and mend pipelines.

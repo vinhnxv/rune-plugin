@@ -17,9 +17,9 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 | Command | Description |
 |---------|-------------|
-| `/rune:review` | Multi-agent code review with up to 5 built-in Ashes (+ custom from talisman.yml) |
+| `/rune:review` | Multi-agent code review with up to 6 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
-| `/rune:audit` | Full codebase audit with up to 5 built-in Ashes (+ custom from talisman.yml) |
+| `/rune:audit` | Full codebase audit with up to 6 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
 | `/rune:plan` | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick` for minimal pipeline) |
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
@@ -109,7 +109,7 @@ The Tarnished is the lead agent in every team. Machine identifier: `team-lead`.
 
 Each Ash is an Agent Teams teammate with its own 200k context window. An Ash embeds multiple review agent perspectives into a single teammate to reduce team size.
 
-Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents across 3 Ashes). Glyph Scribe and Knowledge Keeper use inline perspective definitions in their Ash prompts. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 8 perspectives via 7 dedicated agents).
+Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents across 3 Ashes). Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts. Codex Oracle wraps `codex exec` via Bash to provide cross-model verification using GPT-5.3-codex. The "Perspectives" column lists review focus areas — these are conceptual categories, not 1:1 agent mappings (e.g., Pattern Weaver covers 8 perspectives via 7 dedicated agents).
 
 | Ash | Perspectives | Agent Source | When Summoned |
 |-----------|-------------|-------------|-------------|
@@ -118,6 +118,7 @@ Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent fil
 | **Pattern Weaver** | Simplicity, patterns, duplication, logic, dead code, complexity, TDD & test quality, async & concurrency | Dedicated agent files | ALWAYS |
 | **Glyph Scribe** | Type safety, components, performance, hooks, accessibility | Inline perspectives | Frontend files changed |
 | **Knowledge Keeper** | Accuracy, completeness, consistency, readability, security | Inline perspectives | Docs changed (>= threshold) or `.claude/` files changed |
+| **Codex Oracle** | Cross-model security, logic, quality (via GPT-5.3-codex) | Inline perspectives (codex exec) | `codex` CLI available AND `talisman.codex.disabled` is not true |
 
 ### Truthbinding Protocol
 
@@ -245,7 +246,7 @@ rune-gaze:
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md", ".claude/**/*.md"]
 
-# Custom Ashes — extend the built-in 5
+# Custom Ashes — extend the built-in 6
 ashes:
   custom:
     - name: "domain-logic-reviewer"
@@ -264,8 +265,8 @@ ashes:
       finding_prefix: "DOM"
 
 settings:
-  max_ashes: 8                   # Hard cap (5 built-in + custom)
-  dedup_hierarchy: [SEC, BACK, DOM, DOC, QUAL, FRONT]
+  max_ashes: 8                   # Hard cap (6 built-in + custom)
+  dedup_hierarchy: [SEC, BACK, DOC, QUAL, FRONT, CDX]
 
 # forge:                               # Forge Gaze selection overrides
 #   threshold: 0.30                    # Score threshold (0.0-1.0)

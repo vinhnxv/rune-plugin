@@ -13,6 +13,7 @@
 | `*.md` (>= 10 lines changed) | Knowledge Keeper | README > CLAUDE.md > docs/ > other .md |
 | ALL files | Ward Sentinel | Auth files > API routes > config > infrastructure > other |
 | ALL files | Pattern Weaver | Largest files first (highest complexity risk) |
+| ALL files (when `codex` CLI available) | Codex Oracle | New files > modified files > high-risk files > other |
 
 ### Skip List (Never Reviewed)
 
@@ -77,6 +78,7 @@ Some files are assigned to multiple Ash intentionally:
 | `frontend` | Glyph Scribe only | 2x (50 files) |
 | `docs` | Knowledge Keeper only | 2x (50 files) |
 | `backend` | Forge Warden + Ward Sentinel | 1.5x each |
+| `cross-model` | Codex Oracle only | 2x (40 files) |
 | `full` | All (default) | Standard |
 
 Focus mode increases context budget because fewer Ash compete for lead attention.
@@ -90,6 +92,7 @@ Focus mode increases context budget because fewer Ash compete for lead attention
 | Pattern Weaver | 30 files | 30 files | 60 files |
 | Glyph Scribe | 25 files | 25 files | 50 files |
 | Knowledge Keeper | 25 files | 25 files | 50 files |
+| Codex Oracle | 20 files | 20 files | 40 files |
 
 ### Budget Enforcement
 

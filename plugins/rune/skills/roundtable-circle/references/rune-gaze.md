@@ -87,6 +87,12 @@ for each file in changed_files:
 # Always-on Ash (regardless of file types)
 ash_selections.add("ward-sentinel")   # Security: always
 ash_selections.add("pattern-weaver")  # Quality: always
+
+# CLI-gated Ash (always-on when available, conditional on CLI, not file type)
+# Check talisman first (user may have disabled)
+if talisman.codex.disabled is not true:
+  if Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'") == "yes":
+    ash_selections.add("codex-oracle")  # Cross-model: when codex CLI available
 ```
 
 **`DOC_LINE_THRESHOLD`**: Default 10. Configurable via `talisman.yml` → `rune-gaze.doc_line_threshold`.
@@ -170,23 +176,25 @@ Gemfile.lock, pnpm-lock.yaml, go.sum, composer.lock
 
 ## Ash Selection Matrix
 
-| Changed Files | Forge Warden | Ward Sentinel | Pattern Weaver | Glyph Scribe | Knowledge Keeper |
-|--------------|:------------:|:-------------:|:--------------:|:------------:|:-----------:|
-| Only backend | Selected | **Always** | **Always** | - | - |
-| Only frontend | - | **Always** | **Always** | Selected | - |
-| Only docs (>= threshold) | - | **Always** | **Always** | - | Selected |
-| Only docs (< threshold, promoted) | - | **Always** | **Always** | - | Selected |
-| Only infra/scripts | Selected | **Always** | **Always** | - | - |
-| Only config | Selected | **Always** | **Always** | - | - |
-| Only `.claude/` files | - | **Always** | **Always** | - | Selected |
-| Backend + frontend | Selected | **Always** | **Always** | Selected | - |
-| Backend + docs | Selected | **Always** | **Always** | - | Selected |
-| Infra + docs | Selected | **Always** | **Always** | - | Selected |
-| All types | Selected | **Always** | **Always** | Selected | Selected |
+| Changed Files | Forge Warden | Ward Sentinel | Pattern Weaver | Glyph Scribe | Knowledge Keeper | Codex Oracle |
+|--------------|:------------:|:-------------:|:--------------:|:------------:|:-----------:|:------------:|
+| Only backend | Selected | **Always** | **Always** | - | - | **CLI-gated** |
+| Only frontend | - | **Always** | **Always** | Selected | - | **CLI-gated** |
+| Only docs (>= threshold) | - | **Always** | **Always** | - | Selected | **CLI-gated** |
+| Only docs (< threshold, promoted) | - | **Always** | **Always** | - | Selected | **CLI-gated** |
+| Only infra/scripts | Selected | **Always** | **Always** | - | - | **CLI-gated** |
+| Only config | Selected | **Always** | **Always** | - | - | **CLI-gated** |
+| Only `.claude/` files | - | **Always** | **Always** | - | Selected | **CLI-gated** |
+| Backend + frontend | Selected | **Always** | **Always** | Selected | - | **CLI-gated** |
+| Backend + docs | Selected | **Always** | **Always** | - | Selected | **CLI-gated** |
+| Infra + docs | Selected | **Always** | **Always** | - | Selected | **CLI-gated** |
+| All types | Selected | **Always** | **Always** | Selected | Selected | **CLI-gated** |
 
 **Note:** The "Only `.claude/` files" row assumes `.claude/**/*.md`. Non-md files in `.claude/` (e.g., `.claude/talisman.yml`) follow standard classification rules and may also select Forge Warden via CONFIG_EXTENSIONS.
 
-**Max built-in Ash:** 5. With custom Ashes (via `talisman.yml`), total can reach 8 (`settings.max_ashes`). Plus 1 Runebinder (utility) for aggregation.
+**CLI-gated:** Codex Oracle is selected when `codex` CLI is available (`command -v codex` returns 0) AND `talisman.codex.disabled` is not true. It reviews all file types from a cross-model perspective.
+
+**Max built-in Ash:** 6. With custom Ashes (via `talisman.yml`), total can reach 8 (`settings.max_ashes`). Plus 1 Runebinder (utility) for aggregation.
 
 ## Configurable Overrides
 

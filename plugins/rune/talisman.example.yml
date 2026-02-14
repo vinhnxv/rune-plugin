@@ -4,7 +4,7 @@
 # Resolution order:
 #   1. .claude/talisman.yml   (project, highest priority)
 #   2. ~/.claude/talisman.yml (user global)
-#   3. Plugin defaults           (5 built-in Ashes)
+#   3. Plugin defaults           (6 built-in Ashes)
 
 version: 1
 
@@ -55,7 +55,7 @@ rune-gaze:
     - ".claude/**/*.md"
 
 # ──────────────────────────────────────────────
-# Custom Ashes — Extend the built-in 5
+# Custom Ashes — Extend the built-in 6
 # ──────────────────────────────────────────────
 # Each custom Ash joins the Roundtable Circle lifecycle:
 #   - Gets a Truthbinding wrapper prompt (evidence, Seal, Glyph Budget)
@@ -141,7 +141,7 @@ settings:
 
   # Extended dedup hierarchy — higher = wins on conflict
   # Must include ALL active prefixes (built-in + custom)
-  # Built-in prefixes: SEC, BACK, DOC, QUAL, FRONT
+  # Built-in prefixes: SEC, BACK, DOC, QUAL, FRONT, CDX
   dedup_hierarchy:
     - SEC          # Ward Sentinel (always highest)
     - BACK         # Forge Warden
@@ -150,7 +150,8 @@ settings:
     - PERF         # Custom: perf-deep-scan
     - DOC          # Knowledge Keeper
     - QUAL         # Pattern Weaver
-    - FRONT        # Glyph Scribe (lowest)
+    - FRONT        # Glyph Scribe
+    - CDX          # Codex Oracle (lowest — cross-model findings defer to all built-in Ashes)
 
   # Whether Truthsight Layer 2 verifier checks custom Ash outputs
   verification:
@@ -246,6 +247,48 @@ work:
   # auto_push: false            # Reserved for a future release — auto-push without confirmation
   co_authors: []                # Additional Co-Authored-By lines in "Name <email>" format (default: [])
   # Example: ["Claude <noreply@anthropic.com>", "Alice <alice@example.com>"]
+
+# ──────────────────────────────────────────────
+# Codex Oracle — Cross-model verification (v1.18.0+)
+# ──────────────────────────────────────────────
+# Codex Oracle is auto-detected when the `codex` CLI is installed
+# (npm install -g @openai/codex). It provides a second AI perspective
+# (GPT-5.3-codex) alongside Claude's built-in Ashes, catching issues
+# that single-model blind spots miss.
+#
+# When enabled, Codex Oracle:
+#   - Joins the Roundtable Circle as a built-in Ash (CDX prefix)
+#   - Runs codex exec in read-only sandbox mode
+#   - Findings are verified against actual source code (Phase 5.5)
+#   - Cross-validated findings (Claude + Codex agree) get a confidence boost
+#   - Hallucinated findings (fabricated file/code references) are removed
+#
+# Prerequisites:
+#   - codex CLI installed: npm install -g @openai/codex
+#   - OpenAI account authenticated via codex CLI (Rune does NOT manage API keys)
+#   - jq recommended for structured JSONL parsing (raw text fallback if unavailable)
+#
+# Disable Codex Oracle entirely by setting disabled: true.
+# This is the runtime kill switch — no code changes needed.
+codex:
+  disabled: false                    # Set true to disable Codex Oracle entirely
+  model: "gpt-5.3-codex"            # Codex model (gpt-5-codex, gpt-5.2-codex, gpt-5.3-codex)
+  reasoning: "high"                  # Reasoning effort (high, medium, low)
+  # NOTE: sandbox is currently ignored — codex always uses --sandbox read-only. Reserved for future use.
+  sandbox: "read-only"               # Sandbox mode (always read-only for review — do NOT change)
+  context_budget: 20                 # Max files to review per session (default: 20)
+  confidence_threshold: 80           # Min confidence % to report a finding (default: 80)
+  # Which workflows use Codex Oracle. Remove a workflow name to skip Codex in that pipeline.
+  workflows: [review, audit, plan, forge, work]
+  # Work advisory settings (Phase 4.5 of /rune:work — non-blocking plan-vs-implementation check)
+  work_advisory:
+    enabled: true                    # Set false to skip advisory in work pipeline
+    max_diff_size: 15000             # Truncate diff to this many chars (default: 15000)
+  # Cross-model verification settings (Phase 5.5 — hallucination guard)
+  verification:
+    enabled: true                    # Cross-model verification (recommended: true)
+    fuzzy_match_threshold: 0.7       # Code snippet match threshold (0.0-1.0, default: 0.7)
+    cross_model_bonus: 0.15          # Confidence boost when Claude + Codex agree on same finding
 
 # ──────────────────────────────────────────────
 # Arc — Cross-file consistency checks (v1.17.0+)

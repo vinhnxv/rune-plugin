@@ -1,7 +1,7 @@
 ---
 name: rune:audit
 description: |
-  Full codebase audit using Agent Teams. Summons up to 5 built-in Ashes
+  Full codebase audit using Agent Teams. Summons up to 6 built-in Ashes
   (plus custom Ash from talisman.yml), each with their own 200k context window.
   Scans entire project (or current directory) instead of git diff changes. Uses the same
   7-phase Roundtable Circle lifecycle.
@@ -45,7 +45,7 @@ Orchestrate a full codebase audit using the Roundtable Circle architecture. Each
 
 **Focus mode** selects only the relevant Ash (see `roundtable-circle/references/circle-registry.md` for the mapping). This increases each Ash's effective context budget since fewer compete for resources.
 
-**Max agents** reduces team size when context or cost is a concern. Ash are prioritized: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper.
+**Max agents** reduces team size when context or cost is a concern. Ash are prioritized: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. (Codex Oracle is always lowest priority — dropped first when --max-agents caps apply, consistent with its conditional/optional nature.)
 
 ## Phase 0: Pre-flight
 
@@ -97,6 +97,14 @@ After scanning files, check for custom Ash config:
 
 See `roundtable-circle/references/custom-ashes.md` for full schema and validation rules.
 
+### Detect Codex Oracle (CLI-Gated Built-in Ash)
+
+After custom Ash loading, check whether the Codex Oracle should be summoned. Codex Oracle is a built-in Ash that wraps the OpenAI `codex` CLI, providing cross-model verification (GPT-5.3-codex alongside Claude). It is auto-detected and gracefully skipped when unavailable.
+
+See `roundtable-circle/references/codex-detection.md` for the canonical Codex detection algorithm.
+
+**Note:** CLI detection is fast (no network call, <100ms). When Codex Oracle is selected, it counts toward the `max_ashes` cap. Codex Oracle findings use the `CDX` prefix and participate in standard dedup, TOME aggregation, and Truthsight verification.
+
 ## Phase 1: Rune Gaze (Scope Selection)
 
 Classify ALL project files by extension. Adapted from `roundtable-circle/references/rune-gaze.md` — audit uses **total file lines** instead of `lines_changed` since there is no git diff.
@@ -121,7 +129,7 @@ Check for project overrides in `.claude/talisman.yml`.
 
 **Apply `--focus` filter:** If `--focus <area>` is set, only summon Ash matching that area. See `roundtable-circle/references/circle-registry.md` for the focus-to-Ash mapping.
 
-**Apply `--max-agents` cap:** If `--max-agents N` is set, limit selected Ash to N. Priority order: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper.
+**Apply `--max-agents` cap:** If `--max-agents N` is set, limit selected Ash to N. Priority order: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. (Codex Oracle is always lowest priority — dropped first when --max-agents caps apply, consistent with its conditional/optional nature.)
 
 **Large codebase warning:** If total reviewable files > 150:
 ```
@@ -135,6 +143,7 @@ limits what they can review. Some files may not be fully covered.
 - Pattern Weaver (max 30): largest files first (highest complexity risk)
 - Glyph Scribe (max 25): pages/routes > components > hooks > utils
 - Knowledge Keeper (max 25): README > CLAUDE.md > docs/ > other .md files
+- Codex Oracle (max 20): new files > modified files > high-risk files > other (conditional — requires codex CLI)
 
 ### Dry-Run Exit Point
 
@@ -158,6 +167,7 @@ Ash to summon: {count} ({built_in_count} built-in + {custom_count} custom)
   - Pattern Weaver:    {file_count} files (cap: 30)
   - Glyph Scribe:      {file_count} files (cap: 25)  [conditional]
   - Knowledge Keeper:  {file_count} files (cap: 25)  [conditional]
+  - Codex Oracle:      {file_count} files (cap: 20)  [conditional — requires codex CLI]
 
   Custom (from .claude/talisman.yml):       # Only shown if custom Ash exist
   - {name} [{prefix}]: {file_count} files (cap: {budget}, source: {source})
@@ -300,8 +310,8 @@ Task({
   name: "runebinder",
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/audit/{audit_id}/.
-    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT).
-    Include custom Ash outputs in dedup — use their finding_prefix from config.
+    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT > CDX).
+    Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/audit/{audit_id}/TOME.md.
     IMPORTANT: Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
     Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.
@@ -422,3 +432,11 @@ Read("tmp/audit/{audit_id}/TOME.md")
 | Concurrent audit running | Warn, offer to cancel previous |
 | File count exceeds 150 | Warn about partial coverage, proceed with capped budgets |
 | Not a git repo | Works fine — audit uses `find`, not `git diff` |
+| Codex CLI not installed | Skip Codex Oracle, log: "CLI not found, skipping (install: npm install -g @openai/codex)" |
+| Codex CLI broken (can't execute) | Skip Codex Oracle, log: "CLI found but cannot execute — reinstall" |
+| Codex not authenticated | Skip Codex Oracle, log: "not authenticated — run `codex auth login`" |
+| Codex disabled in talisman.yml | Skip Codex Oracle, log: "disabled via talisman.yml" |
+| Codex exec timeout (>5 min) | Codex Oracle reports partial results, log: "timeout — reduce context_budget" |
+| Codex exec auth error at runtime | Log: "authentication required — run `codex auth login`", skip batch |
+| Codex exec failure (non-zero exit) | Classify error per `codex-detection.md`, log user-facing message, other Ashes unaffected |
+| jq unavailable | Codex Oracle uses raw text fallback instead of JSONL parsing |
