@@ -19,6 +19,7 @@ Feature release: 5 structural recommendations from cross-cycle meta-analysis of 
 
 ### Changed
 
+- decree-arbiter now evaluates 9 dimensions (was 6): architecture fit, feasibility, security/performance risks, dependency impact, pattern alignment, internal consistency, design anti-pattern risk, consistency convention, documentation impact
 - mend.md: MEND-3 (Doc-Consistency) renumbered to Phase 5.7
 - mend.md: Fixer prompt updated to report `needs: [file1, file2]` format for cross-file dependencies
 - mend.md: Phase overview diagram updated with new phases (5.5, 5.6, 5.7)

@@ -39,7 +39,7 @@ allowed-tools:
 
 # /rune:plan — Multi-Agent Planning Workflow
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`
 
 Orchestrates a planning pipeline using Agent Teams with dependency-aware task scheduling.
 
@@ -407,7 +407,7 @@ If `codex` CLI is available and `codex.workflows` includes `"plan"`, summon Code
 **Inputs**: feature (string, from Phase 0), timestamp (string, from Phase 1A), talisman (object, from readTalisman()), codexAvailable (boolean, from CLI detection)
 **Outputs**: `tmp/plans/{timestamp}/research/codex-analysis.md`
 **Preconditions**: Codex detection passes (see `codex-detection.md`), `codex.workflows` includes "plan"
-**Error handling**: codex exec timeout (5 min) → write "Codex research timed out" to output, mark complete. codex exec failure → classify error and write user-facing message (see `codex-detection.md` ## Runtime Error Classification), mark complete. Auth error → "run `codex login`". jq not available → skip JSONL parsing, capture raw output.
+**Error handling**: codex exec timeout (10 min) → write "Codex research timed out" to output, mark complete. codex exec failure → classify error and write user-facing message (see `codex-detection.md` ## Runtime Error Classification), mark complete. Auth error → "run `codex login`". jq not available → skip JSONL parsing, capture raw output.
 
 ```javascript
 // CANONICAL ALGORITHM: See codex-detection.md (roundtable-circle/references/codex-detection.md)
@@ -420,8 +420,8 @@ if (codexAvailable && !codexDisabled) {
   if (codexWorkflows.includes("plan")) {
     // SEC-002: Validate talisman codex config before shell interpolation
     // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST — see security-patterns.md
-    // SINGLE DEFINITION — used by BOTH Phase 1C and Phase 4C Codex invocations.
-    const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
+    // Also declared in Phase 4C — keep in sync. Canonical source: security-patterns.md
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
     // Security pattern: SAFE_FEATURE_PATTERN — see security-patterns.md
     const SAFE_FEATURE_PATTERN = /^[a-zA-Z0-9 ._\-]+$/
@@ -447,7 +447,7 @@ if (codexAvailable && !codexDisabled) {
         2. Check codex availability: Bash("command -v codex")
            - If unavailable: write "Codex CLI not available" to output, mark complete, exit
         3. Run codex exec for research:
-           Bash: timeout 300 codex exec \\
+           Bash: timeout 600 codex exec \\
              -m "${codexModel}" \\
              --config model_reasoning_effort="${codexReasoning}" \\
              --sandbox read-only \\
@@ -1245,7 +1245,7 @@ Task({
   prompt: `You are Decree Arbiter — a RESEARCH agent. Do not write implementation code.
     Review the plan for technical soundness.
     Write review to tmp/plans/{timestamp}/decree-review.md.
-    See agents/utility/decree-arbiter.md for 8-dimension evaluation.`,
+    See agents/utility/decree-arbiter.md for 9-dimension evaluation.`,
   run_in_background: true
 })
 
@@ -1268,7 +1268,7 @@ If `codex` CLI is available and `codex.workflows` includes `"plan"`, add Codex O
 **Inputs**: planPath (string, from Phase 0), timestamp (string, from Phase 1A), talisman (object), codexAvailable (boolean)
 **Outputs**: `tmp/plans/{timestamp}/codex-plan-review.md` with `[CDX-PLAN-NNN]` findings
 **Preconditions**: Phase 4A scroll review complete, Codex detection passes (see `codex-detection.md`), codex.workflows includes "plan"
-**Error handling**: codex exec timeout (5 min) → skip review, log "Codex Oracle: timeout". codex exec auth failure → log "Codex Oracle: authentication required — run `codex login`". codex exec failure → classify error per `codex-detection.md` ## Runtime Error Classification, skip, proceed with other reviewers.
+**Error handling**: codex exec timeout (10 min) → skip review, log "Codex Oracle: timeout". codex exec auth failure → log "Codex Oracle: authentication required — run `codex login`". codex exec failure → classify error per `codex-detection.md` ## Runtime Error Classification, skip, proceed with other reviewers.
 
 ```javascript
 // Codex Oracle plan reviewer — optional, parallel with decree-arbiter and knowledge-keeper
@@ -1281,8 +1281,8 @@ if (codexAvailable && !codexDisabled) {
   const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
   if (codexWorkflows.includes("plan")) {
     // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST — see security-patterns.md
-    // RE-DECLARED for Phase 4C — keep in sync with Phase 1C definition above
-    const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
+    // Also declared in Phase 1C — keep in sync. Canonical source: security-patterns.md
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
     const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "high"
@@ -1305,7 +1305,7 @@ if (codexAvailable && !codexDisabled) {
 
         1. Read the plan at ${planPath}
         2. Run codex exec with plan review prompt:
-           Bash: timeout 300 codex exec \\
+           Bash: timeout 600 codex exec \\
              -m "${codexModel}" \\
              --config model_reasoning_effort="${codexReasoning}" \\
              --sandbox read-only \\

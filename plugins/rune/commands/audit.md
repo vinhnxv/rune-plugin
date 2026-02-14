@@ -31,7 +31,7 @@ allowed-tools:
 
 Orchestrate a full codebase audit using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams. Unlike `/rune:review` (which reviews only changed files), `/rune:audit` scans the entire project.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
 
 ## Flags
 
@@ -378,9 +378,11 @@ If inscription.json has `verification.enabled: true`:
 ## Phase 7: Cleanup & Echo Persist
 
 ```javascript
-// 1. Shutdown all Ash
-for (const ash of allAsh) {
-  SendMessage({ type: "shutdown_request", recipient: ash })
+// 1. Shutdown all Ash + utility teammates (runebinder from Phase 5, truthseer-validator from Phase 5.5)
+const allTeammates = [...allAsh, "runebinder"]
+if (truthseerSummoned) allTeammates.push("truthseer-validator")
+for (const teammate of allTeammates) {
+  SendMessage({ type: "shutdown_request", recipient: teammate })
 }
 
 // 2. Wait for shutdown approvals (max 30s)
@@ -436,7 +438,7 @@ Read("tmp/audit/{audit_id}/TOME.md")
 | Codex CLI broken (can't execute) | Skip Codex Oracle, log: "CLI found but cannot execute — reinstall" |
 | Codex not authenticated | Skip Codex Oracle, log: "not authenticated — run `codex login`" |
 | Codex disabled in talisman.yml | Skip Codex Oracle, log: "disabled via talisman.yml" |
-| Codex exec timeout (>5 min) | Codex Oracle reports partial results, log: "timeout — reduce context_budget" |
+| Codex exec timeout (>10 min) | Codex Oracle reports partial results, log: "timeout — reduce context_budget" |
 | Codex exec auth error at runtime | Log: "authentication required — run `codex login`", skip batch |
 | Codex exec failure (non-zero exit) | Classify error per `codex-detection.md`, log user-facing message, other Ashes unaffected |
 | jq unavailable | Codex Oracle uses raw text fallback instead of JSONL parsing |

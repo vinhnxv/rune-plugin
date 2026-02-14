@@ -40,7 +40,7 @@ allowed-tools:
 
 Chains ten phases into a single automated pipeline: forge, plan review, plan refinement, verification, work, gap analysis, code review, mend, verify mend (convergence gate), and audit. Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, and 7.5). Artifact-based handoff connects phases. Checkpoint state enables resume after failure. The convergence gate between mend and audit detects regressions, retries mend up to 2 times, and halts if findings diverge.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`
 
 ## Usage
 
@@ -163,13 +163,14 @@ If already on a feature branch, use the current branch.
 
 ```bash
 # Check for active arc sessions (with jq fallback)
+# SEC-007: Use find instead of ls glob to avoid ARG_MAX issues on large checkpoint dirs
 if command -v jq >/dev/null 2>&1; then
-  active=$(ls .claude/arc/*/checkpoint.json 2>/dev/null | while read f; do
+  active=$(find .claude/arc -name checkpoint.json -maxdepth 2 2>/dev/null | while read f; do
     jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
   done)
 else
   # Fallback: grep for in_progress status when jq is unavailable
-  active=$(ls .claude/arc/*/checkpoint.json 2>/dev/null | while read f; do
+  active=$(find .claude/arc -name checkpoint.json -maxdepth 2 2>/dev/null | while read f; do
     # grep fallback: less precise than jq, matches status fields
     if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then basename "$(dirname "$f")"; fi
   done)
@@ -299,6 +300,14 @@ Delegate to `/rune:forge` logic for Forge Gaze topic-aware enrichment. Forge man
 - Codex Oracle: conditional cross-model enrichment (if `codex` CLI available)
 - Custom Ashes: talisman.yml `ashes.custom` with `workflows: [forge]`
 - Section-level enrichment: Enrichment Output Format (Best Practices, Performance, Edge Cases, etc.)
+
+### Codex Oracle in Forge (conditional)
+
+Run the canonical Codex detection algorithm per `roundtable-circle/references/codex-detection.md`.
+If Codex Oracle is detected and `forge` is in `talisman.codex.workflows` (default: yes), include
+Codex Oracle as an additional forge enrichment agent alongside the 5 research agents.
+
+Codex Oracle output: `tmp/arc/{id}/research/codex-oracle.md`
 
 **Inputs**: planFile (string, validated at arc init), id (string, validated at arc init)
 **Outputs**: `tmp/arc/{id}/enriched-plan.md` (enriched copy of original plan)
@@ -462,6 +471,12 @@ tasks = TaskList()
 // Collect verdicts
 // Grep for <!-- VERDICT:...:BLOCK --> in reviewer outputs
 // Merge → tmp/arc/{id}/plan-review.md
+
+// Shutdown all reviewers before TeamDelete
+for (const reviewer of reviewers) {
+  SendMessage({ type: "shutdown_request", recipient: reviewer.name })
+}
+// Wait for approvals (max 30s)
 
 // Cleanup with fallback (see team-lifecycle-guard.md)
 // id validated at init: /^arc-[a-zA-Z0-9_-]+$/
@@ -638,6 +653,8 @@ const talisman = readTalisman()
 const customPatterns = talisman?.plan?.verification_patterns || []
 // Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN — see security-patterns.md
 // Also in: plan.md, work.md, mend.md. Canonical source: security-patterns.md
+// QUAL-006: SAFE_REGEX_PATTERN allows $ (for regex anchors) — see _CC variant in STEP 4.5 below
+// which excludes $, |, (, ) for stricter contexts. Both are documented in security-patterns.md.
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -648,8 +665,10 @@ for (const pattern of customPatterns) {
     continue
   }
   // NOTE: All three interpolations are double-quoted to prevent shell glob expansion and word splitting.
-  // The regex arg is safe: SAFE_REGEX_PATTERN blocks backticks, $, !, >, <, ;, &.
-  // For maximum safety, consider using rg -f <file> to avoid shell regex interpolation entirely.
+  // SEC-001: SAFE_REGEX_PATTERN allows $ (see security-patterns.md KNOWN VULNERABILITY P1).
+  // Mitigation: Use -- separator to prevent flag injection. For patterns containing $,
+  // prefer rg -f <file> approach to avoid shell interpolation of regex metacharacters entirely.
+  // Write pattern to temp file and use: rg --no-messages -f <tmpfile> "${pattern.paths}"
   const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
   // The glob_count extractor (STEP 4.5) intentionally leaves its glob UNQUOTED for expansion.
   if (pattern.expect_zero && result.stdout.trim().length > 0) {
@@ -842,7 +861,7 @@ for (const criterion of criteria) {
     // Validate identifier before shell interpolation
     if (!/^[a-zA-Z0-9._\-\/]+$/.test(identifier)) continue
     // Check if identifier appears in any committed file
-    const grepResult = Bash(`grep -rl "${identifier}" ${diffFiles.map(f => `"${f}"`).join(' ')} 2>/dev/null`)
+    const grepResult = Bash(`rg -l --max-count 1 -- "${identifier}" ${diffFiles.map(f => `"${f}"`).join(' ')} 2>/dev/null`)
     if (grepResult.stdout.trim().length > 0) {
       status = criterion.checked ? "ADDRESSED" : "PARTIAL"
       break
@@ -903,6 +922,7 @@ if (consistencyGuardPass) {
 
   // Security patterns: SAFE_REGEX_PATTERN_CC, SAFE_PATH_PATTERN, SAFE_GLOB_PATH_PATTERN — see security-patterns.md
   // Canonical source: security-patterns.md. Also used in: work.md (Phase 4.3), mend.md (MEND-3)
+  // QUAL-003: _CC suffix = "Consistency Check" — narrower than SAFE_REGEX_PATTERN (excludes $, |, parens)
   const SAFE_REGEX_PATTERN_CC = /^[a-zA-Z0-9._\-\/ \\\[\]{}^+?*]+$/
   const SAFE_PATH_PATTERN_CC = /^[a-zA-Z0-9._\-\/]+$/
   const SAFE_GLOB_PATH_PATTERN = /^[a-zA-Z0-9._\-\/*]+$/
@@ -927,6 +947,11 @@ if (consistencyGuardPass) {
     const pathValidator = check.source.extractor === "glob_count" ? SAFE_GLOB_PATH_PATTERN : SAFE_PATH_PATTERN_CC
     if (!pathValidator.test(check.source.file)) {
       consistencyResults.push({ name: check.name, status: "SKIP", reason: `Unsafe source path: ${check.source.file}` })
+      continue
+    }
+    // SEC-002: Path traversal and absolute path check (SAFE_PATH/GLOB_PATH do not block ..)
+    if (check.source.file.includes('..') || check.source.file.startsWith('/')) {
+      consistencyResults.push({ name: check.name, status: "SKIP", reason: "Path traversal or absolute path in source" })
       continue
     }
     // Validate extractor
@@ -957,6 +982,8 @@ if (consistencyGuardPass) {
           return obj[key]
         }, parsed) ?? "")
       } else if (check.source.extractor === "glob_count") {
+        // Intentionally unquoted: glob expansion required. SAFE_GLOB_PATH_PATTERN validated above.
+        // Accepted risk — see security-patterns.md SAFE_GLOB_PATH_PATTERN.
         const globResult = Bash(`ls -1 ${check.source.file} 2>/dev/null | wc -l`)
         sourceValue = globResult.stdout.trim()
       } else if (check.source.extractor === "line_count") {
@@ -1000,6 +1027,11 @@ if (consistencyGuardPass) {
         if (target.pattern) {
           // Search for the pattern in the target file and extract the matched value
           // SEC-001: Use -- separator and shell escape the pattern
+          // SEC-003: Cap pattern length to prevent excessively long Bash commands
+          if (target.pattern.length > 500) {
+            consistencyResults.push({ name: `${check.name}→${target.path}`, status: "SKIP", reason: "Pattern exceeds 500 char limit" })
+            continue
+          }
           const escapedPattern = target.pattern.replace(/["$\`\\]/g, '\\$&')
           const targetResult = Bash(`rg --no-messages -o -- "${escapedPattern}" "${target.path}" 2>/dev/null | head -1`)
           const targetValue = targetResult.stdout.trim()
@@ -1097,7 +1129,7 @@ if (diffFiles.length === 0) {
     const stopwords = new Set(['Create', 'Add', 'Update', 'Fix', 'Implement', 'Section', 'Phase', 'Check', 'Remove', 'Delete'])
     const identifiers = [...new Set([...filePaths, ...backtickIds, ...caseNames])]
       .filter(id => id.length >= 4 && id.length <= 100 && !stopwords.has(id))
-      .filter(id => !/^\d+(\.\d+)*$/.test(id))  // Exclude version strings (e.g., 1.19.0)
+      .filter(id => !/^\d+\.\d+(\.\d+)?$/.test(id))  // Exclude semver strings (e.g., 1.19.0, 1.19)
       .slice(0, 20)  // Cap identifiers per section to limit grep invocations
 
     // Pre-validate diffFiles against SAFE_PATH_PATTERN
@@ -1202,6 +1234,8 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
 **Team lifecycle**: Delegated to `/rune:review` — the review command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
 
+**Codex Oracle**: Run Codex detection per `roundtable-circle/references/codex-detection.md` before summoning Ashes. If detected and `review` is in `talisman.codex.workflows`, include Codex Oracle in the Ash selection. Codex Oracle findings use `CDX` prefix and participate in standard dedup and TOME aggregation.
+
 ```javascript
 // Invoke /rune:review logic
 // Scope: changes since arc branch creation (or since Phase 5 start)
@@ -1211,8 +1245,11 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 let reviewContext = ""
 if (exists(`tmp/arc/${id}/gap-analysis.md`)) {
   const gapReport = Read(`tmp/arc/${id}/gap-analysis.md`)
-  const missingCount = (gapReport.match(/MISSING/g) || []).length
-  const partialCount = (gapReport.match(/PARTIAL/g) || []).length
+  // QUAL-002: Extract counts from summary table (avoid false matches on "MISSING" in criterion text)
+  const missingMatch = gapReport.match(/\| MISSING \| (\d+) \|/)
+  const missingCount = missingMatch ? parseInt(missingMatch[1], 10) : 0
+  const partialMatch = gapReport.match(/\| PARTIAL \| (\d+) \|/)
+  const partialCount = partialMatch ? parseInt(partialMatch[1], 10) : 0
   if (missingCount > 0 || partialCount > 0) {
     reviewContext = `\n\nGap Analysis Context: ${missingCount} MISSING, ${partialCount} PARTIAL criteria.\nSee tmp/arc/${id}/gap-analysis.md. Pay special attention to unimplemented acceptance criteria.`
   }
@@ -1532,6 +1569,8 @@ Invoke `/rune:audit` logic as a final quality gate. This phase is informational 
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
 **Team lifecycle**: Delegated to `/rune:audit` — the audit command manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
 
+**Codex Oracle**: Run Codex detection per `roundtable-circle/references/codex-detection.md` before summoning Ashes. If detected and `audit` is in `talisman.codex.workflows`, include Codex Oracle in the Ash selection. Codex Oracle findings use `CDX` prefix and participate in standard dedup and TOME aggregation.
+
 ```javascript
 // Invoke /rune:audit logic
 // Full codebase audit
@@ -1575,16 +1614,16 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 
 | Phase | Tools | Rationale |
 |-------|-------|-----------|
-| Phase 1 (FORGE) | Delegated to `/rune:forge` (read-only agents + Edit for enrichment merge) | Forge manages own tools — enrichment only, no codebase modification |
+| Phase 1 (FORGE) | Delegated to `/rune:forge` (read-only agents + Edit for enrichment merge). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Forge manages own tools — enrichment only, no codebase modification |
 | Phase 2 (PLAN REVIEW) | Read, Glob, Grep, Write (own output file only) | Review — no codebase modification |
 | Phase 2.5 (PLAN REFINEMENT) | Read, Write, Glob, Grep | Orchestrator-only — extraction, no team |
 | Phase 2.7 (VERIFICATION) | Read, Glob, Grep, Write, Bash (git history) | Orchestrator-only — deterministic checks |
 | Phase 5 (WORK) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Implementation requires all tools |
 | Phase 5.5 (GAP ANALYSIS) | Read, Glob, Grep, Bash (git diff, grep) | Orchestrator-only — deterministic cross-reference |
-| Phase 6 (CODE REVIEW) | Read, Glob, Grep, Write (own output file only) | Review — no codebase modification |
+| Phase 6 (CODE REVIEW) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Review — no codebase modification |
 | Phase 7 (MEND) | Orchestrator: full. Fixers: restricted (see mend-fixer) | Least privilege for fixers |
 | Phase 7.5 (VERIFY MEND) | Read, Glob, Grep, Bash (git diff), Task (Explore) | Orchestrator-only — regression spot-check |
-| Phase 8 (AUDIT) | Read, Glob, Grep, Write (own output file only) | Audit — no codebase modification |
+| Phase 8 (AUDIT) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Audit — no codebase modification |
 
 All worker and fixer agent prompts MUST include: "NEVER modify files in `.claude/arc/`". Only the arc orchestrator writes to checkpoint.json.
 

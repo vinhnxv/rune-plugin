@@ -37,7 +37,7 @@ allowed-tools:
 
 Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.
 
-**Load skills**: `context-weaving`, `rune-echoes`, `rune-orchestration`
+**Load skills**: `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
 
 ## Usage
 
@@ -860,6 +860,8 @@ if (uniqueCommitted.length === 0) {
     // Append: "Doc-consistency: SKIP (no sources modified)"
   } else {
     // Run extractor-based checks (same algorithm as arc.md Phase 5.5 STEP 4.5)
+    // Security pattern: FORBIDDEN_KEYS — see security-patterns.md (hoisted above loop)
+    const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
     const results43 = []
     for (const check of consistencyChecks) {
       if (!check.name || !check.source || !Array.isArray(check.targets)) {
@@ -887,8 +889,6 @@ if (uniqueCommitted.length === 0) {
         if (check.source.extractor === "json_field") {
           const content = Read(check.source.file)
           const parsed = JSON.parse(content)
-          // Security pattern: FORBIDDEN_KEYS — see security-patterns.md
-          const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
           sourceValue = String(check.source.field.split('.').reduce((obj, key) => {
             if (FORBIDDEN_KEYS.has(key)) throw new Error(`Forbidden path key: ${key}`)
             return obj[key]
@@ -982,8 +982,8 @@ if (codexAvailable && !codexDisabled) {
     const rawMaxDiff = Number(talisman?.codex?.work_advisory?.max_diff_size)
     const maxDiffSize = Math.max(1000, Math.min(50000, Number.isFinite(rawMaxDiff) ? rawMaxDiff : 15000))
 
-    // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST — see security-patterns.md
-    const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
+    // Security pattern: CODEX_MODEL_ALLOWLIST — see security-patterns.md
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
     const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
       ? talisman.codex.model
@@ -1038,18 +1038,21 @@ if (codexAvailable && !codexDisabled) {
            - Include plan content (truncated to 6000 chars) and diff
            - Mark content sections as UNTRUSTED with nonces
            Write("tmp/work/${timestamp}/codex-prompt.txt", promptContent)
-        7. Run codex exec on the temp file:
-           Bash: timeout 300 codex exec \\
+        7. Read prompt and run codex exec:
+           // SEC-005: Use Read tool to load prompt content, avoiding $(cat) command substitution
+           // which could execute shell metacharacters embedded in the prompt file.
+           const codexPrompt = Read("tmp/work/${timestamp}/codex-prompt.txt")
+           Bash: timeout 600 codex exec \\
              -m "${codexModel}" \\
              --config model_reasoning_effort="${codexReasoning}" \\
              --sandbox read-only \\
              --full-auto \\
              --skip-git-repo-check \\
              --json \\
-             "$(cat "\${CLAUDE_PROJECT_DIR}/tmp/work/${timestamp}/codex-prompt.txt")" 2>/dev/null | \\
+             "${codexPrompt}" 2>/dev/null | \\
              jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
         8. Classify errors (see codex-detection.md ## Runtime Error Classification):
-           - Exit 124 → timeout: log "timeout after 5 min — reduce context_budget in talisman.yml"
+           - Exit 124 → timeout: log "timeout after 10 min — reduce context_budget in talisman.yml"
            - stderr "auth"/"not authenticated" → log "authentication required — run \`codex login\`"
            - stderr "rate limit"/"429" → log "API rate limit — try again later"
            - stderr "network"/"connection" → log "network error — check internet connection"
@@ -1091,9 +1094,9 @@ if (codexAvailable && !codexDisabled) {
       run_in_background: true
     })
 
-    // Monitor: wait for codex-advisory to complete (max 6 min — codex timeout is 5 min + overhead)
+    // Monitor: wait for codex-advisory to complete (max 11 min — codex timeout is 10 min + overhead)
     const codexStart = Date.now()
-    const CODEX_TIMEOUT = 360_000  // 6 minutes
+    const CODEX_TIMEOUT = 660_000  // 11 minutes
     while (true) {
       const tasks = TaskList()
       const codexTask = tasks.find(t => t.subject?.includes("Codex Advisory"))
@@ -1151,9 +1154,11 @@ const allTasks = TaskList()
 const completedTasks = allTasks.filter(t => t.status === "completed")
 const blockedTasks = allTasks.filter(t => t.status === "pending" && t.blockedBy?.length > 0)
 
-// 1. Shutdown all workers
-for (const worker of allWorkers) {
-  SendMessage({ type: "shutdown_request", recipient: worker })
+// 1. Shutdown all workers + utility teammates (codex-advisory from Phase 4.5)
+const allTeammates = [...allWorkers]
+if (codexAdvisorySummoned) allTeammates.push("codex-advisory")
+for (const teammate of allTeammates) {
+  SendMessage({ type: "shutdown_request", recipient: teammate })
 }
 
 // 2. Wait for approvals (max 30s)

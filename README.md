@@ -12,10 +12,11 @@ A Claude Code plugin marketplace featuring **Rune** — multi-agent engineering 
 ## Workflow
 
 ```
-Plan → Work → Review → Mend → Audit
+Plan → Work → Review → Mend → Audit                        (standalone commands)
  └──────────── or /rune:arc ──────────────────────────────┘
- (Forge → Plan Review → Refinement → Verification → Work → Gap Analysis → Review → Mend → Verify Mend → Audit)
+ (Forge → Plan Review → Refinement → Verification → Work → *Gap Analysis* → Review → Mend → *Verify Mend* → Audit)
 ```
+*Italic phases (Gap Analysis, Verify Mend) are arc-exclusive — not available in standalone commands.*
 
 | Command | Purpose |
 |---------|---------|

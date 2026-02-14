@@ -52,7 +52,7 @@ user-facing message so the user knows how to fix it:
 | "rate limit" / "429"              | "Codex Oracle: API rate limit — try again later or reduce batches"  |
 | "model not found" / "invalid"     | "Codex Oracle: model unavailable — check talisman.codex.model"      |
 | "network" / "connection" / "ECON" | "Codex Oracle: network error — check internet connection"           |
-| timeout (exit 124)                | "Codex Oracle: timeout after 5 min — reduce context_budget"         |
+| timeout (exit 124)                | "Codex Oracle: timeout after 10 min — reduce context_budget"        |
 | other non-zero exit               | "Codex Oracle: exec failed (exit {code}) — run `codex exec` manually to debug" |
 ```
 

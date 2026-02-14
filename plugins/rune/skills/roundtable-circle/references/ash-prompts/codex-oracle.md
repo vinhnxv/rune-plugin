@@ -82,7 +82,7 @@ Bash:
 // Values resolved from talisman.codex config at runtime
 # SECURITY PREREQUISITE: .codexignore MUST exist before --full-auto invocation.
 # See "SECURITY PREREQUISITE" section above.
-timeout 300 codex exec \
+timeout 600 codex exec \
   -m {codex_model} \
   --config model_reasoning_effort="{codex_reasoning}" \
   --sandbox read-only \
@@ -118,7 +118,7 @@ Bash:
 // Values resolved from talisman.codex config at runtime
 # SECURITY PREREQUISITE: .codexignore MUST exist before --full-auto invocation.
 # See "SECURITY PREREQUISITE" section above.
-timeout 300 codex exec \
+timeout 600 codex exec \
   -m {codex_model} \
   --config model_reasoning_effort="{codex_reasoning}" \
   --sandbox read-only \
@@ -150,7 +150,7 @@ timeout 300 codex exec \
 **Error handling:** If codex exec returns non-zero or times out, classify the error
 and log a user-facing message. See `codex-detection.md` ## Runtime Error Classification
 for the full error→message mapping. Key patterns:
-- Exit 124 (timeout): log "Codex Oracle: timeout after 5 min — reduce context_budget"
+- Exit 124 (timeout): log "Codex Oracle: timeout after 10 min — reduce context_budget"
 - stderr contains "auth" / "not authenticated": log "Codex Oracle: authentication required — run `codex login`"
 - stderr contains "rate limit" / "429": log "Codex Oracle: API rate limit — try again later"
 - stderr contains "network" / "connection": log "Codex Oracle: network error — check internet connection"

@@ -2,7 +2,8 @@
 name: knowledge-keeper
 description: |
   Documentation coverage reviewer for plans. Validates that a plan addresses
-  documentation needs — README updates, API docs, inline comments, migration guides.
+  documentation needs — README updates, API docs, inline comments, migration guides,
+  documentation impact assessment (version bumps, CHANGELOG, registry updates).
   Used during /rune:plan Phase 4C (technical review) and /rune:arc Phase 2 (plan review)
   alongside decree-arbiter and scroll-reviewer.
 
@@ -20,7 +21,6 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-  - SendMessage
 ---
 
 # Knowledge Keeper — Documentation Coverage Reviewer
@@ -53,7 +53,7 @@ Before writing ANY findings, you MUST:
 
 Include `codebase_files_read: N` in your output. If 0, your output is flagged as unreliable.
 
-## 5-Dimension Documentation Evaluation
+## 6-Dimension Documentation Evaluation
 
 | Dimension | What It Checks | Evidence Method |
 |---|---|---|
@@ -107,6 +107,10 @@ No judgment calls — use this table:
 - **Knowledge Trace:** [evidence]
 
 ## Inline Comments
+**Verdict:** PASS | CONCERN | BLOCK
+- **Knowledge Trace:** [evidence]
+
+## Documentation Impact
 **Verdict:** PASS | CONCERN | BLOCK
 - **Knowledge Trace:** [evidence]
 

@@ -54,7 +54,7 @@ Before writing ANY findings, you MUST:
 
 Include `codebase_files_read: N` in your output. If 0, your output is flagged as unreliable.
 
-## 8-Dimension Evaluation Framework
+## 9-Dimension Evaluation Framework
 
 | Dimension | What It Checks | Evidence Method |
 |---|---|---|
@@ -166,6 +166,10 @@ No judgment calls — use this table:
 - **Decree Trace:** [evidence]
 
 ## Consistency Convention
+**Verdict:** PASS | CONCERN | BLOCK
+- **Decree Trace:** [evidence]
+
+## Documentation Impact
 **Verdict:** PASS | CONCERN | BLOCK
 - **Decree Trace:** [evidence]
 

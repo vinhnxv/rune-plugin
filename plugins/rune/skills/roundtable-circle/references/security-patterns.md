@@ -40,6 +40,7 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 **Regex**: `/^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/`
 **Threat model**: Allows regex metacharacters for user-provided talisman patterns.
 **KNOWN VULNERABILITY (P1)**: `$` IS allowed in the character class `[\]{}^$+?]`. This means `$(whoami)` passes validation and could execute in double-quoted Bash interpolation. **Mitigation**: Consumer files MUST use single-quoted Bash interpolation or `rg -f <file>` approach. See also the `-- ` separator for ripgrep to prevent pattern interpretation as flags.
+**Status: Accepted Risk** — `$` is intentionally allowed because talisman regex patterns may legitimately use `$` as an end-of-line anchor. The mitigation (single-quoted interpolation or `rg -f`) is enforced by convention and verified by Arc Phase 2.7. Consumers using double-quoted interpolation MUST be flagged in reviews.
 **ReDoS safe**: Yes (character class only)
 **Consumers**: plan.md, work.md, arc.md
 
@@ -62,10 +63,11 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 ## Codex Allowlists
 
 ### CODEX_MODEL_ALLOWLIST
-<!-- PATTERN:CODEX_MODEL_ALLOWLIST regex="/^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/" version="1" last-reviewed="2026-02-14" -->
-**Regex**: `/^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/`
-**Threat model**: Restricts Codex model parameter to known-safe model IDs. Review quarterly or when new models are released.
-**Last reviewed**: 2026-02-14
+<!-- PATTERN:CODEX_MODEL_ALLOWLIST regex="/^gpt-5(\.\d+)?-codex$/" version="2" last-reviewed="2026-02-15" -->
+**Regex**: `/^gpt-5(\.\d+)?-codex$/`
+**Threat model**: Restricts Codex model parameter to gpt-5.x-codex family only. Only gpt-5.x-codex models are supported by the Codex CLI with ChatGPT accounts. Other families (gpt-4o, o1-o4) fail at runtime.
+**Test cases**: `gpt-5-codex` (pass), `gpt-5.3-codex` (pass), `gpt-5.2-codex` (pass), `o4-mini` (reject), `gpt-4o` (reject)
+**Last reviewed**: 2026-02-15
 **Consumers**: plan.md (Phase 1C + Phase 4C), work.md (Phase 4.5)
 
 ### CODEX_REASONING_ALLOWLIST
