@@ -69,7 +69,7 @@ Projects can register additional Ash from local agents, global agents, or other 
 - **Verified** by Truthsight (if `settings.verification.layer_2_custom_agents: true`)
 - **Aggregated** into TOME.md by Runebinder
 
-**Max total:** 6 built-in + up to 2 custom = 8 Ashes (configurable via `settings.max_ashes`). The cap exists because each Ash output (~10k tokens) consumes verifier context budget.
+**Max total:** 6 built-in + up to 2 custom = 8 Ashes (configurable via `settings.max_ashes`). The cap exists because each Ash output (~10k tokens) consumes verifier context budget. Custom Ash ceiling: 2 (total max: 8 = 6 built-in + 2 custom). Increased from 5+3 in v1.17.0 to 6+2 in v1.18.0.
 
 See [`custom-ashes.md`](references/custom-ashes.md) for full schema, wrapper prompt template, and examples.
 

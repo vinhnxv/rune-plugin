@@ -29,8 +29,8 @@ a single TOME.md summary.
 When the same file + line range (5-line window) is flagged by multiple Ash:
 
 Priority order (highest first):
-  SEC > BACK > DOC > QUAL > FRONT
-  (Ward Sentinel > Forge Warden > Knowledge Keeper > Pattern Weaver > Glyph Scribe)
+  SEC > BACK > DOC > QUAL > FRONT > CDX
+  (Ward Sentinel > Forge Warden > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle)
 
 Rules:
 - Same file + overlapping lines → keep higher-priority Ash's finding
@@ -185,4 +185,4 @@ Aggregate only — never fabricate.
 | `{timestamp}` | ISO-8601 current time | `2026-02-11T11:00:00Z` |
 | `{completed_count}` | Ash that finished | `4` |
 | `{summoned_count}` | Ash that were summoned | `5` |
-| `{PREFIX}` | Finding ID prefix per Ash (SEC, BACK, DOC, QUAL, FRONT) | `SEC` |
+| `{PREFIX}` | Finding ID prefix per Ash (SEC, BACK, DOC, QUAL, FRONT, CDX) | `SEC` |

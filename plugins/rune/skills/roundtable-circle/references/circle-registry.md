@@ -6,7 +6,7 @@
 
 Each review agent is embedded as a "perspective" inside an Ash. This registry defines which perspectives belong to which Ash and what file scopes they target.
 
-> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents across 3 Ashes). Glyph Scribe and Knowledge Keeper use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
+> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents across 3 Ashes). Glyph Scribe, Knowledge Keeper, and Codex Oracle use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
 
 ### Forge Warden (Backend)
 

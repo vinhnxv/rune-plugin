@@ -405,6 +405,16 @@ const codexDisabled = talisman?.codex?.disabled === true
 if (codexAvailable && !codexDisabled) {
   const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
   if (codexWorkflows.includes("plan")) {
+    // SEC-002: Validate talisman codex config before shell interpolation
+    const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
+    const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+    const SAFE_FEATURE_PATTERN = /^[a-zA-Z0-9 ._\-]+$/
+    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
+    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "high"
+    const safeFeature = SAFE_FEATURE_PATTERN.test(feature) ? feature : feature.replace(/[^a-zA-Z0-9 ._\-]/g, "").slice(0, 200)
+
+    // Task numbers reflect creation order, not execution order (#7 before #6 because
+    // codex-researcher is created in Phase 1C while flow-seer #6 is created in Phase 1D)
     TaskCreate({ subject: "Codex research", description: "Cross-model research via codex exec" })  // #7
 
     Task({
@@ -422,8 +432,8 @@ if (codexAvailable && !codexDisabled) {
            - If unavailable: write "Codex CLI not available" to output, mark complete, exit
         3. Run codex exec for research:
            Bash: timeout 300 codex exec \\
-             -m ${talisman?.codex?.model ?? "gpt-5.3-codex"} \\
-             --config model_reasoning_effort="${talisman?.codex?.reasoning ?? "high"}" \\
+             -m ${codexModel} \\
+             --config model_reasoning_effort="${codexReasoning}" \\
              --sandbox read-only \\
              --full-auto \\
              --skip-git-repo-check \\
@@ -1210,6 +1220,12 @@ const codexDisabled = talisman?.codex?.disabled === true
 if (codexAvailable && !codexDisabled) {
   const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
   if (codexWorkflows.includes("plan")) {
+    // SEC-002: Validate talisman codex config before shell interpolation
+    const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
+    const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
+    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "high"
+
     Task({
       team_name: "rune-plan-{timestamp}",
       name: "codex-plan-reviewer",
@@ -1223,8 +1239,8 @@ if (codexAvailable && !codexDisabled) {
         1. Read the plan at ${planPath}
         2. Run codex exec with plan review prompt:
            Bash: timeout 300 codex exec \\
-             -m ${talisman?.codex?.model ?? "gpt-5.3-codex"} \\
-             --config model_reasoning_effort="${talisman?.codex?.reasoning ?? "high"}" \\
+             -m ${codexModel} \\
+             --config model_reasoning_effort="${codexReasoning}" \\
              --sandbox read-only \\
              --full-auto \\
              --skip-git-repo-check \\

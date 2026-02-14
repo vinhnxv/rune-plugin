@@ -266,7 +266,7 @@ ashes:
 
 settings:
   max_ashes: 8                   # Hard cap (6 built-in + custom)
-  dedup_hierarchy: [SEC, BACK, DOC, QUAL, FRONT, CDX]
+  dedup_hierarchy: [SEC, BACK, DOM, DOC, QUAL, FRONT, CDX]
 
 # forge:                               # Forge Gaze selection overrides
 #   threshold: 0.30                    # Score threshold (0.0-1.0)

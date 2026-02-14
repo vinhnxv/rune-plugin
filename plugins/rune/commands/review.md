@@ -117,28 +117,7 @@ See `roundtable-circle/references/custom-ashes.md` for full schema and validatio
 
 After custom Ash loading, check whether the Codex Oracle should be summoned. Codex Oracle is a built-in Ash that wraps the OpenAI `codex` CLI, providing cross-model verification (GPT-5.3-codex alongside Claude). It is auto-detected and gracefully skipped when unavailable.
 
-```
-1. Read talisman.yml (project or global)
-2. If talisman.codex.disabled is true:
-   - Log: "Codex Oracle: disabled via talisman.yml"
-   - Skip Codex Oracle entirely
-3. Otherwise, check CLI availability:
-   Bash: command -v codex >/dev/null 2>&1 && echo "available" || echo "unavailable"
-   - If "available":
-     a. Add "codex-oracle" to the Ash selection (always-on when available, like Ward Sentinel)
-     b. Log: "Codex Oracle: CLI detected, adding cross-model reviewer"
-   - If "unavailable":
-     a. Log: "Codex Oracle: CLI not found, skipping (install: npm install -g @openai/codex)"
-4. Check jq availability (needed for JSONL parsing of Codex output):
-   Bash: command -v jq >/dev/null 2>&1 && echo "available" || echo "unavailable"
-   - If "unavailable":
-     a. Log: "Warning: jq not found — Codex Oracle will use raw text fallback instead of JSONL parsing"
-     b. Set codex_jq_available = false (Codex Oracle Ash prompt will skip jq-based parsing)
-   - If "available":
-     a. Set codex_jq_available = true
-5. Check talisman.codex.workflows (default: [review, audit, plan, forge, work])
-   - If "review" is NOT in the workflows list, remove codex-oracle from Ash selection
-```
+See `roundtable-circle/references/codex-detection.md` for the canonical detection algorithm.
 
 **Note:** CLI detection is fast (no network call, <100ms). When Codex Oracle is selected, it counts toward the `max_ashes` cap. Codex Oracle findings use the `CDX` prefix and participate in standard dedup, TOME aggregation, and Truthsight verification.
 
@@ -350,6 +329,8 @@ for (const ash of selectedAsh) {
 
 This is a transparency flag, not a hard minimum. Zero findings on a small changeset is normal. Zero findings on 20+ files warrants a second look.
 
+<!-- NOTE: "Phase 5.5" in review.md refers to Cross-Model Verification (Codex Oracle).
+     Other pipelines use 5.5 for different sub-phases (audit: Truthseer Validator, arc: Gap Analysis). -->
 ## Phase 5.5: Cross-Model Verification (Codex Oracle)
 
 This phase only runs if Codex Oracle was summoned (i.e., `codex-oracle` is in the Ash selection). It verifies Codex findings against actual source code before they enter the TOME, guarding against cross-model hallucinations.

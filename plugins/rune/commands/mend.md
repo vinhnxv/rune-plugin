@@ -114,7 +114,7 @@ Parse structured `<!-- RUNE:FINDING -->` markers from TOME:
 
 ### Deduplicate
 
-Apply Dedup Hierarchy: `SEC > BACK > DOC > QUAL > FRONT`
+Apply Dedup Hierarchy: `SEC > BACK > DOC > QUAL > FRONT > CDX`
 
 If the same file+line has findings from multiple categories, keep only the highest-priority one. Log deduplicated findings for transparency.
 
@@ -398,7 +398,7 @@ Bash(`cd "tmp/mend/${id}/bisect-worktree" && \
 // 2. Apply fix B on top of A → run ward → pass → keep A+B
 // 3. Apply fix C on top of A+B → run ward → FAILS → C is culprit in context of A+B
 // 4. If interaction effects are non-linear → NEEDS_REVIEW
-// Order: Dedup Hierarchy (SEC → BACK → DOC → QUAL → FRONT)
+// Order: Dedup Hierarchy (SEC → BACK → DOC → QUAL → FRONT → CDX)
 
 // Ward execution: Copy each bisection state back to main tree for ward compatibility
 // (main tree has node_modules, .venv, vendor — worktree may not)

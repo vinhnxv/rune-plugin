@@ -37,7 +37,7 @@ When custom Ash are configured in `talisman.yml`, the dedup hierarchy is extende
 
 **Example extended hierarchy:**
 ```
-SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT
+SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 ```
 
 **Rules:**

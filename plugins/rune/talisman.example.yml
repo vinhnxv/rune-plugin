@@ -274,6 +274,7 @@ codex:
   disabled: false                    # Set true to disable Codex Oracle entirely
   model: "gpt-5.3-codex"            # Codex model (gpt-5-codex, gpt-5.2-codex, gpt-5.3-codex)
   reasoning: "high"                  # Reasoning effort (high, medium, low)
+  # NOTE: sandbox is currently ignored — codex always uses --sandbox read-only. Reserved for future use.
   sandbox: "read-only"               # Sandbox mode (always read-only for review — do NOT change)
   context_budget: 20                 # Max files to review per session (default: 20)
   confidence_threshold: 80           # Min confidence % to report a finding (default: 80)

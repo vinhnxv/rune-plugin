@@ -7,7 +7,7 @@ Feature release: Codex Oracle — cross-model verification Ash using OpenAI's Co
 ### Added
 
 - plan.md: Phase 1C Codex Oracle research agent — conditional third external research agent alongside practice-seeker and lore-scholar, with HALLUCINATION GUARD and `[UNVERIFIED]` marking for unverifiable claims
-- plan.md: Phase 4C Codex plan reviewer — optional plan review with `[CDX-PLAN-NNN]` finding format, parallel with decree-arbiter and knowledge-keeper
+- plan.md: Phase 4.5 (Plan Review) Codex plan reviewer (formerly Phase 4C) — optional plan review with `[CDX-PLAN-NNN]` finding format, parallel with decree-arbiter and knowledge-keeper
 - plan.md: Cross-model research dimension in Standard/Comprehensive template References section
 - plan.md: Updated research scope preview and pipeline overview to show Codex Oracle conditionals
 - work.md: Phase 4.5 Codex Advisory — non-blocking, plan-aware implementation review after Post-Ward Verification Checklist. Compares diff against plan for requirement coverage gaps. `[CDX-WORK-NNN]` warnings at INFO level.
