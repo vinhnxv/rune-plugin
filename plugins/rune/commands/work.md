@@ -761,6 +761,33 @@ for (const file of newFiles) {
   }
 }
 
+// 10. Talisman verification_patterns (phase-filtered for post-work)
+//     Runs project-specific deterministic checks from talisman.yml
+//     Only patterns whose phase array includes "post-work" are executed
+const talisman = readTalisman()  // .claude/talisman.yml or ~/.claude/talisman.yml
+const customPatterns = talisman?.plan?.verification_patterns || []
+// SECURITY: Validate each field against safe character set before shell interpolation
+// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards)
+const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
+const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
+for (const pattern of customPatterns) {
+  // Phase filter: only run patterns with phase including "post-work"
+  const phases = pattern.phase || ["plan"]
+  if (!phases.includes("post-work")) continue
+
+  if (!SAFE_REGEX_PATTERN.test(pattern.regex) ||
+      !SAFE_PATH_PATTERN.test(pattern.paths) ||
+      (pattern.exclusions && !SAFE_PATH_PATTERN.test(pattern.exclusions))) {
+    checks.push(`WARN: Skipping verification pattern "${pattern.description}": contains unsafe characters`)
+    continue
+  }
+  const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
+  // NOTE: All three interpolations are quoted to prevent shell glob expansion and word splitting.
+  if (pattern.expect_zero && result.stdout.trim().length > 0) {
+    checks.push(`WARN: Stale reference: ${pattern.description}`)
+  }
+}
+
 // Report — non-blocking, report to user but don't halt
 if (checks.length > 0) {
   warn("Verification warnings:\n" + checks.join("\n"))

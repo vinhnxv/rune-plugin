@@ -554,6 +554,14 @@ date: YYYY-MM-DD
 
 {What could block or complicate this}
 
+## Cross-File Consistency
+
+Files that must stay in sync when this plan's changes are applied:
+
+- [ ] Version: plugin.json, CLAUDE.md, README.md
+- [ ] Counts: {list files where counts change}
+- [ ] References: {list files that cross-reference each other}
+
 ## References
 
 - Codebase patterns: {repo-surveyor findings}
@@ -661,6 +669,27 @@ erDiagram
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
 | {Risk 1} | H/M/L | H/M/L | {Strategy} |
+
+## Cross-File Consistency
+
+Files that must stay in sync when this plan's changes are applied:
+
+### Version Strings
+- [ ] plugin.json `version` field
+- [ ] CLAUDE.md version reference
+- [ ] README.md version badge / header
+
+### Counts & Registries
+- [ ] {list files where counts change — e.g., agent count, command count, method count}
+- [ ] {list registry files that enumerate items — e.g., CLAUDE.md tables, plugin.json arrays}
+
+### Cross-References
+- [ ] {list files that reference each other — e.g., SKILL.md ↔ phase-mapping.md}
+- [ ] {list docs that cite the same source of truth — e.g., talisman schema ↔ example}
+
+### Talisman Sync
+- [ ] talisman.example.yml reflects any new config fields
+- [ ] CLAUDE.md configuration section matches talisman schema
 
 ## Documentation Plan
 
@@ -991,11 +1020,19 @@ const talisman = readTalisman()  // .claude/talisman.yml or ~/.claude/talisman.y
 const customPatterns = talisman?.plan?.verification_patterns || []
 
 // 2. Run custom patterns (if configured)
+// Phase filtering: each pattern may specify a `phase` array (e.g., ["plan", "post-work"]).
+// If omitted, defaults to ["plan"] for backward compatibility.
+// Only patterns whose phase array includes currentPhase are executed.
+const currentPhase = "plan"  // In plan.md context, always "plan"
 // SECURITY: Validate each field against safe character set before shell interpolation
 // Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards)
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
+  // Phase gate: skip patterns not intended for this pipeline phase
+  const patternPhases = pattern.phase || ["plan"]
+  if (!patternPhases.includes(currentPhase)) continue
+
   if (!SAFE_REGEX_PATTERN.test(pattern.regex) ||
       !SAFE_PATH_PATTERN.test(pattern.paths) ||
       (pattern.exclusions && !SAFE_PATH_PATTERN.test(pattern.exclusions))) {

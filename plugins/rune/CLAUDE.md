@@ -97,7 +97,7 @@ the protagonist who journeys through the Lands Between. In Rune, the Tarnished:
 
 ### Implementation Gap Analysis (Phase 5.5)
 
-Deterministic, orchestrator-only phase between WORK and CODE REVIEW. Cross-references plan acceptance criteria against committed code changes. Categories: ADDRESSED, MISSING, PARTIAL. Advisory only — warns but never halts.
+Deterministic, orchestrator-only phase between WORK and CODE REVIEW. Cross-references plan acceptance criteria against committed code changes. Categories: ADDRESSED, MISSING, PARTIAL. Also runs doc-consistency checking via talisman verification_patterns (phase-filtered for post-work). Advisory only — warns but never halts.
 
 ### Plan Section Convention
 
@@ -173,7 +173,7 @@ End-to-end orchestration across 10 phases: forge (research enrichment), plan rev
 
 ### Mend
 
-Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->` markers with session nonce validation, groups findings by file, summons restricted mend-fixer teammates (no Bash, no TeamCreate). Ward check runs once after all fixers complete. Bisection algorithm identifies failing fixes on ward failure.
+Parallel finding resolution from TOME. Parses structured `<!-- RUNE:FINDING -->` markers with session nonce validation, groups findings by file, summons restricted mend-fixer teammates (no Bash, no TeamCreate). Ward check runs once after all fixers complete. Bisection algorithm identifies failing fixes on ward failure. After wards pass, a doc-consistency scan (MEND-3) fixes drift between source-of-truth files and downstream targets using topological sort, Edit-based surgical replacement, and hard depth limit of 1. Resolution categories: FIXED, FALSE_POSITIVE, FAILED, SKIPPED, CONSISTENCY_FIX.
 
 ### Context Weaving
 

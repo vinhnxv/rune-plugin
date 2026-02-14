@@ -822,6 +822,179 @@ for (const criterion of criteria) {
 // --- STEP 4: Check task completion rate ---
 const taskStats = extractTaskStats(workSummary)
 
+// --- STEP 4.5: Doc-Consistency Cross-Checks ---
+// Non-blocking sub-step: validates that key values (version, agent count, etc.)
+// are consistent across documentation and config files. Reports PASS/DRIFT/SKIP
+// per check. Uses PASS/DRIFT/SKIP (NOT ADDRESSED/MISSING) to avoid collision
+// with gap-analysis regex counts.
+let docConsistencySection = ""
+const consistencyGuardPass =
+  checkpoint.phases?.work?.status !== "failed" &&
+  taskStats.total > 0 &&
+  (taskStats.completed / taskStats.total) >= 0.5
+
+if (consistencyGuardPass) {
+  const consistencyTalisman = readTalisman()
+  const customChecks = consistencyTalisman?.arc?.consistency?.checks || []
+
+  // Default checks when talisman does not define any
+  const DEFAULT_CONSISTENCY_CHECKS = [
+    {
+      name: "version_sync",
+      description: "Plugin version matches across config and docs",
+      source: { file: ".claude-plugin/plugin.json", extractor: "json_field", field: "version" },
+      targets: [
+        { path: "CLAUDE.md", pattern: "version:\\s*[0-9]+\\.[0-9]+\\.[0-9]+" },
+        { path: "README.md", pattern: "version:\\s*[0-9]+\\.[0-9]+\\.[0-9]+" }
+      ]
+    },
+    {
+      name: "agent_count",
+      description: "Review agent count matches across docs",
+      source: { file: "agents/review/*.md", extractor: "glob_count" },
+      targets: [
+        { path: "CLAUDE.md", pattern: "\\d+\\s+agents" },
+        { path: ".claude-plugin/plugin.json", pattern: "\"agents\"" }
+      ]
+    }
+  ]
+
+  const checks = customChecks.length > 0 ? customChecks : DEFAULT_CONSISTENCY_CHECKS
+
+  // Validation patterns — EXACT same regex as arc.md Phase 2 verification (lines 630-631)
+  const SAFE_REGEX_PATTERN_CC = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
+  const SAFE_PATH_PATTERN_CC = /^[a-zA-Z0-9._\-\/]+$/
+  // Glob paths allow * for glob_count extractor (e.g., "agents/review/*.md")
+  const SAFE_GLOB_PATH_PATTERN = /^[a-zA-Z0-9._\-\/*]+$/
+  // Additional validator for JSON dot-path fields (e.g., "version", "name")
+  const SAFE_DOT_PATH = /^[a-zA-Z0-9._]+$/
+  const VALID_EXTRACTORS = ["glob_count", "regex_capture", "json_field", "line_count"]
+
+  const consistencyResults = []
+
+  for (const check of checks) {
+    // Validate check structure
+    if (!check.name || !check.source || !Array.isArray(check.targets)) {
+      consistencyResults.push({ name: check.name || "unknown", status: "SKIP", reason: "Malformed check definition" })
+      continue
+    }
+    // Validate source file path (glob_count allows * in path for shell expansion)
+    const pathValidator = check.source.extractor === "glob_count" ? SAFE_GLOB_PATH_PATTERN : SAFE_PATH_PATTERN_CC
+    if (!pathValidator.test(check.source.file)) {
+      consistencyResults.push({ name: check.name, status: "SKIP", reason: `Unsafe source path: ${check.source.file}` })
+      continue
+    }
+    // Validate extractor
+    if (!VALID_EXTRACTORS.includes(check.source.extractor)) {
+      consistencyResults.push({ name: check.name, status: "SKIP", reason: `Invalid extractor: ${check.source.extractor}` })
+      continue
+    }
+    // Validate json_field dot-path if applicable
+    if (check.source.extractor === "json_field" && check.source.field && !SAFE_DOT_PATH.test(check.source.field)) {
+      consistencyResults.push({ name: check.name, status: "SKIP", reason: `Unsafe field path: ${check.source.field}` })
+      continue
+    }
+
+    // --- Extract source value ---
+    let sourceValue = null
+    try {
+      if (check.source.extractor === "json_field") {
+        const content = Read(check.source.file)
+        const parsed = JSON.parse(content)
+        sourceValue = String(parsed[check.source.field] ?? "")
+      } else if (check.source.extractor === "glob_count") {
+        const globResult = Bash(`ls -1 ${check.source.file} 2>/dev/null | wc -l`)
+        sourceValue = globResult.stdout.trim()
+      } else if (check.source.extractor === "line_count") {
+        const lcResult = Bash(`wc -l < "${check.source.file}" 2>/dev/null`)
+        sourceValue = lcResult.stdout.trim()
+      } else if (check.source.extractor === "regex_capture") {
+        if (!check.source.pattern || !SAFE_REGEX_PATTERN_CC.test(check.source.pattern)) {
+          consistencyResults.push({ name: check.name, status: "SKIP", reason: "Unsafe source regex" })
+          continue
+        }
+        const rgResult = Bash(`rg --no-messages -o "${check.source.pattern}" "${check.source.file}" | head -1`)
+        sourceValue = rgResult.stdout.trim()
+      }
+    } catch (extractErr) {
+      consistencyResults.push({ name: check.name, status: "SKIP", reason: `Source extraction failed: ${extractErr.message}` })
+      continue
+    }
+
+    if (!sourceValue || sourceValue.length === 0) {
+      consistencyResults.push({ name: check.name, status: "SKIP", reason: "Source value empty or not found" })
+      continue
+    }
+
+    // --- Compare against each target ---
+    for (const target of check.targets) {
+      if (!target.path || !SAFE_PATH_PATTERN_CC.test(target.path)) {
+        consistencyResults.push({ name: `${check.name}→${target.path || "unknown"}`, status: "SKIP", reason: "Unsafe target path" })
+        continue
+      }
+      if (target.pattern && !SAFE_REGEX_PATTERN_CC.test(target.pattern)) {
+        consistencyResults.push({ name: `${check.name}→${target.path}`, status: "SKIP", reason: "Unsafe target pattern" })
+        continue
+      }
+
+      let targetStatus = "SKIP"
+      try {
+        if (target.pattern) {
+          // Search for the pattern in the target file and extract the matched value
+          const targetResult = Bash(`rg --no-messages -o "${target.pattern}" "${target.path}" 2>/dev/null | head -1`)
+          const targetValue = targetResult.stdout.trim()
+          if (targetValue.length === 0) {
+            targetStatus = "DRIFT"  // Pattern not found in target
+          } else if (targetValue.includes(sourceValue)) {
+            targetStatus = "PASS"
+          } else {
+            targetStatus = "DRIFT"  // Value mismatch
+          }
+        } else {
+          // No pattern — just check if source value appears anywhere in target file
+          const grepResult = Bash(`rg --no-messages -l "${sourceValue}" "${target.path}" 2>/dev/null`)
+          targetStatus = grepResult.stdout.trim().length > 0 ? "PASS" : "DRIFT"
+        }
+      } catch (targetErr) {
+        targetStatus = "SKIP"
+      }
+
+      consistencyResults.push({
+        name: `${check.name}→${target.path}`,
+        status: targetStatus,
+        sourceValue,
+        reason: targetStatus === "DRIFT" ? `Source value "${sourceValue}" not matched in ${target.path}` : undefined
+      })
+    }
+  }
+
+  // --- Build doc-consistency report section ---
+  const passCount = consistencyResults.filter(r => r.status === "PASS").length
+  const driftCount = consistencyResults.filter(r => r.status === "DRIFT").length
+  const skipCount = consistencyResults.filter(r => r.status === "SKIP").length
+  const overallStatus = driftCount > 0 ? "WARN" : "PASS"
+
+  docConsistencySection = `\n## DOC-CONSISTENCY\n\n` +
+    `**Status**: ${overallStatus}\n` +
+    `**Issues**: ${driftCount}\n` +
+    `**Checked at**: ${new Date().toISOString()}\n\n` +
+    `| Check | Status | Detail |\n|-------|--------|--------|\n` +
+    consistencyResults.map(r =>
+      `| ${r.name} | ${r.status} | ${r.reason || "—"} |`
+    ).join('\n') + '\n\n' +
+    `Summary: ${passCount} PASS, ${driftCount} DRIFT, ${skipCount} SKIP\n`
+
+  if (driftCount > 0) {
+    warn(`Doc-consistency: ${driftCount} drift(s) detected — see gap-analysis.md ## DOC-CONSISTENCY`)
+  }
+} else {
+  // Guard failed — skip doc-consistency with note
+  docConsistencySection = `\n## DOC-CONSISTENCY\n\n` +
+    `**Status**: SKIP\n` +
+    `**Reason**: Guard not met (Phase 5 failed or <50% tasks completed)\n` +
+    `**Checked at**: ${new Date().toISOString()}\n`
+}
+
 // --- STEP 5: Write gap analysis report ---
 const addressed = gaps.filter(g => g.status === "ADDRESSED").length
 const partial = gaps.filter(g => g.status === "PARTIAL").length
@@ -848,7 +1021,8 @@ const report = `# Implementation Gap Analysis\n\n` +
   ).join('\n') + '\n\n' +
   `## Task Completion\n\n` +
   `- Completed: ${taskStats.completed}/${taskStats.total} tasks\n` +
-  `- Failed: ${taskStats.failed} tasks\n`
+  `- Failed: ${taskStats.failed} tasks\n` +
+  docConsistencySection
 
 Write(`tmp/arc/${id}/gap-analysis.md`, report)
 

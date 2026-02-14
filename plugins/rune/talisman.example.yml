@@ -181,16 +181,27 @@ defaults:
 # Each pattern runs with zero LLM hallucination risk (deterministic grep).
 # plan:
 #   verification_patterns:
+#     # Each pattern may include a `phase` field — an array of pipeline phases
+#     # when this check should run. Valid values: "plan", "post-work", "pre-review", "arc"
+#     # If `phase` is omitted, defaults to ["plan"] (backward-compatible).
 #     - regex: '"11 commands"'
 #       paths: "plugins/rune/ .claude-plugin/"
 #       exclusions: "--glob '!commands/plan.md'"
 #       expect_zero: true
 #       description: "Command count updated to 12"
+#       phase: ["plan"]                    # Only during planning (default behavior)
 #     - regex: '"--skip-forge"'
 #       paths: "plugins/rune/"
 #       exclusions: "--glob '!commands/plan.md' --glob '!CHANGELOG.md'"
 #       expect_zero: true
 #       description: "Flag renamed to --no-forge"
+#       phase: ["plan", "post-work"]       # Check during plan AND after work completes
+#     # Example: a check that only runs post-work (not during planning)
+#     # - regex: 'TODO\(v1\.16\)'
+#     #   paths: "plugins/rune/"
+#     #   expect_zero: true
+#     #   description: "All v1.16 TODOs resolved"
+#     #   phase: ["post-work", "pre-review"]  # Only after implementation
 
 # ──────────────────────────────────────────────
 # Arc — Pipeline timeout overrides (v1.12.0+)
@@ -235,3 +246,67 @@ work:
   # auto_push: false            # Reserved for a future release — auto-push without confirmation
   co_authors: []                # Additional Co-Authored-By lines in "Name <email>" format (default: [])
   # Example: ["Claude <noreply@anthropic.com>", "Alice <alice@example.com>"]
+
+# ──────────────────────────────────────────────
+# Arc — Cross-file consistency checks (v1.17.0+)
+# ──────────────────────────────────────────────
+# Declarative assertions that catch doc drift between files.
+# Each check defines a single source of truth and one or more
+# target files that must reflect the same value.
+#
+# Schema per check:
+#   name:        Unique identifier (kebab-case)
+#   description: Human-readable explanation of what stays in sync
+#   source:
+#     path:      File that holds the canonical value (glob OK for count checks)
+#     extractor: How to pull the value — "json_field", "line_count", "regex"
+#     field:     JSONPath (json_field), regex group (regex), or omitted (line_count)
+#   targets:     Array of files that must agree with the source value
+#     - path:    Target file path (relative to repo root)
+#       pattern: Regex or literal that must contain the source value.
+#                Use {value} as placeholder for the extracted source value.
+#   phase:       When to run — array of pipeline phases (default: ["plan"])
+#                Valid phases: "plan", "post-work", "pre-review", "arc"
+#
+# arc:
+#   consistency:
+#     checks:
+#       # Example 1: Version string must match across plugin.json, CLAUDE.md, and README.md
+#       - name: version_sync
+#         description: "Plugin version in plugin.json must match CLAUDE.md and README.md"
+#         source:
+#           path: ".claude-plugin/plugin.json"
+#           extractor: json_field
+#           field: "$.version"
+#         targets:
+#           - path: "CLAUDE.md"
+#             pattern: "version: {value}"
+#           - path: "README.md"
+#             pattern: "v{value}"
+#         phase: ["plan", "post-work"]
+#
+#       # Example 2: Agent count in agents/review/ must match documented count
+#       - name: agent_count
+#         description: "Number of review agents must match CLAUDE.md and plugin.json"
+#         source:
+#           path: "agents/review/*.md"
+#           extractor: line_count
+#         targets:
+#           - path: "CLAUDE.md"
+#             pattern: "{value} agents"
+#           - path: ".claude-plugin/plugin.json"
+#             pattern: "\"agentCount\": {value}"
+#         phase: ["plan", "post-work", "pre-review"]
+#
+#       # Example 3: Elicitation method count must match across docs
+#       - name: method_count
+#         description: "Elicitation method count in methods.csv must match SKILL.md and phase-mapping.md"
+#         source:
+#           path: "skills/elicitation/references/methods.csv"
+#           extractor: line_count
+#         targets:
+#           - path: "skills/elicitation/SKILL.md"
+#             pattern: "{value} methods"
+#           - path: "skills/elicitation/references/phase-mapping.md"
+#             pattern: "{value} methods"
+#         phase: ["plan", "arc"]

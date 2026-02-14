@@ -66,7 +66,7 @@ Phase 3: SUMMON FIXERS → One mend-fixer per file group
     ↓ (fixers read → fix → verify → report)
 Phase 4: MONITOR → Poll TaskList, stale/timeout detection
     ↓
-Phase 5: RESOLUTION REPORT → Ward check, bisect on failure, produce report
+Phase 5: RESOLUTION REPORT → Ward check, bisect on failure, doc-consistency, produce report
     ↓
 Phase 6: CLEANUP → Shutdown fixers, persist echoes, report summary
 ```
@@ -419,6 +419,195 @@ After bisection completes:
 1. Re-apply all FIXED fixes to the user's working tree (skip FAILED ones)
 2. Stage and present changes for user review
 
+### Doc-Consistency Pass (MEND-3)
+
+After ward check passes (or bisection completes) and **before** producing the resolution report, run a single doc-consistency scan to fix drift between source-of-truth files and their downstream targets.
+
+**Hard depth limit**: The consistency scan runs **once**. It never re-scans after its own fixes.
+
+```javascript
+// --- STEP 1: Collect fixer-modified files ---
+// Extract all file paths that fixers reported as modified (from their SendMessage Seals)
+const fixerModifiedFiles = collectFixerModifiedFiles(fixerOutputs)
+
+// --- STEP 2: Short-circuit if no modified file is a consistency source ---
+const consistencyChecks = loadTalismanConfig('arc.consistency.checks') || DEFAULT_CONSISTENCY_CHECKS
+
+// DEFAULT_CONSISTENCY_CHECKS (matches arc.md definitions):
+// [
+//   {
+//     name: "version_sync",
+//     source: { file: ".claude-plugin/plugin.json", extractor: "json", path: "version" },
+//     targets: [
+//       { file: "CHANGELOG.md", extractor: "regex", pattern: /^## \[(\d+\.\d+\.\d+)\]/ },
+//       { file: "README.md", extractor: "regex", pattern: /version[:\s]+(\d+\.\d+\.\d+)/i }
+//     ]
+//   },
+//   {
+//     name: "agent_count",
+//     source: { file: "CLAUDE.md", extractor: "regex", pattern: /(\d+) agents/ },
+//     targets: [
+//       { file: "README.md", extractor: "regex", pattern: /(\d+) agents/i }
+//     ]
+//   }
+// ]
+
+const sourceFiles = consistencyChecks.map(c => c.source.file)
+const modifiedSources = fixerModifiedFiles.filter(f => sourceFiles.includes(f))
+
+if (modifiedSources.length === 0) {
+  // No fixer touched a source file — skip consistency scan entirely
+  log("Doc-consistency: no source files modified by fixers — skipping")
+  // consistencyResults = [] (empty, nothing to add to report)
+}
+
+// --- STEP 3: Build DAG and detect cycles ---
+else {
+  const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/ ]+$/
+
+  // Build source→target DAG
+  const dag = new Map()  // file → Set<file>
+  for (const check of consistencyChecks) {
+    if (!SAFE_PATH_PATTERN.test(check.source.file)) {
+      warn(`Consistency check "${check.name}": source path unsafe — skipping`)
+      continue
+    }
+    const deps = new Set()
+    for (const target of check.targets) {
+      if (!SAFE_PATH_PATTERN.test(target.file)) {
+        warn(`Consistency check "${check.name}": target path "${target.file}" unsafe — skipping`)
+        continue
+      }
+      deps.add(target.file)
+    }
+    dag.set(check.source.file, (dag.get(check.source.file) || new Set()).union(deps))
+  }
+
+  // Cycle detection (Kahn's algorithm)
+  const hasCycle = detectCycle(dag)
+  if (hasCycle) {
+    warn("CYCLE_DETECTED in consistency check DAG — skipping auto-fix")
+    consistencyResults = [{ status: "CYCLE_DETECTED", message: "DAG contains cycles" }]
+  }
+
+  // --- STEP 4: Topological sort and process ---
+  else {
+    const sortedChecks = topologicalSort(consistencyChecks, dag)
+    const consistencyResults = []
+
+    for (const check of sortedChecks) {
+      // Skip if source file was not modified by a fixer
+      if (!fixerModifiedFiles.includes(check.source.file)) {
+        continue
+      }
+
+      // Extract source value
+      let sourceValue
+      try {
+        const sourceContent = Read(check.source.file)
+        sourceValue = extract(sourceContent, check.source)
+      } catch (e) {
+        consistencyResults.push({
+          check: check.name,
+          source: check.source.file,
+          status: "EXTRACTION_FAILED",
+          reason: `Source extraction failed: ${e.message}`
+        })
+        continue  // Skip auto-fix on extraction failure
+      }
+
+      // Compare and fix each target
+      for (const target of check.targets) {
+        if (!SAFE_PATH_PATTERN.test(target.file)) continue
+
+        let targetValue
+        try {
+          const targetContent = Read(target.file)
+          targetValue = extract(targetContent, target)
+        } catch (e) {
+          consistencyResults.push({
+            check: check.name,
+            source: check.source.file,
+            target: target.file,
+            status: "EXTRACTION_FAILED",
+            reason: `Target extraction failed: ${e.message}`
+          })
+          continue
+        }
+
+        // No drift — skip
+        if (sourceValue === targetValue) continue
+
+        // Drift detected — fix with Edit (NOT Write) to preserve other changes
+        try {
+          Edit(target.file, {
+            old_string: targetValue,
+            new_string: sourceValue
+          })
+
+          // Post-fix verification: Read file back, confirm BOTH:
+          // 1. The fixer's original fix is still present
+          // 2. The consistency fix was applied
+          const verifiedContent = Read(target.file)
+          const verifiedValue = extract(verifiedContent, target)
+
+          if (verifiedValue === sourceValue) {
+            consistencyResults.push({
+              check: check.name,
+              source: check.source.file,
+              target: target.file,
+              status: "CONSISTENCY_FIX",
+              old_value: targetValue,
+              new_value: sourceValue
+            })
+          } else {
+            // Post-fix verification failed — the edit didn't stick or introduced new drift
+            consistencyResults.push({
+              check: check.name,
+              source: check.source.file,
+              target: target.file,
+              status: "NEEDS_HUMAN_REVIEW",
+              reason: "Post-fix verification failed: value mismatch after edit"
+            })
+          }
+        } catch (e) {
+          consistencyResults.push({
+            check: check.name,
+            source: check.source.file,
+            target: target.file,
+            status: "NEEDS_HUMAN_REVIEW",
+            reason: `Edit failed: ${e.message}`
+          })
+        }
+      }
+    }
+  }
+}
+
+// --- Extractors ---
+function extract(content, spec) {
+  if (spec.extractor === "json") {
+    const parsed = JSON.parse(content)  // JSON parse failure → throw → EXTRACTION_FAILED
+    return spec.path.split('.').reduce((obj, key) => obj[key], parsed)
+  } else if (spec.extractor === "regex") {
+    const match = content.match(spec.pattern)
+    if (!match || !match[1]) throw new Error(`No match for pattern ${spec.pattern}`)
+    return match[1]
+  }
+  throw new Error(`Unknown extractor: ${spec.extractor}`)
+}
+```
+
+**Safety constraints**:
+- Uses `SAFE_PATH_PATTERN` (same regex as SAFE_WARD) for all file path validation
+- Uses `Edit` not `Write` — surgical replacement preserves other changes in the file
+- Extraction failures produce `EXTRACTION_FAILED` status, skip auto-fix
+- Post-fix verification reads file back, confirms both fixer fix and consistency fix are present
+- New drift introduced by the scan itself → `NEEDS_HUMAN_REVIEW`, not auto-fixed
+- JSON parse failure → `EXTRACTION_FAILED` status, skip that check
+- Cycle in DAG → `CYCLE_DETECTED` warning, skip all auto-fixes
+- Depth limit of 1: scan runs once, never re-scans after its own fixes
+
 ### Produce Report
 
 Write `tmp/mend/{id}/resolution-report.md`:
@@ -431,6 +620,7 @@ TOME: {tome_path}
 ## Summary
 - Total findings: {N}
 - Fixed: {X}
+- Consistency fix: {C}
 - False positive: {Y}
 - Failed: {Z}
 - Skipped: {W}
@@ -460,6 +650,17 @@ TOME: {tome_path}
 ### DOC-001: Missing API Documentation
 **Status**: SKIPPED
 **Reason**: Blocked by SEC-001 (same file, lower priority)
+
+## Consistency Fixes
+<!-- RESOLVED:CONSIST-001:CONSISTENCY_FIX -->
+### CONSIST-001: version_sync — README.md
+**Status**: CONSISTENCY_FIX
+**Check**: version_sync
+**Source**: .claude-plugin/plugin.json (version: "1.2.0")
+**Target**: README.md
+**Old value**: 1.1.0
+**New value**: 1.2.0
+<!-- /RESOLVED:CONSIST-001 -->
 ```
 
 ## Phase 6: CLEANUP
@@ -517,12 +718,14 @@ Report: tmp/mend/{id}/resolution-report.md
 
 Findings: {total}
   FIXED: {X} ({finding_ids})
+  CONSISTENCY_FIX: {C} (doc-consistency drift corrections)
   FALSE_POSITIVE: {Y} (flagged NEEDS_HUMAN_REVIEW)
   FAILED: {Z}
   SKIPPED: {W}
 
 Fixers: {fixer_count}
 Ward check: {PASSED | FAILED (bisected)}
+Doc-consistency: {PASSED | SKIPPED | CYCLE_DETECTED} ({C} fixes)
 Time: {duration}
 
 Next steps:
@@ -546,3 +749,8 @@ Next steps:
 | Concurrent mend detected (`tmp/.rune-mend-*.json` running) | Abort with warning |
 | SEC-prefix FALSE_POSITIVE without human approval | Block — require AskUserQuestion |
 | Prompt injection detected in source | Report to user, continue fixing |
+| Consistency check JSON parse failure | `EXTRACTION_FAILED` status, skip that check |
+| Consistency DAG contains cycles | `CYCLE_DETECTED` warning, skip all auto-fixes |
+| Consistency extraction fails (source or target) | `EXTRACTION_FAILED` status, skip auto-fix for that check |
+| Consistency post-fix verification fails | `NEEDS_HUMAN_REVIEW`, do not re-attempt |
+| Consistency check path contains unsafe characters | Skip check, warn in log |

@@ -90,7 +90,7 @@ When you run `/rune:arc`, Rune chains 10 phases into one automated pipeline:
 2.5. **PLAN REFINEMENT** — Extracts CONCERN verdicts into concern-context.md for worker awareness (orchestrator-only)
 2.7. **VERIFICATION GATE** — Deterministic checks (file refs, headings, acceptance criteria) with zero LLM cost
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
-5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code (zero LLM cost, advisory)
+5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code + doc-consistency via talisman verification_patterns (zero LLM cost, advisory)
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
 7. **MEND** — Parallel fixers resolve findings from TOME
 7.5. **VERIFY MEND** — Convergence gate: spot-checks mend fixes for regressions, retries up to 2x if P1s remain, halts on divergence
@@ -107,7 +107,7 @@ When you run `/rune:mend`, Rune parses structured findings from a TOME and fixes
 3. **Summons fixers** — restricted mend-fixer agents (no Bash, no TeamCreate)
 4. **Monitors progress** — stale detection, 15-minute timeout
 5. **Runs ward check** — once after all fixers complete (not per-fixer)
-6. **Produces report** — FIXED/FALSE_POSITIVE/FAILED/SKIPPED categories
+6. **Produces report** — FIXED/FALSE_POSITIVE/FAILED/SKIPPED/CONSISTENCY_FIX categories
 
 SEC-prefix findings require human approval for FALSE_POSITIVE marking.
 
@@ -310,9 +310,32 @@ work:
   co_authors: []               # Co-Authored-By lines in "Name <email>" format
   # pr_template: default       # Reserved for a future release
   # auto_push: false           # Reserved for a future release
+
+# arc:
+#   consistency:
+#     checks:
+#       - name: version_sync
+#         source:
+#           path: ".claude-plugin/plugin.json"
+#           extractor: json_field
+#           field: "$.version"
+#         targets:
+#           - path: "CLAUDE.md"
+#             pattern: "version: {value}"
+#           - path: "README.md"
+#             pattern: "v{value}"
+#         phase: ["plan", "post-work"]
+#       - name: agent_count
+#         source:
+#           path: "agents/review/*.md"
+#           extractor: line_count
+#         targets:
+#           - path: "CLAUDE.md"
+#             pattern: "{value} agents"
+#         phase: ["post-work"]
 ```
 
-See [`talisman.example.yml`](talisman.example.yml) for the full configuration schema including custom Ash, trigger matching, and dedup hierarchy.
+See [`talisman.example.yml`](talisman.example.yml) for the full configuration schema including custom Ash, trigger matching, dedup hierarchy, and cross-file consistency checks.
 
 ## Remembrance Channel
 
@@ -332,7 +355,7 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **Arc Pipeline** — End-to-end orchestration across 10 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), and time budgets.
 
-**Mend** — Parallel finding resolution from TOME with restricted fixers and centralized ward check.
+**Mend** — Parallel finding resolution from TOME with restricted fixers, centralized ward check, and post-ward doc-consistency scan that fixes drift between source-of-truth files and their downstream targets.
 
 **Plan Section Convention** — Plans with pseudocode must include contract headers (Inputs/Outputs/Preconditions/Error handling) before code blocks. Phase 2.7 verification gate enforces this. Workers implement from contracts, not by copying pseudocode verbatim.
 
