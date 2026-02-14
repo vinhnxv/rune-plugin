@@ -433,21 +433,22 @@ const fixerModifiedFiles = collectFixerModifiedFiles(fixerOutputs)
 // --- STEP 2: Short-circuit if no modified file is a consistency source ---
 const consistencyChecks = loadTalismanConfig('arc.consistency.checks') || DEFAULT_CONSISTENCY_CHECKS
 
-// DEFAULT_CONSISTENCY_CHECKS (matches arc.md definitions):
+// DEFAULT_CONSISTENCY_CHECKS (uses arc.md extractor taxonomy: json_field, regex_capture, glob_count, line_count):
+// Schema matches arc.md DEFAULT_CONSISTENCY_CHECKS
 // [
 //   {
 //     name: "version_sync",
-//     source: { file: ".claude-plugin/plugin.json", extractor: "json", path: "version" },
+//     source: { file: ".claude-plugin/plugin.json", extractor: "json_field", field: "version" },
 //     targets: [
-//       { file: "CHANGELOG.md", extractor: "regex", pattern: /^## \[(\d+\.\d+\.\d+)\]/ },
-//       { file: "README.md", extractor: "regex", pattern: /version[:\s]+(\d+\.\d+\.\d+)/i }
+//       { path: "CHANGELOG.md", pattern: /^## \[(\d+\.\d+\.\d+)\]/ },
+//       { path: "README.md", pattern: /version[:\s]+(\d+\.\d+\.\d+)/i }
 //     ]
 //   },
 //   {
 //     name: "agent_count",
-//     source: { file: "CLAUDE.md", extractor: "regex", pattern: /(\d+) agents/ },
+//     source: { file: "CLAUDE.md", extractor: "regex_capture", pattern: /(\d+) agents/ },
 //     targets: [
-//       { file: "README.md", extractor: "regex", pattern: /(\d+) agents/i }
+//       { path: "README.md", pattern: /(\d+) agents/i }
 //     ]
 //   }
 // ]
@@ -463,7 +464,10 @@ if (modifiedSources.length === 0) {
 
 // --- STEP 3: Build DAG and detect cycles ---
 else {
-  const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/ ]+$/
+  // Canonical definition: arc.md:631 — keep in sync (no spaces, matches arc/plan/work)
+  const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
+  // Separate validator for consistency check patterns — no pipe, parens, dollar
+  const SAFE_CONSISTENCY_PATTERN = /^[a-zA-Z0-9._\-\/ \[\]{}^+?*]+$/
 
   // Build source→target DAG
   const dag = new Map()  // file → Set<file>
@@ -472,18 +476,55 @@ else {
       warn(`Consistency check "${check.name}": source path unsafe — skipping`)
       continue
     }
+    // Path traversal check
+    if (check.source.file.includes('..')) {
+      warn(`Path traversal attempt in source "${check.source.file}"`)
+      continue
+    }
     const deps = new Set()
     for (const target of check.targets) {
-      if (!SAFE_PATH_PATTERN.test(target.file)) {
-        warn(`Consistency check "${check.name}": target path "${target.file}" unsafe — skipping`)
+      if (!SAFE_PATH_PATTERN.test(target.path)) {
+        warn(`Consistency check "${check.name}": target path "${target.path}" unsafe — skipping`)
         continue
       }
-      deps.add(target.file)
+      // Path traversal check
+      if (target.path.includes('..')) {
+        warn(`Path traversal attempt in target "${target.path}"`)
+        continue
+      }
+      // Validate pattern regex if present
+      if (target.pattern && typeof target.pattern === 'string' && !SAFE_CONSISTENCY_PATTERN.test(target.pattern)) {
+        warn(`Unsafe pattern in check "${check.name}": ${target.pattern}`)
+        continue
+      }
+      deps.add(target.path)
     }
-    dag.set(check.source.file, (dag.get(check.source.file) || new Set()).union(deps))
+    const existing = dag.get(check.source.file) || new Set()
+    for (const d of deps) existing.add(d)
+    dag.set(check.source.file, existing)
   }
 
-  // Cycle detection (Kahn's algorithm)
+  // Cycle detection (proper DFS-based transitive detection)
+  function detectCycle(dag) {
+    const visited = new Set()
+    const recursionStack = new Set()
+    function dfs(node) {
+      if (recursionStack.has(node)) return true
+      if (visited.has(node)) return false
+      visited.add(node)
+      recursionStack.add(node)
+      for (const neighbor of (dag.get(node) || [])) {
+        if (dfs(neighbor)) return true
+      }
+      recursionStack.delete(node)
+      return false
+    }
+    for (const node of dag.keys()) {
+      if (dfs(node)) return true
+    }
+    return false
+  }
+
   const hasCycle = detectCycle(dag)
   if (hasCycle) {
     warn("CYCLE_DETECTED in consistency check DAG — skipping auto-fix")
@@ -518,17 +559,17 @@ else {
 
       // Compare and fix each target
       for (const target of check.targets) {
-        if (!SAFE_PATH_PATTERN.test(target.file)) continue
+        if (!SAFE_PATH_PATTERN.test(target.path)) continue
 
         let targetValue
         try {
-          const targetContent = Read(target.file)
+          const targetContent = Read(target.path)
           targetValue = extract(targetContent, target)
         } catch (e) {
           consistencyResults.push({
             check: check.name,
             source: check.source.file,
-            target: target.file,
+            target: target.path,
             status: "EXTRACTION_FAILED",
             reason: `Target extraction failed: ${e.message}`
           })
@@ -540,7 +581,7 @@ else {
 
         // Drift detected — fix with Edit (NOT Write) to preserve other changes
         try {
-          Edit(target.file, {
+          Edit(target.path, {
             old_string: targetValue,
             new_string: sourceValue
           })
@@ -548,14 +589,14 @@ else {
           // Post-fix verification: Read file back, confirm BOTH:
           // 1. The fixer's original fix is still present
           // 2. The consistency fix was applied
-          const verifiedContent = Read(target.file)
+          const verifiedContent = Read(target.path)
           const verifiedValue = extract(verifiedContent, target)
 
           if (verifiedValue === sourceValue) {
             consistencyResults.push({
               check: check.name,
               source: check.source.file,
-              target: target.file,
+              target: target.path,
               status: "CONSISTENCY_FIX",
               old_value: targetValue,
               new_value: sourceValue
@@ -565,7 +606,7 @@ else {
             consistencyResults.push({
               check: check.name,
               source: check.source.file,
-              target: target.file,
+              target: target.path,
               status: "NEEDS_HUMAN_REVIEW",
               reason: "Post-fix verification failed: value mismatch after edit"
             })
@@ -574,7 +615,7 @@ else {
           consistencyResults.push({
             check: check.name,
             source: check.source.file,
-            target: target.file,
+            target: target.path,
             status: "NEEDS_HUMAN_REVIEW",
             reason: `Edit failed: ${e.message}`
           })
@@ -584,13 +625,18 @@ else {
   }
 }
 
-// --- Extractors ---
+// --- Extractors (uses arc.md taxonomy: json_field, regex_capture, glob_count, line_count) ---
+const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 function extract(content, spec) {
-  if (spec.extractor === "json") {
+  if (spec.extractor === "json_field") {
     const parsed = JSON.parse(content)  // JSON parse failure → throw → EXTRACTION_FAILED
-    return spec.path.split('.').reduce((obj, key) => obj[key], parsed)
-  } else if (spec.extractor === "regex") {
-    const match = content.match(spec.pattern)
+    return spec.field.split('.').reduce((obj, key) => {
+      if (FORBIDDEN_KEYS.has(key)) throw new Error(`Forbidden path key: ${key}`)
+      return obj[key]
+    }, parsed)
+  } else if (spec.extractor === "regex_capture") {
+    const re = typeof spec.pattern === 'string' ? new RegExp(spec.pattern) : spec.pattern
+    const match = content.match(re)
     if (!match || !match[1]) throw new Error(`No match for pattern ${spec.pattern}`)
     return match[1]
   }
@@ -599,7 +645,7 @@ function extract(content, spec) {
 ```
 
 **Safety constraints**:
-- Uses `SAFE_PATH_PATTERN` (same regex as SAFE_WARD) for all file path validation
+- Uses `SAFE_PATH_PATTERN` (same no-space regex as arc.md/plan.md/work.md) for all file path validation
 - Uses `Edit` not `Write` — surgical replacement preserves other changes in the file
 - Extraction failures produce `EXTRACTION_FAILED` status, skip auto-fix
 - Post-fix verification reads file back, confirms both fixer fix and consistency fix are present

@@ -107,6 +107,7 @@ When you run `/rune:mend`, Rune parses structured findings from a TOME and fixes
 3. **Summons fixers** — restricted mend-fixer agents (no Bash, no TeamCreate)
 4. **Monitors progress** — stale detection, 15-minute timeout
 5. **Runs ward check** — once after all fixers complete (not per-fixer)
+5.5. **Doc-consistency scan** — fixes drift between source-of-truth files and downstream targets (single pass, Edit-based)
 6. **Produces report** — FIXED/FALSE_POSITIVE/FAILED/SKIPPED/CONSISTENCY_FIX categories
 
 SEC-prefix findings require human approval for FALSE_POSITIVE marking.
@@ -143,7 +144,7 @@ When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 1. **Gathers input** — runs interactive brainstorm by default (auto-skips when requirements are clear)
 2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 19 agents across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
+4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 13 agents (11 enrichment + 2 research) + 7 elicitation methods across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
 5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
@@ -209,7 +210,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 
 ### Review Agents
 
-10 specialized agents that Ash embed as perspectives:
+16 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -223,6 +224,12 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 | void-analyzer | Incomplete implementations |
 | wraith-finder | Dead code |
 | phantom-checker | Dynamic references |
+| type-warden | Type safety, mypy compliance |
+| trial-oracle | TDD compliance, test quality |
+| depth-seer | Missing logic, complexity detection |
+| blight-seer | Design anti-patterns, architectural smells |
+| forge-keeper | Data integrity, migration safety |
+| tide-watcher | Async/concurrency patterns |
 
 ### Research Agents
 
@@ -251,7 +258,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 |-------|---------|
 | runebinder | Aggregates Ash findings into TOME.md |
 | decree-arbiter | Technical soundness review for plans |
-| truthseer-validator | Audit coverage validation (Phase 5.5, >100 files) |
+| truthseer-validator | Audit coverage validation (Roundtable Phase 5.5, >100 files) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
@@ -370,7 +377,7 @@ plugins/rune/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── agents/
-│   ├── review/          # 10 review agents
+│   ├── review/          # 16 review agents
 │   ├── research/        # 5 research agents (plan pipeline)
 │   ├── work/            # 2 swarm workers (work pipeline)
 │   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper
@@ -385,6 +392,7 @@ plugins/rune/
 │   ├── cancel-review.md # /rune:cancel-review
 │   ├── audit.md         # /rune:audit
 │   ├── cancel-audit.md  # /rune:cancel-audit
+│   ├── elicit.md        # /rune:elicit
 │   ├── echoes.md        # /rune:echoes
 │   └── rest.md          # /rune:rest
 ├── skills/
@@ -394,6 +402,8 @@ plugins/rune/
 │   ├── roundtable-circle/   # Review orchestration
 │   │   └── references/      # e.g. rune-gaze.md, custom-ashes.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
+│   ├── elicitation/         # BMAD-derived reasoning methods
+│   │   └── references/      # methods.csv, examples.md, phase-mapping.md
 │   └── ash-guide/    # Agent reference
 ├── talisman.example.yml
 ├── CLAUDE.md

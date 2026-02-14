@@ -86,6 +86,8 @@ Phase 8:   AUDIT → Final quality gate (informational)
 Output: Implemented, reviewed, and fixed feature
 ```
 
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 5, 5.5, 6, 7, 7.5, 8) intentionally match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved for future use. The `PHASE_ORDER` array uses names (not numbers) for all validation logic.
+
 ## Arc Orchestrator Design (ARC-1)
 
 The arc orchestrator is a **lightweight dispatcher**, NOT a monolithic agent. Each phase summons a **new team with fresh context** (except Phases 2.5, 2.7, 5.5, and 7.5 which are orchestrator-only). Phase artifacts serve as the handoff mechanism.
@@ -144,6 +146,13 @@ if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
   plan_name=$(basename "$plan_file" .md | sed 's/[^a-zA-Z0-9]/-/g')
   plan_name=${plan_name:-unnamed}
   branch_name="rune/arc-${plan_name}-$(date +%Y%m%d-%H%M%S)"
+
+  # SEC-006: Validate constructed branch name
+  if echo "$branch_name" | grep -qE '(HEAD|FETCH_HEAD|ORIG_HEAD|MERGE_HEAD|//)'; then
+    echo "ERROR: Branch name collides with Git special ref"
+    exit 1
+  fi
+
   git checkout -b -- "$branch_name"
 fi
 ```
@@ -626,7 +635,8 @@ if (todos.length > 0) issues.push(`${todos.length} TODO/FIXME markers in plan pr
 // 5. Run talisman verification_patterns (if configured)
 const talisman = readTalisman()
 const customPatterns = talisman?.plan?.verification_patterns || []
-// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards)
+// Canonical safe-character validators (also in plan.md:1029, work.md:771, Phase 5.5 below as _CC variants)
+// Regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards, no spaces)
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -636,8 +646,11 @@ for (const pattern of customPatterns) {
     warn(`Skipping pattern "${pattern.description}": unsafe characters`)
     continue
   }
+  // NOTE: All three interpolations are double-quoted to prevent shell glob expansion and word splitting.
+  // The regex arg is safe: SAFE_REGEX_PATTERN blocks backticks, $, !, >, <, ;, &.
+  // For maximum safety, consider using rg -f <file> to avoid shell regex interpolation entirely.
   const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
-  // NOTE: All three interpolations are quoted to prevent shell glob expansion and word splitting.
+  // The glob_count extractor (STEP 4.5) intentionally leaves its glob UNQUOTED for expansion.
   if (pattern.expect_zero && result.stdout.trim().length > 0) {
     issues.push(`Stale reference: ${pattern.description}`)
   }
@@ -822,11 +835,15 @@ for (const criterion of criteria) {
 // --- STEP 4: Check task completion rate ---
 const taskStats = extractTaskStats(workSummary)
 
+```
+
+### Doc-Consistency Cross-Checks (STEP 4.5)
+
+Non-blocking sub-step: validates that key values (version, agent count, etc.) are consistent across documentation and config files. Reports PASS/DRIFT/SKIP per check. Uses PASS/DRIFT/SKIP (NOT ADDRESSED/MISSING) to avoid collision with gap-analysis regex counts.
+
+```javascript
 // --- STEP 4.5: Doc-Consistency Cross-Checks ---
-// Non-blocking sub-step: validates that key values (version, agent count, etc.)
-// are consistent across documentation and config files. Reports PASS/DRIFT/SKIP
-// per check. Uses PASS/DRIFT/SKIP (NOT ADDRESSED/MISSING) to avoid collision
-// with gap-analysis regex counts.
+// BACK-009: Guard: Only run doc-consistency if WORK phase succeeded and >=50% tasks completed
 let docConsistencySection = ""
 const consistencyGuardPass =
   checkpoint.phases?.work?.status !== "failed" &&
@@ -842,6 +859,7 @@ if (consistencyGuardPass) {
     {
       name: "version_sync",
       description: "Plugin version matches across config and docs",
+      // Convention: source uses "file" (single file), targets use "path" (may be glob)
       source: { file: ".claude-plugin/plugin.json", extractor: "json_field", field: "version" },
       targets: [
         { path: "CLAUDE.md", pattern: "version:\\s*[0-9]+\\.[0-9]+\\.[0-9]+" },
@@ -861,10 +879,13 @@ if (consistencyGuardPass) {
 
   const checks = customChecks.length > 0 ? customChecks : DEFAULT_CONSISTENCY_CHECKS
 
-  // Validation patterns — EXACT same regex as arc.md Phase 2 verification (lines 630-631)
-  const SAFE_REGEX_PATTERN_CC = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
+  // Shared validation patterns (reuse from Phase 2.7 — MUST stay identical)
+  // NOTE: Duplicated in plan.md and work.md. If changed, update all three files.
+  // Updated to exclude shell metacharacters: pipe, parens, dollar (SEC-001)
+  const SAFE_REGEX_PATTERN_CC = /^[a-zA-Z0-9._\-\/ \\\[\]{}^+?*]+$/
   const SAFE_PATH_PATTERN_CC = /^[a-zA-Z0-9._\-\/]+$/
   // Glob paths allow * for glob_count extractor (e.g., "agents/review/*.md")
+  // MUST NOT include spaces — ls -1 ${unquoted} relies on word-splitting for glob expansion
   const SAFE_GLOB_PATH_PATTERN = /^[a-zA-Z0-9._\-\/*]+$/
   // Additional validator for JSON dot-path fields (e.g., "version", "name")
   const SAFE_DOT_PATH = /^[a-zA-Z0-9._]+$/
@@ -878,6 +899,12 @@ if (consistencyGuardPass) {
       consistencyResults.push({ name: check.name || "unknown", status: "SKIP", reason: "Malformed check definition" })
       continue
     }
+
+    // BACK-005: Normalize empty patterns to undefined
+    for (const target of check.targets) {
+      if (target.pattern === "") target.pattern = undefined
+    }
+
     // Validate source file path (glob_count allows * in path for shell expansion)
     const pathValidator = check.source.extractor === "glob_count" ? SAFE_GLOB_PATH_PATTERN : SAFE_PATH_PATTERN_CC
     if (!pathValidator.test(check.source.file)) {
@@ -899,9 +926,18 @@ if (consistencyGuardPass) {
     let sourceValue = null
     try {
       if (check.source.extractor === "json_field") {
+        // BACK-004: Validate file extension for json_field extractor
+        if (!check.source.file.match(/\.(json|jsonc|json5)$/i)) {
+          consistencyResults.push({ name: check.name, status: "SKIP", reason: "json_field extractor requires .json file" })
+          continue
+        }
         const content = Read(check.source.file)
         const parsed = JSON.parse(content)
-        sourceValue = String(parsed[check.source.field] ?? "")
+        const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+        sourceValue = String(check.source.field.split('.').reduce((obj, key) => {
+          if (FORBIDDEN_KEYS.has(key)) throw new Error(`Forbidden path key: ${key}`)
+          return obj[key]
+        }, parsed) ?? "")
       } else if (check.source.extractor === "glob_count") {
         const globResult = Bash(`ls -1 ${check.source.file} 2>/dev/null | wc -l`)
         sourceValue = globResult.stdout.trim()
@@ -915,6 +951,10 @@ if (consistencyGuardPass) {
         }
         const rgResult = Bash(`rg --no-messages -o "${check.source.pattern}" "${check.source.file}" | head -1`)
         sourceValue = rgResult.stdout.trim()
+      } else {
+        // QUAL-010: Fallback for unknown extractors
+        consistencyResults.push({ name: check.name, status: "SKIP", reason: `Unknown extractor: ${check.source.extractor}` })
+        continue
       }
     } catch (extractErr) {
       consistencyResults.push({ name: check.name, status: "SKIP", reason: `Source extraction failed: ${extractErr.message}` })
@@ -941,7 +981,9 @@ if (consistencyGuardPass) {
       try {
         if (target.pattern) {
           // Search for the pattern in the target file and extract the matched value
-          const targetResult = Bash(`rg --no-messages -o "${target.pattern}" "${target.path}" 2>/dev/null | head -1`)
+          // SEC-001: Use -- separator and shell escape the pattern
+          const escapedPattern = target.pattern.replace(/["$\`\\]/g, '\\$&')
+          const targetResult = Bash(`rg --no-messages -o -- "${escapedPattern}" "${target.path}" 2>/dev/null | head -1`)
           const targetValue = targetResult.stdout.trim()
           if (targetValue.length === 0) {
             targetStatus = "DRIFT"  // Pattern not found in target
@@ -969,6 +1011,12 @@ if (consistencyGuardPass) {
   }
 
   // --- Build doc-consistency report section ---
+  // BACK-007: Add size limit to prevent unbounded output
+  const MAX_CONSISTENCY_RESULTS = 100
+  const displayResults = consistencyResults.length > MAX_CONSISTENCY_RESULTS
+    ? consistencyResults.slice(0, MAX_CONSISTENCY_RESULTS)
+    : consistencyResults
+
   const passCount = consistencyResults.filter(r => r.status === "PASS").length
   const driftCount = consistencyResults.filter(r => r.status === "DRIFT").length
   const skipCount = consistencyResults.filter(r => r.status === "SKIP").length
@@ -977,9 +1025,10 @@ if (consistencyGuardPass) {
   docConsistencySection = `\n## DOC-CONSISTENCY\n\n` +
     `**Status**: ${overallStatus}\n` +
     `**Issues**: ${driftCount}\n` +
-    `**Checked at**: ${new Date().toISOString()}\n\n` +
-    `| Check | Status | Detail |\n|-------|--------|--------|\n` +
-    consistencyResults.map(r =>
+    `**Checked at**: ${new Date().toISOString()}\n` +
+    (consistencyResults.length > MAX_CONSISTENCY_RESULTS ? `**Note**: Showing first ${MAX_CONSISTENCY_RESULTS} of ${consistencyResults.length} results\n` : '') +
+    `\n| Check | Status | Detail |\n|-------|--------|--------|\n` +
+    displayResults.map(r =>
       `| ${r.name} | ${r.status} | ${r.reason || "—"} |`
     ).join('\n') + '\n\n' +
     `Summary: ${passCount} PASS, ${driftCount} DRIFT, ${skipCount} SKIP\n`

@@ -277,7 +277,7 @@ work:
 #         source:
 #           path: ".claude-plugin/plugin.json"
 #           extractor: json_field
-#           field: "$.version"
+#           field: "version"             # Plain dot-path (not JSONPath). Examples: "version", "name.first"
 #         targets:
 #           - path: "CLAUDE.md"
 #             pattern: "version: {value}"
@@ -290,7 +290,8 @@ work:
 #         description: "Number of review agents must match CLAUDE.md and plugin.json"
 #         source:
 #           path: "agents/review/*.md"
-#           extractor: line_count
+#           extractor: glob_count        # glob_count: count files matching a glob pattern (e.g., *.md)
+                                         # line_count: count lines in a single file
 #         targets:
 #           - path: "CLAUDE.md"
 #             pattern: "{value} agents"

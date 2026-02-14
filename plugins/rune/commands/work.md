@@ -601,7 +601,7 @@ function commitBroker(taskId) {
   // SECURITY: Validate each file path against safe character set to prevent shell injection
   const SAFE_PATH = /^[a-zA-Z0-9._\-\/]+$/
   for (const file of meta.files) {
-    if (!SAFE_PATH.test(file) || file.includes('..')) {
+    if (file.startsWith('/') || file.includes('..') || !SAFE_PATH.test(file)) {
       warn(`Task ${taskId}: unsafe file path "${file}" — skipping`)
       return
     }
@@ -754,7 +754,7 @@ for (const file of newFiles) {
   const fileBase = file.split('/').pop().replace(/\.(py|ts|js|rs|go|rb)$/, '')
   if (fileBase.length < 4) continue  // Skip very short names (e.g., "app.py")
   // Escape glob metacharacters to prevent pattern injection from filenames (e.g., Next.js [slug].tsx)
-  const safeBase = fileBase.replace(/[[\]{}*?]/g, '\\$&')
+  const safeBase = fileBase.replace(/[[\]{}*?~]/g, '\\$&')
   const similar = Glob(`**/*${safeBase}*`).filter(f => f !== file)
   if (similar.length > 0) {
     checks.push(`INFO: New file ${file} has similar existing file(s): ${similar.slice(0, 3).join(", ")}`)
@@ -768,10 +768,13 @@ const talisman = readTalisman()  // .claude/talisman.yml or ~/.claude/talisman.y
 const customPatterns = talisman?.plan?.verification_patterns || []
 // SECURITY: Validate each field against safe character set before shell interpolation
 // Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards)
+// NOTE: This pattern is duplicated in arc.md and plan.md.
+// If changed, update ALL three files + talisman.example.yml schema comments.
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
   // Phase filter: only run patterns with phase including "post-work"
+  // If pattern.phase is omitted, defaults to ["plan"] per talisman schema
   const phases = pattern.phase || ["plan"]
   if (!phases.includes("post-work")) continue
 

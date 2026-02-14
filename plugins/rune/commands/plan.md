@@ -1025,7 +1025,8 @@ const customPatterns = talisman?.plan?.verification_patterns || []
 // Only patterns whose phase array includes currentPhase are executed.
 const currentPhase = "plan"  // In plan.md context, always "plan"
 // SECURITY: Validate each field against safe character set before shell interpolation
-// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards)
+// Canonical definition: arc.md:630 — also in work.md:771, mend.md:466
+// Separate validators: regex allows metacharacters (but not bare *); paths allow only strict path chars (no wildcards, no spaces)
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -1039,7 +1040,8 @@ for (const pattern of customPatterns) {
     warn(`Skipping verification pattern "${pattern.description}": contains unsafe characters`)
     continue
   }
-  const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
+  // SECURITY: Timeout prevents ReDoS — regex must be linear-time safe (avoid nested quantifiers)
+  const result = Bash(`timeout 5 rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
   if (pattern.expect_zero && result.stdout.trim().length > 0) {
     warn(`Stale reference: ${pattern.description}`)
     // Auto-fix or flag to user before presenting the plan

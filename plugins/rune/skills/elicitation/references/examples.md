@@ -261,7 +261,7 @@ Strengths: clear boundaries, independent versioning, team autonomy.
 
 ## Cross-Functional War Room (#6)
 
-**Output pattern**: `perspectives → constraints → trade-offs`
+**Output pattern**: `perspectives -> constraints -> trade-offs`
 
 ```markdown
 **Context**: Adding real-time collaboration features to a document editor.
@@ -291,7 +291,7 @@ Strengths: clear boundaries, independent versioning, team autonomy.
 
 ## Mentor and Apprentice (#7)
 
-**Output pattern**: `questions → insights → clarifications`
+**Output pattern**: `questions -> insights -> clarifications`
 
 ```markdown
 **Context**: Implementing a permission system for a multi-tenant SaaS application.

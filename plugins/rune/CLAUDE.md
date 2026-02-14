@@ -77,7 +77,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 |-------|---------|
 | runebinder | Aggregates Ash findings into TOME.md |
 | decree-arbiter | Technical soundness review for plans (8-dimension evaluation) |
-| truthseer-validator | Audit coverage validation (Phase 5.5) |
+| truthseer-validator | Audit coverage validation (Roundtable Phase 5.5) |
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |

@@ -170,6 +170,18 @@ Three helper workflows compose the interactive mode:
 
 Write is restricted to `tmp/elicitation/` directory only. Do not write to any other location.
 
+Before writing, validate the output path:
+
+```javascript
+// Pre-flight write path validation
+const outputPath = `tmp/elicitation/${timestamp}-${methodName}.md`
+if (!outputPath.startsWith('tmp/elicitation/') || outputPath.includes('..')) {
+  warn(`Unsafe write path: ${outputPath} — aborting`)
+  return
+}
+Write(outputPath, output)
+```
+
 Write elicitation output to `tmp/elicitation/` for persistence:
 
 ```
