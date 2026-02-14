@@ -209,6 +209,12 @@ if (codexAvailable && !codexDisabled) {
 When Codex Oracle is selected for a section, its agent prompt wraps `codex exec` instead of using Claude Code tools directly:
 
 ```javascript
+// ARCHITECTURE NOTE: In the forge pipeline, Codex runs inside a forge agent teammate
+// (not a dedicated Codex Oracle teammate). This is the documented exception to
+// Architecture Rule #1 (see codex-detection.md:72: 'forge: runs inside forge agent
+// teammate'). All other pipelines (review, audit, plan, work) use a dedicated Codex
+// Oracle teammate.
+
 // Codex Oracle forge agent uses codex exec with section-specific prompt
 // Bash: timeout 300 codex exec \
 //   -m gpt-5.3-codex --config model_reasoning_effort="high" \

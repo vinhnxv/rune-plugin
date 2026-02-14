@@ -45,7 +45,7 @@ Orchestrate a full codebase audit using the Roundtable Circle architecture. Each
 
 **Focus mode** selects only the relevant Ash (see `roundtable-circle/references/circle-registry.md` for the mapping). This increases each Ash's effective context budget since fewer compete for resources.
 
-**Max agents** reduces team size when context or cost is a concern. Ash are prioritized: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper.
+**Max agents** reduces team size when context or cost is a concern. Ash are prioritized: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. (Codex Oracle is always lowest priority — dropped first when --max-agents caps apply, consistent with its conditional/optional nature.)
 
 ## Phase 0: Pre-flight
 
@@ -129,7 +129,7 @@ Check for project overrides in `.claude/talisman.yml`.
 
 **Apply `--focus` filter:** If `--focus <area>` is set, only summon Ash matching that area. See `roundtable-circle/references/circle-registry.md` for the focus-to-Ash mapping.
 
-**Apply `--max-agents` cap:** If `--max-agents N` is set, limit selected Ash to N. Priority order: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper.
+**Apply `--max-agents` cap:** If `--max-agents N` is set, limit selected Ash to N. Priority order: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. (Codex Oracle is always lowest priority — dropped first when --max-agents caps apply, consistent with its conditional/optional nature.)
 
 **Large codebase warning:** If total reviewable files > 150:
 ```

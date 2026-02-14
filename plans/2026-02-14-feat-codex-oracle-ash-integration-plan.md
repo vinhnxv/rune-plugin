@@ -500,10 +500,10 @@ Add Codex Oracle to `circle-registry.md`:
 Update default hierarchy in `dedup-runes.md` and `talisman.example.yml`:
 
 ```text
-SEC > BACK > CDX > DOC > QUAL > FRONT
+SEC > BACK > DOC > QUAL > FRONT > CDX
 ```
 
-Codex Oracle sits between BACK and DOC — its cross-model findings are valuable but should defer to Ward Sentinel (security specialist) and Forge Warden (backend specialist with deeper Claude context).
+CDX findings defer to all Claude-native Ashes because external model findings have inherently higher uncertainty. Codex Oracle sits last — its cross-model findings are valuable but should defer to Ward Sentinel (security), Forge Warden (backend), Lore Keeper (docs), Aegis (quality), and Prism (frontend), all of which have deeper Claude-native context.
 
 ### Forge Gaze Integration
 
@@ -662,10 +662,17 @@ if (codexAvailable && !codexDisabled) {
     const planContent = Read(planPath)
     const diff = Bash(`git diff --stat "${defaultBranch}"...HEAD && git diff "${defaultBranch}"...HEAD -- '*.py' '*.ts' '*.js' '*.rs' '*.go' '*.rb' | head -c 15000`)
 
+    // SEC-002: Validate talisman codex config before shell interpolation
+    const CODEX_MODEL_ALLOWLIST = /^(gpt-4[o]?|gpt-5(\.\d+)?-codex|o[1-4](-mini|-preview)?)$/
+    const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
+    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "high"
+    // Implementation note: Canonical implementation with full validation is in commands/work.md
+
     // Run codex exec — advisory, non-blocking
     const advisory = Bash(`codex exec \
-      -m ${talisman?.codex?.model ?? "gpt-5.3-codex"} \
-      --config model_reasoning_effort="${talisman?.codex?.reasoning ?? "high"}" \
+      -m ${codexModel} \
+      --config model_reasoning_effort="${codexReasoning}" \
       --sandbox read-only --full-auto --skip-git-repo-check \
       "You are reviewing an implementation against its plan.
        Compare the code diff with the plan and identify:

@@ -18,7 +18,6 @@ a single TOME.md summary.
 2. Parse findings from each file (P1, P2, P3 sections)
 3. Deduplicate overlapping findings using the hierarchy below
 4. Write the aggregated TOME.md to: {output_dir}/TOME.md
-5. Write completion.json to: {output_dir}/completion.json
 
 ## INPUT FILES
 

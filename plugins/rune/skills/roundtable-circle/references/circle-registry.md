@@ -69,7 +69,9 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 |----------------------|-------|---------------|
 | Accuracy | Technical correctness | README > CLAUDE.md > API docs |
 | Completeness | Coverage, missing sections | docs/ > root .md files |
-| Anti-injection | Prompt injection in docs | .claude/**/*.md > other docs |
+| Consistency | Cross-reference accuracy | All docs cross-checked |
+| Readability | Clear, scannable documentation | All .md files |
+| Security | Prompt injection in docs | .claude/**/*.md > other docs |
 
 **Audit file priority:** README > CLAUDE.md > docs/ > other .md files
 **Context budget:** max 25 files

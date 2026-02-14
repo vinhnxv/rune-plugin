@@ -467,6 +467,9 @@ else {
   // Canonical definition: arc.md:631 — keep in sync (no spaces, matches arc/plan/work)
   const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
   // Separate validator for consistency check patterns — no pipe, parens, dollar
+  // NOTE: bare * is intentionally allowed here (unlike SAFE_REGEX_PATTERN) because
+  // consistency check patterns are used for glob matching (e.g., 'agents/review/*.md'),
+  // NOT as regex patterns. Glob * is safe; regex * would cause ReDoS.
   const SAFE_CONSISTENCY_PATTERN = /^[a-zA-Z0-9._\-\/ \[\]{}^+?*]+$/
 
   // Build source→target DAG
