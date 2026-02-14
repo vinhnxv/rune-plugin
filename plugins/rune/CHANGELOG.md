@@ -1,5 +1,80 @@
 # Changelog
 
+## [1.17.0] - 2026-02-14
+
+Feature release: Doc-consistency ward with cross-file drift prevention for arc and mend pipelines.
+
+### Added
+
+- arc.md: Phase 5.5 doc-consistency sub-step — detects drift between source-of-truth files and their downstream targets using declarative `arc.consistency.checks` schema in talisman.yml
+- arc.md: DEFAULT_CONSISTENCY_CHECKS fallbacks — version_sync (plugin.json ↔ README/CLAUDE.md) and agent_count (agents/review/*.md ↔ CLAUDE.md)
+- arc.md: 4 extractors — `json_field` (JSON dot-path), `regex_capture` (regex group), `glob_count` (file count), `line_count` (line count)
+- arc.md: Safety validators — `SAFE_REGEX_PATTERN_CC`, `SAFE_PATH_PATTERN_CC`, `SAFE_DOT_PATH` for consistency check inputs
+- mend.md: MEND-3 doc-consistency pass — runs after ward check passes, applies topological sort for cross-file dependencies, Edit-based auto-fixes
+- mend.md: DAG cycle detection (DFS-based) for consistency check dependency graphs
+- mend.md: Prototype pollution guard for JSON field extraction (`__proto__`, `constructor`, `prototype` blocked)
+- plan.md: Cross-File Consistency section in Standard/Comprehensive plan templates
+- plan.md: Phase-aware `verification_patterns` with configurable `phase` field
+- talisman.example.yml: `arc.consistency.checks` schema with 3 examples (version_sync, agent_count, method_count)
+
+### Changed
+
+- plugin.json: version 1.16.0 → 1.17.0
+- marketplace.json: version 1.16.0 → 1.17.0
+- README.md: Version updated to 1.17.0
+
+## [1.16.0] - 2026-02-14
+
+Feature release: BMAD elicitation methods integration — 22-method curated registry with phase-aware selection.
+
+### Added
+
+- skills/elicitation/SKILL.md — context-aware method selection skill with CSV registry, tier system, and auto-selection algorithm
+- skills/elicitation/methods.csv — 22-method registry (14 Tier 1, 8 Tier 2) covering structured reasoning techniques
+- skills/elicitation/references/phase-mapping.md — method-to-phase mapping with workflow integration points
+- skills/elicitation/references/examples.md — output templates for each Tier 1 method
+- commands/elicit.md — standalone `/rune:elicit` command for manual method invocation
+- forge-gaze.md: Elicitation Methods section with Method Budget (MAX_METHODS_PER_SECTION=2)
+- ward-sentinel: Red Team/Blue Team analysis structure
+- mend-fixer.md: 5 Whys root cause protocol for P1/recurring findings
+- scroll-reviewer.md: Self-Consistency and Critical Challenge review dimensions
+
+### Changed
+
+- plan.md: Step 3.5 elicitation offering after brainstorm phase
+- plan.md, forge.md, arc.md: Load elicitation skill
+- CLAUDE.md: Updated skill table (6 skills), command table (13 commands)
+- plugin.json: version 1.15.0 → 1.16.0
+
+## [1.15.0] - 2026-02-14
+
+Feature release: BMAD-inspired quality improvements across plan, work, and review pipelines.
+
+### Added
+
+- plan.md Phase 1A: Research scope preview — transparent announcement before agent spawning
+- plan.md Phase 4B.5: Verification gate checks e-h — time estimate ban, CommonMark compliance, acceptance criteria measurability, filler phrase detection
+- plan.md: Source citation enforcement for research agents (practice-seeker, lore-scholar)
+- work.md Phase 0: Previous Shard Context for multi-shard plans
+- work.md: Disaster Prevention in worker/tester self-review checklists
+- work.md Phase 4: Post-ward checks 7-9 — docstring coverage, import hygiene, code duplication detection
+- work.md: Branch name validation and glob metacharacter escaping (security hardening)
+- review.md Phase 5: Zero-finding warning for suspiciously empty Ash outputs (>15 files, 0 findings)
+- review.md Phase 7: Explicit `/rune:mend` offer with P1/P2 finding counts
+- scroll-reviewer.md: Time estimate ban, writing style rules, traceability checks
+
+### Changed
+
+- plugin.json: version 1.14.0 → 1.15.0
+
+## [1.14.0] - 2026-02-13
+
+Patch release: marketplace version synchronization.
+
+### Changed
+
+- marketplace.json: version synced to 1.14.0 (was out of sync with plugin.json)
+
 ## [1.13.0] - 2026-02-13
 
 Feature release: 4-part quality improvement for `/rune:arc` pipeline.
