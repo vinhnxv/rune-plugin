@@ -247,6 +247,8 @@ work:
   # auto_push: false            # Reserved for a future release — auto-push without confirmation
   co_authors: []                # Additional Co-Authored-By lines in "Name <email>" format (default: [])
   # Example: ["Claude <noreply@anthropic.com>", "Alice <alice@example.com>"]
+  # consistency:                   # Doc-consistency checks for Phase 4.3 (v1.19.0+)
+  #   checks: []                   # Same schema as arc.consistency.checks. If empty, falls back to arc checks, then defaults.
 
 # ──────────────────────────────────────────────
 # Codex Oracle — Cross-model verification (v1.18.0+)
