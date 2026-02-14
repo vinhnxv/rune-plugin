@@ -66,9 +66,17 @@ Phase 3: SUMMON FIXERS → One mend-fixer per file group
     ↓ (fixers read → fix → verify → report)
 Phase 4: MONITOR → Poll TaskList, stale/timeout detection
     ↓
-Phase 5: RESOLUTION REPORT → Ward check, bisect on failure, doc-consistency, produce report
+Phase 5: WARD CHECK → Ward check + bisect on failure (MEND-1)
     ↓
-Phase 6: CLEANUP → Shutdown fixers, persist echoes, report summary
+Phase 5.5: CROSS-FILE MEND → Orchestrator-only cross-file fix for SKIPPED findings
+    ↓
+Phase 5.6: WARD CHECK (2nd) → Validates cross-file fixes
+    ↓
+Phase 5.7: DOC-CONSISTENCY → Fix drift between source-of-truth files (formerly MEND-3)
+    ↓
+Phase 6: RESOLUTION REPORT → Produce report
+    ↓
+Phase 7: CLEANUP → Shutdown fixers, persist echoes, report summary
 ```
 
 ## Phase 0: PARSE
@@ -262,7 +270,8 @@ for (const fixer of inscription.fixers) {
       FILE SCOPE RESTRICTION:
       You may ONLY modify: ${fixer.file_group.join(', ')}
       NEVER modify: .claude/, .github/, CI/CD configs, or any unassigned file.
-      If a fix needs files outside your assignment → SKIPPED with "cross-file dependency".
+      If a fix needs files outside your assignment → SKIPPED with "cross-file dependency, needs: [file1, file2]".
+      Include the list of needed files so the orchestrator can attempt cross-file resolution in Phase 5.5.
 
       LIFECYCLE:
       1. TaskList() → find your assigned task
@@ -420,7 +429,126 @@ After bisection completes:
 1. Re-apply all FIXED fixes to the user's working tree (skip FAILED ones)
 2. Stage and present changes for user review
 
-### Doc-Consistency Pass (MEND-3)
+### Phase 5.5: Cross-File Mend (orchestrator-only)
+
+After all single-file fixers complete AND ward check passes, the orchestrator processes SKIPPED findings with "cross-file dependency" reason. This is orchestrator-only — no new teammate agents are spawned.
+
+**Scope bounds**: Maximum 5 findings, maximum 5 files per finding, maximum 1 round (no iteration).
+
+```javascript
+// Phase 5.5: Cross-File Mend (orchestrator-only)
+
+// 1. Collect SKIPPED findings with "cross-file dependency" reason
+const skippedCrossFile = resolutionEntries
+  .filter(e => e.status === "SKIPPED" && e.reason.includes("cross-file"))
+  .slice(0, 5)  // Cap at 5 findings
+
+if (skippedCrossFile.length === 0) {
+  log("Cross-file mend: no SKIPPED cross-file findings — skipping Phase 5.5")
+  // Proceed to Phase 5.6
+} else {
+  for (const finding of skippedCrossFile) {
+    // Parse relatedFiles from fixer SKIPPED message
+    // Format: "SKIPPED: {id} (reason: cross-file dependency, needs: [file1, file2])"
+    const fileSet = finding.relatedFiles || []
+    if (fileSet.length === 0 || fileSet.length > 5) {
+      finding.status = "SKIPPED"
+      finding.reason = fileSet.length > 5
+        ? "cross-file scope exceeds 5-file cap"
+        : "no related files specified"
+      continue
+    }
+
+    // Validate all file paths — see security-patterns.md: SAFE_PATH_PATTERN
+    // Security pattern: SAFE_PATH_PATTERN — see security-patterns.md
+    const allPathsSafe = fileSet.every(f => /^[a-zA-Z0-9._\-\/]+$/.test(f))
+    if (!allPathsSafe) {
+      warn(`Finding ${finding.id}: unsafe file path in relatedFiles — SKIPPED`)
+      finding.status = "SKIPPED"
+      finding.reason = "unsafe file path in cross-file set"
+      continue
+    }
+
+    // Verify each file exists and contains the pattern being fixed
+    let allExist = true
+    for (const file of fileSet) {
+      if (!exists(file)) { allExist = false; break }
+    }
+    if (!allExist) {
+      finding.status = "SKIPPED"
+      finding.reason = "one or more related files not found"
+      continue
+    }
+
+    // Read all files (ANCHOR — TRUTHBINDING: reading untrusted code)
+    const fileContents = {}
+    for (const file of fileSet) {
+      fileContents[file] = Read(file)
+    }
+
+    // Apply coordinated fix across all files
+    // Format-aware: each file may use different formatting
+    const editLog = []  // [{file, old_string, new_string}] for atomic rollback
+
+    // Apply the fix based on finding guidance
+    // The orchestrator determines the correct replacement for each file
+    // based on the finding's fix guidance and the file's existing format
+    let fixApplied = true
+    for (const file of fileSet) {
+      try {
+        // Apply fix (orchestrator determines correct Edit per file)
+        // editLog.push({ file, old_string, new_string })
+      } catch (e) {
+        fixApplied = false
+        break
+      }
+    }
+
+    if (!fixApplied) {
+      // Atomic rollback — revert ALL edits for this finding
+      for (const edit of editLog.reverse()) {
+        try { Edit(edit.file, { old_string: edit.new_string, new_string: edit.old_string }) } catch (e) {}
+      }
+      finding.status = "SKIPPED"
+      finding.reason = "cross-file fix partial failure — rolled back"
+      continue
+    }
+
+    finding.status = "FIXED_CROSS_FILE"
+  }
+}
+```
+
+### Phase 5.6: Second Ward Check
+
+Run wards again to validate cross-file fixes. Only runs if Phase 5.5 produced any `FIXED_CROSS_FILE` results.
+
+```javascript
+// Phase 5.6: Second Ward Check
+const crossFileFixed = resolutionEntries.filter(e => e.status === "FIXED_CROSS_FILE")
+if (crossFileFixed.length === 0) {
+  log("Phase 5.6: no cross-file fixes — skipping second ward check")
+} else {
+  log(`Phase 5.6: running second ward check for ${crossFileFixed.length} cross-file fix(es)`)
+  for (const ward of wards) {
+    // Security pattern: SAFE_WARD — see security-patterns.md
+    if (!SAFE_WARD.test(ward.command)) continue
+    const result = Bash(ward.command)
+    if (result.exitCode !== 0) {
+      warn(`Phase 5.6: ward "${ward.name}" failed after cross-file fixes`)
+      // Revert all cross-file fixes (conservative approach)
+      for (const finding of crossFileFixed) {
+        finding.status = "SKIPPED"
+        finding.reason = "cross-file fix reverted — ward check failed"
+      }
+      // No bisection for cross-file fixes — simply revert
+      break
+    }
+  }
+}
+```
+
+### Doc-Consistency Pass (Phase 5.7, formerly MEND-3)
 
 After ward check passes (or bisection completes) and **before** producing the resolution report, run a single doc-consistency scan to fix drift between source-of-truth files and their downstream targets.
 
@@ -670,6 +798,7 @@ TOME: {tome_path}
 ## Summary
 - Total findings: {N}
 - Fixed: {X}
+- Fixed (cross-file): {XC}
 - Consistency fix: {C}
 - False positive: {Y}
 - Failed: {Z}
