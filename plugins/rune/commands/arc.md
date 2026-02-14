@@ -1060,6 +1060,86 @@ if (consistencyGuardPass) {
     `**Checked at**: ${new Date().toISOString()}\n`
 }
 
+// --- STEP 4.7: Plan Section Coverage ---
+// Cross-reference plan H2/H3 headings against committed code changes
+let planSectionCoverageSection = ""
+
+if (diffFiles.length === 0) {
+  planSectionCoverageSection = `\n## PLAN SECTION COVERAGE\n\n` +
+    `**Status**: SKIP\n**Reason**: No files committed during work phase\n`
+} else {
+  const planContent = Read(enrichedPlanPath)
+  // Strip fenced code blocks before splitting to avoid false headings
+  const strippedContent = planContent.replace(/```[\s\S]*?```/g, '')
+  const planSections = strippedContent.split(/^## /m).slice(1)
+
+  const sectionCoverage = []
+  for (const section of planSections) {
+    const heading = section.split('\n')[0].trim()
+
+    // Skip non-implementation sections
+    const skipSections = ['Overview', 'Problem Statement', 'Dependencies',
+      'Risk Analysis', 'References', 'Success Metrics', 'Cross-File Consistency',
+      'Documentation Impact', 'Documentation Plan', 'Future Considerations',
+      'AI-Era Considerations', 'Alternative Approaches', 'Forge Enrichment']
+    if (skipSections.some(s => heading.includes(s))) continue
+
+    // Extract identifiers from section text
+    // 1. Backtick-quoted identifiers
+    const backtickIds = (section.match(/`([a-zA-Z0-9._\-\/]+)`/g) || []).map(m => m.replace(/`/g, ''))
+    // 2. File paths
+    const filePaths = section.match(/[a-zA-Z0-9_\-\/]+\.(py|ts|js|rs|go|md|yml|json)/g) || []
+    // 3. PascalCase/camelCase names
+    const caseNames = (section.match(/\b[A-Z][a-zA-Z0-9]+\b/g) || [])
+    // Combine, filter, deduplicate
+    const stopwords = new Set(['Create', 'Add', 'Update', 'Fix', 'Implement', 'Section', 'Phase', 'Check', 'Remove', 'Delete'])
+    const identifiers = [...new Set([...filePaths, ...backtickIds, ...caseNames])]
+      .filter(id => id.length >= 4 && !stopwords.has(id))
+
+    let status = "MISSING"
+    for (const id of identifiers) {
+      if (!/^[a-zA-Z0-9._\-\/]+$/.test(id)) continue
+      // Check if identifier appears in any committed file
+      const grepResult = Bash(`grep -rl -- "${id}" ${diffFiles.map(f => `"${f}"`).join(' ')} 2>/dev/null`)
+      if (grepResult.stdout.trim().length > 0) {
+        status = "ADDRESSED"
+        break
+      }
+    }
+    sectionCoverage.push({ heading, status })
+  }
+
+  // Check Documentation Impact items (if present — R2)
+  const docImpactSection = planSections.find(s => s.startsWith('Documentation Impact'))
+  if (docImpactSection) {
+    const impactItems = docImpactSection.match(/- \[[ x]\] .+/g) || []
+    for (const item of impactItems) {
+      const checked = item.startsWith('- [x]')
+      const filePath = item.match(/([a-zA-Z0-9._\-\/]+\.(md|json|yml|yaml))/)?.[1]
+      if (filePath && diffFiles.includes(filePath)) {
+        sectionCoverage.push({ heading: `Doc Impact: ${filePath}`, status: "ADDRESSED" })
+      } else if (filePath) {
+        sectionCoverage.push({ heading: `Doc Impact: ${filePath}`, status: checked ? "CLAIMED" : "MISSING" })
+      }
+    }
+  }
+
+  const covAddressed = sectionCoverage.filter(s => s.status === "ADDRESSED").length
+  const covMissing = sectionCoverage.filter(s => s.status === "MISSING").length
+  const covClaimed = sectionCoverage.filter(s => s.status === "CLAIMED").length
+
+  planSectionCoverageSection = `\n## PLAN SECTION COVERAGE\n\n` +
+    `**Status**: ${covMissing > 0 ? "WARN" : "PASS"}\n` +
+    `**Checked at**: ${new Date().toISOString()}\n\n` +
+    `| Section | Status |\n|---------|--------|\n` +
+    sectionCoverage.map(s => `| ${s.heading} | ${s.status} |`).join('\n') + '\n\n' +
+    `Summary: ${covAddressed} ADDRESSED, ${covMissing} MISSING, ${covClaimed} CLAIMED\n`
+
+  if (covMissing > 0) {
+    warn(`Plan section coverage: ${covMissing} MISSING section(s) — see gap-analysis.md ## PLAN SECTION COVERAGE`)
+  }
+}
+
 // --- STEP 5: Write gap analysis report ---
 const addressed = gaps.filter(g => g.status === "ADDRESSED").length
 const partial = gaps.filter(g => g.status === "PARTIAL").length
@@ -1087,7 +1167,8 @@ const report = `# Implementation Gap Analysis\n\n` +
   `## Task Completion\n\n` +
   `- Completed: ${taskStats.completed}/${taskStats.total} tasks\n` +
   `- Failed: ${taskStats.failed} tasks\n` +
-  docConsistencySection
+  docConsistencySection +
+  planSectionCoverageSection
 
 Write(`tmp/arc/${id}/gap-analysis.md`, report)
 
