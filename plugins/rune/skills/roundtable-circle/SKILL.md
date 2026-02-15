@@ -388,4 +388,6 @@ Partial results remain in `tmp/audit/{id}/`.
 - [Ash Prompts](references/ash-prompts/) — Individual Ash prompts
 - [Inscription Schema](references/inscription-schema.md) — inscription.json format
 - [Dedup Runes](references/dedup-runes.md) — Deduplication hierarchy
+- [Standing Orders](references/standing-orders.md) — 6 anti-patterns for multi-agent orchestration (SO-1 through SO-6)
+- [Risk Tiers](references/risk-tiers.md) — 4-tier deterministic task classification (Grace/Ember/Rune/Elden)
 - Companion: `rune-orchestration` (patterns), `context-weaving` (Glyph Budget)

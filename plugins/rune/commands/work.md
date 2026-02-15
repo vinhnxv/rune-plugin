@@ -183,7 +183,40 @@ Write(`tmp/work/${timestamp}/inscription.json`, {
   verification: { enabled: false }
 })
 
-// 5. Create task pool and map symbolic refs to real IDs
+// 5. Classify risk tiers and extract file targets (see parse-plan.md)
+for (const task of extractedTasks) {
+  const targets = extractFileTargets(task)
+  task.fileTargets = targets.files
+  task.dirTargets = targets.dirs
+  const tier = classifyRiskTier(task)
+  task.risk_tier = tier.tier
+  task.tier_name = tier.name
+}
+
+// 5.1 File ownership conflict detection (EXTRACT/DETECT/RESOLVE)
+// DETECT: Find overlapping file ownership via set intersection
+const ownershipMap = {}  // file -> [task indices]
+for (let i = 0; i < extractedTasks.length; i++) {
+  const allTargets = [...(extractedTasks[i].fileTargets || []), ...(extractedTasks[i].dirTargets || [])]
+  for (const target of allTargets) {
+    if (!ownershipMap[target]) ownershipMap[target] = []
+    ownershipMap[target].push(i)
+  }
+}
+// RESOLVE: Serialize conflicting tasks via blockedBy
+const conflicts = Object.entries(ownershipMap).filter(([_, indices]) => indices.length > 1)
+for (const [file, indices] of conflicts) {
+  // Serialize: each later task is blocked by the earlier one
+  for (let j = 1; j < indices.length; j++) {
+    const laterTask = extractedTasks[indices[j]]
+    const earlierRef = `#${indices[j - 1] + 1}`
+    if (!laterTask.blockedBy.includes(earlierRef)) {
+      laterTask.blockedBy.push(earlierRef)
+    }
+  }
+}
+
+// 5.2 Create task pool and map symbolic refs to real IDs
 const QUALITY_CONTRACT = `
 Quality requirements (mandatory):
 - Type annotations on ALL function signatures (params + return types)
@@ -195,14 +228,24 @@ Quality requirements (mandatory):
 const idMap = {}
 for (let i = 0; i < extractedTasks.length; i++) {
   const task = extractedTasks[i]
+  // DECLARE: Encode file ownership in task description (persists across auto-release reclaim)
+  const ownershipLine = task.fileTargets.length > 0 || task.dirTargets.length > 0
+    ? `\nFile Ownership: ${[...task.fileTargets, ...task.dirTargets].join(", ")}`
+    : `\nFile Ownership: unrestricted`
+  const tierLine = `\nRisk Tier: ${task.risk_tier} (${task.tier_name})`
   const id = TaskCreate({
     subject: task.subject,
-    description: `${task.description}\n\nPlan: ${planPath}\nType: ${task.type}\n${QUALITY_CONTRACT}`
+    description: `${task.description}\n\nPlan: ${planPath}\nType: ${task.type}${tierLine}${ownershipLine}\n${QUALITY_CONTRACT}`,
+    metadata: {
+      risk_tier: task.risk_tier,
+      tier_name: task.tier_name,
+      file_targets: task.fileTargets
+    }
   })
   idMap[`#${i + 1}`] = id
 }
 
-// 6. Link dependencies using mapped IDs
+// 6. Link dependencies using mapped IDs (includes serialized file conflicts from 5.1)
 for (let i = 0; i < extractedTasks.length; i++) {
   const task = extractedTasks[i]
   if (task.blockedBy.length > 0) {
@@ -571,7 +614,7 @@ Artifacts: tmp/work/{timestamp}/
 | Ward failure | Create fix task, summon worker to fix |
 | All workers crash | Abort, report partial progress |
 | Plan has no extractable tasks | Ask user to restructure plan |
-| Conflicting file edits | Workers write to separate files; lead resolves conflicts |
+| Conflicting file edits | File ownership serializes via blockedBy; commit broker handles residual conflicts |
 | Empty patch (worker reverted) | Skip commit, log as "completed-no-change" |
 | Patch conflict (two workers on same file) | `git apply --3way` fallback; mark NEEDS_MANUAL_MERGE on failure |
 | `git push` failure (Phase 6.5) | Warn user, skip PR creation, show manual push command |
@@ -673,7 +716,7 @@ When invoked via `/rune:arc` (Phase 5), the work sub-orchestrator handles checkb
 | Building wrong thing from ambiguous plan | Phase 0 clarification sub-step |
 | 80% done syndrome | Phase 6.5 ship phase |
 | Over-reviewing simple changes | Review guidance heuristic in completion report |
-| Workers editing same files | Task extraction classifies dependencies; commit broker handles conflicts |
+| Workers editing same files | File ownership conflict detection (Phase 1, step 5.1) serializes via blockedBy |
 | Stale worker blocking pipeline | Stale detection (5 min warn, 10 min auto-release) |
 | Ward failure cascade | Auto-create fix task, summon fresh worker |
 | Dirty working tree conflicts | Phase 0.5 stash check |

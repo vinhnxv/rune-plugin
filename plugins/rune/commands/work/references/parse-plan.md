@@ -105,22 +105,82 @@ AskUserQuestion({
 
 If user chooses to clarify: ask specific questions one at a time (max 3), then append clarifications to task descriptions before creating the task pool. Default on timeout: "Proceed as-is" (fail-safe).
 
+## Risk Tier Classification
+
+After extracting tasks, classify each task's risk tier using the deterministic decision tree from `risk-tiers.md`. This MUST happen before task creation.
+
+```javascript
+function classifyRiskTier(task) {
+  const desc = (task.subject + " " + task.description).toLowerCase()
+  const files = task.fileTargets || []
+
+  // Q1: Auth/security/encryption/credentials?
+  if (/\b(auth|security|encrypt|credential|secret|token|password|oauth|jwt)\b/.test(desc)
+      || files.some(f => /(auth|security|crypto|credentials)/.test(f))) {
+    return { tier: 3, name: "Elden" }
+  }
+  // Q2: DB schemas/migrations/CI-CD/infrastructure?
+  if (/\b(migrat|schema|deploy|ci[\/-]cd|infrastructure|database|pipeline)\b/.test(desc)
+      || files.some(f => /(migrations|deploy|\.github|infra)/.test(f))) {
+    return { tier: 2, name: "Rune" }
+  }
+  // Q3: User-facing behavior (API/UI/validation/errors)?
+  if (/\b(api|route|endpoint|component|view|ui|validation|response|request)\b/.test(desc)
+      || files.some(f => /(api|routes|components|views)/.test(f))) {
+    return { tier: 1, name: "Ember" }
+  }
+  // Q4: Internal only (rename/comments/formatting/tests/docs)?
+  if (/\b(test|doc|comment|format|rename|refactor|lint|readme|changelog)\b/.test(desc)
+      || files.some(f => /(tests|docs|__mocks__)/.test(f) || /\.md$/.test(f))) {
+    return { tier: 0, name: "Grace" }
+  }
+  // Default: Tier 1 (caution)
+  return { tier: 1, name: "Ember" }
+}
+```
+
+## File Target Extraction
+
+Extract file paths mentioned in task descriptions to enable ownership conflict detection:
+
+```javascript
+function extractFileTargets(task) {
+  const desc = task.subject + " " + (task.description || "")
+  // Match file-like patterns: src/foo/bar.ts, path/to/file.py, etc.
+  const filePattern = /(?:^|\s)([\w./-]+\.\w{1,10})\b/g
+  const dirPattern = /(?:^|\s)([\w./-]+\/)\b/g
+  const files = new Set()
+  for (const match of desc.matchAll(filePattern)) {
+    const path = match[1]
+    if (path.includes('/') && !path.startsWith('http')) files.add(path)
+  }
+  // Directory-level ownership as fallback
+  const dirs = new Set()
+  for (const match of desc.matchAll(dirPattern)) {
+    dirs.add(match[1])
+  }
+  return { files: [...files], dirs: [...dirs] }
+}
+```
+
+For tasks with no extractable file targets, no ownership restriction is applied (treated as shared).
+
 ## Confirm with User
 
-Present extracted tasks and ask for confirmation:
+Present extracted tasks with risk tiers and ask for confirmation:
 
 ```
 Extracted {N} tasks from plan:
 
 Implementation:
-  1. Write User model
-  3. Write UserService (depends on #1)
-  5. Write API routes (depends on #3)
+  1. [Tier 0: Grace] Write User model — src/models/
+  3. [Tier 1: Ember] Write UserService (depends on #1) — src/services/user.ts
+  5. [Tier 1: Ember] Write API routes (depends on #3) — src/api/users.ts
 
 Tests:
-  2. Write User model tests
-  4. Write UserService tests (depends on #3)
-  6. Write API route tests (depends on #5)
+  2. [Tier 0: Grace] Write User model tests — tests/
+  4. [Tier 0: Grace] Write UserService tests (depends on #3) — tests/
+  6. [Tier 0: Grace] Write API route tests (depends on #5) — tests/
 
 Proceed with {N} tasks and {W} workers?
 ```

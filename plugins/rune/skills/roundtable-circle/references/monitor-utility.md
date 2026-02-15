@@ -6,6 +6,7 @@
 
 - [Function Signature](#function-signature)
 - [Pseudocode](#pseudocode)
+- [Checkpoint Reporting](#checkpoint-reporting)
 - [Per-Command Configuration](#per-command-configuration)
 - [Usage Example](#usage-example)
 - [Notes](#notes)
@@ -16,7 +17,7 @@
 
 | Field | Description |
 |-------|-------------|
-| **Inputs** | `teamName` (string) — active team name; `expectedCount` (number) — total tasks to monitor; `opts` (object) — per-command configuration (see table below) |
+| **Inputs** | `teamName` (string) — active team name; `expectedCount` (number) — total tasks to monitor; `opts` (object) — per-command configuration (see table below, includes optional `onCheckpoint` callback) |
 | **Outputs** | `{ completed: Task[], incomplete: Task[], timedOut: boolean }` |
 | **Preconditions** | Team exists (`TeamCreate` already called), tasks already created via `TaskCreate` |
 | **Error handling** | `TaskList()` errors propagate naturally (no retry in Phase 1). Timeout produces partial results, never throws. |
@@ -28,6 +29,7 @@ waitForCompletion(teamName, expectedCount, opts):
   opts.timeoutMs            // Total timeout — OPTIONAL (undefined = no timeout)
   opts.autoReleaseMs        // Auto-release stale tasks — OPTIONAL (undefined = no auto-release)
   opts.label                // Display label for log messages (e.g., "Review", "Work")
+  opts.onCheckpoint         // Milestone callback — OPTIONAL (undefined = no checkpoint reporting)
 ```
 
 ## Pseudocode
@@ -39,10 +41,14 @@ function waitForCompletion(teamName, expectedCount, opts) {
     staleWarnMs = 300_000,
     timeoutMs,                // undefined = skip timeout check
     autoReleaseMs,            // undefined = no auto-release
-    label = "Monitor"
+    label = "Monitor",
+    onCheckpoint              // undefined = no checkpoint reporting
   } = opts
 
   const startTime = Date.now()
+  const milestones = [25, 50, 75, 100]
+  let lastMilestone = 0       // tracks highest milestone already reported
+  let checkpointCount = 0
 
   while (true) {
     const tasks = TaskList()
@@ -54,7 +60,40 @@ function waitForCompletion(teamName, expectedCount, opts) {
 
     // All done
     if (completed.length >= expectedCount) {
+      // Fire 100% checkpoint if callback provided and not yet reported
+      if (onCheckpoint && lastMilestone < 100) {
+        checkpointCount++
+        onCheckpoint({
+          n: checkpointCount, label, completed: completed.length,
+          total: expectedCount, percentage: 100,
+          active: [], blockers: [], decision: "CONTINUE"
+        })
+      }
       return { completed, incomplete: [], timedOut: false }
+    }
+
+    // Checkpoint reporting (milestone-based, NOT every poll cycle)
+    if (onCheckpoint) {
+      const percentage = Math.floor((completed.length / expectedCount) * 100)
+      const staleTasks = inProgress.filter(t => t.stale > staleWarnMs)
+      const nextMilestone = milestones.find(m => m > lastMilestone && percentage >= m)
+      const hasNewBlocker = staleTasks.length > 0 && percentage > lastMilestone
+
+      if (nextMilestone || hasNewBlocker) {
+        checkpointCount++
+        lastMilestone = nextMilestone || lastMilestone
+        const decision = staleTasks.length > 0 ? "INVESTIGATE" : "CONTINUE"
+        onCheckpoint({
+          n: checkpointCount,
+          label,
+          completed: completed.length,
+          total: expectedCount,
+          percentage,
+          active: inProgress.map(t => t.subject),
+          blockers: staleTasks.map(t => `#${t.id} ${t.subject} (stale >${Math.floor(t.stale / 60_000)}min)`),
+          decision
+        })
+      }
     }
 
     // Stale detection
@@ -83,6 +122,62 @@ function waitForCompletion(teamName, expectedCount, opts) {
   }
 }
 ```
+
+## Checkpoint Reporting
+
+When `onCheckpoint` is provided, `waitForCompletion` emits structured progress reports at significant milestones rather than every poll cycle. This gives the user visibility into long-running workflows without noise.
+
+### Display Triggers
+
+Checkpoints fire when **either** condition is met:
+1. **Milestone crossing** — completed percentage crosses 25%, 50%, 75%, or 100%
+2. **Blocker detection** — a stalled task (> `staleWarnMs`) is detected after the last milestone
+
+Each milestone fires at most once. The 100% checkpoint fires on completion.
+
+### Checkpoint Template
+
+```markdown
+## Checkpoint {N} — {workflow_label}
+Progress: {completed}/{total} ({percentage}%)
+Active: {in_progress task subjects}
+Blockers: {stalled tasks > 3 min, or omit if none}
+Decision: {CONTINUE | ADJUST | INVESTIGATE | ESCALATE}
+```
+
+### Decision Values
+
+| Decision | Condition | Action |
+|----------|-----------|--------|
+| `CONTINUE` | No blockers, progress normal | Keep polling |
+| `ADJUST` | > 75% complete, minor issues | Consider scope reduction |
+| `INVESTIGATE` | Stalled task detected | Log warning, check if auto-release applies |
+| `ESCALATE` | Multiple stalls or repeated blocker | Alert user via `AskUserQuestion` |
+
+### Callback Signature
+
+The `onCheckpoint` callback receives a single object:
+
+```
+onCheckpoint({ n, label, completed, total, percentage, active, blockers, decision })
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `n` | number | Checkpoint sequence number (1-indexed) |
+| `label` | string | Workflow label (e.g., "Work", "Review") |
+| `completed` | number | Count of completed tasks |
+| `total` | number | Total expected tasks |
+| `percentage` | number | Integer percentage (0-100) |
+| `active` | string[] | Subjects of in_progress tasks |
+| `blockers` | string[] | Descriptions of stalled tasks (empty if none) |
+| `decision` | string | One of: CONTINUE, ADJUST, INVESTIGATE, ESCALATE |
+
+### Cross-References
+
+- [Standing Orders](standing-orders.md) — SO-5 (Ember Overload) may trigger ESCALATE
+- [Damage Control](../../rune-orchestration/references/damage-control.md) — DC-3 (Fading Ash) for stalled agent recovery
+- [Risk Tiers](risk-tiers.md) — Tier 2+ tasks warrant closer checkpoint attention
 
 ## Per-Command Configuration
 
@@ -135,6 +230,22 @@ const result = waitForCompletion(teamName, taskCount, {
   pollIntervalMs: 30_000,
   label: "Work"
 })
+
+// In work.md Phase 3 (with checkpoint reporting):
+const result = waitForCompletion(teamName, taskCount, {
+  timeoutMs: 1_800_000,
+  staleWarnMs: 300_000,
+  autoReleaseMs: 600_000,
+  pollIntervalMs: 30_000,
+  label: "Work",
+  onCheckpoint: (cp) => {
+    log(`## Checkpoint ${cp.n} — ${cp.label}`)
+    log(`Progress: ${cp.completed}/${cp.total} (${cp.percentage}%)`)
+    log(`Active: ${cp.active.join(", ") || "none"}`)
+    if (cp.blockers.length) log(`Blockers: ${cp.blockers.join(", ")}`)
+    log(`Decision: ${cp.decision}`)
+  }
+})
 ```
 
 ## Notes
@@ -144,6 +255,7 @@ const result = waitForCompletion(teamName, taskCount, {
 - **No retry logic**: `TaskList()` errors propagate naturally. Retry logic is out of scope for Phase 1.
 - **Final sweep**: On timeout, a final `TaskList()` call captures any tasks that completed during the last poll interval. This matches the existing pattern in `review.md`, `audit.md`, `work.md`, and `mend.md`.
 - **Arc per-phase budgets**: Arc does not call `waitForCompletion` directly with a single timeout. Instead, each delegated phase (work, review, mend, audit) uses its own inner timeout. Arc wraps these with a safety-net phase timeout (`PHASE_TIMEOUTS`) plus the global `ARC_TOTAL_TIMEOUT` (90 min) ceiling.
+- **Checkpoint reporting is optional**: When `onCheckpoint` is `undefined`, no milestone tracking occurs. Existing callers without `onCheckpoint` get identical behavior. Recommended for workflows with > 5 tasks (`work`, `arc`).
 
 ## References
 

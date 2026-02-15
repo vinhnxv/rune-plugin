@@ -50,3 +50,6 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow
 - [Configuration](references/configuration-guide.md) — talisman.yml schema and defaults
 - [Session handoff](references/session-handoff.md) — Session state template for compaction and resume
+- [Standing Orders](skills/roundtable-circle/references/standing-orders.md) — 6 anti-patterns (SO-1 through SO-6)
+- [Damage Control](skills/rune-orchestration/references/damage-control.md) — 6 recovery procedures (DC-1 through DC-6)
+- [Risk Tiers](skills/roundtable-circle/references/risk-tiers.md) — 4-tier task classification (Grace/Ember/Rune/Elden)
