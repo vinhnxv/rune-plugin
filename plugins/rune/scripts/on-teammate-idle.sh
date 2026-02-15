@@ -67,6 +67,8 @@ EXPECTED_OUTPUT=$(jq -r --arg name "$TEAMMATE_NAME" \
   "$INSCRIPTION" 2>/dev/null || true)
 
 # SEC-003: Path traversal check for EXPECTED_OUTPUT
+# SEC-C01: Fast-fail heuristic only — rejects obvious traversal patterns early.
+# The real security boundary is the realpath+prefix canonicalization at lines 104-110.
 if [[ "$EXPECTED_OUTPUT" == *".."* || "$EXPECTED_OUTPUT" == /* ]]; then
   echo "ERROR: inscription output_file contains path traversal: ${EXPECTED_OUTPUT}" >&2
   exit 0
@@ -102,8 +104,8 @@ fi
 FULL_OUTPUT_PATH="${CWD}/${OUTPUT_DIR}${EXPECTED_OUTPUT}"
 
 # SEC-004: Canonicalize and verify output path stays within output_dir
-RESOLVED_OUTPUT=$(realpath -m "$FULL_OUTPUT_PATH" 2>/dev/null || echo "$FULL_OUTPUT_PATH")
-RESOLVED_OUTDIR=$(realpath -m "${CWD}/${OUTPUT_DIR}" 2>/dev/null || echo "${CWD}/${OUTPUT_DIR}")
+RESOLVED_OUTPUT=$(realpath -m "$FULL_OUTPUT_PATH" 2>/dev/null) || exit 0
+RESOLVED_OUTDIR=$(realpath -m "${CWD}/${OUTPUT_DIR}" 2>/dev/null) || exit 0
 if [[ "$RESOLVED_OUTPUT" != "$RESOLVED_OUTDIR"* ]]; then
   echo "ERROR: output_file resolves outside output_dir" >&2
   exit 0
@@ -127,8 +129,10 @@ fi
 # BACK-004: SEAL enforcement for review/audit workflows
 # Ash agents include a SEAL YAML block in their output.
 # If no SEAL, block idle — output is incomplete.
-if [[ "$TEAM_NAME" == rune-review-* || "$TEAM_NAME" == rune-audit-* || "$TEAM_NAME" == arc-review-* || "$TEAM_NAME" == arc-audit-* ]]; then
+if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
   # SEC-009: Simple string match — this is a quality gate, not a security boundary.
+  # BACK-102: ^SEAL: requires column-0 positioning by design — partial or indented
+  # SEAL lines are treated as incomplete output (fail-safe).
   if ! grep -q "^SEAL:" "$FULL_OUTPUT_PATH" 2>/dev/null; then
     echo "SEAL marker missing in ${FULL_OUTPUT_PATH}. Review output incomplete — add SEAL block." >&2
     exit 2  # Block idle until Ash adds SEAL

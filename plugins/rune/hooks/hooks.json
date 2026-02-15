@@ -1,5 +1,5 @@
 {
-  "description": "Rune plugin hooks for event-driven agent synchronization and quality gates",
+  "description": "Rune plugin hooks for event-driven agent synchronization and quality gates. Hooks fire for all events; filtering is done in-script via rune-*/arc-* prefix guards.",
   "hooks": {
     "TaskCompleted": [
       {

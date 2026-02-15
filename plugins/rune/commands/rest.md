@@ -33,7 +33,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/scratch/` | Session scratch pads | Yes |
 | `tmp/mend/{id}/` | Mend resolution reports, fixer outputs | Yes (if completed) |
 | `tmp/arc/{id}/` | Arc pipeline artifacts (enriched plans, TOME, reports) | Yes (if completed) |
-| `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional) |
+| `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional, symlink-guarded) |
 
 ## What Is Preserved
 

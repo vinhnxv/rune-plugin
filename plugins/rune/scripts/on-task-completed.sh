@@ -21,6 +21,12 @@ fi
 # Read hook input from stdin
 INPUT=$(cat)
 
+# BACK-101: Validate JSON before attempting field extraction
+if ! echo "$INPUT" | jq empty 2>/dev/null; then
+  echo "WARN: Hook input is not valid JSON — signal file will not be written" >&2
+  exit 0
+fi
+
 # Extract fields with safe defaults
 # NOTE(QUAL-003): Separate jq calls are intentional — avoids eval and keeps each
 # extraction independently safe. The DRY trade-off is accepted for clarity and safety.
@@ -28,6 +34,8 @@ TEAM_NAME=$(echo "$INPUT" | jq -r '.team_name // empty' 2>/dev/null || true)
 TASK_ID=$(echo "$INPUT" | jq -r '.task_id // empty' 2>/dev/null || true)
 TEAMMATE_NAME=$(echo "$INPUT" | jq -r '.teammate_name // empty' 2>/dev/null || true)
 TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // empty' 2>/dev/null || true)
+# SEC-C05: Truncate subject to prevent oversized values in signal files
+TASK_SUBJECT="${TASK_SUBJECT:0:256}"
 # BACK-012: Default empty subject
 [[ -z "$TASK_SUBJECT" ]] && TASK_SUBJECT="Task $TASK_ID"
 
@@ -41,6 +49,8 @@ if [[ "$TEAM_NAME" != rune-* && "$TEAM_NAME" != arc-* ]]; then
   exit 0
 fi
 
+# QUAL-002: Validation order is intentional — emptiness checks first (cheap bail-out),
+# then prefix match, then character-set and length validation.
 # Guard: validate team name against safe characters (prevent path traversal)
 if [[ ! "$TEAM_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
   exit 0
@@ -106,7 +116,7 @@ fi
 
 # BACK-005: Strengthen .expected validation
 # SEC-004: .expected is write-once by the orchestrator before agents spawn — no real TOCTOU risk.
-EXPECTED=$(head -c 16 "$EXPECTED_FILE" 2>/dev/null | tr -d '[:space:]')
+EXPECTED=$(head -c 4 "$EXPECTED_FILE" 2>/dev/null | tr -d '[:space:]')
 if [[ ! "$EXPECTED" =~ ^[1-9][0-9]*$ ]]; then
   echo "WARN: .expected file contains invalid count: ${EXPECTED}" >&2
   exit 0

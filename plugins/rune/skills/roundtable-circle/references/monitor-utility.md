@@ -352,7 +352,7 @@ function waitForCompletion(teamName, expectedCount, opts) {
     // NOTE: Commands most affected by fast-path feature gaps:
     //   - work: loses autoReleaseMs (stalled task recovery) and onCheckpoint
     //   - mend: loses autoReleaseMs
-    //   - forge: loses onCheckpoint
+    //   - forge: loses autoReleaseMs (stalled enrichment recovery)
     // Commands unaffected: review, audit (no autoRelease/checkpoint configured)
     log(`${label}: Signal directory detected — event-driven monitoring (5s interval)`)
     let iteration = 0
@@ -450,7 +450,7 @@ Signal directories are cleaned:
 
 ### Stability Trigger
 
-Phase 2 was activated in v1.23.0. Stability is tracked across releases — 3+ consecutive releases with zero hook-related regressions confirms production readiness.
+Phase 2 was activated in v1.23.0. Stability is tracked across releases (assessed manually via CHANGELOG.md regression entries at release time) — 3+ consecutive releases with zero hook-related regressions confirms production readiness.
 
 ## References
 
