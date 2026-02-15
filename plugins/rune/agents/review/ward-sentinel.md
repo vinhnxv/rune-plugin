@@ -136,6 +136,8 @@ After completing analysis, verify:
 - [ ] **Confidence level** is appropriate (don't flag uncertain items as P1)
 - [ ] All files in scope were **actually read**, not just assumed
 - [ ] Findings are **actionable** — each has a concrete fix suggestion
+- [ ] **Confidence score** assigned (0-100) with 1-sentence justification — reflects evidence strength, not finding severity
+- [ ] **Cross-check**: confidence >= 80 requires evidence-verified ratio >= 50%. If not, recalibrate.
 
 ### Pre-Flight
 Before writing output file, confirm:

@@ -71,6 +71,9 @@ When reporting, order by:
 ## Context Budget
 
 - Read at most 5 MEMORY.md files (one per role)
+- **Smart scan**: For each MEMORY.md, scan headings and entry titles (skim) before
+  reading full entries. Deep-read only entries whose titles match the current task.
+  Skip entries that are clearly irrelevant based on title alone.
 - If knowledge.md exists, read only the first 50 lines (compressed summaries)
 - Never read archive/ files — those are pruned and not active
 - Total output: max 100 lines of relevant echoes

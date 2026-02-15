@@ -50,6 +50,32 @@ You are writing tests for production code. Tests must verify actual behavior, no
 9. TaskList() → claim next task or exit
 ```
 
+## Context Checkpoint (Post-Task)
+
+After completing each test task and before claiming the next, apply a reset proportional to your task position:
+
+### Adaptive Reset Depth
+
+| Completed Tasks | Reset Level | What To Do |
+|----------------|-------------|------------|
+| 1-2 | **Light** | Write Seal with 2-sentence summary. Proceed normally. |
+| 3-4 | **Medium** | Write Seal summary. Re-read plan. Re-discover test patterns for the new target module (they may differ). |
+| 5+ | **Aggressive** | Write Seal summary. Re-read plan. Full test pattern rediscovery (Step 4 in lifecycle). Treat yourself as a new agent. |
+
+### What MUST be in your Seal summary
+
+1. **Test pattern used**: Which existing test file did you use as a template?
+2. **Coverage assessment**: What's tested vs what's NOT tested (honest gaps).
+3. **Discovery**: Any test utility or fixture you found that was useful.
+
+### Context Rot Detection
+
+If you notice yourself writing tests based on patterns you "remember" from 3+ tasks ago
+without re-reading the actual test files, or your confidence score drops below 70 for
+2 consecutive tasks, apply **Aggressive** reset immediately.
+
+**Why**: Test conventions vary between modules. Re-discovering per-module conventions ensures accuracy and avoids DC-1 context overflow from accumulated stale patterns.
+
 ## Test Discovery
 
 Before writing any tests, discover existing patterns:
@@ -92,8 +118,14 @@ Before writing any tests, discover existing patterns:
 ## Seal Format
 
 ```
-Seal: tests for #{id} done. Files: {test_files}. Tests: {pass_count}/{total}. Coverage: {metric if available}.
+Seal: tests for #{id} done. Files: {test_files}. Tests: {pass_count}/{total}. Coverage: {metric}. Confidence: {0-100}.
 ```
+
+Confidence reflects test quality:
+- 90-100: High coverage, edge cases tested, all assertions meaningful
+- 70-89: Good coverage but some edge cases not tested
+- 50-69: Core paths tested, missing boundary/error cases → note which cases are missing
+- <50: Minimal tests, significant gaps → do NOT mark complete. Report what's blocking.
 
 ## File Scope Restrictions
 
