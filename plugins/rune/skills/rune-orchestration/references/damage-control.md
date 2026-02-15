@@ -43,7 +43,7 @@ Before overflow occurs, monitor for these signals and act:
 
 | Signal | Action |
 |--------|--------|
-| Agent on task 4+ in a session | Remind agent to apply Aggressive reset (see QW-3 checkpoint) |
+| Agent on task 4+ in a session | Apply Aggressive reset (QW-3) AND aggressive skimming (QW-1) to prevent overflow |
 | Agent reads 20+ files in one task | Suggest skimming (see QW-1) for remaining files |
 | Agent confidence < 50 (see QW-2) | Consider reassigning — agent may be spending tokens unproductively |
 

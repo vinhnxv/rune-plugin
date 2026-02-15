@@ -86,6 +86,7 @@ If you notice yourself:
 - Referring to code you wrote 3+ tasks ago without re-reading the file
 - Assuming a function exists because you "remember" writing it (verify with Grep first)
 - Copying patterns from memory instead of from actual source files
+- Your confidence score (from Seal) drops below 70 for 2 consecutive tasks
 
 ...you are experiencing context rot. Immediately apply **Aggressive** reset regardless of task count.
 

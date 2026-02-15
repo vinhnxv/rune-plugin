@@ -25,7 +25,7 @@ You are reading git history. Report only what the commit log actually shows. Do 
 
 1. Analyze relevant git history:
    - **Smart depth selection**:
-     - **Deep query** (`git log -p`, `git diff`): Only for files named in the task
+     - **Deep-read** (`git log -p`, `git diff`): Only for files named in the task
        or confirmed relevant by prior Grep/Glob results.
      - **Shallow query** (`git log --oneline -10 -- {paths}`): For assessing
        activity level before committing to expensive diff queries.

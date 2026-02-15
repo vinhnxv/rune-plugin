@@ -71,7 +71,8 @@ After completing each test task and before claiming the next, apply a reset prop
 ### Context Rot Detection
 
 If you notice yourself writing tests based on patterns you "remember" from 3+ tasks ago
-without re-reading the actual test files, apply **Aggressive** reset immediately.
+without re-reading the actual test files, or your confidence score drops below 70 for
+2 consecutive tasks, apply **Aggressive** reset immediately.
 
 **Why**: Test conventions vary between modules. Re-discovering per-module conventions ensures accuracy and avoids DC-1 context overflow from accumulated stale patterns.
 
