@@ -6,7 +6,7 @@
 
 ```json
 {
-  "workflow": "string — rune-review | rune-audit | rune-plan | rune-work",
+  "workflow": "string — rune-review | rune-audit | rune-plan | rune-work | rune-mend | rune-forge",
   "timestamp": "ISO-8601 datetime",
   "pr_number": "integer (optional — for reviews)",
   "branch": "string (optional)",

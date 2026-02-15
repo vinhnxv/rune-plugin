@@ -44,6 +44,8 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 **ReDoS safe**: Yes (character class only)
 **Consumers**: plan.md, work.md, arc.md
 
+> **WARNING**: SAFE_REGEX_PATTERN MUST NOT be used in double-quoted Bash interpolation (e.g., `"${pattern}"`). Always use single-quoted interpolation (`'${pattern}'`) or `rg -f <file>` to prevent `$()` command substitution. For Bash-safe contexts where `$` is not needed, use `SAFE_REGEX_PATTERN_CC` instead.
+
 ### SAFE_REGEX_PATTERN_CC
 <!-- PATTERN:SAFE_REGEX_PATTERN_CC regex="/^[a-zA-Z0-9._\-\/ \\\[\]{}^+?*]+$/" version="1" -->
 **Regex**: `/^[a-zA-Z0-9._\-\/ \\\[\]{}^+?*]+$/`

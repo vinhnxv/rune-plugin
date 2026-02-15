@@ -35,7 +35,14 @@ Canonical detection logic for the Codex Oracle built-in Ash. Used by review, aud
      a. Set codex_jq_available = true
 7. Check talisman.codex.workflows (default: [review, audit, plan, forge, work])
    - If the current workflow is NOT in the workflows list, remove codex-oracle from Ash selection
-8. If all checks pass:
+8. Check .codexignore exists (required for --full-auto):
+   Bash: [ -f .codexignore ] && echo "present" || echo "missing"
+   - If "missing":
+     a. Log: "Warning: .codexignore not found — Codex Oracle will skip --full-auto mode"
+     b. Ask user via AskUserQuestion: "Create .codexignore from template?" [Create] [Skip Codex]
+     c. If "Skip Codex": skip Codex Oracle entirely
+     d. If "Create": write default .codexignore template (see codex-cli SKILL.md) and continue
+9. If all checks pass:
    a. Add "codex-oracle" to the Ash selection (always-on when available, like Ward Sentinel)
    b. Log: "Codex Oracle: CLI detected and authenticated, adding cross-model reviewer"
 ```
@@ -64,16 +71,15 @@ When logging errors, always include:
 ## Architecture Rules
 
 1. **Separate teammate**: Codex MUST always run on a separate teammate (Task with `run_in_background: true`),
-   NEVER inline in the orchestrator. This isolates untrusted codex output from the main context window.
+   Do not inline in the orchestrator. This isolates untrusted codex output from the main context window.
    - review/audit: Codex Oracle Ash teammate → `tmp/reviews/{id}/codex-oracle.md`
    - plan (research): codex-researcher teammate → `tmp/plans/{timestamp}/research/codex-analysis.md`
    - plan (review): codex-plan-reviewer teammate → `tmp/plans/{timestamp}/codex-plan-review.md`
    - work (advisory): codex-advisory teammate → `tmp/work/{timestamp}/codex-advisory.md`
    - forge: runs inside forge agent teammate → `tmp/forge/{id}/{section}-codex-oracle.md`
 
-2. **Always write to MD file**: Every codex outcome (success, failure, skip, error) MUST produce an MD file
-   at the designated output path. This allows Claude Code (main) to read and analyze the results via `Read()`.
-   Even skip/error messages are written to the file so downstream phases know codex was attempted.
+2. **Always write to MD file**: Every codex outcome (success, failure, skip, error) produces an MD file
+   at the designated output path. Even skip/error messages are written so downstream phases know codex was attempted.
 
 3. **Non-fatal**: All codex errors are non-fatal. The pipeline always continues without Codex Oracle findings.
 

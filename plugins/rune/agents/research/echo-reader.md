@@ -3,13 +3,10 @@ name: echo-reader
 description: |
   Reads Rune Echoes (past learnings) from .claude/echoes/ and surfaces relevant
   knowledge for the current task. Prioritizes by layer (Etched > Inscribed > Traced)
-  and relevance to the current context.
-capabilities:
-  - Read .claude/echoes/ MEMORY.md files across all roles
-  - Score relevance of past learnings against current task
-  - Surface actionable insights without overwhelming context
-  - Detect stale or contradictory entries
-allowed-tools:
+  and relevance to the current context. Covers: Read .claude/echoes/ MEMORY.md files
+  across all roles, score relevance of past learnings against current task, surface
+  actionable insights without overwhelming context, detect stale or contradictory entries.
+tools:
   - Read
   - Glob
   - Grep

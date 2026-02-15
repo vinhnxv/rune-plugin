@@ -163,9 +163,21 @@ def generate_report(
     # --- Raw output snippet ---
     if run_output:
         lines.append("## Arc Output (last 2000 chars)\n")
-        lines.append("```")
-        lines.append(run_output[-2000:])
-        lines.append("```\n")
+        snippet = run_output[-2000:]
+        # Generate a dynamic fence that is longer than any backtick run in the content
+        max_backtick_run = 0
+        current_run = 0
+        for ch in snippet:
+            if ch == "`":
+                current_run += 1
+                if current_run > max_backtick_run:
+                    max_backtick_run = current_run
+            else:
+                current_run = 0
+        fence = "`" * max(3, max_backtick_run + 1)
+        lines.append(fence)
+        lines.append(snippet)
+        lines.append(fence + "\n")
 
     return "\n".join(lines)
 
@@ -190,12 +202,12 @@ def _compute_verdict(
     if checkpoint_report and not checkpoint_report.valid:
         issues.append("checkpoint integrity failed")
     if checkpoint_report and checkpoint_report.completed_phases < checkpoint_report.total_phases:
-        skipped = [
+        incomplete = [
             p for p, s in checkpoint_report.phase_statuses.items()
-            if s in ("failed", "cancelled", "timeout")
+            if s in ("failed", "cancelled", "timeout", "pending", "in_progress")
         ]
-        if skipped:
-            issues.append(f"phases failed: {', '.join(skipped)}")
+        if incomplete:
+            issues.append(f"phases incomplete: {', '.join(incomplete)}")
 
     if quality_report and not quality_report.passed:
         issues.append(f"quality score {quality_report.total_score:.1f} < {quality_report.pass_threshold}")

@@ -153,8 +153,9 @@ class ClaudeRunner:
             "--no-session-persistence",
             "--max-turns", str(self.max_turns),
             "--max-budget-usd", str(self.max_budget_usd),
-            "--dangerously-skip-permissions",
         ]
+        if os.environ.get("RUNE_TEST_SKIP_PERMISSIONS", "") == "1":
+            args.append("--dangerously-skip-permissions")
         if self.model:
             args.extend(["--model", self.model])
         if self.verbose:
@@ -178,9 +179,13 @@ class ClaudeRunner:
             )
         except subprocess.TimeoutExpired as e:
             duration = time.monotonic() - start
+            if isinstance(e.stdout, bytes):
+                stdout = e.stdout.decode("utf-8", errors="replace")
+            else:
+                stdout = e.stdout or ""
             return RunResult(
                 exit_code=-1,
-                stdout=e.stdout if isinstance(e.stdout, str) else "",
+                stdout=stdout,
                 stderr=f"TIMEOUT after {duration:.0f}s",
                 duration_seconds=duration,
             )

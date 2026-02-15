@@ -60,7 +60,7 @@ Instead of supervisor synthesizing responses (telephone game), agents write dire
 | Reviews | `tmp/reviews/{pr-number}/` | Report (P1/P2/P3) | `forge-warden.md`, `ward-sentinel.md`, `TOME.md` |
 | Audits | `tmp/audit/{audit-id}/` | Report (P1/P2/P3) | `security.md`, `performance.md`, `TOME.md` |
 | Plan research | `tmp/plans/{timestamp}/research/` | Research | `repo-analysis.md`, `best-practices.md`, `framework-docs.md` |
-| Work (swarm) | `tmp/work/` | Status | `rune-smith-1.md`, `rune-smith-2.md` |
+| Work (swarm) | `tmp/work/{timestamp}/` | Patches | `patches/*.patch`, `proposals/*.md`, `inscription.json` |
 | Custom | `tmp/{workflow-name}/` | Varies | Named by teammate role |
 
 **Directory Purpose:**
@@ -69,7 +69,7 @@ Instead of supervisor synthesizing responses (telephone game), agents write dire
 
 The workflow: Agents write findings → Coordinator reads files → Synthesizes into Tome (TOME.md)
 
-**Structured output:** Ash MAY also write companion JSON files (`{ash}-findings.json`) for CI/CD integration. After verification, a `completion.json` summarizes the workflow result. See [Output Format](../roundtable-circle/references/output-format.md) for full specs.
+**Structured output:** Ash MAY also write companion JSON files (`{ash}-findings.json`) for CI/CD integration. Legacy: `completion.json` was used in early versions but is no longer written by built-in workflows. Use Seal metadata + TOME.md for workflow results. See [Output Format](../roundtable-circle/references/output-format.md) for full specs.
 
 ## Agent Output Formats
 
@@ -188,24 +188,22 @@ Defines how agents are organized for each workflow type, including conditional s
 - Validate outputs between agents
 - Each agent reads source code directly, not previous agent's summary
 
-## Glyph Budget (MANDATORY for all multi-agent workflows)
+## Glyph Budget
 
-Every agent in a parallel workflow MUST:
-1. Write detailed findings to a file
-2. Return ONLY: file path + 1-sentence summary (max 50 words)
-3. Never include analysis in the return message
-
-This prevents Tarnished context overflow regardless of how many agents run.
+Every agent in a parallel workflow:
+1. Writes detailed findings to a file
+2. Returns only: file path + 1-sentence summary (max 50 words)
+3. Does not include analysis in the return message
 
 See `context-weaving` skill for the full Glyph Budget protocol and pre-summon checklist.
 
-## Inscription Protocol (MANDATORY)
+## Inscription Protocol
 
-**RULE: All Rune multi-agent workflows use Agent Teams (`TeamCreate`) + `inscription.json`. No exceptions.**
+All Rune multi-agent workflows use Agent Teams (`TeamCreate`) + `inscription.json`.
 
 ```
-Rune command (any agent count) → Agent Teams + inscription.json REQUIRED
-Custom workflow (3+ agents)    → Agent Teams + inscription.json REQUIRED
+Rune command (any agent count) → Agent Teams + inscription.json
+Custom workflow (3+ agents)    → Agent Teams + inscription.json
 ```
 
 **Three steps:**
@@ -230,6 +228,19 @@ Multi-agent workflows benefit from structured reasoning at key decision points.
 | Post-aggregate | After collecting all outputs | Resolve conflicts between agents using branching analysis |
 
 Full protocol: [Structured Reasoning](references/structured-reasoning.md)
+
+## Compaction Recovery
+
+On context compaction or session resume during any Rune workflow:
+
+1. Read active team config: `~/.claude/teams/{team-name}/config.json`
+2. Read task list via `TaskList()` to discover team state
+3. Read inscription contract: `tmp/{workflow}/{id}/inscription.json`
+4. For arc workflows: read `.claude/arc/{id}/checkpoint.json`
+5. Resume from the last incomplete task — do not re-read completed agent outputs
+6. If team config is missing: the workflow was interrupted before team creation — restart
+
+Session handoff template: [session-handoff.md](../../references/session-handoff.md)
 
 ## References
 

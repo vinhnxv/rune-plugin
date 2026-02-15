@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Iterator
+
+# Ensure tests/ is in sys.path so `from helpers.x import Y` works regardless of cwd
+sys.path.insert(0, str(Path(__file__).parent))
 
 import pytest
 

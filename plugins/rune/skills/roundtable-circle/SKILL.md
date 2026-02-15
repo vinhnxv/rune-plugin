@@ -51,8 +51,8 @@ Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 | Ash | Role | When Selected | Perspectives |
 |-----------|------|---------------|-------------|
 | **Forge Warden** | Backend review | Backend files changed | Architecture, performance, logic bugs, duplication |
-| **Ward Sentinel** | Security review | ALWAYS | Vulnerabilities, auth, injection, OWASP |
-| **Pattern Weaver** | Quality patterns | ALWAYS | Simplicity, TDD, dead code, pattern consistency |
+| **Ward Sentinel** | Security review | Every review | Vulnerabilities, auth, injection, OWASP |
+| **Pattern Weaver** | Quality patterns | Every review | Simplicity, TDD, dead code, pattern consistency |
 | **Glyph Scribe** | Frontend review | Frontend files changed | TypeScript safety, React performance, accessibility |
 | **Knowledge Keeper** | Docs review | Docs changed (>= 10 lines) | Accuracy, completeness, anti-injection |
 | **Codex Oracle** | Cross-model review | `codex` CLI available | Cross-model security, logic, quality (GPT-5.3-codex) |
@@ -232,17 +232,16 @@ See `references/ash-prompts/` for individual prompts.
 
 ## Phase 4: Monitor
 
-Poll TaskList every 30 seconds:
+Use the shared monitoring utility to poll TaskList with timeout and stale detection. See [references/monitor-utility.md](references/monitor-utility.md) for the full utility specification and per-command configuration table.
 
-```
-while (not all tasks completed):
-  tasks = TaskList()
-  for task in tasks:
-    if task.status == "completed":
-      continue
-    if task.stale > 5 minutes:
-      warn("Ash {name} may be stalled")
-  sleep(30)
+```javascript
+// See references/monitor-utility.md
+const result = waitForCompletion(teamName, ashCount, {
+  timeoutMs: 600_000,         // 10 min for review; varies per command — see monitor-utility.md
+  staleWarnMs: 300_000,
+  pollIntervalMs: 30_000,
+  label: "Review"
+})
 ```
 
 **Stale detection:** If a task has been `in_progress` for > 5 minutes:
@@ -304,7 +303,7 @@ Task({
   subagent_type: "general-purpose",
   model: "haiku",
   description: "Truthsight Verifier",
-  prompt: [from rune-orchestration/references/verifier-prompt.md]
+  prompt: [from ../rune-orchestration/references/verifier-prompt.md]
 })
 ```
 
@@ -320,7 +319,7 @@ The verifier:
 
 ### completion.json (Legacy)
 
-> **Note:** `completion.json` was defined in early versions but is not written by review/audit commands. The Seal metadata (embedded in each Ash output) + state files (`tmp/.rune-{type}-*.json`) serve the same purpose. The structured output from the rune-orchestration File-Based Handoff Pattern references it for custom workflows, but the built-in review/audit lifecycle relies on Seal + TOME.md instead.
+> **Note:** `completion.json` was defined in early versions but is not written by review/audit commands. Use Seal metadata + TOME.md instead. The Seal metadata (embedded in each Ash output) + state files (`tmp/.rune-{type}-*.json`) serve the same purpose. The structured output from the rune-orchestration File-Based Handoff Pattern references it for custom workflows, but the built-in review/audit lifecycle relies on Seal + TOME.md instead.
 
 Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/truthsight-pipeline.md)
 

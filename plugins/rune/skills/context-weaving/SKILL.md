@@ -81,7 +81,7 @@ My choice: [strategy]
 Where should agents write findings?
 - Review: tmp/reviews/{pr-number}/
 - Audit: tmp/audit/{timestamp}/
-- Plan research: tmp/research/
+- Plan research: tmp/plans/{timestamp}/research/
 - Custom: tmp/{workflow-name}/
 
 I'll use: [directory]
@@ -143,7 +143,7 @@ After all agents complete:
 **Inject this text into EVERY agent prompt** when summoning in a multi-agent workflow:
 
 ```
-GLYPH BUDGET PROTOCOL (MANDATORY):
+GLYPH BUDGET PROTOCOL:
 - Write ALL detailed findings to: {output-directory}/{agent-name}.md
 - Return to caller ONLY: the output file path + 1-sentence summary (max 50 words)
 - DO NOT include full analysis, code examples, or detailed recommendations in return message

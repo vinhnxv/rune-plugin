@@ -6,6 +6,7 @@ linting, type safety, test coverage, error handling, and structure.
 
 from __future__ import annotations
 
+import ast
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ WEIGHTS = {
     "documentation": 0.05,
     "edge_cases": 0.10,
 }
+assert abs(sum(WEIGHTS.values()) - 1.0) < 1e-9, f"WEIGHTS must sum to 1.0, got {sum(WEIGHTS.values())}"
 
 
 @dataclass
@@ -66,18 +68,10 @@ def _run_cmd(args: list[str], cwd: Path, timeout: int = 120) -> subprocess.Compl
         return subprocess.CompletedProcess(args, returncode=-1, stdout="", stderr=f"Command not found: {args[0]}")
 
 
-def evaluate_functional(workspace: Path, test_dir: str = "tests") -> DimensionScore:
-    """Run pytest and score based on pass rate."""
-    result = _run_cmd([sys.executable, "-m", "pytest", test_dir, "-v", "--tb=short"], cwd=workspace)
-
-    if result.returncode == -1:
-        return DimensionScore("functional", 0.0, WEIGHTS["functional"], "pytest not available", result.stderr)
-
-    # Parse pytest output for pass/fail/error counts
-    # The summary line looks like: "====== 34 passed in 0.27s ======" or "== 2 failed, 34 passed =="
-    lines = result.stdout.strip().split("\n")
+def _parse_pytest_summary(stdout: str) -> tuple[int, int, int]:
+    """Parse pytest summary output and return (passed, failed, errors) counts."""
+    lines = stdout.strip().split("\n")
     summary_line = lines[-1] if lines else ""
-    # Strip the '=' decoration so split() gives us the numbers
     summary_clean = summary_line.strip("= ").strip()
 
     passed = failed = errors = 0
@@ -98,6 +92,18 @@ def evaluate_functional(workspace: Path, test_dir: str = "tests") -> DimensionSc
                 errors = int(part.split()[0])
             except (ValueError, IndexError):
                 pass
+    return passed, failed, errors
+
+
+def evaluate_functional(workspace: Path, test_dir: str = "tests") -> DimensionScore:
+    """Run pytest and score based on pass rate."""
+    result = _run_cmd([sys.executable, "-m", "pytest", test_dir, "-v", "--tb=short"], cwd=workspace)
+
+    if result.returncode == -1:
+        return DimensionScore("functional", 0.0, WEIGHTS["functional"], "pytest not available", result.stderr)
+
+    # Parse pytest output for pass/fail/error counts
+    passed, failed, errors = _parse_pytest_summary(result.stdout)
 
     total = passed + failed + errors
     if total == 0:
@@ -115,6 +121,9 @@ def evaluate_linting(workspace: Path) -> DimensionScore:
     if result.returncode == -1 and "not found" in result.stderr.lower():
         return DimensionScore("linting", 5.0, WEIGHTS["linting"], "ruff not available (neutral score)", "")
 
+    if result.returncode != 0 and not result.stdout.strip():
+        return DimensionScore("linting", 5.0, WEIGHTS["linting"], "ruff execution failed (neutral score)", result.stderr[:2000])
+
     violations = len([line for line in result.stdout.strip().split("\n") if line.strip() and ":" in line])
     score = max(0.0, 10.0 - violations * 0.5)
     return DimensionScore("linting", score, WEIGHTS["linting"], f"{violations} violations", result.stdout[:2000])
@@ -126,6 +135,9 @@ def evaluate_type_safety(workspace: Path) -> DimensionScore:
 
     if result.returncode == -1 and "not found" in result.stderr.lower():
         return DimensionScore("type_safety", 5.0, WEIGHTS["type_safety"], "mypy not available (neutral score)", "")
+
+    if result.returncode != 0 and not result.stdout.strip():
+        return DimensionScore("type_safety", 5.0, WEIGHTS["type_safety"], "mypy execution failed (neutral score)", result.stderr[:2000])
 
     errors = len([line for line in result.stdout.strip().split("\n") if "error:" in line])
     score = max(0.0, 10.0 - errors * 0.5)
@@ -159,7 +171,7 @@ def evaluate_test_coverage(workspace: Path) -> DimensionScore:
 
 
 def evaluate_error_handling(workspace: Path) -> DimensionScore:
-    """Check for error handling patterns in Python code."""
+    """Check for error handling patterns in Python code using AST analysis."""
     py_files = list(workspace.rglob("*.py"))
     if not py_files:
         return DimensionScore("error_handling", 0.0, WEIGHTS["error_handling"], "No Python files found")
@@ -167,16 +179,23 @@ def evaluate_error_handling(workspace: Path) -> DimensionScore:
     bare_except = 0
     broad_except = 0
     try_blocks = 0
-    total_lines = 0
 
     for f in py_files:
         if ".venv" in str(f) or "__pycache__" in str(f):
             continue
         content = f.read_text(errors="replace")
-        total_lines += content.count("\n")
-        bare_except += content.count("except:")
-        broad_except += content.count("except Exception:")
-        try_blocks += content.count("try:")
+        try:
+            tree = ast.parse(content, filename=str(f))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Try):
+                try_blocks += 1
+            elif isinstance(node, ast.ExceptHandler):
+                if node.type is None:
+                    bare_except += 1
+                elif isinstance(node.type, ast.Name) and node.type.id == "Exception":
+                    broad_except += 1
 
     issues = bare_except * 2 + broad_except
     score = max(0.0, 10.0 - issues * 1.5)
@@ -197,24 +216,22 @@ def evaluate_structure(workspace: Path) -> DimensionScore:
 
     for f in py_files:
         content = f.read_text(errors="replace")
-        lines = content.split("\n")
-        in_func = False
-        func_lines = 0
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("def ") or stripped.startswith("async def "):
-                if in_func and func_lines > 50:
-                    long_functions += 1
-                in_func = True
-                func_lines = 0
+        try:
+            tree = ast.parse(content, filename=str(f))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 total_functions += 1
-            elif in_func:
-                func_lines += 1
-        if in_func and func_lines > 50:
-            long_functions += 1
+                if node.end_lineno is not None:
+                    func_length = node.end_lineno - node.lineno
+                else:
+                    func_length = 0
+                if func_length > 40:
+                    long_functions += 1
 
     score = max(0.0, 10.0 - long_functions * 1.0)
-    details = f"{len(py_files)} files, {total_functions} functions, {long_functions} over 50 lines"
+    details = f"{len(py_files)} files, {total_functions} functions, {long_functions} over 40 lines"
     return DimensionScore("structure", score, WEIGHTS["structure"], details)
 
 
@@ -227,19 +244,15 @@ def evaluate_documentation(workspace: Path) -> DimensionScore:
 
     for f in py_files:
         content = f.read_text(errors="replace")
-        lines = content.split("\n")
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-            if stripped.startswith(("def ", "async def ", "class ")):
+        try:
+            tree = ast.parse(content, filename=str(f))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 total_defs += 1
-                # Check next non-empty line for docstring
-                for j in range(i + 1, min(i + 3, len(lines))):
-                    next_line = lines[j].strip()
-                    if next_line.startswith(('"""', "'''", "r'''", 'r"""')):
-                        with_docstring += 1
-                        break
-                    if next_line and not next_line.startswith(("#", ")")):
-                        break
+                if ast.get_docstring(node) is not None:
+                    with_docstring += 1
 
     if total_defs == 0:
         return DimensionScore("documentation", 5.0, WEIGHTS["documentation"], "No definitions found")
@@ -267,28 +280,7 @@ def evaluate_edge_cases(workspace: Path) -> DimensionScore:
     if result.returncode == -1:
         return DimensionScore("edge_cases", 0.0, WEIGHTS["edge_cases"], "pytest unavailable", result.stderr)
 
-    lines = result.stdout.strip().split("\n")
-    summary_line = lines[-1] if lines else ""
-    summary_clean = summary_line.strip("= ").strip()
-
-    passed = failed = errors = 0
-    for part in summary_clean.split(","):
-        part = part.strip()
-        if "passed" in part:
-            try:
-                passed = int(part.split()[0])
-            except (ValueError, IndexError):
-                pass
-        if "failed" in part:
-            try:
-                failed = int(part.split()[0])
-            except (ValueError, IndexError):
-                pass
-        if "error" in part:
-            try:
-                errors = int(part.split()[0])
-            except (ValueError, IndexError):
-                pass
+    passed, failed, errors = _parse_pytest_summary(result.stdout)
 
     total = passed + failed + errors
     if total == 0:

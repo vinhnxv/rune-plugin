@@ -11,6 +11,8 @@ Examples:
     init_skill.py custom-skill --path /custom/location
 """
 
+from __future__ import annotations
+
 import re
 import sys
 from pathlib import Path
@@ -110,12 +112,12 @@ Replace with actual asset files (templates, images, fonts, etc.) or delete if no
 """
 
 
-def title_case_skill_name(skill_name):
+def title_case_skill_name(skill_name: str) -> str:
     """Convert hyphenated skill name to Title Case for display."""
     return ' '.join(word.capitalize() for word in skill_name.split('-'))
 
 
-def init_skill(skill_name, path):
+def init_skill(skill_name: str, path: str | Path) -> Path | None:
     """
     Initialize a new skill directory with template SKILL.md.
 
@@ -135,7 +137,7 @@ def init_skill(skill_name, path):
 
     # Verify resolved path stays within intended parent
     parent_dir = Path(path).resolve()
-    if not str(skill_dir).startswith(str(parent_dir) + '/') and skill_dir != parent_dir:
+    if not skill_dir.is_relative_to(parent_dir):
         print(f"Error: Skill directory resolves outside the intended path: {skill_dir}")
         return None
 

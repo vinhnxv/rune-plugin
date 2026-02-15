@@ -6,14 +6,15 @@
   },
   "metadata": {
     "description": "Plugin marketplace for Rune — multi-agent engineering orchestration",
-    "version": "1.0.0",
+    "version": "1.1.0",
+    "versionNote": "Marketplace schema version (not plugin version). Plugin version is in plugins[].version.",
     "pluginRoot": "./plugins"
   },
   "plugins": [
     {
       "name": "rune",
       "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, and audit with Agent Teams. Includes 16 specialized review agents, 5 research agents, 13 commands, and 7 skills. BMAD-derived elicitation methods for structured reasoning. Multi-language quality guidance (Python, TypeScript, Rust).",
-      "version": "1.19.0",
+      "version": "1.20.0",
       "author": {
         "name": "vinhnxv",
         "email": "vinh.ngxv@gmail.com",
@@ -45,6 +46,7 @@
         "planning",
         "rune"
       ],
+      "tagsNote": "tags and keywords are intentionally identical — tags for marketplace categorization, keywords for search indexing.",
       "skills": [
         "./skills/ash-guide",
         "./skills/codex-cli",

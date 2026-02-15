@@ -2,13 +2,11 @@
 name: practice-seeker
 description: |
   Researches external best practices, industry patterns, and documentation
-  for a given topic. Returns actionable recommendations with source links.
-capabilities:
-  - Search for best practices and conventions
-  - Find documentation and tutorials
-  - Identify common pitfalls and anti-patterns
-  - Provide implementation examples from real-world projects
-allowed-tools:
+  for a given topic. Returns actionable recommendations with source links. Covers:
+  Search for best practices and conventions, find documentation and tutorials, identify
+  common pitfalls and anti-patterns, provide implementation examples from real-world
+  projects.
+tools:
   - Read
   - Glob
   - Grep

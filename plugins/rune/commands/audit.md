@@ -214,8 +214,10 @@ Write("tmp/audit/{audit_id}/inscription.json", {
 })
 
 // 5. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
-// Validate identifier before rm -rf
+// SEC-003: Validate identifier before rm -rf
 if (!/^[a-zA-Z0-9_-]+$/.test(audit_id)) throw new Error("Invalid audit identifier")
+// SEC-003: Redundant path traversal check — defense-in-depth with regex above
+if (audit_id.includes('..')) throw new Error('Path traversal detected in audit identifier')
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
 }
@@ -263,41 +265,30 @@ Task({
 })
 ```
 
-**IMPORTANT**: The Tarnished MUST NOT audit code directly. Focus solely on coordination.
+The Tarnished does not audit code directly. Focus solely on coordination.
 
 **Substitution note:** The `{changed_files}` variable in Ash prompts is populated with the audit file list (filtered by extension and capped by context budget) rather than git diff output. The Ash prompts are designed to work with any file list.
 
 ## Phase 4: Monitor
 
-Poll TaskList with timeout guard until all tasks complete:
+Poll TaskList with timeout guard until all tasks complete. Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
 ```javascript
-const POLL_INTERVAL = 30_000   // 30 seconds
-const STALE_THRESHOLD = 300_000 // 5 minutes
-const TOTAL_TIMEOUT = 900_000   // 15 minutes (audits cover more files than reviews)
-const startTime = Date.now()
+// See skills/roundtable-circle/references/monitor-utility.md
+const result = waitForCompletion(teamName, ashCount, {
+  timeoutMs: 900_000,        // 15 minutes (audits cover more files than reviews)
+  staleWarnMs: 300_000,      // 5 minutes
+  pollIntervalMs: 30_000,    // 30 seconds
+  label: "Audit"
+  // No autoReleaseMs: audit Ashes produce unique findings that can't be reclaimed by another Ash.
+})
 
-while (not all tasks completed):
-  tasks = TaskList()
-  for task in tasks:
-    if task.status == "completed": continue
-    if task.stale > STALE_THRESHOLD:
-      warn("Ash may be stalled")
-      // No STALE_RELEASE: audit Ashes produce unique findings that can't be reclaimed by another Ash.
-      // Compare with work.md/mend.md which auto-release stuck tasks after 10 min.
-
-  // Total timeout
-  if (Date.now() - startTime > TOTAL_TIMEOUT):
-    warn("Audit timeout reached (15 min). Collecting partial results.")
-    break
-
-  sleep(POLL_INTERVAL)
-
-// Final sweep: re-read TaskList once more before reporting timeout
-tasks = TaskList()
+if (result.timedOut) {
+  log(`Audit completed with partial results: ${result.completed.length}/${ashCount} Ashes`)
+}
 ```
 
-**Stale detection**: If a task is `in_progress` for > 5 minutes, proceed with partial results.
+**Stale detection**: If a task is `in_progress` for > 5 minutes, a warning is logged. No auto-release — audit Ash findings are non-fungible (compare with `work.md`/`mend.md` which auto-release stuck tasks after 10 min).
 **Total timeout**: Hard limit of 15 minutes. After timeout, a final sweep collects any results that completed during the last poll interval.
 
 ## Phase 5: Aggregate (Runebinder)
@@ -313,7 +304,7 @@ Task({
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/audit/{audit_id}/TOME.md.
-    IMPORTANT: Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
+    Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
     Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.
     The session_nonce is from inscription.json. Without these markers, /rune:mend cannot parse findings.
     See roundtable-circle/references/dedup-runes.md for dedup algorithm.
@@ -388,8 +379,11 @@ for (const teammate of allTeammates) {
 // 2. Wait for shutdown approvals (max 30s)
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
-// audit_id validated at Phase 2: /^[a-zA-Z0-9_-]+$/
+// SEC-003: audit_id validated at Phase 2 (line 218): /^[a-zA-Z0-9_-]+$/ — contains only safe chars
+// SEC-003: Redundant path traversal check — defense-in-depth at this second rm -rf call site
+if (audit_id.includes('..')) throw new Error('Path traversal detected in audit identifier')
 try { TeamDelete() } catch (e) {
+  // SEC-003: audit_id validated at Phase 2 (line 218) — contains only [a-zA-Z0-9_-]
   Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
 }
 

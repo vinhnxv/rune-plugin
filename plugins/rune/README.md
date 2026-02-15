@@ -96,6 +96,8 @@ When you run `/rune:arc`, Rune chains 10 phases into one automated pipeline:
 7.5. **VERIFY MEND** — Convergence gate: spot-checks mend fixes for regressions, retries up to 2x if P1s remain, halts on divergence
 8. **AUDIT** — Final quality gate (informational)
 
+Note: Phase numbers match the internal arc.md pipeline (Phases 3-4 are internal forge/plan-review and not shown in this summary).
+
 Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates artifact integrity with SHA-256 hashes. Feature branches auto-created when on main.
 
 ## Mend Mode (Finding Resolution)
@@ -427,6 +429,7 @@ plugins/rune/
 │   └── plugin.json
 ├── agents/
 │   ├── review/          # 16 review agents
+│   │   └── references/  # Shared review checklists
 │   ├── research/        # 5 research agents (plan pipeline)
 │   ├── work/            # 2 swarm workers (work pipeline)
 │   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper

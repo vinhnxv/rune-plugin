@@ -3,12 +3,16 @@ name: trial-forger
 description: |
   Test generation agent that writes tests following project patterns.
   Claims testing tasks from the shared pool, generates tests, and verifies they run.
-capabilities:
-  - Generate unit tests following project conventions
-  - Generate integration tests for service boundaries
-  - Discover and use existing test utilities and fixtures
-  - Verify tests pass before marking complete
-allowed-tools:
+
+  Covers: Generate unit tests following project conventions, generate integration tests
+  for service boundaries, discover and use existing test utilities and fixtures, verify
+  tests pass before marking complete.
+
+  <example>
+  user: "Generate tests for the auth module"
+  assistant: "I'll use trial-forger to generate tests following project conventions."
+  </example>
+tools:
   - Read
   - Write
   - Edit
@@ -93,7 +97,7 @@ Seal: tests for #{id} done. Files: {test_files}. Tests: {pass_count}/{total}. Co
 
 ## File Scope Restrictions
 
-NEVER modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
+Do not modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

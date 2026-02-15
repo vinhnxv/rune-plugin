@@ -85,14 +85,18 @@ def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path
     )
 
     # Initialize git repo (with local user config for CI environments)
-    subprocess.run(["git", "init"], cwd=workspace, capture_output=True, check=True)
-    subprocess.run(["git", "config", "user.name", "rune-harness"], cwd=workspace, capture_output=True, check=True)
-    subprocess.run(["git", "config", "user.email", "harness@test.local"], cwd=workspace, capture_output=True, check=True)
-    subprocess.run(["git", "add", "."], cwd=workspace, capture_output=True, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "Initial setup with challenge plan"],
-        cwd=workspace, capture_output=True, check=True,
-    )
+    try:
+        subprocess.run(["git", "init"], cwd=workspace, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.name", "rune-harness"], cwd=workspace, capture_output=True, check=True)
+        subprocess.run(["git", "config", "user.email", "harness@test.local"], cwd=workspace, capture_output=True, check=True)
+        subprocess.run(["git", "add", "."], cwd=workspace, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Initial setup with challenge plan"],
+            cwd=workspace, capture_output=True, check=True,
+        )
+    except subprocess.CalledProcessError:
+        shutil.rmtree(workspace, ignore_errors=True)
+        raise
 
     # Set up isolated Claude config at ~/.claude-rune-plugin-test/
     config_dir: Path | None = None
