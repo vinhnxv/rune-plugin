@@ -36,7 +36,7 @@ title: "{type}: {feature description}"
 type: feat | fix | refactor
 date: YYYY-MM-DD
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
-branch: !`git branch --show-current 2>/dev/null || echo "null"`
+branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
 
 # {Feature Title}
@@ -65,7 +65,7 @@ title: "{type}: {feature description}"
 type: feat | fix | refactor
 date: YYYY-MM-DD
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
-branch: !`git branch --show-current 2>/dev/null || echo "null"`
+branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
 
 # {Feature Title}
@@ -153,7 +153,7 @@ title: "{type}: {feature description}"
 type: feat | fix | refactor
 date: YYYY-MM-DD
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
-branch: !`git branch --show-current 2>/dev/null || echo "null"`
+branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
 
 # {Feature Title}

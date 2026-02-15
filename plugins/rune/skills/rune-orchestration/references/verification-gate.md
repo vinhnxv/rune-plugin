@@ -16,7 +16,7 @@ const issues = []
 const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
 const filePaths = extractFileReferences(enrichedPlanPath)
 for (const fp of filePaths) {
-  if (!SAFE_FILE_PATH.test(fp)) {
+  if (!SAFE_FILE_PATH.test(fp) || fp.includes('..') || fp.startsWith('/')) {
     issues.push(`File reference with unsafe characters: ${fp.slice(0, 80)}`)
     continue
   }
@@ -119,7 +119,9 @@ if (checkpoint?.freshness?.git_sha
   if (newRefs.length > 0) {
     const sha = checkpoint.freshness.git_sha
     let newDriftCount = 0
+    const budgetDeadline = Date.now() + 25_000  // LOGIC-8 FIX: budget cap for O(n) git diff calls
     for (const fp of newRefs) {
+      if (Date.now() > budgetDeadline) { break }  // budget exhausted — use partial count
       const diff = Bash(`git diff --name-only "${sha}..HEAD" -- "${fp}" 2>/dev/null`)
       if (diff.stdout.trim().length > 0) newDriftCount++
     }
@@ -129,7 +131,7 @@ if (checkpoint?.freshness?.git_sha
   }
 }
 
-// 9. Write verification report
+// Report: Write verification report
 const verificationReport = `# Verification Gate Report\n\n` +
   `Status: ${issues.length === 0 ? "PASS" : "WARN"}\n` +
   `Issues: ${issues.length}\n` +

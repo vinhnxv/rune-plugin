@@ -224,7 +224,7 @@ if (planFile.startsWith('/')) {
 }
 ```
 
-### Plan Freshness Check
+### Plan Freshness Check (FRESH-1)
 
 Detect when a plan was written against a significantly different codebase state. Zero-LLM-cost, orchestrator-only. Runs after "Validate Plan Path" and before "Total Pipeline Timeout Check".
 
@@ -268,20 +268,25 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
   const config = {
     warn_threshold:       clamp(talisman?.plan?.freshness?.warn_threshold ?? 0.7, 0.01, 1.0),
     block_threshold:      clamp(talisman?.plan?.freshness?.block_threshold ?? 0.4, 0.0, 0.99),
-    max_commit_distance:  Math.max(talisman?.plan?.freshness?.max_commit_distance ?? 100, 1),
+    max_commit_distance:  Math.min(Math.max(talisman?.plan?.freshness?.max_commit_distance ?? 100, 1), 10000),
     enabled:              talisman?.plan?.freshness?.enabled ?? true
   }
   // G8: Ensure block < warn (swap if inverted)
   if (config.block_threshold >= config.warn_threshold) {
     warn("Talisman: block_threshold >= warn_threshold — swapping")
     ;[config.warn_threshold, config.block_threshold] = [config.block_threshold, config.warn_threshold]
+    // LOGIC-5 FIX: Ensure WARN band exists after swap
+    if (config.block_threshold === config.warn_threshold) {
+      config.warn_threshold = Math.min(config.block_threshold + 0.1, 1.0)
+    }
   }
 
-  // --skip-freshness flag check (E9)
+  // --skip-freshness flag check (E9) — LOGIC-1: early exit when disabled
   if (!config.enabled || skipFreshnessFlag) {
     log("Freshness check disabled — skipping")
-    // Proceed to Initialize Checkpoint
-  }
+    freshnessResult = null
+    // Skip all signal computation — proceed to Initialize Checkpoint
+  } else {
 
   // G2: Verify SHA exists in git history
   const shaExists = Bash(`git cat-file -t "${planSha}" 2>/dev/null`)
@@ -314,13 +319,14 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
     const diffResult = Bash(`git diff --name-status "${planSha}..HEAD" 2>/dev/null`)
     const changedFiles = new Set()
     const renameMap = {}
-    for (const line of diffResult.stdout.trim().split('\n')) {
+    const diffOutput = diffResult.stdout.trim()
+    for (const line of (diffOutput ? diffOutput.split('\n') : [])) {
       const [tstat, ...paths] = line.split('\t')
       if (tstat?.startsWith('R') && paths.length >= 2) {
         // Pure renames (R100) still count as drift — file path changed
         renameMap[paths[0]] = paths[1]
         changedFiles.add(paths[0])
-      } else if (tstat === 'M' || tstat === 'A' || tstat === 'D') {
+      } else if (tstat === 'M' || tstat === 'A' || tstat === 'D' || tstat === 'T' || tstat?.startsWith('C')) {
         changedFiles.add(paths[0])
       }
     }
@@ -455,6 +461,7 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
     `| Branch Divergence | 0.10 | ${planBranch || 'n/a'} → ${currentBranch || 'n/a'} | ${branchSignal.toFixed(3)} |\n` +
     `| Time Decay | 0.05 | — | ${timeSignal.toFixed(3)} |\n`
   Write(`tmp/arc/${id}/freshness-report.md`, report)
+  } // end else — signal computation (LOGIC-1: skip guard)
 }
 ```
 
@@ -512,9 +519,10 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 On resume, validate checkpoint integrity before proceeding:
 
 ```
-1. Find most recent checkpoint: ls -t .claude/arc/*/checkpoint.json | head -1
+1. Find most recent checkpoint: find .claude/arc -name checkpoint.json -maxdepth 2 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | awk '{print $2}'
 2. Read .claude/arc/{id}/checkpoint.json — extract plan_file for downstream phases
-3. Schema migration: if schema_version < 2, migrate v1 → v2:
+3. Schema migration (default missing schema_version: `const version = checkpoint.schema_version ?? 1`):
+   if version < 2, migrate v1 → v2:
    a. Add plan_refine: { status: "skipped", ... }
    b. Add verification: { status: "skipped", ... }
    c. Set schema_version: 2
@@ -601,7 +609,7 @@ updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1, tea
 const enrichedPlan = Read(forgePlanPath)
 if (!enrichedPlan || enrichedPlan.trim().length === 0) {
   warn("Forge produced empty output. Using original plan.")
-  Bash(`cp "${planFile}" "${forgePlanPath}"`)
+  Bash(`cp -- "${planFile}" "${forgePlanPath}"`)
 }
 
 const writtenContent = Read(forgePlanPath)
@@ -776,6 +784,12 @@ if (concerns.length === 0) {
     })
 
     // CDX-015 MITIGATION (P3): Handle all-CONCERN escalation response branches
+    // SEC-2 FIX: Null-guard AskUserQuestion return value
+    if (!escalationResponse) {
+      updateCheckpoint({ phase: "plan_refine", status: "failed", phase_sequence: 3, team_name: null })
+      error("Arc halted — escalation dialog returned null. Fix plan, then /rune:arc --resume")
+      return
+    }
     if (escalationResponse.includes("Halt")) {
       updateCheckpoint({ phase: "plan_refine", status: "failed", phase_sequence: 3, team_name: null })
       error("Arc halted by user at all-CONCERN escalation. Fix plan, then /rune:arc --resume")
@@ -807,7 +821,7 @@ if (concerns.length === 0) {
 
 ## Phase 2.7: VERIFICATION GATE (deterministic)
 
-Zero-LLM-cost deterministic checks on the enriched plan. Orchestrator-only — no team, no agents. Runs 8 checks: file references, heading links, acceptance criteria, TODO/FIXME markers, talisman verification patterns, pseudocode contract headers, and undocumented security pattern declarations.
+Zero-LLM-cost deterministic checks on the enriched plan. Orchestrator-only — no team, no agents. Runs 8 checks + report: file references, heading links, acceptance criteria, TODO/FIXME markers, talisman verification patterns, pseudocode contract headers, undocumented security pattern declarations, and post-forge freshness re-check.
 
 **Inputs**: enrichedPlanPath (string), talisman config
 **Outputs**: `tmp/arc/{id}/verification-report.md`
