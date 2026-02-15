@@ -266,7 +266,9 @@ for (const fixer of inscription.fixers) {
 Poll TaskList to track fixer progress. See [monitor-utility.md](../skills/roundtable-circle/references/monitor-utility.md) for the shared polling utility.
 
 ```javascript
-const result = waitForCompletion(teamName, fixerCount, {
+// NOTE: Pass total task count (file groups), NOT fixerCount. When file_groups > 5,
+// fixers process batches sequentially — all tasks must complete, not just the first batch.
+const result = waitForCompletion(teamName, Object.keys(fileGroups).length, {
   timeoutMs: 900_000,        // 15 minutes
   staleWarnMs: 300_000,      // 5 minutes -- warn about stalled fixer
   autoReleaseMs: 600_000,    // 10 minutes -- release task for reclaim
