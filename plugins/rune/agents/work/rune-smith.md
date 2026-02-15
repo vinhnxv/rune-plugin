@@ -135,6 +135,30 @@ In addition to discovered wards, run language-appropriate checks for all files y
 
 If any lint or type check fails, fix the issues BEFORE generating your patch. Do not mark the task complete with type errors.
 
+### Pre-Completion Quality Gate
+
+After mandatory quality checks pass, verify evaluator-scored criteria on ALL `.py` files you modified (excluding test files, `.venv/`, `__pycache__/`, `evaluation/`):
+
+**Python:**
+```
+1. Docstring coverage: count functions/classes with vs without docstrings in your files.
+   Target: 100% of definitions have docstrings. Fix any missing ones before proceeding.
+   Quick check: python3 -c "import ast; [verify each modified .py file has docstrings on all defs]"
+
+2. Function length: verify no function exceeds 40 lines (end_lineno - lineno).
+   Guard: if end_lineno is None, skip that function with a warning.
+   If any function is over 40 lines, split it NOW — do not defer.
+
+3. Acceptance tests: if evaluation/ directory exists with .py files, run:
+   python -m pytest evaluation/ -v --tb=short
+   - Exit code 0 → PASS (all tests passed)
+   - Exit code 5 → SKIP (no tests collected — not a failure)
+   - Exit code 1 → FAIL — fix your implementation to pass these tests
+   - Exit code 2/3/4 → ERROR — report to the Tarnished for investigation
+   These are external acceptance tests (challenge-provided) — treat failures as blocking.
+   Do NOT modify or create files in evaluation/ — this directory is owned by the test harness.
+```
+
 ## Implementation Rules
 
 1. **Read before write**: Read the FULL target file before modifying (not just the function — understand imports, constants, siblings, naming patterns)

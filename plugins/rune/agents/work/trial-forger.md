@@ -108,6 +108,17 @@ Before writing any tests, discover existing patterns:
     - Python: `pytest --cov=. --cov-report=term-missing -q`
     - TypeScript: `vitest --coverage` or `jest --coverage`
     - Rust: `cargo llvm-cov --text`
+9. **Acceptance test verification**: Before marking a test task complete, check if an `evaluation/` directory exists in the workspace with `.py` files. If it does:
+   - Verify pytest is available: `python -m pytest --version 2>/dev/null`
+   - Run `python -m pytest evaluation/ -v --tb=short`
+   - If tests fail, classify the failure type before reporting:
+     - **Import errors from implementation code** → "Implementation module structure issue. Check `__init__.py` and package layout."
+     - **Assertion failures** → "Functional logic issue. Acceptance tests expect different behavior."
+     - **Import errors from evaluation/ tests** → "Test harness dependency issue (not implementation failure)."
+     - **Syntax errors in evaluation/ tests** → "Test harness quality issue (not implementation failure)."
+   - Report failures to the Tarnished via SendMessage — these are **external acceptance tests** (challenge-provided) that the implementation must satisfy
+   - Do NOT modify or create files in `evaluation/` — this directory is owned by the test harness. The `evaluation/` tests are challenge-provided acceptance criteria, not a location for agent-generated tests
+   - If the implementation doesn't pass evaluation tests, coordinate with rune-smith to fix the underlying code
 
 ## Exit Conditions
 

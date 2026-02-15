@@ -619,11 +619,11 @@ updateCheckpoint({
 
 ## Phase 5.5: IMPLEMENTATION GAP ANALYSIS
 
-Deterministic, orchestrator-only check that cross-references plan acceptance criteria against committed code changes. Zero LLM cost. Includes doc-consistency cross-checks (STEP 4.5) and plan section coverage (STEP 4.7).
+Deterministic, orchestrator-only check that cross-references plan acceptance criteria against committed code changes. Zero LLM cost. Includes doc-consistency cross-checks (STEP 4.5), plan section coverage (STEP 4.7), and evaluator quality metrics (STEP 4.8).
 
 **Inputs**: enriched plan, work summary, git diff
 **Outputs**: `tmp/arc/{id}/gap-analysis.md`
-**Error handling**: Non-blocking (WARN). Gap analysis is advisory — missing criteria are flagged but do not halt the pipeline.
+**Error handling**: Non-blocking (WARN). Gap analysis is advisory — missing criteria are flagged but do not halt the pipeline. Evaluator quality metrics (docstring coverage, function length, evaluation tests) are informational for Phase 6 reviewers.
 
 See [gap-analysis.md](../skills/rune-orchestration/references/gap-analysis.md) for the full algorithm.
 

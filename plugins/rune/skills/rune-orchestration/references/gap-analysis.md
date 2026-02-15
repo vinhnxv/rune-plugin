@@ -358,6 +358,94 @@ if (diffFiles.length === 0) {
 }
 ```
 
+## STEP 4.8: Evaluator Quality Metrics
+
+Non-blocking sub-step: runs lightweight, evaluator-equivalent quality checks on committed code. Zero LLM cost — uses shell commands and AST analysis only. Score calculations are approximations and may differ from the E2E evaluator's exact algorithm.
+
+```javascript
+let evaluatorMetricsSection = ""
+
+// Guard: verify python3 is available
+const pythonCheck = Bash(`command -v python3 2>/dev/null`).stdout.trim()
+if (!pythonCheck) {
+  evaluatorMetricsSection = `\n## EVALUATOR QUALITY METRICS\n\n**Status**: SKIP\n**Reason**: python3 not found in PATH\n`
+} else {
+  const pyFilesRaw = Bash(`find . -name "*.py" -not -path "./.venv/*" -not -path "./__pycache__/*" -not -path "./.*" -not -path "./.tox/*" -not -path "./.pytest_cache/*" -not -path "./build/*" -not -path "./dist/*" -not -path "./.eggs/*" | head -200`)
+    .stdout.trim().split('\n').filter(f => f.length > 0)
+
+  // SEC: Filter file paths through SAFE_PATH_PATTERN_CC before passing to heredoc
+  const pyFiles = pyFilesRaw.filter(f => /^[a-zA-Z0-9._\-\/]+$/.test(f) && !f.includes('..') && !f.startsWith('/'))
+
+  if (pyFiles.length === 0) {
+    evaluatorMetricsSection = `\n## EVALUATOR QUALITY METRICS\n\n**Status**: SKIP\n**Reason**: No Python files found\n`
+  } else {
+    // 1. Docstring coverage + 2. Function length audit (combined single-pass)
+    const astResult = Bash(`python3 -c "
+import ast, sys
+from pathlib import Path
+total = with_doc = long_count = skipped = 0
+long_fns = []
+for f in sys.stdin.read().strip().split('\\n'):
+    try:
+        tree = ast.parse(Path(f).read_text(encoding='utf-8', errors='ignore'))
+    except (SyntaxError, UnicodeDecodeError, OSError):
+        skipped += 1
+        continue
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            total += 1
+            if ast.get_docstring(n): with_doc += 1
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if n.end_lineno and (n.end_lineno - n.lineno) > 40:
+                long_count += 1
+                long_fns.append(f'{f}:{n.lineno} {n.name} ({n.end_lineno - n.lineno} lines)')
+print(f'{with_doc}/{total}/{long_count}/{skipped}')
+for fn in long_fns[:10]: print(fn)
+" <<< "${pyFiles.join('\\n')}"`)
+    const parts = astResult.stdout.trim().split('\n')
+    const [withDoc, totalDefs, longCount, skippedFiles] = parts[0].split('/').map(Number)
+    const longFunctions = parts.slice(1)
+    const docPct = totalDefs > 0 ? Math.round((withDoc / totalDefs) * 100) : 0
+    const docScore = totalDefs > 0 ? ((withDoc / totalDefs) * 10).toFixed(1) : "N/A"
+    const docStatus = docPct >= 80 ? "PASS" : docPct >= 50 ? "WARN" : "FAIL"
+    const structScore = Math.max(0, 10 - longCount * 1.0).toFixed(1)
+    const structStatus = longCount === 0 ? "PASS" : longCount <= 2 ? "WARN" : "FAIL"
+
+    // 3. Evaluation test pass rate
+    let evalStatus = "SKIP"
+    let evalDetail = "No evaluation/ directory"
+    const evalExists = Bash(`test -d evaluation && ls evaluation/*.py 2>/dev/null | wc -l`).stdout.trim()
+    if (parseInt(evalExists) > 0) {
+      const evalResult = Bash(`timeout 30s python -m pytest evaluation/ -v --tb=line 2>&1 | tail -20`)
+      const output = evalResult.stdout.trim()
+      // Parse pass/fail counts from pytest summary
+      const summaryMatch = output.match(/(\d+) passed(?:, (\d+) failed)?/)
+      const passed = summaryMatch ? parseInt(summaryMatch[1]) : 0
+      const failed = summaryMatch ? parseInt(summaryMatch[2] || '0') : 0
+      if (evalResult.returncode === 0) {
+        evalStatus = "PASS"
+        evalDetail = summaryMatch ? `${passed} passed` : "all tests passed"
+      } else if (evalResult.returncode === 5) {
+        evalStatus = "SKIP"
+        evalDetail = "No tests collected (exit code 5)"
+      } else {
+        evalStatus = "FAIL"
+        evalDetail = summaryMatch ? `${passed} passed, ${failed} failed` : output.split('\n').pop() || "unknown"
+      }
+    }
+
+    evaluatorMetricsSection = `\n## EVALUATOR QUALITY METRICS\n\n` +
+      `**Checked at**: ${new Date().toISOString()}\n\n` +
+      `| Metric | Status | Score | Detail |\n|--------|--------|-------|--------|\n` +
+      `| Docstring coverage | ${docStatus} | ${docScore}/10 | ${withDoc}/${totalDefs} definitions (${docPct}%)${skippedFiles > 0 ? `, ${skippedFiles} files skipped` : ''} |\n` +
+      `| Function length | ${structStatus} | ${structScore}/10 | ${longCount} functions over 40 lines |\n` +
+      `| Evaluation tests | ${evalStatus} | — | ${evalDetail} |\n` +
+      (longFunctions.length > 0 ? `\n**Long functions**:\n${longFunctions.map(f => '- ' + f).join('\n')}\n` : '') +
+      '\n'
+  }
+}
+```
+
 ## STEP 5: Write Gap Analysis Report
 
 ```javascript
@@ -388,7 +476,8 @@ const report = `# Implementation Gap Analysis\n\n` +
   `- Completed: ${taskStats.completed}/${taskStats.total} tasks\n` +
   `- Failed: ${taskStats.failed} tasks\n` +
   docConsistencySection +
-  planSectionCoverageSection
+  planSectionCoverageSection +
+  evaluatorMetricsSection
 
 Write(`tmp/arc/${id}/gap-analysis.md`, report)
 
