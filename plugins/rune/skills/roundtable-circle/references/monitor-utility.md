@@ -346,14 +346,21 @@ function waitForCompletion(teamName, expectedCount, opts) {
 
       // Check .all-done sentinel (written atomically by on-task-completed.sh)
       if (exists(`${signalDir}/.all-done`)) {
-        const meta = JSON.parse(Read(`${signalDir}/.all-done`))
+        let meta
+        try {
+          meta = JSON.parse(Read(`${signalDir}/.all-done`))
+        } catch (err) {
+          warn(`${label}: .all-done file corrupted, falling back to TaskList polling`)
+          useSignals = false
+          continue
+        }
         log(`${label}: All ${meta.total} signals received at ${meta.completed_at}`)
         return { completed: TaskList(), incomplete: [], timedOut: false }
       }
 
       // Timeout check
       if (timeoutMs !== undefined && Date.now() - startTime > timeoutMs) {
-        const doneCount = countFiles(`${signalDir}/*.done`)
+        const doneCount = Glob(`${signalDir}/*.done`).length
         warn(`${label}: Timeout after ${timeoutMs / 60_000} min. ${doneCount}/${expectedCount} signals received.`)
         const finalTasks = TaskList()
         return {
@@ -363,9 +370,9 @@ function waitForCompletion(teamName, expectedCount, opts) {
         }
       }
 
-      // Progress logging every 3rd check (~15s)
-      if (iteration % 3 === 0) {
-        const doneCount = countFiles(`${signalDir}/*.done`)
+      // Progress logging every 3rd check (~15s), plus first iteration
+      if (iteration === 1 || iteration % 3 === 0) {
+        const doneCount = Glob(`${signalDir}/*.done`).length
         log(`${label}: Progress: ${doneCount}/${expectedCount} tasks signaled`)
       }
 
@@ -379,6 +386,15 @@ function waitForCompletion(teamName, expectedCount, opts) {
   }
 }
 ```
+
+### Security Considerations (Phase 2)
+
+When implementing the signal-based fast path:
+1. **Path validation**: Canonicalize CWD via `realpath` before constructing signal paths
+2. **Atomic writes**: Use `mv -n` (noclobber) to prevent symlink attacks
+3. **Input sanitization**: Validate team name matches `^[a-zA-Z0-9_-]+$`
+
+See `scripts/on-task-completed.sh` for reference implementation.
 
 ### Performance Characteristics
 

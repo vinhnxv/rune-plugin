@@ -176,6 +176,7 @@ fi
 rm -rf tmp/scratch/
 
 # Remove event-driven signal files (unconditional — ephemeral hook artifacts)
+# Created by Phase 2 BRIDGE orchestrators when hooks are active. Safe no-op if absent.
 rm -rf tmp/.rune-signals/ 2>/dev/null
 
 # Clean up stale git worktrees from mend bisection (if any)

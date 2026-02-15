@@ -46,6 +46,7 @@ if [[ ! -f "$INSCRIPTION" ]]; then
 fi
 
 # Find this teammate's expected output file from inscription
+# Note: inscription teammate uniqueness is validated during orchestrator setup, not here
 EXPECTED_OUTPUT=$(jq -r --arg name "$TEAMMATE_NAME" \
   '.teammates[] | select(.name == $name) | .output_file // empty' \
   "$INSCRIPTION" 2>/dev/null || true)
@@ -58,6 +59,24 @@ fi
 # Resolve output path relative to the inscription's output_dir
 # Note: output_dir in inscription must end with "/" (enforced by orchestrator setup)
 OUTPUT_DIR=$(jq -r '.output_dir // empty' "$INSCRIPTION" 2>/dev/null || true)
+
+# Validate OUTPUT_DIR
+if [[ -z "$OUTPUT_DIR" ]]; then
+  echo "WARN: inscription missing output_dir. Skipping quality gate." >&2
+  exit 0
+fi
+if [[ "$OUTPUT_DIR" == *".."* ]]; then
+  echo "ERROR: inscription output_dir contains path traversal: ${OUTPUT_DIR}" >&2
+  exit 0
+fi
+if [[ "$OUTPUT_DIR" != tmp/* ]]; then
+  echo "ERROR: inscription output_dir outside tmp/: ${OUTPUT_DIR}" >&2
+  exit 0
+fi
+
+# Normalize trailing slash
+[[ -n "$OUTPUT_DIR" && "${OUTPUT_DIR: -1}" != "/" ]] && OUTPUT_DIR="${OUTPUT_DIR}/"
+
 FULL_OUTPUT_PATH="${CWD}/${OUTPUT_DIR}${EXPECTED_OUTPUT}"
 
 if [[ ! -f "$FULL_OUTPUT_PATH" ]]; then
@@ -66,21 +85,21 @@ if [[ ! -f "$FULL_OUTPUT_PATH" ]]; then
   exit 2
 fi
 
-# Check output file has non-trivial content (>10 bytes as minimum for meaningful output)
+# Check output file has non-trivial content
+MIN_OUTPUT_SIZE=50  # Minimum bytes for meaningful output
 FILE_SIZE=$(wc -c < "$FULL_OUTPUT_PATH" 2>/dev/null | tr -d ' ')
-if [[ "$FILE_SIZE" -lt 10 ]]; then
+if [[ "$FILE_SIZE" -lt "$MIN_OUTPUT_SIZE" ]]; then
   echo "Output file is empty or too small: ${FULL_OUTPUT_PATH} (${FILE_SIZE} bytes). Please write your findings." >&2
   exit 2
 fi
 
 # --- Quality Gate: Check for SEAL marker (Roundtable Circle only) ---
 # Ash agents include a SEAL YAML block in their output.
-# If no SEAL, warn but allow idle (soft gate — caught by Runebinder later).
-if [[ "$TEAM_NAME" == rune-review-* || "$TEAM_NAME" == rune-audit-* ]]; then
+# If no SEAL, block idle — output is incomplete.
+if [[ "$TEAM_NAME" == rune-review-* || "$TEAM_NAME" == rune-audit-* || "$TEAM_NAME" == arc-review-* || "$TEAM_NAME" == arc-audit-* ]]; then
   if ! grep -q "^SEAL:" "$FULL_OUTPUT_PATH" 2>/dev/null; then
-    # SEAL missing — warn via stdout (non-blocking) but allow idle
-    echo "Warning: SEAL marker not found in ${FULL_OUTPUT_PATH}. Runebinder will flag this."
-    exit 0
+    echo "SEAL marker missing in ${FULL_OUTPUT_PATH}. Review output incomplete — add SEAL block." >&2
+    exit 2  # Block idle until Ash adds SEAL
   fi
 fi
 
