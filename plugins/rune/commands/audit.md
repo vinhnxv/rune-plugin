@@ -214,8 +214,10 @@ Write("tmp/audit/{audit_id}/inscription.json", {
 })
 
 // 5. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
-// Validate identifier before rm -rf
+// SEC-003: Validate identifier before rm -rf
 if (!/^[a-zA-Z0-9_-]+$/.test(audit_id)) throw new Error("Invalid audit identifier")
+// SEC-003: Redundant path traversal check — defense-in-depth with regex above
+if (audit_id.includes('..')) throw new Error('Path traversal detected in audit identifier')
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
 }
@@ -377,8 +379,11 @@ for (const teammate of allTeammates) {
 // 2. Wait for shutdown approvals (max 30s)
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
-// audit_id validated at Phase 2: /^[a-zA-Z0-9_-]+$/
+// SEC-003: audit_id validated at Phase 2 (line 218): /^[a-zA-Z0-9_-]+$/ — contains only safe chars
+// SEC-003: Redundant path traversal check — defense-in-depth at this second rm -rf call site
+if (audit_id.includes('..')) throw new Error('Path traversal detected in audit identifier')
 try { TeamDelete() } catch (e) {
+  // SEC-003: audit_id validated at Phase 2 (line 218) — contains only [a-zA-Z0-9_-]
   Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
 }
 

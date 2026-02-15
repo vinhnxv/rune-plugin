@@ -12,13 +12,13 @@ description: |
   user: "Check for duplicated code"
   assistant: "I'll use mimic-detector to find DRY violations and similar patterns."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Mimic Detector — Code Duplication Agent
 

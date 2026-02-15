@@ -11,13 +11,13 @@ description: |
   user: "Review the new service architecture"
   assistant: "I'll use rune-architect to check architectural compliance."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Rune Architect — Architecture Review Agent
 

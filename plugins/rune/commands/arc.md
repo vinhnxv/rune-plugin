@@ -163,9 +163,15 @@ If already on a feature branch, use the current branch.
 
 ```bash
 # SEC-007: Use find instead of ls glob to avoid ARG_MAX issues
-# SEC-009: This checks for concurrent arc sessions only. Cross-command concurrency
+# SEC-007 (P2): This checks for concurrent arc sessions only. Cross-command concurrency
 # (e.g., arc + review + work + mend running simultaneously) is not checked here.
-# Future improvement: shared lock file or state directory check across all /rune:* commands.
+# LIMITATION: Multiple /rune:* commands can run concurrently on the same codebase,
+# potentially causing git index contention, file edit conflicts, and team name collisions.
+# TODO: Implement shared lock file check across all /rune:* commands. Proposed approach:
+#   1. Each /rune:* command creates a lock file: tmp/.rune-lock-{command}-{timestamp}.json
+#   2. Before team creation, scan tmp/.rune-lock-*.json for active sessions (< 30 min old)
+#   3. If active session found, warn user and offer: proceed (risk conflicts) or abort
+#   4. Lock file cleanup in each command's Phase 6/7 cleanup step
 if command -v jq >/dev/null 2>&1; then
   active=$(find .claude/arc -name checkpoint.json -maxdepth 2 2>/dev/null | while read f; do
     jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
@@ -188,6 +194,17 @@ fi
 ```javascript
 if (!/^[a-zA-Z0-9._\/-]+$/.test(planFile)) {
   error(`Invalid plan path: ${planFile}. Only alphanumeric, dot, slash, hyphen, and underscore allowed.`)
+  return
+}
+// CDX-005 MITIGATION (P2): Explicit .. rejection — defense-in-depth with regex above.
+// The regex allows . and / which enables ../../../etc/passwd style traversal paths.
+if (planFile.includes('..')) {
+  error(`Path traversal detected in plan path: ${planFile}`)
+  return
+}
+// Reject absolute paths — plan files must be relative to project root
+if (planFile.startsWith('/')) {
+  error(`Absolute paths not allowed: ${planFile}. Use a relative path from project root.`)
   return
 }
 ```
@@ -476,7 +493,7 @@ if (concerns.length === 0) {
     const forgeNote = checkpoint.flags.no_forge
       ? "\n\nNote: Forge enrichment was skipped (--no-forge). CONCERNs may be more likely on a raw plan."
       : ""
-    AskUserQuestion({
+    const escalationResponse = AskUserQuestion({
       question: `All 3 reviewers raised concerns (no PASS verdicts).${forgeNote} Proceed to implementation?`,
       header: "Escalate",
       options: [
@@ -485,6 +502,23 @@ if (concerns.length === 0) {
         { label: "Re-run plan review", description: "Revert to Phase 2 with updated plan" }
       ]
     })
+
+    // CDX-015 MITIGATION (P3): Handle all-CONCERN escalation response branches
+    if (escalationResponse.includes("Halt")) {
+      updateCheckpoint({ phase: "plan_refine", status: "failed", phase_sequence: 3, team_name: null })
+      error("Arc halted by user at all-CONCERN escalation. Fix plan, then /rune:arc --resume")
+      return
+    } else if (escalationResponse.includes("Re-run")) {
+      // Demote plan_review to pending so --resume re-runs Phase 2
+      updateCheckpoint({
+        phase: "plan_review", status: "pending", phase_sequence: 2,
+        artifact: null, artifact_hash: null
+      })
+      updateCheckpoint({ phase: "plan_refine", status: "pending", phase_sequence: 3, team_name: null })
+      error("Arc reverted to Phase 2 (PLAN REVIEW). Run /rune:arc --resume to re-review.")
+      return
+    }
+    // "Proceed with warnings" — fall through to normal completion below
   }
 
   const writtenContent = Read(`tmp/arc/${id}/concern-context.md`)

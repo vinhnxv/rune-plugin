@@ -11,13 +11,13 @@ description: |
   user: "Review the authentication changes"
   assistant: "I'll use ward-sentinel to check for security vulnerabilities."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Ward Sentinel — Security Review Agent
 

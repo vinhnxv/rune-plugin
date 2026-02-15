@@ -6,6 +6,7 @@ file existence, and verifies SHA-256 hashes.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from dataclasses import dataclass, field
@@ -54,7 +55,11 @@ class CheckpointReport:
 
 
 def sha256_file(path: Path) -> str:
-    """Compute SHA-256 hex digest of a file."""
+    """Compute SHA-256 hex digest of a file.
+
+    Reads in binary mode ("rb") so hashes are computed from raw bytes,
+    ensuring consistent results across platforms regardless of line endings.
+    """
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -99,6 +104,9 @@ def validate_checkpoint(checkpoint: dict, workspace: Path | None = None) -> Chec
             continue
 
         phase = phases[phase_name]
+        if not isinstance(phase, dict):
+            report.add_error(phase_name, f"Phase value must be a dict, got {type(phase).__name__}")
+            continue
         report.phase_statuses[phase_name] = phase.get("status", "MISSING")
 
         # Check required fields
@@ -124,7 +132,10 @@ def validate_checkpoint(checkpoint: dict, workspace: Path | None = None) -> Chec
             expected_hash = phase.get("artifact_hash")
 
             if artifact_path:
-                full_path = workspace / artifact_path
+                full_path = (workspace / artifact_path).resolve()
+                if not full_path.is_relative_to(workspace.resolve()):
+                    report.add_error(phase_name, f"Artifact path escapes workspace: {artifact_path}")
+                    continue
                 exists = full_path.exists()
                 report.artifact_checks[phase_name] = exists
 
@@ -167,13 +178,14 @@ def migrate_checkpoint(checkpoint: dict) -> dict:
 
     Returns a new dict (does not mutate input).
     """
-    cp = json.loads(json.dumps(checkpoint))  # deep copy
+    cp = copy.deepcopy(checkpoint)
     sv = cp.get("schema_version", 1)
 
     skipped_phase = {"status": "skipped", "artifact": None, "artifact_hash": None, "team_name": None}
 
+    cp.setdefault("phases", {})
+
     if sv < 2:
-        cp.setdefault("phases", {})
         cp["phases"].setdefault("plan_refine", {**skipped_phase})
         cp["phases"].setdefault("verification", {**skipped_phase})
         cp["schema_version"] = 2
@@ -210,10 +222,15 @@ def load_checkpoint(workspace: Path, extra_search_dirs: list[Path] | None = None
         for d in extra_search_dirs:
             search_roots.append(d / "arc")
             # Also check project-specific paths inside config dir
-            for sub in d.iterdir() if d.exists() else []:
-                arc_sub = sub / "arc" if sub.is_dir() else None
-                if arc_sub and arc_sub.exists():
-                    search_roots.append(arc_sub)
+            if d.exists():
+                try:
+                    for sub in d.iterdir():
+                        if sub.is_dir():
+                            arc_sub = sub / "arc"
+                            if arc_sub.exists():
+                                search_roots.append(arc_sub)
+                except (PermissionError, OSError):
+                    pass
 
     all_checkpoints: list[Path] = []
     for root in search_roots:
@@ -224,4 +241,7 @@ def load_checkpoint(workspace: Path, extra_search_dirs: list[Path] | None = None
         return None
 
     newest = max(all_checkpoints, key=lambda p: p.stat().st_mtime)
-    return json.loads(newest.read_text())
+    try:
+        return json.loads(newest.read_text())
+    except json.JSONDecodeError:
+        return None

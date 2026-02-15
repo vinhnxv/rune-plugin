@@ -12,13 +12,13 @@ description: |
   user: "Check if the tests follow TDD and have good quality"
   assistant: "I'll use trial-oracle to verify TDD compliance and test coverage."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Trial Oracle — TDD & Test Quality Agent
 

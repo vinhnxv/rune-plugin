@@ -280,7 +280,7 @@ Task({
 
 ## Monitor Research
 
-Poll TaskList until all active research tasks are completed. Uses the shared polling utility -- see [`skills/roundtable-circle/references/monitor-utility.md`](../../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
+Poll TaskList until all active research tasks are completed. Uses the shared polling utility -- see [`skills/roundtable-circle/references/monitor-utility.md`](../../../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
 ```javascript
 // See skills/roundtable-circle/references/monitor-utility.md

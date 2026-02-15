@@ -163,6 +163,16 @@ try { TeamDelete() } catch (e) {
 TeamCreate({ team_name: "rune-mend-{id}" })
 
 // 3. Create task pool -- one task per file group
+// CDX-010 MITIGATION (P2): Sanitize finding evidence and fix_guidance before interpolation
+// into TaskCreate descriptions. Finding text originates from TOME (which contains content
+// from reviewed source code) and may include adversarial instructions.
+const sanitizeTaskText = (s) => (s || '')
+  .replace(/<!--[\s\S]*?-->/g, '')           // HTML comments
+  .replace(/^#{1,6}\s+/gm, '')               // Markdown headings (prompt override vector)
+  .replace(/```[\s\S]*?```/g, '[code block]') // Code fences (adversarial instructions)
+  .replace(/!\[.*?\]\(.*?\)/g, '')            // Image syntax
+  .slice(0, 500)
+
 for (const [file, findings] of Object.entries(fileGroups)) {
   TaskCreate({
     subject: `Fix findings in ${file}`,
@@ -171,8 +181,8 @@ for (const [file, findings] of Object.entries(fileGroups)) {
       Findings:
       ${findings.map(f => `- ${f.id}: ${f.title} (${f.severity})
         File: ${f.file}:${f.line}
-        Evidence: ${f.evidence}
-        Fix guidance: ${f.fix_guidance}`).join('\n')}
+        Evidence: ${sanitizeTaskText(f.evidence)}
+        Fix guidance: ${sanitizeTaskText(f.fix_guidance)}`).join('\n')}
     `
   })
 }
@@ -272,9 +282,24 @@ Ward checks run **once after all fixers complete**, not per-fixer. See [ward-che
 ```javascript
 wards = discoverWards()
 const SAFE_WARD = /^[a-zA-Z0-9._\-\/ ]+$/
+// CDX-004 MITIGATION (P1): Character allowlisting alone is insufficient — "rm -rf /" passes
+// SAFE_WARD. Add an executable allowlist to restrict which programs wards can invoke.
+const SAFE_EXECUTABLES = new Set([
+  'pytest', 'python', 'python3', 'npm', 'npx', 'pnpm', 'yarn', 'bun',
+  'cargo', 'make', 'cmake', 'ruff', 'mypy', 'pylint', 'flake8', 'black',
+  'eslint', 'tsc', 'prettier', 'biome', 'vitest', 'jest', 'mocha',
+  'go', 'rustc', 'javac', 'mvn', 'gradle',
+  'git', 'diff', 'wc', 'sort', 'grep', 'find',
+])
 for (const ward of wards) {
   if (!SAFE_WARD.test(ward.command)) {
     warn(`Ward "${ward.name}": command contains unsafe characters -- skipping`)
+    continue
+  }
+  // CDX-004: Extract the executable (first token) and verify against allowlist
+  const executable = ward.command.trim().split(/\s+/)[0].split('/').pop()
+  if (!SAFE_EXECUTABLES.has(executable)) {
+    warn(`Ward "${ward.name}": executable "${executable}" not in safe allowlist -- skipping`)
     continue
   }
   result = Bash(ward.command)

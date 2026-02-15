@@ -1,6 +1,16 @@
-# Team Lifecycle Guard
+<!-- NOTE: The canonical version of team lifecycle guard is at ../../../rune-orchestration/references/team-lifecycle-guard.md. This file contains Roundtable Circle-specific extensions. -->
 
-Canonical reference for the pre-create guard and cleanup fallback patterns used across all Rune multi-agent commands. Every command that creates an Agent Team MUST follow these patterns.
+# Team Lifecycle Guard — Safe TeamCreate/TeamDelete
+
+Defensive patterns for Agent Teams lifecycle management. Prevents "Already leading team" and "Cannot cleanup team with N active members" errors. Every command that creates an Agent Team MUST follow these patterns.
+
+## Problem
+
+The Claude Agent SDK has two constraints:
+1. **One team per lead** — `TeamCreate` fails if a previous team wasn't cleaned up
+2. **TeamDelete requires deregistration** — agents may not deregister in time even after approving shutdown
+
+Both are observed in production and cause workflow failures if not handled.
 
 ## Pre-Create Guard
 
@@ -28,6 +38,8 @@ TeamCreate({ team_name: `${teamPrefix}-${identifier}` })
 - The `..` check is redundant but provides defense-in-depth
 - `TeamDelete` is tried first (clean API path); `rm -rf` is the fallback only
 
+**When to use**: Before EVERY `TeamCreate` call. No exceptions.
+
 ## Cleanup Fallback
 
 At session end, after shutting down all teammates:
@@ -46,6 +58,50 @@ try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
 }
 ```
+
+**When to use**: At EVERY workflow cleanup point — both normal completion and cancellation.
+
+## Cancel Command Pattern
+
+Cancel commands use the same cleanup-with-fallback but add broadcast + task cancellation:
+
+```javascript
+// 1. Broadcast cancellation
+SendMessage({ type: "broadcast", content: "Cancelled by user. Shutdown.", summary: "Cancelled" })
+
+// 2. Cancel pending/in-progress tasks
+tasks = TaskList()
+for (const task of tasks) {
+  if (task.status === "pending" || task.status === "in_progress") {
+    TaskUpdate({ taskId: task.id, status: "deleted" })
+  }
+}
+
+// 3. Shutdown all teammates
+for (const member of teamMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member.name, content: "Cancelled" })
+}
+
+// 4. Wait (max 30s)
+
+// 5. TeamDelete with fallback
+try { TeamDelete() } catch (e) {
+  Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
+}
+```
+
+## Input Validation
+
+Validate team names before interpolating into `rm -rf` commands.
+
+```javascript
+// Validate team_name matches safe pattern (alphanumeric, hyphens, underscores only)
+if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) {
+  throw new Error(`Invalid team_name: ${team_name}`)
+}
+```
+
+For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `rune-review-{timestamp}`), the risk is low since the prefix anchors the path. For cancel commands where `team_name` is read from a state file, validation is **required** since the state file could be tampered with.
 
 ## Team Naming Conventions
 
@@ -78,3 +134,12 @@ try { TeamDelete() } catch (e) {
 ## Consumers
 
 All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, research-phase.md
+
+## Notes
+
+- The filesystem fallback (`rm -rf ~/.claude/teams/...`) is safe — these directories only contain Agent SDK coordination state, not user data
+- For additional defense-in-depth, commands that delete user-facing directories (e.g., `/rune:rest`) should use `realpath` containment checks in addition to team name validation
+- Do not interpolate unsanitized external input into team names — validate first
+- Always update workflow state files (e.g., `tmp/.rune-review-{id}.json`) AFTER team cleanup, not before
+- The 30s wait is a best-effort grace period — some agents may need longer for complex file writes
+- Arc pipelines call TeamCreate/TeamDelete per-phase, so each phase transition needs the pre-create guard

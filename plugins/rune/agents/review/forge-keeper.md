@@ -15,13 +15,13 @@ description: |
   user: "Review the new database migration"
   assistant: "I'll use forge-keeper to check migration safety and reversibility."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Forge Keeper — Data Integrity & Migration Safety Agent
 

@@ -58,7 +58,7 @@ The unified review summary after deduplication and prioritization. Findings use 
 
 ## Decree Arbiter
 
-Utility agent that reviews plans for technical soundness across 9 dimensions (architecture fit, feasibility, security/performance risks, dependency impact, pattern alignment, internal consistency, design anti-pattern risk, consistency convention, documentation impact). Uses Decree Trace evidence format.
+Utility agent that reviews plans for technical soundness across 9 dimensions: (1) architecture fit, (2) feasibility, (3) security/performance risks, (4) dependency impact, (5) pattern alignment, (6) internal consistency, (7) design anti-pattern risk, (8) consistency convention, (9) documentation impact. Uses Decree Trace evidence format.
 
 ## Remembrance Channel
 

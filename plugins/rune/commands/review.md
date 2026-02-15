@@ -230,15 +230,36 @@ Summon ALL selected Ash in a **single message** (parallel execution):
      Ash prompts are composite — each Ash embeds multiple review perspectives from
      agents/review/*.md. The agent file allowed-tools are NOT enforced at runtime.
      Tool restriction is enforced via prompt instructions (defense-in-depth).
-     SEC-001 (P1): Review Ashes inherit ALL general-purpose tools (including Write/Edit/Bash).
-     Prompt instructions restrict them to Read/Glob/Grep only, but prompt-only restrictions
-     are bypassable — a sufficiently adversarial input could convince an Ash to write files.
-     REQUIRED MITIGATION: Add the following PreToolUse hook to .claude/settings.json to enforce
-     tool restrictions at the PLATFORM level for review teammates. Without this hook, the
-     read-only constraint is advisory only:
-       "hooks": { "PreToolUse": [{ "matcher": "Write|Edit|Bash|NotebookEdit",
-         "hooks": [{ "type": "command",
-           "command": "if echo \"$CLAUDE_TOOL_USE_CONTEXT\" | grep -q 'rune-review'; then echo 'BLOCKED: review Ashes are read-only' >&2; exit 2; fi" }] }] }
+
+     SEC-001 MITIGATION (P1): Review and Audit Ashes inherit ALL general-purpose tools
+     (including Write/Edit/Bash). Prompt instructions restrict them to Read/Glob/Grep only,
+     but prompt-only restrictions are bypassable — a sufficiently adversarial input could
+     convince an Ash to write files.
+
+     REQUIRED: Deploy the following PreToolUse hook in .claude/settings.json (or the plugin
+     hooks/hooks.json) to enforce tool restrictions at the PLATFORM level for review AND
+     audit teammates. Without this hook, the read-only constraint is advisory only.
+
+     Hook config block (copy into .claude/settings.json "hooks" section):
+
+       {
+         "PreToolUse": [
+           {
+             "matcher": "Write|Edit|Bash|NotebookEdit",
+             "hooks": [
+               {
+                 "type": "command",
+                 "command": "if echo \"$CLAUDE_TOOL_USE_CONTEXT\" | grep -qE 'rune-review|rune-audit'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"SEC-001: review/audit Ashes are read-only\"}}'; exit 2; fi"
+               }
+             ]
+           }
+         ]
+       }
+
+     SEC-008 NOTE: This hook MUST also cover rune-audit team patterns (grep -qE covers
+     both 'rune-review' and 'rune-audit'). Audit Ashes have the same tool inheritance
+     issue as review Ashes (see audit.md Phase 3).
+
      TODO: Create composite Ash agent files with restricted allowed-tools frontmatter
      to enforce read-only at the agent definition level (eliminates need for hook). -->
 

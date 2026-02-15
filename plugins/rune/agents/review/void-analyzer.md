@@ -11,13 +11,13 @@ description: |
   user: "Check for incomplete implementations"
   assistant: "I'll use void-analyzer to find missing logic and stubs."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Void Analyzer — Incomplete Implementation Agent
 

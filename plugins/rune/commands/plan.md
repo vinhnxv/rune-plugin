@@ -230,7 +230,7 @@ See [synthesize.md](plan/references/synthesize.md) for the full protocol.
 
 Skipped when `--quick` is passed.
 
-After synthesis produces a plan, assess its complexity. If the plan is large enough to benefit from decomposition, offer to "shatter" it into smaller sub-plans (shards).
+After synthesis produces a plan, assess its complexity. If the plan is large enough to benefit from decomposition, offer to "shatter" it into smaller sub-plans (shards). Each shard is then forged and implemented independently — like the Elden Ring shattering into Great Runes, each carrying part of the whole.
 
 ### Complexity Scoring
 
@@ -333,8 +333,16 @@ for (const [section, agents] of assignments) {
         Focus on: ${agent.perspective}
 
         ## Section to Enrich
-        Title: "${section.title.slice(0, 200)}"
-        Content: ${section.content.slice(0, 8000)}
+        Title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
+        // CDX-001 MITIGATION (P1): Sanitize untrusted plan content before interpolation
+        // into forge agent prompts. Plan content may contain forge-enriched external content
+        // (web search results, codex output) with adversarial instructions.
+        Content: ${((section.content || '')
+          .replace(/<!--[\s\S]*?-->/g, '')                         // Strip HTML comments
+          .replace(/```[\s\S]*?```/g, '[code-block-removed]')      // Strip code fences
+          .replace(/!\[.*?\]\(.*?\)/g, '')                          // Strip image/link injection
+          .replace(/^#{1,6}\s+/gm, '')                              // Strip markdown headings (prompt override)
+          .slice(0, 8000))}
 
         ## Research Steps
         1. Check .claude/echoes/ for relevant past learnings (if exists)
@@ -491,9 +499,30 @@ When user selects "Create issue":
 
 1. **Detect tracker** from CLAUDE.md or talisman.yml (`project_tracker: github` or `project_tracker: linear`)
 
-2. **GitHub**: `gh issue create --title "{type}: {title}" --body-file plans/{path}`
+2. **GitHub**:
+   ```javascript
+   // CDX-003 MITIGATION (P1): Validate and sanitize title/path before shell interpolation
+   // to prevent command injection via crafted plan titles or filenames.
+   const SAFE_IDENTIFIER_PATTERN = /^[a-zA-Z0-9 ._\-:()]+$/
+   const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 
-3. **Linear**: `cat plans/{path} | linear issue create --title "{title}" --description -`
+   if (!SAFE_IDENTIFIER_PATTERN.test(title)) throw new Error('Unsafe characters in issue title')
+   if (!SAFE_PATH_PATTERN.test(path) || path.includes('..')) throw new Error('Unsafe characters in plan path')
+
+   // Use -- to separate flags from positional args, write title to temp file to avoid shell expansion
+   Write('tmp/.issue-title.txt', `${type}: ${title}`)
+   Bash(`gh issue create --title "$(cat tmp/.issue-title.txt)" --body-file -- "plans/${path}"`)
+   ```
+
+3. **Linear**:
+   ```javascript
+   // CDX-003: Same validation applies to Linear CLI
+   if (!SAFE_IDENTIFIER_PATTERN.test(title)) throw new Error('Unsafe characters in issue title')
+   if (!SAFE_PATH_PATTERN.test(path) || path.includes('..')) throw new Error('Unsafe characters in plan path')
+
+   Write('tmp/.issue-title.txt', title)
+   Bash(`linear issue create --title "$(cat tmp/.issue-title.txt)" --description - < "plans/${path}"`)
+   ```
 
 4. **No tracker configured**: Ask user and suggest adding `project_tracker: github` to CLAUDE.md.
 

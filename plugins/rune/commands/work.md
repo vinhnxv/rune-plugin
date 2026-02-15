@@ -225,19 +225,43 @@ See [worker-prompts.md](work/references/worker-prompts.md) for full worker promp
      This is an intentional divergence from mend-fixer agents (which use restricted subagent_type for
      security sandboxing). Work agents process plan content; mend-fixers process untrusted source code
      — hence the different security postures.
-     SEC-002 (P1): TRUST BOUNDARY CONCERN — Plan content may contain forge-enriched external content
-     (from practice-seeker, lore-scholar, codex-researcher web search results). This external content
-     crosses a trust boundary when interpolated into worker prompts, as adversarial instructions
+
+     SEC-002 MITIGATION (P1): TRUST BOUNDARY — Plan content may contain forge-enriched external
+     content (from practice-seeker, lore-scholar, codex-researcher web search results). This external
+     content crosses a trust boundary when interpolated into worker prompts, as adversarial instructions
      embedded in web results could influence worker behavior (e.g., modifying unrelated files,
-     exfiltrating data via Bash). Sanitize plan content before interpolation into worker prompts:
-       1. Strip HTML comments: replace(/<!--[\s\S]*?-->/g, '')
-       2. Strip code fences that could contain adversarial instructions
-       3. Truncate sections to reasonable lengths (matching mend.md SEC-004 pattern at lines 199-203)
-     RECOMMENDED: Add a PreToolUse hook for workers that restricts Bash to an allowlist of ward
-     commands (test runners, linters, build tools, git). Example:
-       "hooks": { "PreToolUse": [{ "matcher": "Bash",
-         "hooks": [{ "type": "command",
-           "command": "if echo \"$CLAUDE_TOOL_USE_CONTEXT\" | grep -q 'rune-work'; then ./scripts/validate-ward-command.sh; fi" }] }] }
+     exfiltrating data via Bash).
+
+     REQUIRED: Sanitize plan content before interpolation into worker prompts using sanitizePlanContent():
+
+       function sanitizePlanContent(content) {
+         return (content || '')
+           .replace(/<!--[\s\S]*?-->/g, '')                         // Strip HTML comments
+           .replace(/```[\s\S]*?```/g, '[code-block-removed]')      // Strip code fences (adversarial instructions)
+           .replace(/!\[.*?\]\(.*?\)/g, '')                          // Strip image/link injection
+           .replace(/^#{1,6}\s+/gm, '')                              // Strip markdown headings (prompt override vector)
+           .slice(0, 8000)                                           // Truncate to reasonable length
+       }
+
+     Apply sanitizePlanContent() to ALL plan section content before passing to worker prompts
+     (both rune-smith and trial-forger). This matches the mend.md SEC-004 sanitization pattern.
+
+     RECOMMENDED: Deploy a PreToolUse hook for workers that restricts Bash to an allowlist of
+     ward commands (test runners, linters, build tools, git):
+
+       {
+         "PreToolUse": [
+           {
+             "matcher": "Bash",
+             "hooks": [
+               {
+                 "type": "command",
+                 "command": "if echo \"$CLAUDE_TOOL_USE_CONTEXT\" | grep -q 'rune-work'; then \"${CLAUDE_PLUGIN_ROOT}/scripts/validate-ward-command.sh\"; fi"
+               }
+             ]
+           }
+         ]
+       }
      -->
 
 ## Phase 3: Monitor
@@ -304,6 +328,12 @@ function commitBroker(taskId) {
       return
     }
   }
+  // CDX-007 MITIGATION (P2): Reset staging area before adding task-specific files.
+  // Without this, git commit records ALL currently staged changes (including pre-staged
+  // unrelated files from the user's working tree), not just this task's files.
+  // Use git reset HEAD to unstage everything, then stage only task-specific files.
+  Bash(`git reset HEAD -- . 2>/dev/null`)
+
   // SEC-011: Use --pathspec-from-file to avoid shell command construction
   Write(`tmp/work/${timestamp}/patches/${taskId}-files.txt`,
     meta.files.join('\n'))
@@ -403,6 +433,8 @@ if (codexAvailable && !codexDisabled) {
     })
 
     // Monitor: wait for codex-advisory to complete (max 11 min)
+    // NOTE: Uses inline polling (not waitForCompletion) because this monitors a SPECIFIC
+    // task by name, not a count of completed tasks. waitForCompletion is count-based.
     const codexStart = Date.now()
     const CODEX_TIMEOUT = 660_000
     while (true) {

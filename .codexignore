@@ -5,6 +5,14 @@
 *.pem
 *.key
 *.p12
+.env*
+*credentials*
+*secrets*
+*token*
+
+# Internal configuration
+.claude/
+.git/
 
 # OS files
 .DS_Store

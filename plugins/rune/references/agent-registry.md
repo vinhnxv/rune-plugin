@@ -2,6 +2,8 @@
 
 **Total: 30 agents** (16 review + 5 research + 2 work + 7 utility)
 
+Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
+
 ## Review Agents (`agents/review/`)
 
 | Agent | Expertise |

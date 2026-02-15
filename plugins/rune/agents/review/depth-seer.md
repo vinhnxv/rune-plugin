@@ -12,13 +12,13 @@ description: |
   user: "Check for missing error handling and complexity issues"
   assistant: "I'll use depth-seer to find incomplete logic and complexity hotspots."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Depth Seer — Missing Logic & Complexity Agent
 

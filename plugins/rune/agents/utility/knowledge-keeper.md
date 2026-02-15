@@ -7,20 +7,18 @@ description: |
   Used during /rune:plan Phase 4C (technical review) and /rune:arc Phase 2 (plan review)
   alongside decree-arbiter and scroll-reviewer.
 
+  Covers: Identify files needing documentation updates from plan changes, validate API
+  change documentation coverage, check for migration and upgrade guide inclusion, verify
+  README update planning, assess inline comment coverage for complex logic.
+
   <example>
   user: "Review this plan for documentation coverage"
   assistant: "I'll use knowledge-keeper to check if documentation updates are planned."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Identify files needing documentation updates from plan changes
-  - Validate API change documentation coverage
-  - Check for migration and upgrade guide inclusion
-  - Verify README update planning
-  - Assess inline comment coverage for complex logic
 ---
 
 # Knowledge Keeper — Documentation Coverage Reviewer

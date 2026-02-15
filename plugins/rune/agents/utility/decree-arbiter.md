@@ -7,21 +7,19 @@ description: |
   (technical review) and /rune:arc Phase 2 (plan review) alongside scroll-reviewer
   and knowledge-keeper.
 
+  Covers: Architecture fit assessment against codebase patterns, feasibility analysis
+  (are proposed changes realistic?), security and performance risk identification in plan,
+  dependency analysis (what breaks if this plan is implemented?), codebase pattern alignment
+  check, internal consistency verification (cross-section claims, counts, references).
+
   <example>
   user: "Review this plan for technical soundness"
   assistant: "I'll use decree-arbiter to validate architecture fit and feasibility."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Architecture fit assessment against codebase patterns
-  - Feasibility analysis (are proposed changes realistic?)
-  - Security and performance risk identification in plan
-  - Dependency analysis (what breaks if this plan is implemented?)
-  - Codebase pattern alignment check
-  - Internal consistency verification (cross-section claims, counts, references)
 ---
 
 # Decree Arbiter — Technical Soundness Reviewer

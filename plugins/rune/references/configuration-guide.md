@@ -60,4 +60,4 @@ work:
   co_authors: []                         # Co-Authored-By lines in "Name <email>" format
 ```
 
-See `roundtable-circle/references/custom-ashes.md` for full schema and `talisman.example.yml` at plugin root.
+See `../skills/roundtable-circle/references/custom-ashes.md` for full schema and `talisman.example.yml` at plugin root.

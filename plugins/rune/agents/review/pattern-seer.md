@@ -13,13 +13,13 @@ description: |
   user: "Check if the new code follows our patterns"
   assistant: "I'll use pattern-seer to verify pattern consistency."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Pattern Seer — Cross-Cutting Consistency Agent
 

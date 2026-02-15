@@ -14,6 +14,7 @@ Write to `tmp/scratch/session-state.md` before compaction or at session end.
 - Files to read next: {specific files needed to resume}
 - Files NOT to re-read: {completed research/review outputs}
 - Open questions: {any unresolved decisions}
+- Gap analysis: {summary of missing/partial items from Phase 5.5, if arc}
 - Next action: {exact next step}
 
 ## Arc-specific fields (optional, for /rune:arc workflows):

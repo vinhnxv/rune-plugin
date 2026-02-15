@@ -12,13 +12,13 @@ description: |
   user: "Check if this class is referenced dynamically"
   assistant: "I'll use phantom-checker to search for string-based references."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Phantom Checker — Dynamic Reference Agent
 

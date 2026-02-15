@@ -11,6 +11,7 @@
 | Arc | `tmp/arc/{id}/` | Phase artifacts (`enriched-plan.md`, `plan-review.md`, `concern-context.md`, `verification-report.md`, `work-summary.md`, `tome.md`, `resolution-report.md`, `spot-check-round-{N}.md`, `audit-report.md`, `gap-analysis.md`) |
 | Arc State | `.claude/arc/{id}/` | `checkpoint.json` (persistent, NOT in tmp/) |
 | Scratch | `tmp/scratch/` | Session state |
+| Codex | Per-workflow (see codex-cli skill) | `codex-oracle.md`, `codex-analysis.md`, `codex-plan-review.md`, `codex-advisory.md` |
 | Echoes | `.claude/echoes/{role}/` | `MEMORY.md`, `knowledge.md`, `archive/` |
 
 All `tmp/` directories are ephemeral and can be safely deleted after workflows complete.

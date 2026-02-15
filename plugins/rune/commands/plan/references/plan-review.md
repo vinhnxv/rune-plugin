@@ -104,7 +104,7 @@ for (const pattern of customPatterns) {
 
 If any check fails: auto-fix the stale reference or flag to user before presenting the plan.
 
-This gate is extensible via talisman.yml `plan.verification_patterns`. See `talisman.example.yml` for the schema.
+This gate is extensible via talisman.yml `plan.verification_patterns`. See `talisman.example.yml` for the schema. Project-specific checks (like command counts or renamed flags) belong in the talisman, not hardcoded in the plan command.
 
 ## 4C: Technical Review (optional)
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.20.0] - 2026-02-15
+
+### Changed
+
+- Consolidated agent frontmatter + security hardening across commands
+- Fix 13 TOME findings + structural refactor into references
+- Extract shared monitor utility from 7 commands
+- Fix 6 TOME findings from monitor-utility code review
+
 ## [1.19.0] - 2026-02-15
 
 Feature release: 5 structural recommendations from cross-cycle meta-analysis of 224 findings across 8 review cycles. Addresses recurring systemic issues in the plugin's documentation-as-specification architecture.

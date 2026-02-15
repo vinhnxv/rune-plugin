@@ -4,11 +4,15 @@ description: |
   Test generation agent that writes tests following project patterns.
   Claims testing tasks from the shared pool, generates tests, and verifies they run.
 
+  Covers: Generate unit tests following project conventions, generate integration tests
+  for service boundaries, discover and use existing test utilities and fixtures, verify
+  tests pass before marking complete.
+
   <example>
   user: "Generate tests for the auth module"
   assistant: "I'll use trial-forger to generate tests following project conventions."
   </example>
-allowed-tools:
+tools:
   - Read
   - Write
   - Edit
@@ -19,11 +23,6 @@ allowed-tools:
   - TaskGet
   - TaskUpdate
   - SendMessage
-capabilities:
-  - Generate unit tests following project conventions
-  - Generate integration tests for service boundaries
-  - Discover and use existing test utilities and fixtures
-  - Verify tests pass before marking complete
 ---
 
 # Trial Forger — Test Generation Agent

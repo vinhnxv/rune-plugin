@@ -252,6 +252,8 @@ AskUserQuestion({
 // Validate identifier before rm -rf
 const timestamp = Date.now().toString()
 if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge identifier")
+// SEC-003: Redundant path traversal check — defense-in-depth with regex above
+if (timestamp.includes('..')) throw new Error('Path traversal detected in forge identifier')
 
 // Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
 try { TeamDelete() } catch (e) {
@@ -367,14 +369,22 @@ Agents should produce **concrete, actionable** recommendations with evidence fro
 Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
 ```javascript
+// QUAL-006 MITIGATION (P2): Add hard timeout to prevent runaway forge sessions.
+// Without a timeout, a stalled forge agent could block indefinitely.
+const FORGE_TIMEOUT = 1_200_000 // 20 minutes — generous to allow exhaustive mode enrichment
+
 // See skills/roundtable-circle/references/monitor-utility.md
 const result = waitForCompletion(teamName, totalEnrichmentTasks, {
+  timeoutMs: FORGE_TIMEOUT,   // 20 minutes hard timeout
   staleWarnMs: 300_000,      // 5 minutes
   autoReleaseMs: 300_000,    // 5 minutes — enrichment tasks are reassignable
   pollIntervalMs: 30_000,    // 30 seconds
   label: "Forge"
-  // No timeoutMs — forge has no hard timeout
 })
+
+if (result.timedOut) {
+  warn(`Forge timed out after ${FORGE_TIMEOUT / 60_000} minutes. Proceeding with ${result.completed.length}/${totalEnrichmentTasks} enrichments.`)
+}
 ```
 
 ## Phase 5: Merge Enrichments

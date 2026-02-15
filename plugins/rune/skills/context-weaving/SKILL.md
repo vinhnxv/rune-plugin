@@ -81,7 +81,7 @@ My choice: [strategy]
 Where should agents write findings?
 - Review: tmp/reviews/{pr-number}/
 - Audit: tmp/audit/{timestamp}/
-- Plan research: tmp/research/
+- Plan research: tmp/plans/{timestamp}/research/
 - Custom: tmp/{workflow-name}/
 
 I'll use: [directory]

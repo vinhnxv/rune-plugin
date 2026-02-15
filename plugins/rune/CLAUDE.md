@@ -49,3 +49,4 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow
 - [Configuration](references/configuration-guide.md) — talisman.yml schema and defaults
+- [Session handoff](references/session-handoff.md) — Session state template for compaction and resume

@@ -303,7 +303,7 @@ Task({
   subagent_type: "general-purpose",
   model: "haiku",
   description: "Truthsight Verifier",
-  prompt: [from rune-orchestration/references/verifier-prompt.md]
+  prompt: [from ../rune-orchestration/references/verifier-prompt.md]
 })
 ```
 

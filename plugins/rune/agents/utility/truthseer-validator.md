@@ -9,7 +9,7 @@ description: |
   user: "Validate audit coverage"
   assistant: "I'll use truthseer-validator to check finding density against file importance."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep

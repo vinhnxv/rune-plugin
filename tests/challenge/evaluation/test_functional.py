@@ -51,6 +51,7 @@ def _run_dataweaver(args: list[str], cwd: Path) -> subprocess.CompletedProcess[s
     is importable, regardless of the subprocess cwd (which points at
     tmp_data for test file access).
     """
+    # NOTE: Inherits full parent env for PYTHONPATH override. Consider minimal env for isolation.
     env = {**os.environ, "PYTHONPATH": str(_WORKSPACE)}
     return subprocess.run(
         ["python", "-m", "dataweaver", *args],

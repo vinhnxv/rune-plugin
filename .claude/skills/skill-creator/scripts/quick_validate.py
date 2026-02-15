@@ -3,6 +3,8 @@
 Quick validation script for skills - minimal version
 """
 
+from __future__ import annotations
+
 import sys
 import re
 try:
@@ -12,7 +14,7 @@ except ImportError:
 from pathlib import Path
 
 
-def validate_skill(skill_path):
+def validate_skill(skill_path: str | Path) -> tuple[bool, str]:
     """Basic validation of a skill"""
     skill_path = Path(skill_path)
 

@@ -11,13 +11,13 @@ description: |
   user: "Review the order processing logic"
   assistant: "I'll use flaw-hunter to check for edge cases and logic bugs."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Flaw Hunter — Logic Bug Detection Agent
 

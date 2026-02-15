@@ -11,13 +11,13 @@ description: |
   user: "Check the API for performance issues"
   assistant: "I'll use ember-oracle to analyze performance bottlenecks."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Ember Oracle — Performance Review Agent
 

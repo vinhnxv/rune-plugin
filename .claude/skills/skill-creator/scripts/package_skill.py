@@ -84,6 +84,7 @@ def package_skill(skill_path, output_dir=None):
                         continue
                     if file_path.name in {'.env', '.DS_Store'} or file_path.suffix == '.pyc':
                         continue
+                    # NOTE: Archive preserves the skill directory name as top-level entry
                     arcname = file_path.relative_to(skill_path.parent)
                     zipf.write(file_path, arcname)
                     print(f"  Added: {arcname}")
@@ -91,7 +92,7 @@ def package_skill(skill_path, output_dir=None):
         print(f"\nSuccessfully packaged skill to: {skill_filename}")
         return skill_filename
 
-    except Exception as e:
+    except (OSError, zipfile.BadZipFile) as e:
         print(f"Error creating .skill file: {e}")
         return None
 

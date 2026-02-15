@@ -12,13 +12,13 @@ description: |
   user: "Check for design anti-patterns in the new service"
   assistant: "I'll use blight-seer to scan for architectural smells and design flaws."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Blight Seer — Design Anti-Pattern Detection Agent
 

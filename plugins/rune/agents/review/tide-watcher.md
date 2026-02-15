@@ -16,13 +16,13 @@ description: |
   user: "Check the async handlers for concurrency issues"
   assistant: "I'll use tide-watcher to analyze async patterns and race conditions."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Tide Watcher — Async & Concurrency Patterns Agent
 

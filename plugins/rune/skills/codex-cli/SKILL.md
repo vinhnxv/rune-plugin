@@ -36,7 +36,7 @@ All Rune workflows that invoke Codex MUST follow these patterns.
 Run the canonical detection algorithm before any Codex invocation.
 See `roundtable-circle/references/codex-detection.md` for the full 9-step algorithm.
 
-**Quick summary** (abbreviated — see codex-detection.md for all 9 steps):
+See `roundtable-circle/references/codex-detection.md` for the canonical 9-step detection algorithm.
 
 ```
 1. Read talisman.yml (project or global)

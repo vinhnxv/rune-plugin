@@ -11,13 +11,13 @@ description: |
   user: "Check if the code is over-engineered"
   assistant: "I'll use simplicity-warden to identify YAGNI violations."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Simplicity Warden — Code Simplicity Agent
 

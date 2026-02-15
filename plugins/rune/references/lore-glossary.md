@@ -28,4 +28,7 @@
 | **Truthbinding** | Anti-prompt-injection protocol | An oath against deception |
 | **Truthseer Validator** | Coverage quality checker that validates review thoroughness before aggregation | A seer who ensures all truths are accounted for |
 | **Truthsight** | Verification system used in arc pipeline to validate plan integrity | The gift of seeing through illusion |
+| **Convergence Gate** | Phase 7.5 verify-mend regression check with retry loop | A gate that ensures changes converge toward stability |
+| **Gap Analysis** | Phase 5.5 plan-to-code compliance check | Measuring the distance between intent and reality |
+| **Verification Gate** | Phase 2.7 deterministic plan checks | A barrier ensuring only worthy plans proceed |
 | **Ward** | Quality gate (tests/lint) | Protective enchantments |

@@ -12,13 +12,13 @@ description: |
   user: "Review type safety in the Python backend"
   assistant: "I'll use type-warden to check type hints, mypy compliance, and Python idioms."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Type Warden — Language Type Safety Agent
 

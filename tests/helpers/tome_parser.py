@@ -35,7 +35,7 @@ SPOT_CLEAN_PATTERN = re.compile(r'<!--\s*SPOT:CLEAN\s*-->')
 VALID_SEVERITIES = {"P1", "P2", "P3"}
 
 # Dedup priority (lower = higher priority)
-DEDUP_PRIORITY = {"SEC": 0, "BACK": 1, "DOM": 2, "DOC": 3, "QUAL": 4, "FRONT": 5}
+DEDUP_PRIORITY = {"SEC": 0, "BACK": 1, "DOC": 2, "QUAL": 3, "FRONT": 4, "CDX": 5}
 
 
 @dataclass

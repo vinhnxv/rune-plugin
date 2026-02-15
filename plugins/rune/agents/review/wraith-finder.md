@@ -16,13 +16,13 @@ description: |
   user: "Find dead code in the services"
   assistant: "I'll use wraith-finder to detect unused, orphaned, and unwired code."
   </example>
-allowed-tools:
+tools:
   - Read
   - Glob
   - Grep
+---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
----
 
 # Wraith Finder — Dead Code & Unwired Code Detection Agent
 
