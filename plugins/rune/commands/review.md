@@ -212,6 +212,23 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: "rune-review-{identifier}" })
 
+// 6.5. Phase 2 BRIDGE: Create signal directory for event-driven sync
+const signalDir = `tmp/.rune-signals/rune-review-${identifier}`
+Bash(`mkdir -p "${signalDir}" && find "${signalDir}" -mindepth 1 -delete`)
+Write(`${signalDir}/.expected`, String(selectedAsh.length))
+// SEC-004: inscription.json integrity relies on: (1) umask 077 restricts read access,
+// (2) path traversal checks in on-teammate-idle.sh, (3) write-once by orchestrator.
+// Future: consider SHA-256 hash verification for defense-in-depth.
+Write(`${signalDir}/inscription.json`, JSON.stringify({
+  workflow: "rune-review",
+  timestamp: timestamp,
+  output_dir: `tmp/reviews/${identifier}/`,
+  teammates: selectedAsh.map(name => ({
+    name: name,
+    output_file: `${name}.md`
+  }))
+}))
+
 // 6. Create tasks (one per Ash)
 for (const ash of selectedAsh) {
   TaskCreate({

@@ -223,6 +223,20 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: "rune-audit-{audit_id}" })
 
+// 6.5. Phase 2 BRIDGE: Create signal directory for event-driven sync
+const signalDir = `tmp/.rune-signals/rune-audit-${audit_id}`
+Bash(`mkdir -p "${signalDir}" && find "${signalDir}" -mindepth 1 -delete`)
+Write(`${signalDir}/.expected`, String(selectedAsh.length))
+Write(`${signalDir}/inscription.json`, JSON.stringify({
+  workflow: "rune-audit",
+  timestamp: timestamp,
+  output_dir: `tmp/audit/${audit_id}/`,
+  teammates: selectedAsh.map(name => ({
+    name: name,
+    output_file: `${name}.md`
+  }))
+}))
+
 // 6. Create tasks (one per Ash)
 for (const ash of selectedAsh) {
   TaskCreate({

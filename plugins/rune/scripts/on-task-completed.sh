@@ -7,6 +7,12 @@
 set -euo pipefail
 umask 077
 
+# RUNE_TRACE: opt-in trace logging (off by default, zero overhead in production)
+# NOTE(QUAL-007): _trace() is intentionally duplicated in on-teammate-idle.sh — each script
+# must be self-contained for hook execution. Sharing via source would add a dependency.
+RUNE_TRACE_LOG="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+_trace() { [[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "$RUNE_TRACE_LOG" ]] && printf '[%s] on-task-completed: %s\n' "$(date +%H:%M:%S)" "$*" >> "$RUNE_TRACE_LOG"; return 0; }
+
 # Cleanup trap — remove temp files on exit (BACK-002)
 cleanup() { [[ -z "${SIGNAL_DIR:-}" ]] && return; rm -f "${SIGNAL_DIR}/${TASK_ID:-unknown}.done.tmp.$$" "${SIGNAL_DIR}/.all-done.tmp.$$" 2>/dev/null; }
 trap cleanup EXIT
@@ -20,6 +26,7 @@ fi
 
 # Read hook input from stdin
 INPUT=$(cat)
+_trace "ENTER"
 
 # BACK-101: Validate JSON before attempting field extraction
 if ! echo "$INPUT" | jq empty 2>/dev/null; then
@@ -27,20 +34,18 @@ if ! echo "$INPUT" | jq empty 2>/dev/null; then
   exit 0
 fi
 
-# Extract fields with safe defaults
-# NOTE(QUAL-003): Separate jq calls are intentional — avoids eval and keeps each
-# extraction independently safe. The DRY trade-off is accepted for clarity and safety.
-TEAM_NAME=$(echo "$INPUT" | jq -r '.team_name // empty' 2>/dev/null || true)
-TASK_ID=$(echo "$INPUT" | jq -r '.task_id // empty' 2>/dev/null || true)
-TEAMMATE_NAME=$(echo "$INPUT" | jq -r '.teammate_name // empty' 2>/dev/null || true)
-TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // empty' 2>/dev/null || true)
+# Extract fields with safe defaults via single jq call (BACK-204)
+# Uses tab-separated output to avoid eval — each field is read into its own variable.
+IFS=$'\t' read -r TEAM_NAME TASK_ID TEAMMATE_NAME TASK_SUBJECT <<< "$(echo "$INPUT" | jq -r '[.team_name // "", .task_id // "", .teammate_name // "", .task_subject // ""] | @tsv' 2>/dev/null)" || true
 # SEC-C05: Truncate subject to prevent oversized values in signal files
 TASK_SUBJECT="${TASK_SUBJECT:0:256}"
 # BACK-012: Default empty subject
 [[ -z "$TASK_SUBJECT" ]] && TASK_SUBJECT="Task $TASK_ID"
 
 # Guard: skip non-team tasks (TodoWrite, etc. have no team_name)
+_trace "PARSED team=$TEAM_NAME task=$TASK_ID teammate=$TEAMMATE_NAME"
 if [[ -z "$TEAM_NAME" || -z "$TASK_ID" ]]; then
+  _trace "SKIP empty team_name or task_id"
   exit 0
 fi
 
@@ -75,7 +80,7 @@ if [[ -z "$CWD" ]]; then
 fi
 
 # SEC-002: Canonicalize CWD after extraction
-CWD=$(cd "$CWD" 2>/dev/null && pwd -P || echo "$CWD")
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { echo "WARN: Cannot canonicalize CWD: $CWD" >&2; exit 0; }
 if [[ -z "$CWD" || "$CWD" != /* ]]; then
   exit 0
 fi
@@ -86,6 +91,7 @@ SIGNAL_DIR="${CWD}/tmp/.rune-signals/${TEAM_NAME}"
 # Guard: if signal dir doesn't exist, orchestrator didn't set up signals
 # (e.g., Phase 1 monitor utility without Phase 2 hooks). Exit silently.
 if [[ ! -d "$SIGNAL_DIR" ]]; then
+  _trace "SKIP signal_dir missing: $SIGNAL_DIR"
   exit 0
 fi
 
@@ -107,6 +113,7 @@ fi
 
 # SEC-003: Use mv -n (noclobber)
 mv -n "$TEMP_FILE" "$SIGNAL_FILE" 2>/dev/null || { rm -f "$TEMP_FILE"; exit 0; }
+_trace "WRITING signal file: $SIGNAL_FILE"
 
 # Check if all expected tasks are complete
 EXPECTED_FILE="${SIGNAL_DIR}/.expected"
@@ -128,6 +135,7 @@ DONE_COUNT=$(find "$SIGNAL_DIR" -maxdepth 1 -type f -name "*.done" -not -name "*
 # BACK-001: Add existence check before writing .all-done to prevent double-write race.
 # Note: total is a lower bound — concurrent completions may increment .done count between
 # our find and the jq write (TOCTOU), but mv -n prevents double-write so this is benign.
+_trace "DONE_COUNT=$DONE_COUNT EXPECTED=$EXPECTED"
 if [[ "$DONE_COUNT" -ge "$EXPECTED" ]] && [[ ! -f "${SIGNAL_DIR}/.all-done" ]]; then
   ALL_DONE_TEMP="${SIGNAL_DIR}/.all-done.tmp.$$"
 
@@ -144,6 +152,7 @@ if [[ "$DONE_COUNT" -ge "$EXPECTED" ]] && [[ ! -f "${SIGNAL_DIR}/.all-done" ]]; 
 
   # SEC-003: Use mv -n (noclobber)
   mv -n "$ALL_DONE_TEMP" "${SIGNAL_DIR}/.all-done" 2>/dev/null || rm -f "$ALL_DONE_TEMP"
+  _trace "WRITING all-done sentinel: ${SIGNAL_DIR}/.all-done"
 fi
 
 exit 0

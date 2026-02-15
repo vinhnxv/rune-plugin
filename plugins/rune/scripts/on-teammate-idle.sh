@@ -7,6 +7,12 @@
 set -euo pipefail
 umask 077
 
+# RUNE_TRACE: opt-in trace logging (off by default, zero overhead in production)
+# NOTE(QUAL-007): _trace() is intentionally duplicated in on-task-completed.sh — each script
+# must be self-contained for hook execution. Sharing via source would add a dependency.
+RUNE_TRACE_LOG="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+_trace() { [[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "$RUNE_TRACE_LOG" ]] && printf '[%s] on-teammate-idle: %s\n' "$(date +%H:%M:%S)" "$*" >> "$RUNE_TRACE_LOG"; return 0; }
+
 # Pre-flight: jq is required for parsing inscription and hook input.
 # If missing, exit 0 (non-blocking) — skip quality gate rather than crash.
 if ! command -v jq &>/dev/null; then
@@ -15,6 +21,7 @@ if ! command -v jq &>/dev/null; then
 fi
 
 INPUT=$(cat)
+_trace "ENTER"
 
 TEAM_NAME=$(echo "$INPUT" | jq -r '.team_name // empty' 2>/dev/null || true)
 TEAMMATE_NAME=$(echo "$INPUT" | jq -r '.teammate_name // empty' 2>/dev/null || true)
@@ -34,7 +41,9 @@ fi
 
 # Guard: only process Rune and Arc teams
 # QUAL-001: Guard includes arc-* for arc pipeline support
+_trace "PARSED team=$TEAM_NAME teammate=$TEAMMATE_NAME"
 if [[ "$TEAM_NAME" != rune-* && "$TEAM_NAME" != arc-* ]]; then
+  _trace "SKIP non-rune team: $TEAM_NAME"
   exit 0
 fi
 
@@ -44,7 +53,7 @@ if [[ -z "$CWD" ]]; then
   echo "WARN: TeammateIdle hook input missing 'cwd' field" >&2
   exit 0
 fi
-CWD=$(cd "$CWD" 2>/dev/null && pwd -P || echo "$CWD")
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { echo "WARN: Cannot canonicalize CWD: $CWD" >&2; exit 0; }
 if [[ -z "$CWD" || "$CWD" != /* ]]; then
   exit 0
 fi
@@ -56,9 +65,11 @@ fi
 # NOTE: inscription.json is write-once by orchestrator. Teammates cannot modify it if signal dir has correct permissions (umask 077 in on-task-completed.sh).
 INSCRIPTION="${CWD}/tmp/.rune-signals/${TEAM_NAME}/inscription.json"
 if [[ ! -f "$INSCRIPTION" ]]; then
+  _trace "SKIP no inscription: $INSCRIPTION"
   # No inscription = no quality gate to enforce
   exit 0
 fi
+_trace "INSCRIPTION found: $INSCRIPTION"
 
 # Find this teammate's expected output file from inscription
 # Note: inscription teammate uniqueness is validated during orchestrator setup, not here
@@ -71,7 +82,7 @@ EXPECTED_OUTPUT=$(jq -r --arg name "$TEAMMATE_NAME" \
 # The real security boundary is the realpath+prefix canonicalization at lines 104-110.
 if [[ "$EXPECTED_OUTPUT" == *".."* || "$EXPECTED_OUTPUT" == /* ]]; then
   echo "ERROR: inscription output_file contains path traversal: ${EXPECTED_OUTPUT}" >&2
-  exit 0
+  exit 2  # CDX-006: fail-closed — block idle on security violation
 fi
 
 if [[ -z "$EXPECTED_OUTPUT" ]]; then
@@ -91,11 +102,11 @@ fi
 # SEC-003: Path traversal check for OUTPUT_DIR
 if [[ "$OUTPUT_DIR" == *".."* ]]; then
   echo "ERROR: inscription output_dir contains path traversal: ${OUTPUT_DIR}" >&2
-  exit 0
+  exit 2  # CDX-006: fail-closed — block idle on security violation
 fi
 if [[ "$OUTPUT_DIR" != tmp/* ]]; then
   echo "ERROR: inscription output_dir outside tmp/: ${OUTPUT_DIR}" >&2
-  exit 0
+  exit 2  # CDX-006: fail-closed — block idle on security violation
 fi
 
 # Normalize trailing slash
@@ -108,7 +119,7 @@ FULL_OUTPUT_PATH="${CWD}/${OUTPUT_DIR}${EXPECTED_OUTPUT}"
 # shell-based fallback for environments where neither is available.
 # The fallback is safe because .. is already rejected above (lines 72, 92).
 resolve_path() {
-  grealpath -m "$1" 2>/dev/null || realpath -m "$1" 2>/dev/null || echo "$1"
+  grealpath -m "$1" 2>/dev/null || realpath -m "$1" 2>/dev/null || { echo "WARN: realpath not available, skipping canonicalization" >&2; echo "$1"; }
 }
 RESOLVED_OUTPUT=$(resolve_path "$FULL_OUTPUT_PATH")
 RESOLVED_OUTDIR=$(resolve_path "${CWD}/${OUTPUT_DIR}")
@@ -118,6 +129,7 @@ if [[ "$RESOLVED_OUTPUT" != "$RESOLVED_OUTDIR"* ]]; then
 fi
 
 if [[ ! -f "$FULL_OUTPUT_PATH" ]]; then
+  _trace "BLOCK output missing: $FULL_OUTPUT_PATH"
   # Output file missing — block idle, tell teammate to finish work
   echo "Output file not found: ${OUTPUT_DIR}${EXPECTED_OUTPUT}. Please complete your review and write findings before stopping." >&2
   exit 2
@@ -125,8 +137,10 @@ fi
 
 # BACK-007: Minimum output size gate
 MIN_OUTPUT_SIZE=50  # Minimum bytes for meaningful output
-FILE_SIZE=$(wc -c < "$FULL_OUTPUT_PATH" 2>/dev/null | tr -d ' ')
+FILE_SIZE=$(wc -c < "$FULL_OUTPUT_PATH" 2>/dev/null | tr -dc '0-9')
+[[ -z "$FILE_SIZE" ]] && FILE_SIZE=0
 if [[ "$FILE_SIZE" -lt "$MIN_OUTPUT_SIZE" ]]; then
+  _trace "BLOCK output too small: ${FILE_SIZE} bytes < ${MIN_OUTPUT_SIZE}"
   echo "Output file is empty or too small: ${FULL_OUTPUT_PATH} (${FILE_SIZE} bytes). Please write your findings." >&2
   exit 2
 fi
@@ -140,10 +154,12 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
   # BACK-102: ^SEAL: requires column-0 positioning by design — partial or indented
   # SEAL lines are treated as incomplete output (fail-safe).
   if ! grep -q "^SEAL:" "$FULL_OUTPUT_PATH" 2>/dev/null; then
+    _trace "BLOCK SEAL missing: $FULL_OUTPUT_PATH"
     echo "SEAL marker missing in ${FULL_OUTPUT_PATH}. Review output incomplete — add SEAL block." >&2
     exit 2  # Block idle until Ash adds SEAL
   fi
 fi
 
+_trace "PASS all gates for $TEAMMATE_NAME"
 # All gates passed — allow idle
 exit 0
