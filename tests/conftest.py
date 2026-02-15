@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Iterator
 
 # Ensure tests/ is in sys.path so `from helpers.x import Y` works regardless of cwd
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pytest
 

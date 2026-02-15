@@ -7,12 +7,15 @@ captures structured JSON output, and tracks token usage and timing.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -119,9 +122,25 @@ class ClaudeRunner:
         for backup in self.isolated_config_dir.glob(".claude.json.backup.*"):
             backup.unlink(missing_ok=True)
 
+    # Env var name patterns that must never leak into subprocesses
+    _SENSITIVE_ENV_PATTERNS = ("SECRET", "TOKEN", "CREDENTIAL", "PASSWORD", "PRIVATE_KEY")
+
     def _build_env(self) -> dict[str, str]:
-        """Build isolated environment for Claude CLI."""
+        """Build isolated environment for Claude CLI.
+
+        Starts from a full copy of os.environ because the Claude CLI
+        requires many platform-specific variables (NODE_PATH, npm paths,
+        locale, terminal info, etc.) to function.  After copying, we
+        strip any variable whose name contains a known-sensitive pattern
+        so that credentials are never forwarded to the subprocess.
+        """
         env = os.environ.copy()
+
+        # Strip known-sensitive variables to avoid leaking secrets
+        for key in list(env):
+            if any(pat in key.upper() for pat in self._SENSITIVE_ENV_PATTERNS):
+                del env[key]
+
         # Marker for identifying test-spawned processes (inherited by teammates)
         env["RUNE_TEST_HARNESS"] = "1"
         # Disable memory and telemetry for hermetic testing
@@ -155,7 +174,13 @@ class ClaudeRunner:
             "--max-budget-usd", str(self.max_budget_usd),
         ]
         if os.environ.get("RUNE_TEST_SKIP_PERMISSIONS", "") == "1":
-            args.append("--dangerously-skip-permissions")
+            if os.environ.get("RUNE_TEST_HARNESS", "") != "1":
+                logger.warning(
+                    "RUNE_TEST_SKIP_PERMISSIONS is set but RUNE_TEST_HARNESS is not; "
+                    "refusing to add --dangerously-skip-permissions"
+                )
+            else:
+                args.append("--dangerously-skip-permissions")
         if self.model:
             args.extend(["--model", self.model])
         if self.verbose:
@@ -201,7 +226,7 @@ class ClaudeRunner:
             session_id = output_json.get("session_id")
             token_usage = output_json.get("usage")
         except (json.JSONDecodeError, TypeError):
-            pass
+            logger.debug("Failed to parse Claude CLI stdout as JSON (non-fatal)")
 
         return RunResult(
             exit_code=proc.returncode,
