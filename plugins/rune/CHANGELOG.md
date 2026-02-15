@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.25.0] - 2026-02-16
+
+Feature release: Agent Intelligence Quick Wins — four interconnected intelligence improvements forming a feedback loop.
+
+### Added
+
+- **QW-1: Smart Code Skimming** (research agents) — Agents choose read depth based on task relevance: deep-read when known-relevant, skim when uncertain, skip when irrelevant. ~60-90% token reduction in file discovery.
+- **QW-2: Confidence Scoring** (review + work agents) — All agents include confidence (0-100) with justification. Decision gates: >=80 actionable, 50-79 needs-verify, <50 escalate. Cross-check: confidence >=80 requires evidence ratio >=50%.
+- **QW-3: Adaptive Context Checkpoint** (work agents) — Post-task reset scales with task position: Light (1-2), Medium (3-4), Aggressive (5+). Context rot detection triggers immediate aggressive reset.
+- **QW-4: Smart DC-1 Recovery** (damage-control) — Severity-based adaptive retry (mild/moderate/severe). Early warning signals at task 4+, 20+ files, low confidence. Respawn protocol with enriched handoff summary.
+
+**Feedback loop**: Skimming → confidence → checkpoint → overflow prevention. Each QW produces signals the next consumes.
+
+### Changed
+
+- Updated 24 files (~182 lines), all prompt-only markdown edits. No code changes, no new files.
+- plugin.json: version 1.24.2 → 1.25.0
+
 ## [1.24.1] - 2026-02-16
 
 Patch release: Mend fixes from Phase 6 code review — sanitizer hardening, dimension alignment, configuration cleanup.

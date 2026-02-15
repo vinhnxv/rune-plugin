@@ -31,11 +31,57 @@ Six named recovery procedures for Agent Team failures. Each follows ASSESS → C
 
 | Step | Action |
 |------|--------|
-| ASSESS | Identify which agent hit limit; check task progress |
+| ASSESS | Identify which agent hit limit; check task progress and remaining tasks |
 | CONTAIN | Pause new task assignment to affected agent |
-| RECOVER | Compress: offload to `tmp/`, reduce team size, split remaining work |
-| VERIFY | Confirm agent accepts new prompts post-compression |
-| REPORT | Log overflow event with token estimate in checkpoint |
+| RECOVER | Apply smart adaptive retry (see below) — match recovery intensity to overflow severity |
+| VERIFY | Confirm agent accepts new prompts post-recovery |
+| REPORT | Log overflow event with: token estimate, recovery method used, remaining task count |
+
+### DC-1 Early Warning (Proactive Prevention)
+
+Before overflow occurs, monitor for these signals and act:
+
+| Signal | Action |
+|--------|--------|
+| Agent on task 4+ in a session | Remind agent to apply Aggressive reset (see QW-3 checkpoint) |
+| Agent reads 20+ files in one task | Suggest skimming (see QW-1) for remaining files |
+| Agent confidence < 50 (see QW-2) | Consider reassigning — agent may be spending tokens unproductively |
+
+**Prevention is cheaper than recovery.** If an agent consistently hits DC-1 on task 5+, the session has too many tasks — split into multiple `/rune:work` runs.
+
+### DC-1 Smart Adaptive Retry Strategy
+
+When an agent hits context overflow, assess severity FIRST, then apply proportional recovery:
+
+**Step 1: Assess overflow severity**
+
+| Severity | Signal | Recovery Path |
+|----------|--------|---------------|
+| **Mild** | Agent completed current task but can't accept next | Retry 1 only |
+| **Moderate** | Agent mid-task, output truncated | Retry 1 → 2 |
+| **Severe** | Agent mid-task, incoherent output or repeated failures | Skip to Retry 3 |
+
+**Step 2: Apply proportional recovery**
+
+| Retry | Action | Output Budget | When to Use |
+|-------|--------|---------------|-------------|
+| 1 | Offload completed work to `tmp/` files | 100% (unchanged) | Mild: just free context space |
+| 2 | Reduce agent scope: assign it ONLY its current task (remove future tasks from its view) | 80% of original | Moderate: narrower focus = less context needed |
+| 3 | Shutdown agent + respawn fresh with handoff summary | 100% (reset) | Severe: clean start is the only option |
+
+**Key principle** (from DeepCode): When context is full, reduce output token budget — do NOT increase it. Total context = input + output. Reducing output leaves more room for necessary input.
+
+**Smart scope reduction** (Retry 2): Instead of just reducing output tokens mechanically, reduce the agent's AWARENESS of remaining work. Tell it: "Focus only on task #{current}. Do not read TaskList or consider future tasks. Complete this one task, then stop." This naturally constrains output because the agent won't plan ahead.
+
+**Respawn protocol** (Retry 3):
+1. Read completed tasks from TaskList — compile 1-sentence summary per task
+2. Identify what the overflowed agent learned that a new agent needs:
+   - Which patterns were followed (source of truth files, not memory)
+   - Any non-obvious decisions made
+   - Which files are modified (to avoid conflicts)
+3. Shutdown overflowed agent
+4. Spawn new agent with: remaining task description + handoff summary + plan reference
+5. New agent claims remaining tasks from pool — starts with fresh 200k context
 
 **Escalation**: L0 Glyph Budget warns 80% → L1 auto-compress → L2 reduce team → L3 ask user to split workflow
 **Decision**: Forward-fix (compress). Rollback only if compression loses critical context.

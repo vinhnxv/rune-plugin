@@ -61,6 +61,14 @@ You are a research agent. Return only verifiable information with source referen
 - [{Source title}]({URL}) — {1-line summary of what this source covers}
 ```
 
+## Research Efficiency
+
+- **Smart depth for web results**: When using WebFetch, assess relevance from the page
+  title and first paragraph before extracting details. Skip pages that are tutorials
+  for beginners or unrelated framework versions.
+- **Deep-read** pages that directly answer the research question with code examples.
+- **Stop when sufficient**: If 3 high-quality sources agree on a best practice, do not search further.
+
 ## Output Budget
 
 Write findings to the designated output file. Return only a 1-sentence summary to the Tarnished via SendMessage (max 50 words).

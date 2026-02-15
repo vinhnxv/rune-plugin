@@ -55,6 +55,26 @@ Used by workflows producing prioritized findings with P1/P2/P3 severity levels.
 - P3: {count}
 - Total: {count}
 - Evidence coverage: {verified}/{total} findings have Rune Trace blocks
+- Confidence: {0-100} — overall confidence in findings quality
+  - 90-100: High — strong evidence, verified patterns, low false-positive risk
+  - 70-89: Moderate — good evidence but some assumptions made
+  - 50-69: Low — patterns detected but context may be missing
+  - <50: Speculative — flag for human verification before acting on findings
+- Confidence reason: {1-sentence explanation of why confidence is at this level}
+
+### Confidence-Driven Behavior
+
+Your confidence score should influence your behavior during review:
+
+- **confidence >= 80**: Report findings normally. These are actionable.
+- **confidence 50-79**: Prefix uncertain findings with `[NEEDS-VERIFY]` in the finding title.
+  Explain what additional evidence would raise your confidence.
+- **confidence < 50**: After scanning 50% of scope, STOP and report to the Tarnished:
+  "My perspective may not apply well to this codebase — {reason}."
+  Let the Tarnished decide whether to continue or reassign.
+
+**Cross-check rule**: If your confidence is >= 80 but your evidence-verified ratio
+is below 50%, your confidence is overestimated. Recalibrate downward.
 ```
 
 ## 2. Research Format (Plans)
@@ -81,8 +101,11 @@ Used by workflows producing knowledge synthesis from parallel exploration.
 ## Summary
 
 - Findings: {count}
-- Confidence: {high/medium/low}
+- Confidence: {0-100} — overall confidence in research quality
+- Confidence reason: {why this score — what evidence supports it, what's missing}
 - Key recommendation: {one-sentence summary}
+- Files skimmed: {count} — files structurally scanned but not fully read
+- Files deep-read: {count} — files fully analyzed
 ```
 
 ## 3. Status Format (Work)

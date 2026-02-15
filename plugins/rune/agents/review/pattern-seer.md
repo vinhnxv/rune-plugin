@@ -271,6 +271,8 @@ After completing analysis, verify:
 - [ ] All files in scope were **actually read**, not just assumed
 - [ ] Findings are **actionable** — each has a concrete fix suggestion
 - [ ] **Compared against existing codebase patterns**, not just abstract rules
+- [ ] **Confidence score** assigned (0-100) with 1-sentence justification — reflects evidence strength, not finding severity
+- [ ] **Cross-check**: confidence >= 80 requires evidence-verified ratio >= 50%. If not, recalibrate.
 
 ### Pre-Flight
 Before writing output file, confirm:
