@@ -118,6 +118,12 @@ Before writing any tests, discover existing patterns:
      - **Syntax errors in evaluation/ tests** → "Test harness quality issue (not implementation failure)."
    - Report failures to the Tarnished via SendMessage — these are **external acceptance tests** (challenge-provided) that the implementation must satisfy
    - Do NOT modify or create files in `evaluation/` — this directory is owned by the test harness. The `evaluation/` tests are challenge-provided acceptance criteria, not a location for agent-generated tests
+   - Classify exit codes:
+     - Exit code 0 → PASS (all tests passed)
+     - Exit code 5 → SKIP (no tests collected — non-blocking)
+     - Exit code 1 → FAIL — coordinate with rune-smith to fix
+     - Exit code 2/3/4 → ERROR (pytest internal error) — report to the Tarnished for investigation
+   - NOTE: The `evaluation/` write restriction is prompt-enforced. For platform-level enforcement, deploy a PreToolUse hook blocking Write/Edit for evaluation/* paths (see review.md SEC-001 hook pattern).
    - If the implementation doesn't pass evaluation tests, coordinate with rune-smith to fix the underlying code
 
 ## Exit Conditions

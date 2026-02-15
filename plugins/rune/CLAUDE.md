@@ -55,6 +55,8 @@ Rune uses two Claude Code hooks for event-driven agent synchronization (Phase 2 
 
 Both hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 with a warning and the monitor falls back to polling automatically. Hook configuration lives in `hooks/hooks.json`.
 
+**Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Traces show hook entry, parsed fields, guard exits, signal writes, and quality gate decisions. Off by default — zero overhead in production.
+
 ## References
 
 - [Agent registry](references/agent-registry.md) — 16 review + 5 research + 2 work + 7 utility agents

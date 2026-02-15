@@ -210,6 +210,11 @@ if (planFile.includes('..')) {
   error(`Path traversal detected in plan path: ${planFile}`)
   return
 }
+// CDX-009 MITIGATION: Reject leading-hyphen paths (option injection in cp, ls, etc.)
+if (planFile.startsWith('-')) {
+  error(`Plan path starts with hyphen (option injection risk): ${planFile}`)
+  return
+}
 // Reject absolute paths — plan files must be relative to project root
 if (planFile.startsWith('/')) {
   error(`Absolute paths not allowed: ${planFile}. Use a relative path from project root.`)
@@ -330,7 +335,7 @@ updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1, tea
 
 // Create working copy for forge to enrich
 Bash(`mkdir -p "tmp/arc/${id}"`)
-Bash(`cp "${planFile}" "tmp/arc/${id}/enriched-plan.md"`)
+Bash(`cp -- "${planFile}" "tmp/arc/${id}/enriched-plan.md"`)
 const forgePlanPath = `tmp/arc/${id}/enriched-plan.md`
 
 // Invoke /rune:forge logic on working copy
@@ -342,11 +347,8 @@ const forgePlanPath = `tmp/arc/${id}/enriched-plan.md`
 const forgeTeamName = /* team name created by /rune:forge logic */
 updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1, team_name: forgeTeamName })
 
-// Arc-level timeout safety net
-const forgeStart = Date.now()
-if (Date.now() - forgeStart > PHASE_TIMEOUTS.forge) {
-  warn("Phase 1 (FORGE) timed out. Proceeding with original plan copy.")
-}
+// NOTE: Within-phase timeout enforcement is handled by forge's own internal timeout.
+// The between-phase checkArcTimeout() (line 222) provides arc-level safety net.
 
 // Verify enriched plan exists and has content
 const enrichedPlan = Read(forgePlanPath)

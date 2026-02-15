@@ -45,20 +45,24 @@ const diffFiles = diffResult.stdout.trim().split('\n').filter(f => f.length > 0)
 
 ```javascript
 const gaps = []
+// CDX-002 FIX: Sanitize diffFiles before use in shell commands (same filter as STEP 4.7)
+const safeDiffFiles = diffFiles.filter(f => /^[a-zA-Z0-9._\-\/]+$/.test(f) && !f.includes('..'))
 for (const criterion of criteria) {
   const identifiers = extractIdentifiers(criterion.text)
 
   let status = "UNKNOWN"
   for (const identifier of identifiers) {
     if (!/^[a-zA-Z0-9._\-\/]+$/.test(identifier)) continue
-    const grepResult = Bash(`rg -l --max-count 1 -- "${identifier}" ${diffFiles.map(f => `"${f}"`).join(' ')} 2>/dev/null`)
+    if (safeDiffFiles.length === 0) break
+    const grepResult = Bash(`rg -l --max-count 1 -- "${identifier}" ${safeDiffFiles.map(f => `"${f}"`).join(' ')} 2>/dev/null`)
     if (grepResult.stdout.trim().length > 0) {
       status = criterion.checked ? "ADDRESSED" : "PARTIAL"
       break
     }
   }
   if (status === "UNKNOWN") {
-    status = criterion.checked ? "ADDRESSED" : "MISSING"
+    // CDX-007 FIX: No code evidence found — always MISSING regardless of checked state
+    status = "MISSING"
   }
   gaps.push({ criterion: criterion.text, status, section: criterion.section })
 }
@@ -169,7 +173,8 @@ if (consistencyGuardPass) {
         }, parsed) ?? "")
       } else if (check.source.extractor === "glob_count") {
         // Intentionally unquoted: glob expansion required. SAFE_GLOB_PATH_PATTERN validated above.
-        const globResult = Bash(`ls -1 ${check.source.file} 2>/dev/null | wc -l`)
+        // CDX-003 FIX: Use -- to prevent glob results starting with - being parsed as flags
+        const globResult = Bash(`ls -1 -- ${check.source.file} 2>/dev/null | wc -l`)
         sourceValue = globResult.stdout.trim()
       } else if (check.source.extractor === "line_count") {
         const lcResult = Bash(`wc -l < "${check.source.file}" 2>/dev/null`)
@@ -226,7 +231,9 @@ if (consistencyGuardPass) {
             targetStatus = "DRIFT"
           }
         } else {
-          const grepResult = Bash(`rg --no-messages -l "${sourceValue}" "${target.path}" 2>/dev/null`)
+          // CDX-001 FIX: Escape sourceValue to prevent shell injection
+          const escapedSourceValue = sourceValue.replace(/["$`\\]/g, '\\$&')
+          const grepResult = Bash(`rg --no-messages --fixed-strings -l -- "${escapedSourceValue}" "${target.path}" 2>/dev/null`)
           targetStatus = grepResult.stdout.trim().length > 0 ? "PASS" : "DRIFT"
         }
       } catch (targetErr) {
@@ -370,7 +377,8 @@ const pythonCheck = Bash(`command -v python3 2>/dev/null`).stdout.trim()
 if (!pythonCheck) {
   evaluatorMetricsSection = `\n## EVALUATOR QUALITY METRICS\n\n**Status**: SKIP\n**Reason**: python3 not found in PATH\n`
 } else {
-  const pyFilesRaw = Bash(`find . -name "*.py" -not -path "./.venv/*" -not -path "./__pycache__/*" -not -path "./.*" -not -path "./.tox/*" -not -path "./.pytest_cache/*" -not -path "./build/*" -not -path "./dist/*" -not -path "./.eggs/*" | head -200`)
+  // BACK-206 FIX: Exclude evaluation/ test files and remove redundant ./.* exclusion
+  const pyFilesRaw = Bash(`find . -name "*.py" -not -path "./.venv/*" -not -path "./__pycache__/*" -not -path "./.tox/*" -not -path "./.pytest_cache/*" -not -path "./build/*" -not -path "./dist/*" -not -path "./.eggs/*" -not -path "./evaluation/*" -not -name "test_*.py" -not -name "*_test.py" | head -200`)
     .stdout.trim().split('\n').filter(f => f.length > 0)
 
   // SEC: Filter file paths through SAFE_PATH_PATTERN_CC before passing to heredoc.
@@ -383,6 +391,9 @@ if (!pythonCheck) {
     evaluatorMetricsSection = `\n## EVALUATOR QUALITY METRICS\n\n**Status**: SKIP\n**Reason**: No Python files found\n`
   } else {
     // 1. Docstring coverage + 2. Function length audit (combined single-pass)
+    // SEC-002 FIX: Write file list to temp file instead of heredoc to prevent shell interpretation
+    const pyFileListPath = `/tmp/rune-pyfiles-${Date.now()}.txt`
+    Write(pyFileListPath, pyFiles.join('\n'))
     const astResult = Bash(`python3 -c "
 import ast, sys
 from pathlib import Path
@@ -404,7 +415,8 @@ for f in sys.stdin.read().strip().split('\\n'):
                 long_fns.append(f'{f}:{n.lineno} {n.name} ({n.end_lineno - n.lineno} lines)')
 print(f'{with_doc}/{total}/{long_count}/{skipped}')
 for fn in long_fns[:10]: print(fn)
-" <<< "${pyFiles.join('\\n')}"`)
+" < "${pyFileListPath}"`)
+    Bash(`rm -f "${pyFileListPath}"`)  // cleanup temp file
     const parts = astResult.stdout.trim().split('\n')
     const [withDoc, totalDefs, longCount, skippedFiles] = parts[0].split('/').map(Number)
     const longFunctions = parts.slice(1)
@@ -417,18 +429,29 @@ for fn in long_fns[:10]: print(fn)
     // 3. Evaluation test pass rate
     let evalStatus = "SKIP"
     let evalDetail = "No evaluation/ directory"
-    const evalExists = Bash(`find evaluation -maxdepth 1 -name "*.py" -type f 2>/dev/null | wc -l`).stdout.trim()
+    // SEC-005 FIX: Guard against symlink traversal on evaluation/ path
+    const evalIsSymlink = Bash(`test -L evaluation && echo "yes" || echo "no"`).stdout.trim()
+    if (evalIsSymlink === "yes") {
+      evalDetail = "evaluation/ is a symlink — skipped for safety"
+    }
+    const evalExists = evalIsSymlink !== "yes"
+      ? Bash(`find evaluation -maxdepth 1 -name "*.py" -type f 2>/dev/null | wc -l`).stdout.trim()
+      : "0"
     if (parseInt(evalExists) > 0) {
-      const evalResult = Bash(`timeout 30s python -m pytest evaluation/ -v --tb=line 2>&1 | tail -20`)
-      const output = evalResult.stdout.trim()
+      // BACK-202 FIX: Capture exit code before piping to avoid tail masking pytest status
+      const evalResult = Bash(`timeout 30s python -m pytest evaluation/ -v --tb=line 2>&1 > /tmp/rune-eval-out.txt; echo $?`)
+      const evalRc = parseInt(evalResult.stdout.trim())
+      const evalOutput = Bash(`tail -20 /tmp/rune-eval-out.txt`).stdout.trim()
+      Bash(`rm -f /tmp/rune-eval-out.txt`)
+      const output = evalOutput
       // Parse pass/fail counts from pytest summary
       const summaryMatch = output.match(/(\d+) passed(?:, (\d+) failed)?/)
       const passed = summaryMatch ? parseInt(summaryMatch[1]) : 0
       const failed = summaryMatch ? parseInt(summaryMatch[2] || '0') : 0
-      if (evalResult.returncode === 0) {
+      if (evalRc === 0) {
         evalStatus = "PASS"
         evalDetail = summaryMatch ? `${passed} passed` : "all tests passed"
-      } else if (evalResult.returncode === 5) {
+      } else if (evalRc === 5) {
         evalStatus = "SKIP"
         evalDetail = "No tests collected (exit code 5)"
       } else {

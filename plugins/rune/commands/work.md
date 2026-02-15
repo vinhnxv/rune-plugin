@@ -158,6 +158,21 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: "rune-work-{timestamp}" })
 
+// 1.5. Phase 2 BRIDGE: Create signal directory for event-driven sync (cf. review.md step 6.5, audit.md step 6.5)
+const signalDir = `tmp/.rune-signals/rune-work-${timestamp}`
+Bash(`mkdir -p "${signalDir}" && find "${signalDir}" -mindepth 1 -delete`)
+// NOTE: .expected counts tasks (not teammates). In work, N tasks > N teammates. Review/audit have 1:1 task:teammate ratio.
+Write(`${signalDir}/.expected`, String(extractedTasks.length))
+Write(`${signalDir}/inscription.json`, JSON.stringify({
+  workflow: "rune-work",
+  timestamp: timestamp,
+  output_dir: `tmp/work/${timestamp}/`,
+  teammates: [
+    { name: "rune-smith", output_file: "work-summary.md" },
+    { name: "trial-forger", output_file: "work-summary.md" }
+  ]
+}))
+
 // 2. Create output directories
 Bash(`mkdir -p "tmp/work/${timestamp}/patches" "tmp/work/${timestamp}/proposals"`)
 
@@ -410,16 +425,24 @@ function commitBroker(taskId) {
   // Without this, git commit records ALL currently staged changes (including pre-staged
   // unrelated files from the user's working tree), not just this task's files.
   // Use git reset HEAD to unstage everything, then stage only task-specific files.
-  Bash(`git reset HEAD -- . 2>/dev/null`)
+  Bash(`git reset HEAD -- . 2>/dev/null`)  // exit code intentionally ignored (reset is best-effort)
 
   // SEC-011: Use --pathspec-from-file to avoid shell command construction
   Write(`tmp/work/${timestamp}/patches/${taskId}-files.txt`,
     meta.files.join('\n'))
-  Bash(`git add --pathspec-from-file="tmp/work/${timestamp}/patches/${taskId}-files.txt"`)
+  const addResult = Bash(`git add --pathspec-from-file="tmp/work/${timestamp}/patches/${taskId}-files.txt"`)
+  if (addResult.exitCode !== 0) {
+    warn(`git add failed for task ${taskId}: ${addResult.stderr}`)
+    return
+  }
   const safeSubject = meta.subject.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 72)
   Write(`tmp/work/${timestamp}/patches/${taskId}-msg.txt`,
     `rune: ${safeSubject} [ward-checked]`)
-  Bash(`git commit -F "tmp/work/${timestamp}/patches/${taskId}-msg.txt"`)
+  const commitResult = Bash(`git commit -F "tmp/work/${timestamp}/patches/${taskId}-msg.txt"`)
+  if (commitResult.exitCode !== 0) {
+    warn(`git commit failed for task ${taskId}: ${commitResult.stderr}`)
+    return  // Skip SHA recording — do not map wrong SHA
+  }
 
   // 7. Record commit SHA
   const sha = Bash("git rev-parse HEAD").trim()
