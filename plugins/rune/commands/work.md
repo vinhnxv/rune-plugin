@@ -204,17 +204,25 @@ for (let i = 0; i < extractedTasks.length; i++) {
   }
 }
 // Also check directory containment: if taskA owns "src/api/" and taskB targets
-// "src/api/users.ts", flag conflict (startsWith check for nested paths)
+// "src/api/users.ts", flag conflict (startsWith check for nested paths).
+// NOTE: This is O(n^2) where n = number of unique target entries. The trailing "/"
+// on directory entries (a.endsWith("/")) is required for containment to match —
+// without it, "src/api" would match "src/api-docs/foo.ts" incorrectly.
 const allTargetEntries = Object.keys(ownershipMap)
-for (let i = 0; i < allTargetEntries.length; i++) {
-  for (let j = 0; j < allTargetEntries.length; j++) {
-    if (i === j) continue
-    const a = allTargetEntries[i], b = allTargetEntries[j]
-    // If b is a subdirectory/file within a's directory path
-    if (b.startsWith(a) && a.endsWith("/")) {
-      for (const idx of ownershipMap[b]) {
-        if (!ownershipMap[a].includes(idx)) {
-          ownershipMap[a].push(idx)
+// SEC-006: Cap to avoid excessive computation on adversarially large target sets
+if (allTargetEntries.length > 200) {
+  warn(`File ownership containment check skipped: ${allTargetEntries.length} targets exceeds cap of 200`)
+} else {
+  for (let i = 0; i < allTargetEntries.length; i++) {
+    for (let j = 0; j < allTargetEntries.length; j++) {
+      if (i === j) continue
+      const a = allTargetEntries[i], b = allTargetEntries[j]
+      // If b is a subdirectory/file within a's directory path
+      if (b.startsWith(a) && a.endsWith("/")) {
+        for (const idx of ownershipMap[b]) {
+          if (!ownershipMap[a].includes(idx)) {
+            ownershipMap[a].push(idx)
+          }
         }
       }
     }

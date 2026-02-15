@@ -116,6 +116,14 @@ Structured anti-patterns for multi-agent orchestration. Each Standing Order uses
 | 2 | Security-sensitive files modified without lead review | Changed files match Tier 2-3 path patterns |
 | 3 | No rollback plan for infrastructure changes | Task description lacks rollback steps |
 
+### Decision Table
+| Condition | Action |
+|-----------|--------|
+| No risk_tier in any task metadata | Halt and classify all tasks before proceeding |
+| Some tasks classified, some not | Classify remaining — do not start unclassified tasks |
+| Plan metadata overrides tier | Accept override if explicitly set by user, log reason |
+| Task already in_progress without tier | Recall, classify, reassign |
+
 ### Remedy Procedure
 1. **Pause** task execution until risk tier is assigned
 2. **Classify** using the 4-question decision tree in `risk-tiers.md`. See the Graduated Verification Matrix for per-tier requirements.

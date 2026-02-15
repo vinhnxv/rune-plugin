@@ -110,15 +110,18 @@ If user chooses to clarify: ask specific questions one at a time (max 3), then a
 After extracting tasks, classify each task's risk tier using the deterministic decision tree from `risk-tiers.md`. This MUST happen before task creation.
 
 ```javascript
-// SYNC: risk-tier-paths — update both this function AND risk-tiers.md File-Path Fallback Heuristic table
+// SYNC: risk-tier-paths — update file regex below AND risk-tiers.md File-Path Fallback Heuristic table.
+// Description keywords are intentionally broader than the decision tree (conservative over-classification).
 function classifyRiskTier(task) {
   const desc = (task.subject + " " + task.description).toLowerCase()
   const files = task.fileTargets || []
 
   // Q1: Auth/security/encryption/credentials?
   // Conservative: over-classifies to higher tier. Manual override via plan metadata if needed.
+  // NOTE: "token" is intentionally broad — it over-matches pagination tokens, lexer tokens, etc.
+  // This is acceptable: conservative over-classification is safer than missing a secret token.
   if (/\b(auth|security|encrypt|credential|secret|token|password|oauth|jwt)\b/.test(desc)
-      || files.some(f => /(auth|security|crypto|credentials)/.test(f))) {
+      || files.some(f => /(auth|security|crypto|credentials|session|token|keys|secrets|signing)/.test(f))) {
     return { tier: 3, name: "Elden" }
   }
   // Q2: DB schemas/migrations/CI-CD/infrastructure?
@@ -128,6 +131,8 @@ function classifyRiskTier(task) {
     return { tier: 2, name: "Rune" }
   }
   // Q3: User-facing behavior (API/UI/validation/errors)?
+  // NOTE: "request" and "response" are known broad matches (conservative over-classification).
+  // Internal HTTP utility code may be classified as Tier 1 — acceptable for safety.
   if (/\b(api|route|endpoint|component|view|ui|validation|response|request)\b/.test(desc)
       || files.some(f => /(api|routes|components|views)/.test(f))) {
     return { tier: 1, name: "Ember" }
@@ -164,14 +169,21 @@ function extractFileTargets(task) {
     /^v?\d+\.\d+/.test(p) ||                     // version strings
     /^(e\.g|i\.e|etc|vs|ca|approx)\./i.test(p) || // common abbreviations
     /^https?:/.test(p) ||                          // URLs
-    /\.\./.test(p)                                 // path traversal (..) — reject any path with parent refs
+    /\.\./.test(p) ||                              // path traversal (..) — reject any path with parent refs
+    /(^|\/)(\.env|credentials|secrets|\.ssh|\.gnupg|\.aws\/credentials)(\b|$)/.test(p) // SEC-005: reject sensitive/hidden file paths
   for (const f of files) {
     if (falsePositiveFilter(f)) files.delete(f)
   }
   // Directory-level ownership as fallback
   const dirs = new Set()
   for (const match of desc.matchAll(dirPattern)) {
-    dirs.add(match[1])
+    const dir = match[1]
+    // Apply same false-positive filter as files (path traversal, versions, URLs)
+    if (falsePositiveFilter(dir)) continue
+    // Require at least one internal path separator to avoid mid-line false matches
+    // like "CI/CD" -> "CI/" or "input/output" -> "input/"
+    if (dir.split('/').filter(Boolean).length < 2) continue
+    dirs.add(dir)
   }
   return { files: [...files], dirs: [...dirs] }
 }

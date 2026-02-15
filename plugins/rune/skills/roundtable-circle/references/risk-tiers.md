@@ -9,14 +9,14 @@ Deterministic risk classification for `/rune:work` tasks. Every task MUST be ass
 | 0 | Grace | Safe | Comments, renames, formatting, tests, docs |
 | 1 | Ember | User-visible | API responses, UI components, validation logic |
 | 2 | Rune | Infrastructure | DB schemas, CI/CD, migrations, deploy configs |
-| 3 | Elden | Irreversible | Auth logic, encryption, credentials, data deletion. Includes: auth, security, encryption, credentials, data deletion |
+| 3 | Elden | Irreversible | Auth logic, encryption, credentials, data deletion |
 
 ## Decision Tree
 
 Evaluate questions in order. First YES determines the tier.
 
 ```
-Q1: Does the task modify auth, security, encryption, or credentials?
+Q1: Does the task modify auth, security, encryption, credentials, or data deletion?
     YES --> TIER 3 (Elden)
 
 Q2: Does the task modify DB schemas, migrations, CI/CD, or infrastructure?
@@ -31,6 +31,7 @@ Q4: Is the task purely internal (rename, comments, formatting, tests, docs)?
 ```
 
 ## File-Path Fallback Heuristic
+<!-- SYNC: risk-tier-paths — update both this table AND classifyRiskTier() in commands/work/references/parse-plan.md -->
 
 When task descriptions are ambiguous, use file paths to determine the default tier:
 
@@ -78,7 +79,7 @@ TaskCreate({
     risk_tier: 1,
     tier_name: "Ember",
     file_targets: ["src/api/users.ts", "src/validators/user.ts"],
-    verification: ["ward check", "self-review"]  // optional — not set by default orchestrator
+    // Add verification field when consuming code exists
   }
 })
 ```

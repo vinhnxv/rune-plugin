@@ -84,7 +84,7 @@ Six named recovery procedures for Agent Team failures. Each follows ASSESS → C
 | Step | Action |
 |------|--------|
 | ASSESS | Check TaskList for agent's task; read last output |
-| CONTAIN | Send warning message; wait 60s for response |
+| CONTAIN | Monitor logs warning at `staleWarnMs` (default: 5 min). Auto-release occurs at `autoReleaseMs` (default: 10 min). No intermediate manual message step. |
 | RECOVER | Auto-release task (owner→null, status→pending); another worker claims it |
 | VERIFY | Confirm re-claimed and progressing within 2 min |
 | REPORT | Log stale agent name, task ID, time elapsed |
@@ -111,7 +111,7 @@ Six named recovery procedures for Agent Team failures. Each follows ASSESS → C
 |------|--------|
 | ASSESS | Read `~/.claude/teams/{name}/config.json` — discover all members |
 | CONTAIN | `shutdown_request` to each member; wait 30s |
-| RECOVER | Retry TeamDelete. Fallback: `rm -rf ~/.claude/teams/{name}/ ~/.claude/tasks/{name}/` |
+| RECOVER | Retry TeamDelete. Fallback: `rm -rf ~/.claude/teams/{name}/ ~/.claude/tasks/{name}/` — **PRECONDITION**: Validate team name matches `/^[a-zA-Z0-9_-]+$/` AND does not contain `..` before executing rm -rf. Abort recovery if validation fails. |
 | VERIFY | Team dir gone; TeamCreate succeeds for next workflow |
 | REPORT | Log phantom team name and cleanup method |
 
@@ -137,13 +137,13 @@ Six named recovery procedures for Agent Team failures. Each follows ASSESS → C
 |------|--------|
 | ASSESS | Check `~/.claude/teams/` — identify which workflow owns each team |
 | CONTAIN | Refuse new workflow; warn user about active workflow |
-| RECOVER | Wait for active workflow, or cancel first (`/rune:cancel-*`) |
+| RECOVER | Wait for active workflow, or cancel first (`/rune:cancel-review`, `/rune:cancel-audit`, `/rune:cancel-arc`). For work/mend/plan/forge, use manual `TeamDelete` cleanup. |
 | VERIFY | No team directories remain before starting new workflow |
 | REPORT | Log which workflows conflicted and resolution |
 
 **Escalation**: L0 pre-create guard detects → L1 auto-refuse with message → L2 not applicable — concurrent workflows cannot degrade gracefully, only prevented or user-resolved → L3 ask user to choose (wait/cancel/force)
 **Decision**: Prevent, not fix. Never auto-cancel a running workflow.
-**Refs**: SO-2 (Shattered Rune) · Team lifecycle guard · Cancel commands
+**Refs**: SO-2 (Shattered Rune) · Team lifecycle guard · Cancel commands (`cancel-review`, `cancel-audit`, `cancel-arc`)
 
 ---
 
