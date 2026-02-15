@@ -42,6 +42,17 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 6. Agent output goes to `tmp/` files (ephemeral). Echoes go to `.claude/echoes/` (persistent).
 7. `/rune:*` namespace — coexists with other plugins without conflicts.
 
+## Hook Infrastructure
+
+Rune uses two Claude Code hooks for event-driven agent synchronization (Phase 2 BRIDGE — see CHANGELOG.md v1.23.0 and monitor-utility.md for details):
+
+| Hook | Script | Purpose |
+|------|--------|---------|
+| `TaskCompleted` | `scripts/on-task-completed.sh` | Writes signal files to `tmp/.rune-signals/{team}/` when Ashes complete tasks. Enables 5-second filesystem-based completion detection instead of 30-second `TaskList()` polling. |
+| `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
+
+Both hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 with a warning and the monitor falls back to polling automatically. Hook configuration lives in `hooks/hooks.json`.
+
 ## References
 
 - [Agent registry](references/agent-registry.md) — 16 review + 5 research + 2 work + 7 utility agents

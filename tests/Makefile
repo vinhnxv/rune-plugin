@@ -68,12 +68,12 @@ help: ## Show this help
 
 # ── Layer 1: Unit Tests ──────────────────────────────────────
 test: ## Run all unit tests
-	$(PYTEST) test_checkpoint.py test_tome.py test_report.py -v
+	$(PYTEST) test_checkpoint.py test_tome.py test_report.py test_hooks.py -v
 
 unit: test ## Alias for test
 
 lint: ## Run ruff linter on harness code
-	$(RUFF) check helpers/ test_checkpoint.py test_tome.py test_report.py run_harness.py conftest.py
+	$(RUFF) check helpers/ test_checkpoint.py test_tome.py test_report.py test_hooks.py run_harness.py conftest.py
 
 typecheck: ## Run mypy type checks
 	$(MYPY) helpers/ run_harness.py conftest.py --ignore-missing-imports --no-error-summary

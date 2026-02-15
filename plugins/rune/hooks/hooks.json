@@ -1,0 +1,29 @@
+{
+  "description": "Rune plugin hooks for event-driven agent synchronization and quality gates. Hooks fire for all events; filtering is done in-script via rune-*/arc-* prefix guards.",
+  "hooks": {
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on-task-completed.sh",
+            "timeout": 10,
+            "statusMessage": "Recording task completion signal..."
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on-teammate-idle.sh",
+            "timeout": 15,
+            "statusMessage": "Checking teammate work quality..."
+          }
+        ]
+      }
+    ]
+  }
+}
