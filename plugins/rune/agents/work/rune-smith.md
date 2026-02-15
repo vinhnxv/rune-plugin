@@ -90,6 +90,8 @@ If you notice yourself:
 
 ...you are experiencing context rot. Immediately apply **Aggressive** reset regardless of task count.
 
+**Tarnished monitoring**: The Tarnished should also track confidence scores across your Seal messages. If the Tarnished observes confidence < 70 for 2 consecutive Seals, it should instruct you to apply Aggressive reset — do not rely solely on self-detection.
+
 **Why**: In long `/rune:work` sessions (4+ tasks), conversation history grows until context overflow (DC-1 Glyph Flood). Adaptive reset sheds context proportionally — light early, aggressive late — instead of one-size-fits-all.
 
 ## Ward Check (Quality Gates)
