@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.21.1] - 2026-02-15
+
+### Security
+
+- **fix(security)**: Eliminate `$()` command substitution in talisman `verification_patterns` interpolation. All consumer sites now use `safeRgMatch()` (`rg -f`) instead of double-quoted Bash interpolation. Affects ward-check.md, verification-gate.md, and plan-review.md pseudocode. Added `safeRgMatch()` helper to security-patterns.md. Updated SAFE_REGEX_PATTERN threat model from "Accepted Risk" to "Mitigated".
+
 ## [1.20.0] - 2026-02-15
 
 ### Changed

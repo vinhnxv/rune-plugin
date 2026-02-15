@@ -42,7 +42,7 @@ const customPatterns = talisman?.plan?.verification_patterns || []
 const currentPhase = "plan"
 // Validate each field against safe character set before shell interpolation
 // Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN -- see security-patterns.md
-// Also in: work.md, mend.md, arc.md. Canonical source: security-patterns.md
+// SEC-FIX: Pattern interpolation uses safeRgMatch() (rg -f) to prevent $() command substitution
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -57,7 +57,7 @@ for (const pattern of customPatterns) {
     continue
   }
   // Timeout prevents ReDoS
-  const result = Bash(`timeout 5 rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
+  const result = safeRgMatch(pattern.regex, pattern.paths, { exclusions: pattern.exclusions, timeout: 5 })
   if (pattern.expect_zero && result.stdout.trim().length > 0) {
     warn(`Stale reference: ${pattern.description}`)
   }

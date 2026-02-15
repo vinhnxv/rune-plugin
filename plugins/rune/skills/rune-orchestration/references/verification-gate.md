@@ -59,9 +59,9 @@ for (const pattern of customPatterns) {
     warn(`Skipping pattern "${pattern.description}": unsafe characters`)
     continue
   }
-  // SEC-001: Use -- separator to prevent flag injection. For patterns containing $,
-  // prefer rg -f <file> approach to avoid shell interpolation entirely.
-  const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
+  // SEC-FIX: Pattern interpolation uses safeRgMatch() (rg -f) to prevent $() command substitution.
+  // See security-patterns.md for safeRgMatch() implementation.
+  const result = safeRgMatch(pattern.regex, pattern.paths, { exclusions: pattern.exclusions })
   if (pattern.expect_zero && result.stdout.trim().length > 0) {
     issues.push(`Stale reference: ${pattern.description}`)
   }
