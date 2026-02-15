@@ -104,8 +104,14 @@ fi
 FULL_OUTPUT_PATH="${CWD}/${OUTPUT_DIR}${EXPECTED_OUTPUT}"
 
 # SEC-004: Canonicalize and verify output path stays within output_dir
-RESOLVED_OUTPUT=$(realpath -m "$FULL_OUTPUT_PATH" 2>/dev/null) || exit 0
-RESOLVED_OUTDIR=$(realpath -m "${CWD}/${OUTPUT_DIR}" 2>/dev/null) || exit 0
+# Use grealpath -m (GNU coreutils on macOS) or realpath -m (Linux), with
+# shell-based fallback for environments where neither is available.
+# The fallback is safe because .. is already rejected above (lines 72, 92).
+resolve_path() {
+  grealpath -m "$1" 2>/dev/null || realpath -m "$1" 2>/dev/null || echo "$1"
+}
+RESOLVED_OUTPUT=$(resolve_path "$FULL_OUTPUT_PATH")
+RESOLVED_OUTDIR=$(resolve_path "${CWD}/${OUTPUT_DIR}")
 if [[ "$RESOLVED_OUTPUT" != "$RESOLVED_OUTDIR"* ]]; then
   echo "ERROR: output_file resolves outside output_dir" >&2
   exit 0
