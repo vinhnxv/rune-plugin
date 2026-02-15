@@ -102,7 +102,34 @@ for (const cmdFile of commandFiles) {
   }
 }
 
-// 8. Write verification report
+// 8. Plan freshness re-check (Layer 2 — post-forge references)
+// Only runs if pre-flight freshness was checked and plan has git_sha
+// Security pattern: SAFE_SHA_PATTERN — see security-patterns.md
+const SAFE_SHA_PATTERN = /^[0-9a-f]{7,40}$/
+// Security pattern: SAFE_FILE_PATH — see security-patterns.md
+if (checkpoint?.freshness?.git_sha
+    && checkpoint.freshness.sha_reachable
+    && SAFE_SHA_PATTERN.test(checkpoint.freshness.git_sha)
+    && talisman?.plan?.freshness?.enabled !== false) {
+  const enrichedRefs = extractFileReferences(Read(enrichedPlanPath))
+    .filter(fp => SAFE_FILE_PATH.test(fp) && !fp.includes('..') && !fp.startsWith('/'))
+  const originalPlanRefs = extractFileReferences(Read(checkpoint.plan_file))
+    .filter(fp => SAFE_FILE_PATH.test(fp) && !fp.includes('..') && !fp.startsWith('/'))
+  const newRefs = enrichedRefs.filter(fp => !originalPlanRefs.includes(fp))
+  if (newRefs.length > 0) {
+    const sha = checkpoint.freshness.git_sha
+    let newDriftCount = 0
+    for (const fp of newRefs) {
+      const diff = Bash(`git diff --name-only "${sha}..HEAD" -- "${fp}" 2>/dev/null`)
+      if (diff.stdout.trim().length > 0) newDriftCount++
+    }
+    if (newDriftCount > 0) {
+      issues.push(`Freshness: ${newDriftCount}/${newRefs.length} forge-expanded file references modified since plan creation`)
+    }
+  }
+}
+
+// 9. Write verification report
 const verificationReport = `# Verification Gate Report\n\n` +
   `Status: ${issues.length === 0 ? "PASS" : "WARN"}\n` +
   `Issues: ${issues.length}\n` +

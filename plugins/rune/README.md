@@ -31,6 +31,7 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
+/rune:arc plans/my-plan.md --skip-freshness       # Bypass plan freshness check
 /rune:arc plans/my-plan.md --resume               # Resume from checkpoint
 
 # Plan a feature (brainstorm + research + forge + review by default)
@@ -88,7 +89,7 @@ When you run `/rune:arc`, Rune chains 10 phases into one automated pipeline:
 1. **FORGE** — Research agents enrich the plan with best practices, codebase patterns, and past echoes
 2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
 2.5. **PLAN REFINEMENT** — Extracts CONCERN verdicts into concern-context.md for worker awareness (orchestrator-only)
-2.7. **VERIFICATION GATE** — Deterministic checks (file refs, headings, acceptance criteria) with zero LLM cost
+2.7. **VERIFICATION GATE** — Deterministic checks (file refs, headings, acceptance criteria, plan freshness) with zero LLM cost. Freshness gate detects structural drift since plan creation via 5-signal composite score (commit distance, file drift, identifier loss, branch divergence, time decay). Use `--skip-freshness` to bypass.
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
 5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code + doc-consistency via talisman verification_patterns (zero LLM cost, advisory)
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings

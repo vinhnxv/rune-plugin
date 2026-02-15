@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.26.0] - 2026-02-16
+
+Feature release: Plan Freshness Gate — structural drift detection prevents stale plan execution.
+
+### Added
+
+- **Plan Freshness Gate** — zero-LLM-cost pre-flight check in `/rune:arc` detects when a plan's source codebase has drifted since plan creation. Composite Structural Diff Score (5 weighted signals: commit distance, file drift, identifier loss, branch divergence, time decay) produces a freshness score (0.0–1.0). PASS/WARN/STALE thresholds with user override
+- **Enhanced Verification Gate** — check #9 re-checks file drift on forge-expanded references post-enrichment
+- **Plan metadata** — `/rune:plan` now writes `git_sha` and `branch` to plan YAML frontmatter for freshness tracking
+- **`--skip-freshness` flag** — bypass freshness check for `/rune:arc` when plan is intentionally ahead of codebase
+- **`plan.freshness` talisman config** — configurable thresholds (`warn_threshold`, `block_threshold`, `max_commit_distance`, `enabled`)
+- **SAFE_SHA_PATTERN** — new security pattern for git SHA validation in `security-patterns.md`
+- **Checkpoint schema v5** — adds `freshness` field and `skip_freshness` flag with v4→v5 auto-migration
+
+### Changed
+
+- plugin.json: version 1.25.1 → 1.26.0
+- marketplace.json: version 1.25.1 → 1.26.0
+- verification-gate.md: 8 checks → 9 checks (added freshness re-check)
+- arc.md: 3 flags → 4 flags (added `--skip-freshness`)
+
 ## [1.25.0] - 2026-02-16
 
 Feature release: Agent Intelligence Quick Wins — four interconnected intelligence improvements forming a feedback loop.

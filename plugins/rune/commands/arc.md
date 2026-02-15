@@ -50,6 +50,7 @@ Chains ten phases into a single automated pipeline: forge, plan review, plan ref
 /rune:arc <plan_file.md> --approve    # Require human approval for work tasks
 /rune:arc --resume                    # Resume from last checkpoint
 /rune:arc --resume --no-forge         # Resume, skipping forge on retry
+/rune:arc <plan_file.md> --skip-freshness   # Skip freshness validation
 ```
 
 ## Flags
@@ -59,6 +60,7 @@ Chains ten phases into a single automated pipeline: forge, plan review, plan ref
 | `--no-forge` | Skip Phase 1 (research enrichment), use plan as-is | Off |
 | `--approve` | Require human approval for each work task (Phase 5 only) | Off |
 | `--resume` | Resume from last checkpoint. Plan path auto-detected from checkpoint | Off |
+| `--skip-freshness` | Skip plan freshness check (bypass stale-plan detection) | Off |
 
 ## Pipeline Overview
 
@@ -222,6 +224,240 @@ if (planFile.startsWith('/')) {
 }
 ```
 
+### Plan Freshness Check
+
+Detect when a plan was written against a significantly different codebase state. Zero-LLM-cost, orchestrator-only. Runs after "Validate Plan Path" and before "Total Pipeline Timeout Check".
+
+**Inputs**: `planFile` (validated path), talisman config (optional `plan.freshness.*`)
+**Outputs**: `freshnessResult` object stored in checkpoint
+**Error handling**: Plan without `git_sha` → skip check (backward compat). Invalid SHA → skip with warning. SHA unreachable → max commit distance.
+
+```javascript
+// Security pattern: SAFE_SHA_PATTERN — see security-patterns.md
+const SAFE_SHA_PATTERN = /^[0-9a-f]{7,40}$/
+
+const planContent = Read(planFile)
+const frontmatter = extractYamlFrontmatter(planContent)
+// extractYamlFrontmatter: parses YAML between --- delimiters. Returns object or null on parse error.
+const planSha = frontmatter?.git_sha
+const planBranch = frontmatter?.branch
+const planDate = frontmatter?.date
+
+// G1: Backward compatibility — plans without git_sha skip the check
+if (!planSha) {
+  log("Plan predates freshness gate — skipping check")
+  // freshnessResult = null — proceed to Initialize Checkpoint
+}
+
+// E8: Validate SHA format before any git command
+if (planSha && !SAFE_SHA_PATTERN.test(planSha)) {
+  warn(`Invalid git_sha format in plan: ${planSha.slice(0, 20)}`)
+  // Treat as missing — skip freshness check
+}
+
+if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
+  // Overall 10-second deadline for entire freshness check
+  const freshnessDeadline = Date.now() + 10_000
+  const checkBudget = () => Date.now() > freshnessDeadline
+  // clamp: returns value bounded to [min, max]. If NaN, returns min.
+  const clamp = (v, min, max) => !Number.isFinite(v) ? min : Math.min(Math.max(v, min), max)
+
+  // Read talisman thresholds (G8: with validation and defaults)
+  // readTalisman: reads .claude/talisman.yml. Returns parsed YAML or {} on error.
+  const talisman = readTalisman()
+  const config = {
+    warn_threshold:       clamp(talisman?.plan?.freshness?.warn_threshold ?? 0.7, 0.01, 1.0),
+    block_threshold:      clamp(talisman?.plan?.freshness?.block_threshold ?? 0.4, 0.0, 0.99),
+    max_commit_distance:  Math.max(talisman?.plan?.freshness?.max_commit_distance ?? 100, 1),
+    enabled:              talisman?.plan?.freshness?.enabled ?? true
+  }
+  // G8: Ensure block < warn (swap if inverted)
+  if (config.block_threshold >= config.warn_threshold) {
+    warn("Talisman: block_threshold >= warn_threshold — swapping")
+    ;[config.warn_threshold, config.block_threshold] = [config.block_threshold, config.warn_threshold]
+  }
+
+  // --skip-freshness flag check (E9)
+  if (!config.enabled || skipFreshnessFlag) {
+    log("Freshness check disabled — skipping")
+    // Proceed to Initialize Checkpoint
+  }
+
+  // G2: Verify SHA exists in git history
+  const shaExists = Bash(`git cat-file -t "${planSha}" 2>/dev/null`)
+  const shaReachable = shaExists.stdout.trim() === "commit"
+
+  // ── Signal 1: Commit Distance (weight 0.25) ──
+  let commitDistance = 0
+  if (checkBudget()) { /* budget exhausted — use defaults */ }
+  else if (shaReachable) {
+    const timeoutMs = Math.max(100, freshnessDeadline - Date.now())
+    const countResult = Bash(`git rev-list --count "${planSha}..HEAD" 2>/dev/null`, { timeout: Math.min(5000, timeoutMs) })
+    commitDistance = countResult.exitCode === 0
+      ? parseInt(countResult.stdout.trim(), 10) || 0
+      : config.max_commit_distance  // E3: shallow clone fallback
+  } else {
+    commitDistance = config.max_commit_distance  // G2: unreachable SHA
+    warn(`Plan source commit ${planSha.slice(0,8)} not found in git history`)
+  }
+  const commitSignal = clamp(commitDistance / config.max_commit_distance, 0, 1)
+
+  // ── Signal 2: File Drift Ratio (weight 0.35) ──
+  // Security pattern: SAFE_FILE_PATH — see security-patterns.md
+  const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
+  // extractFileReferences: extracts file paths from markdown (backtick paths, links). Returns string[].
+  const referencedFiles = extractFileReferences(planContent)
+    .filter(fp => SAFE_FILE_PATH.test(fp) && !fp.includes('..') && !fp.startsWith('/'))
+  let fileDriftSignal = 0
+  let driftCount = 0
+  if (!checkBudget() && referencedFiles.length > 0 && shaReachable) {
+    const diffResult = Bash(`git diff --name-status "${planSha}..HEAD" 2>/dev/null`)
+    const changedFiles = new Set()
+    const renameMap = {}
+    for (const line of diffResult.stdout.trim().split('\n')) {
+      const [tstat, ...paths] = line.split('\t')
+      if (tstat?.startsWith('R') && paths.length >= 2) {
+        // Pure renames (R100) still count as drift — file path changed
+        renameMap[paths[0]] = paths[1]
+        changedFiles.add(paths[0])
+      } else if (tstat === 'M' || tstat === 'A' || tstat === 'D') {
+        changedFiles.add(paths[0])
+      }
+    }
+    for (const fp of referencedFiles) {
+      if (renameMap[fp] || changedFiles.has(fp)) driftCount++
+    }
+    fileDriftSignal = clamp(driftCount / referencedFiles.length, 0, 1)
+  }
+
+  // ── Signal 3: Identifier Loss (weight 0.25) ──
+  const identifierRegex = /`([a-zA-Z_][a-zA-Z0-9_.]{2,})`/g
+  const STOPWORDS = new Set(['null', 'true', 'false', 'error', 'string', 'number',
+    'object', 'function', 'const', 'return', 'import', 'export', 'undefined', 'Promise'])
+  const identifiers = [...new Set([...planContent.matchAll(identifierRegex)].map(m => m[1]))]
+    .filter(id => !STOPWORDS.has(id) && !id.includes(' ') && id.length <= 100)
+    .slice(0, 20)  // Reduced from 30 for 10s budget safety
+
+  let identifierLossSignal = 0
+  let lostCount = 0
+  const rgAvailable = Bash('command -v rg 2>/dev/null').exitCode === 0
+  if (!checkBudget() && identifiers.length > 0 && rgAvailable) {
+    const batchSize = 10
+    for (let i = 0; i < identifiers.length; i += batchSize) {
+      if (checkBudget()) { identifierLossSignal = 0.5; break }
+      const batch = identifiers.slice(i, i + batchSize)
+      const pattern = batch.map(id => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+      const timeoutMs = Math.max(100, freshnessDeadline - Date.now())
+      const grepResult = Bash(`rg -l --max-count 1 "${pattern}" 2>/dev/null | head -1`, { timeout: Math.min(3000, timeoutMs) })
+      if (grepResult.timedOut) { identifierLossSignal = 0.5; break }
+      if (grepResult.stdout.trim().length === 0) {
+        lostCount += batch.length
+      } else {
+        for (const id of batch) {
+          if (checkBudget()) break
+          const singleResult = Bash(`rg -l --max-count 1 "${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" 2>/dev/null | head -1`, { timeout: 1000 })
+          if (singleResult.timedOut || singleResult.stdout.trim().length === 0) lostCount++
+        }
+      }
+    }
+    if (identifierLossSignal !== 0.5) identifierLossSignal = clamp(lostCount / identifiers.length, 0, 1)
+  }
+
+  // ── Signal 4: Branch Divergence (weight 0.10) ──
+  const currentBranch = Bash('git branch --show-current 2>/dev/null').stdout.trim() || null
+  let branchSignal = 0
+  if (planBranch && currentBranch && planBranch !== currentBranch) {
+    branchSignal = 0.5
+  }
+
+  // ── Signal 5: Time Decay (weight 0.05) ──
+  let timeSignal = 0
+  if (shaReachable) {
+    const commitTime = Bash(`git show -s --format=%ct "${planSha}" 2>/dev/null`)
+    const commitEpoch = parseInt(commitTime.stdout.trim(), 10) || 0
+    if (!isNaN(commitEpoch) && commitEpoch > 0) {
+      const daysSince = (Date.now() / 1000 - commitEpoch) / 86400
+      if (daysSince > 90) timeSignal = 1.0
+      else if (daysSince > 60) timeSignal = 0.6
+      else if (daysSince > 30) timeSignal = 0.3
+    }
+  } else if (planDate) {
+    const planEpoch = new Date(planDate).getTime() / 1000
+    if (!isNaN(planEpoch)) {
+      const daysSince = (Date.now() / 1000 - planEpoch) / 86400
+      if (daysSince > 90) timeSignal = 1.0
+      else if (daysSince > 60) timeSignal = 0.6
+      else if (daysSince > 30) timeSignal = 0.3
+    } else {
+      timeSignal = 0.5  // Malformed date — neutral fallback
+    }
+  }
+
+  // ── Composite Score ──
+  const weights = { commit_distance: 0.25, file_drift: 0.35, identifier_loss: 0.25, branch_divergence: 0.10, time_decay: 0.05 }
+  const weightedSum =
+    commitSignal * weights.commit_distance +
+    fileDriftSignal * weights.file_drift +
+    identifierLossSignal * weights.identifier_loss +
+    branchSignal * weights.branch_divergence +
+    timeSignal * weights.time_decay
+
+  const freshnessScore = clamp(1 - weightedSum, 0, 1)
+
+  // ── Decision ──
+  const freshnessResult = {
+    score: freshnessScore,
+    signals: {
+      commit_distance: { raw: commitDistance, normalized: commitSignal },
+      file_drift: { files_checked: referencedFiles.length, drifted: driftCount, normalized: fileDriftSignal },
+      identifier_loss: { ids_checked: identifiers.length, lost: lostCount, normalized: identifierLossSignal },
+      branch_divergence: { plan_branch: planBranch, current_branch: currentBranch, normalized: branchSignal },
+      time_decay: { normalized: timeSignal }
+    },
+    git_sha: planSha, sha_reachable: shaReachable,
+    status: "PASS", checked_at: new Date().toISOString()
+  }
+
+  if (freshnessScore < config.block_threshold) {
+    freshnessResult.status = "STALE"
+    const answer = AskUserQuestion({
+      questions: [{
+        question: `Plan freshness: ${freshnessScore.toFixed(2)}/1.0 (STALE). ${commitDistance} commits, ${fileDriftSignal > 0 ? Math.round(fileDriftSignal * 100) + '% file drift' : 'no file drift'}. Proceed?`,
+        header: "Staleness",
+        options: [
+          { label: "Re-plan (Recommended)", description: "Run /rune:plan to create fresh plan" },
+          { label: "Show drift details", description: "Display full signal breakdown" },
+          { label: "Override and proceed", description: "Accept stale plan risk — logged to checkpoint" },
+          { label: "Abort arc", description: "Cancel the arc pipeline" }
+        ], multiSelect: false
+      }]
+    })
+    if (!answer || answer.startsWith("Abort")) { /* exit arc cleanly */ return }
+    if (answer.startsWith("Re-plan")) { /* exit arc, suggest /rune:plan */ return }
+    if (answer.startsWith("Override")) { freshnessResult.status = "STALE-OVERRIDE" }
+  } else if (freshnessScore < config.warn_threshold) {
+    freshnessResult.status = "WARN"
+    warn(`Plan freshness: ${freshnessScore.toFixed(2)}/1.0 — ${commitDistance} commits since plan creation`)
+  }
+
+  // G14: Write freshness report artifact
+  const report = `# Plan Freshness Report\n\n` +
+    `**Score**: ${freshnessScore.toFixed(3)}/1.0\n` +
+    `**Status**: ${freshnessResult.status}\n` +
+    `**Plan SHA**: ${planSha}\n` +
+    `**Current HEAD**: ${Bash('git rev-parse --short HEAD').stdout.trim()}\n` +
+    `**Checked at**: ${freshnessResult.checked_at}\n\n` +
+    `## Signal Breakdown\n\n` +
+    `| Signal | Weight | Raw | Normalized |\n|--------|--------|-----|------------|\n` +
+    `| Commit Distance | 0.25 | ${commitDistance} commits | ${commitSignal.toFixed(3)} |\n` +
+    `| File Drift | 0.35 | ${driftCount}/${referencedFiles.length} files | ${fileDriftSignal.toFixed(3)} |\n` +
+    `| Identifier Loss | 0.25 | ${lostCount}/${identifiers.length} ids | ${identifierLossSignal.toFixed(3)} |\n` +
+    `| Branch Divergence | 0.10 | ${planBranch || 'n/a'} → ${currentBranch || 'n/a'} | ${branchSignal.toFixed(3)} |\n` +
+    `| Time Decay | 0.05 | — | ${timeSignal.toFixed(3)} |\n`
+  Write(`tmp/arc/${id}/freshness-report.md`, report)
+}
+```
+
 ### Total Pipeline Timeout Check
 
 **Limitation**: `checkArcTimeout()` runs **between phases**, not during a phase. If a phase is stuck internally, arc cannot interrupt it. A phase that exceeds its budget will only be detected after it finishes or times out on its own inner timeout. This is why inner polling timeouts must be derived from outer phase budgets (minus setup overhead) — the inner timeout is the real enforcement mechanism.
@@ -248,8 +484,9 @@ if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid arc identifier")
 const sessionNonce = crypto.randomBytes(6).toString('hex')
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 4, plan_file: planFile,
-  flags: { approve: approveFlag, no_forge: noForgeFlag },
+  id, schema_version: 5, plan_file: planFile,
+  flags: { approve: approveFlag, no_forge: noForgeFlag, skip_freshness: skipFreshnessFlag },
+  freshness: freshnessResult || null,
   session_nonce: sessionNonce, phase_sequence: 0,
   phases: {
     forge:        { status: noForgeFlag ? "skipped" : "pending", artifact: null, artifact_hash: null, team_name: null },
@@ -288,6 +525,16 @@ On resume, validate checkpoint integrity before proceeding:
 3c. If schema_version < 4, migrate v3 → v4:
    a. Add gap_analysis: { status: "skipped", ... }
    b. Set schema_version: 4
+3d. If schema_version < 5, migrate v4 → v5:
+   a. Add freshness: null
+   b. Add flags.skip_freshness: false
+   c. Set schema_version: 5
+3e. Resume freshness re-check:
+   a. Read plan file from checkpoint.plan_file
+   b. Extract git_sha from plan frontmatter
+   c. If plan's git_sha differs from checkpoint.freshness?.git_sha, re-run freshness check
+   d. If previous status was STALE-OVERRIDE, skip re-asking (preserve override decision)
+   e. Store updated freshnessResult in checkpoint
 4. Validate phase ordering using PHASE_ORDER array (by name, not phase_sequence numbers):
    a. For each "completed" phase, verify no later phase has an earlier timestamp
    b. Normalize "timeout" status to "failed" (both are resumable)
@@ -851,7 +1098,8 @@ if (exists(".claude/echoes/")) {
 | Total pipeline timeout (90 min) | Halt, preserve checkpoint, suggest `--resume` |
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
-| Schema v1/v2/v3 checkpoint on --resume | Auto-migrate to v4 |
+| Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
+| Schema v1/v2/v3/v4 checkpoint on --resume | Auto-migrate to v5 |
 | Verify mend spot-check timeout (>4 min) | Skip convergence check, proceed to audit with warning |
 | Spot-check agent produces no output | Default to "halted" (fail-closed) |
 | Findings diverging after mend | Halt convergence immediately, proceed to audit |
