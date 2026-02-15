@@ -26,7 +26,7 @@
 
 Each agent declares which plan section topics it can enrich, what subsection it produces, and its perspective focus.
 
-> **Note**: Forge Gaze matches agents **individually** (each agent scores independently against section topics), unlike `/rune:review` where agents are grouped into Ash composites. This allows fine-grained topic matching per plan section.
+> **Note**: Forge Gaze matches agents **individually** (each agent scores independently against section topics), unlike `/rune:review` where agents are grouped into Ash composites.
 
 ### Review Agents (Enrichment Budget)
 
@@ -253,7 +253,7 @@ If no agent scores above the threshold for a section:
 - Use an inline generic Task prompt (not a named agent) as fallback — the orchestrator summons a general-purpose agent with a generic "research and enrich this section" prompt
 - The generic prompt produces the standard structured subsections
 
-This ensures Forge never produces empty enrichment — it gracefully degrades. There is no dedicated `forge-researcher` agent definition; the fallback uses an inline prompt.
+Fallback uses an inline generic prompt — no dedicated `forge-researcher` agent definition.
 
 ## Dry-Run Output (Not Yet Implemented)
 
