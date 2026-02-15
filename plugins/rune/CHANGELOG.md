@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.24.1] - 2026-02-16
+
+Patch release: Mend fixes from Phase 6 code review — sanitizer hardening, dimension alignment, configuration cleanup.
+
+### Fixed
+
+- Defined `sanitize()` function inline in solution-arena.md (was referenced but undefined)
+- Aligned dimension names across all files to: feasibility, complexity, risk, maintainability, performance, innovation
+- Fixed `const` to `let` for reassignable weight variables in weight normalization
+- Removed duplicate `solution_arena` config block from configuration-guide.md
+- Simplified talisman.example.yml to only expose `enabled` and `skip_for_types`
+- Removed premature `arena_agents` field from inscription-schema.md
+
+### Changed
+
+- plugin.json: version 1.24.0 → 1.24.1
+- marketplace.json: version 1.24.0 → 1.24.1
+
+## [1.24.0] - 2026-02-16
+
+Feature release: Solution Arena — competitive evaluation of alternative approaches before committing to a plan. Phase 1.8 generates 2-5 solutions, challenges them via Devil's Advocate and Innovation Scout agents, scores across 6 weighted dimensions, and selects a champion approach with full rationale.
+
+### Added
+
+- **Phase 1.8: Solution Arena** — competitive evaluation of 2-5 alternative approaches before committing to a plan
+- **Devil's Advocate and Innovation Scout** challenger agents for adversarial plan evaluation
+- **Weighted decision matrix** (6 dimensions: feasibility, complexity, risk, maintainability, performance, innovation) with convergence detection
+- **Mandatory elicitation method selection** (Step 3.5 no longer optional — minimum 1 method required)
+- `--no-arena` flag for granular Arena skip control
+- **Champion Solution and Challenger Report** output formats
+- `solution_arena` talisman.yml configuration section (enabled, weights, thresholds, skip_for_types)
+
+### Changed
+
+- Elicitation Step 3.5 now mandatory (minimum 1 method required)
+- `--quick` mode auto-selects top-scored elicitation method
+- Standard template includes condensed "Solution Selection" section after "Proposed Solution"
+- Comprehensive template replaces passive "Alternative Approaches" with active Arena evaluation matrix
+- methods.csv: Tree of Thoughts, Comparative Analysis Matrix, Pre-mortem Analysis, and Architecture Decision Records now include `plan:1.8` phase
+- phase-mapping.md: Added Plan Phase 1.8 section with 4 auto-suggested Tier 1 methods
+- plugin.json: version 1.23.0 → 1.24.0
+- marketplace.json: version 1.23.0 → 1.24.0
+
 ## [1.23.0] - 2026-02-15
 
 Feature release: Phase 2 BRIDGE — event-driven agent synchronization via Claude Code hooks. Replaces 30-second `TaskList()` polling with filesystem signal files written by `TaskCompleted` and `TeammateIdle` hooks. Average task-completion detection latency drops from ~15 seconds to ~2.5 seconds with near-zero token cost. Automatic fallback to Phase 1 polling when hooks or `jq` are unavailable.

@@ -109,3 +109,39 @@ Used by workflows producing implementation progress reports.
 
 {Any blockers, decisions made, or follow-up needed}
 ```
+
+## 4. Champion Solution Format (Arena)
+
+Used by Solution Arena to present competing approaches for evaluation.
+
+```markdown
+# Solution: {name}
+
+**Key Differentiator:** {what makes this approach unique}
+**Primary Evidence:** {research finding supporting this approach}
+**Known Trade-off:** {acknowledged weakness}
+
+## Description
+{2-3 sentence approach description}
+
+## Design Decisions
+- {fundamental decision 1}
+- {fundamental decision 2}
+```
+
+## 5. Challenger Report Format (Arena)
+
+Used by adversarial agents (devils-advocate, innovation-scout) to stress-test solutions.
+
+```markdown
+# {Challenger Name} Report
+
+**Solutions Reviewed:** {N}/{total}
+
+## Challenges
+
+### {Solution Name}
+- **[SEVERITY]** {challenge description}
+  - **Evidence:** {codebase reference or research finding}
+  - **Mitigation feasible?** {yes/no with explanation}
+```

@@ -85,6 +85,10 @@ By default, `/rune:plan` and `/rune:forge` use Forge Gaze to match plan section 
 
 See `roundtable-circle/references/forge-gaze.md` for the topic registry and matching algorithm.
 
+## Solution Arena (Plan Phase 1.8)
+
+Competitive evaluation phase between research and synthesis. Generates 2-5 alternative solution approaches and evaluates them via adversarial challenger agents (Devil's Advocate for risk/failure analysis, Innovation Scout for novel alternatives). Solutions are scored across a 6-dimension weighted matrix (feasibility, complexity, risk, maintainability, performance, innovation). Convergence detection flags tied solutions for user tiebreaking. The champion solution feeds into Phase 2 (Synthesize) as the committed approach. Configurable via `solution_arena` section in `talisman.yml`. Skippable with `--no-arena` flag or `--quick` mode. Auto-skipped for `fix` feature types by default.
+
 ## Arc Pipeline
 
 End-to-end orchestration across 10 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), plan refinement (concern extraction, orchestrator-only), verification gate (deterministic checks, zero-LLM), work (swarm implementation), gap analysis (plan-to-code compliance, deterministic, orchestrator-only), code review (Roundtable Circle), mend (parallel finding resolution), verify mend (convergence gate with regression detection and retry loop, max 2 retries), and audit (final gate). Each delegated phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions and time budgets enforce least privilege.

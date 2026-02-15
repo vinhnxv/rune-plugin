@@ -55,6 +55,7 @@ Orchestrates a planning pipeline using Agent Teams with dependency-aware task sc
 ```
 /rune:plan --no-brainstorm              # Skip brainstorm only (granular)
 /rune:plan --no-forge                   # Skip forge only (granular)
+/rune:plan --no-arena                   # Skip Arena only (granular)
 /rune:plan --exhaustive                 # Exhaustive forge mode (lower threshold, research-budget agents)
 /rune:plan --brainstorm                 # No-op (brainstorm is already default)
 /rune:plan --forge                      # No-op (forge is already default)
@@ -72,6 +73,8 @@ Phase 1: Research (up to 7 agents, conditional)
     └─ Phase 1D: SPEC VALIDATION (always — flow-seer)
     ↓ (all research tasks converge)
 Phase 1.5: Research Consolidation Validation (AskUserQuestion checkpoint)
+    ↓
+Phase 1.8: Solution Arena (competitive evaluation — skip with --quick or --no-arena)
     ↓
 Phase 2: Synthesize (lead consolidates findings, detail level selection)
     ↓
@@ -191,9 +194,9 @@ AskUserQuestion({
 })
 ```
 
-#### Step 3.5: Elicitation Methods (Optional)
+#### Step 3.5: Elicitation Methods (Recommended)
 
-After approach selection, offer structured reasoning methods for deeper exploration. Load elicitation skill's methods.csv (from `skills/elicitation/methods.csv`), filter by `phases includes "plan:0"` and `auto_suggest=true`, score by keyword overlap with feature description, present top 3-5 via AskUserQuestion. If user selects a method, expand output_pattern into template and apply to context. If "Skip", proceed to Step 4.
+After approach selection, optionally apply structured reasoning methods for deeper exploration. Load elicitation skill's methods.csv (from `skills/elicitation/methods.csv`), filter by `phases includes "plan:0"` and `auto_suggest=true`, score by keyword overlap with feature description, present top 3-5 via AskUserQuestion with `multiSelect: true`. At least 1 method recommended. Include a "Skip elicitation" option for users who want to proceed directly. In `--quick` mode, top-scored method auto-selected. For each selected method, expand output_pattern into template and apply to context.
 
 #### Step 4: Capture Decisions
 
@@ -214,6 +217,18 @@ Spawns local research agents (repo-surveyor, echo-reader, git-miner), evaluates 
 **Error handling**: TeamDelete fallback on cleanup, identifier validation before rm -rf, agent timeout (5 min) proceeds with partial findings
 
 See [research-phase.md](plan/references/research-phase.md) for the full protocol.
+
+## Phase 1.8: Solution Arena
+
+Generates competing solutions from research, evaluates on weighted dimensions, challenges with adversarial agents, and presents a decision matrix for approach selection.
+
+**Skip conditions**: `--quick`, `--no-arena`, bug fixes, high-confidence refactors (confidence >= 0.9), sparse research (<2 viable approaches).
+
+See [solution-arena.md](plan/references/solution-arena.md) for full protocol (sub-steps 1.8A through 1.8D).
+
+**Inputs**: Research outputs from `tmp/plans/{timestamp}/research/`, brainstorm-decisions.md (optional)
+**Outputs**: `tmp/plans/{timestamp}/arena/arena-selection.md` (winning solution with rationale)
+**Error handling**: Complexity gate skip → log reason. Sparse research → skip Arena. Agent timeout → proceed with partial. All solutions killed → recovery protocol.
 
 ## Phase 2: Synthesize
 
@@ -455,7 +470,8 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifie
 // barrier preventing path traversal. Do NOT move, skip, or weaken this check.
 if (timestamp.includes('..')) throw new Error('Path traversal detected')
 try { TeamDelete() } catch (e) {
-  // SEC-003: timestamp validated in Phase 6 cleanup preamble — /^[a-zA-Z0-9_-]+$/ + includes('..') check
+  // SAFETY: safeTeamCleanup pattern — timestamp validated at line 468 (/^[a-zA-Z0-9_-]+$/ + includes('..'))
+  // See security-patterns.md for the validated-rm-rf pattern. Do NOT move or refactor without preserving validation.
   Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
 }
 
@@ -524,7 +540,7 @@ When user selects "Create issue":
 
    // Use -- to separate flags from positional args, write title to temp file to avoid shell expansion
    Write('tmp/.issue-title.txt', `${type}: ${title}`)
-   Bash(`gh issue create --title "$(cat tmp/.issue-title.txt)" --body-file -- "plans/${path}"`)
+   Bash(`gh issue create --title "$(< tmp/.issue-title.txt)" --body-file -- "plans/${path}"`)
    ```
 
 3. **Linear**:
@@ -534,7 +550,7 @@ When user selects "Create issue":
    if (!SAFE_PATH_PATTERN.test(path) || path.includes('..')) throw new Error('Unsafe characters in plan path')
 
    Write('tmp/.issue-title.txt', title)
-   Bash(`linear issue create --title "$(cat tmp/.issue-title.txt)" --description - < "plans/${path}"`)
+   Bash(`linear issue create --title "$(< tmp/.issue-title.txt)" --description - < "plans/${path}"`)
    ```
 
 4. **No tracker configured**: Ask user and suggest adding `project_tracker: github` to CLAUDE.md.

@@ -41,6 +41,8 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 5. On compaction or session resume: re-read team config, task list, and inscription contract.
 6. Agent output goes to `tmp/` files (ephemeral). Echoes go to `.claude/echoes/` (persistent).
 7. `/rune:*` namespace — coexists with other plugins without conflicts.
+8. **zsh compatibility**: Never use `status` as a Bash variable name — it is read-only in zsh (macOS default shell). Use `task_status`, `tstat`, or `completion_status` instead. Also avoid: `pipestatus`, `ERRNO`, `signals`.
+9. **Polling loop fidelity**: When translating `waitForCompletion` pseudocode to Bash, derive loop parameters from config — not arbitrary values. Use `maxIterations = ceil(timeoutMs / pollIntervalMs)` and `sleep $(pollIntervalMs / 1000)`. See monitor-utility.md per-command configuration table for exact values.
 
 ## Hook Infrastructure
 

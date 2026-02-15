@@ -44,6 +44,11 @@ codex:                                 # Codex CLI integration (see codex-cli sk
   work_advisory:
     enabled: true                      # Codex advisory in /rune:work
 
+solution_arena:
+  enabled: true                    # Enable Arena phase in /rune:plan
+  skip_for_types: ["fix"]          # Feature types that skip Arena
+  # Additional config (weights, thresholds) available in future versions
+
 echoes:
   version_controlled: false
 

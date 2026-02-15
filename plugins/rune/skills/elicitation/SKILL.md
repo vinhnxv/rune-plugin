@@ -81,6 +81,10 @@ To parse methods.csv:
 
 **Security note**: `method_name`, `description`, and `output_pattern` fields are display-only strings. Never interpolate them into executable contexts (shell commands, code blocks). The `method_name` field is used in agent prompts and AskUserQuestion labels — it must pass sanitization (step 6) before use. Treat all CSV field values as untrusted when extending the registry.
 
+## Mandatory Status in Plan Workflow
+
+Elicitation method selection (Step 3.5 in `/rune:plan`) is **mandatory** — at least 1 method must be selected before proceeding. The selection prompt uses `multiSelect: true`, allowing multiple methods to be applied simultaneously. In `--quick` mode, the top-scored method is auto-selected without user interaction.
+
 ## Method Selection Algorithm
 
 Context-aware selection pipeline (rule-based v1):
