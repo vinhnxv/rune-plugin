@@ -29,34 +29,23 @@ PHASE_DISPLAY = {
 }
 
 
-def generate_report(
-    *,
-    challenge_name: str = "unknown",
-    arc_duration_seconds: float = 0.0,
-    checkpoint_report: CheckpointReport | None = None,
-    tome_report: TomeReport | None = None,
-    quality_report: QualityReport | None = None,
-    gap_analysis_text: str | None = None,
-    convergence_info: dict | None = None,
-    run_output: str | None = None,
-) -> str:
-    """Generate a comprehensive Markdown evaluation report."""
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    duration_min = arc_duration_seconds / 60
-
-    lines: list[str] = []
+def _render_header(
+    lines: list[str], challenge_name: str, duration_min: float, now: str,
+    checkpoint_report: CheckpointReport | None, quality_report: QualityReport | None,
+) -> None:
+    """Render report header and verdict."""
     lines.append("# Rune Arc Test Report\n")
     lines.append(f"**Date**: {now}")
     lines.append(f"**Challenge**: {challenge_name}")
     lines.append(f"**Arc Duration**: {duration_min:.1f} minutes")
     lines.append("")
-
-    # --- Overall Verdict ---
     verdict = _compute_verdict(checkpoint_report, quality_report)
     lines.append(f"## Verdict: {verdict}")
     lines.append("")
 
-    # --- Pipeline Status ---
+
+def _render_pipeline_status(lines: list[str], checkpoint_report: CheckpointReport | None) -> None:
+    """Render the pipeline status table."""
     lines.append("## Pipeline Status\n")
     if checkpoint_report:
         lines.append("| Phase | Status |")
@@ -72,7 +61,9 @@ def generate_report(
     else:
         lines.append("*No checkpoint data available*\n")
 
-    # --- Checkpoint Integrity ---
+
+def _render_checkpoint_integrity(lines: list[str], checkpoint_report: CheckpointReport | None) -> None:
+    """Render checkpoint integrity section."""
     lines.append("## Checkpoint Integrity\n")
     if checkpoint_report:
         lines.append(f"- Schema version: {checkpoint_report.schema_version}")
@@ -97,7 +88,9 @@ def generate_report(
     else:
         lines.append("*No checkpoint data available*\n")
 
-    # --- Code Quality ---
+
+def _render_quality(lines: list[str], quality_report: QualityReport | None) -> None:
+    """Render code quality section."""
     lines.append("## Code Quality\n")
     if quality_report:
         lines.append(f"**Score: {quality_report.total_score:.1f}/{quality_report.max_score:.1f}**")
@@ -112,7 +105,9 @@ def generate_report(
     else:
         lines.append("*No quality evaluation available*\n")
 
-    # --- TOME Analysis ---
+
+def _render_tome(lines: list[str], tome_report: TomeReport | None) -> None:
+    """Render TOME analysis section."""
     lines.append("## TOME Analysis\n")
     if tome_report:
         lines.append(f"- Total findings: {tome_report.total_findings}")
@@ -127,57 +122,87 @@ def generate_report(
     else:
         lines.append("*No TOME data available*\n")
 
-    # --- Gap Analysis ---
+
+def _render_gap_analysis(lines: list[str], gap_analysis_text: str) -> None:
+    """Render gap analysis section, extracting summary from markdown."""
+    lines.append("## Gap Analysis\n")
+    in_summary = False
+    for line in gap_analysis_text.split("\n"):
+        if "## Summary" in line:
+            in_summary = True
+            continue
+        if in_summary:
+            if line.startswith("##"):
+                break
+            if line.strip():
+                lines.append(line)
+    lines.append("")
+
+
+def _render_convergence(lines: list[str], convergence_info: dict) -> None:
+    """Render convergence gate section."""
+    lines.append("## Convergence Gate\n")
+    lines.append(f"- Rounds: {convergence_info.get('round', 0) + 1} mend pass(es)")
+    lines.append(f"- Max rounds: {convergence_info.get('max_rounds', 2)}")
+    history = convergence_info.get("history", [])
+    if history:
+        lines.append("")
+        lines.append("| Round | Findings Before | Findings After | Verdict |")
+        lines.append("|-------|-----------------|----------------|---------|")
+        for entry in history:
+            lines.append(
+                f"| {entry.get('round', '?')} | {entry.get('findings_before', '?')} "
+                f"| {entry.get('findings_after', '?')} | {entry.get('verdict', '?')} |"
+            )
+    lines.append("")
+
+
+def _render_raw_output(lines: list[str], run_output: str) -> None:
+    """Render raw arc output snippet with dynamic fence."""
+    lines.append("## Arc Output (last 2000 chars)\n")
+    snippet = run_output[-2000:]
+    max_backtick_run = 0
+    current_run = 0
+    for ch in snippet:
+        if ch == "`":
+            current_run += 1
+            if current_run > max_backtick_run:
+                max_backtick_run = current_run
+        else:
+            current_run = 0
+    fence = "`" * max(3, max_backtick_run + 1)
+    lines.append(fence)
+    lines.append(snippet)
+    lines.append(fence + "\n")
+
+
+def generate_report(
+    *,
+    challenge_name: str = "unknown",
+    arc_duration_seconds: float = 0.0,
+    checkpoint_report: CheckpointReport | None = None,
+    tome_report: TomeReport | None = None,
+    quality_report: QualityReport | None = None,
+    gap_analysis_text: str | None = None,
+    convergence_info: dict | None = None,
+    run_output: str | None = None,
+) -> str:
+    """Generate a comprehensive Markdown evaluation report."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    duration_min = arc_duration_seconds / 60
+    lines: list[str] = []
+
+    _render_header(lines, challenge_name, duration_min, now, checkpoint_report, quality_report)
+    _render_pipeline_status(lines, checkpoint_report)
+    _render_checkpoint_integrity(lines, checkpoint_report)
+    _render_quality(lines, quality_report)
+    _render_tome(lines, tome_report)
     if gap_analysis_text:
-        lines.append("## Gap Analysis\n")
-        # Extract summary table from gap analysis markdown
-        in_summary = False
-        for line in gap_analysis_text.split("\n"):
-            if "## Summary" in line:
-                in_summary = True
-                continue
-            if in_summary:
-                if line.startswith("##"):
-                    break
-                if line.strip():
-                    lines.append(line)
-        lines.append("")
-
-    # --- Convergence ---
+        _render_gap_analysis(lines, gap_analysis_text)
     if convergence_info:
-        lines.append("## Convergence Gate\n")
-        lines.append(f"- Rounds: {convergence_info.get('round', 0) + 1} mend pass(es)")
-        lines.append(f"- Max rounds: {convergence_info.get('max_rounds', 2)}")
-        history = convergence_info.get("history", [])
-        if history:
-            lines.append("")
-            lines.append("| Round | Findings Before | Findings After | Verdict |")
-            lines.append("|-------|-----------------|----------------|---------|")
-            for entry in history:
-                lines.append(
-                    f"| {entry.get('round', '?')} | {entry.get('findings_before', '?')} "
-                    f"| {entry.get('findings_after', '?')} | {entry.get('verdict', '?')} |"
-                )
-        lines.append("")
-
-    # --- Raw output snippet ---
+        _render_convergence(lines, convergence_info)
     if run_output:
-        lines.append("## Arc Output (last 2000 chars)\n")
-        snippet = run_output[-2000:]
-        # Generate a dynamic fence that is longer than any backtick run in the content
-        max_backtick_run = 0
-        current_run = 0
-        for ch in snippet:
-            if ch == "`":
-                current_run += 1
-                if current_run > max_backtick_run:
-                    max_backtick_run = current_run
-            else:
-                current_run = 0
-        fence = "`" * max(3, max_backtick_run + 1)
-        lines.append(fence)
-        lines.append(snippet)
-        lines.append(fence + "\n")
+        _render_raw_output(lines, run_output)
 
     return "\n".join(lines)
 

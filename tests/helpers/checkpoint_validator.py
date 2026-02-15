@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import hmac
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -67,36 +68,83 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def validate_checkpoint(checkpoint: dict, workspace: Path | None = None) -> CheckpointReport:
-    """Validate a checkpoint dict against the v4 schema.
-
-    Args:
-        checkpoint: Parsed checkpoint.json contents.
-        workspace: If provided, also checks artifact files exist and hashes match.
-    """
-    report = CheckpointReport()
-
-    # --- Schema version ---
+def _validate_metadata(checkpoint: dict, report: CheckpointReport) -> None:
+    """Validate schema version, ID, and session nonce."""
     sv = checkpoint.get("schema_version")
     report.schema_version = sv or 0
     if sv != 4:
         report.add_error(None, f"Expected schema_version 4, got {sv}")
 
-    # --- ID format ---
     arc_id = checkpoint.get("id", "")
     if not arc_id or not isinstance(arc_id, str):
         report.add_error(None, "Missing or invalid 'id' field")
 
-    # --- Session nonce ---
     nonce = checkpoint.get("session_nonce", "")
     if not isinstance(nonce, str) or len(nonce) < 8:
         report.add_error(None, f"session_nonce should be at least 8 chars, got '{nonce}'")
 
-    # --- Phases ---
+
+def _validate_phase_entry(
+    phase_name: str, phase: dict, report: CheckpointReport, workspace: Path | None,
+) -> None:
+    """Validate a single phase entry: fields, status, artifacts."""
+    report.phase_statuses[phase_name] = phase.get("status", "MISSING")
+
+    missing = PHASE_FIELDS - set(phase.keys())
+    if missing:
+        report.add_error(phase_name, f"Missing fields: {missing}")
+
+    status = phase.get("status")
+    if status not in VALID_STATUSES:
+        report.add_error(phase_name, f"Invalid status: '{status}'")
+
+    if status == "completed":
+        report.completed_phases += 1
+
+    if phase_name in ORCHESTRATOR_ONLY and phase.get("team_name") is not None:
+        report.add_warning(phase_name, "Orchestrator-only phase has team_name set")
+
+    if workspace and status == "completed":
+        _validate_artifact(phase_name, phase, report, workspace)
+
+
+def _validate_artifact(
+    phase_name: str, phase: dict, report: CheckpointReport, workspace: Path,
+) -> None:
+    """Check artifact existence and hash integrity for a completed phase."""
+    artifact_path = phase.get("artifact")
+    expected_hash = phase.get("artifact_hash")
+
+    if artifact_path:
+        full_path = (workspace / artifact_path).resolve()
+        if not full_path.is_relative_to(workspace.resolve()):
+            report.add_error(phase_name, f"Artifact path escapes workspace: {artifact_path}")
+            return
+        exists = full_path.exists()
+        report.artifact_checks[phase_name] = exists
+
+        if not exists:
+            report.add_error(phase_name, f"Artifact missing: {artifact_path}")
+        elif expected_hash:
+            actual_hash = sha256_file(full_path)
+            expected_bare = expected_hash.removeprefix("sha256:")
+            matches = hmac.compare_digest(actual_hash, expected_bare)
+            report.hash_checks[phase_name] = matches
+            if not matches:
+                report.add_error(
+                    phase_name,
+                    f"Hash mismatch: expected {expected_bare[:16]}..., got {actual_hash[:16]}...",
+                )
+    elif phase_name not in ORCHESTRATOR_ONLY:
+        report.add_warning(phase_name, "Completed phase has no artifact path")
+
+
+def _validate_phases(checkpoint: dict, report: CheckpointReport, workspace: Path | None) -> bool:
+    """Validate all phases. Returns False if phases dict is invalid (caller should abort)."""
     phases = checkpoint.get("phases", {})
     if not isinstance(phases, dict):
         report.add_error(None, "'phases' must be a dict")
-        return report
+        return False
 
     for phase_name in PHASE_ORDER:
         if phase_name not in phases:
@@ -107,69 +155,40 @@ def validate_checkpoint(checkpoint: dict, workspace: Path | None = None) -> Chec
         if not isinstance(phase, dict):
             report.add_error(phase_name, f"Phase value must be a dict, got {type(phase).__name__}")
             continue
-        report.phase_statuses[phase_name] = phase.get("status", "MISSING")
 
-        # Check required fields
-        missing = PHASE_FIELDS - set(phase.keys())
-        if missing:
-            report.add_error(phase_name, f"Missing fields: {missing}")
+        _validate_phase_entry(phase_name, phase, report, workspace)
 
-        # Check status value
-        status = phase.get("status")
-        if status not in VALID_STATUSES:
-            report.add_error(phase_name, f"Invalid status: '{status}'")
-
-        if status == "completed":
-            report.completed_phases += 1
-
-        # Check orchestrator-only phases have no team
-        if phase_name in ORCHESTRATOR_ONLY and phase.get("team_name") is not None:
-            report.add_warning(phase_name, "Orchestrator-only phase has team_name set")
-
-        # --- Artifact integrity (if workspace provided) ---
-        if workspace and status == "completed":
-            artifact_path = phase.get("artifact")
-            expected_hash = phase.get("artifact_hash")
-
-            if artifact_path:
-                full_path = (workspace / artifact_path).resolve()
-                if not full_path.is_relative_to(workspace.resolve()):
-                    report.add_error(phase_name, f"Artifact path escapes workspace: {artifact_path}")
-                    continue
-                exists = full_path.exists()
-                report.artifact_checks[phase_name] = exists
-
-                if not exists:
-                    report.add_error(phase_name, f"Artifact missing: {artifact_path}")
-                elif expected_hash:
-                    actual_hash = sha256_file(full_path)
-                    # Strip "sha256:" prefix if present for comparison
-                    expected_bare = expected_hash.removeprefix("sha256:")
-                    matches = actual_hash == expected_bare
-                    report.hash_checks[phase_name] = matches
-                    if not matches:
-                        report.add_error(
-                            phase_name,
-                            f"Hash mismatch: expected {expected_bare[:16]}..., got {actual_hash[:16]}...",
-                        )
-            elif phase_name not in ORCHESTRATOR_ONLY:
-                report.add_warning(phase_name, "Completed phase has no artifact path")
-
-    # --- Convergence object ---
-    conv = checkpoint.get("convergence")
-    if not isinstance(conv, dict):
-        report.add_error(None, "Missing or invalid 'convergence' object")
-    else:
-        if "round" not in conv or "max_rounds" not in conv or "history" not in conv:
-            report.add_error(None, "Convergence missing required fields (round, max_rounds, history)")
-        if conv.get("max_rounds", 0) > 2:
-            report.add_warning(None, f"max_rounds ({conv['max_rounds']}) exceeds CONVERGENCE_MAX_ROUNDS (2)")
-
-    # Check for unexpected phases
     extra = set(phases.keys()) - set(PHASE_ORDER)
     if extra:
         report.add_warning(None, f"Unexpected phases in checkpoint: {extra}")
 
+    return True
+
+
+def _validate_convergence(checkpoint: dict, report: CheckpointReport) -> None:
+    """Validate the convergence object."""
+    conv = checkpoint.get("convergence")
+    if not isinstance(conv, dict):
+        report.add_error(None, "Missing or invalid 'convergence' object")
+        return
+    if "round" not in conv or "max_rounds" not in conv or "history" not in conv:
+        report.add_error(None, "Convergence missing required fields (round, max_rounds, history)")
+    if conv.get("max_rounds", 0) > 2:
+        report.add_warning(None, f"max_rounds ({conv['max_rounds']}) exceeds CONVERGENCE_MAX_ROUNDS (2)")
+
+
+def validate_checkpoint(checkpoint: dict, workspace: Path | None = None) -> CheckpointReport:
+    """Validate a checkpoint dict against the v4 schema.
+
+    Args:
+        checkpoint: Parsed checkpoint.json contents.
+        workspace: If provided, also checks artifact files exist and hashes match.
+    """
+    report = CheckpointReport()
+    _validate_metadata(checkpoint, report)
+    if not _validate_phases(checkpoint, report, workspace):
+        return report
+    _validate_convergence(checkpoint, report)
     return report
 
 
@@ -233,9 +252,19 @@ def load_checkpoint(workspace: Path, extra_search_dirs: list[Path] | None = None
                     pass
 
     all_checkpoints: list[Path] = []
+    resolved_workspace = workspace.resolve()
     for root in search_roots:
         if root.exists():
-            all_checkpoints.extend(root.glob("*/checkpoint.json"))
+            for cp_path in root.glob("*/checkpoint.json"):
+                # Validate discovered paths stay within workspace or declared search dirs
+                resolved_cp = cp_path.resolve()
+                if resolved_cp.is_relative_to(resolved_workspace):
+                    all_checkpoints.append(cp_path)
+                elif extra_search_dirs and any(
+                    resolved_cp.is_relative_to(d.resolve()) for d in extra_search_dirs
+                ):
+                    all_checkpoints.append(cp_path)
+                # Silently skip paths that escape all trusted roots
 
     if not all_checkpoints:
         return None

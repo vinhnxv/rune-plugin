@@ -257,6 +257,8 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 | Knowledge Keeper | Docs review | Docs changed (>= 10 lines) |
 | Codex Oracle | Cross-model review (GPT-5.3-codex) | `codex` CLI available |
 
+Each Ash embeds several review agents as specialized perspectives. For example, Forge Warden embeds rune-architect, ember-oracle, flaw-hunter, mimic-detector, type-warden, depth-seer, blight-seer, and forge-keeper. Ward Sentinel embeds ward-sentinel and related security-focused agents. This composite design lets each Ash apply multiple lenses to the same code in a single pass.
+
 ## Agents
 
 ### Review Agents
@@ -274,7 +276,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 | pattern-seer | Pattern consistency |
 | void-analyzer | Incomplete implementations |
 | wraith-finder | Dead code |
-| phantom-checker | Dynamic references |
+| phantom-checker | Dynamic references (companion to wraith-finder, not Ash-embedded) |
 | type-warden | Type safety, mypy compliance |
 | trial-oracle | TDD compliance, test quality |
 | depth-seer | Missing logic, complexity detection |
@@ -325,6 +327,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | ash-guide | Agent invocation reference |
+| codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 
 ## Configuration
 

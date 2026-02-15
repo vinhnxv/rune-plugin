@@ -251,5 +251,6 @@ Session handoff template: [session-handoff.md](../../references/session-handoff.
 - [Prompt Weaving](references/prompt-weaving.md) — 7-section prompt template, context rot prevention, instruction anchoring
 - [Truthsight Pipeline](references/truthsight-pipeline.md) — 4-layer verification spec
 - [Verifier Prompt](references/verifier-prompt.md) — Smart Verifier prompt template
+- [Damage Control](references/damage-control.md) — 6 recovery procedures for agent failures (DC-1 through DC-6)
 - Companion: `context-weaving` (Glyph Budget, pre-summon checklist)
 - Review workflow: `roundtable-circle` skill

@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.22.0] - 2026-02-15
+
+Feature release: Nelson-inspired anti-pattern library, damage control procedures, risk-tiered task classification, file ownership model, and structured checkpoint reporting. Based on cross-plugin analysis of Nelson's Royal Navy orchestration patterns adapted to Rune's Elden Ring lore.
+
+### Added
+
+- **Standing Orders** (`standing-orders.md`) — 6 named anti-patterns with observable symptoms, decision tables, remedy procedures, and cross-references: SO-1 Hollow Ash (over-delegation), SO-2 Shattered Rune (file conflicts), SO-3 Tarnished Smith (lead implementing), SO-4 Blind Gaze (skipping classification), SO-5 Ember Overload (context overflow), SO-6 Silent Seal (malformed output)
+- **Damage Control** (`damage-control.md`) — 6 recovery procedures with ASSESS/CONTAIN/RECOVER/VERIFY/REPORT format and double-failure escalation: DC-1 Glyph Flood (context overflow), DC-2 Broken Ward (quality failure), DC-3 Fading Ash (agent timeout), DC-4 Phantom Team (lifecycle failure), DC-5 Crossed Runes (concurrent workflows), DC-6 Lost Grace (session loss)
+- **Risk Tiers** (`risk-tiers.md`) — 4-tier deterministic classification (Tier 0 Grace, Tier 1 Ember, Tier 2 Rune, Tier 3 Elden) with 4-question decision tree, file-path fallback heuristic, graduated verification matrix, failure-mode checklist for Tier 2+, and TaskCreate metadata format
+- **File Ownership** in `/rune:work` — EXTRACT/DETECT/RESOLVE/DECLARE algorithm for preventing concurrent file edits. Ownership encoded in task descriptions (persists across auto-release reclaim). Directory-level by default, exact-file overrides when specific.
+- **Checkpoint Reporting** in `monitor-utility.md` — `onCheckpoint` callback with milestone-based template (25%, 50%, 75% + blocker detection). Displays progress, active tasks, blockers, and decision recommendation.
+- work.md: Phase 1 risk tier classification via 4-question decision tree (parse-plan.md)
+- work.md: Phase 1 file target extraction from task descriptions (parse-plan.md)
+- work.md: Phase 1 file ownership conflict detection with automatic serialization via `blockedBy`
+- work.md: TaskCreate now includes `risk_tier`, `tier_name`, `file_targets` metadata and ownership in description
+- worker-prompts.md: Step 4.5 File Ownership section in rune-smith and trial-forger prompts
+- worker-prompts.md: Step 4.6 Risk Tier Verification with per-tier requirements
+
+### Changed
+
+- plugin.json: version 1.21.1 → 1.22.0
+- marketplace.json: version 1.21.1 → 1.22.0
+- work.md: Error handling table updated — file conflicts now resolved via ownership serialization
+- work.md: Common pitfalls table updated — workers editing same files prevented by Phase 1 step 5.1
+
 ## [1.21.1] - 2026-02-15
 
 ### Security

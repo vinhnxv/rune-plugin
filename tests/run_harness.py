@@ -27,6 +27,7 @@ import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TypedDict
 
 # Add tests/ to path for helper imports
 TESTS_DIR = Path(__file__).resolve().parent
@@ -43,32 +44,20 @@ from helpers.report_generator import generate_report, write_report  # noqa: E402
 from helpers.tome_parser import TomeReport, parse_tome  # noqa: E402
 
 
-def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path, Path | None]:
-    """Create an isolated workspace with the challenge problem.
+class EvaluationResults(TypedDict, total=False):
+    """Typed result dict from evaluate_workspace."""
 
-    Sets up a fresh git repo with the challenge plan, a minimal
-    pyproject.toml for ward discovery, and optionally an isolated
-    Claude config directory for hermetic E2E testing.
+    checkpoint: CheckpointReport
+    convergence: dict
+    tome: TomeReport
+    gap_analysis: str
+    quality: QualityReport
+    functional_test_output: str
+    functional_test_passed: bool
 
-    Returns:
-        (workspace, isolated_config_dir) — config_dir is None if isolate=False.
-    """
-    workspace = Path(tempfile.mkdtemp(prefix="rune-harness-"))
-    print(f"  Workspace: {workspace}")
 
-    # Copy challenge plan
-    plans_dir = workspace / "plans"
-    plans_dir.mkdir()
-    plan_dest = plans_dir / challenge_plan.name
-    shutil.copy2(challenge_plan, plan_dest)
-
-    # Copy functional tests if they exist (skip __pycache__ to avoid stale bytecode)
-    eval_dir = challenge_plan.parent / "evaluation"
-    if eval_dir.exists():
-        shutil.copytree(eval_dir, workspace / "evaluation",
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-
-    # Create pyproject.toml for ward discovery (ruff + mypy + pytest)
+def _write_pyproject(workspace: Path) -> None:
+    """Write a minimal pyproject.toml for tool discovery (ruff, mypy, pytest)."""
     pyproject = workspace / "pyproject.toml"
     pyproject.write_text(
         '[project]\nname = "challenge"\nversion = "0.1.0"\n'
@@ -84,7 +73,9 @@ def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path
         "ignore_missing_imports = true\n"
     )
 
-    # Initialize git repo (with local user config for CI environments)
+
+def _init_git_repo(workspace: Path) -> None:
+    """Initialize a git repo with local user config and initial commit."""
     try:
         subprocess.run(["git", "init"], cwd=workspace, capture_output=True, check=True)
         subprocess.run(["git", "config", "user.name", "rune-harness"], cwd=workspace, capture_output=True, check=True)
@@ -97,6 +88,30 @@ def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path
     except subprocess.CalledProcessError:
         shutil.rmtree(workspace, ignore_errors=True)
         raise
+
+
+def setup_workspace(challenge_plan: Path, *, isolate: bool = True) -> tuple[Path, Path | None]:
+    """Create an isolated workspace with the challenge problem.
+
+    Returns:
+        (workspace, isolated_config_dir) — config_dir is None if isolate=False.
+    """
+    workspace = Path(tempfile.mkdtemp(prefix="rune-harness-"))
+    print(f"  Workspace: {workspace}")
+
+    # Copy challenge plan
+    plans_dir = workspace / "plans"
+    plans_dir.mkdir()
+    shutil.copy2(challenge_plan, plans_dir / challenge_plan.name)
+
+    # Copy functional tests if they exist (skip __pycache__ to avoid stale bytecode)
+    eval_dir = challenge_plan.parent / "evaluation"
+    if eval_dir.exists():
+        shutil.copytree(eval_dir, workspace / "evaluation",
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+
+    _write_pyproject(workspace)
+    _init_git_repo(workspace)
 
     # Set up isolated Claude config at ~/.claude-rune-plugin-test/
     config_dir: Path | None = None
@@ -177,46 +192,83 @@ def _find_artifact(workspace: Path, filename: str, extra_dirs: list[Path] | None
     return None
 
 
-def evaluate_workspace(workspace: Path, isolated_config_dir: Path | None = None) -> dict:
-    """Evaluate all artifacts in a workspace after arc completion.
+def _evaluate_checkpoint(
+    workspace: Path, extra_dirs: list[Path] | None,
+) -> tuple[str | None, dict | None, CheckpointReport | None]:
+    """Validate checkpoint and return (session_nonce, convergence_info, report)."""
+    print("  Validating checkpoint...")
+    checkpoint_data = load_checkpoint(workspace, extra_search_dirs=extra_dirs)
+    if not checkpoint_data:
+        print("    WARNING: No checkpoint found")
+        return None, None, None
 
-    Args:
-        workspace: The workspace directory to evaluate.
-        isolated_config_dir: Optional isolated Claude config dir to search for
-            checkpoint/TOME artifacts (when CLAUDE_CONFIG_DIR is redirected,
-            arc may write .claude/arc/ inside the config dir instead of workspace).
+    report = validate_checkpoint(checkpoint_data, workspace)
+    convergence = checkpoint_data.get("convergence")
+    nonce = checkpoint_data.get("session_nonce")
+    return nonce, convergence, report
 
-    Returns a dict with all evaluation components.
-    """
-    results: dict = {}
+
+def _evaluate_tome(
+    workspace: Path, extra_dirs: list[Path] | None, session_nonce: str | None,
+) -> TomeReport | None:
+    """Parse TOME artifact and return report."""
+    print("  Analyzing TOME...")
+    tome_path = _find_artifact(workspace, "tome.md", extra_dirs)
+    if not tome_path:
+        print("    WARNING: No TOME found")
+        return None
+
+    print(f"    Found: {tome_path}")
+    return parse_tome(tome_path.read_text(), expected_nonce=session_nonce)
+
+
+def _run_functional_tests(workspace: Path) -> tuple[str, bool] | None:
+    """Run evaluation/*.py via pytest. Returns (output, passed) or None."""
+    eval_dir = workspace / "evaluation"
+    eval_files = list(eval_dir.glob("*.py")) if eval_dir.exists() else []
+    # Filter out paths that start with '-' to prevent flag injection
+    eval_files = [f for f in eval_files if not f.name.startswith("-")]
+    if not eval_files:
+        return None
+
+    print("  Running functional tests...")
+    try:
+        func_result = subprocess.run(
+            [sys.executable, "-m", "pytest", "-v", "--tb=short",
+             "--", *[str(f) for f in eval_files]],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        output = func_result.stdout + func_result.stderr
+        passed = func_result.returncode == 0
+        if not passed:
+            print(f"    Functional tests failed (exit {func_result.returncode})")
+        return output, passed
+    except subprocess.TimeoutExpired:
+        print("    Functional tests timed out")
+        return "Functional tests timed out after 120s", False
+
+
+def evaluate_workspace(
+    workspace: Path, isolated_config_dir: Path | None = None,
+) -> EvaluationResults:
+    """Evaluate all artifacts in a workspace after arc completion."""
+    results: EvaluationResults = {}
     extra_dirs = [isolated_config_dir] if isolated_config_dir else None
 
     # 1. Checkpoint validation
-    print("  Validating checkpoint...")
-    checkpoint_data = load_checkpoint(workspace, extra_search_dirs=extra_dirs)
-    checkpoint_report = None
-    convergence_info = None
-    session_nonce = None
-
-    if checkpoint_data:
-        checkpoint_report = validate_checkpoint(checkpoint_data, workspace)
-        convergence_info = checkpoint_data.get("convergence")
-        session_nonce = checkpoint_data.get("session_nonce")
+    session_nonce, convergence, checkpoint_report = _evaluate_checkpoint(workspace, extra_dirs)
+    if checkpoint_report:
         results["checkpoint"] = checkpoint_report
-        results["convergence"] = convergence_info
-    else:
-        print("    WARNING: No checkpoint found")
+    if convergence:
+        results["convergence"] = convergence
 
     # 2. TOME analysis
-    print("  Analyzing TOME...")
-    tome_path = _find_artifact(workspace, "tome.md", extra_dirs)
-    if tome_path:
-        tome_content = tome_path.read_text()
-        tome_report = parse_tome(tome_content, expected_nonce=session_nonce)
+    tome_report = _evaluate_tome(workspace, extra_dirs, session_nonce)
+    if tome_report:
         results["tome"] = tome_report
-        print(f"    Found: {tome_path}")
-    else:
-        print("    WARNING: No TOME found")
 
     # 3. Gap analysis
     print("  Reading gap analysis...")
@@ -227,25 +279,13 @@ def evaluate_workspace(workspace: Path, isolated_config_dir: Path | None = None)
 
     # 4. Code quality evaluation
     print("  Evaluating code quality...")
-    quality_report = evaluate_all(workspace)
-    results["quality"] = quality_report
+    results["quality"] = evaluate_all(workspace)
 
-    # 5. Run external functional tests if available
-    eval_dir = workspace / "evaluation"
-    eval_files = list(eval_dir.glob("*.py")) if eval_dir.exists() else []
-    if eval_files:
-        print("  Running functional tests...")
-        func_result = subprocess.run(
-            [sys.executable, "-m", "pytest", *[str(f) for f in eval_files], "-v", "--tb=short"],
-            cwd=workspace,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        results["functional_test_output"] = func_result.stdout + func_result.stderr
-        results["functional_test_passed"] = func_result.returncode == 0
-        if not func_result.returncode == 0:
-            print(f"    Functional tests failed (exit {func_result.returncode})")
+    # 5. Functional tests
+    func_result = _run_functional_tests(workspace)
+    if func_result:
+        results["functional_test_output"] = func_result[0]
+        results["functional_test_passed"] = func_result[1]
 
     return results
 
@@ -255,7 +295,7 @@ def generate_full_report(
     challenge_name: str,
     arc_duration: float,
     run_result: RunResult | None,
-    eval_results: dict,
+    eval_results: EvaluationResults,
     output_path: Path,
 ) -> Path:
     """Generate and write the comprehensive Markdown report."""
@@ -272,7 +312,8 @@ def generate_full_report(
     return write_report(report_text, output_path)
 
 
-def main() -> None:
+def _parse_args() -> argparse.Namespace:
+    """Parse and validate CLI arguments."""
     parser = argparse.ArgumentParser(
         description="Rune Arc E2E Test Harness",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -307,69 +348,107 @@ Examples:
 
     args = parser.parse_args()
 
-    # Validate arguments
     if not args.evaluate_only and not args.challenge:
         parser.error("--challenge is required unless --evaluate-only is used")
     if args.evaluate_only and not args.workspace:
         parser.error("--workspace is required with --evaluate-only")
 
-    # Set up output path
     if args.output is None:
         reports_dir = TESTS_DIR / "reports"
         reports_dir.mkdir(exist_ok=True)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         args.output = reports_dir / f"report-{timestamp}.md"
 
+    return args
+
+
+def _run_arc_phase(
+    args: argparse.Namespace,
+) -> tuple[Path, Path | None, RunResult | None, float]:
+    """Execute phases 1-2: workspace setup and arc run.
+
+    Returns (workspace, config_dir, run_result, arc_duration).
+    """
+    if args.evaluate_only:
+        print(f"\n[1/3] Using existing workspace: {args.workspace}")
+        print("[2/3] Skipped (--evaluate-only)")
+        return args.workspace, None, None, 0.0
+
+    # Phase 1: Set up workspace
+    print("\n[1/3] Setting up workspace...")
+    isolate = not args.no_isolate
+    workspace, config_dir = setup_workspace(args.challenge, isolate=isolate)
+
+    # Phase 2: Run /rune:arc
+    print("\n[2/3] Running /rune:arc...")
+    flags = []
+    if args.no_forge:
+        flags.append("--no-forge")
+
+    plan_relative = f"plans/{args.challenge.name}"
+    start = time.monotonic()
+    run_result = run_arc(
+        workspace=workspace,
+        plan_file=plan_relative,
+        plugin_dir=args.plugin_dir,
+        flags=flags,
+        max_turns=args.max_turns,
+        max_budget_usd=args.max_budget,
+        timeout_seconds=args.timeout,
+        model=args.model,
+        isolated_config_dir=config_dir,
+    )
+    arc_duration = time.monotonic() - start
+
+    print(f"  Exit code: {run_result.exit_code}")
+    print(f"  Duration: {arc_duration / 60:.1f} minutes")
+    if run_result.token_usage:
+        print(f"  Token usage: {json.dumps(run_result.token_usage, indent=2)}")
+
+    return workspace, config_dir, run_result, arc_duration
+
+
+def _print_summary(eval_results: EvaluationResults, run_result: RunResult | None) -> int:
+    """Print verdict and return exit code (0 = pass, 1 = fail)."""
+    quality: QualityReport | None = eval_results.get("quality")
+    checkpoint: CheckpointReport | None = eval_results.get("checkpoint")
+
+    if quality:
+        print(f"\nCode Quality: {quality.total_score:.1f}/10 {'PASS' if quality.passed else 'FAIL'}")
+    if checkpoint:
+        print(f"Checkpoint: {'VALID' if checkpoint.valid else 'INVALID'} ({checkpoint.completed_phases}/{checkpoint.total_phases} phases)")
+
+    tome: TomeReport | None = eval_results.get("tome")
+    if tome:
+        print(f"TOME: {tome.total_findings} findings (P1:{tome.p1_count} P2:{tome.p2_count} P3:{tome.p3_count})")
+
+    if run_result and run_result.exit_code != 0:
+        print(f"\nFAIL: /rune:arc exited with code {run_result.exit_code}")
+        return 1
+    if quality and not quality.passed:
+        return 1
+    if checkpoint and not checkpoint.valid:
+        return 1
+    if eval_results.get("functional_test_passed") is False:
+        return 1
+    return 0
+
+
+def main() -> None:
+    args = _parse_args()
+
     print("=" * 60)
     print("Rune Arc Test Harness")
     print("=" * 60)
 
-    run_result = None
-    arc_duration = 0.0
-    workspace: Path | None = args.workspace
-    config_dir: Path | None = None
+    workspace, config_dir, run_result, arc_duration = _run_arc_phase(args)
 
-    if not args.evaluate_only:
-        # --- Phase 1: Set up workspace ---
-        print("\n[1/3] Setting up workspace...")
-        isolate = not args.no_isolate
-        workspace, config_dir = setup_workspace(args.challenge, isolate=isolate)
-
-        # --- Phase 2: Run /rune:arc ---
-        print("\n[2/3] Running /rune:arc...")
-        flags = []
-        if args.no_forge:
-            flags.append("--no-forge")
-
-        plan_relative = f"plans/{args.challenge.name}"
-        start = time.monotonic()
-        run_result = run_arc(
-            workspace=workspace,
-            plan_file=plan_relative,
-            plugin_dir=args.plugin_dir,
-            flags=flags,
-            max_turns=args.max_turns,
-            max_budget_usd=args.max_budget,
-            timeout_seconds=args.timeout,
-            model=args.model,
-            isolated_config_dir=config_dir,
-        )
-        arc_duration = time.monotonic() - start
-
-        print(f"  Exit code: {run_result.exit_code}")
-        print(f"  Duration: {arc_duration / 60:.1f} minutes")
-        if run_result.token_usage:
-            print(f"  Token usage: {json.dumps(run_result.token_usage, indent=2)}")
-    else:
-        print(f"\n[1/3] Using existing workspace: {workspace}")
-        print("[2/3] Skipped (--evaluate-only)")
-
-    # --- Phase 3: Evaluate ---
+    # Phase 3: Evaluate
     print("\n[3/3] Evaluating results...")
     assert workspace is not None
     eval_results = evaluate_workspace(workspace, isolated_config_dir=config_dir)
 
-    # --- Generate report ---
+    # Generate report
     challenge_name = args.challenge.stem if args.challenge else "manual"
     report_path = generate_full_report(
         challenge_name=challenge_name,
@@ -383,35 +462,14 @@ Examples:
     print(f"Report: {report_path}")
     print(f"{'=' * 60}")
 
-    # Print verdict
-    quality: QualityReport | None = eval_results.get("quality")
-    checkpoint: CheckpointReport | None = eval_results.get("checkpoint")
-
-    if quality:
-        print(f"\nCode Quality: {quality.total_score:.1f}/10 {'PASS' if quality.passed else 'FAIL'}")
-    if checkpoint:
-        print(f"Checkpoint: {'VALID' if checkpoint.valid else 'INVALID'} ({checkpoint.completed_phases}/{checkpoint.total_phases} phases)")
-
-    tome: TomeReport | None = eval_results.get("tome")
-    if tome:
-        print(f"TOME: {tome.total_findings} findings (P1:{tome.p1_count} P2:{tome.p2_count} P3:{tome.p3_count})")
+    exit_code = _print_summary(eval_results, run_result)
 
     # Cleanup workspace (unless --keep-workspace or --evaluate-only)
     if not args.evaluate_only and not args.keep_workspace and workspace:
         print(f"\nCleaning up workspace: {workspace}")
         shutil.rmtree(workspace, ignore_errors=True)
 
-    # Exit code based on results
-    if run_result and run_result.exit_code != 0:
-        print(f"\nFAIL: /rune:arc exited with code {run_result.exit_code}")
-        sys.exit(1)
-    if quality and not quality.passed:
-        sys.exit(1)
-    if checkpoint and not checkpoint.valid:
-        sys.exit(1)
-    if eval_results.get("functional_test_passed") is False:
-        sys.exit(1)
-    sys.exit(0)
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":
