@@ -203,6 +203,24 @@ for (let i = 0; i < extractedTasks.length; i++) {
     ownershipMap[target].push(i)
   }
 }
+// Also check directory containment: if taskA owns "src/api/" and taskB targets
+// "src/api/users.ts", flag conflict (startsWith check for nested paths)
+const allTargetEntries = Object.keys(ownershipMap)
+for (let i = 0; i < allTargetEntries.length; i++) {
+  for (let j = 0; j < allTargetEntries.length; j++) {
+    if (i === j) continue
+    const a = allTargetEntries[i], b = allTargetEntries[j]
+    // If b is a subdirectory/file within a's directory path
+    if (b.startsWith(a) && a.endsWith("/")) {
+      for (const idx of ownershipMap[b]) {
+        if (!ownershipMap[a].includes(idx)) {
+          ownershipMap[a].push(idx)
+        }
+      }
+    }
+  }
+}
+
 // RESOLVE: Serialize conflicting tasks via blockedBy
 const conflicts = Object.entries(ownershipMap).filter(([_, indices]) => indices.length > 1)
 for (const [file, indices] of conflicts) {
@@ -217,6 +235,8 @@ for (const [file, indices] of conflicts) {
 }
 
 // 5.2 Create task pool and map symbolic refs to real IDs
+// Note: File ownership is prompt-enforced (advisory). For hard enforcement,
+// deploy a PreToolUse hook that validates Edit/Write targets against declared ownership.
 const QUALITY_CONTRACT = `
 Quality requirements (mandatory):
 - Type annotations on ALL function signatures (params + return types)
@@ -317,7 +337,14 @@ const result = waitForCompletion(teamName, taskCount, {
   staleWarnMs: 300_000,      // 5 minutes -- warn about stalled worker
   autoReleaseMs: 600_000,    // 10 minutes -- release task for reclaim
   pollIntervalMs: 30_000,
-  label: "Work"
+  label: "Work",
+  onCheckpoint: (cp) => {
+    log(`## Checkpoint ${cp.n} — ${cp.label}`)
+    log(`Progress: ${cp.completed}/${cp.total} (${cp.percentage}%)`)
+    log(`Active: ${cp.active.join(", ") || "none"}`)
+    if (cp.blockers.length) log(`Blockers: ${cp.blockers.join(", ")}`)
+    log(`Decision: ${cp.decision}`)
+  }
 })
 ```
 

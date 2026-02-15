@@ -1,5 +1,7 @@
 # Damage Control — Recovery Procedures
 
+> **Note**: These procedures summarize recovery patterns also documented inline in their respective commands. This document provides a unified quick-reference for emergency triage.
+
 Six named recovery procedures for Agent Team failures. Each follows ASSESS → CONTAIN → RECOVER → VERIFY → REPORT.
 
 ## Escalation Chain
@@ -139,7 +141,7 @@ Six named recovery procedures for Agent Team failures. Each follows ASSESS → C
 | VERIFY | No team directories remain before starting new workflow |
 | REPORT | Log which workflows conflicted and resolution |
 
-**Escalation**: L0 pre-create guard detects → L1 auto-refuse with message → L3 ask user to choose (wait/cancel/force)
+**Escalation**: L0 pre-create guard detects → L1 auto-refuse with message → L2 not applicable — concurrent workflows cannot degrade gracefully, only prevented or user-resolved → L3 ask user to choose (wait/cancel/force)
 **Decision**: Prevent, not fix. Never auto-cancel a running workflow.
 **Refs**: SO-2 (Shattered Rune) · Team lifecycle guard · Cancel commands
 

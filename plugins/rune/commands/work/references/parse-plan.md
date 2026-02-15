@@ -110,16 +110,19 @@ If user chooses to clarify: ask specific questions one at a time (max 3), then a
 After extracting tasks, classify each task's risk tier using the deterministic decision tree from `risk-tiers.md`. This MUST happen before task creation.
 
 ```javascript
+// SYNC: risk-tier-paths — update both this function AND risk-tiers.md File-Path Fallback Heuristic table
 function classifyRiskTier(task) {
   const desc = (task.subject + " " + task.description).toLowerCase()
   const files = task.fileTargets || []
 
   // Q1: Auth/security/encryption/credentials?
+  // Conservative: over-classifies to higher tier. Manual override via plan metadata if needed.
   if (/\b(auth|security|encrypt|credential|secret|token|password|oauth|jwt)\b/.test(desc)
       || files.some(f => /(auth|security|crypto|credentials)/.test(f))) {
     return { tier: 3, name: "Elden" }
   }
   // Q2: DB schemas/migrations/CI-CD/infrastructure?
+  // Conservative: over-classifies to higher tier. Manual override via plan metadata if needed.
   if (/\b(migrat|schema|deploy|ci[\/-]cd|infrastructure|database|pipeline)\b/.test(desc)
       || files.some(f => /(migrations|deploy|\.github|infra)/.test(f))) {
     return { tier: 2, name: "Rune" }
@@ -153,6 +156,16 @@ function extractFileTargets(task) {
   for (const match of desc.matchAll(filePattern)) {
     const path = match[1]
     if (path.includes('/') && !path.startsWith('http')) files.add(path)
+  }
+  // Post-match filter: remove false positives that look like file paths but aren't
+  // (a) version strings like "v2.0", "1.2.3", (b) abbreviations like "e.g.", "i.e.", "etc.",
+  // (c) URLs that slipped through the http check
+  const falsePositiveFilter = (p) =>
+    /^v?\d+\.\d+/.test(p) ||                     // version strings
+    /^(e\.g|i\.e|etc|vs|ca|approx)\./i.test(p) || // common abbreviations
+    /^https?:/.test(p)                             // URLs
+  for (const f of files) {
+    if (falsePositiveFilter(f)) files.delete(f)
   }
   // Directory-level ownership as fallback
   const dirs = new Set()

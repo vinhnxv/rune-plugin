@@ -36,6 +36,7 @@ Task({
     4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before coding.
        Max 2 rejections -> mark BLOCKED. Timeout 3 min -> auto-REJECT.
+    <!-- SYNC: file-ownership-protocol — keep rune-smith and trial-forger in sync -->
     4.5. FILE OWNERSHIP (from task description):
          Your owned files/dirs: {file_ownership from task description, or "unrestricted" if none}
          - If file_ownership is listed: do NOT edit files outside this list.
@@ -115,12 +116,20 @@ Task({
     4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before writing tests.
        Max 2 rejections -> mark BLOCKED. Timeout 3 min -> auto-REJECT.
+    <!-- SYNC: file-ownership-protocol — keep rune-smith and trial-forger in sync -->
     4.5. FILE OWNERSHIP (from task description):
          Your owned files/dirs: {file_ownership from task description, or "unrestricted" if none}
          - If file_ownership is listed: do NOT create test files outside owned paths.
            If you need to test code in other files, create a new task via SendMessage to lead.
          - If "unrestricted": you may create tests anywhere following project convention.
-    4.6. RISK TIER: {risk_tier} ({tier_name}) — applies same verification as rune-smith (see above).
+    4.6. RISK TIER VERIFICATION (from task metadata):
+         Your task risk tier: {risk_tier} ({tier_name})
+         - Tier 0 (Grace): Basic ward check only
+         - Tier 1 (Ember): Ward check + self-review (step 6.5)
+         - Tier 2 (Rune): Ward check + self-review + answer failure-mode checklist
+           (see risk-tiers.md) + include rollback plan in Seal message
+         - Tier 3 (Elden): All of Tier 2 + send AskUserQuestion for human confirmation
+           before committing
     5. Read FULL source files being tested (understand all exports, types, edge cases)
     6. Write tests following discovered patterns
     6.5. SELF-REVIEW before running:

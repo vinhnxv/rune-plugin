@@ -9,7 +9,7 @@ Deterministic risk classification for `/rune:work` tasks. Every task MUST be ass
 | 0 | Grace | Safe | Comments, renames, formatting, tests, docs |
 | 1 | Ember | User-visible | API responses, UI components, validation logic |
 | 2 | Rune | Infrastructure | DB schemas, CI/CD, migrations, deploy configs |
-| 3 | Elden | Irreversible | Auth logic, encryption, credentials, data deletion |
+| 3 | Elden | Irreversible | Auth logic, encryption, credentials, data deletion. Includes: auth, security, encryption, credentials, data deletion |
 
 ## Decision Tree
 
@@ -78,7 +78,7 @@ TaskCreate({
     risk_tier: 1,
     tier_name: "Ember",
     file_targets: ["src/api/users.ts", "src/validators/user.ts"],
-    verification: ["ward check", "self-review"]
+    verification: ["ward check", "self-review"]  // optional — not set by default orchestrator
   }
 })
 ```

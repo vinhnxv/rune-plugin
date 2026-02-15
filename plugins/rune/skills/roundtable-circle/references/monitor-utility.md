@@ -49,12 +49,23 @@ function waitForCompletion(teamName, expectedCount, opts) {
   const milestones = [25, 50, 75, 100]
   let lastMilestone = 0       // tracks highest milestone already reported
   let checkpointCount = 0
+  let blockerReportedAtMilestone = -1  // tracks milestone at which last blocker checkpoint fired
+  const taskStartTimes = {}   // taskId -> timestamp when first seen in_progress
 
   while (true) {
     const tasks = TaskList()
     const completed = tasks.filter(t => t.status === "completed")
     const inProgress = tasks.filter(t => t.status === "in_progress")
-    // task.stale: elapsed ms since task entered in_progress (derived from platform TaskList metadata)
+
+    // Derive task.stale: elapsed ms since task entered in_progress
+    for (const t of inProgress) {
+      if (!taskStartTimes[t.id]) taskStartTimes[t.id] = Date.now()
+      t.stale = Date.now() - taskStartTimes[t.id]
+    }
+    // Clean up completed tasks from the tracking map
+    for (const t of completed) {
+      delete taskStartTimes[t.id]
+    }
 
     log(`${label} progress: ${completed.length}/${expectedCount} tasks`)
 
@@ -66,7 +77,7 @@ function waitForCompletion(teamName, expectedCount, opts) {
         onCheckpoint({
           n: checkpointCount, label, completed: completed.length,
           total: expectedCount, percentage: 100,
-          active: [], blockers: [], decision: "CONTINUE"
+          active: [], blockers: [], decision: "COMPLETE"
         })
       }
       return { completed, incomplete: [], timedOut: false }
@@ -77,11 +88,12 @@ function waitForCompletion(teamName, expectedCount, opts) {
       const percentage = Math.floor((completed.length / expectedCount) * 100)
       const staleTasks = inProgress.filter(t => t.stale > staleWarnMs)
       const nextMilestone = milestones.find(m => m > lastMilestone && percentage >= m)
-      const hasNewBlocker = staleTasks.length > 0 && percentage > lastMilestone
+      const hasNewBlocker = staleTasks.length > 0 && blockerReportedAtMilestone !== lastMilestone
 
       if (nextMilestone || hasNewBlocker) {
         checkpointCount++
         lastMilestone = nextMilestone || lastMilestone
+        if (hasNewBlocker) blockerReportedAtMilestone = lastMilestone
         const decision = staleTasks.length > 0 ? "INVESTIGATE" : "CONTINUE"
         onCheckpoint({
           n: checkpointCount,
@@ -141,7 +153,7 @@ Each milestone fires at most once. The 100% checkpoint fires on completion.
 ## Checkpoint {N} — {workflow_label}
 Progress: {completed}/{total} ({percentage}%)
 Active: {in_progress task subjects}
-Blockers: {stalled tasks > 3 min, or omit if none}
+Blockers: {stalled tasks > staleWarnMs, or omit if none}
 Decision: {CONTINUE | ADJUST | INVESTIGATE | ESCALATE}
 ```
 
@@ -150,9 +162,10 @@ Decision: {CONTINUE | ADJUST | INVESTIGATE | ESCALATE}
 | Decision | Condition | Action |
 |----------|-----------|--------|
 | `CONTINUE` | No blockers, progress normal | Keep polling |
-| `ADJUST` | > 75% complete, minor issues | Consider scope reduction |
+| `COMPLETE` | All tasks finished successfully | Return final results |
+| `ADJUST` | > 75% complete, minor issues | Consider scope reduction. *Reserved — not yet emitted by pseudocode.* |
 | `INVESTIGATE` | Stalled task detected | Log warning, check if auto-release applies |
-| `ESCALATE` | Multiple stalls or repeated blocker | Alert user via `AskUserQuestion` |
+| `ESCALATE` | Multiple stalls or repeated blocker | Alert user via `AskUserQuestion`. *Reserved — not yet emitted by pseudocode.* |
 
 ### Callback Signature
 
@@ -171,7 +184,7 @@ onCheckpoint({ n, label, completed, total, percentage, active, blockers, decisio
 | `percentage` | number | Integer percentage (0-100) |
 | `active` | string[] | Subjects of in_progress tasks |
 | `blockers` | string[] | Descriptions of stalled tasks (empty if none) |
-| `decision` | string | One of: CONTINUE, ADJUST, INVESTIGATE, ESCALATE |
+| `decision` | string | One of: CONTINUE, COMPLETE, ADJUST, INVESTIGATE, ESCALATE |
 
 ### Cross-References
 

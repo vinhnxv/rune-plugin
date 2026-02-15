@@ -31,8 +31,8 @@ Structured anti-patterns for multi-agent orchestration. Each Standing Order uses
 ### Decision Table
 | Condition | Action |
 |-----------|--------|
-| Tasks <= 2 AND files <= 3 AND no dependencies | Execute in single session — do NOT create a team |
-| Tasks <= 2 BUT files > 3 OR has dependencies | Proceed with team (complexity justifies overhead) |
+| Tasks <= 2 AND unique file targets (from extractFileTargets) <= 3 AND no dependencies | Execute in single session — do NOT create a team |
+| Tasks <= 2 BUT unique file targets (from extractFileTargets) > 3 OR has dependencies | Proceed with team (complexity justifies overhead) |
 | Single TOME finding for mend | Fix inline — do NOT spawn mend worker |
 
 ### Remedy Procedure
@@ -116,17 +116,9 @@ Structured anti-patterns for multi-agent orchestration. Each Standing Order uses
 | 2 | Security-sensitive files modified without lead review | Changed files match Tier 2-3 path patterns |
 | 3 | No rollback plan for infrastructure changes | Task description lacks rollback steps |
 
-### Decision Table
-| Condition | Action |
-|-----------|--------|
-| Task modifies auth/security/credentials | Classify Tier 3 (Elden) — require human confirmation |
-| Task modifies DB/CI-CD/infrastructure | Classify Tier 2 (Rune) — require lead review + rollback plan |
-| Task modifies user-facing behavior | Classify Tier 1 (Ember) — require ward check + self-review |
-| Task is internal only (docs/tests/format) | Classify Tier 0 (Grace) — basic ward check |
-
 ### Remedy Procedure
 1. **Pause** task execution until risk tier is assigned
-2. **Classify** using the 4-question decision tree in `risk-tiers.md`
+2. **Classify** using the 4-question decision tree in `risk-tiers.md`. See the Graduated Verification Matrix for per-tier requirements.
 3. **Verify** tier-appropriate verification requirements are met before marking complete
 
 ### Cross-References
