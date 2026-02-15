@@ -39,12 +39,14 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 <!-- PATTERN:SAFE_REGEX_PATTERN regex="/^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/" version="1" -->
 **Regex**: `/^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/`
 **Threat model**: Allows regex metacharacters for user-provided talisman patterns.
-**KNOWN VULNERABILITY (P1)**: `$` IS allowed in the character class `[\]{}^$+?]`. This means `$(whoami)` passes validation and could execute in double-quoted Bash interpolation. **Mitigation**: Consumer files MUST use single-quoted Bash interpolation or `rg -f <file>` approach. See also the `-- ` separator for ripgrep to prevent pattern interpretation as flags.
-**Status: Accepted Risk** — `$` is intentionally allowed because talisman regex patterns may legitimately use `$` as an end-of-line anchor. The mitigation (single-quoted interpolation or `rg -f`) is enforced by convention and verified by Arc Phase 2.7. Consumers using double-quoted interpolation MUST be flagged in reviews.
+**KNOWN VULNERABILITY (P1, Mitigated)**: `$` IS allowed in the character class `[\]{}^$+?]`. This means `$(whoami)` passes validation and could execute in double-quoted Bash interpolation. **Mitigation**: All consumer files MUST use `safeRgMatch()` (see "Safe Regex Execution" section below).
+**Status: Mitigated** — `$` is intentionally allowed because talisman regex patterns may legitimately use `$` as an end-of-line anchor. All consumers use `safeRgMatch()` which writes the pattern to a temp file and uses `rg -f`, eliminating shell interpolation entirely. The `_CC` variant (excludes `$`) remains available for contexts that don't need regex anchors.
 **ReDoS safe**: Yes (character class only)
-**Consumers**: plan.md, work.md, arc.md
+**Consumers**: ward-check.md, verification-gate.md, plan-review.md
 
-> **WARNING**: SAFE_REGEX_PATTERN MUST NOT be used in double-quoted Bash interpolation (e.g., `"${pattern}"`). Always use single-quoted interpolation (`'${pattern}'`) or `rg -f <file>` to prevent `$()` command substitution. For Bash-safe contexts where `$` is not needed, use `SAFE_REGEX_PATTERN_CC` instead.
+> Prior to v1.20.0, consumers were the top-level command files (plan.md, work.md, arc.md). After structural refactoring in v1.20.0, execution logic lives in the reference files listed above.
+
+> **Implementation**: All consumer sites call `safeRgMatch()` (defined in the "Safe Regex Execution" section below). Direct Bash interpolation of `SAFE_REGEX_PATTERN`-validated strings is prohibited. New consumers MUST use `safeRgMatch()`.
 
 ### SAFE_REGEX_PATTERN_CC
 <!-- PATTERN:SAFE_REGEX_PATTERN_CC regex="/^[a-zA-Z0-9._\-\/ \\\[\]{}^+?*]+$/" version="1" -->
@@ -52,6 +54,49 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 **Threat model**: Narrower than SAFE_REGEX_PATTERN. Excludes `|`, `(`, `)`, `$` (SEC-001). Adds `*` for glob matching. Safe for ripgrep context, NOT safe for unquoted Bash glob context.
 **ReDoS safe**: Yes
 **Consumers**: arc.md (consistency checks), work.md (Phase 4.3 consistency checks)
+
+## Safe Regex Execution
+
+### safeRgMatch(pattern, paths, options)
+
+Writes a regex pattern to a temporary file and executes ripgrep via `-f`, eliminating
+shell interpolation of user-provided patterns entirely.
+
+> The following pseudocode defines the agent behavior pattern. `Bash()`, `Write()`, and `Read()` refer to Claude Code tool calls, not JavaScript runtime functions.
+
+```javascript
+function safeRgMatch(pattern, paths, { exclusions, timeout } = {}) {
+  Bash(`mkdir -p tmp`)
+  const tmpFile = Bash(`mktemp tmp/.rg-pattern-XXXXXX`).stdout.trim()
+  try {
+    Write(tmpFile, pattern)
+    if (timeout && !Number.isFinite(timeout)) throw new Error('timeout must be a finite number')
+    const timeoutPrefix = timeout ? `timeout ${timeout} ` : ''
+    // Preserve original positional arg semantics: exclusions is passed as an additional
+    // search path (same as the pre-fix behavior: rg -- "regex" "paths" "exclusions").
+    // SAFE_PATH_PATTERN already validates exclusions — no shell metacharacters possible.
+    const exclusionArg = exclusions ? ` "${exclusions}"` : ''
+    const result = Bash(`${timeoutPrefix}rg --no-messages -f "${tmpFile}" "${paths}"${exclusionArg}`)
+    return result
+  } finally {
+    Bash(`rm -f "${tmpFile}" 2>/dev/null`)
+  }
+}
+```
+
+**Why `-f` over `--regexp`**: `rg -f FILE` reads patterns from a file, completely
+bypassing Bash string parsing. `rg --regexp PATTERN` still requires the pattern
+to be a Bash argument, which doesn't help with `$()` expansion.
+
+**Exclusion semantics**: The original code passes `pattern.exclusions` as a positional
+argument to `rg` (an additional search path). `safeRgMatch()` preserves this behavior
+exactly. The `exclusions` value is validated by `SAFE_PATH_PATTERN` before reaching
+this function, so it cannot contain shell metacharacters.
+
+**Edge cases**: `rg -f` treats each line of the pattern file as a separate pattern
+(OR semantics). Talisman YAML patterns typically don't contain embedded newlines,
+so this matches the expected single-pattern behavior.
+Note: `SAFE_REGEX_PATTERN` does not include `\n` in its character class, so multi-line patterns are rejected at validation time before reaching `safeRgMatch()`.
 
 ## Command Validators
 

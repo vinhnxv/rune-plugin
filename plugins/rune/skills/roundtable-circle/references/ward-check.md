@@ -116,6 +116,7 @@ for (const file of newFiles) {
 const talisman = readTalisman()
 const customPatterns = talisman?.plan?.verification_patterns || []
 // Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN -- see security-patterns.md
+// SEC-FIX: Pattern interpolation uses safeRgMatch() (rg -f) to prevent $() command substitution. See security-patterns.md for safeRgMatch() implementation.
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {
@@ -129,7 +130,7 @@ for (const pattern of customPatterns) {
     checks.push(`WARN: Skipping verification pattern "${pattern.description}": contains unsafe characters`)
     continue
   }
-  const result = Bash(`rg --no-messages -- "${pattern.regex}" "${pattern.paths}" "${pattern.exclusions || ''}"`)
+  const result = safeRgMatch(pattern.regex, pattern.paths, { exclusions: pattern.exclusions, timeout: 5 })
   if (pattern.expect_zero && result.stdout.trim().length > 0) {
     checks.push(`WARN: Stale reference: ${pattern.description}`)
   }
