@@ -507,7 +507,7 @@ try {
   allMembers = (teamConfig.members || []).map(m => m.name)
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
-  // FALLBACK: Config read failed — use known fixer list from command context
+  // FALLBACK: Config read failed — use known teammate list from command context
   allMembers = [...allFixers]
 }
 

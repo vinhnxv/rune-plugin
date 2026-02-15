@@ -428,7 +428,7 @@ try {
   allMembers = (teamConfig.members || []).map(m => m.name)
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
-  // FALLBACK: Config read failed — use known reviewer list
+  // FALLBACK: Config read failed — use static reviewer list for this phase
   allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper"]
 }
 

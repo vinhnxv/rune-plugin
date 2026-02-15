@@ -132,10 +132,12 @@ Key properties:
 let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
-  allMembers = (teamConfig.members || []).map(m => m.name)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(Boolean)
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
   // FALLBACK: Config read failed — use known teammate list from command context
+  // Each command provides its own fallback (e.g., allWorkers, allFixers, selectedAsh)
   allMembers = [...fallbackList]
 }
 

@@ -334,7 +334,7 @@ try {
   allMembers = (teamConfig.members || []).map(m => m.name)
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
-  // FALLBACK: Config read failed — use known Ash list from inscription
+  // FALLBACK: Config read failed — use known Ash list from Phase 1 (Rune Gaze)
   allMembers = [...selectedAsh]
 }
 
