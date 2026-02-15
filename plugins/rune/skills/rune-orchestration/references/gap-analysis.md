@@ -358,7 +358,7 @@ if (diffFiles.length === 0) {
 }
 ```
 
-## STEP 4.8: Evaluator Quality Metrics
+## STEP 4.8: Check Evaluator Quality Metrics
 
 Non-blocking sub-step: runs lightweight, evaluator-equivalent quality checks on committed code. Zero LLM cost — uses shell commands and AST analysis only. Score calculations are approximations and may differ from the E2E evaluator's exact algorithm.
 
@@ -373,7 +373,10 @@ if (!pythonCheck) {
   const pyFilesRaw = Bash(`find . -name "*.py" -not -path "./.venv/*" -not -path "./__pycache__/*" -not -path "./.*" -not -path "./.tox/*" -not -path "./.pytest_cache/*" -not -path "./build/*" -not -path "./dist/*" -not -path "./.eggs/*" | head -200`)
     .stdout.trim().split('\n').filter(f => f.length > 0)
 
-  // SEC: Filter file paths through SAFE_PATH_PATTERN_CC before passing to heredoc
+  // SEC: Filter file paths through SAFE_PATH_PATTERN_CC before passing to heredoc.
+  // CRITICAL: This regex MUST remain strict (alphanumeric + ._-/ only). Weakening it
+  // would allow shell metacharacters ($, `, ;, etc.) to reach the heredoc interpolation
+  // on the Bash() call below, enabling command injection via crafted filenames.
   const pyFiles = pyFilesRaw.filter(f => /^[a-zA-Z0-9._\-\/]+$/.test(f) && !f.includes('..') && !f.startsWith('/'))
 
   if (pyFiles.length === 0) {
@@ -414,7 +417,7 @@ for fn in long_fns[:10]: print(fn)
     // 3. Evaluation test pass rate
     let evalStatus = "SKIP"
     let evalDetail = "No evaluation/ directory"
-    const evalExists = Bash(`test -d evaluation && ls evaluation/*.py 2>/dev/null | wc -l`).stdout.trim()
+    const evalExists = Bash(`find evaluation -maxdepth 1 -name "*.py" -type f 2>/dev/null | wc -l`).stdout.trim()
     if (parseInt(evalExists) > 0) {
       const evalResult = Bash(`timeout 30s python -m pytest evaluation/ -v --tb=line 2>&1 | tail -20`)
       const output = evalResult.stdout.trim()
