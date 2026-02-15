@@ -117,12 +117,21 @@ for (const task of tasks) {
   }
 }
 
-// Read team config to discover active teammates
-const teamConfig = Read(`~/.claude/teams/${phase_team}/config.json`)
-for (const member of teamConfig.members) {
+// Read team config to discover active teammates — with fallback if config is missing/corrupt
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/${phase_team}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
+} catch (e) {
+  warn("Could not read team config — attempting TeamDelete directly")
+  allMembers = []
+}
+
+for (const member of allMembers) {
   SendMessage({
     type: "shutdown_request",
-    recipient: member.name,
+    recipient: member,
     content: "Arc pipeline cancelled by user"
   })
 }

@@ -435,7 +435,8 @@ for (const [section, agents] of assignments) {
 let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/rune-forge-${timestamp}/config.json`)
-  allMembers = (teamConfig.members || []).map(m => m.name)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(Boolean)
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
   // FALLBACK: Config read failed — use known teammate list from command context

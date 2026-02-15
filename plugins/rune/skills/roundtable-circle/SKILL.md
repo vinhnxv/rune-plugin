@@ -331,7 +331,8 @@ Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/t
 let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
-  allMembers = (teamConfig.members || []).map(m => m.name)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(Boolean)
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
   // FALLBACK: Config read failed — use known Ash list from Phase 1 (Rune Gaze)
@@ -344,7 +345,12 @@ for (const member of allMembers) {
 }
 
 // 2. Wait for shutdown approvals
-// 3. TeamDelete()
+
+// 3. Cleanup team with fallback
+try { TeamDelete() } catch (e) {
+  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+}
+
 // 4. Persist learnings to Rune Echoes (.claude/echoes/)
 // 5. Read TOME.md and present to user
 ```

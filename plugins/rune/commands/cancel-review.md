@@ -94,13 +94,21 @@ SendMessage({
 ### 4. Shutdown All Teammates
 
 ```javascript
-// Read team config to get member list
-config = Read(`~/.claude/teams/${team_name}/config.json`)
+// Read team config to get member list — with fallback if config is missing/corrupt
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
+} catch (e) {
+  warn("Could not read team config — attempting TeamDelete directly")
+  allMembers = []
+}
 
-for (const member of config.members) {
+for (const member of allMembers) {
   SendMessage({
     type: "shutdown_request",
-    recipient: member.name,
+    recipient: member,
     content: "Review cancelled by user"
   })
 }

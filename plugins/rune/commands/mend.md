@@ -504,7 +504,8 @@ TOME: {tome_path}
 let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/rune-mend-${id}/config.json`)
-  allMembers = (teamConfig.members || []).map(m => m.name)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(Boolean)
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
   // FALLBACK: Config read failed — use known teammate list from command context
@@ -512,7 +513,7 @@ try {
 }
 
 for (const member of allMembers) {
-  SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Mend workflow complete" })
 }
 
 // 2. Wait for approvals (max 30s)

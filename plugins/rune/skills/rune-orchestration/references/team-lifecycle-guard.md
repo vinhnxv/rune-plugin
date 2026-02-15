@@ -43,6 +43,8 @@ TeamCreate({ team_name: `${teamPrefix}-${identifier}` })
 
 At session end, after shutting down all teammates:
 
+> **DEPRECATED**: The static example below is superseded by the **Dynamic Cleanup with Member Discovery** pattern further down. New code should use the dynamic pattern instead. This is retained only for reference.
+
 ```javascript
 // 1. Shutdown all teammates
 for (const teammate of allTeammates) {
@@ -58,9 +60,7 @@ try { TeamDelete() } catch (e) {
 }
 ```
 
-**When to use**: At EVERY workflow cleanup point — both normal completion and cancellation.
-
-> **Note**: The `allTeammates` list above is a placeholder. In production, use the **Dynamic Cleanup with Member Discovery** pattern (below) to read the actual member list from `config.json` rather than relying on a static array.
+**When to use**: At EVERY workflow cleanup point — both normal completion and cancellation. Prefer the **Dynamic Cleanup with Member Discovery** pattern below for production use.
 
 ## Cancel Command Pattern
 
@@ -129,11 +129,12 @@ Key properties:
 
 ```javascript
 // 1. Read team config to discover ALL active teammates
+// Read returns file text; Claude interprets JSON structure from the content
 let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-  allMembers = members.map(m => m.name).filter(Boolean)
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
   // FALLBACK: Config read failed — use known teammate list from command context
@@ -149,6 +150,7 @@ for (const member of allMembers) {
 // 3. Wait for shutdown approvals (max 30s)
 
 // 4. TeamDelete with fallback
+// NOTE: team_name must be validated before this point — see "Input Validation" section above
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/${team_name}/ ~/.claude/tasks/${team_name}/ 2>/dev/null`)
 }

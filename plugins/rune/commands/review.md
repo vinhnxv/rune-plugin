@@ -428,10 +428,19 @@ If inscription.json has `verification.enabled: true`:
 ## Phase 7: Cleanup & Echo Persist
 
 ```javascript
-// 1. Shutdown all Ash + utility teammates (runebinder from Phase 5)
-const allTeammates = [...allAsh, "runebinder"]
-for (const teammate of allTeammates) {
-  SendMessage({ type: "shutdown_request", recipient: teammate })
+// 1. Shutdown all teammates (dynamic discovery from team config)
+const teamName = "rune-review-{identifier}"
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/${teamName}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(Boolean)
+} catch (e) {
+  // FALLBACK: Config read failed — use static list
+  allMembers = [...allAsh, "runebinder"]
+}
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Review complete" })
 }
 
 // 2. Wait for shutdown approvals (max 30s)

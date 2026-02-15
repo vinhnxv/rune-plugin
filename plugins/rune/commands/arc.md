@@ -425,10 +425,11 @@ if (result.timedOut) {
 let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/arc-plan-review-${id}/config.json`)
-  allMembers = (teamConfig.members || []).map(m => m.name)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(Boolean)
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
-  // FALLBACK: Config read failed — use static reviewer list for this phase
+  // FALLBACK: Phase 2 plan review — these are the 3 reviewers summoned in this specific phase
   allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper"]
 }
 
