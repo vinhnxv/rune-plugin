@@ -429,9 +429,22 @@ if (exists(".claude/echoes/planner/")) {
 ## Phase 6: Cleanup & Present
 
 ```javascript
-// 1. Shutdown all teammates
-for (const teammate of allTeammates) {
-  SendMessage({ type: "shutdown_request", recipient: teammate })
+// 1. Dynamic member discovery — reads team config to find ALL teammates
+// This catches teammates summoned in any phase, not just the initial batch
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/rune-plan-${timestamp}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(Boolean)
+  // Defense-in-depth: SDK already excludes team-lead from config.members
+} catch (e) {
+  // FALLBACK: Config read failed — use known teammate list from command context
+  allMembers = [...allTeammates]
+}
+
+// Shutdown all discovered members
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Planning workflow complete" })
 }
 
 // 2. Wait for approvals (max 30s)
@@ -442,7 +455,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifie
 // barrier preventing path traversal. Do NOT move, skip, or weaken this check.
 if (timestamp.includes('..')) throw new Error('Path traversal detected')
 try { TeamDelete() } catch (e) {
-  // SEC-003: timestamp validated above (line 432) — contains only [a-zA-Z0-9_-], .. check at line 435
+  // SEC-003: timestamp validated in Phase 6 cleanup preamble — /^[a-zA-Z0-9_-]+$/ + includes('..') check
   Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
 }
 

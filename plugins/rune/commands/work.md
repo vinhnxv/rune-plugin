@@ -487,11 +487,22 @@ const allTasks = TaskList()
 const completedTasks = allTasks.filter(t => t.status === "completed")
 const blockedTasks = allTasks.filter(t => t.status === "pending" && t.blockedBy?.length > 0)
 
-// 1. Shutdown all workers + utility teammates
-const allTeammates = [...allWorkers]
-if (codexAdvisorySummoned) allTeammates.push("codex-advisory")
-for (const teammate of allTeammates) {
-  SendMessage({ type: "shutdown_request", recipient: teammate })
+// 1. Dynamic member discovery — reads team config to find ALL teammates
+// This catches workers + utility teammates (e.g., codex-advisory) summoned in any phase
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/rune-work-${timestamp}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(Boolean)
+  // Defense-in-depth: SDK already excludes team-lead from config.members
+} catch (e) {
+  // FALLBACK: Config read failed — use known teammate list from command context
+  allMembers = [...allWorkers]
+  if (codexAdvisorySummoned) allMembers.push("codex-advisory")
+}
+
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
 }
 
 // 2. Wait for approvals (max 30s)

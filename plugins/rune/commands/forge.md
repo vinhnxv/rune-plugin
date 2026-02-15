@@ -430,9 +430,22 @@ for (const [section, agents] of assignments) {
 ## Phase 6: Cleanup & Present
 
 ```javascript
-// 1. Shutdown all agents
-for (const agent of allAgents) {
-  SendMessage({ type: "shutdown_request", recipient: agent })
+// 1. Dynamic member discovery — reads team config to find ALL teammates
+// This catches teammates summoned in any phase, not just the initial batch
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/rune-forge-${timestamp}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(Boolean)
+  // Defense-in-depth: SDK already excludes team-lead from config.members
+} catch (e) {
+  // FALLBACK: Config read failed — use known teammate list from command context
+  allMembers = [...allAgents]
+}
+
+// Shutdown all discovered members
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Forge workflow complete" })
 }
 
 // 2. Wait for approvals (max 30s)
