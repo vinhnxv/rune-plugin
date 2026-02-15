@@ -298,6 +298,10 @@ Before spawning Ashes, the orchestrator (Tarnished) must create the signal direc
 const signalDir = `tmp/.rune-signals/${teamName}`
 
 // Clear stale signals from any crashed previous run
+// NOTE: rm -rf + mkdir has a TOCTOU window where another process could create
+// a symlink between the remove and recreate. A safer alternative is:
+//   mkdir -p "${signalDir}" && find "${signalDir}" -mindepth 1 -delete
+// This avoids the race by never removing the directory itself.
 Bash(`rm -rf "${signalDir}" && mkdir -p "${signalDir}"`)
 
 // Write expected task count — read by on-task-completed.sh
@@ -332,12 +336,20 @@ function waitForCompletion(teamName, expectedCount, opts) {
 
   const startTime = Date.now()
   const signalDir = `tmp/.rune-signals/${teamName}`
-  const useSignals = exists(signalDir) && exists(`${signalDir}/.expected`)
+  let useSignals = exists(signalDir) && exists(`${signalDir}/.expected`)
 
   if (useSignals) {
     // ═══ FAST PATH: Filesystem signals (5s interval, near-zero token cost) ═══
     // Token cost per check: 0 (filesystem existence check, not API call)
     // Final TaskList() call on completion: ~100 tokens (one-time)
+    //
+    // Known limitation (Phase 2 BRIDGE): The fast path currently omits:
+    //   - Stale detection (no taskStartTimes tracking or staleWarnMs checks)
+    //   - Auto-release of stalled tasks (no autoReleaseMs handling)
+    //   - Checkpoint reporting (no onCheckpoint / milestone callbacks)
+    // These features only run in the Phase 1 polling fallback.
+    // Phase 3 will unify both paths so stale detection, auto-release,
+    // and checkpoint reporting work in event-driven mode as well.
     log(`${label}: Signal directory detected — event-driven monitoring (5s interval)`)
     let iteration = 0
 
@@ -351,11 +363,15 @@ function waitForCompletion(teamName, expectedCount, opts) {
           meta = JSON.parse(Read(`${signalDir}/.all-done`))
         } catch (err) {
           warn(`${label}: .all-done file corrupted, falling back to TaskList polling`)
-          useSignals = false
-          continue
+          break  // Exit fast-path loop — falls through to Phase 1 polling below
         }
         log(`${label}: All ${meta.total} signals received at ${meta.completed_at}`)
-        return { completed: TaskList(), incomplete: [], timedOut: false }
+        const finalTasks = TaskList()
+        return {
+          completed: finalTasks.filter(t => t.status === "completed"),
+          incomplete: finalTasks.filter(t => t.status !== "completed"),
+          timedOut: false
+        }
       }
 
       // Timeout check
@@ -379,11 +395,14 @@ function waitForCompletion(teamName, expectedCount, opts) {
       sleep(5_000)  // 5s — filesystem check, not API call
     }
 
-  } else {
-    // ═══ FALLBACK: Phase 1 polling (30s interval, TaskList API calls) ═══
-    log(`${label}: No signal directory — falling back to TaskList polling (${pollIntervalMs / 1000}s interval)`)
-    // ... (existing Phase 1 pseudocode from above runs unchanged) ...
+    // Fast-path loop exited via break (corrupted .all-done) — fall through to polling
+    log(`${label}: Fast path exited — switching to Phase 1 polling fallback`)
   }
+
+  // ═══ FALLBACK: Phase 1 polling (30s interval, TaskList API calls) ═══
+  // Reached when: (a) no signal directory exists, or (b) fast-path broke out due to error
+  log(`${label}: TaskList polling active (${pollIntervalMs / 1000}s interval)`)
+  // ... (existing Phase 1 pseudocode from above runs unchanged) ...
 }
 ```
 
@@ -427,7 +446,7 @@ Signal directories are cleaned:
 
 ### Stability Trigger
 
-Phase 2 is activated when `TaskCompleted` and `TeammateIdle` hooks are proven stable across 3+ consecutive plugin releases with zero hook-related regressions.
+Phase 2 was activated in v1.23.0. Stability is tracked across releases — 3+ consecutive releases with zero hook-related regressions confirms production readiness.
 
 ## References
 

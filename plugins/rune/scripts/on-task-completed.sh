@@ -34,8 +34,8 @@ if [[ -z "$TEAM_NAME" || -z "$TASK_ID" ]]; then
   exit 0
 fi
 
-# Guard: only process Rune teams (rune-review-*, rune-work-*, rune-plan-*, etc.)
-if [[ "$TEAM_NAME" != rune-* ]]; then
+# Guard: only process Rune teams (rune-review-*, rune-work-*, rune-plan-*, arc-*, etc.)
+if [[ "$TEAM_NAME" != rune-* && "$TEAM_NAME" != arc-* ]]; then
   exit 0
 fi
 
@@ -103,7 +103,8 @@ if [[ ! -f "$EXPECTED_FILE" ]]; then
 fi
 
 # BACK-005: Strengthen .expected validation
-EXPECTED=$(cat "$EXPECTED_FILE" 2>/dev/null | tr -d '[:space:]')
+# SEC-004: .expected is write-once by the orchestrator before agents spawn — no real TOCTOU risk.
+EXPECTED=$(head -c 16 "$EXPECTED_FILE" 2>/dev/null | tr -d '[:space:]')
 if [[ ! "$EXPECTED" =~ ^[1-9][0-9]*$ ]] && [[ "$EXPECTED" != "0" ]]; then
   echo "WARN: .expected file contains invalid count: ${EXPECTED}" >&2
   exit 0
@@ -112,16 +113,22 @@ fi
 # Count .done files (excluding .tmp files)
 DONE_COUNT=$(find "$SIGNAL_DIR" -maxdepth 1 -name "*.done" -not -name "*.tmp.*" 2>/dev/null | wc -l | tr -d ' ')
 
-# BACK-001: Add existence check before writing .all-done to prevent double-write race
+# BACK-001: Add existence check before writing .all-done to prevent double-write race.
+# Note: total is a lower bound — concurrent completions may increment .done count between
+# our find and the jq write (TOCTOU), but mv -n prevents double-write so this is benign.
 if [[ "$DONE_COUNT" -ge "$EXPECTED" ]] && [[ ! -f "${SIGNAL_DIR}/.all-done" ]]; then
   ALL_DONE_TEMP="${SIGNAL_DIR}/.all-done.tmp.$$"
 
   # SEC-001: Extract date command to shell variable (same as above)
   COMPLETED_AT_ALL=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-  jq -n --argjson total "$DONE_COUNT" --argjson expected "$EXPECTED" \
+  # BACK-002: Wrap jq+mv in error handler (mirrors lines 88-94)
+  if ! jq -n --argjson total "$DONE_COUNT" --argjson expected "$EXPECTED" \
     --arg ca "$COMPLETED_AT_ALL" \
-    '{total: $total, expected: $expected, completed_at: $ca}' > "$ALL_DONE_TEMP"
+    '{total: $total, expected: $expected, completed_at: $ca}' > "$ALL_DONE_TEMP" 2>/dev/null; then
+    rm -f "$ALL_DONE_TEMP" 2>/dev/null
+    exit 0
+  fi
 
   # SEC-003: Use mv -n (noclobber)
   mv -n "$ALL_DONE_TEMP" "${SIGNAL_DIR}/.all-done" 2>/dev/null || rm -f "$ALL_DONE_TEMP"
