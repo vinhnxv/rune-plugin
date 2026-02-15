@@ -2,7 +2,9 @@
 name: simplicity-warden
 description: |
   YAGNI and over-engineering detection. Ensures code is as simple and minimal as possible.
-  Flags premature abstractions, unnecessary indirection, and speculative generality.
+  Flags premature abstractions, unnecessary indirection, and speculative generality. Covers:
+  YAGNI violation detection, premature abstraction flagging, unnecessary complexity
+  identification, speculative generality detection, dead configuration removal.
   Triggers: After implementation, large PRs, new abstractions.
 
   <example>
@@ -13,12 +15,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - YAGNI violation detection
-  - Premature abstraction flagging
-  - Unnecessary complexity identification
-  - Speculative generality detection
-  - Dead configuration removal
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Simplicity Warden — Code Simplicity Agent

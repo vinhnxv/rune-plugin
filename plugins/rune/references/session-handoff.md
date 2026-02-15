@@ -5,7 +5,7 @@ Write to `tmp/scratch/session-state.md` before compaction or at session end.
 ## Session State
 
 ```markdown
-- Workflow: {review|plan|work|mend|arc}
+- Workflow: {review|audit|plan|forge|work|mend|arc}
 - Phase: {current phase number and name}
 - Team: {team-name}
 - Checkpoint: {path to checkpoint.json if arc}
@@ -15,4 +15,9 @@ Write to `tmp/scratch/session-state.md` before compaction or at session end.
 - Files NOT to re-read: {completed research/review outputs}
 - Open questions: {any unresolved decisions}
 - Next action: {exact next step}
+
+## Arc-specific fields (optional, for /rune:arc workflows):
+- Convergence round: {current mend retry count, e.g., 0/2}
+- Flags: {--approve, --no-forge, etc.}
+- Phase sequence position: {index in PHASE_ORDER array, e.g., 5/10}
 ```

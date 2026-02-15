@@ -3,8 +3,13 @@ name: wraith-finder
 description: |
   Dead code and unwired code detection. Finds unreachable code paths, unused exports,
   orphaned files, commented-out code, missing DI wiring, unregistered routes/handlers,
-  and AI-generated orphan code. Framework-agnostic with patterns for Python, Rust,
-  and TypeScript. Named for Elden Ring's Wraith — a ghost/dead entity.
+  and AI-generated orphan code. Covers: unused function/class detection, unreachable code
+  path identification, commented-out code blocks, orphaned file detection, unused import
+  flagging, DI wiring verification (Python/Rust/TypeScript), router/endpoint registration
+  checks, event handler subscription verification, AI-generated orphan code detection,
+  root cause classification (Case A/B/C/D), confidence scoring with risk escalation.
+  Framework-agnostic with patterns for Python, Rust, and TypeScript. Named for Elden
+  Ring's Wraith — a ghost/dead entity.
   Triggers: Refactoring, large PRs, after AI code generation, new services/routes/handlers.
 
   <example>
@@ -15,18 +20,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Unused function/class detection
-  - Unreachable code path identification
-  - Commented-out code blocks
-  - Orphaned file detection
-  - Unused import flagging
-  - DI wiring verification (Python/Rust/TypeScript)
-  - Router/endpoint registration checks
-  - Event handler subscription verification
-  - AI-generated orphan code detection
-  - Root cause classification (Case A/B/C/D)
-  - Confidence scoring with risk escalation
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Wraith Finder — Dead Code & Unwired Code Detection Agent
@@ -39,7 +34,7 @@ Dead code, orphaned code, and unwired code detection specialist.
 
 > **Prefix note**: When embedded in Pattern Weaver Ash, use the `QUAL-` finding prefix per the dedup hierarchy (`SEC > BACK > DOC > QUAL > FRONT > CDX`). The standalone prefix `DEAD-` is used only when invoked directly.
 
-## Philosophy
+## Core Principle
 
 > "Code that isn't wired is code that doesn't exist."
 
@@ -489,6 +484,8 @@ Before writing output file, confirm:
 - [ ] **Confidence score** included for each finding
 
 ## Output Format
+
+> **Note**: When embedded in Pattern Weaver Ash, replace `DEAD-` prefix with `QUAL-` in all finding IDs per the dedup hierarchy (`SEC > BACK > DOC > QUAL > FRONT > CDX`). The `DEAD-` prefix below is used in standalone mode only.
 
 ```markdown
 ## Unwired & Dead Code Findings

@@ -205,7 +205,7 @@ Record brainstorm output for research phase:
 
 Persist brainstorm decisions to: `tmp/plans/{timestamp}/brainstorm-decisions.md`
 
-## Phase 1: Research (Conditional, up to 6 agents)
+## Phase 1: Research (Conditional, up to 7 agents)
 
 Spawns local research agents (repo-surveyor, echo-reader, git-miner), evaluates risk/sufficiency scores to decide on external research (practice-seeker, lore-scholar, codex-researcher), then runs spec validation (flow-seer). Includes research consolidation validation checkpoint.
 
@@ -434,6 +434,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifie
 // barrier preventing path traversal. Do NOT move, skip, or weaken this check.
 if (timestamp.includes('..')) throw new Error('Path traversal detected')
 try { TeamDelete() } catch (e) {
+  // SEC-003: timestamp validated above (line 432) — contains only [a-zA-Z0-9_-], .. check at line 435
   Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
 }
 
@@ -492,7 +493,7 @@ When user selects "Create issue":
 
 2. **GitHub**: `gh issue create --title "{type}: {title}" --body-file plans/{path}`
 
-3. **Linear**: `linear issue create --title "{title}" --description "$(cat plans/{path})"`
+3. **Linear**: `cat plans/{path} | linear issue create --title "{title}" --description -`
 
 4. **No tracker configured**: Ask user and suggest adding `project_tracker: github` to CLAUDE.md.
 

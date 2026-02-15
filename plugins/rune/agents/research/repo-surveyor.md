@@ -3,16 +3,16 @@ name: repo-surveyor
 description: |
   Explores and analyzes codebase structure, patterns, and conventions.
   Maps existing architecture to inform planning decisions.
-capabilities:
-  - Analyze project structure and file organization
-  - Identify existing patterns and conventions
-  - Map dependencies and relationships
-  - Discover CLAUDE.md guidance and project rules
 allowed-tools:
   - Read
   - Glob
   - Grep
   - SendMessage
+capabilities:
+  - Analyze project structure and file organization
+  - Identify existing patterns and conventions
+  - Map dependencies and relationships
+  - Discover CLAUDE.md guidance and project rules
 ---
 
 # Repo Surveyor — Codebase Exploration Agent

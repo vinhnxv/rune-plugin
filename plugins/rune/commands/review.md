@@ -202,9 +202,12 @@ Write("tmp/.rune-review-{identifier}.json", {
 Write("tmp/reviews/{identifier}/inscription.json", { ... })
 
 // 5. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
-// Validate identifier before rm -rf
+// SECURITY: Validate identifier before rm -rf — /^[a-zA-Z0-9_-]+$/ ensures only safe chars
 if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("Invalid review identifier")
+// SEC-003: Redundant path traversal check — defense-in-depth with regex above
+if (identifier.includes('..')) throw new Error('Path traversal detected in review identifier')
 try { TeamDelete() } catch (e) {
+  // SEC-003: identifier validated above (line 206) — contains only [a-zA-Z0-9_-]
   Bash("rm -rf ~/.claude/teams/rune-review-{identifier}/ ~/.claude/tasks/rune-review-{identifier}/ 2>/dev/null")
 }
 TeamCreate({ team_name: "rune-review-{identifier}" })
@@ -227,7 +230,17 @@ Summon ALL selected Ash in a **single message** (parallel execution):
      Ash prompts are composite — each Ash embeds multiple review perspectives from
      agents/review/*.md. The agent file allowed-tools are NOT enforced at runtime.
      Tool restriction is enforced via prompt instructions (defense-in-depth).
-     Future improvement: create composite Ash agent files with restricted allowed-tools. -->
+     SEC-001 (P1): Review Ashes inherit ALL general-purpose tools (including Write/Edit/Bash).
+     Prompt instructions restrict them to Read/Glob/Grep only, but prompt-only restrictions
+     are bypassable — a sufficiently adversarial input could convince an Ash to write files.
+     REQUIRED MITIGATION: Add the following PreToolUse hook to .claude/settings.json to enforce
+     tool restrictions at the PLATFORM level for review teammates. Without this hook, the
+     read-only constraint is advisory only:
+       "hooks": { "PreToolUse": [{ "matcher": "Write|Edit|Bash|NotebookEdit",
+         "hooks": [{ "type": "command",
+           "command": "if echo \"$CLAUDE_TOOL_USE_CONTEXT\" | grep -q 'rune-review'; then echo 'BLOCKED: review Ashes are read-only' >&2; exit 2; fi" }] }] }
+     TODO: Create composite Ash agent files with restricted allowed-tools frontmatter
+     to enforce read-only at the agent definition level (eliminates need for hook). -->
 
 ```javascript
 // Built-in Ash: load prompt from ash-prompts/{role}.md
@@ -237,6 +250,13 @@ Task({
   subagent_type: "general-purpose",
   prompt: /* Load from roundtable-circle/references/ash-prompts/{role}.md
              Substitute: {changed_files}, {output_path}, {task_id}, {branch}, {timestamp}
+             // SEC-006 (P2): Sanitize file paths before interpolation — validate against SAFE_PATH_PATTERN
+             // (/^[a-zA-Z0-9._\-\/]+$/) and reject paths with special characters.
+             // NOTE: Phase 0 pre-flight already filters non-existent files and symlinks (lines 76-78)
+             // but does NOT sanitize filenames — paths with shell metacharacters, backticks, or
+             // $() constructs could be injected into Ash prompts.
+             // MITIGATION: Write the file list to tmp/reviews/{identifier}/changed-files.txt and
+             // reference it in the prompt rather than embedding raw paths inline.
              // Codex Oracle additionally requires: {context_budget}, {codex_model}, {codex_reasoning}, {file_batch}
              // These are resolved from talisman.codex.* config. See codex-oracle.md header for full contract. */,
   run_in_background: true
@@ -396,8 +416,11 @@ for (const teammate of allTeammates) {
 // 2. Wait for shutdown approvals (max 30s)
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
-// identifier validated at Phase 2: /^[a-zA-Z0-9_-]+$/
+// SEC-003: identifier validated at Phase 2 (line 206): /^[a-zA-Z0-9_-]+$/ — contains only safe chars
+// Redundant .. check for defense-in-depth at this second rm -rf call site
+if (identifier.includes('..')) throw new Error('Path traversal detected in review identifier')
 try { TeamDelete() } catch (e) {
+  // SEC-003: identifier validated at Phase 2 (line 206) — contains only [a-zA-Z0-9_-]
   Bash("rm -rf ~/.claude/teams/rune-review-{identifier}/ ~/.claude/tasks/rune-review-{identifier}/ 2>/dev/null")
 }
 

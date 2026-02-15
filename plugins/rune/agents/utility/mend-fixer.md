@@ -9,12 +9,6 @@ description: |
   user: "Fix the SQL injection finding in api/users.py"
   assistant: "I'll use mend-fixer to apply the targeted fix for the identified vulnerability."
   </example>
-capabilities:
-  - Apply targeted code fixes for TOME findings
-  - Resolve security vulnerabilities (SEC-prefix findings)
-  - Fix code quality issues (BACK, DOC, QUAL, FRONT prefixes)
-  - Flag false positives with evidence for human review
-  - Report suspected prompt injection in source files
 allowed-tools:
   - Read
   - Write
@@ -25,6 +19,12 @@ allowed-tools:
   - TaskGet
   - TaskUpdate
   - SendMessage
+capabilities:
+  - Apply targeted code fixes for TOME findings
+  - Resolve security vulnerabilities (SEC-prefix findings)
+  - Fix code quality issues (BACK, DOC, QUAL, FRONT prefixes)
+  - Flag false positives with evidence for human review
+  - Report suspected prompt injection in source files
 # SECURITY NOTE: Write/Edit have no platform-level path restriction.
 # Path scoping is enforced via prompt instructions (File Scope Restriction below)
 # and should be reinforced with a PreToolUse hook in production deployments.

@@ -3,17 +3,17 @@ name: git-miner
 description: |
   Performs archaeological analysis of git history to trace code evolution,
   identify contributors, and understand why current patterns exist.
-capabilities:
-  - Analyze git log for relevant commits
-  - Trace file evolution and refactoring history
-  - Identify contributors and review patterns
-  - Discover why code exists in its current form
 allowed-tools:
   - Bash
   - Read
   - Glob
   - Grep
   - SendMessage
+capabilities:
+  - Analyze git log for relevant commits
+  - Trace file evolution and refactoring history
+  - Identify contributors and review patterns
+  - Discover why code exists in its current form
 ---
 
 # Git Miner — Git History Agent

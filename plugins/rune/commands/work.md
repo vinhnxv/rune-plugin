@@ -37,7 +37,7 @@ allowed-tools:
 
 Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.
 
-**Load skills**: `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
 
 ## Usage
 
@@ -148,8 +148,12 @@ let didStash = false  // Set to true if stash was applied above; consumed by Pha
 
 ```javascript
 // 1. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
+// SECURITY: Validate identifier before rm -rf — /^[a-zA-Z0-9_-]+$/ ensures only safe chars
 if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid work identifier")
+// SEC-003: Redundant path traversal check — defense-in-depth with regex above
+if (timestamp.includes('..')) throw new Error('Path traversal detected in work identifier')
 try { TeamDelete() } catch (e) {
+  // SEC-003: timestamp validated above (line 151) — contains only [a-zA-Z0-9_-]
   Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
 }
 TeamCreate({ team_name: "rune-work-{timestamp}" })
@@ -216,6 +220,26 @@ See [worker-prompts.md](work/references/worker-prompts.md) for full worker promp
 
 **Summary**: Summon rune-smith (implementation) and trial-forger (test) workers. Workers self-organize via TaskList, claim tasks, implement with TDD, self-review, run ward checks, generate patches, and send Seal messages. Commits are handled through the Tarnished's commit broker. Do not run git add or git commit directly.
 
+<!-- NOTE: Work agents are spawned as general-purpose (not namespaced agent types like rune:work:rune-smith)
+     because they need full tool access (including Bash for ward checks, compilation, and test execution).
+     This is an intentional divergence from mend-fixer agents (which use restricted subagent_type for
+     security sandboxing). Work agents process plan content; mend-fixers process untrusted source code
+     — hence the different security postures.
+     SEC-002 (P1): TRUST BOUNDARY CONCERN — Plan content may contain forge-enriched external content
+     (from practice-seeker, lore-scholar, codex-researcher web search results). This external content
+     crosses a trust boundary when interpolated into worker prompts, as adversarial instructions
+     embedded in web results could influence worker behavior (e.g., modifying unrelated files,
+     exfiltrating data via Bash). Sanitize plan content before interpolation into worker prompts:
+       1. Strip HTML comments: replace(/<!--[\s\S]*?-->/g, '')
+       2. Strip code fences that could contain adversarial instructions
+       3. Truncate sections to reasonable lengths (matching mend.md SEC-004 pattern at lines 199-203)
+     RECOMMENDED: Add a PreToolUse hook for workers that restricts Bash to an allowlist of ward
+     commands (test runners, linters, build tools, git). Example:
+       "hooks": { "PreToolUse": [{ "matcher": "Bash",
+         "hooks": [{ "type": "command",
+           "command": "if echo \"$CLAUDE_TOOL_USE_CONTEXT\" | grep -q 'rune-work'; then ./scripts/validate-ward-command.sh; fi" }] }] }
+     -->
+
 ## Phase 3: Monitor
 
 Poll TaskList with timeout guard to track progress. See [monitor-utility.md](../skills/roundtable-circle/references/monitor-utility.md) for the shared polling utility.
@@ -280,7 +304,10 @@ function commitBroker(taskId) {
       return
     }
   }
-  Bash(`git add ${meta.files.map(f => `"${f}"`).join(' ')}`)
+  // SEC-011: Use --pathspec-from-file to avoid shell command construction
+  Write(`tmp/work/${timestamp}/patches/${taskId}-files.txt`,
+    meta.files.join('\n'))
+  Bash(`git add --pathspec-from-file="tmp/work/${timestamp}/patches/${taskId}-files.txt"`)
   const safeSubject = meta.subject.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 72)
   Write(`tmp/work/${timestamp}/patches/${taskId}-msg.txt`,
     `rune: ${safeSubject} [ward-checked]`)
@@ -438,7 +465,11 @@ for (const teammate of allTeammates) {
 // 2. Wait for approvals (max 30s)
 
 // 3. Cleanup team with fallback (see team-lifecycle-guard.md)
+// SEC-003: timestamp validated at Phase 1 (line 151): /^[a-zA-Z0-9_-]+$/ — contains only safe chars
+// Redundant .. check for defense-in-depth at this second rm -rf call site
+if (timestamp.includes('..')) throw new Error('Path traversal detected in work identifier')
 try { TeamDelete() } catch (e) {
+  // SEC-003: timestamp validated at Phase 1 (line 151) — contains only [a-zA-Z0-9_-]
   Bash("rm -rf ~/.claude/teams/rune-work-{timestamp}/ ~/.claude/tasks/rune-work-{timestamp}/ 2>/dev/null")
 }
 

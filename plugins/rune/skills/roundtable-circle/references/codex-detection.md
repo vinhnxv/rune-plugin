@@ -35,7 +35,14 @@ Canonical detection logic for the Codex Oracle built-in Ash. Used by review, aud
      a. Set codex_jq_available = true
 7. Check talisman.codex.workflows (default: [review, audit, plan, forge, work])
    - If the current workflow is NOT in the workflows list, remove codex-oracle from Ash selection
-8. If all checks pass:
+8. Check .codexignore exists (required for --full-auto):
+   Bash: [ -f .codexignore ] && echo "present" || echo "missing"
+   - If "missing":
+     a. Log: "Warning: .codexignore not found — Codex Oracle will skip --full-auto mode"
+     b. Ask user via AskUserQuestion: "Create .codexignore from template?" [Create] [Skip Codex]
+     c. If "Skip Codex": skip Codex Oracle entirely
+     d. If "Create": write default .codexignore template (see codex-cli SKILL.md) and continue
+9. If all checks pass:
    a. Add "codex-oracle" to the Ash selection (always-on when available, like Ward Sentinel)
    b. Log: "Codex Oracle: CLI detected and authenticated, adding cross-model reviewer"
 ```

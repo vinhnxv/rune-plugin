@@ -3,11 +3,6 @@ name: practice-seeker
 description: |
   Researches external best practices, industry patterns, and documentation
   for a given topic. Returns actionable recommendations with source links.
-capabilities:
-  - Search for best practices and conventions
-  - Find documentation and tutorials
-  - Identify common pitfalls and anti-patterns
-  - Provide implementation examples from real-world projects
 allowed-tools:
   - Read
   - Glob
@@ -15,6 +10,11 @@ allowed-tools:
   - WebSearch
   - WebFetch
   - SendMessage
+capabilities:
+  - Search for best practices and conventions
+  - Find documentation and tutorials
+  - Identify common pitfalls and anti-patterns
+  - Provide implementation examples from real-world projects
 ---
 
 # Practice Seeker — External Best Practices Agent

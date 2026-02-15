@@ -145,7 +145,7 @@ If `codex` CLI is available and `codex.workflows` includes `"plan"`, add Codex O
 
 ```javascript
 // See codex-detection.md (roundtable-circle/references/codex-detection.md)
-// for the 8-step detection algorithm.
+// for the 9-step detection algorithm.
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
 const codexDisabled = talisman?.codex?.disabled === true
 

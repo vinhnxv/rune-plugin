@@ -1,5 +1,7 @@
 # Agent Registry
 
+**Total: 30 agents** (16 review + 5 research + 2 work + 7 utility)
+
 ## Review Agents (`agents/review/`)
 
 | Agent | Expertise |

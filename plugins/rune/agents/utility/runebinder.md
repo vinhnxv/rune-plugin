@@ -9,18 +9,18 @@ description: |
   user: "Aggregate the review findings"
   assistant: "I'll use runebinder to combine all Ash outputs into TOME.md."
   </example>
-capabilities:
-  - Multi-file review aggregation
-  - Finding deduplication (5-line window)
-  - Priority-based ordering (P1 > P2 > P3)
-  - Gap reporting for incomplete deliverables
-  - Statistics and evidence coverage tracking
 allowed-tools:
   - Read
   - Glob
   - Grep
   - Write
   - SendMessage
+capabilities:
+  - Multi-file review aggregation
+  - Finding deduplication (5-line window)
+  - Priority-based ordering (P1 > P2 > P3)
+  - Gap reporting for incomplete deliverables
+  - Statistics and evidence coverage tracking
 ---
 
 # Runebinder — Review Aggregation Agent

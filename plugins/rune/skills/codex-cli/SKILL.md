@@ -34,18 +34,20 @@ All Rune workflows that invoke Codex MUST follow these patterns.
 ## Detection
 
 Run the canonical detection algorithm before any Codex invocation.
-See `roundtable-circle/references/codex-detection.md` for the full 8-step algorithm.
+See `roundtable-circle/references/codex-detection.md` for the full 9-step algorithm.
 
-**Quick summary** (abbreviated — see codex-detection.md for all 8 steps):
+**Quick summary** (abbreviated — see codex-detection.md for all 9 steps):
 
 ```
-1. Check talisman.codex.disabled → skip if true
-2. Check CLI installed: command -v codex
-3. Check CLI executable: codex --version
-4. Check authentication: codex login status
-5. Check jq availability (for JSONL parsing)
-6. Check talisman.codex.workflows includes current workflow
-7. If all pass → add Codex Oracle to agent selection
+1. Read talisman.yml (project or global)
+2. Check talisman.codex.disabled → skip if true
+3. Check CLI installed: command -v codex
+4. Check CLI executable: codex --version
+5. Check authentication: codex login status
+6. Check jq availability (for JSONL parsing)
+7. Check talisman.codex.workflows includes current workflow
+8. Check .codexignore exists (required for --full-auto)
+9. If all pass → add Codex Oracle to agent selection
 ```
 
 Note: Model validation (CODEX_MODEL_ALLOWLIST) happens at Codex invocation time in each
@@ -116,12 +118,19 @@ Before invoking `codex exec --full-auto`, verify `.codexignore` exists at repo r
 *.pem
 *.key
 *.p12
+*.db
+*.sqlite
+.npmrc
+docker-compose*.yml
 *credentials*
 *secrets*
 *token*
 .git/
 .claude/
 ```
+
+**Note:** Review `.codexignore` for project-specific sensitive files before first use.
+Teams should add any proprietary configs, internal tooling paths, or domain-specific secrets.
 
 ### Sandbox Modes
 
@@ -257,7 +266,7 @@ designated path. Even skip/error messages are written so downstream phases know 
 
 | File | What It Provides |
 |------|-----------------|
-| `roundtable-circle/references/codex-detection.md` | Canonical 8-step detection algorithm |
+| `roundtable-circle/references/codex-detection.md` | Canonical 9-step detection algorithm |
 | `roundtable-circle/references/ash-prompts/codex-oracle.md` | Full Ash prompt template with hallucination guard |
 | `roundtable-circle/references/circle-registry.md` | Codex Oracle's place in Ash registry |
 | `talisman.example.yml` (codex section) | All configurable options with comments |

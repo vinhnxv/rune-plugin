@@ -2,7 +2,10 @@
 name: type-warden
 description: |
   Language-specific type safety enforcement. Verifies type annotations, mypy strict
-  compliance, modern Python idioms, and async correctness patterns.
+  compliance, modern Python idioms, and async correctness patterns. Covers: complete
+  type hint verification (mypy strict), modern Python idiom enforcement (3.10+),
+  async/await correctness detection, error handling pattern validation (Result types),
+  import organization and style checks.
   Triggers: Python code review, backend review, type hint verification.
 
   <example>
@@ -13,12 +16,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Complete type hint verification (mypy strict)
-  - Modern Python idiom enforcement (3.10+)
-  - Async/await correctness detection
-  - Error handling pattern validation (Result types)
-  - Import organization and style checks
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Type Warden — Language Type Safety Agent

@@ -1,8 +1,10 @@
 ---
 name: ward-sentinel
 description: |
-  Security vulnerability detection across all file types. Covers OWASP Top 10, auth/authz,
-  input validation, secrets detection, and agent security.
+  Security vulnerability detection across all file types. Covers OWASP Top 10
+  vulnerability detection, authentication/authorization review, input validation
+  and sanitization checks, secrets/credential detection, agent/AI prompt security
+  analysis.
   Triggers: Always run on every review — security issues can hide in any file type.
 
   <example>
@@ -13,12 +15,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - OWASP Top 10 vulnerability detection
-  - Authentication and authorization review
-  - Input validation and sanitization checks
-  - Secrets and credential detection
-  - Agent/AI prompt security analysis
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Ward Sentinel — Security Review Agent

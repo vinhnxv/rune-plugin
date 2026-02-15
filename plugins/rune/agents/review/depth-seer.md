@@ -3,6 +3,9 @@ name: depth-seer
 description: |
   Missing logic and code complexity detection. Finds incomplete error handling,
   state machine gaps, missing validation, and structural complexity hotspots.
+  Covers: missing error handling detection, incomplete state machine analysis,
+  missing input validation, code complexity hotspots (LOC, nesting, cyclomatic),
+  missing rollback/compensation logic, boundary condition gap analysis.
   Triggers: New features, domain changes, AI-generated code.
 
   <example>
@@ -13,13 +16,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Missing error handling detection
-  - Incomplete state machine analysis
-  - Missing input validation identification
-  - Code complexity hotspot detection (LOC, nesting, cyclomatic)
-  - Missing rollback/compensation logic
-  - Boundary condition gap analysis
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Depth Seer — Missing Logic & Complexity Agent
@@ -41,7 +39,7 @@ Missing logic detection and code complexity specialist.
 - Missing rollback/compensation in multi-step operations
 - Boundary condition gaps (empty, null, negative, overflow)
 
-## Philosophy
+## Core Principle
 
 > "The code that isn't there is often more dangerous than the code that is."
 

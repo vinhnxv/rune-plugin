@@ -3,16 +3,16 @@ name: scroll-reviewer
 description: |
   Reviews document quality for plans, specs, and technical documents.
   Checks clarity, completeness, and actionability.
-capabilities:
-  - Review document structure and organization
-  - Check for ambiguous or unclear language
-  - Validate cross-references and links
-  - Assess actionability of requirements
 allowed-tools:
   - Read
   - Glob
   - Grep
   - SendMessage
+capabilities:
+  - Review document structure and organization
+  - Check for ambiguous or unclear language
+  - Validate cross-references and links
+  - Assess actionability of requirements
 ---
 
 # Scroll Reviewer — Document Quality Agent

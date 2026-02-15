@@ -4,16 +4,16 @@ description: |
   Reads Rune Echoes (past learnings) from .claude/echoes/ and surfaces relevant
   knowledge for the current task. Prioritizes by layer (Etched > Inscribed > Traced)
   and relevance to the current context.
-capabilities:
-  - Read .claude/echoes/ MEMORY.md files across all roles
-  - Score relevance of past learnings against current task
-  - Surface actionable insights without overwhelming context
-  - Detect stale or contradictory entries
 allowed-tools:
   - Read
   - Glob
   - Grep
   - SendMessage
+capabilities:
+  - Read .claude/echoes/ MEMORY.md files across all roles
+  - Score relevance of past learnings against current task
+  - Surface actionable insights without overwhelming context
+  - Detect stale or contradictory entries
 ---
 
 # Echo Reader — Past Learnings Agent

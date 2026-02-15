@@ -3,16 +3,16 @@ name: flow-seer
 description: |
   Analyzes specifications and feature descriptions for user flow completeness,
   edge cases, and requirement gaps.
-capabilities:
-  - Analyze feature specs for missing flows
-  - Identify edge cases and error scenarios
-  - Validate acceptance criteria completeness
-  - Detect requirement conflicts
 allowed-tools:
   - Read
   - Glob
   - Grep
   - SendMessage
+capabilities:
+  - Analyze feature specs for missing flows
+  - Identify edge cases and error scenarios
+  - Validate acceptance criteria completeness
+  - Detect requirement conflicts
 ---
 
 # Flow Seer — Spec Flow Analysis Agent

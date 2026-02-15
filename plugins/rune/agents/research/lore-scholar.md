@@ -3,11 +3,6 @@ name: lore-scholar
 description: |
   Researches framework-specific documentation, API references, and version-specific
   constraints for technologies used in the project.
-capabilities:
-  - Query framework documentation via Context7 MCP
-  - Find version-specific API details and migration guides
-  - Identify deprecated patterns and recommended replacements
-  - Provide code examples from official documentation
 allowed-tools:
   - Read
   - Glob
@@ -17,6 +12,11 @@ allowed-tools:
   - SendMessage
   - mcp__plugin_compound-engineering_context7__resolve-library-id
   - mcp__plugin_compound-engineering_context7__query-docs
+capabilities:
+  - Query framework documentation via Context7 MCP
+  - Find version-specific API details and migration guides
+  - Identify deprecated patterns and recommended replacements
+  - Provide code examples from official documentation
 ---
 
 # Lore Scholar — Framework Documentation Agent

@@ -31,10 +31,18 @@ settings:
   max_ashes: 8                   # Hard cap (6 built-in + custom)
   dedup_hierarchy: [SEC, BACK, DOC, QUAL, FRONT, CDX]
 
-# forge:                               # Forge Gaze selection overrides
-#   threshold: 0.30                    # Score threshold (0.0-1.0)
-#   max_per_section: 3                 # Max agents per section (cap: 5)
-#   max_total_agents: 8                # Max total agents (cap: 15)
+forge:                                 # Forge Gaze selection overrides
+  threshold: 0.30                      # Score threshold (0.0-1.0)
+  max_per_section: 3                   # Max agents per section (cap: 5)
+  max_total_agents: 8                  # Max total agents (cap: 15)
+
+codex:                                 # Codex CLI integration (see codex-cli skill for full details)
+  disabled: false                      # Kill switch — skip Codex entirely
+  model: "gpt-5.3-codex"              # Model for codex exec
+  reasoning: "high"                    # Reasoning effort (high | medium | low)
+  workflows: [review, audit, plan, forge, work]  # Which pipelines use Codex
+  work_advisory:
+    enabled: true                      # Codex advisory in /rune:work
 
 echoes:
   version_controlled: false

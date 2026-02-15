@@ -2,8 +2,10 @@
 name: blight-seer
 description: |
   Design anti-pattern and architectural smell detection. Identifies systemic design
-  flaws that silently degrade codebase health: God Services, Leaky Abstractions,
-  Temporal Coupling, Missing Observability, Wrong Consistency Models, and more.
+  flaws that silently degrade codebase health: God Service/Table detection, Leaky
+  Abstraction identification, Temporal Coupling analysis, Missing Observability scanning,
+  Wrong Consistency Model detection, Premature Optimization/Scaling flagging, Failure Mode
+  blindspot detection, Tech Stack Overchoice identification.
   Triggers: New services, structural changes, plan review, architecture decisions.
 
   <example>
@@ -14,15 +16,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - God Service / God Table detection
-  - Leaky Abstraction identification
-  - Temporal Coupling analysis
-  - Missing Observability scanning
-  - Wrong Consistency Model detection
-  - Premature Optimization / Premature Scaling flagging
-  - Failure Mode blindspot detection
-  - Tech Stack Overchoice identification
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Blight Seer — Design Anti-Pattern Detection Agent

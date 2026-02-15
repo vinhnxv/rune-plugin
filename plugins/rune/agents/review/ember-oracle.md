@@ -1,8 +1,9 @@
 ---
 name: ember-oracle
 description: |
-  Performance bottleneck detection. Analyzes algorithmic complexity, database queries,
-  memory usage, async patterns, and scalability concerns. Named for Elden Ring's
+  Performance bottleneck detection. Analyzes algorithmic complexity, database query
+  optimization (N+1, missing indexes), memory and allocation patterns, async/concurrent
+  performance issues, and scalability bottleneck identification. Named for Elden Ring's
   embers — performance hot spots glow like embers under load.
   Triggers: Backend code changes, database queries, API endpoints.
 
@@ -14,12 +15,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Algorithmic complexity analysis
-  - Database query optimization (N+1, missing indexes)
-  - Memory and allocation patterns
-  - Async/concurrent performance issues
-  - Scalability bottleneck identification
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Ember Oracle — Performance Review Agent
@@ -133,13 +130,13 @@ Before writing output file, confirm:
 ## Performance Findings
 
 ### P1 (Critical) — Measurable Impact
-- [ ] **[BACK-001] N+1 Query** in `user_service.py:35`
+- [ ] **[PERF-001] N+1 Query** in `user_service.py:35`
   - **Evidence:** Loop with individual DB queries inside
   - **Impact:** O(n) queries where O(1) is possible
   - **Fix:** Use eager loading or batch query
 
 ### P2 (High) — Scalability Risk
-- [ ] **[BACK-002] O(n²) Search** in `matcher.py:78`
+- [ ] **[PERF-002] O(n²) Search** in `matcher.py:78`
   - **Evidence:** Nested list comprehension for lookup
   - **Fix:** Use set or dictionary for O(1) lookups
 ```

@@ -143,8 +143,12 @@ if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
   plan_name=${plan_name:-unnamed}
   branch_name="rune/arc-${plan_name}-$(date +%Y%m%d-%H%M%S)"
 
-  # SEC-006: Validate constructed branch name
-  if echo "$branch_name" | grep -qE '(HEAD|FETCH_HEAD|ORIG_HEAD|MERGE_HEAD|//)'; then
+  # SEC-006: Validate constructed branch name using git's own ref validation
+  if ! git check-ref-format --branch "$branch_name" 2>/dev/null; then
+    echo "ERROR: Invalid branch name: $branch_name"
+    exit 1
+  fi
+  if echo "$branch_name" | grep -qE '(HEAD|FETCH_HEAD|ORIG_HEAD|MERGE_HEAD)'; then
     echo "ERROR: Branch name collides with Git special ref"
     exit 1
   fi
@@ -159,6 +163,9 @@ If already on a feature branch, use the current branch.
 
 ```bash
 # SEC-007: Use find instead of ls glob to avoid ARG_MAX issues
+# SEC-009: This checks for concurrent arc sessions only. Cross-command concurrency
+# (e.g., arc + review + work + mend running simultaneously) is not checked here.
+# Future improvement: shared lock file or state directory check across all /rune:* commands.
 if command -v jq >/dev/null 2>&1; then
   active=$(find .claude/arc -name checkpoint.json -maxdepth 2 2>/dev/null | while read f; do
     jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
@@ -271,7 +278,7 @@ Demoting Phase 2 to "pending" — will re-run plan review.
 
 Delegate to `/rune:forge` logic for Forge Gaze topic-aware enrichment. Forge manages its own team lifecycle (TeamCreate/TeamDelete). The arc orchestrator wraps with checkpoint management and provides a working copy of the plan.
 
-**Team**: Delegated to `/rune:forge` — manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
+**Team**: Delegated to `/rune:forge` — manages its own TeamCreate/TeamDelete with guards (see rune-orchestration/references/team-lifecycle-guard.md).
 **Tools**: Delegated — forge agents receive read-only tools (Read, Glob, Grep, Write for own output file only)
 
 **Forge Gaze features (via delegation)**:
@@ -342,7 +349,9 @@ Three parallel reviewers evaluate the enriched plan. Any BLOCK verdict halts the
 ```javascript
 updateCheckpoint({ phase: "plan_review", status: "in_progress", phase_sequence: 2, team_name: `arc-plan-review-${id}` })
 
-// Pre-create guard (see team-lifecycle-guard.md)
+// Pre-create guard (see rune-orchestration/references/team-lifecycle-guard.md)
+// SEC-003: Redundant path traversal check — defense-in-depth with line 212 validation
+if (id.includes('..')) throw new Error('Path traversal detected in arc id')
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
 }
@@ -396,6 +405,7 @@ if (result.timedOut) {
 // Collect verdicts, merge → tmp/arc/{id}/plan-review.md
 // Shutdown reviewers, cleanup team
 for (const reviewer of reviewers) { SendMessage({ type: "shutdown_request", recipient: reviewer.name }) }
+// SEC-003: id validated at line 212 (/^arc-[a-zA-Z0-9_-]+$/) + redundant traversal check above
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
 }
@@ -505,7 +515,7 @@ Invoke `/rune:work` logic on the enriched plan. Swarm workers implement tasks wi
 
 **Team**: `arc-work-{id}`
 **Tools (full access)**: Read, Write, Edit, Bash, Glob, Grep
-**Team lifecycle**: Delegated to `/rune:work` — manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
+**Team lifecycle**: Delegated to `/rune:work` — manages its own TeamCreate/TeamDelete with guards (see rune-orchestration/references/team-lifecycle-guard.md).
 
 ```javascript
 createFeatureBranchIfNeeded()
@@ -566,7 +576,7 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 
 **Team**: `arc-review-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
-**Team lifecycle**: Delegated to `/rune:review` — manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
+**Team lifecycle**: Delegated to `/rune:review` — manages its own TeamCreate/TeamDelete with guards (see rune-orchestration/references/team-lifecycle-guard.md).
 
 **Codex Oracle**: Run Codex detection per `roundtable-circle/references/codex-detection.md`. If detected and `review` is in `talisman.codex.workflows`, include Codex Oracle. Findings use `CDX` prefix and participate in dedup and TOME aggregation.
 
@@ -605,7 +615,7 @@ updateCheckpoint({
 Invoke `/rune:mend` logic on the TOME. Parallel fixers resolve findings.
 
 **Team**: `arc-mend-{id}` (orchestrator team); fixers get restricted tools
-**Team lifecycle**: Delegated to `/rune:mend` — manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
+**Team lifecycle**: Delegated to `/rune:mend` — manages its own TeamCreate/TeamDelete with guards (see rune-orchestration/references/team-lifecycle-guard.md).
 
 ```javascript
 const mendRound = checkpoint.convergence?.round || 0
@@ -644,7 +654,7 @@ Invoke `/rune:audit` logic as a final quality gate. Informational — does not h
 
 **Team**: `arc-audit-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
-**Team lifecycle**: Delegated to `/rune:audit` — manages its own TeamCreate/TeamDelete with guards (see team-lifecycle-guard.md).
+**Team lifecycle**: Delegated to `/rune:audit` — manages its own TeamCreate/TeamDelete with guards (see rune-orchestration/references/team-lifecycle-guard.md).
 
 **Codex Oracle**: Run Codex detection per `roundtable-circle/references/codex-detection.md`. If detected and `audit` is in `talisman.codex.workflows`, include Codex Oracle. Findings use `CDX` prefix.
 
@@ -681,7 +691,7 @@ updateCheckpoint({
 
 | Phase | On Failure | Recovery |
 |-------|-----------|----------|
-| FORGE | Halt + report. Offer `--no-forge` | `/rune:arc --resume --no-forge` |
+| FORGE | Proceed with original plan copy + warn. Offer `--no-forge` on retry | `/rune:arc --resume --no-forge` |
 | PLAN REVIEW | Halt if any BLOCK verdict | User fixes plan, `/rune:arc --resume` |
 | PLAN REFINEMENT | Non-blocking — proceed with deferred concerns | Advisory phase |
 | VERIFICATION | Non-blocking — proceed with warnings | Informational |
@@ -748,7 +758,7 @@ if (exists(".claude/echoes/")) {
     gap_missing: missingCount,
   }
 
-  appendEchoEntry(".claude/echoes/orchestrator/MEMORY.md", {
+  appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
     layer: "inscribed",
     source: `rune:arc ${id}`,
     content: `Arc completed: ${metrics.phases_completed}/10 phases, ` +

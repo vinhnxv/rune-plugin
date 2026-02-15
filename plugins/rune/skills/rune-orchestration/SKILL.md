@@ -60,7 +60,7 @@ Instead of supervisor synthesizing responses (telephone game), agents write dire
 | Reviews | `tmp/reviews/{pr-number}/` | Report (P1/P2/P3) | `forge-warden.md`, `ward-sentinel.md`, `TOME.md` |
 | Audits | `tmp/audit/{audit-id}/` | Report (P1/P2/P3) | `security.md`, `performance.md`, `TOME.md` |
 | Plan research | `tmp/plans/{timestamp}/research/` | Research | `repo-analysis.md`, `best-practices.md`, `framework-docs.md` |
-| Work (swarm) | `tmp/work/` | Status | `rune-smith-1.md`, `rune-smith-2.md` |
+| Work (swarm) | `tmp/work/{timestamp}/` | Patches | `patches/*.patch`, `proposals/*.md`, `inscription.json` |
 | Custom | `tmp/{workflow-name}/` | Varies | Named by teammate role |
 
 **Directory Purpose:**

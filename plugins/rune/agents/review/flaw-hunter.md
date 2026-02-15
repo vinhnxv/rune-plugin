@@ -2,7 +2,9 @@
 name: flaw-hunter
 description: |
   Logic bug detection through edge case analysis, null handling, race conditions,
-  and silent failure patterns. Low overhead, catches subtle bugs.
+  and silent failure patterns. Covers: Null/None handling issues, empty collection
+  edge cases, boundary value problems, race conditions and concurrency bugs, silent
+  failure patterns, missing exhaustive handling. Low overhead, catches subtle bugs.
   Triggers: Always run — logic bugs are subtle and missed by linters.
 
   <example>
@@ -13,13 +15,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Null/None handling issue detection
-  - Empty collection edge cases
-  - Boundary value problems
-  - Race conditions and concurrency bugs
-  - Silent failure patterns
-  - Missing exhaustive handling
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Flaw Hunter — Logic Bug Detection Agent

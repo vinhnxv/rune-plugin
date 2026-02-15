@@ -2,8 +2,10 @@
 name: mimic-detector
 description: |
   DRY principle violation detection. Finds copy-pasted code, similar logic patterns,
-  and duplicated validation across the codebase. Named for Elden Ring's Mimic —
-  a duplicate entity — perfect metaphor for duplication detection.
+  and duplicated validation across the codebase. Covers: copy-paste detection across
+  files, similar logic pattern identification, duplicated validation rules, repeated
+  error handling blocks. Named for Elden Ring's Mimic — a duplicate entity — perfect
+  metaphor for duplication detection.
   Triggers: PRs with 5+ files, technical debt audits.
 
   <example>
@@ -14,11 +16,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Copy-paste detection across files
-  - Similar logic pattern identification
-  - Duplicated validation rules
-  - Repeated error handling blocks
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Mimic Detector — Code Duplication Agent
@@ -102,7 +101,7 @@ After completing analysis, verify:
 ### Pre-Flight
 Before writing output file, confirm:
 - [ ] Output follows the **prescribed Output Format** below
-- [ ] Finding prefixes match role (**DUP-NNN** standalone or **QUAL-NNN** when embedded)
+- [ ] Finding prefixes match role (**MIMIC-NNN** standalone or **BACK-NNN** when embedded)
 - [ ] Priority levels (**P1/P2/P3**) assigned to every finding
 - [ ] **Evidence** section included for each finding
 - [ ] **Fix** suggestion included for each finding
@@ -113,12 +112,12 @@ Before writing output file, confirm:
 ## Duplication Findings
 
 ### P2 (High) — Likely to Diverge
-- [ ] **[DUP-001] Duplicated Validation** in `a.py:20` and `b.py:35`
+- [ ] **[MIMIC-001] Duplicated Validation** in `a.py:20` and `b.py:35`
   - **Evidence:** Identical email validation logic in both files
   - **Fix:** Extract to shared validator
 
 ### P3 (Medium) — Consider Extracting
-- [ ] **[DUP-002] Repeated Error Handling** across 5 service files
+- [ ] **[MIMIC-002] Repeated Error Handling** across 5 service files
   - **Evidence:** Same try/except pattern in save methods
   - **Fix:** Extract to shared helper or decorator
 ```

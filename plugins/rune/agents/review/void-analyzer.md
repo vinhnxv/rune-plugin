@@ -2,7 +2,9 @@
 name: void-analyzer
 description: |
   Incomplete implementation detection. Finds TODO/FIXME markers, missing error handling,
-  stub functions, and partial feature implementations.
+  stub functions, and partial feature implementations. Covers: TODO/FIXME/HACK marker
+  detection, stub function identification, missing error handling paths, partial feature
+  implementation flagging, placeholder value detection.
   Triggers: New features, domain changes, AI-generated code.
 
   <example>
@@ -13,12 +15,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - TODO/FIXME/HACK marker detection
-  - Stub function identification
-  - Missing error handling paths
-  - Partial feature implementation flagging
-  - Placeholder value detection
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Void Analyzer — Incomplete Implementation Agent

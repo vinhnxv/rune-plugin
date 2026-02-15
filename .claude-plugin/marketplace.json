@@ -6,7 +6,8 @@
   },
   "metadata": {
     "description": "Plugin marketplace for Rune — multi-agent engineering orchestration",
-    "version": "1.0.0",
+    "version": "1.1.0",
+    "versionNote": "Marketplace schema version (not plugin version). Plugin version is in plugins[].version.",
     "pluginRoot": "./plugins"
   },
   "plugins": [
@@ -45,6 +46,7 @@
         "planning",
         "rune"
       ],
+      "tagsNote": "tags and keywords are intentionally identical — tags for marketplace categorization, keywords for search indexing.",
       "skills": [
         "./skills/ash-guide",
         "./skills/codex-cli",

@@ -2,7 +2,10 @@
 name: trial-oracle
 description: |
   TDD compliance and test quality enforcement. Verifies test-first commit order,
-  coverage thresholds, assertion quality, and missing edge case tests.
+  coverage thresholds, assertion quality, and missing edge case tests. Covers:
+  test-first commit order verification, coverage gap detection (missing test files),
+  assertion quality analysis, edge case test coverage assessment, test naming convention
+  enforcement, AAA (Arrange-Act-Assert) structure validation.
   Triggers: Always run — test quality directly impacts reliability.
 
   <example>
@@ -13,13 +16,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Test-first commit order verification
-  - Coverage gap detection (missing test files)
-  - Assertion quality analysis (no empty tests)
-  - Edge case test coverage assessment
-  - Test naming convention enforcement
-  - AAA (Arrange-Act-Assert) structure validation
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Trial Oracle — TDD & Test Quality Agent

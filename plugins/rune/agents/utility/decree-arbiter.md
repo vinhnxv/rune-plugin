@@ -11,6 +11,10 @@ description: |
   user: "Review this plan for technical soundness"
   assistant: "I'll use decree-arbiter to validate architecture fit and feasibility."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - Architecture fit assessment against codebase patterns
   - Feasibility analysis (are proposed changes realistic?)
@@ -18,10 +22,6 @@ capabilities:
   - Dependency analysis (what breaks if this plan is implemented?)
   - Codebase pattern alignment check
   - Internal consistency verification (cross-section claims, counts, references)
-allowed-tools:
-  - Read
-  - Glob
-  - Grep
 ---
 
 # Decree Arbiter — Technical Soundness Reviewer

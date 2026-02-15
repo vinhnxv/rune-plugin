@@ -3,7 +3,11 @@ name: tide-watcher
 description: |
   Async and concurrency patterns reviewer. Detects waterfall awaits, unbounded concurrency,
   missing cancellation handling, race conditions, timer/resource cleanup issues, and
-  structured concurrency violations across Python, Rust, TypeScript, and Go.
+  structured concurrency violations across Python, Rust, TypeScript, and Go. Covers:
+  sequential await/waterfall detection, unbounded concurrency detection, structured
+  concurrency enforcement (TaskGroup, JoinSet, Promise.allSettled), cancellation handling
+  verification, race condition detection (TOCTOU, shared mutable state), timer/resource
+  cleanup, blocking calls in async context, frontend timing and DOM lifecycle issues.
   Named for Elden Ring's tides — concurrent operations that ebb and flow, overwhelming
   systems when uncontrolled.
   Triggers: Async code, concurrent operations, event handlers, timers, promises, channels.
@@ -16,15 +20,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Sequential await / waterfall detection
-  - Unbounded concurrency detection
-  - Structured concurrency enforcement (TaskGroup, JoinSet, Promise.allSettled)
-  - Cancellation handling verification (CancelledError, AbortController, Context)
-  - Race condition detection (TOCTOU, shared mutable state)
-  - Timer and resource cleanup verification
-  - Blocking calls in async context detection
-  - Frontend timing and DOM lifecycle issues
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Tide Watcher — Async & Concurrency Patterns Agent
@@ -687,18 +684,18 @@ Before writing output file, confirm:
 ## Async & Concurrency Findings
 
 ### P1 (Critical) — Correctness Bug
-- [ ] **[QUAL-001] Swallowed CancelledError** in `workers/handler.py:34`
+- [ ] **[ASYNC-001] Swallowed CancelledError** in `workers/handler.py:34`
   - **Evidence:** `except Exception:` catches CancelledError without re-raise
   - **Risk:** Task cannot be cancelled, hangs on shutdown
   - **Fix:** Add `except asyncio.CancelledError: raise` before general exception handler
 
 ### P2 (High) — Performance / Safety
-- [ ] **[QUAL-002] Waterfall Awaits** in `services/dashboard.py:15`
+- [ ] **[ASYNC-002] Waterfall Awaits** in `services/dashboard.py:15`
   - **Evidence:** 3 sequential awaits on independent operations (~3x latency)
   - **Fix:** Use `asyncio.gather()` for concurrent execution
 
 ### P3 (Medium) — Improvement
-- [ ] **[QUAL-003] Missing AbortController** in `components/Search.tsx:22`
+- [ ] **[ASYNC-003] Missing AbortController** in `components/Search.tsx:22`
   - **Evidence:** Previous search request not cancelled on new input
   - **Fix:** Add AbortController pattern to prevent stale response display
 ```

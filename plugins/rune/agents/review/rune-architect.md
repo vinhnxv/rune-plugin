@@ -2,7 +2,9 @@
 name: rune-architect
 description: |
   Architectural compliance and design pattern review. Checks layer boundaries,
-  dependency direction, SOLID principles, and structural integrity.
+  dependency direction, SOLID principles, and structural integrity. Covers: layer
+  boundary enforcement, dependency direction analysis, SOLID principle compliance,
+  service boundary verification, design pattern consistency.
   Triggers: New services, structural changes, cross-layer imports.
 
   <example>
@@ -13,12 +15,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Layer boundary enforcement
-  - Dependency direction analysis
-  - SOLID principle compliance
-  - Service boundary verification
-  - Design pattern consistency
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Rune Architect — Architecture Review Agent

@@ -11,16 +11,16 @@ description: |
   user: "Review this plan for documentation coverage"
   assistant: "I'll use knowledge-keeper to check if documentation updates are planned."
   </example>
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
 capabilities:
   - Identify files needing documentation updates from plan changes
   - Validate API change documentation coverage
   - Check for migration and upgrade guide inclusion
   - Verify README update planning
   - Assess inline comment coverage for complex logic
-allowed-tools:
-  - Read
-  - Glob
-  - Grep
 ---
 
 # Knowledge Keeper — Documentation Coverage Reviewer

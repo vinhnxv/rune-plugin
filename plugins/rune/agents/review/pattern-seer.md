@@ -3,7 +3,10 @@ name: pattern-seer
 description: |
   Design pattern and cross-cutting consistency analysis. Detects inconsistent naming,
   error handling, API design, data modeling, auth patterns, state management, and
-  logging/observability across the codebase. The silent killer of system health.
+  logging/observability across the codebase. Covers: cross-layer naming consistency,
+  error handling uniformity, API design consistency, data modeling conventions,
+  auth/authz pattern consistency, state management uniformity, logging/observability
+  format consistency, convention deviation flagging. The silent killer of system health.
   Triggers: New files, new services, pattern-sensitive areas, cross-module changes.
 
   <example>
@@ -14,15 +17,8 @@ allowed-tools:
   - Read
   - Glob
   - Grep
-capabilities:
-  - Cross-layer naming consistency enforcement
-  - Error handling pattern uniformity detection
-  - API design consistency verification
-  - Data modeling convention checks
-  - Authentication/authorization pattern consistency
-  - State management uniformity verification
-  - Logging/observability format consistency
-  - Convention deviation flagging
+<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
+     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 ---
 
 # Pattern Seer — Cross-Cutting Consistency Agent
