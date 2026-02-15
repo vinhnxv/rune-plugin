@@ -242,6 +242,7 @@ const frontmatter = extractYamlFrontmatter(planContent)
 const planSha = frontmatter?.git_sha
 const planBranch = frontmatter?.branch
 const planDate = frontmatter?.date
+let freshnessResult = null  // FLAW-001 FIX: declare at outer scope for all code paths
 
 // G1: Backward compatibility — plans without git_sha skip the check
 if (!planSha) {
@@ -411,7 +412,7 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
   const freshnessScore = clamp(1 - weightedSum, 0, 1)
 
   // ── Decision ──
-  const freshnessResult = {
+  freshnessResult = {
     score: freshnessScore,
     signals: {
       commit_distance: { raw: commitDistance, normalized: commitSignal },
@@ -440,6 +441,29 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
     })
     if (!answer || answer.startsWith("Abort")) { /* exit arc cleanly */ return }
     if (answer.startsWith("Re-plan")) { /* exit arc, suggest /rune:plan */ return }
+    if (answer.startsWith("Show drift")) {
+      // FLAW-002 FIX: Display signal breakdown, then re-prompt without "Show drift details"
+      log(`Signal breakdown:\n` +
+        `  Commit Distance: ${commitDistance} commits (normalized: ${commitSignal.toFixed(3)})\n` +
+        `  File Drift: ${driftCount}/${referencedFiles.length} files (normalized: ${fileDriftSignal.toFixed(3)})\n` +
+        `  Identifier Loss: ${lostCount}/${identifiers.length} ids (normalized: ${identifierLossSignal.toFixed(3)})\n` +
+        `  Branch Divergence: ${planBranch || 'n/a'} → ${currentBranch || 'n/a'} (normalized: ${branchSignal.toFixed(3)})\n` +
+        `  Time Decay: ${timeSignal.toFixed(3)}`)
+      const followUp = AskUserQuestion({
+        questions: [{
+          question: `Plan freshness: ${freshnessScore.toFixed(2)}/1.0 (STALE). What would you like to do?`,
+          header: "Staleness",
+          options: [
+            { label: "Re-plan (Recommended)", description: "Run /rune:plan to create fresh plan" },
+            { label: "Override and proceed", description: "Accept stale plan risk — logged to checkpoint" },
+            { label: "Abort arc", description: "Cancel the arc pipeline" }
+          ], multiSelect: false
+        }]
+      })
+      if (!followUp || followUp.startsWith("Abort")) { return }
+      if (followUp.startsWith("Re-plan")) { return }
+      if (followUp.startsWith("Override")) { freshnessResult.status = "STALE-OVERRIDE" }
+    }
     if (answer.startsWith("Override")) { freshnessResult.status = "STALE-OVERRIDE" }
   } else if (freshnessScore < config.warn_threshold) {
     freshnessResult.status = "WARN"
