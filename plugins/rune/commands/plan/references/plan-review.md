@@ -42,7 +42,7 @@ const customPatterns = talisman?.plan?.verification_patterns || []
 const currentPhase = "plan"
 // Validate each field against safe character set before shell interpolation
 // Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN -- see security-patterns.md
-// SEC-FIX: Pattern interpolation uses safeRgMatch() (rg -f) to prevent $() command substitution
+// SEC-FIX: Pattern interpolation uses safeRgMatch() (rg -f) to prevent $() command substitution. Also in: ward-check.md, verification-gate.md. Canonical: security-patterns.md
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 for (const pattern of customPatterns) {

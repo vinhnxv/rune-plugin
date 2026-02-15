@@ -48,7 +48,7 @@ if (todos.length > 0) issues.push(`${todos.length} TODO/FIXME markers in plan pr
 const talisman = readTalisman()
 const customPatterns = talisman?.plan?.verification_patterns || []
 // Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN -- see security-patterns.md
-// QUAL-006: SAFE_REGEX_PATTERN allows $ (for regex anchors) -- see _CC variant in STEP 4.5
+// SAFE_REGEX_PATTERN allows $ (for regex anchors). Shell interpolation risk mitigated by safeRgMatch() -- see security-patterns.md.
 // which excludes $, |, (, ) for stricter contexts.
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/
 const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
@@ -61,7 +61,7 @@ for (const pattern of customPatterns) {
   }
   // SEC-FIX: Pattern interpolation uses safeRgMatch() (rg -f) to prevent $() command substitution.
   // See security-patterns.md for safeRgMatch() implementation.
-  const result = safeRgMatch(pattern.regex, pattern.paths, { exclusions: pattern.exclusions })
+  const result = safeRgMatch(pattern.regex, pattern.paths, { exclusions: pattern.exclusions, timeout: 5 })
   if (pattern.expect_zero && result.stdout.trim().length > 0) {
     issues.push(`Stale reference: ${pattern.description}`)
   }

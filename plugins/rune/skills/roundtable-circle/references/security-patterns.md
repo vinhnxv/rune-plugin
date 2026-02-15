@@ -39,10 +39,12 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 <!-- PATTERN:SAFE_REGEX_PATTERN regex="/^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/" version="1" -->
 **Regex**: `/^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/`
 **Threat model**: Allows regex metacharacters for user-provided talisman patterns.
-**KNOWN VULNERABILITY (P1)**: `$` IS allowed in the character class `[\]{}^$+?]`. This means `$(whoami)` passes validation and could execute in double-quoted Bash interpolation. **Mitigation**: All consumer files MUST use `safeRgMatch()` (see "Safe Regex Execution" section below).
+**KNOWN VULNERABILITY (P1, Mitigated)**: `$` IS allowed in the character class `[\]{}^$+?]`. This means `$(whoami)` passes validation and could execute in double-quoted Bash interpolation. **Mitigation**: All consumer files MUST use `safeRgMatch()` (see "Safe Regex Execution" section below).
 **Status: Mitigated** — `$` is intentionally allowed because talisman regex patterns may legitimately use `$` as an end-of-line anchor. All consumers use `safeRgMatch()` which writes the pattern to a temp file and uses `rg -f`, eliminating shell interpolation entirely. The `_CC` variant (excludes `$`) remains available for contexts that don't need regex anchors.
 **ReDoS safe**: Yes (character class only)
 **Consumers**: ward-check.md, verification-gate.md, plan-review.md
+
+> Prior to v1.20.0, consumers were the top-level command files (plan.md, work.md, arc.md). After structural refactoring in v1.20.0, execution logic lives in the reference files listed above.
 
 > **Implementation**: All consumer sites call `safeRgMatch()` (defined in the "Safe Regex Execution" section below). Direct Bash interpolation of `SAFE_REGEX_PATTERN`-validated strings is prohibited. New consumers MUST use `safeRgMatch()`.
 
@@ -60,12 +62,15 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 Writes a regex pattern to a temporary file and executes ripgrep via `-f`, eliminating
 shell interpolation of user-provided patterns entirely.
 
+> The following pseudocode defines the agent behavior pattern. `Bash()`, `Write()`, and `Read()` refer to Claude Code tool calls, not JavaScript runtime functions.
+
 ```javascript
 function safeRgMatch(pattern, paths, { exclusions, timeout } = {}) {
   Bash(`mkdir -p tmp`)
-  const tmpFile = `tmp/.rg-pattern-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const tmpFile = Bash(`mktemp tmp/.rg-pattern-XXXXXX`).stdout.trim()
   try {
     Write(tmpFile, pattern)
+    if (timeout && !Number.isFinite(timeout)) throw new Error('timeout must be a finite number')
     const timeoutPrefix = timeout ? `timeout ${timeout} ` : ''
     // Preserve original positional arg semantics: exclusions is passed as an additional
     // search path (same as the pre-fix behavior: rg -- "regex" "paths" "exclusions").
@@ -91,6 +96,7 @@ this function, so it cannot contain shell metacharacters.
 **Edge cases**: `rg -f` treats each line of the pattern file as a separate pattern
 (OR semantics). Talisman YAML patterns typically don't contain embedded newlines,
 so this matches the expected single-pattern behavior.
+Note: `SAFE_REGEX_PATTERN` does not include `\n` in its character class, so multi-line patterns are rejected at validation time before reaching `safeRgMatch()`.
 
 ## Command Validators
 
