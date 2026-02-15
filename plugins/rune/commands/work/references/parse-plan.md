@@ -163,7 +163,8 @@ function extractFileTargets(task) {
   const falsePositiveFilter = (p) =>
     /^v?\d+\.\d+/.test(p) ||                     // version strings
     /^(e\.g|i\.e|etc|vs|ca|approx)\./i.test(p) || // common abbreviations
-    /^https?:/.test(p)                             // URLs
+    /^https?:/.test(p) ||                          // URLs
+    /\.\./.test(p)                                 // path traversal (..) — reject any path with parent refs
   for (const f of files) {
     if (falsePositiveFilter(f)) files.delete(f)
   }

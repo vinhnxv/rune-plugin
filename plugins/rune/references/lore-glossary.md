@@ -29,6 +29,12 @@
 | **Truthseer Validator** | Coverage quality checker that validates review thoroughness before aggregation | A seer who ensures all truths are accounted for |
 | **Truthsight** | Verification system used in arc pipeline to validate plan integrity | The gift of seeing through illusion |
 | **Convergence Gate** | Phase 7.5 verify-mend regression check with retry loop | A gate that ensures changes converge toward stability |
+| **Damage Control (DC)** | Named recovery procedure for agent failures. 6 defined: DC-1 Glyph Flood through DC-6 Lost Grace. Each follows ASSESS → CONTAIN → RECOVER → VERIFY → REPORT with 4-level escalation | Emergency repairs after a calamity |
+| **Ember (Tier 1)** | Risk tier for user-visible changes (API responses, UI, validation logic). Requires ward check + self-review | A warm glow — not yet dangerous, but worth watching |
+| **Elden (Tier 3)** | Highest risk tier for irreversible changes (auth, encryption, credentials, data deletion). Requires human confirmation | The most powerful and perilous rune |
 | **Gap Analysis** | Phase 5.5 plan-to-code compliance check | Measuring the distance between intent and reality |
+| **Grace (Tier 0)** | Lowest risk tier for safe changes (docs, tests, formatting, comments). Basic ward check only | A site of safety and rest |
+| **Rune (Tier 2)** | Risk tier for infrastructure changes (DB schemas, CI/CD, migrations, deploy configs). Requires self-review + failure-mode checklist + rollback plan | A rune of power — handle with care |
+| **Standing Order (SO)** | Named anti-pattern with observable symptoms, decision table, and remedy procedure. 6 defined: SO-1 Hollow Ash through SO-6 Silent Seal | Standing orders from the Roundtable — rules to prevent known failures |
 | **Verification Gate** | Phase 2.7 deterministic plan checks | A barrier ensuring only worthy plans proceed |
 | **Ward** | Quality gate (tests/lint) | Protective enchantments |
