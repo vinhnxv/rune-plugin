@@ -43,6 +43,8 @@ Maps each elicitation method to its target Rune phases, specifying when and how 
 **Integration point**: After solution generation in `solution-arena.md`
 **Injection type**: Structured evaluation templates for challenger agents
 
+> **Note**: Phase 1.8 methods are embedded in challenger agent prompts (Devil's Advocate uses Pre-mortem, Innovation Scout uses First Principles). They are not user-selected via AskUserQuestion — they activate implicitly when the corresponding challenger agent runs.
+
 | Method | Tier | When Auto-Suggested |
 |--------|------|-------------------|
 | Tree of Thoughts | 1 | Multiple solution paths need structured evaluation |

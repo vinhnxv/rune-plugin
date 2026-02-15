@@ -41,14 +41,6 @@
     "max_reverify_agents": "integer — max re-verify agents to summon"
   },
 
-  "arena_agents": {
-    "enabled": "boolean — whether Solution Arena was run",
-    "champion_count": "integer — number of competing solutions generated",
-    "challengers": ["string — adversarial agent names (e.g. devils-advocate, innovation-scout)"],
-    "selection_file": "string — path to arena-selection.md output",
-    "skip_reason": "string (optional) — reason Arena was skipped (quick, no-arena, sparse-research, bug-fix)"
-  },
-
   "context_engineering": {
     "read_ordering": "source_first | reference_first",
     "instruction_anchoring": "boolean — ANCHOR + RE-ANCHOR in prompts",
@@ -134,6 +126,5 @@
 | `teammates[].output_file` | Yes | — |
 | `teammates[].required_sections` | Yes | — |
 | `aggregator` | No | No aggregation |
-| `arena_agents` | No | `{ "enabled": false }` |
 | `verification` | No | `{ "enabled": false }` |
 | `context_engineering` | No | Defaults applied |

@@ -194,9 +194,9 @@ AskUserQuestion({
 })
 ```
 
-#### Step 3.5: Elicitation Methods (Mandatory)
+#### Step 3.5: Elicitation Methods (Recommended)
 
-After approach selection, apply structured reasoning methods for deeper exploration. Load elicitation skill's methods.csv (from `skills/elicitation/methods.csv`), filter by `phases includes "plan:0"` and `auto_suggest=true`, score by keyword overlap with feature description, present top 3-5 via AskUserQuestion with `multiSelect: true`. At least 1 method required. In `--quick` mode, top-scored method auto-selected. For each selected method, expand output_pattern into template and apply to context.
+After approach selection, optionally apply structured reasoning methods for deeper exploration. Load elicitation skill's methods.csv (from `skills/elicitation/methods.csv`), filter by `phases includes "plan:0"` and `auto_suggest=true`, score by keyword overlap with feature description, present top 3-5 via AskUserQuestion with `multiSelect: true`. At least 1 method recommended. Include a "Skip elicitation" option for users who want to proceed directly. In `--quick` mode, top-scored method auto-selected. For each selected method, expand output_pattern into template and apply to context.
 
 #### Step 4: Capture Decisions
 

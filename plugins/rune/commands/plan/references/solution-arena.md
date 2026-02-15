@@ -4,7 +4,7 @@ Generate, challenge, and score competing solutions from research findings before
 
 **Inputs**: Research outputs from `tmp/plans/{timestamp}/research/`, `brainstorm-decisions.md` (optional), talisman config
 **Outputs**: `tmp/plans/{timestamp}/arena/arena-matrix.md`, `arena-selection.md`, challenger reports
-**Preconditions**: Phase 1.5 complete, user validated research findings
+**Preconditions**: Phase 1.5 complete, user validated research findings. `{timestamp}` MUST be validated against `SAFE_IDENTIFIER_PATTERN` (`/^[a-zA-Z0-9_-]+$/`) before use in file paths.
 **Error handling**: Complexity gate skip -> log "Arena skipped: {reason}". Sparse research -> reduce to 2 solutions. All killed -> recovery protocol. Agent timeout (5 min) -> proceed with partial.
 
 ## Sub-Step 1.8A: Complexity Gate + Solution Generation
@@ -24,6 +24,7 @@ const skipArena =
 
 // Flag precedence: --no-arena > --quick > default > --exhaustive
 // --quick + --exhaustive is a conflict -> warn and use --quick behavior
+// --exhaustive adds a specialist challenger but does NOT increase solution count (max stays at 5)
 if (flags.includes("--quick") && flags.includes("--exhaustive")) {
   warn("--quick and --exhaustive conflict. Using --quick (most restrictive wins).")
 }
@@ -35,32 +36,19 @@ if (skipArena) {
 ```
 
 Edge cases:
-- `viableApproaches === 0` AND no brainstorm approach -> abort with user prompt (EC-001)
-- `brainstormDecisions` null + `userSelection` null -> default `featureType` to "feat" (EC-002)
-- All research files missing/empty -> fall back to brainstorm-only or abort (EC-009)
-
-### Arena Mode Selection
-
-```javascript
-// Determine mode based on Phase 0 state
-const arenaMode = brainstormDecisions?.approach
-  ? "validate"   // Brainstorm chose an approach -- validate against research
-  : "full"       // No brainstorm or no approach selected -- full evaluation
-```
+- `viableApproaches === 0` AND no brainstorm approach -> abort with user prompt
+- `brainstormDecisions` null + `userSelection` null -> default `featureType` to "feat"
+- All research files missing/empty -> fall back to brainstorm-only or abort
 
 ### Solution Generation
 
 The Tarnished reads all research outputs and generates 2-5 DISTINCT solutions. Each solution must differ in at least one fundamental design decision (not just parameters). Uses Comparative Analysis Matrix elicitation method.
 
-```javascript
-// Validate mode: brainstorm's approach + 1-2 research-informed alternatives
-// Solution 1 = brainstorm's chosen approach (refined with research evidence)
-// Solution 2-3 = alternatives that research suggests could be viable
-// If research strongly confirms brainstorm choice and no viable alternatives:
-//   "Research confirms your approach -- no competing alternatives identified."
-//   -> skip to Phase 2
+If a brainstorm approach exists, include it as Solution 1 (refined with research evidence). Remaining solutions come from research findings.
 
-// Full mode: generate 3-5 solutions from research findings
+```javascript
+// Generate 2-5 solutions from research findings
+// If brainstormDecisions?.approach exists, it becomes Solution 1
 // Each solution gets:
 //   - name: short descriptive label
 //   - description: 2-3 sentences explaining the approach
@@ -68,32 +56,37 @@ The Tarnished reads all research outputs and generates 2-5 DISTINCT solutions. E
 //   - evidence: primary research finding supporting this approach
 //   - trade_off: known downside or risk
 
-// --exhaustive mode: generate 5-7 solutions, expand evaluation
-const maxSolutions = flags.includes("--exhaustive") ? 7 : 5
+const maxSolutions = 5
 
 // Write solutions to tmp/plans/{timestamp}/arena/solutions.md
 ```
 
-**Inputs**: Research outputs, brainstorm-decisions.md (optional), arenaMode
+**Inputs**: Research outputs, brainstorm-decisions.md (optional)
 **Outputs**: `tmp/plans/{timestamp}/arena/solutions.md`
 **Preconditions**: Complexity gate passed (Arena should run)
 **Error handling**: < 2 distinct solutions generated -> skip Arena, proceed with best available
 
 ## Sub-Step 1.8B: Challenge Solutions
 
-Two adversarial agents challenge the proposed solutions. Select challenger perspectives via Forge Gaze topic matching (see `forge-gaze.md`): extract topics from solution descriptions, score existing review agents, select top perspectives.
-
-Always include: Devil's Advocate (universal) + Innovation Scout (universal).
-Optionally (`--exhaustive`): add 1 topic-matched specialist (e.g., ward-sentinel for auth features).
+Two fixed adversarial agents challenge the proposed solutions: Devil's Advocate + Innovation Scout. In `--exhaustive` mode, an optional specialist may be added (e.g., ward-sentinel for auth features).
 
 ### Devil's Advocate
 
 Stress-test each solution for fatal flaws using Pre-mortem analysis.
 
 ```javascript
-// Security pattern: SAFE_FEATURE_PATTERN -- see security-patterns.md
-// Sanitize solution descriptions before injecting into challenger prompts:
-// Strip HTML comments, code fences, heading overrides (SEC-001 prompt injection mitigation)
+// Security: validate and sanitize before injecting into challenger prompts (SEC-001)
+const SAFE_FEATURE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9 _-]{0,100}$/
+
+function sanitize(content) {
+  return (content || '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/```[\s\S]*?```/g, '[code-block-removed]')
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .slice(0, 8000)
+}
+
 const sanitizedSolutions = sanitize(solutionsContent)
 
 TaskCreate({ subject: "Arena: Devil's Advocate challenge" })
@@ -200,7 +193,7 @@ waitForCompletion(teamName, challengerTaskCount, {
 //   mark matrix LOW_CONFIDENCE with "Challenger agents timed out" message.
 ```
 
-**Inputs**: `tmp/plans/{timestamp}/arena/solutions.md`, Forge Gaze topic registry
+**Inputs**: `tmp/plans/{timestamp}/arena/solutions.md`
 **Outputs**: `tmp/plans/{timestamp}/arena/devils-advocate.md`, `innovation-scout.md`
 **Preconditions**: Sub-Step 1.8A complete (solutions generated)
 **Error handling**: DA timeout -> proceed without DA findings. Scout timeout -> proceed without Scout. Both timeout -> present matrix without adversarial input.
@@ -216,24 +209,24 @@ Build a weighted evaluation matrix from all arena outputs.
 | Dimension | Default Weight | Description |
 |-----------|---------------|-------------|
 | feasibility | 25% | Can we actually build this with existing patterns? |
-| effort | 20% | Resource cost (inverse: lower effort = higher score) |
-| impact | 20% | Business value delivered |
-| scalability | 15% | Handles growth |
-| stability | 10% | Risk of breaking things |
-| future_proofing | 10% | Longevity of approach |
+| complexity | 20% | Resource cost and implementation difficulty (1-10, lower complexity = higher score) |
+| risk | 20% | Likelihood and severity of failure or regression |
+| maintainability | 15% | Long-term upkeep, readability, handles growth |
+| performance | 10% | Runtime efficiency and stability under load |
+| innovation | 10% | Novel approach longevity and future-proofing |
 
 ### Weight Normalization
 
 ```javascript
 const DEFAULT_WEIGHTS = {
-  feasibility: 0.25, effort: 0.20, impact: 0.20,
-  scalability: 0.15, stability: 0.10, future_proofing: 0.10
+  feasibility: 0.25, complexity: 0.20, risk: 0.20,
+  maintainability: 0.15, performance: 0.10, innovation: 0.10
 }
 const rawWeights = { ...DEFAULT_WEIGHTS, ...(talisman?.solution_arena?.weights || {}) }
 
 // Normalize to sum to 1.0 (handles user misconfiguration)
 const weightSum = Object.values(rawWeights).reduce((a, b) => a + b, 0)
-// Guard: if sum=0 or !isFinite, use DEFAULT_WEIGHTS (EC-010)
+// Guard: if sum=0 or !isFinite, use DEFAULT_WEIGHTS
 if (weightSum === 0 || !Number.isFinite(weightSum)) {
   warn("Arena weights invalid, using defaults")
   rawWeights = { ...DEFAULT_WEIGHTS }
@@ -243,24 +236,6 @@ if (weightSum === 0 || !Number.isFinite(weightSum)) {
 const weights = Object.fromEntries(
   Object.entries(rawWeights).map(([k, v]) => [k, v / weightSum])
 )
-```
-
-### Effort Normalization
-
-Map T-shirt sizes to 1-10 scale (higher = less effort = better):
-
-| Size | Score | Meaning |
-|------|-------|---------|
-| XL | 2 | Very high effort |
-| L | 4 | High effort |
-| M | 7 | Moderate effort |
-| S | 10 | Low effort |
-
-```javascript
-const EFFORT_MAP = { XL: 2, L: 4, M: 7, S: 10 }
-// Normalize input: uppercase, trim. Default to M if unknown (EC-003)
-const normalizedEffort = effortLabel.trim().toUpperCase()
-const effortScore = EFFORT_MAP[normalizedEffort] ?? EFFORT_MAP["M"]
 ```
 
 ### DA Severity Caps
@@ -278,7 +253,7 @@ Incorporate Devil's Advocate findings into scoring:
 
 // Convergence detection: if top 2 solutions within 5% of each other
 // -> flag as "effectively tied", surface the single most differentiating dimension
-// If 3+ solutions tied within 5% -> find max-variance dimension across all tied (EC-008)
+// If 3+ solutions tied within 5% -> find max-variance dimension across all tied
 const convergenceThreshold = talisman?.solution_arena?.convergence_threshold ?? 0.05
 ```
 
@@ -294,35 +269,42 @@ If DA rates ALL solutions with FATAL challenges:
 AskUserQuestion({
   questions: [{
     question: "Devil's Advocate found fatal flaws in ALL solutions.\n\n" +
-      `${daSummary}\n\nHow would you like to proceed?`,
+      `${sanitize(daSummary)}\n\nHow would you like to proceed?`,
     header: "Recovery",
     options: [
       { label: "(a) Proceed with least-flawed solution", description: "Accept known risks" },
-      { label: "(b) Return to research", description: "Re-run Phase 1C with DA findings as constraints (max 1 retry)" },
+      { label: "(b) Return to research", description: "Re-run Phase 1 research with DA findings as constraints (max 1 retry)" },
       { label: "(c) Abandon feature", description: "Stop planning this feature" }
     ],
     multiSelect: false
   }]
 })
-// Track retries: if researchAttempts >= 1, offer only (a) or (c) (EC-004)
+// Track retries: if researchAttempts >= 1, offer only (a) or (c)
 ```
 
 ### Output
 
 Write `tmp/plans/{timestamp}/arena/arena-matrix.md`.
-Scout novel approaches (if any) are added to the solutions list before scoring.
-Cap feasibility at 7/10 for Scout-generated solutions, add `[SCOUT-GENERATED]` flag.
+Scout novel approaches (if any) are added to the solutions list before scoring with `[SCOUT-GENERATED]` flag.
 
 ## Sub-Step 1.8D: User Selection
 
 Present the evaluation matrix and ask the user to choose.
 
 ```javascript
+// Validate solution names before interpolation
+const SAFE_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9 _-]{0,80}$/
+rankedSolutions.forEach(sol => {
+  if (!SAFE_NAME_PATTERN.test(sol.name)) {
+    sol.name = sol.name.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 80) || 'Unnamed Solution'
+  }
+})
+
 const options = rankedSolutions.map((sol, i) => ({
   label: i === 0
     ? `${sol.name} (Recommended -- ${sol.weightedTotal}/10)`
     : `${sol.name} (${sol.weightedTotal}/10)`,
-  description: `${sol.keyDifferentiator}. DA: ${sol.daRating}. Effort: ${sol.effort}`
+  description: `${sol.keyDifferentiator}. DA: ${sol.daRating}. Complexity: ${sol.complexity}`
 }))
 
 options.push(
@@ -333,7 +315,7 @@ options.push(
 // Present matrix summary BEFORE the question
 AskUserQuestion({
   questions: [{
-    question: `Arena evaluation complete.\n\n${matrixSummary}\n\nWhich solution should we build?`,
+    question: `Arena evaluation complete.\n\n${sanitize(matrixSummary)}\n\nWhich solution should we build?`,
     header: "Solution",
     options: options,
     multiSelect: false
@@ -368,7 +350,6 @@ risk_register:
   - "Migration complexity (MODERATE) -- requires phased rollout"
 assumptions:
   - "Current API patterns remain stable"
-arena_mode: "full"  # or "validate"
 ---
 
 ## Selected Solution: {name}
@@ -408,18 +389,18 @@ Arena directory follows the same lifecycle as research and forge directories -- 
 **Solutions evaluated**: {count}
 **Challengers**: Devil's Advocate, Innovation Scout
 **Evaluation method**: Comparative Analysis Matrix
-**Weights**: feasibility={w}%, effort={w}%, impact={w}%, scalability={w}%, stability={w}%, future_proofing={w}%
+**Weights**: feasibility={w}%, complexity={w}%, risk={w}%, maintainability={w}%, performance={w}%, innovation={w}%
 
 ## Scoring Matrix
 
 | Dimension | Weight | Sol A | Sol B | Sol C | Notes |
 |-----------|--------|-------|-------|-------|-------|
 | Feasibility | 25% | 9 | 7 | 6 | Sol A matches existing patterns |
-| Effort | 20% | 7 (M) | 4 (L) | 10 (S) | Sol C is simplest |
-| Impact | 20% | 8 | 9 | 5 | Sol B has highest business value |
-| Scalability | 15% | 8 | 8 | 4 | Sol C doesn't scale |
-| Stability | 10% | 7 | 6 | 9 | Sol C is safest (least change) |
-| Future-proofing | 10% | 8 | 9 | 3 | Sol C locks us in |
+| Complexity | 20% | 7 | 4 | 9 | Sol C is simplest |
+| Risk | 20% | 8 | 5 | 7 | Sol B has highest regression risk |
+| Maintainability | 15% | 8 | 8 | 4 | Sol C doesn't scale |
+| Performance | 10% | 7 | 6 | 9 | Sol C is safest (least change) |
+| Innovation | 10% | 8 | 9 | 3 | Sol C locks us in |
 | **Weighted Total** | | **8.0** | **7.4** | **5.9** | |
 
 ## Challenger Summary
@@ -441,21 +422,10 @@ Arena directory follows the same lifecycle as research and forge directories -- 
 
 | Condition | Action |
 |-----------|--------|
-| `--quick` or `--no-arena` flag | Skip Arena, proceed to Phase 2 |
-| Bug fix with single viable approach | Skip Arena |
-| Clear-pattern refactor (confidence >= 0.9) | Skip Arena |
-| Sparse research (< 2 viable approaches) | Skip Arena |
-| `viableApproaches === 0` + no brainstorm | Prompt user, abort or fallback |
-| All research files missing/empty | Fallback to brainstorm-only or abort |
-| DA timeout (5 min) | Proceed without DA findings |
-| Scout timeout (5 min) | Proceed without Scout findings |
-| Both challengers timeout | Present matrix without adversarial input, mark LOW_CONFIDENCE |
-| Partial challenger output (N < M reviewed) | Flag gaps, mark affected solutions LOW_CONFIDENCE |
-| All solutions FATAL | Recovery protocol: proceed / retry (max 1) / abandon |
-| Effort label unknown or malformed | Normalize to uppercase, default to M |
-| Talisman weights sum != 1.0 | Normalize to 1.0 with warning |
-| Talisman weights sum = 0 or NaN | Use DEFAULT_WEIGHTS |
-| Top solutions within 5% | Flag "effectively tied", surface differentiating dimension |
-| 3+ solutions tied | Find max-variance dimension across all tied |
-| `--quick + --exhaustive` | Warn conflict, use `--quick` (most restrictive wins) |
-| Combine solutions (hybrid) | Ask which aspects, synthesize, write selection |
+| Skip flags or insufficient research | Skip Arena, proceed to Phase 2 |
+| No viable approaches and no brainstorm | Prompt user, abort or fallback |
+| Challenger timeout (5 min per agent) | Proceed without that challenger's findings; both timeout -> mark LOW_CONFIDENCE |
+| All solutions rated FATAL by DA | Recovery protocol: proceed with least-flawed / retry (max 1) / abandon |
+| Talisman weights misconfigured | Normalize to 1.0, or fall back to DEFAULT_WEIGHTS |
+| Top solutions within 5% (convergence) | Flag "effectively tied", surface differentiating dimension |
+| `--quick + --exhaustive` conflict | Warn, use `--quick` (most restrictive wins) |

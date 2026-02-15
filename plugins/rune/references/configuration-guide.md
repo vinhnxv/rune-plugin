@@ -46,30 +46,11 @@ codex:                                 # Codex CLI integration (see codex-cli sk
 
 solution_arena:
   enabled: true                    # Enable Arena phase in /rune:plan
-  min_solutions: 2                 # Minimum solutions to run Arena
-  max_solutions: 5                 # Maximum solutions to generate
-  weights:                         # Evaluation dimension weights (normalized to 1.0)
-    feasibility: 0.25
-    complexity: 0.20
-    risk: 0.20
-    maintainability: 0.15
-    performance: 0.10
-    innovation: 0.10
-  convergence_threshold: 0.05      # Top solutions within threshold flagged as tied
-  challenger_timeout: 300           # Seconds per challenger agent
   skip_for_types: ["fix"]          # Feature types that skip Arena
+  # Additional config (weights, thresholds) available in future versions
 
 echoes:
   version_controlled: false
-
-solution_arena:
-  enabled: true
-  min_solutions: 2
-  max_solutions: 5
-  weights: {feasibility: 0.25, complexity: 0.20, risk: 0.20, maintainability: 0.15, performance: 0.10, innovation: 0.10}
-  convergence_threshold: 0.05
-  challenger_timeout: 300
-  skip_for_types: ["fix"]
 
 work:
   ward_commands: ["make check", "npm test"]
