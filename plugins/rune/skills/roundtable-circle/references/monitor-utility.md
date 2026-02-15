@@ -221,6 +221,7 @@ Each command passes its own `opts` to `waitForCompletion`:
 - `forge` enables auto-release (5 min) because enrichment tasks are reassignable. *When `staleWarnMs === autoReleaseMs` (as in forge), warn and release fire on the same poll tick — this is by design since forge's stale detection and release are a single action.
 - `plan` and `forge` have no `timeoutMs` — polling continues until all tasks complete or stale detection intervenes.
 - `arc` uses `PHASE_TIMEOUTS` from its constants (see `arc.md`) which vary per phase.
+- **Signal-path compatibility**: When the Phase 2 fast path is active, `autoReleaseMs` and `onCheckpoint` are not evaluated. Commands that rely on these features (`work`, `mend`, `forge`) lose those capabilities until Phase 3 unifies both paths. Commands without these features (`review`, `audit`) behave identically on either path.
 
 ## Usage Example
 
@@ -298,11 +299,9 @@ Before spawning Ashes, the orchestrator (Tarnished) must create the signal direc
 const signalDir = `tmp/.rune-signals/${teamName}`
 
 // Clear stale signals from any crashed previous run
-// NOTE: rm -rf + mkdir has a TOCTOU window where another process could create
-// a symlink between the remove and recreate. A safer alternative is:
-//   mkdir -p "${signalDir}" && find "${signalDir}" -mindepth 1 -delete
-// This avoids the race by never removing the directory itself.
-Bash(`rm -rf "${signalDir}" && mkdir -p "${signalDir}"`)
+// NOTE: Uses mkdir -p + find -delete (not rm -rf + mkdir) to avoid TOCTOU race
+// where a symlink could be created between remove and recreate.
+Bash(`mkdir -p "${signalDir}" && find "${signalDir}" -mindepth 1 -delete`)
 
 // Write expected task count — read by on-task-completed.sh
 Write(`${signalDir}/.expected`, String(expectedTaskCount))
@@ -350,6 +349,11 @@ function waitForCompletion(teamName, expectedCount, opts) {
     // These features only run in the Phase 1 polling fallback.
     // Phase 3 will unify both paths so stale detection, auto-release,
     // and checkpoint reporting work in event-driven mode as well.
+    // NOTE: Commands most affected by fast-path feature gaps:
+    //   - work: loses autoReleaseMs (stalled task recovery) and onCheckpoint
+    //   - mend: loses autoReleaseMs
+    //   - forge: loses onCheckpoint
+    // Commands unaffected: review, audit (no autoRelease/checkpoint configured)
     log(`${label}: Signal directory detected — event-driven monitoring (5s interval)`)
     let iteration = 0
 

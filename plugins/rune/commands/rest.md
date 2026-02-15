@@ -175,9 +175,11 @@ fi
 # Remove scratch files (unconditional — no state file)
 rm -rf tmp/scratch/
 
-# Remove event-driven signal files (unconditional — ephemeral hook artifacts)
+# Remove event-driven signal files with symlink guard (unconditional — ephemeral hook artifacts)
 # Created by Phase 2 BRIDGE orchestrators when hooks are active. Safe no-op if absent.
-rm -rf tmp/.rune-signals/ 2>/dev/null
+if [[ ! -L "tmp/.rune-signals" ]] && [[ -d "tmp/.rune-signals" ]]; then
+  rm -rf tmp/.rune-signals/ 2>/dev/null
+fi
 
 # Clean up stale git worktrees from mend bisection (if any)
 git worktree list 2>/dev/null | grep 'bisect-worktree' | awk '{print $1}' | while read wt; do

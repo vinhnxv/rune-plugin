@@ -24,23 +24,27 @@ if [[ -n "$TEAMMATE_NAME" && ! "$TEAMMATE_NAME" =~ ^[a-zA-Z0-9_:-]+$ ]]; then
   exit 0
 fi
 
-# Guard: only process Rune and Arc teams
-# QUAL-001: Guard includes arc-* for arc pipeline support
-if [[ -z "$TEAM_NAME" ]] || [[ "$TEAM_NAME" != rune-* && "$TEAM_NAME" != arc-* ]]; then
-  exit 0
-fi
-
-# Guard: validate names
-if [[ ! "$TEAM_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+# Guard: validate names (char-set and length before prefix check)
+if [[ -z "$TEAM_NAME" ]] || [[ ! "$TEAM_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
   exit 0
 fi
 if [[ ${#TEAM_NAME} -gt 128 ]]; then
   exit 0
 fi
 
+# Guard: only process Rune and Arc teams
+# QUAL-001: Guard includes arc-* for arc pipeline support
+if [[ "$TEAM_NAME" != rune-* && "$TEAM_NAME" != arc-* ]]; then
+  exit 0
+fi
+
 # Derive absolute path from hook input CWD (not relative — CWD is not guaranteed)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
-CWD=$(realpath -e "$CWD" 2>/dev/null || echo "$CWD")
+if [[ -z "$CWD" ]]; then
+  echo "WARN: TeammateIdle hook input missing 'cwd' field" >&2
+  exit 0
+fi
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P || echo "$CWD")
 if [[ -z "$CWD" || "$CWD" != /* ]]; then
   exit 0
 fi
@@ -49,6 +53,7 @@ fi
 # Rune teammates are expected to write output files before going idle.
 # The expected output path is stored in the inscription.
 
+# NOTE: inscription.json is write-once by orchestrator. Teammates cannot modify it if signal dir has correct permissions (umask 077 in on-task-completed.sh).
 INSCRIPTION="${CWD}/tmp/.rune-signals/${TEAM_NAME}/inscription.json"
 if [[ ! -f "$INSCRIPTION" ]]; then
   # No inscription = no quality gate to enforce
@@ -96,9 +101,17 @@ fi
 
 FULL_OUTPUT_PATH="${CWD}/${OUTPUT_DIR}${EXPECTED_OUTPUT}"
 
+# SEC-004: Canonicalize and verify output path stays within output_dir
+RESOLVED_OUTPUT=$(realpath -m "$FULL_OUTPUT_PATH" 2>/dev/null || echo "$FULL_OUTPUT_PATH")
+RESOLVED_OUTDIR=$(realpath -m "${CWD}/${OUTPUT_DIR}" 2>/dev/null || echo "${CWD}/${OUTPUT_DIR}")
+if [[ "$RESOLVED_OUTPUT" != "$RESOLVED_OUTDIR"* ]]; then
+  echo "ERROR: output_file resolves outside output_dir" >&2
+  exit 0
+fi
+
 if [[ ! -f "$FULL_OUTPUT_PATH" ]]; then
   # Output file missing — block idle, tell teammate to finish work
-  echo "Output file not found: ${FULL_OUTPUT_PATH}. Please complete your review and write findings before stopping." >&2
+  echo "Output file not found: ${OUTPUT_DIR}${EXPECTED_OUTPUT}. Please complete your review and write findings before stopping." >&2
   exit 2
 fi
 
@@ -115,6 +128,7 @@ fi
 # Ash agents include a SEAL YAML block in their output.
 # If no SEAL, block idle — output is incomplete.
 if [[ "$TEAM_NAME" == rune-review-* || "$TEAM_NAME" == rune-audit-* || "$TEAM_NAME" == arc-review-* || "$TEAM_NAME" == arc-audit-* ]]; then
+  # SEC-009: Simple string match — this is a quality gate, not a security boundary.
   if ! grep -q "^SEAL:" "$FULL_OUTPUT_PATH" 2>/dev/null; then
     echo "SEAL marker missing in ${FULL_OUTPUT_PATH}. Review output incomplete — add SEAL block." >&2
     exit 2  # Block idle until Ash adds SEAL

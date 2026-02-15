@@ -8,7 +8,7 @@ set -euo pipefail
 umask 077
 
 # Cleanup trap — remove temp files on exit (BACK-002)
-cleanup() { rm -f "${SIGNAL_DIR:-/dev/null}/${TASK_ID:-unknown}.done.tmp.$$" "${SIGNAL_DIR:-/dev/null}/.all-done.tmp.$$" 2>/dev/null; }
+cleanup() { [[ -z "${SIGNAL_DIR:-}" ]] && return; rm -f "${SIGNAL_DIR}/${TASK_ID:-unknown}.done.tmp.$$" "${SIGNAL_DIR}/.all-done.tmp.$$" 2>/dev/null; }
 trap cleanup EXIT
 
 # Pre-flight: jq is required for safe JSON parsing and construction.
@@ -22,6 +22,8 @@ fi
 INPUT=$(cat)
 
 # Extract fields with safe defaults
+# NOTE(QUAL-003): Separate jq calls are intentional — avoids eval and keeps each
+# extraction independently safe. The DRY trade-off is accepted for clarity and safety.
 TEAM_NAME=$(echo "$INPUT" | jq -r '.team_name // empty' 2>/dev/null || true)
 TASK_ID=$(echo "$INPUT" | jq -r '.task_id // empty' 2>/dev/null || true)
 TEAMMATE_NAME=$(echo "$INPUT" | jq -r '.teammate_name // empty' 2>/dev/null || true)
@@ -63,7 +65,7 @@ if [[ -z "$CWD" ]]; then
 fi
 
 # SEC-002: Canonicalize CWD after extraction
-CWD=$(realpath -e "$CWD" 2>/dev/null || echo "$CWD")
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P || echo "$CWD")
 if [[ -z "$CWD" || "$CWD" != /* ]]; then
   exit 0
 fi
@@ -105,13 +107,13 @@ fi
 # BACK-005: Strengthen .expected validation
 # SEC-004: .expected is write-once by the orchestrator before agents spawn — no real TOCTOU risk.
 EXPECTED=$(head -c 16 "$EXPECTED_FILE" 2>/dev/null | tr -d '[:space:]')
-if [[ ! "$EXPECTED" =~ ^[1-9][0-9]*$ ]] && [[ "$EXPECTED" != "0" ]]; then
+if [[ ! "$EXPECTED" =~ ^[1-9][0-9]*$ ]]; then
   echo "WARN: .expected file contains invalid count: ${EXPECTED}" >&2
   exit 0
 fi
 
 # Count .done files (excluding .tmp files)
-DONE_COUNT=$(find "$SIGNAL_DIR" -maxdepth 1 -name "*.done" -not -name "*.tmp.*" 2>/dev/null | wc -l | tr -d ' ')
+DONE_COUNT=$(find "$SIGNAL_DIR" -maxdepth 1 -type f -name "*.done" -not -name "*.tmp.*" 2>/dev/null | wc -l | tr -d ' ')
 
 # BACK-001: Add existence check before writing .all-done to prevent double-write race.
 # Note: total is a lower bound — concurrent completions may increment .done count between

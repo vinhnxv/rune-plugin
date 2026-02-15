@@ -44,7 +44,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 ## Hook Infrastructure
 
-Rune uses two Claude Code hooks for event-driven agent synchronization (Phase 2 BRIDGE):
+Rune uses two Claude Code hooks for event-driven agent synchronization (Phase 2 BRIDGE — see CHANGELOG.md v1.23.0 and monitor-utility.md for details):
 
 | Hook | Script | Purpose |
 |------|--------|---------|
