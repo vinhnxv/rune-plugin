@@ -429,9 +429,21 @@ if (exists(".claude/echoes/planner/")) {
 ## Phase 6: Cleanup & Present
 
 ```javascript
-// 1. Shutdown all teammates
-for (const teammate of allTeammates) {
-  SendMessage({ type: "shutdown_request", recipient: teammate })
+// 1. Dynamic member discovery — reads team config to find ALL teammates
+// This catches teammates summoned in any phase, not just the initial batch
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/rune-plan-${timestamp}/config.json`)
+  allMembers = (teamConfig.members || []).map(m => m.name)
+  // Defense-in-depth: SDK already excludes team-lead from config.members
+} catch (e) {
+  // FALLBACK: Config read failed — use known teammate list from command context
+  allMembers = [...allTeammates]
+}
+
+// Shutdown all discovered members
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Planning workflow complete" })
 }
 
 // 2. Wait for approvals (max 30s)

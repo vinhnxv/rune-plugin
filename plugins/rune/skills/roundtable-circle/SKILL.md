@@ -325,12 +325,28 @@ Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/t
 
 ## Phase 7: Cleanup
 
-```
-1. SendMessage(type: "shutdown_request") to each Ash
-2. Wait for shutdown approvals
-3. TeamDelete()
-4. Persist learnings to Rune Echoes (.claude/echoes/)
-5. Read TOME.md and present to user
+```javascript
+// 0. Dynamic member discovery — reads team config to find ALL teammates
+// This catches Ashes summoned in any phase, not just the initial batch
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
+  allMembers = (teamConfig.members || []).map(m => m.name)
+  // Defense-in-depth: SDK already excludes team-lead from config.members
+} catch (e) {
+  // FALLBACK: Config read failed — use known Ash list from inscription
+  allMembers = [...selectedAsh]
+}
+
+// 1. Shutdown all discovered members
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
+}
+
+// 2. Wait for shutdown approvals
+// 3. TeamDelete()
+// 4. Persist learnings to Rune Echoes (.claude/echoes/)
+// 5. Read TOME.md and present to user
 ```
 
 ## Error Handling

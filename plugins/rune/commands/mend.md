@@ -499,9 +499,20 @@ TOME: {tome_path}
 ## Phase 7: CLEANUP
 
 ```javascript
-// 1. Shutdown all fixers
-for (const fixer of allFixers) {
-  SendMessage({ type: "shutdown_request", recipient: fixer })
+// 1. Dynamic member discovery — reads team config to find ALL teammates
+// This catches fixers summoned in any phase, not just the initial batch
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/rune-mend-${id}/config.json`)
+  allMembers = (teamConfig.members || []).map(m => m.name)
+  // Defense-in-depth: SDK already excludes team-lead from config.members
+} catch (e) {
+  // FALLBACK: Config read failed — use known fixer list from command context
+  allMembers = [...allFixers]
+}
+
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
 }
 
 // 2. Wait for approvals (max 30s)

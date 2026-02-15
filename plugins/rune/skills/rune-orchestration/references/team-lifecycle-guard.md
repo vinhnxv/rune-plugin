@@ -60,6 +60,8 @@ try { TeamDelete() } catch (e) {
 
 **When to use**: At EVERY workflow cleanup point — both normal completion and cancellation.
 
+> **Note**: The `allTeammates` list above is a placeholder. In production, use the **Dynamic Cleanup with Member Discovery** pattern (below) to read the actual member list from `config.json` rather than relying on a static array.
+
 ## Cancel Command Pattern
 
 Cancel commands use the same cleanup-with-fallback but add broadcast + task cancellation:
@@ -88,6 +90,78 @@ try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
 }
 ```
+
+## Dynamic Cleanup with Member Discovery
+
+Static teammate lists in cleanup phases can miss dynamically-added members or leave "zombie" teammates running after cleanup completes. The solution: read the team's `config.json` at cleanup time to discover ALL active members, regardless of how many were spawned or what they're named.
+
+### Why dynamic?
+
+When a workflow spawns teammates, the set of active members may differ from what was originally planned:
+- A teammate may have been added mid-workflow (e.g., extra workers spawned for load balancing)
+- A teammate may have crashed and been replaced with a differently-named instance
+- The orchestrator's local list may be stale after compaction or session resume
+
+Hardcoding teammate names in cleanup logic creates a **zombie teammate problem** — members not in the static list survive shutdown and hold resources indefinitely. Dynamic discovery from `config.json` eliminates this class of bug.
+
+### config.json Schema
+
+The Agent SDK maintains a team config file at `~/.claude/teams/{team_name}/config.json`:
+
+```javascript
+// ~/.claude/teams/{team_name}/config.json (managed by Agent SDK)
+{
+  "team_name": "rune-review-abc123",
+  "members": [
+    { "name": "ash-iron-abc123", "status": "active" },
+    { "name": "ash-silver-abc123", "status": "active" }
+    // SDK excludes team-lead from members array
+  ]
+}
+```
+
+Key properties:
+- `members` — array of all active teammate entries (team-lead is excluded by the SDK)
+- Each member has a `name` field matching the name used in `SendMessage`
+- The SDK maintains this file automatically as teammates are spawned/removed
+
+### Dynamic Discovery Pattern
+
+```javascript
+// 1. Read team config to discover ALL active teammates
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
+  allMembers = (teamConfig.members || []).map(m => m.name)
+  // Defense-in-depth: SDK already excludes team-lead from config.members
+} catch (e) {
+  // FALLBACK: Config read failed — use known teammate list from command context
+  allMembers = [...fallbackList]
+}
+
+// 2. Shutdown all discovered members
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
+}
+
+// 3. Wait for shutdown approvals (max 30s)
+
+// 4. TeamDelete with fallback
+try { TeamDelete() } catch (e) {
+  Bash(`rm -rf ~/.claude/teams/${team_name}/ ~/.claude/tasks/${team_name}/ 2>/dev/null`)
+}
+```
+
+**When to use**: In ALL cleanup phases — both normal completion and cancellation — where the teammate list may not be statically known. This replaces iterating over a hardcoded array of teammate names.
+
+### Existing Implementations
+
+The cancel commands already use this dynamic discovery pattern:
+- `cancel-review.md` — reads `~/.claude/teams/${team_name}/config.json`, iterates `config.members`
+- `cancel-audit.md` — same pattern as cancel-review
+- `cancel-arc.md` — reads `~/.claude/teams/${phase_team}/config.json`, iterates `teamConfig.members`
+
+These serve as canonical examples of the pattern. All new cleanup logic should follow the same approach.
 
 ## Input Validation
 

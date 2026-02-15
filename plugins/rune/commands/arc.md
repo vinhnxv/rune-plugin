@@ -420,8 +420,20 @@ if (result.timedOut) {
 }
 
 // Collect verdicts, merge → tmp/arc/{id}/plan-review.md
-// Shutdown reviewers, cleanup team
-for (const reviewer of reviewers) { SendMessage({ type: "shutdown_request", recipient: reviewer.name }) }
+// Dynamic member discovery — reads team config to find ALL teammates
+// This catches teammates summoned in any phase, not just the initial batch
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/arc-plan-review-${id}/config.json`)
+  allMembers = (teamConfig.members || []).map(m => m.name)
+  // Defense-in-depth: SDK already excludes team-lead from config.members
+} catch (e) {
+  // FALLBACK: Config read failed — use known reviewer list
+  allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper"]
+}
+
+// Shutdown all discovered members
+for (const member of allMembers) { SendMessage({ type: "shutdown_request", recipient: member, content: "Plan review complete" }) }
 // SEC-003: id validated at line 212 (/^arc-[a-zA-Z0-9_-]+$/) + redundant traversal check above
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
