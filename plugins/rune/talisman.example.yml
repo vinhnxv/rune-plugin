@@ -225,6 +225,28 @@ defaults:
 #     total: 5400000          # 90 minutes total pipeline (default)
 
 # ──────────────────────────────────────────────
+# Solution Arena — Competitive solution evaluation (v1.24.0+)
+# ──────────────────────────────────────────────
+# Phase 1.8 in /rune:plan — generates 2-5 alternative solutions and
+# evaluates them via Devil's Advocate + Innovation Scout challengers.
+# Weighted decision matrix selects the champion approach.
+# Arena runs by default. Use --no-arena to skip, or disable globally below.
+solution_arena:
+  enabled: true                      # Set false to disable Arena globally
+  min_solutions: 2                   # Minimum solutions to trigger Arena (below this, skip)
+  max_solutions: 5                   # Maximum solutions to generate
+  weights:                           # Evaluation dimension weights (must sum to 1.0)
+    feasibility: 0.25               # Can we build this with current resources?
+    complexity: 0.20                 # Implementation and maintenance complexity
+    risk: 0.20                      # Technical and operational risk
+    maintainability: 0.15           # Long-term maintenance burden
+    performance: 0.10               # Runtime performance characteristics
+    innovation: 0.10                # Novel value and future extensibility
+  convergence_threshold: 0.05        # Solutions within this score range flagged as tied
+  challenger_timeout: 300            # Seconds per challenger agent (default: 5 min)
+  skip_for_types: ["fix"]           # Feature types that skip Arena (fix = simple bug fixes)
+
+# ──────────────────────────────────────────────
 # Echoes — Memory persistence
 # ──────────────────────────────────────────────
 echoes:

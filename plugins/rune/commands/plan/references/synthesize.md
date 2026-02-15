@@ -77,6 +77,12 @@ date: YYYY-MM-DD
 
 {High-level approach informed by research}
 
+## Solution Selection
+{arena-selection findings, if Arena ran}
+- **Chosen approach**: {solution name} ({weighted score}/10)
+- **Rationale**: {1-sentence why this approach won}
+- **Top concern**: {highest-severity DA challenge}
+
 ## Technical Approach
 
 {Implementation details referencing codebase patterns discovered by repo-surveyor}
@@ -195,12 +201,15 @@ erDiagram
     ENTITY_A ||--o{ ENTITY_B : has
 ` ``
 
-## Alternative Approaches Considered
+## Solution Selection
 
-| Approach | Pros | Cons | Why Rejected |
-|----------|------|------|-------------|
-| {Alt 1} | {+} | {-} | {Reason} |
-| {Alt 2} | {+} | {-} | {Reason} |
+### Arena Evaluation Matrix
+{Full evaluation matrix from arena-matrix.md, if Arena ran}
+
+### Alternative Approaches Considered
+| Approach | Score | Top Concern | Why Not Selected |
+|----------|-------|-------------|-----------------|
+{Rejected arena solutions with scores and DA concerns}
 
 ## Acceptance Criteria
 

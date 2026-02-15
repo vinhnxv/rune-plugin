@@ -10,6 +10,7 @@ Maps each elicitation method to its target Rune phases, specifying when and how 
 |-------|---------|------------------|--------------|
 | Plan Phase 0 (Brainstorm) | `/rune:plan` | 6 | 5 Tier 1, 1 Tier 2 |
 | Plan Phase 1 (Research) | `/rune:plan` | 1 | 1 Tier 1 |
+| Plan Phase 1.8 (Solution Arena) | `/rune:plan` | 4 | 4 Tier 1 |
 | Plan Phase 2 (Synthesize) | `/rune:plan` | 2 | 1 Tier 1, 1 Tier 2 |
 | Plan Phase 2.5 (Shatter) | `/rune:plan` | 2 | 1 Tier 1, 1 Tier 2 |
 | Plan Phase 4 (Review) | `/rune:plan` | 3 | 3 Tier 1 |
@@ -36,6 +37,18 @@ Maps each elicitation method to its target Rune phases, specifying when and how 
 | Mentor and Apprentice | 1 | Complex domain, hidden assumptions |
 | First Principles Analysis | 1 | Novel feature, no clear precedent |
 | User Persona Focus Group | 2 | UX-facing features (manual selection only) |
+
+### Plan Phase 1.8 — Solution Arena
+
+**Integration point**: After solution generation in `solution-arena.md`
+**Injection type**: Structured evaluation templates for challenger agents
+
+| Method | Tier | When Auto-Suggested |
+|--------|------|-------------------|
+| Tree of Thoughts | 1 | Multiple solution paths need structured evaluation |
+| Comparative Analysis Matrix | 1 | Weighted scoring across evaluation dimensions |
+| Pre-mortem Analysis | 1 | Devil's Advocate failure scenario generation |
+| Architecture Decision Records | 1 | Trade-off documentation for solution selection rationale |
 
 ### Forge Phase 3 — Enrichment
 
