@@ -271,6 +271,148 @@ const result = waitForCompletion(teamName, taskCount, {
 - **Arc per-phase budgets**: Arc does not call `waitForCompletion` directly with a single timeout. Instead, each delegated phase (work, review, mend, audit) uses its own inner timeout. Arc wraps these with a safety-net phase timeout (`PHASE_TIMEOUTS`) plus the global `ARC_TOTAL_TIMEOUT` (90 min) ceiling.
 - **Checkpoint reporting is optional**: When `onCheckpoint` is `undefined`, no milestone tracking occurs. Existing callers without `onCheckpoint` get identical behavior. Currently used by `work`. Arc integration is planned but not yet wired.
 
+## Phase 2: Event-Driven Fast Path
+
+> Added in Phase 2 (BRIDGE). When `TaskCompleted` hooks write filesystem signal files, the monitor can detect completion via a 5-second filesystem check instead of a 30-second `TaskList()` API poll — reducing token cost to near-zero per monitoring cycle (~99.8% reduction). The fast path activates automatically when a signal directory exists; otherwise, the Phase 1 polling fallback runs unchanged.
+
+### How It Works
+
+```text
+TaskCompleted hook fires
+    ↓
+scripts/on-task-completed.sh writes signal file to tmp/.rune-signals/{team}/
+    ↓
+Monitor checks signal files (5s interval, filesystem read — near-zero token cost)
+    ↓
+All signals present (.all-done sentinel) → proceed
+    ↓
+(Fallback: if no signal directory exists → Phase 1 TaskList polling at 30s)
+```
+
+### Signal Directory Setup (Orchestrator Responsibility)
+
+Before spawning Ashes, the orchestrator (Tarnished) must create the signal directory and expected-count file. If this setup is skipped, the monitor automatically falls back to Phase 1 polling.
+
+```javascript
+// Pseudocode — added to each command BEFORE spawning Ashes
+const signalDir = `tmp/.rune-signals/${teamName}`
+
+// Clear stale signals from any crashed previous run
+Bash(`rm -rf "${signalDir}" && mkdir -p "${signalDir}"`)
+
+// Write expected task count — read by on-task-completed.sh
+Write(`${signalDir}/.expected`, String(expectedTaskCount))
+
+// Write inscription — read by on-teammate-idle.sh for quality gates
+Write(`${signalDir}/inscription.json`, JSON.stringify({
+  workflow: "rune-review",  // or rune-work, rune-plan, etc.
+  timestamp: timestamp,
+  output_dir: `tmp/reviews/${identifier}/`,
+  teammates: [
+    { name: "forge-warden", output_file: "forge-warden.md" },
+    // ... per command configuration
+  ]
+}))
+```
+
+### Dual-Path Pseudocode
+
+The `waitForCompletion` function from Phase 1 gains a dual-path upgrade. The signal path is chosen when `tmp/.rune-signals/{teamName}/` exists; otherwise the existing polling path runs unchanged.
+
+```javascript
+function waitForCompletion(teamName, expectedCount, opts) {
+  const {
+    pollIntervalMs = 30_000,
+    staleWarnMs = 300_000,
+    timeoutMs,
+    autoReleaseMs,
+    label = "Monitor",
+    onCheckpoint
+  } = opts
+
+  const startTime = Date.now()
+  const signalDir = `tmp/.rune-signals/${teamName}`
+  const useSignals = exists(signalDir) && exists(`${signalDir}/.expected`)
+
+  if (useSignals) {
+    // ═══ FAST PATH: Filesystem signals (5s interval, near-zero token cost) ═══
+    // Token cost per check: 0 (filesystem existence check, not API call)
+    // Final TaskList() call on completion: ~100 tokens (one-time)
+    log(`${label}: Signal directory detected — event-driven monitoring (5s interval)`)
+    let iteration = 0
+
+    while (true) {
+      iteration++
+
+      // Check .all-done sentinel (written atomically by on-task-completed.sh)
+      if (exists(`${signalDir}/.all-done`)) {
+        const meta = JSON.parse(Read(`${signalDir}/.all-done`))
+        log(`${label}: All ${meta.total} signals received at ${meta.completed_at}`)
+        return { completed: TaskList(), incomplete: [], timedOut: false }
+      }
+
+      // Timeout check
+      if (timeoutMs !== undefined && Date.now() - startTime > timeoutMs) {
+        const doneCount = countFiles(`${signalDir}/*.done`)
+        warn(`${label}: Timeout after ${timeoutMs / 60_000} min. ${doneCount}/${expectedCount} signals received.`)
+        const finalTasks = TaskList()
+        return {
+          completed: finalTasks.filter(t => t.status === "completed"),
+          incomplete: finalTasks.filter(t => t.status !== "completed"),
+          timedOut: true
+        }
+      }
+
+      // Progress logging every 3rd check (~15s)
+      if (iteration % 3 === 0) {
+        const doneCount = countFiles(`${signalDir}/*.done`)
+        log(`${label}: Progress: ${doneCount}/${expectedCount} tasks signaled`)
+      }
+
+      sleep(5_000)  // 5s — filesystem check, not API call
+    }
+
+  } else {
+    // ═══ FALLBACK: Phase 1 polling (30s interval, TaskList API calls) ═══
+    log(`${label}: No signal directory — falling back to TaskList polling (${pollIntervalMs / 1000}s interval)`)
+    // ... (existing Phase 1 pseudocode from above runs unchanged) ...
+  }
+}
+```
+
+### Performance Characteristics
+
+| Metric | Phase 1 (Polling) | Phase 2 (Signals) |
+|--------|-------------------|-------------------|
+| Check interval | 30s | 5s |
+| Token cost per check | ~500 (TaskList API) | 0 (filesystem read) |
+| Average detection latency | ~15s | ~2.5s |
+| Final TaskList call | Every check | Once on completion (~100 tokens) |
+| Scales with agent count | O(N) per check | O(1) per check (single `.all-done` existence check) |
+
+### Signal Cleanup
+
+Signal directories are cleaned:
+1. **Per-workflow:** In Phase 7 (Cleanup), after `TeamDelete`:
+   ```bash
+   rm -rf "tmp/.rune-signals/${teamName}"
+   ```
+2. **Global:** Via `/rune:rest`:
+   ```bash
+   rm -rf tmp/.rune-signals/ 2>/dev/null
+   ```
+
+### Concurrency Notes
+
+- **Atomic writes**: Hook script uses `tmp + mv` pattern — monitor never sees incomplete signal files
+- **TOCTOU in `.all-done`**: SAFE — sentinel is written atomically by the hook, not computed by the monitor
+- **Concurrent hook invocations**: SAFE — each writes to a unique `{task_id}.done` file (no shared state)
+- **Multiple concurrent workflows**: SAFE — team-name-scoped signal directories prevent cross-workflow interference
+
+### Stability Trigger
+
+Phase 2 is activated when `TaskCompleted` and `TeammateIdle` hooks are proven stable across 3+ consecutive plugin releases with zero hook-related regressions.
+
 ## References
 
 - [Inscription Schema](inscription-schema.md) — Output contract for monitored tasks

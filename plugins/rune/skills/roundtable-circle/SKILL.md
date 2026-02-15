@@ -244,6 +244,8 @@ const result = waitForCompletion(teamName, ashCount, {
 })
 ```
 
+**Signal-based monitoring (Phase 2 BRIDGE):** When the orchestrator creates a signal directory (`tmp/.rune-signals/{teamName}/`) before spawning Ashes, the monitor switches to a fast path: 5-second filesystem checks for `.done` signal files written by `TaskCompleted` hooks, instead of 30-second `TaskList()` API polling. Completion is detected via an `.all-done` sentinel file written atomically by the hook when all expected tasks are done. If no signal directory exists, the monitor falls back to Phase 1 polling automatically. See [references/monitor-utility.md — Phase 2: Event-Driven Fast Path](references/monitor-utility.md#phase-2-event-driven-fast-path) for the dual-path pseudocode, signal directory setup, and performance characteristics.
+
 **Stale detection:** If a task has been `in_progress` for > 5 minutes:
 - Check teammate status
 - Default: proceed with partial results

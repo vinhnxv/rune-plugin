@@ -33,6 +33,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/scratch/` | Session scratch pads | Yes |
 | `tmp/mend/{id}/` | Mend resolution reports, fixer outputs | Yes (if completed) |
 | `tmp/arc/{id}/` | Arc pipeline artifacts (enriched plans, TOME, reports) | Yes (if completed) |
+| `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional) |
 
 ## What Is Preserved
 
@@ -173,6 +174,9 @@ fi
 
 # Remove scratch files (unconditional — no state file)
 rm -rf tmp/scratch/
+
+# Remove event-driven signal files (unconditional — ephemeral hook artifacts)
+rm -rf tmp/.rune-signals/ 2>/dev/null
 
 # Clean up stale git worktrees from mend bisection (if any)
 git worktree list 2>/dev/null | grep 'bisect-worktree' | awk '{print $1}' | while read wt; do
