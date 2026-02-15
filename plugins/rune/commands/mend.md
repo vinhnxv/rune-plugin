@@ -52,6 +52,7 @@ Parses a TOME file for structured findings, groups them by file to prevent concu
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--output-dir <path>` | Custom output directory for resolution report | `tmp/mend/{id}/` |
+| `--timeout <ms>` | Outer time budget in milliseconds. Inner polling timeout is derived: `timeout - SETUP_BUDGET(5m) - MEND_EXTRA_BUDGET(3m)`, minimum 120,000ms (2 min). Used by arc to propagate phase budgets. | `900_000` (15 min standalone) |
 
 ## Pipeline Overview
 
@@ -171,6 +172,8 @@ const sanitizeTaskText = (s) => (s || '')
   .replace(/^#{1,6}\s+/gm, '')               // Markdown headings (prompt override vector)
   .replace(/```[\s\S]*?```/g, '[code block]') // Code fences (adversarial instructions)
   .replace(/!\[.*?\]\(.*?\)/g, '')            // Image syntax
+  .replace(/&[a-zA-Z0-9#]+;/g, '')            // HTML entities
+  .replace(/[\u200B-\u200D\uFEFF]/g, '')       // Zero-width characters
   .slice(0, 500)
 
 for (const [file, findings] of Object.entries(fileGroups)) {
@@ -222,6 +225,8 @@ for (const fixer of inscription.fixers) {
           .replace(/^#{1,6}\s+/gm, '')               // Markdown headings (prompt override vector)
           .replace(/```[\s\S]*?```/g, '[code block]') // Code fences (adversarial instructions)
           .replace(/!\[.*?\]\(.*?\)/g, '')            // Image syntax
+          .replace(/&[a-zA-Z0-9#]+;/g, '')            // HTML entities
+          .replace(/[\u200B-\u200D\uFEFF]/g, '')       // Zero-width characters
           .slice(0, 500)
         return { ...f, evidence: sanitize(f.evidence), fix_guidance: sanitize(f.fix_guidance) }
       }))}
@@ -265,11 +270,23 @@ for (const fixer of inscription.fixers) {
 
 Poll TaskList to track fixer progress. See [monitor-utility.md](../skills/roundtable-circle/references/monitor-utility.md) for the shared polling utility.
 
+> **zsh compatibility**: When implementing polling in Bash, never use `status` as a variable name — it is read-only in zsh (macOS default). Use `task_status` or `tstat` instead.
+
 ```javascript
 // NOTE: Pass total task count (file groups), NOT fixerCount. When file_groups > 5,
 // fixers process batches sequentially — all tasks must complete, not just the first batch.
+
+// Derive inner polling timeout from --timeout flag (outer budget from arc).
+// Subtract setup + ward/cross-file overhead. Minimum 2 minutes to avoid premature timeout.
+const SETUP_BUDGET = 300_000        // 5 min — team creation, parsing, report, cleanup
+const MEND_EXTRA_BUDGET = 180_000   // 3 min — ward check, cross-file, doc-consistency
+const DEFAULT_MEND_TIMEOUT = 900_000 // 15 min (standalone default)
+const innerPollingTimeout = timeoutFlag
+  ? Math.max(timeoutFlag - SETUP_BUDGET - MEND_EXTRA_BUDGET, 120_000)
+  : DEFAULT_MEND_TIMEOUT
+
 const result = waitForCompletion(teamName, Object.keys(fileGroups).length, {
-  timeoutMs: 900_000,        // 15 minutes
+  timeoutMs: innerPollingTimeout,
   staleWarnMs: 300_000,      // 5 minutes -- warn about stalled fixer
   autoReleaseMs: 600_000,    // 10 minutes -- release task for reclaim
   pollIntervalMs: 30_000,
@@ -293,6 +310,9 @@ const SAFE_EXECUTABLES = new Set([
   'go', 'rustc', 'javac', 'mvn', 'gradle',
   'git', 'diff', 'wc', 'sort', 'grep', 'find',
 ])
+// NOTE: sh/bash intentionally excluded to prevent arbitrary command execution via ward commands.
+// Use make or direct tool invocation instead. make invokes shell internally but provides
+// a named target contract that limits execution scope.
 for (const ward of wards) {
   if (!SAFE_WARD.test(ward.command)) {
     warn(`Ward "${ward.name}": command contains unsafe characters -- skipping`)

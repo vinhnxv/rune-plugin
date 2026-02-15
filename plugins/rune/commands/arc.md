@@ -110,22 +110,30 @@ The dispatcher reads only structured summary headers from artifacts, not full co
 ```javascript
 const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'work', 'gap_analysis', 'code_review', 'mend', 'verify_mend', 'audit']
 
+// SETUP_BUDGET: time for team creation, task creation, agent spawning, report, cleanup.
+// MEND_EXTRA_BUDGET: additional time for ward check, cross-file mend, doc-consistency.
+// Phase outer timeout = inner polling timeout + setup budget (+ mend extra for mend).
+// IMPORTANT: checkArcTimeout() runs BETWEEN phases, not during. A phase that exceeds
+// its budget will only be detected after it finishes/times out internally.
+const SETUP_BUDGET = 300_000          //  5 min — team creation, parsing, report, cleanup
+const MEND_EXTRA_BUDGET = 180_000     //  3 min — ward check, cross-file, doc-consistency
+
 const PHASE_TIMEOUTS = {
-  forge:         600_000,    // 10 min
-  plan_review:   600_000,    // 10 min
-  plan_refine:   180_000,    //  3 min
-  verification:   30_000,    // 30 sec
-  work:        1_860_000,    // 31 min (work 30m + 60s buffer)
-  gap_analysis:    60_000,    //  1 min
-  code_review:   660_000,    // 11 min (review 10m + 60s buffer)
-  mend:          960_000,    // 16 min (mend 15m + 60s buffer)
-  verify_mend:   240_000,    //  4 min
-  audit:         960_000,    // 16 min (audit 15m + 60s buffer)
+  forge:         900_000,    // 15 min (inner 10m + 5m setup)
+  plan_review:   900_000,    // 15 min (inner 10m + 5m setup)
+  plan_refine:   180_000,    //  3 min (orchestrator-only, no team)
+  verification:   30_000,    // 30 sec (orchestrator-only, no team)
+  work:        2_100_000,    // 35 min (inner 30m + 5m setup)
+  gap_analysis:    60_000,    //  1 min (orchestrator-only, no team)
+  code_review:   900_000,    // 15 min (inner 10m + 5m setup)
+  mend:        1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
+  verify_mend:   240_000,    //  4 min (orchestrator-only, no team)
+  audit:       1_200_000,    // 20 min (inner 15m + 5m setup)
 }
-const ARC_TOTAL_TIMEOUT = 5_400_000  // 90 min
+const ARC_TOTAL_TIMEOUT = 7_200_000  // 120 min (honest budget — old 90 min was routinely exceeded)
 const STALE_THRESHOLD = 300_000      // 5 min
 const CONVERGENCE_MAX_ROUNDS = 2     // Max mend retries (3 total passes)
-const MEND_RETRY_TIMEOUT = 480_000   // 8 min — reduced for retry rounds
+const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward)
 ```
 
 See [phase-tool-matrix.md](../skills/rune-orchestration/references/phase-tool-matrix.md) for per-phase tool restrictions and time budget details.
@@ -211,13 +219,15 @@ if (planFile.startsWith('/')) {
 
 ### Total Pipeline Timeout Check
 
+**Limitation**: `checkArcTimeout()` runs **between phases**, not during a phase. If a phase is stuck internally, arc cannot interrupt it. A phase that exceeds its budget will only be detected after it finishes or times out on its own inner timeout. This is why inner polling timeouts must be derived from outer phase budgets (minus setup overhead) — the inner timeout is the real enforcement mechanism.
+
 ```javascript
 const arcStart = Date.now()
 
 function checkArcTimeout() {
   const elapsed = Date.now() - arcStart
   if (elapsed > ARC_TOTAL_TIMEOUT) {
-    error(`Arc pipeline exceeded 90-minute total timeout (elapsed: ${Math.round(elapsed/60000)}min).`)
+    error(`Arc pipeline exceeded ${ARC_TOTAL_TIMEOUT / 60_000}-minute total timeout (elapsed: ${Math.round(elapsed/60000)}min).`)
     updateCheckpoint({ status: "timeout" })
     return true
   }
@@ -672,7 +682,11 @@ const tomeSource = mendRound === 0
 
 const mendTimeout = mendRound === 0 ? PHASE_TIMEOUTS.mend : MEND_RETRY_TIMEOUT
 
-const mendTeamName = /* team name created by /rune:mend logic */
+// BUG FIX (v1.24.1): Propagate arc phase budget to mend's inner polling timeout.
+// Without --timeout, mend always uses 15 min (standalone default) — which exceeds
+// arc's retry budget (13 min) and ignores setup/teardown overhead.
+// Inner polling = mendTimeout - SETUP_BUDGET - MEND_EXTRA_BUDGET (min 2 min).
+const mendTeamName = /* team name created by /rune:mend logic, invoked with --timeout ${mendTimeout} */
 updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team_name: mendTeamName })
 
 const failedCount = countFindings("FAILED", resolutionReport)

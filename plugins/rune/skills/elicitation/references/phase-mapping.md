@@ -40,7 +40,7 @@ Maps each elicitation method to its target Rune phases, specifying when and how 
 
 ### Plan Phase 1.8 — Solution Arena
 
-**Integration point**: After solution generation in `solution-arena.md`
+**Integration point**: After solution generation in [`solution-arena.md`](../../../commands/plan/references/solution-arena.md)
 **Injection type**: Structured evaluation templates for challenger agents
 
 > **Note**: Phase 1.8 methods are embedded in challenger agent prompts (Devil's Advocate uses Pre-mortem, Innovation Scout uses First Principles). They are not user-selected via AskUserQuestion — they activate implicitly when the corresponding challenger agent runs.

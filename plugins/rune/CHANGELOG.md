@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.24.1] - 2026-02-16
+
+Patch release: Mend fixes from Phase 6 code review — sanitizer hardening, dimension alignment, configuration cleanup.
+
+### Fixed
+
+- Defined `sanitize()` function inline in solution-arena.md (was referenced but undefined)
+- Aligned dimension names across all files to: feasibility, complexity, risk, maintainability, performance, innovation
+- Fixed `const` to `let` for reassignable weight variables in weight normalization
+- Removed duplicate `solution_arena` config block from configuration-guide.md
+- Simplified talisman.example.yml to only expose `enabled` and `skip_for_types`
+- Removed premature `arena_agents` field from inscription-schema.md
+
+### Changed
+
+- plugin.json: version 1.24.0 → 1.24.1
+- marketplace.json: version 1.24.0 → 1.24.1
+
 ## [1.24.0] - 2026-02-16
 
 Feature release: Solution Arena — competitive evaluation of alternative approaches before committing to a plan. Phase 1.8 generates 2-5 solutions, challenges them via Devil's Advocate and Innovation Scout agents, scores across 6 weighted dimensions, and selects a champion approach with full rationale.

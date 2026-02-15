@@ -78,8 +78,8 @@ date: YYYY-MM-DD
 {High-level approach informed by research}
 
 ## Solution Selection
-{If Arena ran: include arena-selection findings below. If Arena was skipped (--quick, --no-arena, bug fix): omit this section or write "Approach selected during brainstorm — no competitive evaluation."}
-- **Chosen approach**: {solution name} ({weighted score}/10)
+{If Arena ran: include arena-selection findings below. If Arena was skipped but brainstorm ran: write "Approach selected during brainstorm — no competitive evaluation." If both Arena and brainstorm were skipped (--quick with direct feature description): omit this section entirely.}
+- **Chosen approach**: {solution name} ({weighted score}/10, range 1-10)
 - **Rationale**: {1-sentence why this approach won}
 - **Top concern**: {highest-severity DA challenge}
 

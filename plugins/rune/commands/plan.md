@@ -222,7 +222,7 @@ See [research-phase.md](plan/references/research-phase.md) for the full protocol
 
 Generates competing solutions from research, evaluates on weighted dimensions, challenges with adversarial agents, and presents a decision matrix for approach selection.
 
-**Skip conditions**: `--quick`, `--no-arena`, bug fixes, clear-pattern refactors, sparse research (<2 viable approaches).
+**Skip conditions**: `--quick`, `--no-arena`, bug fixes, high-confidence refactors (confidence >= 0.9), sparse research (<2 viable approaches).
 
 See [solution-arena.md](plan/references/solution-arena.md) for full protocol (sub-steps 1.8A through 1.8D).
 
@@ -470,7 +470,8 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifie
 // barrier preventing path traversal. Do NOT move, skip, or weaken this check.
 if (timestamp.includes('..')) throw new Error('Path traversal detected')
 try { TeamDelete() } catch (e) {
-  // SEC-003: timestamp validated in Phase 6 cleanup preamble — /^[a-zA-Z0-9_-]+$/ + includes('..') check
+  // SAFETY: safeTeamCleanup pattern — timestamp validated at line 468 (/^[a-zA-Z0-9_-]+$/ + includes('..'))
+  // See security-patterns.md for the validated-rm-rf pattern. Do NOT move or refactor without preserving validation.
   Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
 }
 
@@ -539,7 +540,7 @@ When user selects "Create issue":
 
    // Use -- to separate flags from positional args, write title to temp file to avoid shell expansion
    Write('tmp/.issue-title.txt', `${type}: ${title}`)
-   Bash(`gh issue create --title "$(cat tmp/.issue-title.txt)" --body-file -- "plans/${path}"`)
+   Bash(`gh issue create --title "$(< tmp/.issue-title.txt)" --body-file -- "plans/${path}"`)
    ```
 
 3. **Linear**:
@@ -549,7 +550,7 @@ When user selects "Create issue":
    if (!SAFE_PATH_PATTERN.test(path) || path.includes('..')) throw new Error('Unsafe characters in plan path')
 
    Write('tmp/.issue-title.txt', title)
-   Bash(`linear issue create --title "$(cat tmp/.issue-title.txt)" --description - < "plans/${path}"`)
+   Bash(`linear issue create --title "$(< tmp/.issue-title.txt)" --description - < "plans/${path}"`)
    ```
 
 4. **No tracker configured**: Ask user and suggest adding `project_tracker: github` to CLAUDE.md.
