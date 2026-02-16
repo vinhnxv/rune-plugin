@@ -345,7 +345,7 @@ During Phase 2 Synthesize, after consolidating research:
 
 3. **scope** (Standard/Comprehensive only): Human-readable description of files affected. Format: "{N} files ({description})".
 
-4. **risk** (Standard/Comprehensive only): Assess from research findings. Format: "{Low|Medium|High} — {brief explanation}". Always quote the value in YAML.
+4. **risk** (Standard/Comprehensive only): Assess from research findings. Format: "{Low|Medium|High} — {brief explanation}". Always quote the risk value in YAML (the templates already show the required quotes — preserve them when filling in values).
 
 5. **estimated_effort**: Size from scope + complexity. Format: "{S|M|L|XL} — ~{N} LOC, {N} files". Use the size guide table above.
 

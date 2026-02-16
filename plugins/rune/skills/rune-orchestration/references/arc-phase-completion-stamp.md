@@ -24,6 +24,10 @@ if (!planPath || !/^[a-zA-Z0-9._\/-]+$/.test(planPath) || planPath.includes('..'
   warn(`Invalid plan path in checkpoint: ${planPath}`)
   return
 }
+if (planPath.startsWith('/')) {
+  warn(`Absolute path not allowed: ${planPath}`)
+  return
+}
 if (!exists(planPath)) {
   warn("Plan file not found — skipping completion stamp")
   return
@@ -38,6 +42,8 @@ if (!hasAnyCompleted) {
 }
 
 // STEP 3: Determine overall status
+// NOTE: p.status below is pseudocode property access (safe in JS).
+// Shell variable names use tstat (line 111) per zsh compatibility rule.
 const allCompleted = Object.values(checkpoint.phases)
   .every(p => p.status === "completed" || p.status === "skipped")
 const anyFailed = Object.values(checkpoint.phases)
@@ -61,7 +67,7 @@ if (first50.includes("**Status**:")) {
 }
 
 // STEP 6: Build completion record
-const record = buildCompletionRecord(checkpoint, newStatus)
+const record = buildCompletionRecord(checkpoint, newStatus, content)
 
 // STEP 7: Append record (single atomic write)
 content += "\n\n---\n\n" + record
@@ -76,20 +82,20 @@ try {
 
 ## buildCompletionRecord()
 
-Pure function — no tool calls. Formats checkpoint data into a markdown completion record.
+Pure function — formats checkpoint data into a markdown completion record. Receives pre-loaded plan content to avoid redundant disk reads.
 
 ```javascript
-function buildCompletionRecord(checkpoint, newStatus) {
+function buildCompletionRecord(checkpoint, newStatus, content) {
   const completedAt = new Date().toISOString()
   const startedAt = checkpoint.started_at ? Date.parse(checkpoint.started_at) : Date.now()
-  const duration = Math.round((Date.now() - startedAt) / 60000)
+  const duration = isNaN(startedAt) ? 0 : Math.max(0, Math.round((Date.now() - startedAt) / 60000))
 
   // Use branch from checkpoint or fall back to current branch
   // Prefer checkpoint data over live git query (branch may have changed during arc)
   const branch = Bash("git branch --show-current 2>/dev/null").stdout.trim() || "unknown"
 
   // Count existing completion records for run ordinal
-  const existingRecords = (Read(checkpoint.plan_file).match(/## Arc Completion Record/g) || []).length
+  const existingRecords = (content.match(/## Arc Completion Record/g) || []).length
 
   // Phase results table
   const phases = [
@@ -155,3 +161,4 @@ function buildCompletionRecord(checkpoint, newStatus) {
 | All phases skipped (no completed phases) | Skip stamp entirely (STEP 2 guard) |
 | Read-only file or write permission error | Warn + skip (STEP 8 try-catch) |
 | Plan path tampered in checkpoint | Reject with warning (STEP 1 validation) |
+| Concurrent arc runs on same plan | Last-write-wins — earlier records may be lost. Arc pre-flight prevents concurrent sessions. |
