@@ -75,6 +75,26 @@ updateCheckpoint({
 
 If Phase 5.5 produced a gap analysis with MISSING or PARTIAL criteria, the counts are injected as context for reviewers. This helps reviewers focus on areas where the implementation may be incomplete relative to the plan. The full gap-analysis.md path is provided so reviewers can read details on demand.
 
+## Delegation Steps (Phase 6 → review.md Phase 0)
+
+<!-- See arc-delegation-checklist.md Phase 6 for the canonical contract -->
+
+When arc invokes `/rune:review` logic, the delegated command MUST execute these Phase 0 steps
+from review.md. Step ordering matters — scope building depends on default branch detection.
+
+| # | review.md Phase 0 Step | Action | Notes |
+|---|----------------------|--------|-------|
+| 1 | Default branch detection | **RUN** | Review needs this to compute `git diff` base |
+| 2 | Changed files scope building | **RUN** | Review needs file inventory for Ash assignment. Depends on step 1 |
+| 3 | Abort conditions check | **RUN** | Graceful no-op if no reviewable changes |
+| 4 | Custom Ash loading | **RUN** | `ashes.custom[]` filtered by `workflows: [review]` (no-op if none configured) |
+| 5 | Codex Oracle detection | **RUN** | Per `codex-detection.md`, if `review` in `talisman.codex.workflows` |
+
+**Steps SKIPPED** (arc handles or not applicable):
+- Branch detection: arc already has the branch from pre-flight (COMMIT-1)
+- Scope summary display: arc is automated — no user display needed
+- Dry-run mode / `--partial` flag: arc always reviews full scope
+
 ## Codex Oracle
 
 Conditional on two checks:

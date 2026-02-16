@@ -42,11 +42,25 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: `arc-plan-review-${id}` })
 
+// Delegation checklist: see rune-orchestration/references/arc-delegation-checklist.md (Phase 2)
 const reviewers = [
   { name: "scroll-reviewer", agent: "agents/utility/scroll-reviewer.md", focus: "Document quality" },
   { name: "decree-arbiter", agent: "agents/utility/decree-arbiter.md", focus: "Technical soundness" },
   { name: "knowledge-keeper", agent: "agents/utility/knowledge-keeper.md", focus: "Documentation coverage" }
 ]
+
+// Codex Plan Reviewer (optional 4th reviewer — see arc-delegation-checklist.md Phase 2)
+// Detection: canonical codex-detection.md algorithm (9 steps, NOT inline simplified check)
+// Arc-mode adaptation: if .codexignore is missing, skip Codex silently (no AskUserQuestion)
+// — AskUserQuestion would block the automated arc pipeline indefinitely.
+const codexDetected = detectCodexOracle()  // per roundtable-circle/references/codex-detection.md
+if (codexDetected && talisman?.codex?.workflows?.includes("plan")) {
+  reviewers.push({
+    name: "codex-plan-reviewer",
+    agent: null,  // CLI-backed reviewer — uses codex exec directly, no agent file
+    focus: "Cross-model plan verification (Codex Oracle)"
+  })
+}
 
 for (const reviewer of reviewers) {
   Task({
