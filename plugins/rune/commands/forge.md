@@ -139,7 +139,7 @@ When invoked as part of `/rune:arc` pipeline, forge detects arc context via plan
 This skips interactive phases (scope confirmation, post-enhancement options) since arc is automated.
 
 ```javascript
-const isArcContext = planPath.startsWith("tmp/arc/")
+const isArcContext = planPath.replace(/^\.\//, '').startsWith("tmp/arc/")
 ```
 
 ## Phase 1: Parse Plan Sections
@@ -273,13 +273,30 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: "rune-forge-{timestamp}" })
 
+// Concurrent session check (matches review.md/audit.md pattern)
+const existingForge = Glob("tmp/.rune-forge-*.json")
+for (const sf of existingForge) {
+  const state = JSON.parse(Read(sf))
+  if (state.status === "active") {
+    const age = Date.now() - new Date(state.started).getTime()
+    if (age < 1800000) { // 30 minutes
+      warn(`Active forge session detected: ${sf} (${Math.round(age/60000)}min old). Aborting.`)
+      return
+    }
+  }
+}
+
+// SEC-003 FIX: Validate timestamp with SAFE_IDENTIFIER_PATTERN before path interpolation
+if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge timestamp identifier")
+
 // Emit state file for arc delegation pattern discovery (matches work.md/review.md/audit.md pattern)
 // Arc reads this via Glob("tmp/.rune-forge-*.json") to discover team_name for checkpoint/cancel-arc.
-Write(`tmp/.rune-forge-${timestamp}.json`, JSON.stringify({
+Write(`tmp/.rune-forge-${timestamp}.json`, {
   team_name: `rune-forge-${timestamp}`,
-  plan_path: planPath,
-  started_at: new Date().toISOString()
-}))
+  plan: planPath,
+  started: new Date().toISOString(),
+  status: "active"
+})
 
 // Create output directory before agents write to it
 Bash(`mkdir -p "tmp/forge/${timestamp}"`)
@@ -456,7 +473,7 @@ let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/rune-forge-${timestamp}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-  allMembers = members.map(m => m.name).filter(Boolean)
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
   // FALLBACK: Config read failed — use known teammate list from command context
@@ -477,6 +494,15 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge identifi
 try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-forge-{timestamp}/ ~/.claude/tasks/rune-forge-{timestamp}/ 2>/dev/null")
 }
+
+// Update state file to completed (matches work.md/review.md/audit.md pattern)
+Write(`tmp/.rune-forge-${timestamp}.json`, {
+  team_name: `rune-forge-${timestamp}`,
+  plan: planPath,
+  started: startTimestamp,
+  status: "completed",
+  completed: new Date().toISOString()
+})
 ```
 
 ### Completion Report

@@ -45,6 +45,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/.rune-audit-*.json` (active) | Active workflow state |
 | `tmp/.rune-mend-*.json` (active) | Mend concurrency detection |
 | `tmp/.rune-work-*.json` (active) | Active work workflow state |
+| `tmp/.rune-forge-*.json` (active) | Active forge workflow state |
 
 ## Steps
 
@@ -52,7 +53,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 
 ```bash
 # Look for active state files (status != completed, cancelled)
-ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json tmp/.rune-work-*.json 2>/dev/null
+ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json tmp/.rune-work-*.json tmp/.rune-forge-*.json 2>/dev/null
 
 # Check for active arc sessions via checkpoint.json
 # Arc uses .claude/arc/*/checkpoint.json instead of tmp/.rune-arc-*.json state files

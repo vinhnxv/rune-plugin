@@ -3,11 +3,12 @@
 Invoke `/rune:forge` logic on the plan. Forge Gaze topic-aware enrichment with Codex Oracle and custom Ashes.
 
 **Team**: `rune-forge-{timestamp}` (delegated to `/rune:forge` --- manages its own TeamCreate/TeamDelete with guards)
+<!-- PAT-006: Intentional deviation — naming uses forge's internal convention (rune-forge-{timestamp}) rather than arc-prefixed names since forge manages its own team lifecycle independently of arc -->
 **Tools**: Forge agents receive read-only tools (Read, Glob, Grep, Write for own output file only)
 **Timeout**: 15 min (PHASE_TIMEOUTS.forge = 900_000 --- inner 10m + 5m setup)
 **Inputs**: planFile (string, validated at arc init), id (string, validated at arc init)
 **Outputs**: `tmp/arc/{id}/enriched-plan.md` (enriched copy of original plan)
-**Error handling**: Forge timeout -> proceed with original plan copy (warn user, offer `--no-forge`). No enrichments -> use original plan copy. Team lifecycle failure -> delegated to forge cleanup (see [team-lifecycle-guard.md](team-lifecycle-guard.md)).
+**Error handling**: Forge timeout --- proceed with original plan copy (warn user, offer `--no-forge`). No enrichments --- use original plan copy. Team lifecycle failure --- delegated to forge cleanup (see [team-lifecycle-guard.md](team-lifecycle-guard.md)).
 **Consumers**: arc.md (Phase 1 stub)
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
@@ -29,6 +30,9 @@ When forge detects arc context (`planPath.startsWith("tmp/arc/")`), it automatic
 ```javascript
 // STEP 1: Create working copy for forge to enrich
 // Forge edits in-place via Edit; arc needs the original preserved.
+// SEC-007 FIX: Local validation of id — defense-in-depth (arc.md validates upstream)
+if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid arc id')
+if (id.includes('..')) throw new Error('Path traversal detected in arc id')
 Bash(`mkdir -p "tmp/arc/${id}"`)
 Bash(`cp -- "${planFile}" "tmp/arc/${id}/enriched-plan.md"`)
 const forgePlanPath = `tmp/arc/${id}/enriched-plan.md`
@@ -39,13 +43,21 @@ const forgePlanPath = `tmp/arc/${id}/enriched-plan.md`
 // Arc records the team_name for cancel-arc discovery.
 // Delegation pattern: /rune:forge creates its own team (e.g., rune-forge-{timestamp}).
 // Arc reads the team name from the forge state file.
+// SEC-002 FIX: Clean stale forge state files before delegation to prevent TOCTOU confusion
+Bash('rm -f tmp/.rune-forge-*.json 2>/dev/null')
 // SEC-12 FIX: Use Glob() to resolve wildcard --- Read() does not support glob expansion.
 // CDX-2 NOTE: Glob matches ALL forge state files --- [0] is most recent by mtime.
+// After /rune:forge invocation completes, read state file to discover team name:
 const forgeStateFiles = Glob("tmp/.rune-forge-*.json")
 if (forgeStateFiles.length > 1) warn(`Multiple forge state files found (${forgeStateFiles.length}) --- using most recent`)
-const forgeTeamName = forgeStateFiles.length > 0
+let forgeTeamName = forgeStateFiles.length > 0
   ? JSON.parse(Read(forgeStateFiles[0])).team_name
   : `rune-forge-${Date.now()}`
+// SEC-002 FIX: Verify team actually exists (defense against stale state files from prior runs)
+if (forgeStateFiles.length > 0 && !exists(`~/.claude/teams/${forgeTeamName}/config.json`)) {
+  warn(`Forge state file references team "${forgeTeamName}" but team does not exist — using fallback`)
+  forgeTeamName = `rune-forge-${Date.now()}`
+}
 // SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
 if (!/^[a-zA-Z0-9_-]+$/.test(forgeTeamName)) throw new Error(`Invalid team_name from state file: ${forgeTeamName}`)
 updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1, team_name: forgeTeamName })
