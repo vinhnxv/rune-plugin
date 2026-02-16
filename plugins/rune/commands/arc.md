@@ -304,8 +304,9 @@ function prePhaseCleanup(checkpoint) {
     // active team, not a named target. For stale teams from prior phases (which the
     // orchestrator may not be leading), only rm -rf works.
     // See team-lifecycle-guard.md "Cleanup Fallback" section.
+    const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
     for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
-      if (new Set(['__proto__', 'constructor', 'prototype']).has(phaseName)) continue
+      if (FORBIDDEN_KEYS.has(phaseName)) continue
       if (!phaseInfo || typeof phaseInfo !== 'object') continue
       if (!phaseInfo.team_name || typeof phaseInfo.team_name !== 'string') continue
       // ARC-6 STATUS GUARD: Denylist approach — only "in_progress" is preserved.
@@ -326,18 +327,14 @@ function prePhaseCleanup(checkpoint) {
         continue
       }
 
-      if (!exists(`~/.claude/teams/${teamName}/`)) continue
-
-      // Phase is completed/failed/skipped/pending but team dir still exists → stale
-      warn(`ARC-6: Stale team from phase ${phaseName} (status: ${phaseInfo.status}): ${teamName} — cleaning`)
-
-      // Two-step pattern (matches actual arc phase implementations — no sleep-retry):
+      // SEC-002: rm -rf unconditionally — no exists() guard (eliminates TOCTOU window).
+      // rm -rf on a nonexistent path is a no-op, so this is safe.
       // ARC-6: teamName validated above — contains only [a-zA-Z0-9_-]
       Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
 
-      // Post-removal verification
+      // Post-removal verification: detect if cleaning happened or if dir persists
       if (exists(`~/.claude/teams/${teamName}/`)) {
-        warn(`ARC-6: rm -rf fallback failed for ${teamName} — directory still exists`)
+        warn(`ARC-6: rm -rf failed for ${teamName} — directory still exists`)
       }
     }
 
@@ -345,7 +342,7 @@ function prePhaseCleanup(checkpoint) {
     // Strategy 1 cleans prior-phase teams tracked in checkpoint via rm -rf.
     // Strategy 2 cleans the CURRENT SESSION's active team (if any) via TeamDelete().
     // These target different things — Strategy 1 uses filesystem paths, Strategy 2 uses session state.
-    try { TeamDelete() } catch (e) { /* No active team — expected and harmless */ }
+    try { TeamDelete() } catch (e) { warn(`ARC-6: TeamDelete() cleanup: ${e.message}`) }
 
   } catch (e) {
     // Top-level guard: defensive infrastructure must NEVER halt the pipeline.
@@ -458,7 +455,7 @@ See [arc-phase-plan-review.md](../skills/rune-orchestration/references/arc-phase
 **Output**: `tmp/arc/{id}/plan-review.md`
 **Failure**: BLOCK verdict halts pipeline. User fixes plan, then `/rune:arc --resume`.
 
-// No ARC-6 guard — orchestrator-managed phase uses its own Pre-Create Guard (arc-phase-plan-review.md)
+// No ARC-6 guard — orchestrator-managed phase (not delegated to sub-command); uses inline Pre-Create Guard before its own TeamCreate (see arc-phase-plan-review.md)
 Read and execute the arc-phase-plan-review.md algorithm. Update checkpoint on completion.
 
 ## Phase 2.5: PLAN REFINEMENT (conditional)

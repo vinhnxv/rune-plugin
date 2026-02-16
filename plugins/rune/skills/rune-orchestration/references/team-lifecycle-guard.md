@@ -215,7 +215,7 @@ See arc.md for the full `prePhaseCleanup()` implementation.
 
 ## Consumers
 
-All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md, ARC-6 inter-phase guard
+All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md, arc.md prePhaseCleanup()
 
 Arc phase references (extracted from arc.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md, arc-phase-audit.md
 

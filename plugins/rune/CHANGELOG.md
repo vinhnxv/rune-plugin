@@ -10,7 +10,7 @@ Fix: Arc inter-phase team cleanup guard (ARC-6).
 - Resume logic enhanced with team cleanup guard
 
 ### Changed
-- arc.md: Added `prePhaseCleanup()` function and 5 guard calls
+- arc.md: Added `prePhaseCleanup()` function and 5 phase-dispatch guard calls + 1 resume guard call
 - team-lifecycle-guard.md: Added ARC-6 section and consumer reference
 - 5 arc-phase reference files: Added ARC-6 delegation notes
 - plugin.json, marketplace.json: version 1.29.0 → 1.29.1
