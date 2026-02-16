@@ -139,6 +139,7 @@ When invoked as part of `/rune:arc` pipeline, forge detects arc context via plan
 This skips interactive phases (scope confirmation, post-enhancement options) since arc is automated.
 
 ```javascript
+// Normalize "./" prefix — paths may arrive as "./tmp/arc/" or "tmp/arc/"
 const isArcContext = planPath.replace(/^\.\//, '').startsWith("tmp/arc/")
 ```
 
