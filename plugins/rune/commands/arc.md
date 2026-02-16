@@ -570,10 +570,11 @@ On resume, validate checkpoint integrity before proceeding:
    c. Set schema_version: 5
 3e. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
-   b. Extract git_sha from plan frontmatter
-   c. If plan's git_sha differs from checkpoint.freshness?.git_sha, re-run freshness check
-   d. If previous status was STALE-OVERRIDE, skip re-asking (preserve override decision)
-   e. Store updated freshnessResult in checkpoint
+   b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
+   c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)
+   d. If plan's git_sha differs from checkpoint.freshness?.git_sha, re-run freshness check
+   e. If previous status was STALE-OVERRIDE, skip re-asking (preserve override decision)
+   f. Store updated freshnessResult in checkpoint
 4. Validate phase ordering using PHASE_ORDER array (by name, not phase_sequence numbers):
    a. For each "completed" phase, verify no later phase has an earlier timestamp
    b. Normalize "timeout" status to "failed" (both are resumable)

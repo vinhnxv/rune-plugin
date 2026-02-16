@@ -202,11 +202,10 @@ branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 
 {ERD mermaid diagram if applicable}
 
-<!-- NOTE: Remove space in "` ``" fences when using this template -->
-` ``mermaid
+~~~mermaid
 erDiagram
     ENTITY_A ||--o{ ENTITY_B : has
-` ``
+~~~
 
 ## Solution Selection
 
