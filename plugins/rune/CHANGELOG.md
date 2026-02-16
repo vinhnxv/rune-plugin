@@ -5,7 +5,7 @@
 ### Added
 - Standardized plan header fields: `version_target`, `complexity`, `scope`, `risk`, `estimated_effort`, `impact`
 - Field-filling guidance in synthesize.md for plan generation
-- Arc completion stamp: persistent execution records appended to plan files after arc completes
+- Arc completion stamp: updates plan Status field and appends persistent execution record when arc finishes (success, partial, or failure)
 
 ### Changed
 - Plan templates (Minimal, Standard, Comprehensive) updated with new header fields

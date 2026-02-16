@@ -43,7 +43,7 @@ if (!hasAnyCompleted) {
 
 // STEP 3: Determine overall status
 // NOTE: p.status below is pseudocode property access (safe in JS).
-// Shell variable names use tstat (line 111) per zsh compatibility rule.
+// Shell variable names use tstat (line 117) per zsh compatibility rule.
 const allCompleted = Object.values(checkpoint.phases)
   .every(p => p.status === "completed" || p.status === "skipped")
 const anyFailed = Object.values(checkpoint.phases)
@@ -162,3 +162,4 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
 | Read-only file or write permission error | Warn + skip (STEP 8 try-catch) |
 | Plan path tampered in checkpoint | Reject with warning (STEP 1 validation) |
 | Concurrent arc runs on same plan | Last-write-wins — earlier records may be lost. Arc pre-flight prevents concurrent sessions. |
+| Completion record heading in plan body (e.g. code example) | Ordinal may increment incorrectly. Low risk — unusual case. Consider anchoring regex: `/^## Arc Completion Record/gm` (line-start anchor). |
