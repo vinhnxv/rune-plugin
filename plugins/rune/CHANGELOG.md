@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.29.0] - 2026-02-17
+
+### Added
+- Standardized plan header fields: `version_target`, `complexity`, `scope`, `risk`, `estimated_effort`, `impact`
+- Field-filling guidance in synthesize.md for plan generation
+- Arc completion stamp: persistent execution records appended to plan files after arc completes
+
+### Changed
+- Plan templates (Minimal, Standard, Comprehensive) updated with new header fields
+
 ## [1.28.3] - 2026-02-17
 
 Fix: Arc implicit delegation gaps — explicit Phase 0 step contracts for delegated commands.

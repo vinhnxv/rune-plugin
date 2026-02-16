@@ -553,6 +553,12 @@ if (exists(".claude/echoes/")) {
 }
 ```
 
+## Post-Arc Plan Completion Stamp
+
+See [arc-phase-completion-stamp.md](../skills/rune-orchestration/references/arc-phase-completion-stamp.md) for the full algorithm.
+
+Read and execute the arc-phase-completion-stamp.md algorithm. Appends a persistent completion record to the plan file with phase results, convergence history, and overall status. Runs after echo persist, before the final "Done" output.
+
 ## Error Handling
 
 | Error | Recovery |

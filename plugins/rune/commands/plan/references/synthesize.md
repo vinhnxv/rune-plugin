@@ -35,6 +35,10 @@ AskUserQuestion({
 title: "{type}: {feature description}"
 type: feat | fix | refactor
 date: YYYY-MM-DD
+version_target: "{estimated version}"
+complexity: "{Low|Medium|High}"
+estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
+impact: "{N}/10"
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -64,6 +68,12 @@ branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 title: "{type}: {feature description}"
 type: feat | fix | refactor
 date: YYYY-MM-DD
+version_target: "{estimated version}"
+complexity: "{Low|Medium|High}"
+scope: "{description of files affected}"
+risk: "{Low|Medium|High} — {brief explanation}"
+estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
+impact: "{N}/10"
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -152,6 +162,12 @@ Files that must stay in sync when this plan's changes are applied:
 title: "{type}: {feature description}"
 type: feat | fix | refactor
 date: YYYY-MM-DD
+version_target: "{estimated version}"
+complexity: "{Low|Medium|High}"
+scope: "{description of files affected}"
+risk: "{Low|Medium|High} — {brief explanation}"
+estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
+impact: "{N}/10"
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -318,6 +334,22 @@ Files that must be updated when this feature ships:
 - PRs: #{numbers}
 - Issues: #{numbers}
 ```
+
+## How to Fill New Header Fields
+
+During Phase 2 Synthesize, after consolidating research:
+
+1. **version_target**: Read current version from `plugins/rune/.claude-plugin/plugin.json`. For `type: feat`, bump minor. For `type: fix`, bump patch. Label as "estimated" since implementation may reveal scope changes.
+
+2. **complexity**: Score based on task count (>=8 = High), file count (>=6 = High), cross-cutting concerns.
+
+3. **scope** (Standard/Comprehensive only): Human-readable description of files affected. Format: "{N} files ({description})".
+
+4. **risk** (Standard/Comprehensive only): Assess from research findings. Format: "{Low|Medium|High} — {brief explanation}". Always quote the value in YAML.
+
+5. **estimated_effort**: Size from scope + complexity. Format: "{S|M|L|XL} — ~{N} LOC, {N} files". Use the size guide table above.
+
+6. **impact**: Score 1-10. Anchor points: 1 = cosmetic, 5 = useful improvement, 10 = critical blocker.
 
 ## Formatting Best Practices
 
