@@ -56,7 +56,7 @@ let phase_team = phase_info?.team_name
 if (!phase_team) {
   // Fallback for older checkpoints without team_name field
   const legacyMap = {
-    forge: `arc-forge-${id}`,
+    forge: null,              // Delegated — team name comes from checkpoint.phases.forge.team_name
     plan_review: `arc-plan-review-${id}`,
     plan_refine: null,        // Orchestrator-only phase, no team
     verification: null,       // Orchestrator-only phase, no team

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.28.2] - 2026-02-16
+
+Bug fix: Arc Phase 1 (FORGE) delegation to /rune:forge logic.
+
+Note: This fix was originally planned in v1.18.2 but was superseded by
+the v1.27.1 ATE-1 arc phase extraction. This version completes the delegation.
+
+- Arc Phase 1 now delegates to `/rune:forge` instead of inline agent logic
+- forge.md gains `isArcContext` detection (skips interactive phases in arc context)
+- forge.md emits state file for arc team name discovery
+- arc-phase-forge.md rewritten from inline (153 lines) to delegation wrapper (~50 lines)
+
 ## [1.27.0] - 2026-02-16
 
 Quality & security bundle: PreToolUse read-only enforcement, TaskCompleted semantic validation, and agent prompt extraction to reference files.

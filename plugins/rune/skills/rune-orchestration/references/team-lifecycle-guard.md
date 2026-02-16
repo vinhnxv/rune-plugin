@@ -183,7 +183,7 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 
 | Phase | Team Owner | Lifecycle |
 |-------|-----------|-----------|
-| Phase 1: FORGE | Arc orchestrator (inline since v1.27.1) | `arc-forge-{id}` — ATE-1 compliant |
+| Phase 1: FORGE | `/rune:forge` (delegated since v1.28.2) | Forge manages own lifecycle |
 | Phase 2: PLAN REVIEW | Arc orchestrator | `arc-plan-review-{id}` |
 | Phase 2.5: REFINE | Orchestrator-only (no team) | N/A |
 | Phase 2.7: VERIFY | Orchestrator-only (no team) | N/A |

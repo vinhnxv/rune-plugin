@@ -133,6 +133,15 @@ AskUserQuestion({
 
 If none found, suggest `/rune:plan` first.
 
+## Arc Context Detection
+
+When invoked as part of `/rune:arc` pipeline, forge detects arc context via plan path prefix.
+This skips interactive phases (scope confirmation, post-enhancement options) since arc is automated.
+
+```javascript
+const isArcContext = planPath.startsWith("tmp/arc/")
+```
+
 ## Phase 1: Parse Plan Sections
 
 Read the plan and split into sections at `##` headings:
@@ -229,21 +238,24 @@ When Codex Oracle is selected for a section, its agent prompt wraps `codex exec`
 
 ## Phase 3: Confirm Scope
 
-Before summoning agents, confirm with the user:
+Before summoning agents, confirm with the user. **Skipped in arc context** — arc is automated, no user gate needed.
 
 ```javascript
-AskUserQuestion({
-  questions: [{
-    question: `Forge Gaze selected ${totalAgents} agents across ${sectionCount} sections.\n\n${selectionSummary}\n\nProceed with enrichment?`,
-    header: "Forge scope",
-    options: [
-      { label: "Proceed (Recommended)", description: "Summon agents and enrich plan" },
-      { label: "Skip sections", description: "I'll tell you which sections to skip" },
-      { label: "Cancel", description: "Exit without changes" }
-    ],
-    multiSelect: false
-  }]
-})
+if (!isArcContext) {
+  AskUserQuestion({
+    questions: [{
+      question: `Forge Gaze selected ${totalAgents} agents across ${sectionCount} sections.\n\n${selectionSummary}\n\nProceed with enrichment?`,
+      header: "Forge scope",
+      options: [
+        { label: "Proceed (Recommended)", description: "Summon agents and enrich plan" },
+        { label: "Skip sections", description: "I'll tell you which sections to skip" },
+        { label: "Cancel", description: "Exit without changes" }
+      ],
+      multiSelect: false
+    }]
+  })
+}
+// In arc context: proceed directly to Phase 4 (agent summoning)
 ```
 
 ## Phase 4: Summon Forge Agents
@@ -260,6 +272,14 @@ try { TeamDelete() } catch (e) {
   Bash("rm -rf ~/.claude/teams/rune-forge-{timestamp}/ ~/.claude/tasks/rune-forge-{timestamp}/ 2>/dev/null")
 }
 TeamCreate({ team_name: "rune-forge-{timestamp}" })
+
+// Emit state file for arc delegation pattern discovery (matches work.md/review.md/audit.md pattern)
+// Arc reads this via Glob("tmp/.rune-forge-*.json") to discover team_name for checkpoint/cancel-arc.
+Write(`tmp/.rune-forge-${timestamp}.json`, JSON.stringify({
+  team_name: `rune-forge-${timestamp}`,
+  plan_path: planPath,
+  started_at: new Date().toISOString()
+}))
 
 // Create output directory before agents write to it
 Bash(`mkdir -p "tmp/forge/${timestamp}"`)
@@ -478,22 +498,25 @@ Enrichments added:
 
 ### Post-Enhancement Options
 
-After presenting the completion report, offer next steps:
+After presenting the completion report, offer next steps. **Skipped in arc context** — arc continues to Phase 2 (plan review) automatically.
 
 ```javascript
-AskUserQuestion({
-  questions: [{
-    question: `Plan enriched at ${planPath}. What would you like to do next?`,
-    header: "Next step",
-    options: [
-      { label: "/rune:work (Recommended)", description: "Start implementing this plan with swarm workers" },
-      { label: "View diff", description: "Show what the forge changed (diff against backup)" },
-      { label: "Revert enrichment", description: "Restore the original plan from backup" },
-      { label: "Deepen sections", description: "Re-run forge on specific sections for more depth" }
-    ],
-    multiSelect: false
-  }]
-})
+if (!isArcContext) {
+  AskUserQuestion({
+    questions: [{
+      question: `Plan enriched at ${planPath}. What would you like to do next?`,
+      header: "Next step",
+      options: [
+        { label: "/rune:work (Recommended)", description: "Start implementing this plan with swarm workers" },
+        { label: "View diff", description: "Show what the forge changed (diff against backup)" },
+        { label: "Revert enrichment", description: "Restore the original plan from backup" },
+        { label: "Deepen sections", description: "Re-run forge on specific sections for more depth" }
+      ],
+      multiSelect: false
+    }]
+  })
+}
+// In arc context: cleanup team and return — arc orchestrator handles next phase
 ```
 
 **Action handlers**:
