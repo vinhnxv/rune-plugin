@@ -267,6 +267,8 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
   // readTalisman: reads .claude/talisman.yml. Returns parsed YAML or {} on error.
   const talisman = readTalisman()
   const config = {
+    // BACK-008: warn min=0.01 (can't be 0 — use enabled:false to disable warnings)
+    // block min=0.0 (set 0 to disable blocking while keeping warnings)
     warn_threshold:       clamp(talisman?.plan?.freshness?.warn_threshold ?? 0.7, 0.01, 1.0),
     block_threshold:      clamp(talisman?.plan?.freshness?.block_threshold ?? 0.4, 0.0, 0.99),
     max_commit_distance:  Math.min(Math.max(talisman?.plan?.freshness?.max_commit_distance ?? 100, 1), 10000),
@@ -355,14 +357,14 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
       const batch = identifiers.slice(i, i + batchSize)
       const pattern = batch.map(id => id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
       const timeoutMs = Math.max(100, freshnessDeadline - Date.now())
-      const grepResult = Bash(`rg -l --max-count 1 "${pattern}" 2>/dev/null | head -1`, { timeout: Math.min(3000, timeoutMs) })
+      const grepResult = Bash(`rg -l --max-count 1 --glob '!node_modules' --glob '!vendor' --glob '!tmp' --glob '!.git' "${pattern}" 2>/dev/null | head -1`, { timeout: Math.min(3000, timeoutMs) })
       if (grepResult.timedOut) { identifierLossSignal = 0.5; break }
       if (grepResult.stdout.trim().length === 0) {
         lostCount += batch.length
       } else {
         for (const id of batch) {
           if (checkBudget()) break
-          const singleResult = Bash(`rg -l --max-count 1 "${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" 2>/dev/null | head -1`, { timeout: 1000 })
+          const singleResult = Bash(`rg -l --max-count 1 --glob '!node_modules' --glob '!vendor' --glob '!tmp' --glob '!.git' "${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" 2>/dev/null | head -1`, { timeout: 1000 })
           if (singleResult.timedOut || singleResult.stdout.trim().length === 0) lostCount++
         }
       }
@@ -439,7 +441,12 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
         ], multiSelect: false
       }]
     })
-    if (!answer || answer.startsWith("Abort")) { /* exit arc cleanly */ return }
+    if (!answer || answer.startsWith("Abort")) {
+      // BACK-005 FIX: update checkpoint on null/abort (matches Phase 2.5 pattern)
+      updateCheckpoint({ phase: "freshness", status: "failed", phase_sequence: 0, team_name: null })
+      error(!answer ? "Arc halted — freshness dialog returned null" : "Arc halted by user at freshness check")
+      return
+    }
     if (answer.startsWith("Re-plan")) { /* exit arc, suggest /rune:plan */ return }
     if (answer.startsWith("Show drift")) {
       // FLAW-002 FIX: Display signal breakdown, then re-prompt without "Show drift details"
@@ -1133,7 +1140,7 @@ if (exists(".claude/echoes/")) {
 | >3 FAILED mend findings | Halt, resolution report available |
 | Worker crash mid-phase | Phase team cleanup, checkpoint preserved |
 | Branch conflict | Warn user, suggest manual resolution |
-| Total pipeline timeout (90 min) | Halt, preserve checkpoint, suggest `--resume` |
+| Total pipeline timeout (120 min) | Halt, preserve checkpoint, suggest `--resume` |
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |

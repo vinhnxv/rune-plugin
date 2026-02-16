@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.27.0] - 2026-02-16
+
+Quality & security bundle: PreToolUse read-only enforcement, TaskCompleted semantic validation, and agent prompt extraction to reference files.
+
+### Added
+
+- **QW-B: PreToolUse read-only hook (SEC-001)** — Platform-level enforcement preventing review/audit Ashes from using Write, Edit, Bash, or NotebookEdit tools. Uses dual-condition detection: marker file (`.readonly-active` in signal directory) + transcript path check (`/subagents/`). Overcomes PreToolUse hook's lack of `team_name` field.
+- **QW-C: TaskCompleted prompt hook** — Haiku-model semantic validation gate alongside existing signal-file command hook. Rejects clearly premature task completions (empty subjects, generic descriptions) while allowing legitimate completions. Higher standard for `rune-*` / `arc-*` team tasks.
+- **`scripts/enforce-readonly.sh`** — SEC-001 enforcement script with `jq` dependency guard, graceful degradation, and JSON-structured deny response
+- **`agents/review/references/async-patterns.md`** — Multi-language async/concurrency code examples extracted from tide-watcher (Python, Rust, TypeScript, Go)
+- **`agents/review/references/dead-code-patterns.md`** — Dead code detection patterns extracted from wraith-finder (classical detection, DI wiring, router registration, event handlers)
+- **`agents/review/references/data-integrity-patterns.md`** — Migration safety patterns extracted from forge-keeper (reversibility, lock analysis, transformations, transactions, privacy)
+
+### Changed
+
+- **QW-D: Agent prompt extraction** — 3 oversized review agents reduced to reference-linked prompts:
+  - `tide-watcher.md`: 708 → ~165 lines (extracted async-patterns.md)
+  - `wraith-finder.md`: 563 → ~300 lines (extracted dead-code-patterns.md)
+  - `forge-keeper.md`: 460 → ~186 lines (extracted data-integrity-patterns.md)
+- `hooks/hooks.json`: Added PreToolUse hook for SEC-001 + prompt hook for TaskCompleted; updated description
+- `roundtable-circle/SKILL.md`: Phase 2 now writes `.readonly-active` marker before TeamCreate
+- `roundtable-circle/references/monitor-utility.md`: Added readonly marker pseudocode
+- plugin.json: version 1.26.0 → 1.27.0
+- marketplace.json: version 1.26.0 → 1.27.0
+
+### Security
+
+- **SEC-001 mitigation** — Review/audit Ashes previously relied on prompt-level `allowed-tools` restrictions which are NOT enforced when agents are spawned as `general-purpose` subagent_type (the composite Ash pattern). The PreToolUse hook now provides platform-level enforcement that cannot be bypassed by prompt injection.
+
+### Migration Notes
+
+- **No breaking changes** — all additions are purely additive
+- PreToolUse hook requires `jq` (same prerequisite as existing hooks); gracefully exits 0 if unavailable
+- Readonly marker is scoped to `rune-review-*` / `arc-review-*` / `rune-audit-*` / `arc-audit-*` signal directories
+- Agent prompt extraction preserves all analysis frameworks and output formats; only code examples moved to reference files
+
 ## [1.26.0] - 2026-02-16
 
 Feature release: Plan Freshness Gate — structural drift detection prevents stale plan execution.
@@ -7,7 +43,7 @@ Feature release: Plan Freshness Gate — structural drift detection prevents sta
 ### Added
 
 - **Plan Freshness Gate** — zero-LLM-cost pre-flight check in `/rune:arc` detects when a plan's source codebase has drifted since plan creation. Composite Structural Diff Score (5 weighted signals: commit distance, file drift, identifier loss, branch divergence, time decay) produces a freshness score (0.0–1.0). PASS/WARN/STALE thresholds with user override
-- **Enhanced Verification Gate** — check #9 re-checks file drift on forge-expanded references post-enrichment
+- **Enhanced Verification Gate** — check #8 re-checks file drift on forge-expanded references post-enrichment
 - **Plan metadata** — `/rune:plan` now writes `git_sha` and `branch` to plan YAML frontmatter for freshness tracking
 - **`--skip-freshness` flag** — bypass freshness check for `/rune:arc` when plan is intentionally ahead of codebase
 - **`plan.freshness` talisman config** — configurable thresholds (`warn_threshold`, `block_threshold`, `max_commit_distance`, `enabled`)
@@ -18,7 +54,7 @@ Feature release: Plan Freshness Gate — structural drift detection prevents sta
 
 - plugin.json: version 1.25.1 → 1.26.0
 - marketplace.json: version 1.25.1 → 1.26.0
-- verification-gate.md: 8 checks → 9 checks (added freshness re-check)
+- verification-gate.md: 7 checks + report → 8 checks + report (added freshness re-check)
 - arc.md: 3 flags → 4 flags (added `--skip-freshness`)
 
 ## [1.25.0] - 2026-02-16

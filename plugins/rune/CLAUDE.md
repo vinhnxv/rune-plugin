@@ -26,7 +26,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | `/rune:mend` | Parallel finding resolution from TOME |
-| `/rune:arc` | End-to-end pipeline with freshness gate (forge → plan review → refinement → verification → freshness check → work → gap analysis → review → mend → verify mend → audit) |
+| `/rune:arc` | End-to-end pipeline with freshness gate (freshness pre-flight → forge → plan review → refinement → verification gate → work → gap analysis → review → mend → verify mend → audit) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:elicit` | Interactive elicitation method selection |

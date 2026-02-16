@@ -22,7 +22,7 @@ for (const fp of filePaths) {
   }
   if (!exists(fp)) {
     const gitExists = Bash(`git log --all --oneline -- "${fp}" 2>/dev/null | head -1`)
-    const annotation = gitExists.trim()
+    const annotation = gitExists.stdout.trim()
       ? `[STALE: was deleted -- see git history]`
       : `[PENDING: file does not exist yet -- may be created during WORK]`
     issues.push(`File reference: ${fp} -- ${annotation}`)
@@ -119,7 +119,11 @@ if (checkpoint?.freshness?.git_sha
   if (newRefs.length > 0) {
     const sha = checkpoint.freshness.git_sha
     let newDriftCount = 0
-    const budgetDeadline = Date.now() + 25_000  // LOGIC-8 FIX: budget cap for O(n) git diff calls
+    // SEC-002 FIX: derive budget from remaining Phase 2.7 time (30s total) instead of hardcoded 25s
+    const phase27Deadline = checkpoint?.phase_start_time
+      ? checkpoint.phase_start_time + PHASE_TIMEOUTS.verification
+      : Date.now() + 30_000
+    const budgetDeadline = Math.min(Date.now() + 25_000, phase27Deadline - 2_000)
     for (const fp of newRefs) {
       if (Date.now() > budgetDeadline) { break }  // budget exhausted — use partial count
       const diff = Bash(`git diff --name-only "${sha}..HEAD" -- "${fp}" 2>/dev/null`)
