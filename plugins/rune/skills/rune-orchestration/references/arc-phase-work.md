@@ -4,7 +4,7 @@ Invoke `/rune:work` logic on the enriched plan. Swarm workers implement tasks wi
 
 **Team**: `arc-work-{id}` (delegated to `/rune:work` -- manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Full access (Read, Write, Edit, Bash, Glob, Grep)
-**Duration**: Max 35 minutes (inner 30m + 5m setup)
+**Timeout**: 35 min (PHASE_TIMEOUTS.work = 2_100_000 — inner 30m + 5m setup)
 **Inputs**: id (string), enriched plan path (`tmp/arc/{id}/enriched-plan.md`), concern context (optional: `tmp/arc/{id}/concern-context.md`), verification report (optional: `tmp/arc/{id}/verification-report.md`), `--approve` flag
 **Outputs**: `tmp/arc/{id}/work-summary.md` + committed code on feature branch
 **Error handling**: Halt if <50% tasks complete. Partial work is committed via incremental commits (E5).
@@ -43,7 +43,11 @@ workContext += `\n\n## Quality Contract\nAll code must include:\n- Type annotati
 // Delegation pattern: /rune:work creates its own team (e.g., rune-work-{timestamp}).
 // Arc reads the team name back from the work state file or teammate idle notification.
 // The team name is recorded in checkpoint for cancel-arc discovery.
-const workTeamName = Read(`tmp/.rune-work-*.json`)?.team_name || `rune-work-${Date.now()}`
+// SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
+const workStateFiles = Glob("tmp/.rune-work-*.json")
+const workTeamName = workStateFiles.length > 0
+  ? JSON.parse(Read(workStateFiles[0])).team_name
+  : `rune-work-${Date.now()}`
 updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 5, team_name: workTeamName })
 
 // STEP 4: After work completes, produce work summary
@@ -68,9 +72,11 @@ updateCheckpoint({
 
 The `--approve` flag routes to the **human user** via `AskUserQuestion` (not to the AI leader). This applies only to Phase 5. Do NOT propagate `--approve` when invoking `/rune:mend` in Phase 7 -- mend fixers apply deterministic fixes from TOME findings.
 
-## Team Name Recording
+## Team Lifecycle
 
-Arc MUST record the actual `team_name` created by `/rune:work` in the checkpoint. This enables `/rune:cancel-arc` to discover and shut down the work team if the user cancels mid-pipeline. The work command creates its own team with its own naming convention -- arc reads the team name back after delegation.
+Delegated to `/rune:work` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
+
+Arc MUST record the actual `team_name` created by `/rune:work` in the checkpoint. This enables `/rune:cancel-arc` to discover and shut down the work team if the user cancels mid-pipeline. The work command creates its own team with its own naming convention — arc reads the team name back after delegation.
 
 ## Feature Branch Strategy
 

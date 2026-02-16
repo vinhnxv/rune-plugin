@@ -138,8 +138,8 @@ let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/arc-plan-review-${id}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-  allMembers = members.map(m => m.name).filter(Boolean)
-  // Defense-in-depth: SDK already excludes team-lead from config.members
+  // SEC-4 FIX: Validate member names against safe pattern before use in SendMessage
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
   // FALLBACK: Phase 2 plan review — these are the 3 reviewers summoned in this specific phase
   allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper"]
