@@ -68,7 +68,9 @@ updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team
 // - TOME source path (varies by round)
 // - Timeout propagation (--timeout ${mendTimeout})
 // - Team name prefix: arc-mend-{id}
-const mendTeamName = /* team name created by /rune:mend logic, invoked with --timeout ${mendTimeout} */
+// Delegation pattern: /rune:mend creates its own team (e.g., rune-mend-{id}).
+// Arc reads the team name from the mend state file or teammate idle notification.
+const mendTeamName = Read(`tmp/.rune-mend-*.json`)?.team_name || `rune-mend-${Date.now()}`
 ```
 
 ## Completion and Halt Check

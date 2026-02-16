@@ -30,7 +30,9 @@ The Codex Oracle is conditionally included when:
 ## Invocation
 
 ```javascript
-const auditTeamName = /* team name created by /rune:audit logic */
+// Delegation pattern: /rune:audit creates its own team (e.g., rune-audit-{identifier}).
+// Arc reads the team name from the audit state file or teammate idle notification.
+const auditTeamName = Read(`tmp/.rune-audit-*.json`)?.team_name || `rune-audit-${Date.now()}`
 updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 9, team_name: auditTeamName })
 ```
 

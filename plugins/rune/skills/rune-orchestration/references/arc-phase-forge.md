@@ -10,6 +10,8 @@ Research-enrich plan sections using Forge Gaze topic-aware matching. Each plan s
 **Error handling**: Forge timeout (10 min) → proceed with original plan copy (warn user, offer `--no-forge`). No enrichments → use original plan copy.
 **Consumers**: arc.md (Phase 1 stub)
 
+> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
+
 **Forge Gaze features**:
 - Topic-to-agent matching: each plan section gets specialized agents based on keyword overlap scoring (see forge.md Phase 2)
 - Codex Oracle: conditional cross-model enrichment if `codex` CLI available and `forge` in `talisman.codex.workflows`

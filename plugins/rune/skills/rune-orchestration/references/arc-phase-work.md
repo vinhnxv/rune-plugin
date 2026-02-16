@@ -40,7 +40,10 @@ workContext += `\n\n## Quality Contract\nAll code must include:\n- Type annotati
 // /rune:work manages its own team lifecycle (TeamCreate, TaskCreate, worker spawning,
 // monitoring, commit brokering, ward check, cleanup, TeamDelete).
 // Arc records the team_name for cancel-arc discovery.
-const workTeamName = /* team name created by /rune:work logic */
+// Delegation pattern: /rune:work creates its own team (e.g., rune-work-{timestamp}).
+// Arc reads the team name back from the work state file or teammate idle notification.
+// The team name is recorded in checkpoint for cancel-arc discovery.
+const workTeamName = Read(`tmp/.rune-work-*.json`)?.team_name || `rune-work-${Date.now()}`
 updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 5, team_name: workTeamName })
 
 // STEP 4: After work completes, produce work summary

@@ -35,7 +35,9 @@ if (exists(`tmp/arc/${id}/gap-analysis.md`)) {
 // /rune:review manages its own team lifecycle (TeamCreate, Rune Gaze agent selection,
 // Roundtable Circle 7-phase lifecycle, TOME aggregation, cleanup, TeamDelete).
 // Arc records the team_name for cancel-arc discovery.
-const reviewTeamName = /* team name created by /rune:review logic */
+// Delegation pattern: /rune:review creates its own team (e.g., rune-review-{identifier}).
+// Arc reads the team name from the review state file or teammate idle notification.
+const reviewTeamName = Read(`tmp/.rune-review-*.json`)?.team_name || `rune-review-${Date.now()}`
 updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 6, team_name: reviewTeamName })
 
 // STEP 4: TOME relocation

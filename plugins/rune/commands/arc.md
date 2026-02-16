@@ -229,8 +229,9 @@ if (!/^[a-zA-Z0-9._\/-]+$/.test(planFile)) {
   error(`Invalid plan path: ${planFile}. Only alphanumeric, dot, slash, hyphen, and underscore allowed.`)
   return
 }
-// CDX-005 MITIGATION (P2): Explicit .. rejection — defense-in-depth with regex above.
-// The regex allows . and / which enables ../../../etc/passwd style traversal paths.
+// CDX-005 MITIGATION (P2): Explicit .. rejection — PRIMARY defense against path traversal.
+// The regex above intentionally allows . and / for valid paths like "plans/2026-01-01-plan.md".
+// This check is the real barrier against ../../../etc/passwd style traversal.
 if (planFile.includes('..')) {
   error(`Path traversal detected in plan path: ${planFile}`)
   return

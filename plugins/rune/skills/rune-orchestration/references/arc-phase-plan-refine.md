@@ -23,7 +23,9 @@ const reviewers = [
   { name: "knowledge-keeper", focus: "Documentation coverage" }
 ]
 
-// parseVerdict — duplicated from Phase 2 for self-containment
+// parseVerdict — duplicated from arc-phase-plan-review.md for self-containment.
+// This phase is orchestrator-only (no team) and may be invoked as a standalone reference.
+// Duplication is intentional to avoid cross-file dependency. Must stay in sync with Phase 2.
 const parseVerdict = (reviewer, output) => {
   const pattern = /^<!-- VERDICT:([a-zA-Z_-]+):(PASS|CONCERN|BLOCK) -->$/m
   const match = output.match(pattern)
