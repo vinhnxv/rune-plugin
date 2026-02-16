@@ -14,6 +14,9 @@ Zero-LLM-cost structural drift detection for Rune Arc. Detects when a plan was w
 
 ```javascript
 // Security pattern: SAFE_SHA_PATTERN — see security-patterns.md
+// SEC-6 NOTE: Intentionally case-sensitive (lowercase hex only). Git SHAs are canonical
+// lowercase. Plans with uppercase git_sha (e.g., "ABCDEF1") skip the freshness check
+// entirely — this is the safe default (no enforcement, same as legacy plans without git_sha).
 const SAFE_SHA_PATTERN = /^[0-9a-f]{7,40}$/
 
 const planContent = Read(planFile)
@@ -64,7 +67,7 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
     }
   }
 
-  // --skip-freshness flag check (E9) — LOGIC-1: early exit when disabled
+  // LOGIC-1: Early exit when freshness check disabled (--skip-freshness flag or talisman config)
   if (!config.enabled || skipFreshnessFlag) {
     log("Freshness check disabled — skipping")
     freshnessResult = null

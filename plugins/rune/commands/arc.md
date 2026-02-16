@@ -56,9 +56,8 @@ Chains ten phases into a single automated pipeline: forge, plan review, plan ref
 ```
 
 **NEVER DO:**
-- `Task({ subagent_type: "rune:utility:scroll-reviewer", ... })` — this spawns a bare subagent WITHOUT team coordination. Output flows back into the orchestrator's context, causing context explosion.
-- `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely. No shared task list, no SendMessage, no context isolation.
-- `Task({ subagent_type: "compound-engineering:research:best-practices-researcher", ... })` — same problem. Use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
+- `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely. No shared task list, no SendMessage, no context isolation. This is the root cause of context explosion.
+- Using named `subagent_type` values (e.g., `"rune:utility:scroll-reviewer"`, `"compound-engineering:research:best-practices-researcher"`, `"rune:review:ward-sentinel"`) — these resolve to non-general-purpose agents. Always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
 
 **WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 10 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
 
@@ -252,7 +251,7 @@ See [freshness-gate.md](../skills/rune-orchestration/references/freshness-gate.m
 
 **Summary**: Zero-LLM-cost structural drift detection. Produces `freshnessResult` object stored in checkpoint + `tmp/arc/{id}/freshness-report.md`. Plans without `git_sha` skip the check (backward compat). STALE plans prompt user: re-plan, override, or abort.
 
-Execute the freshness-gate.md algorithm here. Store `freshnessResult` for checkpoint initialization below.
+Read and execute the algorithm from `../skills/rune-orchestration/references/freshness-gate.md`. Store `freshnessResult` for checkpoint initialization below.
 
 ### Total Pipeline Timeout Check
 
@@ -376,7 +375,8 @@ const forgePlanPath = `tmp/arc/${id}/enriched-plan.md`
 // ═══ ATE-1: EXPLICIT AGENT TEAMS PATTERN — DO NOT USE BARE TASK CALLS ═══
 
 // Step 1: Pre-create guard (see team-lifecycle-guard.md)
-if (id.includes('..')) throw new Error('Path traversal detected in arc id')
+// QUAL-13 FIX: Full regex validation per team-lifecycle-guard.md (defense-in-depth)
+if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid arc id')
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-forge-${id}/ ~/.claude/tasks/arc-forge-${id}/ 2>/dev/null`)
 }
@@ -488,8 +488,8 @@ Three parallel reviewers evaluate the enriched plan. Any BLOCK verdict halts the
 updateCheckpoint({ phase: "plan_review", status: "in_progress", phase_sequence: 2, team_name: `arc-plan-review-${id}` })
 
 // Pre-create guard (see rune-orchestration/references/team-lifecycle-guard.md)
-// SEC-003: Redundant path traversal check — defense-in-depth with line 212 validation
-if (id.includes('..')) throw new Error('Path traversal detected in arc id')
+// QUAL-13 FIX: Full regex validation per team-lifecycle-guard.md (defense-in-depth)
+if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid arc id')
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
 }

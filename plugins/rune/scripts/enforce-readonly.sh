@@ -8,7 +8,9 @@
 #   1. Check transcript_path for /subagents/ — team leads are never blocked
 #   2. Check for .readonly-active marker in review/audit signal directories
 #
-# Exit 0 with deny JSON = blocked. Exit 0 without JSON = allowed.
+# Exit 0 with hookSpecificOutput.permissionDecision="deny" JSON = tool call blocked.
+# Exit 0 without JSON (or with permissionDecision="allow") = tool call allowed.
+# Exit 2 = hook error, stderr fed to Claude (not used by this script).
 
 set -euo pipefail
 umask 077
@@ -16,24 +18,34 @@ umask 077
 # Pre-flight: jq is required for JSON parsing.
 # If missing, exit 0 (non-blocking) — allow rather than crash.
 if ! command -v jq &>/dev/null; then
+  echo "WARNING: jq not found — enforce-readonly.sh hook is inactive" >&2
   exit 0
 fi
 
-INPUT=$(cat)
+INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
 
 # Fast path: if not a subagent, allow immediately.
 # Team leads and direct user sessions have transcript paths at root level,
 # not in the /subagents/ subdirectory.
+# SEC-5 NOTE: transcript_path is an undocumented/internal SDK field. Detection is
+# best-effort — if the field is absent or its format changes, this check fails open
+# (allows the operation). The .readonly-active marker provides the primary enforcement;
+# this check determines WHO is subject to it (subagents only, not team leads).
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 if [[ -z "$TRANSCRIPT_PATH" ]] || [[ "$TRANSCRIPT_PATH" != */subagents/* ]]; then
   exit 0
 fi
 
 # Subagent detected — check if any review/audit team has a readonly marker.
+# Detection differs from enforce-teams.sh: this script checks transcript_path
+# (subagent vs team-lead) while enforce-teams checks tool_name (Task calls only).
+# QUAL-5: Canonicalize CWD to resolve symlinks (matches on-task-completed.sh pattern)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then
   exit 0
 fi
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
+if [[ -z "$CWD" || "$CWD" != /* ]]; then exit 0; fi
 
 SIGNAL_BASE="${CWD}/tmp/.rune-signals"
 if [[ ! -d "$SIGNAL_BASE" ]]; then
@@ -43,14 +55,19 @@ fi
 # Scan for .readonly-active marker in review/audit signal directories.
 # Only rune-review-*, arc-review-*, rune-audit-*, arc-audit-* teams create this marker.
 # Work teams (rune-work-*) and mend teams (rune-mend-*) do NOT have this marker.
+# SEC-4 FIX: nullglob prevents literal glob strings when no directories match
+shopt -s nullglob
 for dir in "$SIGNAL_BASE"/rune-review-* "$SIGNAL_BASE"/arc-review-* \
            "$SIGNAL_BASE"/rune-audit-* "$SIGNAL_BASE"/arc-audit-*; do
-  if [[ -f "${dir}/.readonly-active" ]] 2>/dev/null; then
+  # Validate directory name contains only safe characters
+  [[ "$(basename "$dir")" =~ ^(rune|arc)-(review|audit)-[a-zA-Z0-9_-]+$ ]] || continue
+  if [[ -f "${dir}/.readonly-active" ]]; then
     # Active review/audit team found + caller is a subagent → deny
     echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"SEC-001: review/audit Ashes are read-only. Use Read, Glob, Grep only."}}'
     exit 0
   fi
 done
+shopt -u nullglob
 
 # No active review/audit team with readonly marker — allow
 exit 0

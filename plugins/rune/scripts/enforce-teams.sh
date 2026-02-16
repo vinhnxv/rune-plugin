@@ -15,7 +15,9 @@
 #   3. If active workflow found, verify Task input includes team_name
 #   4. Block if team_name missing — output deny JSON
 #
-# Exit 0 with deny JSON = blocked. Exit 0 without JSON = allowed.
+# Exit 0 with hookSpecificOutput.permissionDecision="deny" JSON = tool call blocked.
+# Exit 0 without JSON (or with permissionDecision="allow") = tool call allowed.
+# Exit 2 = hook error, stderr fed to Claude (not used by this script).
 
 set -euo pipefail
 umask 077
@@ -23,10 +25,11 @@ umask 077
 # Pre-flight: jq is required for JSON parsing.
 # If missing, exit 0 (non-blocking) — allow rather than crash.
 if ! command -v jq &>/dev/null; then
+  echo "WARNING: jq not found — enforce-teams.sh hook is inactive" >&2
   exit 0
 fi
 
-INPUT=$(cat)
+INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
 
 # Fast path: if caller is team-lead (not subagent), check for team_name in input.
 # Team leads MUST also use team_name — this is the whole point of ATE-1.
@@ -36,34 +39,41 @@ if [[ "$TOOL_NAME" != "Task" ]]; then
   exit 0
 fi
 
+# QUAL-5: Canonicalize CWD to resolve symlinks (matches on-task-completed.sh pattern)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then
   exit 0
 fi
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
+if [[ -z "$CWD" || "$CWD" != /* ]]; then exit 0; fi
 
 # Check for active Rune workflows
+# NOTE: File-based state detection has inherent TOCTOU window (SEC-3). A workflow
+# could start between this check and the Task executing. Claude Code processes tool
+# calls sequentially within a session, making the race window effectively zero.
 active_workflow=""
 
 # Check arc checkpoints
 if [[ -d "${CWD}/.claude/arc" ]]; then
   while IFS= read -r f; do
     if grep -q '"in_progress"' "$f" 2>/dev/null; then
-      active_workflow="arc ($(basename "$(dirname "$f")"))"
+      active_workflow=1
       break
     fi
   done < <(find "${CWD}/.claude/arc" -name checkpoint.json -maxdepth 2 2>/dev/null)
 fi
 
 # Check review/audit/work state files
+# SEC-1 FIX: Use nullglob + flattened loop to prevent word splitting on paths with spaces
 if [[ -z "$active_workflow" ]]; then
-  for pattern in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json; do
-    for f in $pattern; do
-      if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
-        active_workflow="$(basename "$f" .json)"
-        break 2
-      fi
-    done
+  shopt -s nullglob
+  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json; do
+    if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
+      active_workflow=1
+      break
+    fi
   done
+  shopt -u nullglob
 fi
 
 # No active workflow — allow all Task calls
@@ -72,13 +82,8 @@ if [[ -z "$active_workflow" ]]; then
 fi
 
 # Active workflow detected — verify Task input includes team_name
-TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // empty' 2>/dev/null || true)
-if [[ -z "$TOOL_INPUT" ]]; then
-  exit 0
-fi
-
-# Check if team_name is present and non-empty in the Task input
-HAS_TEAM_NAME=$(echo "$TOOL_INPUT" | jq -r 'if .team_name and (.team_name | length > 0) then "yes" else "no" end' 2>/dev/null || echo "no")
+# BACK-2 FIX: Single-pass jq extraction (avoids fragile double-parse of tool_input)
+HAS_TEAM_NAME=$(echo "$INPUT" | jq -r 'if .tool_input.team_name and (.tool_input.team_name | length > 0) then "yes" else "no" end' 2>/dev/null || echo "no")
 
 if [[ "$HAS_TEAM_NAME" == "yes" ]]; then
   exit 0
