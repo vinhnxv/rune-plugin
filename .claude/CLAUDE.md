@@ -409,6 +409,19 @@ Update `plugin.json` version before distributing. Document changes in CHANGELOG.
 - `allowed-tools` = security boundary — apply least-privilege
 
 
+## Project-Level Skills
+
+These skills live in `.claude/skills/` and take priority over plugin-level skills with the same name.
+
+| Skill | Invoke | Purpose |
+|-------|--------|---------|
+| `create-agent-skills` | `/create-agent-skills` | Expert guidance for creating and auditing SKILL.md files, slash commands, and skill structure. Includes references, templates, and workflows. |
+| `skill-creator` | `/skill-creator` | Guide for creating skills that extend Claude's capabilities with specialized knowledge, workflows, and tool integrations. Includes init/validate/package scripts. |
+
+**When to use which:**
+- `/create-agent-skills` — comprehensive reference with 13 reference docs, 2 templates, 10 workflows. Use for auditing existing skills, understanding best practices, or building complex router-style skills.
+- `/skill-creator` — lightweight guide with init/validate/package scripts. Use for quick skill scaffolding and packaging.
+
 ## Project Rules
 
 - Don't commit plan files (`./plans/*.md`)
