@@ -111,6 +111,8 @@ When both conditions are met, the Codex Oracle is included as an additional revi
 
 Delegated to `/rune:review` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
 
+Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See arc.md Inter-Phase Cleanup Guard section.
+
 ## Docs-Only Work Output
 
 If Phase 5 produced only documentation files, the review still runs correctly. Rune Gaze's docs-only override ensures Knowledge Keeper is summoned. The TOME will contain `DOC-` and `QUAL-` prefixed findings.

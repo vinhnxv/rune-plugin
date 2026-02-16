@@ -86,6 +86,8 @@ Delegated to `/rune:work` — manages its own TeamCreate/TeamDelete with guards 
 
 Arc MUST record the actual `team_name` created by `/rune:work` in the checkpoint. This enables `/rune:cancel-arc` to discover and shut down the work team if the user cancels mid-pipeline. The work command creates its own team with its own naming convention — arc reads the team name back after delegation.
 
+Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See arc.md Inter-Phase Cleanup Guard section.
+
 ## Feature Branch Strategy
 
 Before delegating to `/rune:work`, the arc orchestrator ensures a feature branch exists (see arc.md Pre-flight: Branch Strategy COMMIT-1). If already on a feature branch, the current branch is used. `/rune:work`'s own Phase 0.5 (env setup) skips branch creation when invoked from arc context.

@@ -202,9 +202,20 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 | Phase 7.5: VERIFY MEND | Orchestrator-only (no team) | N/A |
 | Phase 8: AUDIT | `/rune:audit` (delegated) | Audit manages own lifecycle |
 
+## Inter-Phase Cleanup (ARC-6)
+
+Arc's dispatcher runs `prePhaseCleanup(checkpoint)` before every delegated phase.
+This is the **arc-specific application** of the Pre-Create Guard pattern, using
+checkpoint state to identify which phase teams may be stale.
+
+Complements CDX-7 (crash recovery) — ARC-6 handles normal phase transitions where
+TeamDelete is async and may not complete before the next phase starts.
+
+See arc.md for the full `prePhaseCleanup()` implementation.
+
 ## Consumers
 
-All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md
+All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md, ARC-6 inter-phase guard
 
 Arc phase references (extracted from arc.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md, arc-phase-audit.md
 
