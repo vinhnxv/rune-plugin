@@ -305,8 +305,12 @@ function prePhaseCleanup(checkpoint) {
     // orchestrator may not be leading), only rm -rf works.
     // See team-lifecycle-guard.md "Cleanup Fallback" section.
     for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
+      if (new Set(['__proto__', 'constructor', 'prototype']).has(phaseName)) continue
       if (!phaseInfo || typeof phaseInfo !== 'object') continue
       if (!phaseInfo.team_name || typeof phaseInfo.team_name !== 'string') continue
+      // ARC-6 STATUS GUARD: Denylist approach — only "in_progress" is preserved.
+      // All other statuses (completed, failed, skipped, timeout, pending) are eligible for cleanup.
+      // If a new active-state status is added to PHASE_ORDER, update this guard.
       if (phaseInfo.status === "in_progress") continue  // Don't clean actively running phase
 
       const teamName = phaseInfo.team_name
@@ -316,6 +320,7 @@ function prePhaseCleanup(checkpoint) {
         warn(`ARC-6: Invalid team name for phase ${phaseName}: "${teamName}" — skipping`)
         continue
       }
+      // Unreachable after regex — retained as defense-in-depth per SEC-003
       if (teamName.includes('..')) {
         warn('ARC-6: Path traversal detected in team name — skipping')
         continue
@@ -336,8 +341,10 @@ function prePhaseCleanup(checkpoint) {
       }
     }
 
-    // Strategy 2: Bare TeamDelete (belt-and-suspenders)
-    // Clears any leftover active team from the CURRENT session.
+    // Strategy 2: Bare TeamDelete (complements Strategy 1)
+    // Strategy 1 cleans prior-phase teams tracked in checkpoint via rm -rf.
+    // Strategy 2 cleans the CURRENT SESSION's active team (if any) via TeamDelete().
+    // These target different things — Strategy 1 uses filesystem paths, Strategy 2 uses session state.
     try { TeamDelete() } catch (e) { /* No active team — expected and harmless */ }
 
   } catch (e) {
@@ -451,6 +458,7 @@ See [arc-phase-plan-review.md](../skills/rune-orchestration/references/arc-phase
 **Output**: `tmp/arc/{id}/plan-review.md`
 **Failure**: BLOCK verdict halts pipeline. User fixes plan, then `/rune:arc --resume`.
 
+// No ARC-6 guard — orchestrator-managed phase uses its own Pre-Create Guard (arc-phase-plan-review.md)
 Read and execute the arc-phase-plan-review.md algorithm. Update checkpoint on completion.
 
 ## Phase 2.5: PLAN REFINEMENT (conditional)
