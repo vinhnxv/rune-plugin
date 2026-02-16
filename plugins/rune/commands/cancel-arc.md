@@ -56,18 +56,32 @@ let phase_team = phase_info?.team_name
 if (!phase_team) {
   // Fallback for older checkpoints without team_name field
   const legacyMap = {
-    forge: `arc-forge-${id}`,
+    forge: null,              // Pre-v1.28.2: inline forge had no team. v1.28.2+: checkpoint.team_name preferred; state file fallback at line 74
     plan_review: `arc-plan-review-${id}`,
     plan_refine: null,        // Orchestrator-only phase, no team
     verification: null,       // Orchestrator-only phase, no team
-    work: `arc-work-${id}`,
+    work: null,               // Delegated (v1.28.0) -- team name from checkpoint
     gap_analysis: null,       // Orchestrator-only phase, no team
     verify_mend: null,        // Orchestrator-only phase, no team (convergence gate)
-    code_review: `arc-review-${id}`,
+    code_review: null,        // Delegated (v1.28.0) -- team name from checkpoint
     mend: `arc-mend-${id}`,
-    audit: `arc-audit-${id}`
+    audit: null               // Delegated (v1.28.0) -- team name from checkpoint
   }
   phase_team = legacyMap[current_phase]
+}
+
+// SEC-006 FIX: Secondary fallback — discover forge team from state file
+if (phase_team === null && current_phase === 'forge') {
+  const forgeStateFiles = Glob("tmp/.rune-forge-*.json")
+  if (forgeStateFiles.length > 0) {
+    try {
+      const stateData = JSON.parse(Read(forgeStateFiles[0]))
+      // SEC-005 FIX: Restrict to forge-prefixed names — tmp/ state files are untrusted
+      if (stateData.team_name && /^rune-forge-[a-zA-Z0-9_-]+$/.test(stateData.team_name)) {
+        phase_team = stateData.team_name
+      }
+    } catch (e) { /* state file corrupted -- proceed without team */ }
+  }
 }
 
 // Orchestrator-only phases (plan_refine, verification, gap_analysis, verify_mend) have no team.

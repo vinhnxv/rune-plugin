@@ -21,10 +21,18 @@ if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("Invalid identifier")
 // SEC-003: Redundant path traversal check — defense-in-depth
 if (identifier.includes('..')) throw new Error('Path traversal detected')
 
-// 2. Attempt TeamDelete (catches most cases)
-try { TeamDelete() } catch (e) {
-  // 3. Fallback: direct directory removal (handles orphaned state)
-  Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
+// 2. Attempt TeamDelete with retry (handles active teammates from crashed sessions)
+// NOTE: Pre-create guard may orphan active teammates from crashed sessions.
+// This is an accepted trade-off — blocking on zombie teammates prevents new sessions.
+let teamDeleted = false
+try { TeamDelete(); teamDeleted = true } catch (e) {
+  // First attempt failed (e.g., active members from crashed session)
+  // Wait briefly for members to notice missing coordination state, then retry
+  Bash('sleep 5')
+  try { TeamDelete(); teamDeleted = true } catch (e2) {
+    // 3. Fallback: direct directory removal (handles orphaned state)
+    Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
+  }
 }
 
 // 4. Create fresh team
@@ -183,7 +191,7 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 
 | Phase | Team Owner | Lifecycle |
 |-------|-----------|-----------|
-| Phase 1: FORGE | Arc orchestrator (inline since v1.27.1) | `arc-forge-{id}` — ATE-1 compliant |
+| Phase 1: FORGE | `/rune:forge` (delegated since v1.28.2) | Forge manages own lifecycle |
 | Phase 2: PLAN REVIEW | Arc orchestrator | `arc-plan-review-{id}` |
 | Phase 2.5: REFINE | Orchestrator-only (no team) | N/A |
 | Phase 2.7: VERIFY | Orchestrator-only (no team) | N/A |

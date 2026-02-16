@@ -1,5 +1,63 @@
 # Changelog
 
+## [1.28.2] - 2026-02-16
+
+Refactor: Arc Phase 1 (FORGE) now delegates to `/rune:forge` for full Forge Gaze support.
+
+### Changed
+
+Note: v1.18.2 introduced initial forge delegation. v1.27.1 (ATE-1) restructured
+arc phases, requiring this re-implementation of the delegation pattern.
+
+- Arc Phase 1 now delegates to `/rune:forge` instead of inline agent logic
+- forge.md gains `isArcContext` detection (skips interactive phases in arc context)
+- forge.md emits state file for arc team name discovery
+- arc-phase-forge.md rewritten from inline (153 lines) to delegation wrapper (~50 lines)
+
+## [1.28.1] - 2026-02-16
+
+Refactor: Extract Issue Creation from plan.md to reference file.
+
+### Changed
+
+- Move inline Issue Creation section (34 lines) from plan.md to `references/issue-creation.md`
+- plan.md reduced from 571 to 542 lines
+- plugin.json: version 1.28.0 → 1.28.1
+- marketplace.json: version 1.28.0 → 1.28.1
+
+## [1.28.0] - 2026-02-16
+
+Feature: Arc Dispatcher Extraction — extract 7 phases from arc.md into self-contained reference files.
+
+### Changed
+
+- Extract per-phase logic from arc.md (977→577 lines, -41%) into `references/arc-phase-*.md` files
+- New reference files: arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md, arc-phase-audit.md
+- Transform arc.md into lightweight dispatcher skeleton that loads phase logic via Read()
+- Phases 2.7, 5.5, 7.5 already used reference files — unchanged
+- plugin.json: version 1.27.1 → 1.28.0
+- marketplace.json: version 1.27.1 → 1.28.0
+
+## [1.27.1] - 2026-02-16
+
+Feature: ATE-1 Agent Teams Enforcement — prevent context explosion in arc pipeline.
+
+### Added
+
+- **ATE-1 enforcement** — Three-layer defense against bare Task calls in arc pipeline:
+  1. ATE-1 enforcement section at top of arc.md with explicit pattern + anti-patterns
+  2. Phase 1 FORGE inlined with full TeamCreate + Task + Monitor + Cleanup example
+  3. `enforce-teams.sh` PreToolUse hook blocks bare Task calls during active workflows
+
+### Changed
+
+- Freshness gate extracted from arc.md to `references/freshness-gate.md`
+- Review agent checklists extracted to reference files (forge-keeper, tide-watcher, wraith-finder)
+- `enforce-readonly.sh` SEC-001 hook for review/audit write protection
+- Hook infrastructure expanded from 2 to 4 hooks in CLAUDE.md
+- plugin.json: version 1.27.0 → 1.27.1
+- marketplace.json: version 1.27.0 → 1.27.1
+
 ## [1.27.0] - 2026-02-16
 
 Quality & security bundle: PreToolUse read-only enforcement, TaskCompleted semantic validation, and agent prompt extraction to reference files.

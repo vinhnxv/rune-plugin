@@ -358,7 +358,7 @@ Demoting Phase 2 to "pending" — will re-run plan review.
 
 See [arc-phase-forge.md](../skills/rune-orchestration/references/arc-phase-forge.md) for the full algorithm.
 
-**Team**: `arc-forge-{id}` — follows ATE-1 pattern
+**Team**: Delegated to `/rune:forge` — forge manages its own team lifecycle (`rune-forge-{id}`)
 **Output**: `tmp/arc/{id}/enriched-plan.md`
 **Failure**: Timeout → proceed with original plan copy + warn user. Offer `--no-forge` on retry.
 
