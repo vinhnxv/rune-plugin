@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.28.3] - 2026-02-17
+
+Fix: Arc implicit delegation gaps — explicit Phase 0 step contracts for delegated commands.
+
+### Added
+
+- New reference: `arc-delegation-checklist.md` — canonical RUN/SKIP/ADAPT delegation contract for all arc phases
+- Codex Oracle as optional 4th plan reviewer in arc Phase 2 (`arc-phase-plan-review.md`)
+- Delegation Steps sections in `arc-phase-code-review.md` (Phase 6) and `arc-phase-audit.md` (Phase 8)
+- Bidirectional `DELEGATION-CONTRACT` comments in `review.md` and `audit.md` Phase 0
+
+### Changed
+
+- plugin.json: version 1.28.2 → 1.28.3
+- marketplace.json: version 1.28.2 → 1.28.3
+- CLAUDE.md: Added `arc-delegation-checklist.md` to References section
+
 ## [1.28.2] - 2026-02-16
 
 Refactor: Arc Phase 1 (FORGE) now delegates to `/rune:forge` for full Forge Gaze support.

@@ -67,3 +67,4 @@ All hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 (non-b
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow
 - [Configuration](references/configuration-guide.md) — talisman.yml schema and defaults
 - [Session handoff](references/session-handoff.md) — Session state template for compaction and resume
+- [Delegation checklist](skills/rune-orchestration/references/arc-delegation-checklist.md) — Arc phase delegation contracts (RUN/SKIP/ADAPT)

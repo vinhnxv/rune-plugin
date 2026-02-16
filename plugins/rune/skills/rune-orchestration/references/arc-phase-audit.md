@@ -17,6 +17,25 @@ Invoke `/rune:audit` logic as a final quality gate. Informational only — does 
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
+## Delegation Steps (Phase 8 → audit.md Phase 0)
+
+<!-- See arc-delegation-checklist.md Phase 8 for the canonical contract -->
+
+When arc invokes `/rune:audit` logic, the delegated command MUST execute these Phase 0 steps
+from audit.md:
+
+| # | audit.md Phase 0 Step | Action | Notes |
+|---|----------------------|--------|-------|
+| 1 | File scanning | **RUN** | Audit needs full project file inventory (`find` with standard exclusions) |
+| 2 | Abort conditions check | **RUN** | Graceful no-op if no auditable code |
+| 3 | Custom Ash loading | **RUN** | `ashes.custom[]` filtered by `workflows: [audit]` (no-op if none configured) |
+| 4 | Codex Oracle detection | **RUN** | Per `codex-detection.md`, if `audit` in `talisman.codex.workflows` |
+
+**Steps SKIPPED** (arc handles or not applicable):
+- Generate audit identifier: use arc id for consistent artifact naming
+- Branch detection (metadata): arc already has this from pre-flight (COMMIT-1)
+- `--focus` / `--max-agents` / `--dry-run` flags: arc uses defaults (full audit)
+
 ## Codex Oracle (Conditional)
 
 ```javascript
