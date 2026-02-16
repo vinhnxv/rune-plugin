@@ -95,3 +95,24 @@ Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See arc.md Int
 **Output**: `tmp/arc/{id}/audit-report.md`
 
 **Failure policy**: Report results. Does not halt — informational final gate.
+
+## Crash Recovery
+
+If this phase crashes before reaching cleanup, the following resources are orphaned:
+
+| Resource | Location |
+|----------|----------|
+| Team config | `~/.claude/teams/rune-audit-{identifier}/` |
+| Task list | `~/.claude/tasks/rune-audit-{identifier}/` |
+| State file | `tmp/.rune-audit-*.json` (stuck in `"active"` status) |
+| Signal dir | `tmp/.rune-signals/rune-audit-{identifier}/` |
+
+### Recovery Layers
+
+1. **Layer 1 — Arc resume pre-flight (ORCH-1)**: When the user runs `/rune:arc --resume`, the resume logic iterates checkpoint phases, detects orphaned `team_name` entries with `"in_progress"` or `"failed"` status, calls `safeTeamCleanup()` on each, resets the phase to `"pending"`, and marks stale state files (active > 30 min) as `crash_recovered`.
+
+2. **Layer 2 — `/rune:rest --heal`**: Manual orphan recovery that scans all `tmp/.rune-audit-*.json` state files for stale active entries (> 30 min) and `~/.claude/teams/rune-audit-*/` directories not referenced by a recent active state file. User confirmation required before cleanup.
+
+3. **Layer 3 — Arc pre-flight stale scan**: Before Phase 1 of any new arc session, scans `~/.claude/teams/` for `arc-forge-*` and `arc-plan-review-*` teams from prior sessions (audit phase teams use `rune-*` prefix and are handled by the sub-command's own pre-create guard).
+
+See [team-lifecycle-guard.md](team-lifecycle-guard.md) §Orphan Recovery Pattern for utilities.

@@ -213,9 +213,111 @@ TeamDelete is async and may not complete before the next phase starts.
 
 See arc.md for the full `prePhaseCleanup()` implementation.
 
+## Staleness Detection
+
+Utility for determining whether an `"active"` state file represents a crashed (orphaned) workflow vs. a genuinely running one.
+
+### Constants
+
+```
+ORPHAN_STALE_THRESHOLD = 1_800_000   // 30 minutes (ms)
+```
+
+> **Naming**: Uses `ORPHAN_STALE_THRESHOLD` (not `STALE_THRESHOLD`) to avoid collision
+> with arc.md's existing `STALE_THRESHOLD = 300_000` (5-min phase monitoring constant).
+
+### isStale(startedTimestamp, thresholdMs)
+
+```
+Contract:
+  Input:  startedTimestamp (ISO-8601 string), thresholdMs (number, default ORPHAN_STALE_THRESHOLD)
+  Output: boolean
+  Logic:  Date.now() - new Date(startedTimestamp).getTime() > thresholdMs
+```
+
+A state file with `status === "active"` and `isStale(state.started) === true` is considered
+an orphan — the owning process likely crashed without cleanup.
+
+**Rationale**: 30 min is 2x the longest inner timeout (15 min). No legitimate workflow
+stays `"active"` for 30 min without checkpoint progress.
+
+## safeTeamCleanup()
+
+Extracted utility encapsulating the validate-regex + TeamDelete + rm-rf-fallback pattern
+used across Pre-Create Guard, cancel commands, and crash recovery layers.
+
+### safeTeamCleanup(teamName)
+
+```
+Contract:
+  Input:     teamName (string)
+  Validation: Must match /^[a-zA-Z0-9_-]+$/ — reject otherwise
+  Steps:
+    1. Validate teamName against SAFE_IDENTIFIER_PATTERN
+    2. Defense-in-depth: reject if teamName contains '..'
+    3. Try TeamDelete({ team_name: teamName })
+    4. Fallback: rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/
+  Security:
+    - Uses find -maxdepth 1 instead of ls -d (SEC-007)
+    - Regex + path-traversal check co-located before any rm -rf
+  Error handling: TeamDelete failure is expected (team may not exist) — fall through to rm -rf
+```
+
+```javascript
+// Pseudocode
+function safeTeamCleanup(teamName) {
+  if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) throw new Error(`Invalid teamName: ${teamName}`)
+  if (teamName.includes('..')) throw new Error('Path traversal detected')
+
+  try { TeamDelete({ team_name: teamName }) } catch (e) {
+    Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+  }
+}
+```
+
+**Consumers**: arc.md (Layer 1 resume cleanup, Layer 3 stale scan), rest.md (`--heal`),
+all cancel-*.md commands (via Pre-Create Guard pattern).
+
+## Orphan Recovery Pattern
+
+Three independent layers catch orphaned teams from different crash scenarios.
+Defense-in-depth — each layer targets a different failure mode.
+
+### Layer 1: Arc Resume Pre-Flight (arc.md)
+
+- **Trigger**: `arc --resume` (after checkpoint read, before phase dispatch)
+- **Catches**: Orphaned teams from the *same arc session's* prior crashed attempt
+- **Action**: Iterate checkpoint phases → `safeTeamCleanup()` for orphaned `team_name` entries → reset phase status to `"pending"` → clean stale state files (`isStale() + status === "active"` → mark `crash_recovered`)
+- **Scope**: Checkpoint-recorded teams only
+
+### Layer 2: `/rune:rest --heal` (rest.md)
+
+- **Trigger**: User runs `/rune:rest --heal`
+- **Catches**: Orphaned teams from *any* crashed session (cross-session)
+- **Action**: Scan `~/.claude/teams/` for rune-/arc-prefixed dirs → scan `tmp/.rune-{type}-*.json` for stale active state files → user confirmation → `safeTeamCleanup()` + state file reset + signal dir cleanup
+- **Scope**: All rune-managed teams (broadest coverage)
+- **Safety**: User confirmation required; active workflows (< 30 min) preserved
+
+### Layer 3: Arc Pre-Flight Stale Scan (arc.md)
+
+- **Trigger**: Any `arc` invocation (after checkpoint init, before Phase 1)
+- **Catches**: Stale arc-specific teams from *prior arc sessions*
+- **Action**: Scan `~/.claude/teams/` for `arc-forge-*` and `arc-plan-review-*` dirs → skip current session's teams → `safeTeamCleanup()`
+- **Scope**: Arc-prefixed teams only (rune-* handled by sub-command pre-create guards)
+
+### Coverage Matrix
+
+| Crash Scenario | Layer 1 | Layer 2 | Layer 3 |
+|----------------|---------|---------|---------|
+| Sub-command crash during arc (same session resume) | YES | YES | — |
+| Sub-command crash (different session) | — | YES | — |
+| Arc orchestrator crash (arc-prefixed teams) | — | YES | YES |
+| Forge crash (arc-forge-* team) | — | YES | YES |
+| Standalone command crash (no arc) | — | YES | — |
+
 ## Consumers
 
-All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md, arc.md prePhaseCleanup()
+All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md, arc.md prePhaseCleanup(), rest.md --heal
 
 Arc phase references (extracted from arc.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md, arc-phase-audit.md
 

@@ -382,6 +382,33 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 })
 ```
 
+### Stale Arc Team Scan
+
+CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs after checkpoint init (where `id` is available) for both new and resumed arcs. Only targets `arc-forge-*` and `arc-plan-review-*` prefixes — phase 5-8 teams use `rune-*` prefixes and are handled by the sub-command's own pre-create guard.
+
+```javascript
+// CC-5: Placed after checkpoint init — id is available here
+// CC-3: Use find instead of ls -d (SEC-007 compliance)
+const ARC_TEAM_PREFIXES = ["arc-forge-", "arc-plan-review-"]
+
+for (const prefix of ARC_TEAM_PREFIXES) {
+  const dirs = Bash(`find ~/.claude/teams -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
+  for (const dir of dirs) {
+    const teamName = basename(dir)
+
+    // SEC-003: Validate team name before any filesystem operations
+    if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
+
+    // Don't clean our own team (current arc session)
+    if (teamName.includes(id)) continue
+
+    // This team is from a different arc session — orphaned
+    warn(`CDX-7: Stale arc team from prior session: ${teamName} — cleaning`)
+    Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+  }
+}
+```
+
 ## --resume Logic
 
 On resume, validate checkpoint integrity before proceeding:
@@ -419,8 +446,66 @@ On resume, validate checkpoint integrity before proceeding:
    a. Verify artifact file exists at recorded path
    b. Compute SHA-256 of artifact, compare against stored artifact_hash
    c. If hash mismatch → demote phase to "pending" + warn user
-6. Resume from first incomplete/failed/pending phase in PHASE_ORDER
-7. ARC-6: Clean stale teams from prior session before resuming.
+6. ### Orphan Cleanup (ORCH-1)
+   CDX-7 Layer 1: Clean orphaned teams and stale state files from a prior crashed attempt.
+   Runs BEFORE resume dispatch. Resets orphaned phase statuses so phases re-execute cleanly.
+   Distinct from ARC-6 (step 8) which only cleans team dirs without status reset.
+
+   ```javascript
+   const ORPHAN_STALE_THRESHOLD = 1_800_000  // 30 min — crash recovery staleness
+   const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+   for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
+     if (FORBIDDEN_KEYS.has(phaseName)) continue
+     if (typeof phaseInfo !== 'object' || phaseInfo === null) continue
+
+     // Skip phases without recorded team_name
+     if (!phaseInfo.team_name || typeof phaseInfo.team_name !== 'string') continue
+
+     // SEC-003: Validate team name before any filesystem operations
+     if (!/^[a-zA-Z0-9_-]+$/.test(phaseInfo.team_name)) {
+       warn(`ORCH-1: Invalid team name for phase ${phaseName}: "${phaseInfo.team_name}" — skipping`)
+       continue
+     }
+
+     if (["completed", "skipped", "cancelled"].includes(phaseInfo.status)) {
+       // Defensive: verify team is actually gone — clean if not
+       Bash(`rm -rf ~/.claude/teams/${phaseInfo.team_name}/ ~/.claude/tasks/${phaseInfo.team_name}/ 2>/dev/null`)
+       continue
+     }
+
+     // Phase is "in_progress" or "failed" — team may be orphaned from prior crash
+     Bash(`rm -rf ~/.claude/teams/${phaseInfo.team_name}/ ~/.claude/tasks/${phaseInfo.team_name}/ 2>/dev/null`)
+
+     // Clear team_name so phase re-creates a fresh team on retry
+     phaseInfo.team_name = null
+     phaseInfo.status = "pending"
+   }
+
+   // Clean stale state files from crashed sub-commands (CC-4: includes forge)
+   for (const type of ["work", "review", "mend", "audit", "forge"]) {
+     const stateFiles = Glob(`tmp/.rune-${type}-*.json`)
+     for (const f of stateFiles) {
+       try {
+         const state = JSON.parse(Read(f))
+         if (state.status === "active" && (Date.now() - new Date(state.started).getTime()) > ORPHAN_STALE_THRESHOLD) {
+           warn(`ORCH-1: Stale ${type} state file: ${f} — marking crash_recovered`)
+           state.status = "completed"
+           state.completed = new Date().toISOString()
+           state.crash_recovered = true
+           Write(f, JSON.stringify(state))
+         }
+       } catch (e) {
+         warn(`ORCH-1: Unreadable state file ${f} — skipping`)
+       }
+     }
+   }
+
+   Write(checkpointPath, checkpoint)  // Save cleaned checkpoint
+   ```
+
+7. Resume from first incomplete/failed/pending phase in PHASE_ORDER
+8. ARC-6: Clean stale teams from prior session before resuming.
    Unlike CDX-7 Layer 1 (which resets phase status), this only cleans teams
    without changing phase status — the phase dispatching logic handles retries.
    `prePhaseCleanup(checkpoint)`

@@ -76,6 +76,27 @@ updateCheckpoint({
 
 **Failure policy**: Halt if <50% tasks complete. Partial work is committed via incremental commits (E5).
 
+## Crash Recovery
+
+If this phase crashes before reaching cleanup, the following resources are orphaned:
+
+| Resource | Location |
+|----------|----------|
+| Team config | `~/.claude/teams/rune-work-{identifier}/` |
+| Task list | `~/.claude/tasks/rune-work-{identifier}/` |
+| State file | `tmp/.rune-work-*.json` (stuck in `"active"` status) |
+| Signal dir | `tmp/.rune-signals/rune-work-{identifier}/` |
+
+### Recovery Layers
+
+1. **Layer 1 — Arc resume pre-flight (ORCH-1)**: When the user runs `/rune:arc --resume`, the resume logic iterates checkpoint phases, detects orphaned `team_name` entries with `"in_progress"` or `"failed"` status, calls `safeTeamCleanup()` on each, resets the phase to `"pending"`, and marks stale state files (active > 30 min) as `crash_recovered`.
+
+2. **Layer 2 — `/rune:rest --heal`**: Manual orphan recovery that scans all `tmp/.rune-work-*.json` state files for stale active entries (> 30 min) and `~/.claude/teams/rune-work-*/` directories not referenced by a recent active state file. User confirmation required before cleanup.
+
+3. **Layer 3 — Arc pre-flight stale scan**: Before Phase 1 of any new arc session, scans `~/.claude/teams/` for `arc-forge-*` and `arc-plan-review-*` teams from prior sessions (work phase teams use `rune-*` prefix and are handled by the sub-command's own pre-create guard).
+
+See [team-lifecycle-guard.md](team-lifecycle-guard.md) §Orphan Recovery Pattern for utilities.
+
 ## --approve Routing
 
 The `--approve` flag routes to the **human user** via `AskUserQuestion` (not to the AI leader). This applies only to Phase 5. Do NOT propagate `--approve` when invoking `/rune:mend` in Phase 7 -- mend fixers apply deterministic fixes from TOME findings.

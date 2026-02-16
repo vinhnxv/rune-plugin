@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.29.2] - 2026-02-17
+
+### Fixed
+- CDX-7: Post-delegation cleanup guard for crashed sub-commands — three-layer orphan defense prevents resource leaks from crashed workflows
+
+### Added
+- `/rune:rest --heal` flag for manual orphan recovery — scans for stale state files and orphaned team directories
+- Arc resume pre-flight cleanup (ORCH-1) — automatically cleans orphaned teams when resuming arc sessions
+- Arc pre-flight stale team scan — removes stale arc-specific teams from prior sessions
+- Crash recovery documentation for all 4 arc-phase reference files
+
+### Changed
+- `team-lifecycle-guard.md`: Added `safeTeamCleanup()` utility, `isStale()` staleness detection, and orphan recovery pattern documentation
+
+### Upgrade Note
+If you have orphaned team directories from prior crashed workflows, run `/rune:rest --heal` to clean them up.
+
 ## [1.29.1] - 2026-02-17
 
 Fix: Arc inter-phase team cleanup guard (ARC-6).

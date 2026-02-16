@@ -219,3 +219,7 @@ All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md
 - Always update workflow state files (e.g., `tmp/.rune-review-{id}.json`) AFTER team cleanup, not before
 - The 30s wait is a best-effort grace period — some agents may need longer for complex file writes
 - Arc pipelines call TeamCreate/TeamDelete per-phase, so each phase transition needs the pre-create guard
+
+## CDX-7 Crash Recovery (Cross-Reference)
+
+For crash recovery patterns (CDX-7), including `safeTeamCleanup()`, `isStale()`, and the three-layer orphan defense, see the canonical version at `plugins/rune/skills/rune-orchestration/references/team-lifecycle-guard.md`.
