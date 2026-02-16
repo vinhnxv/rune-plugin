@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.29.1] - 2026-02-17
+
+Fix: Arc inter-phase team cleanup guard (ARC-6).
+
+### Fixed
+- Arc dispatcher now runs `prePhaseCleanup()` before every delegated phase
+- Stale team directories cleaned via checkpoint-aware `rm -rf` before TeamCreate
+- Resume logic enhanced with team cleanup guard
+
+### Changed
+- arc.md: Added `prePhaseCleanup()` function and 5 phase-dispatch guard calls + 1 resume guard call
+- team-lifecycle-guard.md: Added ARC-6 section and consumer reference
+- 5 arc-phase reference files: Added ARC-6 delegation notes
+- plugin.json, marketplace.json: version 1.29.0 → 1.29.1
+
 ## [1.29.0] - 2026-02-17
 
 ### Added

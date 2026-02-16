@@ -282,6 +282,75 @@ function checkArcTimeout() {
 }
 ```
 
+### Inter-Phase Cleanup Guard (ARC-6)
+
+Runs before every delegated phase to ensure no stale team blocks TeamCreate. Idempotent — harmless no-op when no stale team exists. Complements CDX-7 (crash recovery) — this handles normal phase transitions.
+
+```javascript
+// prePhaseCleanup(checkpoint): Clean stale teams from prior phases.
+// Runs before EVERY delegated phase. See team-lifecycle-guard.md Pre-Create Guard.
+// NOTE: Assumes checkpoint schema v5+ where each phase entry has { status, team_name, ... }
+
+function prePhaseCleanup(checkpoint) {
+  try {
+    // Guard: validate checkpoint.phases exists and is an object
+    if (!checkpoint?.phases || typeof checkpoint.phases !== 'object' || Array.isArray(checkpoint.phases)) {
+      warn('ARC-6: Invalid checkpoint.phases — skipping inter-phase cleanup')
+      return
+    }
+
+    // Strategy 1: Checkpoint-aware cleanup via direct filesystem removal
+    // IMPORTANT: Do NOT use TeamDelete() here. TeamDelete() targets the CALLER'S
+    // active team, not a named target. For stale teams from prior phases (which the
+    // orchestrator may not be leading), only rm -rf works.
+    // See team-lifecycle-guard.md "Cleanup Fallback" section.
+    const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+    for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
+      if (FORBIDDEN_KEYS.has(phaseName)) continue
+      if (!phaseInfo || typeof phaseInfo !== 'object') continue
+      if (!phaseInfo.team_name || typeof phaseInfo.team_name !== 'string') continue
+      // ARC-6 STATUS GUARD: Denylist approach — only "in_progress" is preserved.
+      // All other statuses (completed, failed, skipped, timeout, pending) are eligible for cleanup.
+      // If a new active-state status is added to PHASE_ORDER, update this guard.
+      if (phaseInfo.status === "in_progress") continue  // Don't clean actively running phase
+
+      const teamName = phaseInfo.team_name
+
+      // SEC-003: Validate BEFORE any filesystem operations — see security-patterns.md
+      if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) {
+        warn(`ARC-6: Invalid team name for phase ${phaseName}: "${teamName}" — skipping`)
+        continue
+      }
+      // Unreachable after regex — retained as defense-in-depth per SEC-003
+      if (teamName.includes('..')) {
+        warn('ARC-6: Path traversal detected in team name — skipping')
+        continue
+      }
+
+      // SEC-002: rm -rf unconditionally — no exists() guard (eliminates TOCTOU window).
+      // rm -rf on a nonexistent path is a no-op, so this is safe.
+      // ARC-6: teamName validated above — contains only [a-zA-Z0-9_-]
+      Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+
+      // Post-removal verification: detect if cleaning happened or if dir persists
+      if (exists(`~/.claude/teams/${teamName}/`)) {
+        warn(`ARC-6: rm -rf failed for ${teamName} — directory still exists`)
+      }
+    }
+
+    // Strategy 2: Bare TeamDelete (complements Strategy 1)
+    // Strategy 1 cleans prior-phase teams tracked in checkpoint via rm -rf.
+    // Strategy 2 cleans the CURRENT SESSION's active team (if any) via TeamDelete().
+    // These target different things — Strategy 1 uses filesystem paths, Strategy 2 uses session state.
+    try { TeamDelete() } catch (e) { warn(`ARC-6: TeamDelete() cleanup: ${e.message}`) }
+
+  } catch (e) {
+    // Top-level guard: defensive infrastructure must NEVER halt the pipeline.
+    warn(`ARC-6: prePhaseCleanup failed (${e.message}) — proceeding anyway`)
+  }
+}
+```
+
 ### Initialize Checkpoint (ARC-2)
 
 ```javascript
@@ -351,6 +420,10 @@ On resume, validate checkpoint integrity before proceeding:
    b. Compute SHA-256 of artifact, compare against stored artifact_hash
    c. If hash mismatch → demote phase to "pending" + warn user
 6. Resume from first incomplete/failed/pending phase in PHASE_ORDER
+7. ARC-6: Clean stale teams from prior session before resuming.
+   Unlike CDX-7 Layer 1 (which resets phase status), this only cleans teams
+   without changing phase status — the phase dispatching logic handles retries.
+   `prePhaseCleanup(checkpoint)`
 ```
 
 Hash mismatch warning:
@@ -369,6 +442,9 @@ See [arc-phase-forge.md](../skills/rune-orchestration/references/arc-phase-forge
 **Output**: `tmp/arc/{id}/enriched-plan.md`
 **Failure**: Timeout → proceed with original plan copy + warn user. Offer `--no-forge` on retry.
 
+// ARC-6: Clean stale teams before delegating to sub-command
+prePhaseCleanup(checkpoint)
+
 Read and execute the arc-phase-forge.md algorithm. Update checkpoint on completion.
 
 ## Phase 2: PLAN REVIEW (circuit breaker)
@@ -379,6 +455,7 @@ See [arc-phase-plan-review.md](../skills/rune-orchestration/references/arc-phase
 **Output**: `tmp/arc/{id}/plan-review.md`
 **Failure**: BLOCK verdict halts pipeline. User fixes plan, then `/rune:arc --resume`.
 
+// No ARC-6 guard — orchestrator-managed phase (not delegated to sub-command); uses inline Pre-Create Guard before its own TeamCreate (see arc-phase-plan-review.md)
 Read and execute the arc-phase-plan-review.md algorithm. Update checkpoint on completion.
 
 ## Phase 2.5: PLAN REFINEMENT (conditional)
@@ -409,6 +486,9 @@ See [arc-phase-work.md](../skills/rune-orchestration/references/arc-phase-work.m
 **Output**: Implemented code (committed) + `tmp/arc/{id}/work-summary.md`
 **Failure**: Halt if <50% tasks complete. Partial work is committed via incremental commits.
 
+// ARC-6: Clean stale teams before delegating to sub-command
+prePhaseCleanup(checkpoint)
+
 Read and execute the arc-phase-work.md algorithm. Update checkpoint on completion.
 
 ## Phase 5.5: IMPLEMENTATION GAP ANALYSIS
@@ -429,6 +509,9 @@ See [arc-phase-code-review.md](../skills/rune-orchestration/references/arc-phase
 **Output**: `tmp/arc/{id}/tome.md`
 **Failure**: Does not halt — produces findings or a clean report.
 
+// ARC-6: Clean stale teams before delegating to sub-command
+prePhaseCleanup(checkpoint)
+
 Read and execute the arc-phase-code-review.md algorithm. Update checkpoint on completion.
 
 ## Phase 7: MEND
@@ -438,6 +521,9 @@ See [arc-phase-mend.md](../skills/rune-orchestration/references/arc-phase-mend.m
 **Team**: `arc-mend-{id}` — follows ATE-1 pattern
 **Output**: `tmp/arc/{id}/resolution-report.md`
 **Failure**: Halt if >3 FAILED findings remain. User manually fixes, runs `/rune:arc --resume`.
+
+// ARC-6: Clean stale teams before delegating to sub-command
+prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-mend.md algorithm. Update checkpoint on completion.
 
@@ -458,6 +544,9 @@ See [arc-phase-audit.md](../skills/rune-orchestration/references/arc-phase-audit
 **Team**: `arc-audit-{id}` — follows ATE-1 pattern
 **Output**: `tmp/arc/{id}/audit-report.md`
 **Failure**: Does not halt — informational final gate.
+
+// ARC-6: Clean stale teams before delegating to sub-command
+prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-audit.md algorithm. Update checkpoint on completion.
 
