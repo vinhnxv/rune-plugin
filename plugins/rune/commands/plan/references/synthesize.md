@@ -23,6 +23,11 @@ AskUserQuestion({
 
 ## Consolidation
 
+**Inputs**: research output files (paths from `tmp/plans/{timestamp}/research/`), selected detail level
+**Outputs**: plan file (`plans/YYYY-MM-DD-{type}-{feature}-plan.md`)
+**Preconditions**: git repository initialized (or gracefully handles non-git context)
+**Error handling**: git commands wrapped in `2>/dev/null || echo "null"` for non-git directories; detached HEAD sets `branch` to `null`
+
 1. Read all research output files from `tmp/plans/{timestamp}/research/`
 2. Identify common themes, conflicting advice, key patterns
 3. Populate git metadata in plan frontmatter: include `git_sha` (from `git rev-parse HEAD`) and `branch` (from `git branch --show-current`). If the working directory is not a git repository, omit these fields. On a detached HEAD, set `branch` to `null`.

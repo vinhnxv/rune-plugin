@@ -242,6 +242,13 @@ if (planFile.startsWith('-')) {
   error(`Plan path starts with hyphen (option injection risk): ${planFile}`)
   return
 }
+// CDX-009 EXTENSION: Reject internal double-hyphens (option terminator injection)
+// A path like "plans/plan--version.md" could be misinterpreted as `--` by downstream
+// Bash() calls that don't use `--` argument separators.
+if (planFile.includes('--')) {
+  error(`Plan path contains double-hyphen (option terminator risk): ${planFile}`)
+  return
+}
 // Reject absolute paths — plan files must be relative to project root
 if (planFile.startsWith('/')) {
   error(`Absolute paths not allowed: ${planFile}. Use a relative path from project root.`)

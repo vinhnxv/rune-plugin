@@ -92,7 +92,8 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
 
   // Use branch from checkpoint or fall back to current branch
   // Prefer checkpoint data over live git query (branch may have changed during arc)
-  const branch = Bash("git branch --show-current 2>/dev/null").stdout.trim() || "unknown"
+  const rawBranch = Bash("git branch --show-current 2>/dev/null").stdout.trim() || "unknown"
+  const branch = /^[a-zA-Z0-9._\/-]+$/.test(rawBranch) ? rawBranch : "unknown"
 
   // Count existing completion records for run ordinal
   const existingRecords = (content.match(/## Arc Completion Record/g) || []).length
@@ -114,7 +115,7 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
   let phaseTable = "| # | Phase | Status | Detail |\n|---|-------|--------|--------|\n"
   for (const [num, name, key] of phases) {
     const phase = checkpoint.phases[key]
-    const tstat = phase?.status || "pending"
+    const tstat = phase?.status || "pending"  // tstat not status — zsh read-only var (CLAUDE.md rule 8)
     const detail = phase?.artifact ? phase.artifact.split('/').pop() : "—"
     phaseTable += `| ${num} | ${name} | ${tstat} | ${detail} |\n`
   }
@@ -162,4 +163,5 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
 | Read-only file or write permission error | Warn + skip (STEP 8 try-catch) |
 | Plan path tampered in checkpoint | Reject with warning (STEP 1 validation) |
 | Concurrent arc runs on same plan | Last-write-wins — earlier records may be lost. Arc pre-flight prevents concurrent sessions. |
+| Multiple Status fields in first 50 lines | Updates FIRST match only (via `findIndex()`). Low-risk — plans rarely have duplicate Status fields. |
 | Completion record heading in plan body (e.g. code example) | Ordinal may increment incorrectly. Low risk — unusual case. Consider anchoring regex: `/^## Arc Completion Record/gm` (line-start anchor). |
