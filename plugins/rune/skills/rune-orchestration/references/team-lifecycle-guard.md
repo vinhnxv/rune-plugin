@@ -16,7 +16,7 @@ Before `TeamCreate`, clean up stale teams from crashed prior sessions:
 
 ```javascript
 // 1. Validate identifier (REQUIRED — this is the ONLY barrier against path traversal)
-// Security pattern: SAFE_IDENTIFIER_PATTERN — see security-patterns.md
+// Security pattern: SAFE_IDENTIFIER_PATTERN = /^[a-zA-Z0-9_-]+$/ — alphanumeric, hyphens, underscores only
 if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("Invalid identifier")
 // SEC-003: Redundant path traversal check — defense-in-depth
 if (identifier.includes('..')) throw new Error('Path traversal detected')
@@ -43,24 +43,9 @@ TeamCreate({ team_name: `${teamPrefix}-${identifier}` })
 
 At session end, after shutting down all teammates:
 
-> **DEPRECATED**: The static example below is superseded by the **Dynamic Cleanup with Member Discovery** pattern further down. New code should use the dynamic pattern instead. This is retained only for reference.
+> **DEPRECATED**: The static cleanup pattern (hardcoded teammate list) is superseded by the **Dynamic Cleanup with Member Discovery** pattern below. All new code MUST use the dynamic pattern. The static pattern is not shown here to prevent accidental copying — see git history for the old example if needed.
 
-```javascript
-// 1. Shutdown all teammates
-for (const teammate of allTeammates) {
-  SendMessage({ type: "shutdown_request", recipient: teammate })
-}
-
-// 2. Wait for approvals (max 30s)
-
-// 3. Cleanup team with fallback
-// NOTE: identifier was validated at team creation time (pre-create guard above)
-try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
-}
-```
-
-**When to use**: At EVERY workflow cleanup point — both normal completion and cancellation. Prefer the **Dynamic Cleanup with Member Discovery** pattern below for production use.
+**Always use** the Dynamic Cleanup with Member Discovery pattern at EVERY workflow cleanup point — both normal completion and cancellation.
 
 ## Cancel Command Pattern
 
@@ -150,7 +135,8 @@ for (const member of allMembers) {
 // 3. Wait for shutdown approvals (max 30s)
 
 // 4. TeamDelete with fallback
-// NOTE: team_name must be validated before this point — see "Input Validation" section above
+// SEC-9 FIX: Re-validate team_name before rm -rf (defense-in-depth — team_name was read from config.json)
+if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) throw new Error(`Invalid team_name: ${team_name}`)
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/${team_name}/ ~/.claude/tasks/${team_name}/ 2>/dev/null`)
 }
@@ -197,7 +183,7 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 
 | Phase | Team Owner | Lifecycle |
 |-------|-----------|-----------|
-| Phase 1: FORGE | `/rune:forge` (delegated) | Forge manages own TeamCreate/TeamDelete |
+| Phase 1: FORGE | Arc orchestrator (inline since v1.27.1) | `arc-forge-{id}` — ATE-1 compliant |
 | Phase 2: PLAN REVIEW | Arc orchestrator | `arc-plan-review-{id}` |
 | Phase 2.5: REFINE | Orchestrator-only (no team) | N/A |
 | Phase 2.7: VERIFY | Orchestrator-only (no team) | N/A |
@@ -210,7 +196,13 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 
 ## Consumers
 
-All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, research-phase.md
+All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md
+
+Arc phase references (extracted from arc.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md, arc-phase-audit.md
+
+## Related
+
+- **enforce-teams.sh** (PreToolUse hook): Blocks bare Task calls (without `team_name`) during active Rune workflows. Complements this guard by preventing the _creation_ of teammates outside Agent Teams.
 
 ## Notes
 
