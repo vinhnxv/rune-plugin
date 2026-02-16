@@ -47,264 +47,27 @@ Dead code, orphaned code, and unwired code detection specialist.
 
 ## Analysis Framework
 
+For detailed framework-specific code examples, DI wiring patterns, router registration templates, and event handler verification patterns across Python, Rust, and TypeScript, see [dead-code-patterns.md](references/dead-code-patterns.md).
+
 ### 1. Classical Dead Code Detection
 
-#### 1A. Unused Functions/Classes
-
-```python
-# Check: Is this function called anywhere?
-def legacy_format_date(date):  # grep shows 0 callers
-    return date.strftime("%Y-%m-%d")
-# Note: Check for dynamic references before flagging!
-```
-
-```rust
-// Rust: Check for #[allow(dead_code)] as a smell — it may mask real issues
-#[allow(dead_code)]
-fn calculate_score(input: &Data) -> f64 { ... }  // Is this actually used?
-```
-
-```typescript
-// TypeScript: Exported but never imported anywhere
-export function formatCurrency(amount: number): string { ... }  // 0 importers
-```
-
-#### 1B. Unreachable Code
-
-```python
-# BAD: Code after unconditional return
-def process(data):
-    if not data:
-        return None
-    return transform(data)
-    cleanup(data)  # Never reached!
-```
-
-```rust
-// BAD: Match arm that can never be reached
-match status {
-    Status::Active => handle_active(),
-    Status::Inactive => handle_inactive(),
-    _ => unreachable!(),  // Fine IF enum is exhaustive
-}
-```
-
-```typescript
-// BAD: Dead branch after type narrowing
-function handle(value: string | number) {
-    if (typeof value === "string") return value.toUpperCase();
-    if (typeof value === "number") return value.toFixed(2);
-    return value;  // Never reached — TS knows this is `never`
-}
-```
-
-#### 1C. Commented-Out Code
-
-```python
-# BAD: Large blocks of commented code — use git history instead
-# def old_implementation():
-#     for item in items:
-#         if item.status == "active":
-#             process(item)
-#     return result
-```
-
-#### 1D. Unused Imports
-
-```python
-from datetime import datetime, timedelta  # timedelta unused
-import json  # json never used in file
-```
-
-```typescript
-import { useState, useEffect, useCallback } from "react";  // useCallback unused
-```
-
-```rust
-use std::collections::{HashMap, BTreeMap};  // BTreeMap unused (rustc warns)
-```
-
----
+Scan for: unused functions/classes (0 callers), unreachable code (after return/raise), commented-out blocks (>3 lines), unused imports. Check dynamic references before flagging.
 
 ### 2. DI Wiring Verification (Framework-Agnostic)
 
-The most critical gap in AI-generated code: services that exist but are never injected.
-
-#### Python DI Patterns
-
-| Framework | Registration | Injection | Verify |
-|-----------|-------------|-----------|--------|
-| **Dishka** | `@provide(scope=Scope.REQUEST)` | `FromDishka[ServiceType]` | Container.py vs usage |
-| **FastAPI Depends** | `def get_service(): ...` | `Depends(get_service)` | Depends() vs definition |
-| **Django** | `INSTALLED_APPS`, signals | `from app.services import ...` | apps.py + urls.py |
-| **inject** | `@inject.autoparams()` | Constructor injection | `inject.configure()` |
-
-```python
-# DETECTION: Find all service/repository classes
-# Grep: class \w+(Service|Repository|Handler|Provider|Factory|Gateway)
-# Then verify EACH has:
-#   1. Registration in DI container
-#   2. At least one injection point (consumer)
-```
-
-#### Rust DI Patterns
-
-| Framework | Registration | Injection | Verify |
-|-----------|-------------|-----------|--------|
-| **Manual (common)** | `impl` blocks + `pub fn new()` | Constructor params | `::new()` callers |
-| **shaku** | `#[derive(Component)]` | `#[inject]` | Module::build() |
-| **Actix DI** | `.app_data(Data::new(...))` | `data: web::Data<T>` | configure() chain |
-
-```rust
-// DETECTION: Find all structs with impl blocks
-// Grep: pub struct \w+(Service|Repository|Handler|Client)
-// Then verify EACH has:
-//   1. At least one `::new()` or `::default()` call
-//   2. The instance is passed to a consumer (route, other service)
-
-// Common Rust unwired pattern:
-pub struct AnalyticsService { /* fields */ }
-impl AnalyticsService {
-    pub fn new(db: Pool) -> Self { Self { db } }
-    pub async fn calculate(&self) -> Result<Metrics> { ... }
-}
-// Service exists, compiles, but is NEVER instantiated anywhere!
-```
-
-#### TypeScript DI Patterns
-
-| Framework | Registration | Injection | Verify |
-|-----------|-------------|-----------|--------|
-| **NestJS** | `@Injectable()` + `@Module({ providers })` | Constructor injection | module.ts providers array |
-| **tsyringe** | `@injectable()` | `@inject()` or `container.resolve()` | container.register() |
-| **inversify** | `@injectable()` | `@inject(TYPES.X)` | container.bind() |
-| **Angular** | `@Injectable({ providedIn })` | Constructor injection | NgModule providers |
-
-```typescript
-// DETECTION: Find all @Injectable() or service classes
-// Grep: @Injectable|class \w+(Service|Repository|Handler|Gateway)
-// Then verify EACH has:
-//   1. Listed in a module's providers array (NestJS)
-//   2. At least one constructor injection consumer
-
-// Common NestJS unwired pattern:
-@Injectable()
-export class AnalyticsService {
-    async getMetrics(id: string): Promise<Metrics> { ... }
-}
-// Created but NOT added to any module's providers[] array!
-```
-
----
+The most critical gap in AI-generated code: services that exist but are never injected. For each service/repository class, verify it has both registration in the DI container AND at least one injection consumer.
 
 ### 3. Router/Endpoint Registration
 
-#### Python
-
-```python
-# FastAPI: Every router file must be include_router'd
-# Grep: router\s*=\s*APIRouter → find definitions
-# Grep: include_router → find registrations
-# DIFF: Any router NOT included = orphaned endpoints (all return 404)
-
-# Flask: Every Blueprint must be registered
-# Grep: Blueprint( → find definitions
-# Grep: register_blueprint → find registrations
-
-# Django: Every view must be in urlpatterns
-# Grep: def \w+_view|class \w+View → find views
-# Grep: path\(|re_path\( → find URL patterns
-```
-
-#### Rust
-
-```rust
-// Actix-web: Every handler must be .service()'d or .configure()'d
-// Grep: #\[get\|#\[post\|#\[put\|#\[delete\|#\[patch → find handlers
-// Grep: \.service\(|\.configure\(|\.route\( → find registrations
-
-// Axum: Every handler must be in Router::new().route()
-// Grep: async fn \w+\(.*extract → find handlers
-// Grep: \.route\(|\.merge\( → find route registrations
-
-// Rocket: Every handler must be routes![] or mount()'d
-// Grep: #\[get\|#\[post → find handlers
-// Grep: routes!\[|\.mount\( → find registrations
-```
-
-#### TypeScript
-
-```typescript
-// Express: Every router must be app.use()'d
-// Grep: Router\(\)|express\.Router → find definitions
-// Grep: app\.use\(|router\.use\( → find registrations
-
-// NestJS: Every @Controller must be in a @Module's controllers[]
-// Grep: @Controller → find controllers
-// Grep: controllers:\s*\[ → find module registrations
-
-// Fastify: Every plugin must be .register()'d
-// Grep: fastify\.register|app\.register → find registrations
-```
-
----
+Every router/controller/handler must be registered with the application. Orphaned endpoints return 404 silently.
 
 ### 4. Event Handler/Subscription Verification
 
-#### Python
-
-```python
-# Django signals: @receiver must match signal
-# Grep: @receiver\( → find handlers
-# Grep: \.connect\( → find manual connections
-
-# Event bus: Handlers must be subscribe()'d
-# Grep: class \w+Handler.*handle → find handlers
-# Grep: \.subscribe\(|\.register_handler\( → find subscriptions
-
-# Celery: @app.task or @shared_task must be called somewhere
-# Grep: @app\.task|@shared_task → find task definitions
-# Grep: \.delay\(|\.apply_async\( → find task invocations
-```
-
-#### Rust
-
-```rust
-// tokio channels: Receivers must be .recv()'d
-// Grep: mpsc::channel|broadcast::channel → find channel creation
-// Grep: \.recv\(\)|\.recv_async\( → find consumers
-
-// Trait-based handlers: impl Handler must be registered
-// Grep: impl.*Handler.*for → find implementations
-// Grep: register_handler|add_handler|subscribe → find registrations
-```
-
-#### TypeScript
-
-```typescript
-// EventEmitter: .on() handlers must match .emit() events
-// Grep: \.on\(|\.addEventListener\( → find listeners
-// Grep: \.emit\(|\.dispatchEvent\( → find emitters
-
-// NestJS: @EventPattern/@MessagePattern must match gateway
-// Grep: @EventPattern|@MessagePattern → find handlers
-// Grep: @WebSocketGateway|@Controller → find registrations
-
-// RxJS: .subscribe() must have matching .next()/.emit()
-// Grep: \.subscribe\( → find subscribers
-// Grep: \.next\(|\.emit\( → find emitters
-```
-
----
+Every event handler must be subscribed to its event source. Unsubscribed handlers are dead code that compiles but never executes.
 
 ### 5. AI-Generated Orphan Code Detection
 
-AI assistants commonly generate code that:
-1. Is syntactically correct
-2. Has proper types and logic
-3. **Is never called or registered**
-
-#### AI Orphan Signals
+AI assistants commonly generate code that is syntactically correct, has proper types and logic, but **is never called or registered**.
 
 | Signal | Detection | Languages |
 |--------|-----------|-----------|
@@ -361,39 +124,22 @@ For EACH flagged code, determine root cause:
 
 #### Case A: Forgotten to Inject (MOST COMMON with AI code)
 
-**Symptoms:**
-- Code is well-written and makes logical sense
-- There's a clear use case (e.g., route needs this service)
-- Pattern matches existing wired code
-
+**Symptoms:** Code is well-written, clear use case exists, pattern matches existing wired code.
 **Fix:** Wire the code (register + inject)
 
 #### Case B: Truly Dead Code (No Use Case)
 
-**Symptoms:**
-- No obvious consumer for this code
-- Feature was abandoned or replaced
-- Code duplicates existing functionality
-- Git history shows it was part of a removed feature
-
+**Symptoms:** No obvious consumer, feature was abandoned or replaced, duplicates existing functionality.
 **Fix:** Delete the code
 
 #### Case C: Premature Code (Not Ready Yet)
 
-**Symptoms:**
-- Code appears to be for a future feature
-- Has TODO/FIXME comments
-- Related feature not yet implemented
-
+**Symptoms:** Code appears to be for a future feature, has TODO/FIXME comments.
 **Fix:** Document or remove until needed
 
 #### Case D: Partially Wired (Missing Link)
 
-**Symptoms:**
-- Registered in container but not injected
-- Some routes work, others 404
-- Handler exists but not subscribed
-
+**Symptoms:** Registered in container but not injected, some routes work others 404.
 **Fix:** Complete the wiring chain
 
 ### Step 4: Confidence Scoring
@@ -522,20 +268,13 @@ Before writing output file, confirm:
   - **Evidence:** 15 lines of commented-out implementation
   - **Fix:** Delete (recoverable from git history)
 
-- [ ] **[DEAD-004] Unused Import** in `handler.py:3`
-  - **Confidence:** 98%
-  - **Evidence:** `import json` — not used in file
-  - **Fix:** Remove import
-
 ### Summary
 
 | Category | Count | Root Cause | Fix Type |
 |----------|-------|------------|----------|
 | Broken wiring | 1 | Case D | Complete wiring |
 | Forgotten injection | 1 | Case A | Wire or remove |
-| Dead functions | 0 | Case B | Remove |
 | Commented code | 1 | Case B | Remove |
-| Unused imports | 1 | N/A | Auto-fix |
 
 ### Verification Checklist
 - [ ] All service classes → registered AND injected

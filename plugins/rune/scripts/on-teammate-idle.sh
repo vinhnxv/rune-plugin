@@ -20,7 +20,7 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-INPUT=$(cat)
+INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
 _trace "ENTER"
 
 TEAM_NAME=$(echo "$INPUT" | jq -r '.team_name // empty' 2>/dev/null || true)
