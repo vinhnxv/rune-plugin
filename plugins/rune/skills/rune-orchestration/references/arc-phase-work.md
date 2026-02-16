@@ -2,13 +2,15 @@
 
 Invoke `/rune:work` logic on the enriched plan. Swarm workers implement tasks with incremental commits.
 
-**Team**: `arc-work-{id}` (delegated to `/rune:work` -- manages its own TeamCreate/TeamDelete with guards)
+**Team**: `arc-work-{id}` (delegated to `/rune:work` --- manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Full access (Read, Write, Edit, Bash, Glob, Grep)
 **Timeout**: 35 min (PHASE_TIMEOUTS.work = 2_100_000 — inner 30m + 5m setup)
 **Inputs**: id (string), enriched plan path (`tmp/arc/{id}/enriched-plan.md`), concern context (optional: `tmp/arc/{id}/concern-context.md`), verification report (optional: `tmp/arc/{id}/verification-report.md`), `--approve` flag
 **Outputs**: `tmp/arc/{id}/work-summary.md` + committed code on feature branch
 **Error handling**: Halt if <50% tasks complete. Partial work is committed via incremental commits (E5).
 **Consumers**: arc.md (Phase 5 stub)
+
+> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
 ## Algorithm
 
@@ -44,10 +46,16 @@ workContext += `\n\n## Quality Contract\nAll code must include:\n- Type annotati
 // Arc reads the team name back from the work state file or teammate idle notification.
 // The team name is recorded in checkpoint for cancel-arc discovery.
 // SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
+// CDX-2 NOTE: Glob matches ALL work state files, not just the current arc session's.
+// Glob returns files sorted by mtime (most recent first), so [0] picks the latest.
+// If multiple state files exist from prior runs, warn but proceed with most recent.
 const workStateFiles = Glob("tmp/.rune-work-*.json")
+if (workStateFiles.length > 1) warn(`Multiple work state files found (${workStateFiles.length}) — using most recent`)
 const workTeamName = workStateFiles.length > 0
   ? JSON.parse(Read(workStateFiles[0])).team_name
   : `rune-work-${Date.now()}`
+// SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
+if (!/^[a-zA-Z0-9_-]+$/.test(workTeamName)) throw new Error(`Invalid team_name from state file: ${workTeamName}`)
 updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 5, team_name: workTeamName })
 
 // STEP 4: After work completes, produce work summary

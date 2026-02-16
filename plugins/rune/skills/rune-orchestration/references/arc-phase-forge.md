@@ -4,7 +4,7 @@ Research-enrich plan sections using Forge Gaze topic-aware matching. Each plan s
 
 **Team**: `arc-forge-{id}` — **MUST use TeamCreate** (see arc.md "CRITICAL — Agent Teams Enforcement (ATE-1)" section)
 **Tools**: Forge agents receive read-only tools (Read, Glob, Grep, Write for own output file only)
-**Timeout**: 15 min (PHASE_TIMEOUTS.forge — inner 10m + 5m setup)
+**Timeout**: 15 min (PHASE_TIMEOUTS.forge = 900_000 — inner 10m + 5m setup)
 **Inputs**: planFile (string, validated at arc init), id (string, validated at arc init)
 **Outputs**: `tmp/arc/{id}/enriched-plan.md` (enriched copy of original plan)
 **Error handling**: Forge timeout (10 min) → proceed with original plan copy (warn user, offer `--no-forge`). No enrichments → use original plan copy.
@@ -158,28 +158,6 @@ updateCheckpoint({
 
 If forge times out or fails: proceed with original plan copy + warn user. Offer `--no-forge` on retry.
 
-## Cleanup
+## Team Lifecycle
 
-Dynamic member discovery reads the team config to find ALL teammates, not just the initial batch:
-
-```javascript
-let forgeMembers = []
-try {
-  const teamConfig = Read(`~/.claude/teams/arc-forge-${id}/config.json`)
-  forgeMembers = teamConfig.members?.map(m => m.name).filter(Boolean) || []
-} catch (e) {
-  // FALLBACK: use the agents originally summoned in this phase
-  forgeMembers = uniqueAgents(assignments)
-}
-
-// Shutdown all discovered members
-for (const member of forgeMembers) {
-  SendMessage({ type: "shutdown_request", recipient: member, content: "Forge complete" })
-}
-
-// TeamDelete with rm -rf fallback (see team-lifecycle-guard.md)
-// SEC-003: id validated at arc init (/^arc-[a-zA-Z0-9_-]+$/)
-try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/arc-forge-${id}/ ~/.claude/tasks/arc-forge-${id}/ 2>/dev/null`)
-}
-```
+Cleanup uses dynamic member discovery (Step 8 above) with SEC-4 validated member names. See [team-lifecycle-guard.md](team-lifecycle-guard.md) for the canonical pattern.

@@ -311,7 +311,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 On resume, validate checkpoint integrity before proceeding:
 
 ```
-1. Find most recent checkpoint: find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | grep checkpoint.json | xargs ls -t 2>/dev/null | head -1
+1. Find most recent checkpoint: find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | xargs ls -t 2>/dev/null | head -1
 2. Read .claude/arc/{id}/checkpoint.json — extract plan_file for downstream phases
 3. Schema migration (default missing schema_version: `const version = checkpoint.schema_version ?? 1`):
    if version < 2, migrate v1 → v2:

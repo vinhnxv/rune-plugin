@@ -15,6 +15,8 @@ Invoke `/rune:audit` logic as a final quality gate. Informational only — does 
 
 **Consumers**: Completion report (final arc output to user)
 
+> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
+
 ## Codex Oracle (Conditional)
 
 ```javascript
@@ -37,10 +39,14 @@ Delegated to `/rune:audit` — typically summons rune-architect + ward-sentinel 
 // Delegation pattern: /rune:audit creates its own team (e.g., rune-audit-{identifier}).
 // Arc reads the team name from the audit state file or teammate idle notification.
 // SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
+// CDX-2 NOTE: Glob matches ALL audit state files — [0] is most recent by mtime.
 const auditStateFiles = Glob("tmp/.rune-audit-*.json")
+if (auditStateFiles.length > 1) warn(`Multiple audit state files found (${auditStateFiles.length}) — using most recent`)
 const auditTeamName = auditStateFiles.length > 0
   ? JSON.parse(Read(auditStateFiles[0])).team_name
   : `rune-audit-${Date.now()}`
+// SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
+if (!/^[a-zA-Z0-9_-]+$/.test(auditTeamName)) throw new Error(`Invalid team_name from state file: ${auditTeamName}`)
 updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 9, team_name: auditTeamName })
 ```
 

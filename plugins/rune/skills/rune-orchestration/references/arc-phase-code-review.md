@@ -2,13 +2,15 @@
 
 Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundtable Circle lifecycle.
 
-**Team**: `arc-review-{id}` (delegated to `/rune:review` -- manages its own TeamCreate/TeamDelete with guards)
+**Team**: `arc-review-{id}` (delegated to `/rune:review` --- manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Read, Glob, Grep, Write (own output file only)
-**Timeout**: 15 min (PHASE_TIMEOUTS.code_review — inner 10m + 5m setup)
+**Timeout**: 15 min (PHASE_TIMEOUTS.code_review = 900_000 — inner 10m + 5m setup)
 **Inputs**: id (string), gap analysis path (optional: `tmp/arc/{id}/gap-analysis.md`)
 **Outputs**: `tmp/arc/{id}/tome.md`
 **Error handling**: Does not halt — review always produces findings or a clean report. Timeout → partial results collected. Team creation failure → cleanup fallback via `rm -rf` (see [team-lifecycle-guard.md](team-lifecycle-guard.md)).
 **Consumers**: arc.md (Phase 6 stub)
+
+> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
 ## Algorithm
 
@@ -38,21 +40,25 @@ if (exists(`tmp/arc/${id}/gap-analysis.md`)) {
 // Delegation pattern: /rune:review creates its own team (e.g., rune-review-{identifier}).
 // Arc reads the team name from the review state file or teammate idle notification.
 // SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
+// CDX-2 NOTE: Glob matches ALL review state files — [0] is most recent by mtime.
 const reviewStateFiles = Glob("tmp/.rune-review-*.json")
+if (reviewStateFiles.length > 1) warn(`Multiple review state files found (${reviewStateFiles.length}) — using most recent`)
 const reviewTeamName = reviewStateFiles.length > 0
   ? JSON.parse(Read(reviewStateFiles[0])).team_name
   : `rune-review-${Date.now()}`
+// SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
+if (!/^[a-zA-Z0-9_-]+$/.test(reviewTeamName)) throw new Error(`Invalid team_name from state file: ${reviewTeamName}`)
 updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 6, team_name: reviewTeamName })
 
 // BACK-5 FIX: Pass gap analysis context and review context to /rune:review
 // so reviewers can focus on areas where implementation may be incomplete.
 // reviewContext was built in STEP 1 from gap-analysis.md.
 
-// STEP 4: TOME relocation
-// Move TOME from review's output location to arc's artifact directory
+// STEP 4: TOME relocation (copy, not move — original remains for debugging)
 // Source: tmp/reviews/{review-id}/TOME.md (produced by /rune:review)
 // Target: tmp/arc/{id}/tome.md (consumed by Phase 7: MEND)
-// This makes the TOME available at the canonical arc artifact path.
+const reviewId = reviewTeamName.replace('rune-review-', '')
+Bash(`cp -- "tmp/reviews/${reviewId}/TOME.md" "tmp/arc/${id}/tome.md"`)
 
 // STEP 5: Update checkpoint
 updateCheckpoint({
@@ -80,6 +86,10 @@ When both conditions are met, the Codex Oracle is included as an additional revi
 ## TOME Relocation
 
 `/rune:review` writes the TOME to its own output directory (`tmp/reviews/{review-id}/TOME.md`). The arc orchestrator relocates it to `tmp/arc/{id}/tome.md` so that Phase 7 (MEND) can find it at the canonical arc artifact path. This is a file copy, not a move -- the original remains for debugging.
+
+## Team Lifecycle
+
+Delegated to `/rune:review` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
 
 ## Docs-Only Work Output
 

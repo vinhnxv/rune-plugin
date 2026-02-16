@@ -16,7 +16,7 @@ Before `TeamCreate`, clean up stale teams from crashed prior sessions:
 
 ```javascript
 // 1. Validate identifier (REQUIRED — this is the ONLY barrier against path traversal)
-// Security pattern: SAFE_IDENTIFIER_PATTERN — see security-patterns.md
+// Security pattern: SAFE_IDENTIFIER_PATTERN = /^[a-zA-Z0-9_-]+$/ — alphanumeric, hyphens, underscores only
 if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("Invalid identifier")
 // SEC-003: Redundant path traversal check — defense-in-depth
 if (identifier.includes('..')) throw new Error('Path traversal detected')
@@ -196,7 +196,7 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 
 ## Consumers
 
-All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, research-phase.md
+All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md
 
 Arc phase references (extracted from arc.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md, arc-phase-audit.md
 

@@ -15,6 +15,8 @@ Invoke `/rune:mend` logic on the TOME. Parallel fixers resolve findings from the
 
 **Consumers**: Phase 7.5 (VERIFY MEND) reads the resolution report to detect regressions
 
+> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
+
 > **Note**: This phase may be invoked multiple times by the convergence gate (Phase 7.5). On retry, the TOME source changes to `tome-round-{N}.md` and the timeout shrinks to MEND_RETRY_TIMEOUT. See [verify-mend.md](verify-mend.md) for the convergence protocol.
 
 ## TOME Source Selection
@@ -66,10 +68,14 @@ const innerPolling = Math.max(mendTimeout - SETUP_BUDGET - MEND_EXTRA_BUDGET, 12
 ```javascript
 // STEP 1: Read mend team name from state file (MUST happen before checkpoint update)
 // Use Glob() to resolve wildcard — Read() does not support glob expansion.
+// CDX-2 NOTE: Glob matches ALL mend state files — [0] is most recent by mtime.
 const mendStateFiles = Glob("tmp/.rune-mend-*.json")
+if (mendStateFiles.length > 1) warn(`Multiple mend state files found (${mendStateFiles.length}) — using most recent`)
 const mendTeamName = mendStateFiles.length > 0
   ? JSON.parse(Read(mendStateFiles[0])).team_name
   : `rune-mend-${Date.now()}`
+// SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
+if (!/^[a-zA-Z0-9_-]+$/.test(mendTeamName)) throw new Error(`Invalid team_name from state file: ${mendTeamName}`)
 
 // STEP 2: Update checkpoint with resolved team name
 updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team_name: mendTeamName })
