@@ -4,7 +4,7 @@ Extract CONCERN details from reviewer outputs and propagate as context to the wo
 
 **Team**: None (orchestrator-only)
 **Tools**: Read, Write, Glob, Grep
-**Duration**: Max 3 minutes
+**Timeout**: 3 min (PHASE_TIMEOUTS.plan_refine — orchestrator-only, no team)
 **Trigger**: Any CONCERN verdict exists. If all PASS, skip.
 **Inputs**: id (string), reviewer verdict paths (`tmp/arc/{id}/reviews/{name}-verdict.md`), checkpoint object
 **Outputs**: `tmp/arc/{id}/concern-context.md` (or skipped if no CONCERNs)
@@ -42,9 +42,13 @@ for (const reviewer of reviewers) {
   const output = Read(outputPath)
   const verdict = parseVerdict(reviewer.name, output)
   if (verdict === "CONCERN") {
+    // SEC-8 FIX: Slice before regex to bound input size (ReDoS mitigation)
+    // BACK-7 FIX: Also sanitize inline code (single backtick)
     const sanitized = output
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/```[\s\S]*?```/g, '[code block removed]')
+      .slice(0, 5000)
+      .replace(/<!--[^]*?-->/g, '')
+      .replace(/```[^]*?```/g, '[code block removed]')
+      .replace(/`[^`]+`/g, '[code removed]')
       .slice(0, 2000)
     concerns.push({ reviewer: reviewer.name, verdict: "CONCERN", content: sanitized })
   }
@@ -66,11 +70,10 @@ Write(`tmp/arc/${id}/concern-context.md`, `# Plan Review Concerns\n\n` +
   `Workers should address these concerns during implementation.\n\n` + concernContext)
 
 // STEP 4: All-CONCERN escalation (3x CONCERN, 0 PASS)
-const allConcern = reviewers.every(r => {
-  const verdictPath = `tmp/arc/${id}/reviews/${r.name}-verdict.md`
-  if (!exists(verdictPath)) return true
-  return parseVerdict(r.name, Read(verdictPath)) === "CONCERN"
-})
+// BACK-8 FIX: Reuse already-parsed data from STEP 1 instead of re-reading verdict files.
+// This eliminates redundant I/O and TOCTOU risk from reading files twice.
+const reviewersWithVerdictFiles = reviewers.filter(r => exists(`tmp/arc/${id}/reviews/${r.name}-verdict.md`))
+const allConcern = reviewersWithVerdictFiles.length > 0 && concerns.length === reviewersWithVerdictFiles.length
 if (allConcern) {
   const forgeNote = checkpoint.flags.no_forge
     ? "\n\nNote: Forge enrichment was skipped (--no-forge). CONCERNs may be more likely on a raw plan."

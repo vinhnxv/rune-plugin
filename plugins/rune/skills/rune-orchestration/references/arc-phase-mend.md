@@ -15,6 +15,8 @@ Invoke `/rune:mend` logic on the TOME. Parallel fixers resolve findings from the
 
 **Consumers**: Phase 7.5 (VERIFY MEND) reads the resolution report to detect regressions
 
+> **Note**: This phase may be invoked multiple times by the convergence gate (Phase 7.5). On retry, the TOME source changes to `tome-round-{N}.md` and the timeout shrinks to MEND_RETRY_TIMEOUT. See [verify-mend.md](verify-mend.md) for the convergence protocol.
+
 ## TOME Source Selection
 
 The TOME input file varies based on the convergence round:
@@ -62,15 +64,22 @@ const innerPolling = Math.max(mendTimeout - SETUP_BUDGET - MEND_EXTRA_BUDGET, 12
 ## Invocation
 
 ```javascript
+// STEP 1: Read mend team name from state file (MUST happen before checkpoint update)
+// Use Glob() to resolve wildcard — Read() does not support glob expansion.
+const mendStateFiles = Glob("tmp/.rune-mend-*.json")
+const mendTeamName = mendStateFiles.length > 0
+  ? JSON.parse(Read(mendStateFiles[0])).team_name
+  : `rune-mend-${Date.now()}`
+
+// STEP 2: Update checkpoint with resolved team name
 updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team_name: mendTeamName })
 
-// Delegate to /rune:mend with arc-specific parameters:
+// STEP 3: Delegate to /rune:mend with arc-specific parameters:
 // - TOME source path (varies by round)
 // - Timeout propagation (--timeout ${mendTimeout})
 // - Team name prefix: arc-mend-{id}
 // Delegation pattern: /rune:mend creates its own team (e.g., rune-mend-{id}).
 // Arc reads the team name from the mend state file or teammate idle notification.
-const mendTeamName = Read(`tmp/.rune-mend-*.json`)?.team_name || `rune-mend-${Date.now()}`
 ```
 
 ## Completion and Halt Check

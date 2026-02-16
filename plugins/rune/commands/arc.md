@@ -156,7 +156,7 @@ const PHASE_TIMEOUTS = {
 const ARC_TOTAL_TIMEOUT = 7_200_000  // 120 min (honest budget — old 90 min was routinely exceeded)
 const STALE_THRESHOLD = 300_000      // 5 min
 const CONVERGENCE_MAX_ROUNDS = 2     // Max mend retries (3 total passes)
-const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward)
+const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward/cross-file)
 ```
 
 See [phase-tool-matrix.md](../skills/rune-orchestration/references/phase-tool-matrix.md) for per-phase tool restrictions and time budget details.
@@ -204,13 +204,14 @@ If already on a feature branch, use the current branch.
 #   3. If active session found, warn user and offer: proceed (risk conflicts) or abort
 #   4. Lock file cleanup in each command's Phase 6/7 cleanup step
 if command -v jq >/dev/null 2>&1; then
-  active=$(find .claude/arc -name checkpoint.json -maxdepth 2 2>/dev/null | while read f; do
+  # SEC-5 FIX: Place -maxdepth before -name for POSIX portability (BSD find on macOS)
+  active=$(find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
     jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
   done)
 else
   # NOTE: grep fallback is imprecise — matches "in_progress" anywhere in file, not field-specific.
   # Acceptable as degraded-mode check when jq is unavailable. The jq path above is the robust check.
-  active=$(find .claude/arc -name checkpoint.json -maxdepth 2 2>/dev/null | while read f; do
+  active=$(find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
     if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then basename "$(dirname "$f")"; fi
   done)
 fi
@@ -310,7 +311,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 On resume, validate checkpoint integrity before proceeding:
 
 ```
-1. Find most recent checkpoint: find .claude/arc -name checkpoint.json -maxdepth 2 2>/dev/null | xargs ls -t 2>/dev/null | head -1
+1. Find most recent checkpoint: find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | grep checkpoint.json | xargs ls -t 2>/dev/null | head -1
 2. Read .claude/arc/{id}/checkpoint.json — extract plan_file for downstream phases
 3. Schema migration (default missing schema_version: `const version = checkpoint.schema_version ?? 1`):
    if version < 2, migrate v1 → v2:

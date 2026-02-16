@@ -4,10 +4,10 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 
 **Team**: `arc-review-{id}` (delegated to `/rune:review` -- manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Read, Glob, Grep, Write (own output file only)
-**Duration**: Max 15 minutes (inner 10m + 5m setup)
+**Timeout**: 15 min (PHASE_TIMEOUTS.code_review — inner 10m + 5m setup)
 **Inputs**: id (string), gap analysis path (optional: `tmp/arc/{id}/gap-analysis.md`)
 **Outputs**: `tmp/arc/{id}/tome.md`
-**Error handling**: Does not halt -- review always produces findings or a clean report
+**Error handling**: Does not halt — review always produces findings or a clean report. Timeout → partial results collected. Team creation failure → cleanup fallback via `rm -rf` (see [team-lifecycle-guard.md](team-lifecycle-guard.md)).
 **Consumers**: arc.md (Phase 6 stub)
 
 ## Algorithm
@@ -37,8 +37,16 @@ if (exists(`tmp/arc/${id}/gap-analysis.md`)) {
 // Arc records the team_name for cancel-arc discovery.
 // Delegation pattern: /rune:review creates its own team (e.g., rune-review-{identifier}).
 // Arc reads the team name from the review state file or teammate idle notification.
-const reviewTeamName = Read(`tmp/.rune-review-*.json`)?.team_name || `rune-review-${Date.now()}`
+// SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
+const reviewStateFiles = Glob("tmp/.rune-review-*.json")
+const reviewTeamName = reviewStateFiles.length > 0
+  ? JSON.parse(Read(reviewStateFiles[0])).team_name
+  : `rune-review-${Date.now()}`
 updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 6, team_name: reviewTeamName })
+
+// BACK-5 FIX: Pass gap analysis context and review context to /rune:review
+// so reviewers can focus on areas where implementation may be incomplete.
+// reviewContext was built in STEP 1 from gap-analysis.md.
 
 // STEP 4: TOME relocation
 // Move TOME from review's output location to arc's artifact directory

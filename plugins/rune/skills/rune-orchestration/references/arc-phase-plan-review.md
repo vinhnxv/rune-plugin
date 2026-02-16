@@ -4,7 +4,7 @@ Three parallel reviewers evaluate the enriched plan. Any BLOCK verdict halts the
 
 **Team**: `arc-plan-review-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
-**Duration**: Max 15 minutes (inner 10m + 5m setup)
+**Timeout**: 15 min (PHASE_TIMEOUTS.plan_review — inner 10m + 5m setup)
 **Inputs**: id (string, validated at arc init), enriched plan path (`tmp/arc/{id}/enriched-plan.md`)
 **Outputs**: `tmp/arc/{id}/plan-review.md`
 **Error handling**: BLOCK verdict halts pipeline. User fixes plan, then `/rune:arc --resume`.
@@ -62,14 +62,24 @@ const result = waitForCompletion(`arc-plan-review-${id}`, reviewers.length, {
   pollIntervalMs: 30_000, label: "Arc: Plan Review"
 })
 
-result.completed.forEach(t => { const r = reviewers.find(r => r.name === t.owner); if (r) r.completed = true })
+// Match completed tasks to reviewers by task subject (more reliable than owner name matching)
+result.completed.forEach(t => {
+  const r = reviewers.find(r => t.subject.includes(r.name) || t.owner === r.name)
+  if (r) r.completed = true
+})
 
 if (result.timedOut) {
   warn("Phase 2 (PLAN REVIEW) timed out.")
   for (const reviewer of reviewers) {
     if (!reviewer.completed) {
       const outputPath = `tmp/arc/${id}/reviews/${reviewer.name}-verdict.md`
-      reviewer.verdict = exists(outputPath) ? parseVerdict(reviewer.name, Read(outputPath)) : "CONCERN"
+      if (exists(outputPath)) {
+        reviewer.verdict = parseVerdict(reviewer.name, Read(outputPath))
+      } else {
+        // QUAL-14 FIX: Write synthetic verdict so Phase 2.5 can read it from disk
+        reviewer.verdict = "CONCERN"
+        Write(outputPath, `# ${reviewer.name} — Timed Out\n\nReviewer did not complete within timeout.\n\n<!-- VERDICT:${reviewer.name}:CONCERN -->`)
+      }
     }
   }
 }
@@ -90,6 +100,14 @@ const parseVerdict = (reviewer, output) => {
   return match[2]
 }
 ```
+
+### Verdict Definitions
+
+| Verdict | Meaning |
+|---------|---------|
+| **PASS** | Plan is sound and ready for implementation |
+| **CONCERN** | Issues worth noting but not blocking — workers should address these during implementation |
+| **BLOCK** | Critical flaw that must be fixed before implementation can proceed |
 
 ### Circuit Breaker
 

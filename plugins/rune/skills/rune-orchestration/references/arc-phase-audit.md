@@ -27,12 +27,20 @@ The Codex Oracle is conditionally included when:
 1. The `codex` CLI is available on the system PATH
 2. The `talisman.codex.workflows` array includes `"audit"`
 
+## Ash Selection
+
+Delegated to `/rune:audit` — typically summons rune-architect + ward-sentinel + pattern-weaver (see audit.md for full selection logic based on file types and talisman.yml configuration).
+
 ## Invocation
 
 ```javascript
 // Delegation pattern: /rune:audit creates its own team (e.g., rune-audit-{identifier}).
 // Arc reads the team name from the audit state file or teammate idle notification.
-const auditTeamName = Read(`tmp/.rune-audit-*.json`)?.team_name || `rune-audit-${Date.now()}`
+// SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
+const auditStateFiles = Glob("tmp/.rune-audit-*.json")
+const auditTeamName = auditStateFiles.length > 0
+  ? JSON.parse(Read(auditStateFiles[0])).team_name
+  : `rune-audit-${Date.now()}`
 updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 9, team_name: auditTeamName })
 ```
 
