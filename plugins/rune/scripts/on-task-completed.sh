@@ -25,7 +25,7 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # Read hook input from stdin
-INPUT=$(cat)
+INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
 _trace "ENTER"
 
 # BACK-101: Validate JSON before attempting field extraction

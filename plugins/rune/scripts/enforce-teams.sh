@@ -60,7 +60,7 @@ if [[ -d "${CWD}/.claude/arc" ]]; then
       active_workflow=1
       break
     fi
-  done < <(find "${CWD}/.claude/arc" -name checkpoint.json -maxdepth 2 2>/dev/null)
+  done < <(find "${CWD}/.claude/arc" -name checkpoint.json -maxdepth 2 -type f 2>/dev/null)
 fi
 
 # Check review/audit/work state files

@@ -55,6 +55,9 @@ fi
 # Scan for .readonly-active marker in review/audit signal directories.
 # Only rune-review-*, arc-review-*, rune-audit-*, arc-audit-* teams create this marker.
 # Work teams (rune-work-*) and mend teams (rune-mend-*) do NOT have this marker.
+# NOTE: .readonly-active is created by the orchestrator in roundtable-circle Phase 2
+# (see skills/roundtable-circle/SKILL.md "Forge Team" step 3). The review/audit command
+# must write this marker BEFORE spawning Ashes for enforcement to take effect.
 # SEC-4 FIX: nullglob prevents literal glob strings when no directories match
 shopt -s nullglob
 for dir in "$SIGNAL_BASE"/rune-review-* "$SIGNAL_BASE"/arc-review-* \

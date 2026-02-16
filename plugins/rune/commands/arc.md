@@ -208,6 +208,8 @@ if command -v jq >/dev/null 2>&1; then
     jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
   done)
 else
+  # NOTE: grep fallback is imprecise — matches "in_progress" anywhere in file, not field-specific.
+  # Acceptable as degraded-mode check when jq is unavailable. The jq path above is the robust check.
   active=$(find .claude/arc -name checkpoint.json -maxdepth 2 2>/dev/null | while read f; do
     if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then basename "$(dirname "$f")"; fi
   done)
@@ -307,7 +309,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 On resume, validate checkpoint integrity before proceeding:
 
 ```
-1. Find most recent checkpoint: find .claude/arc -name checkpoint.json -maxdepth 2 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | awk '{print $2}'
+1. Find most recent checkpoint: find .claude/arc -name checkpoint.json -maxdepth 2 2>/dev/null | xargs ls -t 2>/dev/null | head -1
 2. Read .claude/arc/{id}/checkpoint.json — extract plan_file for downstream phases
 3. Schema migration (default missing schema_version: `const version = checkpoint.schema_version ?? 1`):
    if version < 2, migrate v1 → v2:
@@ -556,7 +558,7 @@ try {
 
 // Shutdown all discovered members
 for (const member of allMembers) { SendMessage({ type: "shutdown_request", recipient: member, content: "Plan review complete" }) }
-// SEC-003: id validated at line 212 (/^arc-[a-zA-Z0-9_-]+$/) + redundant traversal check above
+// SEC-003: id validated at arc init (/^arc-[a-zA-Z0-9_-]+$/) — see Initialize Checkpoint section
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
 }
