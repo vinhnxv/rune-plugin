@@ -167,9 +167,12 @@ See [Rune Gaze](references/rune-gaze.md) for the full file classification algori
 
 ```
 1. mkdir -p tmp/reviews/{pr-number}/
-2. Generate inscription.json (see references/inscription-schema.md)
-3. TeamCreate({ team_name: "rune-review-{pr}" })
-4. For each selected Ash:
+2. Generate inscription.json + signal directory (see references/monitor-utility.md)
+3. After signal directory setup, write SEC-001 readonly marker:
+   Write(`tmp/.rune-signals/{team_name}/.readonly-active`, "active")
+   (This enables platform-level read-only enforcement for review/audit Ashes via PreToolUse hook)
+4. TeamCreate({ team_name: "rune-review-{pr}" })
+5. For each selected Ash:
    TaskCreate({
      subject: "Review {scope} as {role}",
      description: "Files: [...], Output: tmp/reviews/{pr}/{role}.md"

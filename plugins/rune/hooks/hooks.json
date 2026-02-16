@@ -1,6 +1,30 @@
 {
-  "description": "Rune plugin hooks for event-driven agent synchronization and quality gates. Hooks fire for all events; filtering is done in-script via rune-*/arc-* prefix guards.",
+  "description": "Rune plugin hooks for event-driven agent synchronization, quality gates, and security enforcement. Hooks fire for all events; filtering is done in-script via rune-*/arc-* prefix guards.",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/enforce-readonly.sh",
+            "timeout": 5,
+            "statusMessage": "Checking tool permissions..."
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/enforce-teams.sh",
+            "timeout": 5,
+            "statusMessage": "Checking Agent Teams compliance..."
+          }
+        ]
+      }
+    ],
     "TaskCompleted": [
       {
         "hooks": [
@@ -9,6 +33,13 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on-task-completed.sh",
             "timeout": 10,
             "statusMessage": "Recording task completion signal..."
+          },
+          {
+            "type": "prompt",
+            "prompt": "You are a quality gate for a multi-agent engineering system. A teammate is marking a task as completed.\n\nTask info:\n$ARGUMENTS\n\nEvaluate legitimacy:\n1. Does task_subject describe specific work done (not just 'started', 'in progress', or 'task')?\n2. Is task_id present and non-empty?\n3. If team_name starts with 'rune-' or 'arc-', this is a Rune workflow task — hold to higher standard.\n\nRespond {\"ok\": false, \"reason\": \"Task completion appears premature — subject lacks specific work description.\"} ONLY for clearly empty/generic completions.\n\nRespond {\"ok\": true} for anything that describes actual work. When in doubt, allow.",
+            "model": "haiku",
+            "timeout": 10,
+            "statusMessage": "Evaluating task completion quality..."
           }
         ]
       }

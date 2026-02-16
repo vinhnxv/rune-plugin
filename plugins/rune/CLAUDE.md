@@ -46,14 +46,16 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 ## Hook Infrastructure
 
-Rune uses two Claude Code hooks for event-driven agent synchronization (Phase 2 BRIDGE — see CHANGELOG.md v1.23.0 and monitor-utility.md for details):
+Rune uses Claude Code hooks for event-driven agent synchronization, quality gates, and security enforcement:
 
 | Hook | Script | Purpose |
 |------|--------|---------|
+| `PreToolUse:Write\|Edit\|Bash` | `scripts/enforce-readonly.sh` | SEC-001: Blocks write tools for review/audit Ashes when `.readonly-active` marker exists. |
+| `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
 | `TaskCompleted` | `scripts/on-task-completed.sh` | Writes signal files to `tmp/.rune-signals/{team}/` when Ashes complete tasks. Enables 5-second filesystem-based completion detection instead of 30-second `TaskList()` polling. |
 | `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
 
-Both hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 with a warning and the monitor falls back to polling automatically. Hook configuration lives in `hooks/hooks.json`.
+All hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 (non-blocking) and the system falls back gracefully. Hook configuration lives in `hooks/hooks.json`.
 
 **Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Traces show hook entry, parsed fields, guard exits, signal writes, and quality gate decisions. Off by default — zero overhead in production.
 
