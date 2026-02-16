@@ -43,8 +43,22 @@ const forgePlanPath = `tmp/arc/${id}/enriched-plan.md`
 // Arc records the team_name for cancel-arc discovery.
 // Delegation pattern: /rune:forge creates its own team (e.g., rune-forge-{timestamp}).
 // Arc reads the team name from the forge state file.
-// SEC-002 FIX: Clean stale forge state files before delegation to prevent TOCTOU confusion
-Bash('rm -f tmp/.rune-forge-*.json 2>/dev/null')
+// SEC-002 FIX: Clean stale forge state files before delegation to prevent TOCTOU confusion.
+// Only remove completed/cancelled/expired files — preserve active sessions (< 30 min old).
+const forgeStateFiles = Glob("tmp/.rune-forge-*.json")
+for (const sf of forgeStateFiles) {
+  try {
+    const state = JSON.parse(Read(sf))
+    const age = Date.now() - new Date(state.started).getTime()
+    if (state.status === "completed" || state.status === "cancelled" || age > 1800000) {
+      Bash(`rm -f "${sf}" 2>/dev/null`)
+    }
+    // Preserve active files < 30 min old — concurrent /rune:forge sessions depend on these
+  } catch (e) {
+    // Unparseable state file — remove as stale
+    Bash(`rm -f "${sf}" 2>/dev/null`)
+  }
+}
 // SEC-12 FIX: Use Glob() to resolve wildcard --- Read() does not support glob expansion.
 // CDX-2 NOTE: Glob matches ALL forge state files --- [0] is most recent by mtime.
 // After /rune:forge invocation completes, read state file to discover team name:
