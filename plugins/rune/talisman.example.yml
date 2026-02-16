@@ -205,6 +205,31 @@ defaults:
 #     #   phase: ["post-work", "pre-review"]  # Only after implementation
 
 # ──────────────────────────────────────────────
+# Plan — Freshness gate (v1.26.0+)
+# ──────────────────────────────────────────────
+# Pre-flight check in /rune:arc that detects when a plan's
+# source codebase has drifted significantly since plan creation.
+# Requires git_sha in plan frontmatter (added by /rune:plan v1.26.0+).
+# Plans without git_sha gracefully skip the check.
+#
+# NOTE: These settings go under the same `plan:` key as verification_patterns above.
+# In your talisman.yml, merge both blocks under a single `plan:` key:
+#   plan:
+#     verification_patterns: [...]
+#     freshness:
+#       enabled: true
+#       ...
+#
+#   freshness:
+#     enabled: true              # Set false to disable freshness check globally
+#     warn_threshold: 0.7        # Score below this → WARN (float, 0.01-1.0)
+#     block_threshold: 0.4       # Score below this → STALE (float, 0.0-0.99, must be < warn)
+#                                # Note: block_threshold can be 0.0 (disables blocking).
+#                                # warn_threshold minimum is 0.01 — to disable warnings entirely,
+#                                # set enabled: false instead.
+#     max_commit_distance: 100   # Commits beyond this → max drift signal (clamped 1-10000)
+
+# ──────────────────────────────────────────────
 # Arc — Pipeline timeout overrides (v1.12.0+)
 # ──────────────────────────────────────────────
 # Per-phase timeout overrides for /rune:arc. Values in milliseconds.
@@ -212,17 +237,17 @@ defaults:
 # future release.
 # arc:
 #   timeouts:
-#     forge: 600000           # 10 minutes (default)
-#     plan_review: 600000     # 10 minutes (default)
+#     forge: 900000           # 15 minutes (default: inner 10m + 5m setup)
+#     plan_review: 900000     # 15 minutes (default: inner 10m + 5m setup)
 #     plan_refine: 180000     # 3 minutes (default, orchestrator-only)
 #     verification: 30000     # 30 seconds (default, orchestrator-only, deterministic)
-#     work: 1860000           # 31 minutes (default)
+#     work: 2100000           # 35 minutes (default: inner 30m + 5m setup)
 #     gap_analysis: 60000     # 1 minute (default, orchestrator-only, deterministic)
-#     code_review: 660000     # 11 minutes (default)
-#     mend: 960000            # 16 minutes (default)
+#     code_review: 900000     # 15 minutes (default: inner 10m + 5m setup)
+#     mend: 1380000           # 23 minutes (default: inner 15m + 5m setup + 3m ward)
 #     verify_mend: 240000     # 4 minutes (default, orchestrator-only)
-#     audit: 960000           # 16 minutes (default)
-#     total: 5400000          # 90 minutes total pipeline (default)
+#     audit: 1200000          # 20 minutes (default: inner 15m + 5m setup)
+#     total: 7200000          # 120 minutes total pipeline (default)
 
 # ──────────────────────────────────────────────
 # Solution Arena — Competitive solution evaluation (v1.24.0+)
@@ -253,7 +278,7 @@ work:
   approve_timeout: 180         # Seconds to wait for task proposal approval (default: 180)
   commit_format: "rune: {subject} [ward-checked]"  # Commit message template
   skip_branch_check: false     # Skip Phase 0.5 branch/environment check (default: false)
-  branch_prefix: "rune/work"   # Branch name prefix (must match /^[a-zA-Z0-9][a-zA-Z0-9_\-\/]*$/ AND must not contain '..', default: "rune/work")
+  branch_prefix: "rune/work"   # Branch name prefix (must match /^[a-zA-Z0-9][a-zA-Z0-9._\-\/]*$/ AND must not contain '..', default: "rune/work")
   pr_monitoring: false          # Include post-deploy monitoring section in PR body (default: false)
   # pr_template: default        # Reserved for a future release — only "default" currently implemented
   # auto_push: false            # Reserved for a future release — auto-push without confirmation

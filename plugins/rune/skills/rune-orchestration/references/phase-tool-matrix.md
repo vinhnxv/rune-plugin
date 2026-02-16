@@ -21,17 +21,17 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 
 | Phase | Timeout | Notes |
 |-------|---------|-------|
-| FORGE | 10 min | 5 parallel research agents |
-| PLAN REVIEW | 10 min | 3 parallel reviewers |
+| FORGE | 15 min | Inner 10m + 5m setup budget |
+| PLAN REVIEW | 15 min | Inner 10m + 5m setup budget |
 | PLAN REFINEMENT | 3 min | Orchestrator-only, no agents |
 | VERIFICATION | 30 sec | Deterministic checks, no LLM |
-| WORK | 31 min | Work own timeout (30m) + 60s buffer |
+| WORK | 35 min | Inner 30m + 5m setup budget |
 | GAP ANALYSIS | 1 min | Orchestrator-only, deterministic text checks |
-| CODE REVIEW | 11 min | Review own timeout (10m) + 60s buffer |
-| MEND | 16 min | Mend own timeout (15m) + 60s buffer |
+| CODE REVIEW | 15 min | Inner 10m + 5m setup budget |
+| MEND | 23 min | Inner 15m + 5m setup + 3m ward/cross-file |
 | VERIFY MEND | 4 min | Single Explore spot-check (orchestrator-only) |
-| AUDIT | 16 min | Audit own timeout (15m) + 60s buffer |
+| AUDIT | 20 min | Inner 15m + 5m setup budget |
 
-**Total pipeline hard ceiling**: 90 minutes (`ARC_TOTAL_TIMEOUT`).
+**Total pipeline hard ceiling**: 120 minutes (`ARC_TOTAL_TIMEOUT`).
 
 Delegated phases use inner-timeout + 60s buffer so the delegated command handles its own timeout first; the arc timeout is a safety net only.

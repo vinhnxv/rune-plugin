@@ -25,7 +25,8 @@ AskUserQuestion({
 
 1. Read all research output files from `tmp/plans/{timestamp}/research/`
 2. Identify common themes, conflicting advice, key patterns
-3. Draft the plan document using the template matching the selected detail level:
+3. Populate git metadata in plan frontmatter: include `git_sha` (from `git rev-parse HEAD`) and `branch` (from `git branch --show-current`). If the working directory is not a git repository, omit these fields. On a detached HEAD, set `branch` to `null`.
+4. Draft the plan document using the template matching the selected detail level:
 
 ## Minimal Template
 
@@ -34,6 +35,8 @@ AskUserQuestion({
 title: "{type}: {feature description}"
 type: feat | fix | refactor
 date: YYYY-MM-DD
+git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
+branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
 
 # {Feature Title}
@@ -61,6 +64,8 @@ date: YYYY-MM-DD
 title: "{type}: {feature description}"
 type: feat | fix | refactor
 date: YYYY-MM-DD
+git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
+branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
 
 # {Feature Title}
@@ -147,6 +152,8 @@ Files that must stay in sync when this plan's changes are applied:
 title: "{type}: {feature description}"
 type: feat | fix | refactor
 date: YYYY-MM-DD
+git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
+branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
 
 # {Feature Title}
@@ -195,11 +202,10 @@ date: YYYY-MM-DD
 
 {ERD mermaid diagram if applicable}
 
-<!-- NOTE: Remove space in "` ``" fences when using this template -->
-` ``mermaid
+~~~mermaid
 erDiagram
     ENTITY_A ||--o{ ENTITY_B : has
-` ``
+~~~
 
 ## Solution Selection
 
@@ -381,6 +387,6 @@ Bash(`git push -u origin "${currentBranch}"`)  // <- no error handling
 ```
 ```
 
-4. Write to `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
+5. Write to `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
-5. **Comprehensive only -- Second SpecFlow pass**: If detail level is Comprehensive, re-run flow-seer on the drafted plan (not just the raw spec from Phase 1D). Write to `tmp/plans/{timestamp}/research/specflow-post-draft.md`. Tarnished appends findings to the plan before scroll-reviewer runs.
+6. **Comprehensive only -- Second SpecFlow pass**: If detail level is Comprehensive, re-run flow-seer on the drafted plan (not just the raw spec from Phase 1D). Write to `tmp/plans/{timestamp}/research/specflow-post-draft.md`. Tarnished appends findings to the plan before scroll-reviewer runs.

@@ -16,13 +16,13 @@ const issues = []
 const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
 const filePaths = extractFileReferences(enrichedPlanPath)
 for (const fp of filePaths) {
-  if (!SAFE_FILE_PATH.test(fp)) {
+  if (!SAFE_FILE_PATH.test(fp) || fp.includes('..') || fp.startsWith('/')) {
     issues.push(`File reference with unsafe characters: ${fp.slice(0, 80)}`)
     continue
   }
   if (!exists(fp)) {
     const gitExists = Bash(`git log --all --oneline -- "${fp}" 2>/dev/null | head -1`)
-    const annotation = gitExists.trim()
+    const annotation = gitExists.stdout.trim()
       ? `[STALE: was deleted -- see git history]`
       : `[PENDING: file does not exist yet -- may be created during WORK]`
     issues.push(`File reference: ${fp} -- ${annotation}`)
@@ -102,7 +102,40 @@ for (const cmdFile of commandFiles) {
   }
 }
 
-// 8. Write verification report
+// 8. Plan freshness re-check (Layer 2 — post-forge references)
+// Only runs if pre-flight freshness was checked and plan has git_sha
+// Security pattern: SAFE_SHA_PATTERN — see security-patterns.md
+const SAFE_SHA_PATTERN = /^[0-9a-f]{7,40}$/
+// Security pattern: SAFE_FILE_PATH — see security-patterns.md
+if (checkpoint?.freshness?.git_sha
+    && checkpoint.freshness.sha_reachable
+    && SAFE_SHA_PATTERN.test(checkpoint.freshness.git_sha)
+    && talisman?.plan?.freshness?.enabled !== false) {
+  const enrichedRefs = extractFileReferences(Read(enrichedPlanPath))
+    .filter(fp => SAFE_FILE_PATH.test(fp) && !fp.includes('..') && !fp.startsWith('/'))
+  const originalPlanRefs = extractFileReferences(Read(checkpoint.plan_file))
+    .filter(fp => SAFE_FILE_PATH.test(fp) && !fp.includes('..') && !fp.startsWith('/'))
+  const newRefs = enrichedRefs.filter(fp => !originalPlanRefs.includes(fp))
+  if (newRefs.length > 0) {
+    const sha = checkpoint.freshness.git_sha
+    let newDriftCount = 0
+    // SEC-002 FIX: derive budget from remaining Phase 2.7 time (30s total) instead of hardcoded 25s
+    const phase27Deadline = checkpoint?.phase_start_time
+      ? checkpoint.phase_start_time + PHASE_TIMEOUTS.verification
+      : Date.now() + 30_000
+    const budgetDeadline = Math.min(Date.now() + 25_000, phase27Deadline - 2_000)
+    for (const fp of newRefs) {
+      if (Date.now() > budgetDeadline) { break }  // budget exhausted — use partial count
+      const diff = Bash(`git diff --name-only "${sha}..HEAD" -- "${fp}" 2>/dev/null`)
+      if (diff.stdout.trim().length > 0) newDriftCount++
+    }
+    if (newDriftCount > 0) {
+      issues.push(`Freshness: ${newDriftCount}/${newRefs.length} forge-expanded file references modified since plan creation`)
+    }
+  }
+}
+
+// Report: Write verification report
 const verificationReport = `# Verification Gate Report\n\n` +
   `Status: ${issues.length === 0 ? "PASS" : "WARN"}\n` +
   `Issues: ${issues.length}\n` +

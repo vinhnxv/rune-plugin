@@ -271,7 +271,7 @@ const result = waitForCompletion(teamName, taskCount, {
 - **Auto-release is optional**: When `autoReleaseMs` is `undefined`, stale tasks only produce warnings. This matches `review` and `audit` where Ash findings are non-fungible.
 - **No retry logic**: `TaskList()` errors propagate naturally. Retry logic is out of scope for Phase 1.
 - **Final sweep**: On timeout, a final `TaskList()` call captures any tasks that completed during the last poll interval. This matches the existing pattern in `review.md`, `audit.md`, `work.md`, and `mend.md`.
-- **Arc per-phase budgets**: Arc does not call `waitForCompletion` directly with a single timeout. Instead, each delegated phase (work, review, mend, audit) uses its own inner timeout. Arc wraps these with a safety-net phase timeout (`PHASE_TIMEOUTS`) plus the global `ARC_TOTAL_TIMEOUT` (90 min) ceiling.
+- **Arc per-phase budgets**: Arc does not call `waitForCompletion` directly with a single timeout. Instead, each delegated phase (work, review, mend, audit) uses its own inner timeout. Arc wraps these with a safety-net phase timeout (`PHASE_TIMEOUTS`) plus the global `ARC_TOTAL_TIMEOUT` (120 min) ceiling.
 - **Checkpoint reporting is optional**: When `onCheckpoint` is `undefined`, no milestone tracking occurs. Existing callers without `onCheckpoint` get identical behavior. Currently used by `work`. Arc integration is planned but not yet wired.
 - **zsh reserved variable names**: When translating pseudocode to Bash commands, **NEVER use `status` as a shell variable name**. In zsh (macOS default shell), `$status` is a read-only built-in (equivalent to `$?`). Assigning to it causes `(eval):1: read-only variable: status`. Use alternative names like `task_status`, `tstat`, or `completion_status` instead. Other zsh reserved names to avoid: `pipestatus`, `ERRNO`, `signals`.
 - **Polling loop parameters MUST match config**: When translating `waitForCompletion` to Bash, the loop parameters MUST be derived from the configured values — not invented. Use the formula: `maxIterations = ceil(timeoutMs / pollIntervalMs)` and `sleepSeconds = pollIntervalMs / 1000`. For example, mend with `timeoutMs: 900_000` and `pollIntervalMs: 30_000` → `maxIterations=30, sleep 30`. Never use arbitrary iteration counts or sleep intervals that don't match the per-command configuration table above.
@@ -320,6 +320,14 @@ Write(`${signalDir}/inscription.json`, JSON.stringify({
     // ... per command configuration
   ]
 }))
+
+// SEC-001: Write readonly marker for review/audit teams.
+// This marker is checked by enforce-readonly.sh (PreToolUse hook) to block
+// Write/Edit/Bash/NotebookEdit for subagents when a review/audit team is active.
+// Only review and audit workflows write this marker — work/mend/plan do NOT.
+if (workflow === "rune-review" || workflow === "rune-audit") {
+  Write(`${signalDir}/.readonly-active`, "active")
+}
 ```
 
 ### Dual-Path Pseudocode

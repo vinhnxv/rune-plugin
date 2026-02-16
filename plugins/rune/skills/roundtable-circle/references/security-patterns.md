@@ -138,6 +138,16 @@ Note: `SAFE_REGEX_PATTERN` does not include `\n` in its character class, so mult
 **Threat model**: Validates branch names for git operations. Requires alphanumeric start character.
 **Consumers**: work.md (Phase 0 branch setup)
 
+## SHA Validators
+
+### SAFE_SHA_PATTERN
+<!-- PATTERN:SAFE_SHA_PATTERN regex="/^[0-9a-f]{7,40}$/" version="1" -->
+**Regex**: `/^[0-9a-f]{7,40}$/`
+**Threat model**: Validates git commit SHAs (abbreviated 7-char and full 40-char hex). Guards `git rev-parse --verify`, `git diff`, and `git log` operations where a stored SHA is interpolated into shell commands. Prevents command injection via crafted SHA values in plan metadata files.
+**WARNING**: Validates format only — does NOT verify the SHA exists in the repository. Consumers MUST use `git cat-file -t {sha} 2>/dev/null` after format validation to confirm the SHA resolves.
+**ReDoS safe**: Yes (character class with bounded quantifier `{7,40}`, no nesting)
+**Consumers**: arc.md (freshness gate), verification-gate.md (check #8)
+
 ## Additional Validators (Single-File)
 
 These patterns appear in a single file and are documented here for completeness but are not extracted to multi-file sync:
