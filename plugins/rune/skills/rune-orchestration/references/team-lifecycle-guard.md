@@ -212,6 +212,8 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 
 All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, research-phase.md
 
+Arc phase references (extracted from arc.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-code-review.md
+
 ## Notes
 
 - The filesystem fallback (`rm -rf ~/.claude/teams/...`) is safe — these directories only contain Agent SDK coordination state, not user data
