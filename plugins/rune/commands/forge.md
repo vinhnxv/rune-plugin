@@ -291,10 +291,11 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge timestam
 
 // Emit state file for arc delegation pattern discovery (matches work.md/review.md/audit.md pattern)
 // Arc reads this via Glob("tmp/.rune-forge-*.json") to discover team_name for checkpoint/cancel-arc.
+const startedTimestamp = new Date().toISOString()
 Write(`tmp/.rune-forge-${timestamp}.json`, {
   team_name: `rune-forge-${timestamp}`,
   plan: planPath,
-  started: new Date().toISOString(),
+  started: startedTimestamp,
   status: "active"
 })
 
@@ -499,7 +500,7 @@ try { TeamDelete() } catch (e) {
 Write(`tmp/.rune-forge-${timestamp}.json`, {
   team_name: `rune-forge-${timestamp}`,
   plan: planPath,
-  started: startTimestamp,
+  started: startedTimestamp,
   status: "completed",
   completed: new Date().toISOString()
 })

@@ -71,7 +71,7 @@ if (!phase_team) {
 }
 
 // SEC-006 FIX: Secondary fallback — discover forge team from state file
-if (phase_team === null && phase === 'forge') {
+if (phase_team === null && current_phase === 'forge') {
   const forgeStateFiles = Glob("tmp/.rune-forge-*.json")
   if (forgeStateFiles.length > 0) {
     try {
