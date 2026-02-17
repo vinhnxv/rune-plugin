@@ -8,7 +8,7 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 **Inputs**: id (string), gap analysis path (optional: `tmp/arc/{id}/gap-analysis.md`)
 **Outputs**: `tmp/arc/{id}/tome.md`
 **Error handling**: Does not halt — review always produces findings or a clean report. Timeout → partial results collected. Team creation failure → cleanup fallback via `rm -rf` (see [team-lifecycle-guard.md](team-lifecycle-guard.md)).
-**Consumers**: arc.md (Phase 6 stub)
+**Consumers**: SKILL.md (Phase 6 stub)
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
@@ -117,7 +117,7 @@ When both conditions are met, the Codex Oracle is included as an additional revi
 
 Delegated to `/rune:review` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
 
-Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See arc.md Inter-Phase Cleanup Guard section.
+Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See SKILL.md Inter-Phase Cleanup Guard section.
 
 ## Docs-Only Work Output
 

@@ -9,7 +9,7 @@ Invoke `/rune:forge` logic on the plan. Forge Gaze topic-aware enrichment with C
 **Inputs**: planFile (string, validated at arc init), id (string, validated at arc init)
 **Outputs**: `tmp/arc/{id}/enriched-plan.md` (enriched copy of original plan)
 **Error handling**: Forge timeout --- proceed with original plan copy (warn user, offer `--no-forge`). No enrichments --- use original plan copy. Team lifecycle failure --- delegated to forge cleanup (see [team-lifecycle-guard.md](team-lifecycle-guard.md)).
-**Consumers**: arc.md (Phase 1 stub)
+**Consumers**: SKILL.md (Phase 1 stub)
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
@@ -30,7 +30,7 @@ When forge detects arc context (`planPath.startsWith("tmp/arc/")`), it automatic
 ```javascript
 // STEP 1: Create working copy for forge to enrich
 // Forge edits in-place via Edit; arc needs the original preserved.
-// SEC-007 FIX: Local validation of id — defense-in-depth (arc.md validates upstream)
+// SEC-007 FIX: Local validation of id — defense-in-depth (SKILL.md validates upstream)
 if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid arc id')
 if (id.includes('..')) throw new Error('Path traversal detected in arc id')
 Bash(`mkdir -p "tmp/arc/${id}"`)
@@ -95,7 +95,7 @@ updateCheckpoint({
 
 **Failure policy**: Proceed with original plan copy if forge fails or times out. Warn user and offer `--no-forge` on retry.
 
-> **Note**: The `--no-forge` skip is handled by arc.md dispatcher (checks `noForgeFlag` before entering this phase). This file executes only when forge is not skipped.
+> **Note**: The `--no-forge` skip is handled by SKILL.md dispatcher (checks `noForgeFlag` before entering this phase). This file executes only when forge is not skipped.
 
 ## Team Lifecycle
 
@@ -103,4 +103,4 @@ Delegated to `/rune:forge` --- manages its own TeamCreate/TeamDelete with guards
 
 Arc MUST record the actual `team_name` created by `/rune:forge` in the checkpoint. This enables `/rune:cancel-arc` to discover and shut down the forge team if the user cancels mid-pipeline. The forge command creates its own team with its own naming convention --- arc reads the team name back after delegation.
 
-Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See arc.md Inter-Phase Cleanup Guard section.
+Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See SKILL.md Inter-Phase Cleanup Guard section.

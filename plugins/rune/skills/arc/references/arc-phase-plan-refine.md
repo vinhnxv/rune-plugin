@@ -9,7 +9,7 @@ Extract CONCERN details from reviewer outputs and propagate as context to the wo
 **Inputs**: id (string), reviewer verdict paths (`tmp/arc/{id}/reviews/{name}-verdict.md`), checkpoint object
 **Outputs**: `tmp/arc/{id}/concern-context.md` (or skipped if no CONCERNs)
 **Error handling**: Non-blocking -- proceed with unrefined plan + deferred concerns as context
-**Consumers**: arc.md (Phase 2.5 stub)
+**Consumers**: SKILL.md (Phase 2.5 stub)
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 

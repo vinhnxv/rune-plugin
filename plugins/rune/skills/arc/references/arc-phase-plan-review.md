@@ -8,7 +8,7 @@ Three parallel reviewers evaluate the enriched plan. Any BLOCK verdict halts the
 **Inputs**: id (string, validated at arc init), enriched plan path (`tmp/arc/{id}/enriched-plan.md`)
 **Outputs**: `tmp/arc/{id}/plan-review.md`
 **Error handling**: BLOCK verdict halts pipeline. User fixes plan, then `/rune:arc --resume`.
-**Consumers**: arc.md (Phase 2 stub)
+**Consumers**: SKILL.md (Phase 2 stub)
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
@@ -42,7 +42,7 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: `arc-plan-review-${id}` })
 
-// Delegation checklist: see rune-orchestration/references/arc-delegation-checklist.md (Phase 2)
+// Delegation checklist: see arc-delegation-checklist.md (Phase 2)
 const reviewers = [
   { name: "scroll-reviewer", agent: "agents/utility/scroll-reviewer.md", focus: "Document quality" },
   { name: "decree-arbiter", agent: "agents/utility/decree-arbiter.md", focus: "Technical soundness" },

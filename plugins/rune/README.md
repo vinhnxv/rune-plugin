@@ -330,6 +330,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | ash-guide | Agent invocation reference |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
+| arc | End-to-end orchestration pipeline (forge → plan review → work → code review → mend → audit) |
 
 ## Configuration
 
@@ -439,7 +440,6 @@ plugins/rune/
 │   ├── work/            # 2 swarm workers (work pipeline)
 │   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper
 ├── commands/
-│   ├── arc.md           # /rune:arc
 │   ├── cancel-arc.md    # /rune:cancel-arc
 │   ├── forge.md         # /rune:forge
 │   ├── mend.md          # /rune:mend
@@ -453,6 +453,9 @@ plugins/rune/
 │   ├── echoes.md        # /rune:echoes
 │   └── rest.md          # /rune:rest
 ├── skills/
+│   ├── arc/                 # /rune:arc (end-to-end pipeline)
+│   │   ├── SKILL.md
+│   │   └── references/      # Arc-specific phase refs, delegation checklist
 │   ├── rune-orchestration/  # Core coordination
 │   │   └── references/      # e.g. team-lifecycle-guard.md
 │   ├── context-weaving/     # Context management

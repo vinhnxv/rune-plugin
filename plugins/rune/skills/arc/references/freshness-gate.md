@@ -2,7 +2,7 @@
 
 Zero-LLM-cost structural drift detection for Rune Arc. Detects when a plan was written against a significantly different codebase state using 5 weighted signals.
 
-**Consumers**: arc.md (pre-flight), arc.md (--resume re-check)
+**Consumers**: SKILL.md (pre-flight), SKILL.md (--resume re-check)
 
 ## Inputs / Outputs
 

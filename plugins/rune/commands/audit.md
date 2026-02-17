@@ -49,7 +49,7 @@ Orchestrate a full codebase audit using the Roundtable Circle architecture. Each
 
 ## Phase 0: Pre-flight
 
-<!-- DELEGATION-CONTRACT: Changes to Phase 0 steps must be reflected in skills/rune-orchestration/references/arc-delegation-checklist.md (Phase 8) -->
+<!-- DELEGATION-CONTRACT: Changes to Phase 0 steps must be reflected in skills/arc/references/arc-delegation-checklist.md (Phase 8) -->
 
 ```bash
 # Generate audit identifier
