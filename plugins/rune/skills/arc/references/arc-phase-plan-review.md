@@ -41,7 +41,7 @@ if (id.includes('..')) throw new Error('Path traversal detected in arc id')
 // clearing SDK leadership state + prior phase team dirs. This inline guard is
 // defense-in-depth for the specific team being created (stale same-name team).
 // teamTransition — inlined 5-step protocol (see team-lifecycle-guard.md)
-// Step 1: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+// STEP 1: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
 const RETRY_DELAYS = [0, 3000, 8000]
 for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
   if (attempt > 0) {
@@ -57,26 +57,29 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
     }
   }
 }
-// Step 2: rm-rf TARGET team dirs (filesystem fallback)
+// STEP 2: rm-rf TARGET team dirs (filesystem fallback)
 Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-plan-review-${id}/" "$CHOME/tasks/arc-plan-review-${id}/" 2>/dev/null`)
-// Step 3: Cross-workflow scan — clean ANY stale rune/arc team dirs
+// STEP 3: Cross-workflow scan — clean ANY stale rune/arc team dirs
 Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
-// Step 4: TeamCreate with "Already leading" catch-and-recover
+// STEP 4: TeamCreate with "Already leading" catch-and-recover
 try {
   TeamCreate({ team_name: `arc-plan-review-${id}` })
-} catch (createErr) {
-  if (/already leading/i.test(createErr.message)) {
+} catch (createError) {
+  if (/already leading/i.test(createError.message)) {
     warn(`arc-plan-review: "Already leading" detected — clearing stale leadership and retrying...`)
     try { TeamDelete() } catch (_) {}
     Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-plan-review-${id}/" "$CHOME/tasks/arc-plan-review-${id}/" 2>/dev/null`)
-    TeamCreate({ team_name: `arc-plan-review-${id}` })
-  } else { throw createErr }
+    try {
+      TeamCreate({ team_name: `arc-plan-review-${id}` })
+    } catch (finalError) {
+      throw new Error(`teamTransition failed: unable to create team after exhausting all cleanup strategies. Run /rune:rest --heal to manually clean up, then retry. (${finalError.message})`)
+    }
+  } else { throw createError }
 }
-// Step 5: Post-create verification
-try {
-  const cfg = Read(`~/.claude/teams/arc-plan-review-${id}/config.json`)
-  if (!cfg) warn('arc-plan-review: Post-create verification — config.json missing')
-} catch (_) { warn('arc-plan-review: Post-create verification — could not read config') }
+// STEP 5: Post-create verification
+// TOME-3 FIX: Use Bash test -f + CHOME for consistency with command files
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/arc-plan-review-${id}/config.json" || echo "WARN: config.json not found after TeamCreate"`)
+
 
 // Delegation checklist: see arc-delegation-checklist.md (Phase 2)
 const reviewers = [

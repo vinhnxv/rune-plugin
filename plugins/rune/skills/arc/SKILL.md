@@ -386,21 +386,18 @@ function prePhaseCleanup(checkpoint) {
       Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
 
       // Post-removal verification: detect if cleaning happened or if dir persists
-      if (exists(`~/.claude/teams/${teamName}/`)) {
+      // TOME-1 FIX: Use CHOME-based check instead of bare ~/.claude/ path
+      const stillExists = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -d "$CHOME/teams/${teamName}/" && echo "exists"`)
+      if (stillExists.trim() === "exists") {
         warn(`ARC-6: rm -rf failed for ${teamName} — directory still exists`)
       }
     }
 
-    // Step C: Retry TeamDelete after cross-phase filesystem cleanup
-    // Pre-create guard v2: clearing dirs may have unblocked SDK leadership state
-    // Retry-with-backoff (3 attempts: 0s, 3s, 8s)
-    const STEP_C_DELAYS = [0, 3000, 8000]
-    for (let attempt = 0; attempt < STEP_C_DELAYS.length; attempt++) {
-      if (attempt > 0) Bash(`sleep ${STEP_C_DELAYS[attempt] / 1000}`)
-      try { TeamDelete(); break } catch (e3) {
-        if (attempt === STEP_C_DELAYS.length - 1) { /* SDK state cleared or was already clear */ }
-      }
-    }
+    // Step C: Single TeamDelete after cross-phase filesystem cleanup
+    // TOME-8 FIX: Reduced from 3x retry to 1x — filesystem cleanup should have
+    // already unblocked SDK state. If this single attempt doesn't work, more retries
+    // with sleep won't help. Avoids worst-case 22s sleep per phase transition.
+    try { TeamDelete() } catch (e3) { /* SDK state cleared or was already clear */ }
 
   } catch (e) {
     // Top-level guard: defensive infrastructure must NEVER halt the pipeline.
@@ -623,16 +620,9 @@ On resume, validate checkpoint integrity before proceeding:
      }
    }
 
-   // Step C: Retry TeamDelete after checkpoint + stale scan filesystem cleanup
-   // Pre-create guard v2: rm-rf of checkpoint teams may have unblocked SDK leadership state
-   // Retry-with-backoff (3 attempts: 0s, 3s, 8s)
-   const ORCH1_POST_DELAYS = [0, 3000, 8000]
-   for (let attempt = 0; attempt < ORCH1_POST_DELAYS.length; attempt++) {
-     if (attempt > 0) Bash(`sleep ${ORCH1_POST_DELAYS[attempt] / 1000}`)
-     try { TeamDelete(); break } catch (e) {
-       if (attempt === ORCH1_POST_DELAYS.length - 1) { /* SDK state cleared or was already clear */ }
-     }
-   }
+   // Step C: Single TeamDelete after checkpoint + stale scan filesystem cleanup
+   // TOME-8 FIX: Reduced from 3x retry to 1x (same rationale as prePhaseCleanup)
+   try { TeamDelete() } catch (e) { /* SDK state cleared or was already clear */ }
 
    Write(checkpointPath, checkpoint)  // Save cleaned checkpoint
    ```

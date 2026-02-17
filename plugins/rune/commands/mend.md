@@ -263,11 +263,15 @@ try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 try {
   TeamCreate({ team_name: "rune-mend-{id}" })
 } catch (createError) {
-  if (createError.message?.includes('Already leading')) {
+  if (/already leading/i.test(createError.message)) {
     warn(`teamTransition: Leadership state leak detected. Attempting final cleanup.`)
     try { TeamDelete() } catch (e) { /* exhausted */ }
     Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-mend-${id}/" "$CHOME/tasks/rune-mend-${id}/" 2>/dev/null`)
-    TeamCreate({ team_name: "rune-mend-{id}" })
+    try {
+      TeamCreate({ team_name: "rune-mend-{id}" })
+    } catch (finalError) {
+      throw new Error(`teamTransition failed: unable to create team after exhausting all cleanup strategies. Run /rune:rest --heal to manually clean up, then retry. (${finalError.message})`)
+    }
   } else {
     throw createError
   }

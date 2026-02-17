@@ -53,7 +53,7 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
 // CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
 Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${newTeamName}/" "$CHOME/tasks/${newTeamName}/" 2>/dev/null`)
 // Cross-workflow scan — clean ANY stale rune/arc team dirs
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \\( -name "rune-*" -o -name "arc-*" \\) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \\( -name "rune-*" -o -name "arc-*" \\) -exec rm -rf {} + 2>/dev/null`)
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
 // Retry TeamDelete after filesystem cleanup (SDK state may be unblocked now)
 try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 
@@ -62,12 +62,16 @@ try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 try {
   TeamCreate({ team_name: newTeamName })
 } catch (createError) {
-  if (createError.message?.includes('Already leading')) {
+  if (/already leading/i.test(createError.message)) {
     warn(`teamTransition: Leadership state leak detected. Attempting final cleanup.`)
     try { TeamDelete() } catch (e) { /* exhausted */ }
     Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${newTeamName}/" "$CHOME/tasks/${newTeamName}/" 2>/dev/null`)
-    // Final attempt — if this fails, the error propagates to caller
-    TeamCreate({ team_name: newTeamName })
+    // Final attempt — TOME-4 FIX: wrap in try/catch with actionable error message
+    try {
+      TeamCreate({ team_name: newTeamName })
+    } catch (finalError) {
+      throw new Error(`teamTransition failed: unable to create team after exhausting all cleanup strategies. Run /rune:rest --heal to manually clean up, then retry. (${finalError.message})`)
+    }
   } else {
     throw createError
   }
