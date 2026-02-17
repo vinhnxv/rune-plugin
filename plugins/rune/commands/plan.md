@@ -194,9 +194,91 @@ AskUserQuestion({
 })
 ```
 
-#### Step 3.5: Elicitation Methods (Recommended)
+#### Step 3.5: Elicitation Methods (Mandatory)
 
-After approach selection, optionally apply structured reasoning methods for deeper exploration. Load elicitation skill's methods.csv (from `skills/elicitation/methods.csv`), filter by `phases includes "plan:0"` and `auto_suggest=true`, score by keyword overlap with feature description, present top 3-5 via AskUserQuestion with `multiSelect: true`. At least 1 method recommended. Include a "Skip elicitation" option for users who want to proceed directly. In `--quick` mode, top-scored method auto-selected. For each selected method, expand output_pattern into template and apply to context.
+After approach selection, summon 1-3 elicitation-sage teammates for multi-perspective structured reasoning. Skippable via talisman key `elicitation.enabled: false` or user opt-out.
+
+**Talisman check**: Read `.claude/talisman.yml` → if `elicitation.enabled` is explicitly `false`, skip this step entirely.
+
+```javascript
+// 1. Compute fan-out using simplified keyword count threshold (not float scoring)
+//    Decree-arbiter P2: Float comparisons unreliable in LLM pseudocode.
+//    Use keyword count → lookup table instead.
+const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
+  "migration", "performance", "decision", "approach", "comparison",
+  "breaking-change", "auth", "api", "complex", "novel"]
+const contextText = (featureDescription + " " + selectedApproach).toLowerCase()
+const keywordHits = elicitKeywords.filter(k => contextText.includes(k)).length
+
+// Lookup table: keyword hits → sage count (capped at 3 for brainstorm)
+let sageCount
+if (keywordHits >= 6) sageCount = 3      // High complexity
+else if (keywordHits >= 4) sageCount = 3  // Medium-high
+else if (keywordHits >= 2) sageCount = 2  // Moderate
+else sageCount = 1                         // Simple — still 1 sage minimum
+
+// 2. Score and assign methods
+//    Read methods.csv, filter for plan:0 phase, sort by keyword overlap
+const methods = Read("skills/elicitation/methods.csv")
+// Filter: phases contains "plan:0" AND auto_suggest = true
+// Score against feature keywords (topic overlap from SKILL.md algorithm)
+// Sort by score DESC → take top {sageCount} methods
+
+// 3. Present to user (skip in --quick mode)
+if (!quickMode) {
+  AskUserQuestion({
+    questions: [{
+      question: `Apply ${sageCount} structured reasoning method(s) to deepen this brainstorm?`,
+      header: "Elicitation",
+      options: [
+        { label: `Auto: ${sageCount} method(s) (Recommended)`,
+          description: `${selectedMethods.map(m => m.method_name).join(", ")}` },
+        { label: "Skip elicitation",
+          description: "Proceed with current brainstorm output" }
+      ],
+      multiSelect: false
+    }]
+  })
+}
+
+// 4. Summon sages (inline — no team_name needed, plan team not yet created)
+//    Phase 0 runs BEFORE team creation (Phase 1). Decree-arbiter P2: run inline.
+//    ATE-1 COMPLIANCE: subagent_type MUST be "general-purpose", identity via prompt.
+for (let i = 0; i < sageCount; i++) {
+  const method = selectedMethods[i]
+
+  Task({
+    name: `elicitation-sage-${i + 1}`,
+    subagent_type: "general-purpose",
+    prompt: `You are elicitation-sage — a structured reasoning specialist.
+
+      ## Bootstrap
+      Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+
+      ## Assignment
+      Phase: plan:0 (brainstorm)
+      Assigned method: ${method.method_name} (method #${method.num})
+      Feature: {sanitized_feature_description}
+      Chosen approach: {selected_approach}
+      Brainstorm context: Read tmp/plans/{timestamp}/brainstorm-decisions.md
+
+      Apply ONLY the method "${method.method_name}" to this brainstorm context.
+      Write output to: tmp/plans/{timestamp}/elicitation-${method.method_name.toLowerCase().replace(/ /g, '-')}.md
+
+      Do not write implementation code. Structured reasoning output only.`,
+    run_in_background: true
+  })
+}
+
+// 5. After all sages complete:
+//    Read all tmp/plans/{timestamp}/elicitation-*.md files
+//    Merge structured reasoning insights into brainstorm-decisions.md
+//    Include in research handoff context
+
+// 6. In --quick mode: auto-summon 1 sage without AskUserQuestion
+```
+
+Exit condition: All sage outputs written (or user explicitly skips).
 
 #### Step 4: Capture Decisions
 
@@ -384,8 +466,47 @@ for (const [section, agents] of assignments) {
   }
 }
 
-// 5. After all forge agents complete, merge enrichments into plan
+// 4.5. Elicitation Sage — summon per eligible section (NEW — v1.31)
+//       Skipped if talisman elicitation.enabled === false
+//       ATE-1: subagent_type: "general-purpose", identity via prompt
+let totalSagesSpawned = 0
+const MAX_FORGE_SAGES = 6
+
+for (const [sectionIndex, section] of sections.entries()) {
+  if (totalSagesSpawned >= MAX_FORGE_SAGES) break
+
+  // Quick keyword pre-filter (decree-arbiter P2: simple threshold, no floats)
+  const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
+    "migration", "performance", "decision", "approach", "comparison"]
+  const sectionText = (section.title + " " + (section.content || '').slice(0, 200)).toLowerCase()
+  if (!elicitKeywords.some(k => sectionText.includes(k))) continue
+
+  Task({
+    team_name: "rune-plan-{timestamp}",
+    name: `elicitation-sage-forge-${sectionIndex}`,
+    subagent_type: "general-purpose",
+    prompt: `You are elicitation-sage — structured reasoning specialist.
+
+      ## Bootstrap
+      Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+
+      ## Assignment
+      Phase: forge:3 (enrichment)
+      Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
+      Section content (first 2000 chars): ${(section.content || '').slice(0, 2000)}
+
+      Auto-select the top-scored method for this section's topics.
+      Write output to: tmp/plans/{timestamp}/forge/${section.slug}-elicitation-sage.md
+
+      Do not write implementation code. Structured reasoning output only.`,
+    run_in_background: true
+  })
+  totalSagesSpawned++
+}
+
+// 5. After all forge agents + sages complete, merge enrichments into plan
 //    Read tmp/plans/{timestamp}/forge/*.md -> insert under matching sections
+//    This now includes both forge agent enrichments AND sage reasoning output
 ```
 
 **Fallback**: If no agent scores above threshold for a section, use an inline generic Task prompt to produce standard enrichment.

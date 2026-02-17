@@ -86,10 +86,46 @@ if (!/^[a-zA-Z0-9_-]+$/.test(mendTeamName)) throw new Error(`Invalid team_name f
 // STEP 2: Update checkpoint with resolved team name
 updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team_name: mendTeamName })
 
+// STEP 2.5: Elicitation Sage — P1 root cause analysis (v1.31)
+// Skipped if talisman elicitation.enabled === false or no P1/recurring findings
+// ATE-1: subagent_type: "general-purpose", identity via prompt
+// Decree-arbiter P2: sage must complete BEFORE mend-fixers start.
+// Run synchronously (no run_in_background) to ensure output exists.
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+const tomeContent = Read(tomeSource)
+const p1Findings = (tomeContent.match(/<!-- RUNE:FINDING.*?severity="P1"/g) || [])
+const recurringPatterns = (tomeContent.match(/<!-- RUNE:FINDING/g) || []).length
+
+if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
+  // Synchronous sage — MUST complete before mend-fixers read its output
+  Task({
+    name: "elicitation-sage-mend",
+    subagent_type: "general-purpose",
+    prompt: `You are elicitation-sage — structured reasoning specialist.
+
+      ## Bootstrap
+      Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+
+      ## Assignment
+      Phase: arc:7 (mend)
+      Assigned method: 5 Whys Deep Dive (method #20)
+      P1/recurring findings (${p1Findings.length} P1, ${recurringPatterns} total):
+      Read ${tomeSource} for the full TOME.
+
+      For each P1 finding, apply 5 Whys Deep Dive to trace root cause.
+      Write output to: tmp/arc/${id}/elicitation-root-cause.md
+
+      Mend-fixers will read your root cause analysis before applying fixes.
+      Do not write implementation code. Root cause analysis only.`,
+    run_in_background: false  // Synchronous — must complete before fixers start
+  })
+}
+
 // STEP 3: Delegate to /rune:mend with arc-specific parameters:
 // - TOME source path (varies by round)
 // - Timeout propagation (--timeout ${mendTimeout})
 // - Team name prefix: arc-mend-{id}
+// - Root cause context: if elicitation-root-cause.md exists, pass to fixers
 // Delegation pattern: /rune:mend creates its own team (e.g., rune-mend-{id}).
 // Arc reads the team name from the mend state file or teammate idle notification.
 ```

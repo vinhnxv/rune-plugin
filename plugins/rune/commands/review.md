@@ -319,6 +319,50 @@ Task({
 })
 ```
 
+### Elicitation Sage — Security Context (v1.31)
+
+When security-relevant files are reviewed (3+ files matching `.py`, `.ts`, `.rb`, `.go` in `auth/`, `api/`, `security/` paths), summon 1-2 elicitation-sage teammates for structured security reasoning alongside the review Ashes.
+
+Skipped if talisman `elicitation.enabled` is `false`.
+
+```javascript
+// ATE-1: subagent_type: "general-purpose", identity via prompt
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+const securityFiles = changedFiles.filter(f =>
+  /\/(auth|api|security|middleware)\//.test(f) ||
+  /(auth|login|token|session|password|secret)/i.test(f)
+)
+
+if (elicitEnabled && securityFiles.length >= 3) {
+  // review:6 methods: Red Team vs Blue Team (T1), Challenge from Critical Perspective (T1)
+  const securitySageCount = Math.min(2, securityFiles.length >= 6 ? 2 : 1)
+
+  for (let i = 0; i < securitySageCount; i++) {
+    Task({
+      team_name: "rune-review-{identifier}",
+      name: `elicitation-sage-security-${i + 1}`,
+      subagent_type: "general-purpose",
+      prompt: `You are elicitation-sage — structured reasoning specialist.
+
+        ## Bootstrap
+        Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+
+        ## Assignment
+        Phase: review:6 (code review)
+        Auto-select the #${i + 1} top-scored security method (filter: review:6 phase + security topics).
+        Changed files: Read tmp/reviews/{identifier}/changed-files.txt
+        Focus on security analysis of: ${securityFiles.slice(0, 10).join(", ")}
+
+        Write output to: tmp/reviews/{identifier}/elicitation-security-${i + 1}.md
+
+        Do not write implementation code. Security reasoning only.
+        When done, SendMessage to team-lead: "Seal: elicitation security review done."`,
+      run_in_background: true
+    })
+  }
+}
+```
+
 The Tarnished does not review code directly. Focus solely on coordination.
 
 ## Phase 4: Monitor

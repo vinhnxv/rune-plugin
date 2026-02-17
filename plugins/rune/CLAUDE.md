@@ -11,7 +11,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **roundtable-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
 | **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
 | **ash-guide** | Agent invocation reference and Ash selection guide |
-| **elicitation** | BMAD-derived structured reasoning methods with phase-aware auto-selection |
+| **elicitation** | BMAD-derived structured reasoning methods — Active via dedicated `elicitation-sage` agent integration |
 | **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | **arc** | End-to-end orchestration pipeline (10 phases: freshness → forge → plan review → work → code review → mend → audit) |
 
@@ -62,7 +62,7 @@ All hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 (non-b
 
 ## References
 
-- [Agent registry](references/agent-registry.md) — 16 review + 5 research + 2 work + 7 utility agents
+- [Agent registry](references/agent-registry.md) — 16 review + 5 research + 2 work + 8 utility agents
 - [Key concepts](references/key-concepts.md) — Tarnished, Ash, TOME, Arc, Mend, Forge Gaze, Echoes
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow

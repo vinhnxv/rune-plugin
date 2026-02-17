@@ -80,7 +80,7 @@ Phase 6: RESOLUTION REPORT -> Produce report
 Phase 7: CLEANUP -> Shutdown fixers, persist echoes, report summary
 ```
 
-**Phase numbering note**: Phase numbers above are internal to the mend pipeline and distinct from arc.md's phase numbering.
+**Phase numbering note**: Phase numbers above are internal to the mend pipeline and distinct from arc skill's phase numbering.
 
 ## Phase 0: PARSE
 

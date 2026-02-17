@@ -12,7 +12,7 @@
 **Regex**: `/^[a-zA-Z0-9_-]+$/`
 **Threat model**: Guards `rm -rf` and `TeamDelete` cleanup operations. Sole barrier preventing path traversal in team/task directory cleanup. Does NOT allow dots, slashes, or spaces.
 **ReDoS safe**: Yes (character class only, no quantifier nesting)
-**Consumers**: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, team-lifecycle-guard.md
+**Consumers**: plan.md, work.md, arc SKILL.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, team-lifecycle-guard.md
 
 ## Path Validators
 
@@ -21,9 +21,9 @@
 **Regex**: `/^[a-zA-Z0-9._\-\/]+$/`
 **Threat model**: Blocks spaces, shell metacharacters, glob wildcards.
 **WARNING**: Does NOT block path traversal (`..`) or absolute paths. Consumers MUST add explicit `..` check when validating untrusted paths.
-**Aliases**: `SAFE_PATH` (work.md), `SAFE_FILE_PATH` (arc.md) — all identical regex.
+**Aliases**: `SAFE_PATH` (work.md), `SAFE_FILE_PATH` (arc SKILL.md) — all identical regex.
 **ReDoS safe**: Yes (character class only)
-**Consumers**: plan.md, work.md, arc.md, mend.md
+**Consumers**: plan.md, work.md, arc SKILL.md, mend.md
 
 ### SAFE_GLOB_PATH_PATTERN
 <!-- PATTERN:SAFE_GLOB_PATH_PATTERN regex="/^[a-zA-Z0-9._\-\/*]+$/" version="1" -->
@@ -31,7 +31,7 @@
 **Threat model**: Like SAFE_PATH_PATTERN but allows `*` for glob expansion.
 MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glob expansion.
 **ReDoS safe**: Yes
-**Consumers**: arc.md (glob_count extractor), work.md (Phase 4.3 glob_count extractor)
+**Consumers**: arc SKILL.md (glob_count extractor), work.md (Phase 4.3 glob_count extractor)
 
 ## Regex Validators
 
@@ -44,7 +44,7 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 **ReDoS safe**: Yes (character class only)
 **Consumers**: ward-check.md, verification-gate.md, plan-review.md
 
-> Prior to v1.20.0, consumers were the top-level command files (plan.md, work.md, arc.md). After structural refactoring in v1.20.0, execution logic lives in the reference files listed above.
+> Prior to v1.20.0, consumers were the top-level command files (plan.md, work.md, arc SKILL.md). After structural refactoring in v1.20.0, execution logic lives in the reference files listed above.
 
 > **Implementation**: All consumer sites call `safeRgMatch()` (defined in the "Safe Regex Execution" section below). Direct Bash interpolation of `SAFE_REGEX_PATTERN`-validated strings is prohibited. New consumers MUST use `safeRgMatch()`.
 
@@ -53,7 +53,7 @@ MUST NOT include spaces — `ls -1 ${unquoted}` relies on word-splitting for glo
 **Regex**: `/^[a-zA-Z0-9._\-\/ \\\[\]{}^+?*]+$/`
 **Threat model**: Narrower than SAFE_REGEX_PATTERN. Excludes `|`, `(`, `)`, `$` (SEC-001). Adds `*` for glob matching. Safe for ripgrep context, NOT safe for unquoted Bash glob context.
 **ReDoS safe**: Yes
-**Consumers**: arc.md (consistency checks), work.md (Phase 4.3 consistency checks)
+**Consumers**: arc SKILL.md (consistency checks), work.md (Phase 4.3 consistency checks)
 
 ## Safe Regex Execution
 
@@ -128,7 +128,7 @@ Note: `SAFE_REGEX_PATTERN` does not include `\n` in its character class, so mult
 ### FORBIDDEN_KEYS
 **Value**: `Set(['__proto__', 'constructor', 'prototype'])`
 **Threat model**: Prevents prototype pollution in JSON dot-path traversal.
-**Consumers**: arc.md (consistency extractor), mend.md (consistency extractor), work.md (Phase 4.3 consistency extractor)
+**Consumers**: arc SKILL.md (consistency extractor), mend.md (consistency extractor), work.md (Phase 4.3 consistency extractor)
 
 ## Branch Validators
 
@@ -146,7 +146,7 @@ Note: `SAFE_REGEX_PATTERN` does not include `\n` in its character class, so mult
 **Threat model**: Validates git commit SHAs (abbreviated 7-char and full 40-char hex). Guards `git rev-parse --verify`, `git diff`, and `git log` operations where a stored SHA is interpolated into shell commands. Prevents command injection via crafted SHA values in plan metadata files.
 **WARNING**: Validates format only — does NOT verify the SHA exists in the repository. Consumers MUST use `git cat-file -t {sha} 2>/dev/null` after format validation to confirm the SHA resolves.
 **ReDoS safe**: Yes (character class with bounded quantifier `{7,40}`, no nesting)
-**Consumers**: arc.md (freshness gate), verification-gate.md (check #8)
+**Consumers**: arc SKILL.md (freshness gate), verification-gate.md (check #8)
 
 ## Additional Validators (Single-File)
 
@@ -154,10 +154,10 @@ These patterns appear in a single file and are documented here for completeness 
 
 | Pattern | File | Description |
 |---------|------|-------------|
-| `SAFE_DOT_PATH` | arc.md | JSON dot-path field validator: `/^[a-zA-Z0-9._]+$/` |
+| `SAFE_DOT_PATH` | arc SKILL.md | JSON dot-path field validator: `/^[a-zA-Z0-9._]+$/` |
 | `SAFE_CONSISTENCY_PATTERN` | mend.md | Similar to SAFE_REGEX_PATTERN_CC |
 | `SAFE_FEATURE_PATTERN` | plan.md | Feature name sanitizer |
-| `VALID_EXTRACTORS` | arc.md | Extractor type allowlist: `["glob_count", "regex_capture", "json_field", "line_count"]` |
+| `VALID_EXTRACTORS` | arc SKILL.md | Extractor type allowlist: `["glob_count", "regex_capture", "json_field", "line_count"]` |
 
 ## Maintenance
 

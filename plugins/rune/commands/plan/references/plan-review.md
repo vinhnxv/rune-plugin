@@ -132,6 +132,44 @@ Task({
     See agents/utility/knowledge-keeper.md for evaluation criteria.`,
   run_in_background: true
 })
+
+// Elicitation Sage — plan review structured reasoning (v1.31)
+// Skipped if talisman elicitation.enabled === false
+// plan:4 methods: Self-Consistency Validation (#14), Challenge from Critical
+// Perspective (#36), Critique and Refine (#42)
+// ATE-1: subagent_type: "general-purpose", identity via prompt
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+if (elicitEnabled) {
+  // Keyword count determines sage count (simplified threshold — no float scoring)
+  const planText = Read(planPath).slice(0, 1000).toLowerCase()
+  const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
+    "migration", "performance", "decision", "approach", "comparison"]
+  const keywordHits = elicitKeywords.filter(k => planText.includes(k)).length
+  const reviewSageCount = keywordHits >= 4 ? 3 : keywordHits >= 2 ? 2 : 1
+
+  for (let i = 0; i < reviewSageCount; i++) {
+    Task({
+      team_name: "rune-plan-{timestamp}",
+      name: `elicitation-sage-review-${i + 1}`,
+      subagent_type: "general-purpose",
+      prompt: `You are elicitation-sage — structured reasoning specialist.
+
+        ## Bootstrap
+        Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+
+        ## Assignment
+        Phase: plan:4 (review)
+        Plan document: Read ${planPath}
+
+        Auto-select the #${i + 1} top-scored method for plan:4 phase.
+        Write output to: tmp/plans/{timestamp}/elicitation-review-${i + 1}.md
+
+        Do not write implementation code. Structured reasoning output only.
+        When done, SendMessage to team-lead: "Seal: elicitation review done."`,
+      run_in_background: true
+    })
+  }
+}
 ```
 
 ### Codex Plan Review (optional)

@@ -262,6 +262,16 @@ solution_arena:
   # Additional config (weights, thresholds) available in future versions
 
 # ──────────────────────────────────────────────
+# Elicitation — Structured reasoning agent (v1.31.0+)
+# ──────────────────────────────────────────────
+# The elicitation-sage is summoned in plan, forge, review, and mend phases
+# to apply BMAD-derived structured reasoning methods (Tree of Thoughts,
+# Pre-mortem, Red Team, 5 Whys, etc.).
+# Set enabled: false to disable all sage invocations without reverting code.
+elicitation:
+  enabled: true                    # Set false to disable all sage invocations globally
+
+# ──────────────────────────────────────────────
 # Echoes — Memory persistence
 # ──────────────────────────────────────────────
 echoes:
