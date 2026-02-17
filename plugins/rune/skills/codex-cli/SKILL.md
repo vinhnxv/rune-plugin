@@ -36,8 +36,6 @@ All Rune workflows that invoke Codex MUST follow these patterns.
 Run the canonical detection algorithm before any Codex invocation.
 See `roundtable-circle/references/codex-detection.md` for the full 9-step algorithm.
 
-See `roundtable-circle/references/codex-detection.md` for the canonical 9-step detection algorithm.
-
 ```
 1. Read talisman.yml (project or global)
 2. Check talisman.codex.disabled → skip if true
@@ -71,14 +69,14 @@ codex:
   confidence_threshold: 80             # Min confidence % to report findings
   workflows: [review, audit, plan, forge, work]  # Which pipelines use Codex
   skip_git_check: false                # Pass --skip-git-repo-check if true
+  work_advisory:
+    enabled: true                      # Codex advisory in /rune:work
+    max_diff_size: 15000               # Truncate diff for advisory
   review_diff:
     enabled: true                      # Diff-focused review for /rune:review
     max_diff_size: 15000               # Max diff chars per batch
     context_lines: 5                   # Context lines around changes
     include_new_files_full: true       # Full content for new files
-  work_advisory:
-    enabled: true                      # Codex advisory in /rune:work
-    max_diff_size: 15000               # Truncate diff for advisory
   verification:
     enabled: true                      # Hallucination guard cross-verification
     fuzzy_match_threshold: 0.7         # Code snippet similarity threshold
@@ -194,13 +192,13 @@ For `/rune:review`, pass diff content instead of file lists:
 
 ```bash
 # 1. Extract diff for batch (with rename detection)
-git diff -M90% --diff-filter=ACMR ${DEFAULT_BRANCH}...HEAD -U${DIFF_CONTEXT:-5} \
+git diff -M90% --diff-filter=ACMR "${DEFAULT_BRANCH}...HEAD" -U"${DIFF_CONTEXT:-5}" \
   -- file1.py file2.py \
-  > tmp/reviews/${ID}/codex-diff-batch-${N}.patch
+  > "tmp/reviews/${ID}/codex-diff-batch-${N}.patch"
 
 # 1b. For new files (no diff base), generate unified diff format
-git diff --no-index /dev/null new_file.py \
-  >> tmp/reviews/${ID}/codex-diff-batch-${N}.patch 2>/dev/null || true
+git diff --no-index /dev/null "$file" \
+  >> "tmp/reviews/${ID}/codex-diff-batch-${N}.patch" 2>/dev/null || true
 
 # 2. Truncate to budget (SEC-008: line-based to avoid splitting multi-byte chars)
 awk -v max="${MAX_DIFF_SIZE:-15000}" '{
@@ -212,8 +210,9 @@ awk -v max="${MAX_DIFF_SIZE:-15000}" '{
 # 3. Read diff content safely (SEC-001: do NOT use $(cat ...) in prompt string)
 # Use Claude's Read() tool to get diff content, then construct the prompt variable.
 # The Ash agent builds the prompt as a string variable — no shell expansion on diff content.
-DIFF_CONTENT=$(Read "tmp/reviews/${ID}/codex-diff-batch-${N}-truncated.patch")
-NONCE=$(openssl rand -hex 4)  # Unique boundary per invocation (SEC-004)
+# [Claude tool — not a shell command. See codex-oracle.md for full pseudocode.]
+diff_content = Read("tmp/reviews/${ID}/codex-diff-batch-${N}-truncated.patch")
+nonce = random_hex(4)  # Unique boundary per invocation (SEC-004)
 
 # 4. Invoke with diff-focused prompt
 timeout 600 codex exec \
