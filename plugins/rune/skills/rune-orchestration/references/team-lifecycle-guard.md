@@ -57,7 +57,7 @@ At session end, after shutting down all teammates:
 
 ## Cancel Command Pattern
 
-Cancel commands use the same cleanup-with-fallback but add broadcast + task cancellation:
+Cancel commands use the Dynamic Cleanup pattern (below) with broadcast + task cancellation prepended:
 
 ```javascript
 // 1. Broadcast cancellation
@@ -71,9 +71,17 @@ for (const task of tasks) {
   }
 }
 
-// 3. Shutdown all teammates
-for (const member of teamMembers) {
-  SendMessage({ type: "shutdown_request", recipient: member.name, content: "Cancelled" })
+// 3. Dynamic member discovery + shutdown (see Dynamic Cleanup pattern below)
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
+} catch (e) {
+  allMembers = [...fallbackList]
+}
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Cancelled" })
 }
 
 // 4. Wait (max 30s)
@@ -238,8 +246,27 @@ Contract:
 A state file with `status === "active"` and `isStale(state.started) === true` is considered
 an orphan — the owning process likely crashed without cleanup.
 
-**Rationale**: 30 min is 2x the longest inner timeout (15 min). No legitimate workflow
-stays `"active"` for 30 min without checkpoint progress.
+**Rationale**: 30 min is 2x the longest review/audit inner timeout (15 min). For the work
+phase (30 min inner timeout), ORCH-1 only runs on `--resume` (not during active execution),
+so the threshold is safe. `/rune:rest --heal` requires user confirmation before cleanup.
+
+### Stale State File Scan Contract
+
+Canonical algorithm for scanning state files across workflow types. Implemented by:
+- arc.md ORCH-1 (lines 487-505): marks stale files as `crash_recovered`
+- rest.md `--heal` (lines 246-267): collects stale files for user-confirmed cleanup
+
+Both implementations MUST use the same type list and threshold:
+
+```
+Type list: ["work", "review", "mend", "audit", "forge"]
+File pattern: tmp/.rune-{type}-*.json
+Threshold: ORPHAN_STALE_THRESHOLD (1_800_000 ms = 30 min)
+NaN guard: treat missing/malformed `started` as stale (conservative toward cleanup)
+```
+
+When adding a new workflow type that produces state files, update BOTH consumers
+and add the type to this list.
 
 ## safeTeamCleanup()
 
@@ -255,14 +282,15 @@ Contract:
   Steps:
     1. Validate teamName against SAFE_IDENTIFIER_PATTERN
     2. Defense-in-depth: reject if teamName contains '..'
-    3. Try TeamDelete({ team_name: teamName })
-    4. Fallback: rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/
+    3. rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/
   Security:
     - Regex + path-traversal check co-located before any rm -rf
   Caller responsibilities:
     - Callers should use find -maxdepth 1 instead of ls -d (SEC-007) for team dir discovery
-  Error handling: TeamDelete failure is expected (team may not exist) — fall through to rm -rf
-  Usage note: Designed for orphan cleanup — does not attempt teammate shutdown. For active team cleanup, use the Dynamic Cleanup pattern.
+  SDK note: TeamDelete() only targets the caller's active team (no team_name param).
+    For orphan cleanup of other teams, only filesystem removal works.
+  Usage note: Designed for orphan cleanup — does not attempt teammate shutdown.
+    For active team cleanup, use the Dynamic Cleanup pattern.
 ```
 
 ```javascript
@@ -271,14 +299,19 @@ function safeTeamCleanup(teamName) {
   if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) throw new Error(`Invalid teamName: ${teamName}`)
   if (teamName.includes('..')) throw new Error('Path traversal detected')
 
-  try { TeamDelete({ team_name: teamName }) } catch (e) {
-    Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
-  }
+  // NOTE: TeamDelete() targets the CALLER's active team only — it does not accept a
+  // team_name parameter. For orphan cleanup (where the caller is NOT leading the target
+  // team), only direct filesystem removal works. See arc.md prePhaseCleanup comment.
+  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
 }
 ```
 
 **Consumers**: arc.md (Layer 1 resume cleanup, Layer 3 stale scan), rest.md (`--heal`),
 all cancel-*.md commands (via Pre-Create Guard pattern).
+
+**Design note**: `safeTeamCleanup()` intentionally skips `TeamDelete()` because the SDK
+only supports deleting the caller's own team. The Pre-Create Guard (above) CAN use
+`TeamDelete()` because it cleans the caller's own stale team before creating a new one.
 
 ## Orphan Recovery Pattern
 
@@ -316,6 +349,11 @@ Defense-in-depth — each layer targets a different failure mode.
 | Arc orchestrator crash (arc-prefixed teams) | — | YES | YES |
 | Forge crash (arc-forge-* team) | — | YES | YES |
 | Standalone command crash (no arc) | — | YES | — |
+
+**Phase file reference**: Each arc-phase file (arc-phase-work.md, arc-phase-code-review.md,
+arc-phase-mend.md, arc-phase-audit.md) documents its phase-specific orphaned resources
+(team config, task list, state file, signal dir) and cross-references this section for
+recovery layer details.
 
 ## Consumers
 

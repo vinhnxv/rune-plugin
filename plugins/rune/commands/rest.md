@@ -247,6 +247,7 @@ const ORPHAN_STALE_THRESHOLD = 1_800_000  // 30 min (CC-6)
 const staleStateFiles = []
 const activeStateFiles = []  // CC-1 FIX: separate list for safety check
 
+// See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
 for (const type of ["work", "review", "mend", "audit", "forge"]) {  // CC-4: include forge
   const files = Glob(`tmp/.rune-${type}-*.json`)
   for (const f of files) {
@@ -268,8 +269,12 @@ for (const type of ["work", "review", "mend", "audit", "forge"]) {  // CC-4: inc
 
 // STEP 2: Scan ~/.claude/teams/ for orphaned rune-prefixed team dirs
 const RUNE_TEAM_PATTERN = /^(rune-work|rune-review|rune-mend|rune-audit|rune-plan|rune-forge|arc-forge|arc-plan-review)-/
-const teamDirs = Bash("find ~/.claude/teams -mindepth 1 -maxdepth 1 -type d 2>/dev/null")  // CC-3: find not ls; -mindepth 1 excludes base dir
-  .split('\n').filter(Boolean)
+const teamDirsRaw = Bash("find ~/.claude/teams -mindepth 1 -maxdepth 1 -type d 2>/dev/null")  // CC-3: find not ls; -mindepth 1 excludes base dir
+const teamDirs = teamDirsRaw.split('\n').filter(Boolean)
+// BACK-003 FIX: Warn when teams directory is missing (matches error handling table promise)
+if (teamDirs.length === 0 && !Bash("test -d ~/.claude/teams && echo ok 2>/dev/null").includes("ok")) {
+  warn("~/.claude/teams/ not found — skipping team dir scan")
+}
 const orphanedTeams = []
 
 for (const dir of teamDirs) {
@@ -306,8 +311,8 @@ AskUserQuestion({
 
 // STEP 4: Execute cleanup
 for (const teamName of orphanedTeams) {
-  // safeTeamCleanup: validated rm -rf (team-lifecycle-guard.md pattern)
-  // Validate team name before rm -rf (defense against injection)
+  // Inline rm -rf pattern (TeamDelete skipped — orphaned teams have no active session)
+  // Defense-in-depth: re-validate despite Step 2 filter
   if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
   Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
 }
@@ -320,10 +325,13 @@ for (const { file, state } of staleStateFiles) {
 }
 
 // STEP 5: Clean orphaned signal directories
+// BACK-006 FIX: Also match teams from staleStateFiles (their team dirs may already be gone
+// but signal dirs can persist if the team dir was manually deleted)
+const staleTeamNames = staleStateFiles.map(s => s.state.team_name).filter(Boolean)
 const signalDirs = Glob("tmp/.rune-signals/*/")
 for (const dir of signalDirs) {
   const teamName = basename(dir)
-  if (orphanedTeams.includes(teamName)) {
+  if (orphanedTeams.includes(teamName) || staleTeamNames.includes(teamName)) {
     Bash(`rm -rf "${dir}" 2>/dev/null`)
   }
 }

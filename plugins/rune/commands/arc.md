@@ -157,6 +157,10 @@ const ARC_TOTAL_TIMEOUT = 7_200_000  // 120 min (honest budget — old 90 min wa
 const STALE_THRESHOLD = 300_000      // 5 min
 const CONVERGENCE_MAX_ROUNDS = 2     // Max mend retries (3 total passes)
 const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward/cross-file)
+
+// Shared prototype pollution guard — used by prePhaseCleanup (ARC-6) and ORCH-1 resume cleanup.
+// BACK-005 FIX: Single definition replaces two duplicate inline Sets.
+const FORBIDDEN_PHASE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 ```
 
 See [phase-tool-matrix.md](../skills/rune-orchestration/references/phase-tool-matrix.md) for per-phase tool restrictions and time budget details.
@@ -254,6 +258,13 @@ if (planFile.startsWith('/')) {
   error(`Absolute paths not allowed: ${planFile}. Use a relative path from project root.`)
   return
 }
+// CDX-010 FIX: Reject symlinks — a symlink at plans/evil.md -> /etc/passwd would
+// pass all regex/traversal checks above but read arbitrary files via Read().
+// Use Bash test -L (not stat) for portability across macOS/Linux.
+if (Bash(`test -L "${planFile}" && echo "symlink"`).includes("symlink")) {
+  error(`Plan path is a symlink (not following): ${planFile}`)
+  return
+}
 ```
 
 ### Plan Freshness Check (FRESH-1)
@@ -304,9 +315,8 @@ function prePhaseCleanup(checkpoint) {
     // active team, not a named target. For stale teams from prior phases (which the
     // orchestrator may not be leading), only rm -rf works.
     // See team-lifecycle-guard.md "Cleanup Fallback" section.
-    const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
     for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
-      if (FORBIDDEN_KEYS.has(phaseName)) continue
+      if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue
       if (!phaseInfo || typeof phaseInfo !== 'object') continue
       if (!phaseInfo.team_name || typeof phaseInfo.team_name !== 'string') continue
       // ARC-6 STATUS GUARD: Denylist approach — only "in_progress" is preserved.
@@ -389,6 +399,9 @@ CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs af
 ```javascript
 // CC-5: Placed after checkpoint init — id is available here
 // CC-3: Use find instead of ls -d (SEC-007 compliance)
+// SECURITY-CRITICAL: ARC_TEAM_PREFIXES must remain hardcoded string literals.
+// These values are interpolated into shell `find -name` commands (line 395).
+// If externalized to config (e.g., talisman.yml), shell metacharacter injection becomes possible.
 const ARC_TEAM_PREFIXES = ["arc-forge-", "arc-plan-review-"]
 
 for (const prefix of ARC_TEAM_PREFIXES) {
@@ -398,9 +411,12 @@ for (const prefix of ARC_TEAM_PREFIXES) {
 
     // SEC-003: Validate team name before any filesystem operations
     if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
+    // Defense-in-depth: redundant with regex above, per safeTeamCleanup() contract
+    if (teamName.includes('..')) continue
 
     // Don't clean our own team (current arc session)
-    if (teamName.includes(id)) continue
+    // BACK-002 FIX: Use exact prefix+id match instead of fragile substring includes()
+    if (teamName === `${prefix}${id}`) continue
 
     // This team is from a different arc session — orphaned
     warn(`CDX-7: Stale arc team from prior session: ${teamName} — cleaning`)
@@ -414,7 +430,7 @@ for (const prefix of ARC_TEAM_PREFIXES) {
 On resume, validate checkpoint integrity before proceeding:
 
 ```
-1. Find most recent checkpoint: find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | xargs ls -t 2>/dev/null | head -1
+1. Find most recent checkpoint: find .claude/arc -maxdepth 2 -name checkpoint.json -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1
 2. Read .claude/arc/{id}/checkpoint.json — extract plan_file for downstream phases
 3. Schema migration (default missing schema_version: `const version = checkpoint.schema_version ?? 1`):
    if version < 2, migrate v1 → v2:
@@ -453,11 +469,9 @@ On resume, validate checkpoint integrity before proceeding:
 
    ```javascript
    const ORPHAN_STALE_THRESHOLD = 1_800_000  // 30 min — crash recovery staleness
-   // Mirrors FORBIDDEN_KEYS in prePhaseCleanup (ARC-6, line 307) — keep in sync
-   const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
    for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
-     if (FORBIDDEN_KEYS.has(phaseName)) continue
+     if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue
      if (typeof phaseInfo !== 'object' || phaseInfo === null) continue
 
      // Skip phases without recorded team_name
@@ -468,6 +482,8 @@ On resume, validate checkpoint integrity before proceeding:
        warn(`ORCH-1: Invalid team name for phase ${phaseName}: "${phaseInfo.team_name}" — skipping`)
        continue
      }
+     // Defense-in-depth: redundant with regex above, per safeTeamCleanup() contract
+     if (phaseInfo.team_name.includes('..')) continue
 
      if (["completed", "skipped", "cancelled"].includes(phaseInfo.status)) {
        // Defensive: verify team is actually gone — clean if not
@@ -484,6 +500,7 @@ On resume, validate checkpoint integrity before proceeding:
    }
 
    // Clean stale state files from crashed sub-commands (CC-4: includes forge)
+   // See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
    for (const type of ["work", "review", "mend", "audit", "forge"]) {
      const stateFiles = Glob(`tmp/.rune-${type}-*.json`)
      for (const f of stateFiles) {
@@ -714,9 +731,11 @@ After the completion report, persist arc quality metrics to echoes for cross-ses
 
 ```javascript
 if (exists(".claude/echoes/")) {
+  // CDX-009 FIX: totalDuration is in milliseconds (Date.now() - arcStart), so divide by 60_000 for minutes.
+  const totalDuration = Date.now() - arcStart  // milliseconds
   const metrics = {
     plan: checkpoint.plan_file,
-    duration_minutes: Math.round(totalDuration / 60),
+    duration_minutes: Math.round(totalDuration / 60_000),
     phases_completed: Object.values(checkpoint.phases).filter(p => p.status === "completed").length,
     tome_findings: { p1: p1Count, p2: p2Count, p3: p3Count },
     convergence_rounds: checkpoint.convergence.history.length,

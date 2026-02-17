@@ -68,9 +68,15 @@ const innerPolling = Math.max(mendTimeout - SETUP_BUDGET - MEND_EXTRA_BUDGET, 12
 ```javascript
 // STEP 1: Read mend team name from state file (MUST happen before checkpoint update)
 // Use Glob() to resolve wildcard — Read() does not support glob expansion.
-// CDX-2 NOTE: Glob matches ALL mend state files — [0] is most recent by mtime.
-const mendStateFiles = Glob("tmp/.rune-mend-*.json")
-if (mendStateFiles.length > 1) warn(`Multiple mend state files found (${mendStateFiles.length}) — using most recent`)
+// SEC-001 FIX: Filter to current session timeframe to prevent cross-session confusion
+const mendStateFiles = Glob("tmp/.rune-mend-*.json").filter(f => {
+  try {
+    const state = JSON.parse(Read(f))
+    const age = Date.now() - new Date(state.started).getTime()
+    return state.status === "active" && !Number.isNaN(age) && age < PHASE_TIMEOUTS.mend
+  } catch (e) { return false }
+})
+if (mendStateFiles.length > 1) warn(`Multiple active mend state files found (${mendStateFiles.length}) — using most recent`)
 const mendTeamName = mendStateFiles.length > 0
   ? JSON.parse(Read(mendStateFiles[0])).team_name
   : `rune-mend-${Date.now()}`
@@ -132,10 +138,8 @@ If this phase crashes before reaching cleanup, the following resources are orpha
 
 ### Recovery Layers
 
-1. **Layer 1 — Arc resume pre-flight (ORCH-1)**: When the user runs `/rune:arc --resume`, the resume logic iterates checkpoint phases, detects orphaned `team_name` entries with `"in_progress"` or `"failed"` status, calls `safeTeamCleanup()` on each, resets the phase to `"pending"`, and marks stale state files (active > 30 min) as `crash_recovered`.
+If this phase crashes, the orphaned resources above are recovered by the 3-layer defense:
+Layer 1 (ORCH-1 resume), Layer 2 (`/rune:rest --heal`), Layer 3 (arc pre-flight stale scan).
+Mend phase teams use `rune-mend-*` prefix — handled by the sub-command's own pre-create guard (not Layer 3).
 
-2. **Layer 2 — `/rune:rest --heal`**: Manual orphan recovery that scans all `tmp/.rune-mend-*.json` state files for stale active entries (> 30 min) and `~/.claude/teams/rune-mend-*/` directories not referenced by a recent active state file. User confirmation required before cleanup.
-
-3. **Layer 3 — Arc pre-flight stale scan**: Before Phase 1 of any new arc session, scans `~/.claude/teams/` for `arc-forge-*` and `arc-plan-review-*` teams from prior sessions (mend phase teams use `rune-*` prefix and are handled by the sub-command's own pre-create guard).
-
-See [team-lifecycle-guard.md](team-lifecycle-guard.md) §Orphan Recovery Pattern for utilities.
+See [team-lifecycle-guard.md](team-lifecycle-guard.md) §Orphan Recovery Pattern for full layer descriptions and coverage matrix.

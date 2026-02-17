@@ -58,9 +58,15 @@ Delegated to `/rune:audit` — typically summons rune-architect + ward-sentinel 
 // Delegation pattern: /rune:audit creates its own team (e.g., rune-audit-{identifier}).
 // Arc reads the team name from the audit state file or teammate idle notification.
 // SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
-// CDX-2 NOTE: Glob matches ALL audit state files — [0] is most recent by mtime.
-const auditStateFiles = Glob("tmp/.rune-audit-*.json")
-if (auditStateFiles.length > 1) warn(`Multiple audit state files found (${auditStateFiles.length}) — using most recent`)
+// SEC-001 FIX: Filter to current session timeframe to prevent cross-session confusion
+const auditStateFiles = Glob("tmp/.rune-audit-*.json").filter(f => {
+  try {
+    const state = JSON.parse(Read(f))
+    const age = Date.now() - new Date(state.started).getTime()
+    return state.status === "active" && !Number.isNaN(age) && age < PHASE_TIMEOUTS.audit
+  } catch (e) { return false }
+})
+if (auditStateFiles.length > 1) warn(`Multiple active audit state files found (${auditStateFiles.length}) — using most recent`)
 const auditTeamName = auditStateFiles.length > 0
   ? JSON.parse(Read(auditStateFiles[0])).team_name
   : `rune-audit-${Date.now()}`
@@ -109,10 +115,8 @@ If this phase crashes before reaching cleanup, the following resources are orpha
 
 ### Recovery Layers
 
-1. **Layer 1 — Arc resume pre-flight (ORCH-1)**: When the user runs `/rune:arc --resume`, the resume logic iterates checkpoint phases, detects orphaned `team_name` entries with `"in_progress"` or `"failed"` status, calls `safeTeamCleanup()` on each, resets the phase to `"pending"`, and marks stale state files (active > 30 min) as `crash_recovered`.
+If this phase crashes, the orphaned resources above are recovered by the 3-layer defense:
+Layer 1 (ORCH-1 resume), Layer 2 (`/rune:rest --heal`), Layer 3 (arc pre-flight stale scan).
+Audit phase teams use `rune-audit-*` prefix — handled by the sub-command's own pre-create guard (not Layer 3).
 
-2. **Layer 2 — `/rune:rest --heal`**: Manual orphan recovery that scans all `tmp/.rune-audit-*.json` state files for stale active entries (> 30 min) and `~/.claude/teams/rune-audit-*/` directories not referenced by a recent active state file. User confirmation required before cleanup.
-
-3. **Layer 3 — Arc pre-flight stale scan**: Before Phase 1 of any new arc session, scans `~/.claude/teams/` for `arc-forge-*` and `arc-plan-review-*` teams from prior sessions (audit phase teams use `rune-*` prefix and are handled by the sub-command's own pre-create guard).
-
-See [team-lifecycle-guard.md](team-lifecycle-guard.md) §Orphan Recovery Pattern for utilities.
+See [team-lifecycle-guard.md](team-lifecycle-guard.md) §Orphan Recovery Pattern for full layer descriptions and coverage matrix.
