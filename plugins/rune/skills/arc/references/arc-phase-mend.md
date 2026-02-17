@@ -66,7 +66,7 @@ const innerPolling = Math.max(mendTimeout - SETUP_BUDGET - MEND_EXTRA_BUDGET, 12
 ## Invocation
 
 ```javascript
-// STEP 1: PRE-DELEGATION: Record phase as in_progress with null team name.
+// PRE-DELEGATION: Record phase as in_progress with null team name.
 // Actual team name will be discovered post-delegation from state file.
 updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team_name: null })
 
@@ -76,6 +76,10 @@ updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team
 // Decree-arbiter P2: sage must complete BEFORE mend-fixers start.
 // Run synchronously (no run_in_background) to ensure output exists.
 const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+// SEC-012 FIX: Validate TOME path before reading (defense-in-depth — id already validated)
+if (!tomeSource.startsWith('tmp/arc/') || tomeSource.includes('..')) {
+  throw new Error(`Invalid TOME path: ${tomeSource}`)
+}
 const tomeContent = Read(tomeSource)
 const p1Findings = (tomeContent.match(/<!-- RUNE:FINDING.*?severity="P1"/g) || [])
 const recurringPatterns = (tomeContent.match(/<!-- RUNE:FINDING/g) || []).length

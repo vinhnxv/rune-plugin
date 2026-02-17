@@ -62,6 +62,8 @@ const postReviewStateFiles = Glob("tmp/.rune-review-*.json").filter(f => {
 if (postReviewStateFiles.length > 1) {
   warn(`Multiple review state files found (${postReviewStateFiles.length}) — using most recent`)
 }
+// NOTE: reviewTeamName variable needed for TOME relocation (STEP 4, line 81).
+// Work/mend/audit don't need this — only code-review copies TOME to arc artifacts dir.
 let reviewTeamName = `rune-review-${Date.now()}`  // fallback
 if (postReviewStateFiles.length > 0) {
   try {

@@ -322,9 +322,12 @@ if (diffFiles.length === 0) {
       .filter(id => id.length >= 4 && id.length <= 100 && !stopwords.has(id))
       .filter(id => !/^\d+\.\d+(\.\d+)?$/.test(id))
     // Generic term frequency filter: exclude identifiers appearing in >50% of sections (too generic)
+    // BACK-007 FIX: Skip generic filter for small plans (< 5 sections) — threshold=2 incorrectly
+    // excludes plan-specific terms that naturally appear in most sections of a small plan.
     const genericThreshold = Math.max(2, Math.floor(planSections.length * 0.5))
     const identifiers = candidates
       .filter(id => {
+        if (planSections.length < 5) return true  // Small plan — keep all candidates
         const freq = planSections.filter(s => s.includes(id)).length
         return freq < genericThreshold
       })

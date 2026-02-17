@@ -219,7 +219,11 @@ if command -v jq >/dev/null 2>&1; then
     # Skip checkpoints older than 7 days (abandoned)
     started_at=$(jq -r '.started_at // empty' "$f" 2>/dev/null)
     if [ -n "$started_at" ]; then
-      age_s=$(( $(date +%s) - $(date -j -f "%Y-%m-%dT%H:%M:%S" "${started_at%%.*}" +%s 2>/dev/null || echo 0) ))
+      # BSD date (-j -f) with GNU fallback (-d). Parse failure → 0 → large age → skipped as stale.
+      epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${started_at%%.*}" +%s 2>/dev/null || date -d "${started_at}" +%s 2>/dev/null || echo 0)
+      age_s=$(( $(date +%s) - epoch ))
+      # Skip if age is negative (future timestamp = suspicious) or > 7 days (abandoned)
+      [ "$age_s" -lt 0 ] 2>/dev/null && continue
       [ "$age_s" -gt 604800 ] 2>/dev/null && continue
     fi
     jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
@@ -385,8 +389,9 @@ if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid arc identifier")
 // SEC: Session nonce prevents TOME injection from prior sessions.
 // MUST be cryptographically random — NOT derived from timestamp or arc id.
 // LLM shortcutting this to `arc{id}` defeats the security purpose.
-const rawNonce = crypto.randomBytes(6).toString('hex')
+const rawNonce = crypto.randomBytes(6).toString('hex').toLowerCase()
 // Validate format BEFORE checkpoint write: exactly 12 lowercase hex characters
+// .toLowerCase() ensures consistency across JS runtimes (defense-in-depth)
 if (!/^[0-9a-f]{12}$/.test(rawNonce)) {
   throw new Error(`Nonce generation failure: ${rawNonce}. Must be 12 hex chars from crypto.randomBytes(6).`)
 }
@@ -449,6 +454,7 @@ const activeTeams = Object.values(checkpoint.phases)
 for (const prefix of ARC_TEAM_PREFIXES) {
   const dirs = Bash(`find ~/.claude/teams -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
   for (const dir of dirs) {
+    // basename() is safe — find output comes from trusted ~/.claude/teams/ directory
     const teamName = basename(dir)
 
     // SEC-003: Validate team name before any filesystem operations
