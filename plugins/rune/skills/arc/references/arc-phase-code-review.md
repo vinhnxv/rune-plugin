@@ -39,26 +39,41 @@ if (exists(`tmp/arc/${id}/gap-analysis.md`)) {
 // Arc records the team_name for cancel-arc discovery.
 // Delegation pattern: /rune:review creates its own team (e.g., rune-review-{identifier}).
 // Arc reads the team name from the review state file or teammate idle notification.
-// SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
-// SEC-001 FIX: Filter to current session timeframe to prevent cross-session confusion
-const reviewStateFiles = Glob("tmp/.rune-review-*.json").filter(f => {
-  try {
-    const state = JSON.parse(Read(f))
-    const age = Date.now() - new Date(state.started).getTime()
-    return state.status === "active" && !Number.isNaN(age) && age < PHASE_TIMEOUTS.code_review
-  } catch (e) { return false }
-})
-if (reviewStateFiles.length > 1) warn(`Multiple active review state files found (${reviewStateFiles.length}) — using most recent`)
-const reviewTeamName = reviewStateFiles.length > 0
-  ? JSON.parse(Read(reviewStateFiles[0])).team_name
-  : `rune-review-${Date.now()}`
-// SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
-if (!/^[a-zA-Z0-9_-]+$/.test(reviewTeamName)) throw new Error(`Invalid team_name from state file: ${reviewTeamName}`)
-updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 6, team_name: reviewTeamName })
+// PRE-DELEGATION: Record phase as in_progress with null team name.
+// Actual team name will be discovered post-delegation from state file (see STEP 4.5 below).
+updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 6, team_name: null })
 
 // BACK-5 FIX: Pass gap analysis context and review context to /rune:review
 // so reviewers can focus on areas where implementation may be incomplete.
 // reviewContext was built in STEP 1 from gap-analysis.md.
+
+// POST-DELEGATION: Read actual team name from state file
+const postReviewStateFiles = Glob("tmp/.rune-review-*.json").filter(f => {
+  try {
+    const state = JSON.parse(Read(f))
+    if (!state.status) return false
+    const age = Date.now() - new Date(state.started).getTime()
+    const isValidAge = !Number.isNaN(age) && age >= 0 && age < PHASE_TIMEOUTS.code_review
+    const isRelevant = state.status === "active" ||
+      (state.status === "completed" && age >= 0 && age < 5000)
+    return isRelevant && isValidAge
+  } catch (e) { return false }
+})
+if (postReviewStateFiles.length > 1) {
+  warn(`Multiple review state files found (${postReviewStateFiles.length}) — using most recent`)
+}
+let reviewTeamName = `rune-review-${Date.now()}`  // fallback
+if (postReviewStateFiles.length > 0) {
+  try {
+    const actualTeamName = JSON.parse(Read(postReviewStateFiles[0])).team_name
+    if (actualTeamName && /^[a-zA-Z0-9_-]+$/.test(actualTeamName)) {
+      reviewTeamName = actualTeamName
+      updateCheckpoint({ phase: "code_review", team_name: actualTeamName })
+    }
+  } catch (e) {
+    warn(`Failed to read team_name from state file: ${e.message}`)
+  }
+}
 
 // STEP 4: TOME relocation (copy, not move — original remains for debugging)
 // Source: tmp/reviews/{review-id}/TOME.md (produced by /rune:review)

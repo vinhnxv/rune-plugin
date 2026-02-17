@@ -70,17 +70,25 @@ if (!phase_team) {
   phase_team = legacyMap[current_phase]
 }
 
-// SEC-006 FIX: Secondary fallback — discover forge team from state file
-if (phase_team === null && current_phase === 'forge') {
-  const forgeStateFiles = Glob("tmp/.rune-forge-*.json")
-  if (forgeStateFiles.length > 0) {
-    try {
-      const stateData = JSON.parse(Read(forgeStateFiles[0]))
-      // SEC-005 FIX: Restrict to forge-prefixed names — tmp/ state files are untrusted
-      if (stateData.team_name && /^rune-forge-[a-zA-Z0-9_-]+$/.test(stateData.team_name)) {
-        phase_team = stateData.team_name
-      }
-    } catch (e) { /* state file corrupted -- proceed without team */ }
+// Secondary fallback — discover team from state file for all delegated phases
+if (phase_team === null && current_phase) {
+  const typeMap = {
+    forge: "forge", work: "work",
+    code_review: "review", mend: "mend", audit: "audit"
+  }
+  const type = typeMap[current_phase]
+  if (type) {
+    const stateFiles = Glob(`tmp/.rune-${type}-*.json`)
+    for (const f of stateFiles) {
+      try {
+        const stateData = JSON.parse(Read(f))
+        const teamPattern = new RegExp(`^rune-${type}-[a-zA-Z0-9_-]+$`)
+        if (stateData.status === "active" && stateData.team_name && teamPattern.test(stateData.team_name)) {
+          phase_team = stateData.team_name
+          break
+        }
+      } catch (e) { /* state file corrupted -- skip */ }
+    }
   }
 }
 

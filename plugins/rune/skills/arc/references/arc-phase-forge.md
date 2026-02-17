@@ -45,8 +45,8 @@ const forgePlanPath = `tmp/arc/${id}/enriched-plan.md`
 // Arc reads the team name from the forge state file.
 // SEC-002 FIX: Clean stale forge state files before delegation to prevent TOCTOU confusion.
 // Only remove completed/cancelled/expired files — preserve active sessions (< 30 min old).
-const forgeStateFiles = Glob("tmp/.rune-forge-*.json")
-for (const sf of forgeStateFiles) {
+const staleForgeFiles = Glob("tmp/.rune-forge-*.json")
+for (const sf of staleForgeFiles) {
   try {
     const state = JSON.parse(Read(sf))
     const age = Date.now() - new Date(state.started).getTime()

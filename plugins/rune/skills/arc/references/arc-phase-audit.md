@@ -55,24 +55,39 @@ Delegated to `/rune:audit` — typically summons rune-architect + ward-sentinel 
 ## Invocation
 
 ```javascript
-// Delegation pattern: /rune:audit creates its own team (e.g., rune-audit-{identifier}).
-// Arc reads the team name from the audit state file or teammate idle notification.
-// SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
-// SEC-001 FIX: Filter to current session timeframe to prevent cross-session confusion
-const auditStateFiles = Glob("tmp/.rune-audit-*.json").filter(f => {
+// PRE-DELEGATION: Record phase as in_progress with null team name.
+// Actual team name will be discovered post-delegation from state file.
+updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 9, team_name: null })
+```
+
+## Post-Delegation Team Name Discovery
+
+```javascript
+// POST-DELEGATION: Read actual team name from state file
+const postAuditStateFiles = Glob("tmp/.rune-audit-*.json").filter(f => {
   try {
     const state = JSON.parse(Read(f))
+    if (!state.status) return false
     const age = Date.now() - new Date(state.started).getTime()
-    return state.status === "active" && !Number.isNaN(age) && age < PHASE_TIMEOUTS.audit
+    const isValidAge = !Number.isNaN(age) && age >= 0 && age < PHASE_TIMEOUTS.audit
+    const isRelevant = state.status === "active" ||
+      (state.status === "completed" && age >= 0 && age < 5000)
+    return isRelevant && isValidAge
   } catch (e) { return false }
 })
-if (auditStateFiles.length > 1) warn(`Multiple active audit state files found (${auditStateFiles.length}) — using most recent`)
-const auditTeamName = auditStateFiles.length > 0
-  ? JSON.parse(Read(auditStateFiles[0])).team_name
-  : `rune-audit-${Date.now()}`
-// SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
-if (!/^[a-zA-Z0-9_-]+$/.test(auditTeamName)) throw new Error(`Invalid team_name from state file: ${auditTeamName}`)
-updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 9, team_name: auditTeamName })
+if (postAuditStateFiles.length > 1) {
+  warn(`Multiple audit state files found (${postAuditStateFiles.length}) — using most recent`)
+}
+if (postAuditStateFiles.length > 0) {
+  try {
+    const actualTeamName = JSON.parse(Read(postAuditStateFiles[0])).team_name
+    if (actualTeamName && /^[a-zA-Z0-9_-]+$/.test(actualTeamName)) {
+      updateCheckpoint({ phase: "audit", team_name: actualTeamName })
+    }
+  } catch (e) {
+    warn(`Failed to read team_name from state file: ${e.message}`)
+  }
+}
 ```
 
 ## Completion

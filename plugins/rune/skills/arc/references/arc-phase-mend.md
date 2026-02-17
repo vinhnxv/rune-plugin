@@ -66,25 +66,9 @@ const innerPolling = Math.max(mendTimeout - SETUP_BUDGET - MEND_EXTRA_BUDGET, 12
 ## Invocation
 
 ```javascript
-// STEP 1: Read mend team name from state file (MUST happen before checkpoint update)
-// Use Glob() to resolve wildcard — Read() does not support glob expansion.
-// SEC-001 FIX: Filter to current session timeframe to prevent cross-session confusion
-const mendStateFiles = Glob("tmp/.rune-mend-*.json").filter(f => {
-  try {
-    const state = JSON.parse(Read(f))
-    const age = Date.now() - new Date(state.started).getTime()
-    return state.status === "active" && !Number.isNaN(age) && age < PHASE_TIMEOUTS.mend
-  } catch (e) { return false }
-})
-if (mendStateFiles.length > 1) warn(`Multiple active mend state files found (${mendStateFiles.length}) — using most recent`)
-const mendTeamName = mendStateFiles.length > 0
-  ? JSON.parse(Read(mendStateFiles[0])).team_name
-  : `rune-mend-${Date.now()}`
-// SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
-if (!/^[a-zA-Z0-9_-]+$/.test(mendTeamName)) throw new Error(`Invalid team_name from state file: ${mendTeamName}`)
-
-// STEP 2: Update checkpoint with resolved team name
-updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team_name: mendTeamName })
+// STEP 1: PRE-DELEGATION: Record phase as in_progress with null team name.
+// Actual team name will be discovered post-delegation from state file.
+updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team_name: null })
 
 // STEP 2.5: Elicitation Sage — P1 root cause analysis (v1.31)
 // Skipped if talisman elicitation.enabled === false or no P1/recurring findings
@@ -136,6 +120,36 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
 // - Root cause context: if elicitation-root-cause.md exists, pass to fixers
 // Delegation pattern: /rune:mend creates its own team (e.g., rune-mend-{id}).
 // Arc reads the team name from the mend state file or teammate idle notification.
+```
+
+## Post-Delegation Team Name Discovery
+
+```javascript
+// POST-DELEGATION: Read actual team name from state file
+const postMendStateFiles = Glob("tmp/.rune-mend-*.json").filter(f => {
+  try {
+    const state = JSON.parse(Read(f))
+    if (!state.status) return false
+    const age = Date.now() - new Date(state.started).getTime()
+    const isValidAge = !Number.isNaN(age) && age >= 0 && age < PHASE_TIMEOUTS.mend
+    const isRelevant = state.status === "active" ||
+      (state.status === "completed" && age >= 0 && age < 5000)
+    return isRelevant && isValidAge
+  } catch (e) { return false }
+})
+if (postMendStateFiles.length > 1) {
+  warn(`Multiple mend state files found (${postMendStateFiles.length}) — using most recent`)
+}
+if (postMendStateFiles.length > 0) {
+  try {
+    const actualTeamName = JSON.parse(Read(postMendStateFiles[0])).team_name
+    if (actualTeamName && /^[a-zA-Z0-9_-]+$/.test(actualTeamName)) {
+      updateCheckpoint({ phase: "mend", team_name: actualTeamName })
+    }
+  } catch (e) {
+    warn(`Failed to read team_name from state file: ${e.message}`)
+  }
+}
 ```
 
 ## Completion and Halt Check

@@ -45,23 +45,9 @@ workContext += `\n\n## Quality Contract\nAll code must include:\n- Type annotati
 // Delegation pattern: /rune:work creates its own team (e.g., rune-work-{timestamp}).
 // Arc reads the team name back from the work state file or teammate idle notification.
 // The team name is recorded in checkpoint for cancel-arc discovery.
-// SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
-// SEC-001 FIX: Filter state files to current session timeframe to prevent cross-session confusion.
-// Only consider "active" state files created within the phase timeout window.
-const workStateFiles = Glob("tmp/.rune-work-*.json").filter(f => {
-  try {
-    const state = JSON.parse(Read(f))
-    const age = Date.now() - new Date(state.started).getTime()
-    return state.status === "active" && !Number.isNaN(age) && age < PHASE_TIMEOUTS.work
-  } catch (e) { return false }
-})
-if (workStateFiles.length > 1) warn(`Multiple active work state files found (${workStateFiles.length}) — using most recent`)
-const workTeamName = workStateFiles.length > 0
-  ? JSON.parse(Read(workStateFiles[0])).team_name
-  : `rune-work-${Date.now()}`
-// SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
-if (!/^[a-zA-Z0-9_-]+$/.test(workTeamName)) throw new Error(`Invalid team_name from state file: ${workTeamName}`)
-updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 5, team_name: workTeamName })
+// PRE-DELEGATION: Record phase as in_progress with null team name.
+// Actual team name will be discovered post-delegation from state file (see below).
+updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 5, team_name: null })
 
 // STEP 4: After work completes, produce work summary
 // CDX-003 FIX: Assign workSummary to a variable so sha256() in STEP 5 can reference it.
@@ -71,6 +57,37 @@ const workSummary = JSON.stringify({
   files_committed: committedFiles, uncommitted_changes: uncommittedList, commits: commitSHAs
 })
 Write(`tmp/arc/${id}/work-summary.md`, workSummary)
+
+// POST-DELEGATION: Read actual team name from state file
+// State file was created by the sub-command during its Phase 1 (TeamCreate).
+// This is the only reliable way to discover the team name for cancel-arc.
+// NOTE (Forge: flaw-hunter): Include recently-completed files (< 5s) to handle
+// fast workflows where sub-command completes before arc reads the state file.
+// NOTE (Forge: ward-sentinel): Validate age >= 0 to prevent future-timestamp bypass.
+const postWorkStateFiles = Glob("tmp/.rune-work-*.json").filter(f => {
+  try {
+    const state = JSON.parse(Read(f))
+    if (!state.status) return false  // Reject malformed state files
+    const age = Date.now() - new Date(state.started).getTime()
+    const isValidAge = !Number.isNaN(age) && age >= 0 && age < PHASE_TIMEOUTS.work
+    const isRelevant = state.status === "active" ||
+      (state.status === "completed" && age >= 0 && age < 5000)  // Recently completed
+    return isRelevant && isValidAge
+  } catch (e) { return false }
+})
+if (postWorkStateFiles.length > 1) {
+  warn(`Multiple work state files found (${postWorkStateFiles.length}) — using most recent`)
+}
+if (postWorkStateFiles.length > 0) {
+  try {
+    const actualTeamName = JSON.parse(Read(postWorkStateFiles[0])).team_name
+    if (actualTeamName && /^[a-zA-Z0-9_-]+$/.test(actualTeamName)) {
+      updateCheckpoint({ phase: "work", team_name: actualTeamName })
+    }
+  } catch (e) {
+    warn(`Failed to read team_name from state file: ${e.message}`)
+  }
+}
 
 // STEP 5: Update checkpoint
 updateCheckpoint({

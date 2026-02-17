@@ -82,7 +82,8 @@ try {
 
 ## buildCompletionRecord()
 
-Pure function — formats checkpoint data into a markdown completion record. Receives pre-loaded plan content to avoid redundant disk reads.
+Formats checkpoint data into a markdown completion record. Receives pre-loaded plan content to avoid redundant disk reads.
+NOTE: Calls Bash() for git branch fallback — not side-effect-free.
 
 ```javascript
 function buildCompletionRecord(checkpoint, newStatus, content) {
