@@ -150,19 +150,19 @@ When an agent hits context overflow, assess severity FIRST, then apply proportio
 |---------|-----------|
 | "Cannot cleanup team with N active members" | Error catch |
 | "Already leading team" on next TeamCreate | Error catch |
-| Team directory persists | `ls ~/.claude/teams/` |
+| Team directory persists | `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && ls "$CHOME/teams/"` |
 
 **Severity**: LOW (dir removable) · MEDIUM (members refuse shutdown) · HIGH (multiple phantoms)
 
 | Step | Action |
 |------|--------|
-| ASSESS | Read `~/.claude/teams/{name}/config.json` — discover all members |
+| ASSESS | Read `~/.claude/teams/{name}/config.json` — discover all members (Read() auto-resolves CLAUDE_CONFIG_DIR) |
 | CONTAIN | `shutdown_request` to each member; wait 30s |
-| RECOVER | Retry TeamDelete. Fallback: `rm -rf ~/.claude/teams/{name}/ ~/.claude/tasks/{name}/` — **PRECONDITION**: Validate team name matches `/^[a-zA-Z0-9_-]+$/` AND does not contain `..` before executing rm -rf. Abort recovery if validation fails. |
+| RECOVER | Retry TeamDelete. Fallback: `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/{name}/" "$CHOME/tasks/{name}/"` — **PRECONDITION**: Validate team name matches `/^[a-zA-Z0-9_-]+$/` AND does not contain `..` before executing rm -rf. Abort recovery if validation fails. |
 | VERIFY | Team dir gone; TeamCreate succeeds for next workflow |
 | REPORT | Log phantom team name and cleanup method |
 
-**Escalation**: L0 error caught → L1 shutdown+retry → L2 filesystem fallback → L3 ask user to check `~/.claude/teams/`
+**Escalation**: L0 error caught → L1 shutdown+retry → L2 filesystem fallback → L3 ask user to check `$CHOME/teams/`
 **Decision**: Forward-fix only. Phantom teams must be cleaned to proceed.
 **Refs**: Team lifecycle guard (pre-create, cleanup, dynamic discovery) · Team name: `/^[a-zA-Z0-9_-]+$/`
 
@@ -182,7 +182,7 @@ When an agent hits context overflow, assess severity FIRST, then apply proportio
 
 | Step | Action |
 |------|--------|
-| ASSESS | Check `~/.claude/teams/` — identify which workflow owns each team |
+| ASSESS | Check `$CHOME/teams/` (where `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`) — identify which workflow owns each team |
 | CONTAIN | Refuse new workflow; warn user about active workflow |
 | RECOVER | Wait for active workflow, or cancel first (`/rune:cancel-review`, `/rune:cancel-audit`, `/rune:cancel-arc`). For work/mend/plan/forge, use manual `TeamDelete` cleanup. |
 | VERIFY | No team directories remain before starting new workflow |
