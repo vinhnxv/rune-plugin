@@ -190,7 +190,7 @@ if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
     exit 1
   fi
 
-  git checkout -b -- "$branch_name"
+  git checkout -b "$branch_name"
 fi
 ```
 

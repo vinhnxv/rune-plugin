@@ -301,15 +301,8 @@ Task({
              // {file_batch}, {review_mode}, {default_branch}, {identifier}, {diff_context}, {max_diff_size}
              // review_mode is always "review" for /rune:review (Codex Oracle uses diff-focused strategy)
              // These are resolved from talisman.codex.* config. See codex-oracle.md header for full contract.
-             //
-             // Pre-extract diff metadata for Codex Oracle:
-             // Write review-meta.json so Codex Oracle knows the review mode and diff settings.
-             // Write(`tmp/reviews/${identifier}/review-meta.json`, JSON.stringify({
-             //   review_mode: "review",
-             //   default_branch: default_branch,
-             //   diff_context: talisman?.codex?.review_diff?.context_lines ?? 5,
-             //   max_diff_size: talisman?.codex?.review_diff?.max_diff_size ?? 15000
-             // }))
+             // SEC-007: Validate review_mode before substitution:
+             // review_mode = ["review", "audit"].includes(mode) ? mode : "audit"
              */,
   run_in_background: true
 })
