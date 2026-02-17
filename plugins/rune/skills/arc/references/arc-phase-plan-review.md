@@ -37,7 +37,13 @@ updateCheckpoint({ phase: "plan_review", status: "in_progress", phase_sequence: 
 if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid arc id')
 // SEC-3 FIX: Redundant path traversal check — defense-in-depth (matches arc-phase-forge.md pattern)
 if (id.includes('..')) throw new Error('Path traversal detected in arc id')
+// NOTE: prePhaseCleanup(checkpoint) runs BEFORE this phase (added in v1.28.1),
+// clearing SDK leadership state + prior phase team dirs. This inline guard is
+// defense-in-depth for the specific team being created (stale same-name team).
 try { TeamDelete() } catch (e) {
+  // TeamDelete failed — clear both the target team AND any prior phase team dirs.
+  // The rm -rf for arc-plan-review dirs handles stale same-name teams.
+  // prePhaseCleanup should have already handled prior-phase teams, but this is defense-in-depth.
   Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
 }
 TeamCreate({ team_name: `arc-plan-review-${id}` })

@@ -132,6 +132,57 @@ Task({
     See agents/utility/knowledge-keeper.md for evaluation criteria.`,
   run_in_background: true
 })
+
+// Elicitation Sage — plan review structured reasoning (v1.31)
+// Skipped if talisman elicitation.enabled === false
+// plan:4 methods: Self-Consistency Validation (#14), Challenge from Critical
+// Perspective (#36), Critique and Refine (#42)
+// ATE-1: subagent_type: "general-purpose", identity via prompt
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+if (elicitEnabled) {
+  // Keyword count determines sage count (simplified threshold — no float scoring)
+  // Canonical keyword list — see elicitation-sage.md § Canonical Keyword List for the source of truth
+  const planText = Read(planPath).slice(0, 1000).toLowerCase()
+  const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
+    "migration", "performance", "decision", "approach", "comparison"]
+  const keywordHits = elicitKeywords.filter(k => planText.includes(k)).length
+  const reviewSageCount = keywordHits >= 4 ? 3 : keywordHits >= 2 ? 2 : 1
+
+  for (let i = 0; i < reviewSageCount; i++) {
+    TaskCreate({
+      subject: `Elicitation sage plan review #${i + 1}`,
+      description: `Apply top-scored elicitation method #${i + 1} for plan:4 phase structured reasoning on ${planPath}`,
+      activeForm: `Sage #${i + 1} analyzing plan...`
+    })
+    Task({
+      team_name: "rune-plan-{timestamp}",
+      name: `elicitation-sage-review-${i + 1}`,
+      subagent_type: "general-purpose",
+      prompt: `You are elicitation-sage — structured reasoning specialist.
+
+        ## Bootstrap
+        Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+
+        ## Assignment
+        Phase: plan:4 (review)
+        Plan document: Read ${planPath}
+
+        Auto-select the #${i + 1} top-scored method for plan:4 phase.
+        Write output to: tmp/plans/{timestamp}/elicitation-review-${i + 1}.md
+
+        ## Lifecycle
+        1. TaskList() to find your assigned task
+        2. TaskGet({ taskId }) to read full details
+        3. TaskUpdate({ taskId, status: "in_progress" }) before starting
+        4. Do your analysis work (write output file)
+        5. TaskUpdate({ taskId, status: "completed" }) when done
+
+        Do not write implementation code. Structured reasoning output only.
+        When done, SendMessage to team-lead: "Seal: elicitation review done."`,
+      run_in_background: true
+    })
+  }
+}
 ```
 
 ### Codex Plan Review (optional)

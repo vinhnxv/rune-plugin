@@ -80,7 +80,7 @@ Phase 6: RESOLUTION REPORT -> Produce report
 Phase 7: CLEANUP -> Shutdown fixers, persist echoes, report summary
 ```
 
-**Phase numbering note**: Phase numbers above are internal to the mend pipeline and distinct from arc.md's phase numbering.
+**Phase numbering note**: Phase numbers above are internal to the mend pipeline and distinct from arc skill's phase numbering.
 
 ## Phase 0: PARSE
 
@@ -423,6 +423,12 @@ if (crossFileFixed.length === 0) {
 } else {
   for (const ward of wards) {
     if (!SAFE_WARD.test(ward.command)) continue
+    // CDX-004/BACK-003: Validate executable against allowlist (same as Phase 5 above)
+    const executable = ward.command.trim().split(/\s+/)[0].split('/').pop()
+    if (!SAFE_EXECUTABLES.has(executable)) {
+      warn(`Phase 5.6: ward "${ward.name}": executable "${executable}" not in safe allowlist -- skipping`)
+      continue
+    }
     const result = Bash(ward.command)
     if (result.exitCode !== 0) {
       warn(`Phase 5.6: ward "${ward.name}" failed after cross-file fixes`)
@@ -525,7 +531,7 @@ let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/rune-mend-${id}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-  allMembers = members.map(m => m.name).filter(Boolean)
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
   // FALLBACK: Config read failed — use known teammate list from command context

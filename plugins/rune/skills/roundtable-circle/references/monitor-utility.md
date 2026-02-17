@@ -212,7 +212,7 @@ Each command passes its own `opts` to `waitForCompletion`:
 | `work` | 1,800,000 (30 min) | 300,000 (5 min) | 600,000 (10 min) | 30,000 (30s) | `"Work"` | Yes (milestone) |
 | `mend` | 900,000 (15 min) ‡ | 300,000 (5 min) | 600,000 (10 min) | 30,000 (30s) | `"Mend"` | — |
 | `plan` | — (none) | 300,000 (5 min) | — | 30,000 (30s) | `"Plan Research"` | — |
-| `forge` | — (none) | 300,000 (5 min) | 300,000 (5 min)* | 30,000 (30s) | `"Forge"` | — |
+| `forge` | 1,200,000 (20 min) | 300,000 (5 min) | 300,000 (5 min)* | 30,000 (30s) | `"Forge"` | — |
 | `arc` | Per-phase (varies) | 300,000 (5 min) | — | 30,000 (30s) | `"Arc: {phase}"` | Planned |
 
 ‡ **Mend timeout override**: When called from arc with `--timeout <ms>`, inner polling timeout is derived: `timeout - SETUP_BUDGET(5m) - MEND_EXTRA_BUDGET(3m)`, minimum 120,000ms. On arc retry rounds, this reduces from 15 min to ~5 min. See mend.md Flags.
@@ -221,8 +221,9 @@ Each command passes its own `opts` to `waitForCompletion`:
 - `review` and `audit` have no `autoReleaseMs` because each Ash produces unique findings that cannot be reclaimed by another Ash.
 - `work` and `mend` enable auto-release because their tasks are fungible (any worker can pick up a released task).
 - `forge` enables auto-release (5 min) because enrichment tasks are reassignable. *When `staleWarnMs === autoReleaseMs` (as in forge), warn and release fire on the same poll tick — this is by design since forge's stale detection and release are a single action.
-- `plan` and `forge` have no `timeoutMs` — polling continues until all tasks complete or stale detection intervenes.
-- `arc` uses `PHASE_TIMEOUTS` from its constants (see `arc.md`) which vary per phase. Phase outer timeout = inner polling timeout + `SETUP_BUDGET` (5 min) + optional `MEND_EXTRA_BUDGET` (3 min). The inner timeout is the real enforcement — `checkArcTimeout()` only runs between phases.
+- `plan` has no `timeoutMs` — polling continues until all tasks complete or stale detection intervenes.
+- `forge` has a 20-minute `timeoutMs` (`FORGE_TIMEOUT = 1_200_000` in forge.md) — enrichment sessions have a hard upper bound.
+- `arc` uses `PHASE_TIMEOUTS` from its constants (see `arc SKILL.md`) which vary per phase. Phase outer timeout = inner polling timeout + `SETUP_BUDGET` (5 min) + optional `MEND_EXTRA_BUDGET` (3 min). The inner timeout is the real enforcement — `checkArcTimeout()` only runs between phases.
 - **Signal-path compatibility**: When the Phase 2 fast path is active, `autoReleaseMs` and `onCheckpoint` are not evaluated. Commands that rely on these features (`work`, `mend`, `forge`) lose those capabilities until Phase 3 unifies both paths. Commands without these features (`review`, `audit`) behave identically on either path.
 
 ## Usage Example

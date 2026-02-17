@@ -319,6 +319,74 @@ Task({
 })
 ```
 
+### Elicitation Sage — Security Context (v1.31)
+
+When security-relevant files are reviewed (3+ files matching `.py`, `.ts`, `.rb`, `.go` in `auth/`, `api/`, `security/` paths), summon 1-2 elicitation-sage teammates for structured security reasoning alongside the review Ashes.
+
+Skipped if talisman `elicitation.enabled` is `false`.
+
+```javascript
+// ATE-1: subagent_type: "general-purpose", identity via prompt
+// NOTE: Review uses path-based activation (security file patterns), not keyword-based.
+// See elicitation-sage.md for keyword-based activation used by forge.md and plan.md.
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+const securityFiles = changedFiles.filter(f =>
+  /\/(auth|api|security|middleware)\//.test(f) ||
+  /\b(auth|login|token|session|password|secret)\b/i.test(f)
+)
+
+if (elicitEnabled && securityFiles.length >= 3) {
+  // REVIEW-002: Sanitize file paths before prompt interpolation — reject paths with
+  // shell metacharacters, backticks, $() constructs, or path traversal sequences.
+  const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
+  const safeSecurityFiles = securityFiles
+    .filter(f => SAFE_PATH_PATTERN.test(f) && !f.includes('..'))
+    .slice(0, 10)
+
+  // review:6 methods: Red Team vs Blue Team (T1), Challenge from Critical Perspective (T1)
+  const securitySageCount = safeSecurityFiles.length >= 6 ? 2 : 1
+  // NOTE: Elicitation sages are supplementary and NOT counted in ashCount.
+  // Phase 7 dynamic member discovery handles sage shutdown via team config.members.
+  // Sage output is advisory-only (see REVIEW-010 below).
+  // NOTE: Sage teammates are NOT counted toward the max_ashes cap from talisman.yml.
+  // They are auto-summoned based on security file heuristics, independent of Ash selection.
+
+  for (let i = 0; i < securitySageCount; i++) {
+    // REVIEW-006: Create task for sage before spawning — enables monitor tracking
+    TaskCreate({
+      subject: `Elicitation sage security analysis ${i + 1}`,
+      description: `Security reasoning for: ${safeSecurityFiles.join(", ")}. Output: tmp/reviews/{identifier}/elicitation-security-${i + 1}.md`,
+      activeForm: `Sage security analysis ${i + 1}...`
+    })
+
+    Task({
+      team_name: "rune-review-{identifier}",
+      name: `elicitation-sage-security-${i + 1}`,
+      subagent_type: "general-purpose",
+      prompt: `You are elicitation-sage — structured reasoning specialist.
+
+        ## Bootstrap
+        Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+
+        ## Assignment
+        Phase: review:6 (code review)
+        Auto-select the #${i + 1} top-scored security method (filter: review:6 phase + security topics).
+        Changed files: Read tmp/reviews/{identifier}/changed-files.txt
+        Focus on security analysis of: ${safeSecurityFiles.join(", ")}
+
+        Write output to: tmp/reviews/{identifier}/elicitation-security-${i + 1}.md
+        // REVIEW-010: Advisory output: sage results written to tmp/reviews/{identifier}/elicitation-security-*.md
+        // are NOT aggregated into TOME by Runebinder. They serve as supplementary analysis for the
+        // Tarnished during Phase 7 cleanup.
+
+        Do not write implementation code. Security reasoning only.
+        When done, SendMessage to team-lead: "Seal: elicitation security review done."`,
+      run_in_background: true
+    })
+  }
+}
+```
+
 The Tarnished does not review code directly. Focus solely on coordination.
 
 ## Phase 4: Monitor
@@ -460,7 +528,7 @@ let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/${teamName}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-  allMembers = members.map(m => m.name).filter(Boolean)
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
   // FALLBACK: Config read failed — use static list
   allMembers = [...allAsh, "runebinder"]

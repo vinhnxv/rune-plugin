@@ -20,7 +20,7 @@ The consistency scan runs **once**. It does not re-scan after its own fixes. New
 
 ## Extractor Taxonomy
 
-Uses the same extractors as arc.md Phase 5.5:
+Uses the same extractors as arc SKILL.md Phase 5.5:
 
 | Extractor | Input | Output |
 |-----------|-------|--------|
@@ -42,7 +42,7 @@ Uses the same extractors as arc.md Phase 5.5:
 ## Default Consistency Checks
 
 ```javascript
-// Schema matches arc.md DEFAULT_CONSISTENCY_CHECKS
+// Schema matches arc SKILL.md DEFAULT_CONSISTENCY_CHECKS
 const DEFAULT_CONSISTENCY_CHECKS = [
   {
     name: "version_sync",

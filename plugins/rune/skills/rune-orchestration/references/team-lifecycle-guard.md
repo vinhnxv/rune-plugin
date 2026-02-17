@@ -257,7 +257,7 @@ checkpoint state to identify which phase teams may be stale.
 Complements CDX-7 (crash recovery) — ARC-6 handles normal phase transitions where
 TeamDelete is async and may not complete before the next phase starts.
 
-See arc.md for the full `prePhaseCleanup()` implementation.
+See arc SKILL.md for the full `prePhaseCleanup()` implementation.
 
 ## Staleness Detection
 
@@ -270,7 +270,7 @@ ORPHAN_STALE_THRESHOLD = 1_800_000   // 30 minutes (ms)
 ```
 
 > **Naming**: Uses `ORPHAN_STALE_THRESHOLD` (not `STALE_THRESHOLD`) to avoid collision
-> with arc.md's existing `STALE_THRESHOLD = 300_000` (5-min phase monitoring constant).
+> with arc SKILL.md's existing `STALE_THRESHOLD = 300_000` (5-min phase monitoring constant).
 
 ### isStale(startedTimestamp, thresholdMs)
 
@@ -291,7 +291,7 @@ so the threshold is safe. `/rune:rest --heal` requires user confirmation before 
 ### Stale State File Scan Contract
 
 Canonical algorithm for scanning state files across workflow types. Implemented by:
-- arc.md ORCH-1 (lines 487-505): marks stale files as `crash_recovered`
+- arc SKILL.md ORCH-1 (lines 487-505): marks stale files as `crash_recovered`
 - rest.md `--heal` (lines 246-267): collects stale files for user-confirmed cleanup
 
 Both implementations MUST use the same type list and threshold:
@@ -344,12 +344,12 @@ function safeTeamCleanup(teamName) {
 
   // NOTE: TeamDelete() targets the CALLER's active team only — it does not accept a
   // team_name parameter. For orphan cleanup (where the caller is NOT leading the target
-  // team), only direct filesystem removal works. See arc.md prePhaseCleanup comment.
+  // team), only direct filesystem removal works. See arc SKILL.md prePhaseCleanup comment.
   Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
 }
 ```
 
-**Consumers**: arc.md (Layer 1 resume cleanup, Layer 3 stale scan), rest.md (`--heal`),
+**Consumers**: arc SKILL.md (Layer 1 resume cleanup, Layer 3 stale scan), rest.md (`--heal`),
 all cancel-*.md commands (via Pre-Create Guard pattern).
 
 **Design note**: `safeTeamCleanup()` intentionally skips `TeamDelete()` because the SDK
@@ -361,7 +361,7 @@ only supports deleting the caller's own team. The Pre-Create Guard (above) CAN u
 Three independent layers catch orphaned teams from different crash scenarios.
 Defense-in-depth — each layer targets a different failure mode.
 
-### Layer 1: Arc Resume Pre-Flight (arc.md)
+### Layer 1: Arc Resume Pre-Flight (arc SKILL.md)
 
 - **Trigger**: `arc --resume` (after checkpoint read, before phase dispatch)
 - **Catches**: Orphaned teams from the *same arc session's* prior crashed attempt
@@ -376,7 +376,7 @@ Defense-in-depth — each layer targets a different failure mode.
 - **Scope**: All rune-managed teams (broadest coverage)
 - **Safety**: User confirmation required; active workflows (< 30 min) preserved
 
-### Layer 3: Arc Pre-Flight Stale Scan (arc.md)
+### Layer 3: Arc Pre-Flight Stale Scan (arc SKILL.md)
 
 - **Trigger**: Any `arc` invocation (after checkpoint init, before Phase 1)
 - **Catches**: Stale arc-specific teams from *prior arc sessions*
@@ -400,9 +400,9 @@ recovery layer details.
 
 ## Consumers
 
-All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md, arc.md prePhaseCleanup(), rest.md --heal
+All multi-agent commands: plan.md, work.md, arc SKILL.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md, arc SKILL.md prePhaseCleanup(), rest.md --heal
 
-Arc phase references (extracted from arc.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md, arc-phase-audit.md
+Arc phase references (extracted from arc SKILL.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md, arc-phase-audit.md
 
 ## Related
 

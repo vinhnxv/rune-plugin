@@ -248,13 +248,6 @@ if (planFile.startsWith('-')) {
   error(`Plan path starts with hyphen (option injection risk): ${planFile}`)
   return
 }
-// CDX-009 EXTENSION: Reject internal double-hyphens (option terminator injection)
-// A path like "plans/plan--version.md" could be misinterpreted as `--` by downstream
-// Bash() calls that don't use `--` argument separators.
-if (planFile.includes('--')) {
-  error(`Plan path contains double-hyphen (option terminator risk): ${planFile}`)
-  return
-}
 // Reject absolute paths — plan files must be relative to project root
 if (planFile.startsWith('/')) {
   error(`Absolute paths not allowed: ${planFile}. Use a relative path from project root.`)
@@ -566,7 +559,11 @@ See [arc-phase-plan-review.md](references/arc-phase-plan-review.md) for the full
 **Output**: `tmp/arc/{id}/plan-review.md`
 **Failure**: BLOCK verdict halts pipeline. User fixes plan, then `/rune:arc --resume`.
 
-// No ARC-6 guard — orchestrator-managed phase (not delegated to sub-command); uses inline Pre-Create Guard before its own TeamCreate (see arc-phase-plan-review.md)
+// ARC-6: Clean stale teams before creating Phase 2 team
+// Previously skipped ("orchestrator-managed phase") but leadership state from Phase 1's
+// team must be cleared before Phase 2's TeamCreate. See #42 gap analysis.
+prePhaseCleanup(checkpoint)
+
 Read and execute the arc-phase-plan-review.md algorithm. Update checkpoint on completion.
 
 ## Phase 2.5: PLAN REFINEMENT (conditional)

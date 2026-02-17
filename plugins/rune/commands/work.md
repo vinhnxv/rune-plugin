@@ -142,7 +142,7 @@ if (status !== "") {
 let didStash = false  // Set to true if stash was applied above; consumed by Phase 6 cleanup
 ```
 
-**Branch name derivation**: `rune/work-{slugified-plan-name}-{YYYYMMDD-HHMMSS}` matching arc.md's COMMIT-1 convention.
+**Branch name derivation**: `rune/work-{slugified-plan-name}-{YYYYMMDD-HHMMSS}` matching arc skill's COMMIT-1 convention.
 
 ## Phase 1: Forge Team
 

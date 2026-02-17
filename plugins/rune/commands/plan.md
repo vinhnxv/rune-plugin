@@ -194,9 +194,112 @@ AskUserQuestion({
 })
 ```
 
-#### Step 3.5: Elicitation Methods (Recommended)
+#### Step 3.5: Elicitation Methods (Mandatory)
 
-After approach selection, optionally apply structured reasoning methods for deeper exploration. Load elicitation skill's methods.csv (from `skills/elicitation/methods.csv`), filter by `phases includes "plan:0"` and `auto_suggest=true`, score by keyword overlap with feature description, present top 3-5 via AskUserQuestion with `multiSelect: true`. At least 1 method recommended. Include a "Skip elicitation" option for users who want to proceed directly. In `--quick` mode, top-scored method auto-selected. For each selected method, expand output_pattern into template and apply to context.
+After approach selection, summon 1-3 elicitation-sage teammates for multi-perspective structured reasoning. Skippable via talisman key `elicitation.enabled: false` or user opt-out.
+
+**Talisman check**: Read `.claude/talisman.yml` → if `elicitation.enabled` is explicitly `false`, skip this step entirely.
+
+```javascript
+// Talisman kill switch — early exit if elicitation disabled
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+if (elicitEnabled) {
+// ── BEGIN elicitation gate ──
+
+// 1. Compute fan-out using simplified keyword count threshold (not float scoring)
+//    Decree-arbiter P2: Float comparisons unreliable in LLM pseudocode.
+//    Use keyword count → lookup table instead.
+// NOTE: Brainstorm uses 15 keywords (wider activation) vs 10 in forge/review sites.
+// Intentional: brainstorm is the first user-facing sage invocation — broader net catches
+// more opportunities for structured reasoning before the plan is finalized.
+// Canonical keyword list — see elicitation-sage.md § Canonical Keyword List for the source of truth
+// Brainstorm extends base list with: breaking-change, auth, api, complex, novel-approach
+const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
+  "migration", "performance", "decision", "approach", "comparison",
+  "breaking-change", "auth", "api", "complex", "novel-approach"]
+const contextText = (featureDescription + " " + selectedApproach).toLowerCase()
+const keywordHits = elicitKeywords.filter(k => contextText.includes(k)).length
+
+// Lookup table: keyword hits → sage count (capped at 3 for brainstorm)
+let sageCount
+if (keywordHits >= 4) sageCount = 3       // High complexity (4+ keywords → max sages)
+else if (keywordHits >= 2) sageCount = 2  // Moderate
+else sageCount = 1                         // Simple — still 1 sage minimum
+
+// 2. Score and assign methods
+//    Read methods.csv, filter for plan:0 phase, sort by keyword overlap
+const methods = Read("skills/elicitation/methods.csv")
+// Filter: phases contains "plan:0" AND auto_suggest = true
+// Score against feature keywords (topic overlap from SKILL.md algorithm)
+// Sort by score DESC → take top {sageCount} methods
+
+// 3. Present to user (skip in --quick mode)
+if (!quickMode) {
+  AskUserQuestion({
+    questions: [{
+      question: `Apply ${sageCount} structured reasoning method(s) to deepen this brainstorm?`,
+      header: "Elicitation",
+      options: [
+        { label: `Auto: ${sageCount} method(s) (Recommended)`,
+          description: `${selectedMethods.map(m => m.method_name).join(", ")}` },
+        { label: "Skip elicitation",
+          description: "Proceed with current brainstorm output" }
+      ],
+      multiSelect: false
+    }]
+  })
+}
+
+// 4. Summon sages (inline — no team_name needed, plan team not yet created)
+//    Phase 0 runs BEFORE team creation (Phase 1). Decree-arbiter P2: run inline.
+//    ATE-1 COMPLIANCE: subagent_type MUST be "general-purpose", identity via prompt.
+//    ATE-1 EXEMPTION: Plan team not yet created at Phase 0. enforce-teams.sh passes
+//    because no plan state file (tmp/.rune-plan-*.json) exists at this point.
+//    NOTE: If another active Rune workflow (review/audit/work) is running concurrently,
+//    enforce-teams.sh WILL block these bare Task calls. This exemption only holds when
+//    /rune:plan runs standalone.
+//    If a plan state file is ever added pre-Phase 1, add "plan" to the hook's exclusion list.
+for (let i = 0; i < sageCount; i++) {
+  const method = selectedMethods[i]
+
+  Task({
+    name: `elicitation-sage-${i + 1}`,
+    subagent_type: "general-purpose",
+    prompt: `You are elicitation-sage — a structured reasoning specialist.
+
+      ## Bootstrap
+      Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+
+      ## Assignment
+      Phase: plan:0 (brainstorm)
+      Assigned method: ${method.method_name} (method #${method.num})
+      Feature: ${((featureDescription || '').replace(/<!--[\s\S]*?-->/g, '').replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]').replace(/!\[.*?\]\(.*?\)/g, '').replace(/^#{1,6}\s+/gm, '').replace(/&[a-zA-Z0-9#]+;/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '').slice(0, 2000))}
+      Chosen approach: ${((selectedApproach || '').replace(/<!--[\s\S]*?-->/g, '').replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]').replace(/!\[.*?\]\(.*?\)/g, '').replace(/^#{1,6}\s+/gm, '').replace(/&[a-zA-Z0-9#]+;/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '').slice(0, 2000))}
+      Brainstorm context: Read tmp/plans/{timestamp}/brainstorm-decisions.md
+
+      ## Lifecycle
+      1. Read skills/elicitation/SKILL.md and methods.csv (bootstrap)
+      2. Apply ONLY the method "${method.method_name}" to the brainstorm context
+      3. Write output to: tmp/plans/{timestamp}/elicitation-${method.method_name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}.md
+      4. Do not write implementation code. Structured reasoning output only.`,
+    run_in_background: true
+  })
+}
+
+// 5. After all sages complete:
+//    Completion detection: bare background Tasks (no team_name) complete when their
+//    run_in_background promise resolves. Poll for output files as a secondary signal.
+//    Read all tmp/plans/{timestamp}/elicitation-*.md files
+//    Merge structured reasoning insights into brainstorm-decisions.md
+//    Include in research handoff context
+
+// 6. In --quick mode: auto-summon 1 sage without AskUserQuestion
+
+// ── END elicitation gate ──
+} // end elicitEnabled guard
+```
+
+Exit condition: All sage outputs written (or user explicitly skips).
 
 #### Step 4: Capture Decisions
 
@@ -348,7 +451,7 @@ for (const [section, agents] of assignments) {
         Focus on: ${agent.perspective}
 
         ## Section to Enrich
-        Title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
+        Title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 200)}"
         // CDX-001 MITIGATION (P1): Sanitize untrusted plan content before interpolation
         // into forge agent prompts. Plan content may contain forge-enriched external content
         // (web search results, codex output) with adversarial instructions.
@@ -357,6 +460,8 @@ for (const [section, agents] of assignments) {
           .replace(/```[\s\S]*?```/g, '[code-block-removed]')      // Strip code fences
           .replace(/!\[.*?\]\(.*?\)/g, '')                          // Strip image/link injection
           .replace(/^#{1,6}\s+/gm, '')                              // Strip markdown headings (prompt override)
+          .replace(/&[a-zA-Z0-9#]+;/g, '')                          // Strip HTML entities
+          .replace(/[\u200B-\u200D\uFEFF]/g, '')                    // Strip zero-width chars
           .slice(0, 8000))}
 
         ## Research Steps
@@ -384,8 +489,61 @@ for (const [section, agents] of assignments) {
   }
 }
 
-// 5. After all forge agents complete, merge enrichments into plan
+// 4.5. Elicitation Sage — summon per eligible section (NEW — v1.31)
+//       ATE-1: subagent_type: "general-purpose", identity via prompt
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+if (elicitEnabled) {
+// ── BEGIN forge elicitation gate ──
+let totalSagesSpawned = 0
+const MAX_FORGE_SAGES = 6
+
+for (const [sectionIndex, section] of sections.entries()) {
+  if (totalSagesSpawned >= MAX_FORGE_SAGES) break
+
+  // Quick keyword pre-filter (decree-arbiter P2: simple threshold, no floats)
+  // Canonical keyword list — see elicitation-sage.md § Canonical Keyword List for the source of truth
+  const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
+    "migration", "performance", "decision", "approach", "comparison"]
+  const sectionText = (section.title + " " + (section.content || '').slice(0, 200)).toLowerCase()
+  if (!elicitKeywords.some(k => sectionText.includes(k))) continue
+
+  TaskCreate({ subject: `Elicitation sage for ${section.title}`, description: `Structured reasoning analysis of plan section "${section.title}" using auto-selected elicitation method`, activeForm: "Sage analyzing..." })
+
+  Task({
+    team_name: "rune-plan-{timestamp}",
+    name: `elicitation-sage-forge-${sectionIndex}`,
+    subagent_type: "general-purpose",
+    prompt: `You are elicitation-sage — structured reasoning specialist.
+
+      ## Bootstrap
+      Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+
+      ## Assignment
+      Phase: forge:3 (enrichment)
+      Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 200)}"
+      Section content (first 2000 chars): ${((section.content || '')
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]')
+        .replace(/!\[.*?\]\(.*?\)/g, '')
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/&[a-zA-Z0-9#]+;/g, '')
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')
+        .slice(0, 2000))}
+
+      Auto-select the top-scored method for this section's topics.
+      Write output to: tmp/plans/{timestamp}/forge/${section.slug}-elicitation-sage.md
+
+      Do not write implementation code. Structured reasoning output only.`,
+    run_in_background: true
+  })
+  totalSagesSpawned++
+}
+// ── END forge elicitation gate ──
+} // end elicitEnabled guard
+
+// 5. After all forge agents + sages complete, merge enrichments into plan
 //    Read tmp/plans/{timestamp}/forge/*.md -> insert under matching sections
+//    This now includes both forge agent enrichments AND sage reasoning output
 ```
 
 **Fallback**: If no agent scores above threshold for a section, use an inline generic Task prompt to produce standard enrichment.
@@ -420,6 +578,7 @@ Token budget: {budget}M. Proceed? [Y/n]
 
 Runs scroll-reviewer for document quality, then automated verification gate (deterministic checks including talisman patterns, universal checks, CommonMark compliance, measurability, filler detection). Optionally summons decree-arbiter, knowledge-keeper, and codex-plan-reviewer for technical review.
 
+// TRUST BOUNDARY: Sage has raw Read access to plan file. Truthbinding Protocol provides defense-in-depth.
 **Inputs**: Plan document from Phase 2/3, talisman config
 **Outputs**: `tmp/plans/{timestamp}/scroll-review.md`, `tmp/plans/{timestamp}/decree-review.md`, `tmp/plans/{timestamp}/knowledge-review.md`, `tmp/plans/{timestamp}/codex-plan-review.md`
 **Error handling**: BLOCK verdict -> address before presenting; CONCERN verdicts -> include as warnings
@@ -450,7 +609,7 @@ let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/rune-plan-${timestamp}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-  allMembers = members.map(m => m.name).filter(Boolean)
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
   // FALLBACK: Config read failed — use known teammate list from command context
