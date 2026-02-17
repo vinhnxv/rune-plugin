@@ -108,6 +108,9 @@ Phase 7.5: VERIFY MEND → Convergence gate (spot-check + retry loop)
     ↓ converged → proceed | retry → loop to Phase 7 (max 2 retries) | halted → warn + proceed
 Phase 8:   AUDIT → Final quality gate (informational)
     ↓ (audit-report.md)
+Post-arc: PLAN STAMP → Append completion record to plan file (runs FIRST — context-safe)
+Post-arc: ECHO PERSIST → Save arc metrics to echoes
+Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, and fixed feature
 ```
 
@@ -379,6 +382,10 @@ function prePhaseCleanup(checkpoint) {
       }
     }
 
+    // Step C: Retry TeamDelete after cross-phase filesystem cleanup
+    // Pre-create guard v2: clearing dirs may have unblocked SDK leadership state
+    try { TeamDelete() } catch (e3) { /* SDK state cleared or was already clear */ }
+
   } catch (e) {
     // Top-level guard: defensive infrastructure must NEVER halt the pipeline.
     warn(`ARC-6: prePhaseCleanup failed (${e.message}) — proceeding anyway`)
@@ -593,6 +600,10 @@ On resume, validate checkpoint integrity before proceeding:
      }
    }
 
+   // Step C: Retry TeamDelete after checkpoint + stale scan filesystem cleanup
+   // Pre-create guard v2: rm-rf of checkpoint teams may have unblocked SDK leadership state
+   try { TeamDelete() } catch (e) { /* SDK state cleared or was already clear */ }
+
    Write(checkpointPath, checkpoint)  // Save cleaned checkpoint
    ```
 
@@ -762,6 +773,48 @@ Read and execute the arc-phase-audit.md algorithm. Update checkpoint on completi
 | VERIFY MEND | Non-blocking — retries up to 2x, then proceeds | Convergence gate is advisory |
 | AUDIT | Does not halt — informational | User reviews audit report |
 
+## Post-Arc Plan Completion Stamp
+
+> **IMPORTANT — Execution order**: This step runs FIRST after Phase 8 completes, before echo persist
+> and the verbose completion report. The plan stamp writes a persistent completion record to the plan
+> file — it MUST execute before context-heavy steps (echo persist, completion report) that risk
+> triggering context compaction. If compaction occurs, the stamp is already safely written.
+
+See [arc-phase-completion-stamp.md](references/arc-phase-completion-stamp.md) for the full algorithm.
+
+Read and execute the arc-phase-completion-stamp.md algorithm. Appends a persistent completion record to the plan file with phase results, convergence history, and overall status.
+
+### Post-Arc Echo Persist
+
+After the plan stamp, persist arc quality metrics to echoes for cross-session learning:
+
+```javascript
+if (exists(".claude/echoes/")) {
+  // CDX-009 FIX: totalDuration is in milliseconds (Date.now() - arcStart), so divide by 60_000 for minutes.
+  const totalDuration = Date.now() - arcStart  // milliseconds
+  const metrics = {
+    plan: checkpoint.plan_file,
+    duration_minutes: Math.round(totalDuration / 60_000),
+    phases_completed: Object.values(checkpoint.phases).filter(p => p.status === "completed").length,
+    tome_findings: { p1: p1Count, p2: p2Count, p3: p3Count },
+    convergence_rounds: checkpoint.convergence.history.length,
+    mend_fixed: mendFixedCount,
+    gap_addressed: addressedCount,
+    gap_missing: missingCount,
+  }
+
+  appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
+    layer: "inscribed",
+    source: `rune:arc ${id}`,
+    content: `Arc completed: ${metrics.phases_completed}/10 phases, ` +
+      `${metrics.tome_findings.p1} P1 findings, ` +
+      `${metrics.convergence_rounds} mend round(s), ` +
+      `${metrics.gap_missing} missing criteria. ` +
+      `Duration: ${metrics.duration_minutes}min.`
+  })
+}
+```
+
 ## Completion Report
 
 ```
@@ -800,43 +853,6 @@ Next steps:
 3. Create PR for branch {branch_name}
 4. /rune:rest — Clean up tmp/ artifacts when done
 ```
-
-### Post-Arc Echo Persist
-
-After the completion report, persist arc quality metrics to echoes for cross-session learning:
-
-```javascript
-if (exists(".claude/echoes/")) {
-  // CDX-009 FIX: totalDuration is in milliseconds (Date.now() - arcStart), so divide by 60_000 for minutes.
-  const totalDuration = Date.now() - arcStart  // milliseconds
-  const metrics = {
-    plan: checkpoint.plan_file,
-    duration_minutes: Math.round(totalDuration / 60_000),
-    phases_completed: Object.values(checkpoint.phases).filter(p => p.status === "completed").length,
-    tome_findings: { p1: p1Count, p2: p2Count, p3: p3Count },
-    convergence_rounds: checkpoint.convergence.history.length,
-    mend_fixed: mendFixedCount,
-    gap_addressed: addressedCount,
-    gap_missing: missingCount,
-  }
-
-  appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
-    layer: "inscribed",
-    source: `rune:arc ${id}`,
-    content: `Arc completed: ${metrics.phases_completed}/10 phases, ` +
-      `${metrics.tome_findings.p1} P1 findings, ` +
-      `${metrics.convergence_rounds} mend round(s), ` +
-      `${metrics.gap_missing} missing criteria. ` +
-      `Duration: ${metrics.duration_minutes}min.`
-  })
-}
-```
-
-## Post-Arc Plan Completion Stamp
-
-See [arc-phase-completion-stamp.md](references/arc-phase-completion-stamp.md) for the full algorithm.
-
-Read and execute the arc-phase-completion-stamp.md algorithm. Appends a persistent completion record to the plan file with phase results, convergence history, and overall status. Runs after echo persist, before the final "Done" output.
 
 ## Error Handling
 

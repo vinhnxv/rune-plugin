@@ -33,7 +33,14 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifie
 // barrier preventing path traversal. Do NOT move, skip, or weaken this check.
 if (timestamp.includes('..')) throw new Error('Path traversal detected')
 try { TeamDelete() } catch (e) {
-  Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
+  // Step A: rm-rf TARGET team dirs
+  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-plan-{timestamp}/" "$CHOME/tasks/rune-plan-{timestamp}/" 2>/dev/null`)
+  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
+  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  // Step C: Retry TeamDelete to clear SDK internal leadership state
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 }
 TeamCreate({ team_name: "rune-plan-{timestamp}" })
 

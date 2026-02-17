@@ -68,7 +68,14 @@ Single Explore subagent (haiku model, read-only, fast).
 // The Explore agent is read-only and doesn't interact with the team.
 const verifyTeamName = `arc-verify-${id}`
 try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/${verifyTeamName}/ ~/.claude/tasks/${verifyTeamName}/ 2>/dev/null`)
+  // Step A: rm-rf TARGET team dirs
+  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${verifyTeamName}/" "$CHOME/tasks/${verifyTeamName}/" 2>/dev/null`)
+  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
+  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  // Step C: Retry TeamDelete to clear SDK internal leadership state
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 }
 TeamCreate({ team_name: verifyTeamName })
 

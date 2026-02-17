@@ -221,7 +221,14 @@ if (!/^[a-zA-Z0-9_-]+$/.test(audit_id)) throw new Error("Invalid audit identifie
 // SEC-003: Redundant path traversal check — defense-in-depth with regex above
 if (audit_id.includes('..')) throw new Error('Path traversal detected in audit identifier')
 try { TeamDelete() } catch (e) {
-  Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
+  // Step A: rm-rf TARGET team dirs
+  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-audit-{audit_id}/" "$CHOME/tasks/rune-audit-{audit_id}/" 2>/dev/null`)
+  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
+  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  // Step C: Retry TeamDelete to clear SDK internal leadership state
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 }
 TeamCreate({ team_name: "rune-audit-{audit_id}" })
 

@@ -24,18 +24,18 @@ if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("Invalid identifier")
 // SEC-003: Redundant path traversal check — defense-in-depth
 if (identifier.includes('..')) throw new Error('Path traversal detected')
 
-// 2. Attempt TeamDelete with retry (handles active teammates from crashed sessions)
+// 2. Attempt TeamDelete with 3-step escalation (handles stale teams from crashed sessions)
 // NOTE: Pre-create guard may orphan active teammates from crashed sessions.
 // This is an accepted trade-off — blocking on zombie teammates prevents new sessions.
-let teamDeleted = false
-try { TeamDelete(); teamDeleted = true } catch (e) {
-  // First attempt failed (e.g., active members from crashed session)
-  // Wait briefly for members to notice missing coordination state, then retry
-  Bash('sleep 5')
-  try { TeamDelete(); teamDeleted = true } catch (e2) {
-    // 3. Fallback: direct directory removal (handles orphaned state)
-    Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
-  }
+try { TeamDelete() } catch (e) {
+  // Step A: rm-rf TARGET team dirs (handles orphaned state for THIS team)
+  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups (e.g., ~/.claude-true-dev)
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamPrefix}-${identifier}/" "$CHOME/tasks/${teamPrefix}-${identifier}/" 2>/dev/null`)
+  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
+  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  // Step C: Retry TeamDelete to clear SDK internal leadership state
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 }
 
 // 4. Create fresh team
@@ -47,6 +47,7 @@ TeamCreate({ team_name: `${teamPrefix}-${identifier}` })
 - The regex `/^[a-zA-Z0-9_-]+$/` prevents shell metacharacters and path traversal
 - The `..` check is redundant but provides defense-in-depth
 - `TeamDelete` is tried first with retry (clean API path); `rm -rf` is the fallback only
+- All Bash commands resolve `CLAUDE_CONFIG_DIR` via `CHOME` — never hardcode `~/.claude`
 
 **When to use**: Before EVERY `TeamCreate` call. No exceptions.
 
@@ -214,6 +215,7 @@ if (exists(`~/.claude/teams/${teamName}/`)) {
 1. `TeamDelete()` MUST run BEFORE `rm -rf` (SDK needs dirs to clear leadership)
 2. `rm -rf` is the FALLBACK, never the primary cleanup path
 3. In `prePhaseCleanup` (multi-team), `TeamDelete` runs ONCE first (own team), then `rm -rf` loop runs for all checkpoint teams (including foreign teams)
+4. In pre-create guard, cross-workflow scan (`find`) cleans ALL stale rune/arc dirs — retry `TeamDelete()` after to clear SDK internal state
 
 ### Existing Implementations
 

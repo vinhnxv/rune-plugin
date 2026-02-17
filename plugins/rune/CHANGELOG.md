@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.33.0] - 2026-02-18
+
+### Fixed
+- **Stale team leadership state** — pre-create guard v2 fixes two bugs causing "Already leading team X" errors:
+  - Wrong `rm -rf` target: fallback now cleans the target team AND cross-workflow scan removes ALL stale `rune-*`/`arc-*` team dirs
+  - Missing retry: `TeamDelete()` is retried after filesystem cleanup to clear SDK internal leadership state
+- Removed `sleep 5` band-aid from `forge.md` pre-create guard — replaced with direct filesystem cleanup + retry
+
+### Changed
+- Pre-create guard pattern upgraded to 3-step escalation across 12 files:
+  - Step A: `rm -rf` target team dirs (same as before)
+  - Step B: Cross-workflow `find` scan for ANY stale `rune-*`/`arc-*` dirs (new)
+  - Step C: Retry `TeamDelete()` to clear SDK internal state (new)
+- All pre-create guard `Bash()` commands now resolve `CLAUDE_CONFIG_DIR` via `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"` — supports multi-account setups (e.g., `~/.claude-true-dev`)
+- `prePhaseCleanup()` in arc SKILL.md: added retry `TeamDelete()` after rm-rf loop
+- ORCH-1 resume cleanup: added retry `TeamDelete()` after checkpoint + stale scan cleanup
+- Updated critical ordering rules in team-lifecycle-guard.md (both copies)
+
 ## [1.32.0] - 2026-02-18
 
 ### Added

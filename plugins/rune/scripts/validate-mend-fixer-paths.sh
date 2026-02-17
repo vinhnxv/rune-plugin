@@ -29,7 +29,8 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # SEC-2: 1MB cap to prevent unbounded stdin read (DoS prevention)
-INPUT=$(head -c 1048576)
+# BACK-004: Guard against SIGPIPE (exit 141) when stdin closes early under set -e
+INPUT=$(head -c 1048576 2>/dev/null || true)
 
 # Fast-path 1: Extract tool name and file path in one jq call
 IFS=$'\t' read -r TOOL_NAME FILE_PATH TRANSCRIPT_PATH <<< \
@@ -74,6 +75,7 @@ shopt -u nullglob
 # Extract identifier from .rune-mend-{identifier}.json
 IDENTIFIER=$(basename "$MEND_STATE_FILE" .json | sed 's/^\.rune-mend-//')
 
+# Security pattern: SAFE_IDENTIFIER — see security-patterns.md
 # Validate identifier format (safe chars + length cap)
 if [[ ! "$IDENTIFIER" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ ${#IDENTIFIER} -gt 64 ]]; then
   # Invalid identifier — fail open (allow)

@@ -41,10 +41,15 @@ if (id.includes('..')) throw new Error('Path traversal detected in arc id')
 // clearing SDK leadership state + prior phase team dirs. This inline guard is
 // defense-in-depth for the specific team being created (stale same-name team).
 try { TeamDelete() } catch (e) {
-  // TeamDelete failed — clear both the target team AND any prior phase team dirs.
-  // The rm -rf for arc-plan-review dirs handles stale same-name teams.
+  // Step A: rm-rf TARGET team dirs
   // prePhaseCleanup should have already handled prior-phase teams, but this is defense-in-depth.
-  Bash(`rm -rf ~/.claude/teams/arc-plan-review-${id}/ ~/.claude/tasks/arc-plan-review-${id}/ 2>/dev/null`)
+  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-plan-review-${id}/" "$CHOME/tasks/arc-plan-review-${id}/" 2>/dev/null`)
+  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
+  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  // Step C: Retry TeamDelete to clear SDK internal leadership state
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 }
 TeamCreate({ team_name: `arc-plan-review-${id}` })
 
