@@ -24,23 +24,12 @@ tools:
   - TaskGet
   - TaskUpdate
   - SendMessage
-# SECURITY NOTE: Write/Edit have no platform-level path restriction.
-# Path scoping is enforced via prompt instructions (File Scope Restriction below)
-# and should be reinforced with a PreToolUse hook in production deployments.
-# See SEC-001 in review 2c301a0222.
-#
-# Recommended PreToolUse hook for production:
-# In .claude/settings.json or plugin hooks/hooks.json:
-#   "PreToolUse": [{
-#     "matcher": "Write|Edit",
-#     "hooks": [{
-#       "type": "command",
-#       "command": "./scripts/validate-mend-fixer-paths.sh"
-#     }]
-#   }]
-# The hook script should validate that the target file path is in the
-# assigned file group (passed via environment variable or task metadata).
-# Exit code 2 blocks the tool call with stderr as feedback.
+# SECURITY NOTE: Write/Edit path scoping is enforced by TWO layers:
+# 1. Prompt instructions (File Scope Restriction below) — soft enforcement
+# 2. PreToolUse hook (scripts/validate-mend-fixer-paths.sh) — hard enforcement
+#    Registered in hooks/hooks.json, validates Write/Edit/NotebookEdit targets
+#    against inscription.json file_group assignments during active mend workflows.
+#    See SEC-MEND-001.
 ---
 
 # Mend Fixer — Finding Resolution Agent

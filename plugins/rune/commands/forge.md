@@ -280,10 +280,14 @@ if (timestamp.includes('..')) throw new Error('Path traversal detected in forge 
 
 // Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
 try { TeamDelete() } catch (e) {
-  Bash("sleep 5")
-  try { TeamDelete() } catch (e2) {
-    Bash("rm -rf ~/.claude/teams/rune-forge-{timestamp}/ ~/.claude/tasks/rune-forge-{timestamp}/ 2>/dev/null")
-  }
+  // Step A: rm-rf TARGET team dirs
+  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-{timestamp}/" "$CHOME/tasks/rune-forge-{timestamp}/" 2>/dev/null`)
+  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
+  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
+  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  // Step C: Retry TeamDelete to clear SDK internal leadership state
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 }
 TeamCreate({ team_name: "rune-forge-{timestamp}" })
 

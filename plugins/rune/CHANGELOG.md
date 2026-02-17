@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.33.0] - 2026-02-18
+
+### Fixed
+- **Stale team leadership state** — pre-create guard v2 fixes two bugs causing "Already leading team X" errors:
+  - Wrong `rm -rf` target: fallback now cleans the target team AND cross-workflow scan removes ALL stale `rune-*`/`arc-*` team dirs
+  - Missing retry: `TeamDelete()` is retried after filesystem cleanup to clear SDK internal leadership state
+- Removed `sleep 5` band-aid from `forge.md` pre-create guard — replaced with direct filesystem cleanup + retry
+
+### Changed
+- Pre-create guard pattern upgraded to 3-step escalation across 12 files:
+  - Step A: `rm -rf` target team dirs (same as before)
+  - Step B: Cross-workflow `find` scan for ANY stale `rune-*`/`arc-*` dirs (new)
+  - Step C: Retry `TeamDelete()` to clear SDK internal state (new)
+- All pre-create guard `Bash()` commands now resolve `CLAUDE_CONFIG_DIR` via `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"` — supports multi-account setups (e.g., `~/.claude-true-dev`)
+- `prePhaseCleanup()` in arc SKILL.md: added retry `TeamDelete()` after rm-rf loop
+- ORCH-1 resume cleanup: added retry `TeamDelete()` after checkpoint + stale scan cleanup
+- Updated critical ordering rules in team-lifecycle-guard.md (both copies)
+
+## [1.32.0] - 2026-02-18
+
+### Added
+- **Mend file ownership enforcement** — three-layer defense preventing concurrent file edits by mend fixers
+  - Layer 1: Path normalization in parse-tome.md (`normalizeFindingPath()`) — prevents `./src/foo.ts` and `src/foo.ts` creating duplicate groups
+  - Layer 2: `blockedBy` serialization via cross-group dependency detection (`extractCrossFileRefs()`) — dependent groups execute sequentially
+  - Layer 3: PreToolUse hook (`scripts/validate-mend-fixer-paths.sh`) — hard enforcement blocking Write/Edit/NotebookEdit to files outside assigned group
+- `file_targets` and `finding_ids` metadata in mend TaskCreate — parity with work.md ownership tracking
+- Sequential batching for 6+ file groups (max 5 concurrent fixers per batch)
+- `validate-mend-fixer-paths.sh` registered in `hooks/hooks.json` as PreToolUse hook
+- Phase 1.5 cross-group dependency detection in mend.md with sanitized regex extraction
+
+### Changed
+- `mend-fixer.md` security note updated to reference active hook enforcement (was "Recommended")
+- `parse-tome.md` now includes "Path Normalization" section before "Group by File"
+- `mend.md` Phase 3 wraps fixer summoning in batch loop with per-batch monitoring
+- `mend.md` Phase 4 clarified as single-batch only (multi-batch monitoring is inline in Phase 3)
+
+### Security
+- SEC-MEND-001: Mend fixer file scope enforcement via PreToolUse hook (fail-open design, jq-based JSON deny)
+- Inscription-based ownership validation prevents fixers from editing files outside their assigned group
+- Cross-file dependency sanitization: HTML comment stripping, code fence removal, 1KB input cap
+
 ## [1.29.2] - 2026-02-17
 
 ### Fixed
