@@ -67,17 +67,46 @@ Single Explore subagent (haiku model, read-only, fast).
 // (checkpoint has in_progress phase). A mini-team satisfies the hook at minimal cost.
 // The Explore agent is read-only and doesn't interact with the team.
 const verifyTeamName = `arc-verify-${id}`
-try { TeamDelete() } catch (e) {
-  // Step A: rm-rf TARGET team dirs
-  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups
-  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${verifyTeamName}/" "$CHOME/tasks/${verifyTeamName}/" 2>/dev/null`)
-  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
-  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
-  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
-  // Step C: Retry TeamDelete to clear SDK internal leadership state
-  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+// teamTransition — inlined 5-step protocol (see team-lifecycle-guard.md)
+// STEP 1: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+const RETRY_DELAYS = [0, 3000, 8000]
+for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
+  if (attempt > 0) {
+    warn(`arc-verify: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
+  }
+  try {
+    TeamDelete()
+    break
+  } catch (e) {
+    if (attempt === RETRY_DELAYS.length - 1) {
+      warn(`arc-verify: TeamDelete failed after ${RETRY_DELAYS.length} attempts. Using filesystem fallback.`)
+    }
+  }
 }
-TeamCreate({ team_name: verifyTeamName })
+// STEP 2: rm-rf TARGET team dirs (filesystem fallback)
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${verifyTeamName}/" "$CHOME/tasks/${verifyTeamName}/" 2>/dev/null`)
+// STEP 3: Cross-workflow scan — clean ANY stale rune/arc team dirs
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+// STEP 4: TeamCreate with "Already leading" catch-and-recover
+try {
+  TeamCreate({ team_name: verifyTeamName })
+} catch (createError) {
+  if (/already leading/i.test(createError.message)) {
+    warn(`arc-verify: "Already leading" detected — clearing stale leadership and retrying...`)
+    try { TeamDelete() } catch (_) {}
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${verifyTeamName}/" "$CHOME/tasks/${verifyTeamName}/" 2>/dev/null`)
+    try {
+      TeamCreate({ team_name: verifyTeamName })
+    } catch (finalError) {
+      throw new Error(`teamTransition failed: unable to create team after exhausting all cleanup strategies. Run /rune:rest --heal to manually clean up, then retry. (${finalError.message})`)
+    }
+  } else { throw createError }
+}
+// STEP 5: Post-create verification
+// TOME-3 FIX: Use Bash test -f + CHOME for consistency with command files
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${verifyTeamName}/config.json" || echo "WARN: config.json not found after TeamCreate"`)
+
 
 const spotCheckResult = Task({
   subagent_type: "Explore",
@@ -142,9 +171,16 @@ const spotCheckResult = Task({
 })
 
 // Cleanup mini-team immediately after spot-check completes
-try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/${verifyTeamName}/ ~/.claude/tasks/${verifyTeamName}/ 2>/dev/null`)
+// TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+const CLEANUP_DELAYS = [0, 3000, 8000]
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`arc-verify cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
 }
+// Filesystem fallback with CHOME
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${verifyTeamName}/" "$CHOME/tasks/${verifyTeamName}/" 2>/dev/null`)
 ```
 
 ## STEP 3: Parse Spot-Check Results

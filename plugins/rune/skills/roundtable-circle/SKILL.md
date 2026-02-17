@@ -335,6 +335,7 @@ Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/t
 // This catches Ashes summoned in any phase, not just the initial batch
 let allMembers = []
 try {
+  // Read() resolves CLAUDE_CONFIG_DIR automatically (SDK call)
   const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(Boolean)
@@ -351,9 +352,9 @@ for (const member of allMembers) {
 
 // 2. Wait for shutdown approvals
 
-// 3. Cleanup team with fallback
+// 3. Cleanup team with fallback (uses teamTransition cleanup pattern)
 try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
 }
 
 // 4. Persist learnings to Rune Echoes (.claude/echoes/)

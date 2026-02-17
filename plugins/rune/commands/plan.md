@@ -629,9 +629,8 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifie
 // barrier preventing path traversal. Do NOT move, skip, or weaken this check.
 if (timestamp.includes('..')) throw new Error('Path traversal detected')
 try { TeamDelete() } catch (e) {
-  // SAFETY: safeTeamCleanup pattern — timestamp validated at line 468 (/^[a-zA-Z0-9_-]+$/ + includes('..'))
-  // See security-patterns.md for the validated-rm-rf pattern. Do NOT move or refactor without preserving validation.
-  Bash("rm -rf ~/.claude/teams/rune-plan-{timestamp}/ ~/.claude/tasks/rune-plan-{timestamp}/ 2>/dev/null")
+  // SAFETY: safeTeamCleanup pattern — timestamp validated above (/^[a-zA-Z0-9_-]+$/ + includes('..'))
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-plan-${timestamp}/" "$CHOME/tasks/rune-plan-${timestamp}/" 2>/dev/null`)
 }
 
 // 4. Present plan to user

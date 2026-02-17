@@ -267,13 +267,15 @@ for (const type of ["work", "review", "mend", "audit", "forge"]) {  // CC-4: inc
   }
 }
 
-// STEP 2: Scan ~/.claude/teams/ for orphaned rune-prefixed team dirs
+// STEP 2: Scan teams dir for orphaned rune-prefixed team dirs
+// CHOME pattern: resolve CLAUDE_CONFIG_DIR for multi-account support
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
 const RUNE_TEAM_PATTERN = /^(rune-work|rune-review|rune-mend|rune-audit|rune-plan|rune-forge|arc-forge|arc-plan-review)-/
-const teamDirsRaw = Bash("find ~/.claude/teams -mindepth 1 -maxdepth 1 -type d 2>/dev/null")  // CC-3: find not ls; -mindepth 1 excludes base dir
+const teamDirsRaw = Bash(`find "${CHOME}/teams" -mindepth 1 -maxdepth 1 -type d 2>/dev/null`)  // CC-3: find not ls; -mindepth 1 excludes base dir
 const teamDirs = teamDirsRaw.split('\n').filter(Boolean)
 // BACK-003 FIX: Warn when teams directory is missing (matches error handling table promise)
-if (teamDirs.length === 0 && !Bash("test -d ~/.claude/teams && echo ok 2>/dev/null").includes("ok")) {
-  warn("~/.claude/teams/ not found — skipping team dir scan")
+if (teamDirs.length === 0 && !Bash(`test -d "${CHOME}/teams" && echo ok 2>/dev/null`).includes("ok")) {
+  warn(`${CHOME}/teams/ not found — skipping team dir scan`)
 }
 const orphanedTeams = []
 
@@ -314,7 +316,7 @@ for (const teamName of orphanedTeams) {
   // Inline rm -rf pattern (TeamDelete skipped — orphaned teams have no active session)
   // Defense-in-depth: re-validate despite Step 2 filter
   if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
-  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+  Bash(`rm -rf "${CHOME}/teams/${teamName}/" "${CHOME}/tasks/${teamName}/" 2>/dev/null`)
 }
 
 for (const { file, state } of staleStateFiles) {

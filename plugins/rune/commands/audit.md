@@ -215,22 +215,54 @@ Write("tmp/audit/{audit_id}/inscription.json", {
   verification: { enabled: true }
 })
 
-// 5. Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
-// SEC-003: Validate identifier before rm -rf
+// 5. Pre-create guard: teamTransition protocol (see team-lifecycle-guard.md)
+// STEP 1: Validate (defense-in-depth)
 if (!/^[a-zA-Z0-9_-]+$/.test(audit_id)) throw new Error("Invalid audit identifier")
-// SEC-003: Redundant path traversal check — defense-in-depth with regex above
 if (audit_id.includes('..')) throw new Error('Path traversal detected in audit identifier')
-try { TeamDelete() } catch (e) {
-  // Step A: rm-rf TARGET team dirs
-  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups
-  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-audit-{audit_id}/" "$CHOME/tasks/rune-audit-{audit_id}/" 2>/dev/null`)
-  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
-  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
-  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
-  // Step C: Retry TeamDelete to clear SDK internal leadership state
-  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+
+// STEP 2: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+const RETRY_DELAYS = [0, 3000, 8000]
+for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
+  if (attempt > 0) {
+    warn(`teamTransition: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
+  }
+  try {
+    TeamDelete()
+    break
+  } catch (e) {
+    if (attempt === RETRY_DELAYS.length - 1) {
+      warn(`teamTransition: TeamDelete failed after ${RETRY_DELAYS.length} attempts. Using filesystem fallback.`)
+    }
+  }
 }
-TeamCreate({ team_name: "rune-audit-{audit_id}" })
+
+// STEP 3: Filesystem fallback + cross-workflow scan
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-audit-${audit_id}/" "$CHOME/tasks/rune-audit-${audit_id}/" 2>/dev/null`)
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+
+// STEP 4: TeamCreate with "Already leading" catch-and-recover
+// Match: "Already leading" — centralized string match for SDK error detection
+try {
+  TeamCreate({ team_name: "rune-audit-{audit_id}" })
+} catch (createError) {
+  if (/already leading/i.test(createError.message)) {
+    warn(`teamTransition: Leadership state leak detected. Attempting final cleanup.`)
+    try { TeamDelete() } catch (e) { /* exhausted */ }
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-audit-${audit_id}/" "$CHOME/tasks/rune-audit-${audit_id}/" 2>/dev/null`)
+    try {
+      TeamCreate({ team_name: "rune-audit-{audit_id}" })
+    } catch (finalError) {
+      throw new Error(`teamTransition failed: unable to create team after exhausting all cleanup strategies. Run /rune:rest --heal to manually clean up, then retry. (${finalError.message})`)
+    }
+  } else {
+    throw createError
+  }
+}
+
+// STEP 5: Post-create verification
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/rune-audit-${audit_id}/config.json" || echo "WARN: config.json not found after TeamCreate"`)
 
 // 6.5. Phase 2 BRIDGE: Create signal directory for event-driven sync
 const signalDir = `tmp/.rune-signals/rune-audit-${audit_id}`
@@ -418,8 +450,8 @@ for (const member of allMembers) {
 // SEC-003: Redundant path traversal check — defense-in-depth at this second rm -rf call site
 if (audit_id.includes('..')) throw new Error('Path traversal detected in audit identifier')
 try { TeamDelete() } catch (e) {
-  // SEC-003: audit_id validated at Phase 2 (line 218) — contains only [a-zA-Z0-9_-]
-  Bash("rm -rf ~/.claude/teams/rune-audit-{audit_id}/ ~/.claude/tasks/rune-audit-{audit_id}/ 2>/dev/null")
+  // SEC-003: audit_id validated at Phase 2 — contains only [a-zA-Z0-9_-]
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-audit-${audit_id}/" "$CHOME/tasks/rune-audit-${audit_id}/" 2>/dev/null`)
 }
 
 // 4. Update state file to completed

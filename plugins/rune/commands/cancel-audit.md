@@ -121,12 +121,27 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 ### 6. Cleanup
 
 ```javascript
-// Delete team with fallback (see team-lifecycle-guard.md)
+// Delete team with retry-with-backoff + CHOME fallback (see team-lifecycle-guard.md)
 // Validate team_name before shell interpolation
 if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) throw new Error("Invalid team_name")
-try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/${team_name}/ ~/.claude/tasks/${team_name}/ 2>/dev/null`)
+// TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+const RETRY_DELAYS = [0, 3000, 8000]
+for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
+  if (attempt > 0) {
+    warn(`Cancel cleanup: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
+  }
+  try {
+    TeamDelete()
+    break
+  } catch (e) {
+    if (attempt === RETRY_DELAYS.length - 1) {
+      warn(`Cancel cleanup: TeamDelete failed after ${RETRY_DELAYS.length} attempts. Using filesystem fallback.`)
+    }
+  }
 }
+// Filesystem fallback with CHOME
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${team_name}/" "$CHOME/tasks/${team_name}/" 2>/dev/null`)
 
 // NOTE: identifier is derived from team_name via .replace("rune-audit-", "").
 // The team_name regex guard above implicitly validates identifier (it's a substring).

@@ -70,7 +70,9 @@ let forgeTeamName = forgeStateFiles.length > 0
   ? JSON.parse(Read(forgeStateFiles[0])).team_name
   : `rune-forge-${Date.now()}`
 // SEC-002 FIX: Verify team actually exists (defense against stale state files from prior runs)
-if (forgeStateFiles.length > 0 && !exists(`~/.claude/teams/${forgeTeamName}/config.json`)) {
+// TOME-5 FIX: Use CHOME-based check instead of bare ~/.claude/ path
+const forgeTeamExists = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${forgeTeamName}/config.json" && echo "exists"`).trim() === "exists"
+if (forgeStateFiles.length > 0 && !forgeTeamExists) {
   warn(`Forge state file references team "${forgeTeamName}" but team does not exist — using fallback`)
   forgeTeamName = `rune-forge-${Date.now()}`
 }
