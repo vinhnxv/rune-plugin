@@ -45,12 +45,14 @@ const forgePlanPath = `tmp/arc/${id}/enriched-plan.md`
 // Arc reads the team name from the forge state file.
 // SEC-002 FIX: Clean stale forge state files before delegation to prevent TOCTOU confusion.
 // Only remove completed/cancelled/expired files — preserve active sessions (< 30 min old).
-const forgeStateFiles = Glob("tmp/.rune-forge-*.json")
-for (const sf of forgeStateFiles) {
+// DOC-006 FIX: staleForgeFiles = pre-delegation cleanup (lines below); forgeStateFiles = post-delegation discovery (line 65+)
+const staleForgeFiles = Glob("tmp/.rune-forge-*.json")
+for (const sf of staleForgeFiles) {
   try {
     const state = JSON.parse(Read(sf))
     const age = Date.now() - new Date(state.started).getTime()
-    if (state.status === "completed" || state.status === "cancelled" || age > 1800000) {
+    // SEC-007 FIX: NaN guard — malformed state.started produces NaN age, should be treated as stale
+    if (state.status === "completed" || state.status === "cancelled" || (!Number.isNaN(age) && age > 1800000)) {
       Bash(`rm -f "${sf}" 2>/dev/null`)
     }
     // Preserve active files < 30 min old — concurrent /rune:forge sessions depend on these

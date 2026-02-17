@@ -24,6 +24,9 @@ if (criteria.length === 0) {
     status: "completed",
     artifact: `tmp/arc/${id}/gap-analysis.md`,
     artifact_hash: sha256(skipReport),
+    // NOTE: 5.5 (float) matches the legacy pipeline numbering convention.
+    // All other phases use integers, but renumbering would break cross-command consistency.
+    // See SKILL.md "Phase numbering note" for rationale.
     phase_sequence: 5.5,
     team_name: null
   })
@@ -311,11 +314,25 @@ if (diffFiles.length === 0) {
     // Extract identifiers from section text
     const backtickIds = (section.match(/`([a-zA-Z0-9._\-\/]+)`/g) || []).map(m => m.replace(/`/g, ''))
     const filePaths = section.match(/[a-zA-Z0-9_\-\/]+\.(py|ts|js|rs|go|md|yml|json)/g) || []
+    // DOC-008 FIX: CamelCase length filter (>=6 chars) targets short generics ('Error', 'Field', 'Value').
+    // Stopwords handle common verbs ('Create', 'Update', 'Delete') regardless of length.
     const caseNames = (section.match(/\b[A-Z][a-zA-Z0-9]+\b/g) || [])
+      .filter(id => id.length >= 6)
     const stopwords = new Set(['Create', 'Add', 'Update', 'Fix', 'Implement', 'Section', 'Phase', 'Check', 'Remove', 'Delete'])
-    const identifiers = [...new Set([...filePaths, ...backtickIds, ...caseNames])]
+    const candidates = [...new Set([...filePaths, ...backtickIds, ...caseNames])]
       .filter(id => id.length >= 4 && id.length <= 100 && !stopwords.has(id))
       .filter(id => !/^\d+\.\d+(\.\d+)?$/.test(id))
+    // Generic term frequency filter: exclude identifiers appearing in >50% of sections (too generic).
+    // Math.max(2, ...) is a floor to prevent over-filtering on medium plans.
+    // BACK-007 FIX: Skip generic filter entirely for small plans (< 5 sections) via early-exit below,
+    // because threshold=2 incorrectly excludes plan-specific terms that naturally appear in most sections.
+    const genericThreshold = Math.max(2, Math.floor(planSections.length * 0.5))
+    const identifiers = candidates
+      .filter(id => {
+        if (planSections.length < 5) return true  // Small plan — keep all candidates
+        const freq = planSections.filter(s => s.includes(id)).length
+        return freq < genericThreshold
+      })
       .slice(0, 20)
 
     const safeDiffFiles = diffFiles.filter(f => /^[a-zA-Z0-9._\-\/]+$/.test(f) && !f.includes('..'))
@@ -392,7 +409,8 @@ if (!pythonCheck) {
   } else {
     // 1. Docstring coverage + 2. Function length audit (combined single-pass)
     // SEC-002 FIX: Write file list to temp file instead of heredoc to prevent shell interpretation
-    const pyFileListPath = `/tmp/rune-pyfiles-${Date.now()}.txt`
+    // SEC-008 FIX: Use project-local temp dir instead of /tmp (prevents info disclosure on multi-user systems)
+    const pyFileListPath = `tmp/.rune-pyfiles-${Date.now()}.txt`
     Write(pyFileListPath, pyFiles.join('\n'))
     const astResult = Bash(`python3 -c "
 import ast, sys

@@ -122,6 +122,7 @@ Dispatcher loop:
 1. Read/create checkpoint state
 2. Determine current phase (first incomplete in PHASE_ORDER)
 3. Invoke phase (delegates to existing commands with their own teams)
+   - Phase timing (start/duration) is recorded automatically around invocation
 4. Read phase output artifact (SUMMARY HEADER ONLY — Glyph Budget)
 5. Update checkpoint state + artifact hash
 6. Check total pipeline timeout
@@ -129,6 +130,8 @@ Dispatcher loop:
 ```
 
 The dispatcher reads only structured summary headers from artifacts, not full content. Full artifacts are passed by file path to the next phase.
+
+**Phase invocation model**: Each phase algorithm is a function invoked by the dispatcher. Phase reference files use `return` for early exits — this exits the phase function, and the dispatcher proceeds to the next phase in `PHASE_ORDER`.
 
 ### Phase Constants
 
@@ -209,9 +212,25 @@ If already on a feature branch, use the current branch.
 #   2. Before team creation, scan tmp/.rune-lock-*.json for active sessions (< 30 min old)
 #   3. If active session found, warn user and offer: proceed (risk conflicts) or abort
 #   4. Lock file cleanup in each command's Phase 6/7 cleanup step
+const MAX_CHECKPOINT_AGE = 604_800_000  // 7 days in ms — abandoned checkpoints ignored
+
 if command -v jq >/dev/null 2>&1; then
   # SEC-5 FIX: Place -maxdepth before -name for POSIX portability (BSD find on macOS)
   active=$(find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
+    # Skip checkpoints older than 7 days (abandoned)
+    started_at=$(jq -r '.started_at // empty' "$f" 2>/dev/null)
+    if [ -n "$started_at" ]; then
+      # BSD date (-j -f) with GNU fallback (-d).
+      # Parse failure → epoch=0 → age=now-0=currentTimestamp → exceeds 7-day threshold → skipped as stale.
+      epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${started_at%%.*}" +%s 2>/dev/null || date -d "${started_at}" +%s 2>/dev/null || echo 0)
+      # SEC-002 FIX: Validate epoch is numeric before arithmetic (defense against malformed started_at)
+      if ! [[ "$epoch" =~ ^[0-9]+$ ]]; then continue; fi
+      [ "$epoch" -eq 0 ] && echo "WARNING: Failed to parse started_at: $started_at" >&2
+      age_s=$(( $(date +%s) - epoch ))
+      # Skip if age is negative (future timestamp = suspicious) or > 7 days (abandoned)
+      [ "$age_s" -lt 0 ] 2>/dev/null && continue
+      [ "$age_s" -gt 604800 ] 2>/dev/null && continue
+    fi
     jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
   done)
 else
@@ -226,6 +245,18 @@ if [ -n "$active" ]; then
   echo "Active arc session detected: $active"
   echo "Cancel with /rune:cancel-arc or wait for completion"
   exit 1
+fi
+
+# Advisory: check for other active rune workflows (not just arc)
+otherWorkflows=$(find tmp -maxdepth 1 -name ".rune-*.json" 2>/dev/null | while read f; do
+  if command -v jq >/dev/null 2>&1; then
+    jq -r 'select(.status == "active") | .status' "$f" 2>/dev/null
+  else
+    grep -q '"status"[[:space:]]*:[[:space:]]*"active"' "$f" 2>/dev/null && echo "active"
+  fi
+done | wc -l | tr -d ' ')
+if [ "$otherWorkflows" -gt 0 ] 2>/dev/null; then
+  echo "Advisory: $otherWorkflows active Rune workflow(s) detected (may include delegated sub-commands from this arc). Independent Rune commands may cause git index contention."
 fi
 ```
 
@@ -360,7 +391,16 @@ function prePhaseCleanup(checkpoint) {
 ```javascript
 const id = `arc-${Date.now()}`
 if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid arc identifier")
-const sessionNonce = crypto.randomBytes(6).toString('hex')
+// SEC: Session nonce prevents TOME injection from prior sessions.
+// MUST be cryptographically random — NOT derived from timestamp or arc id.
+// LLM shortcutting this to `arc{id}` defeats the security purpose.
+const rawNonce = crypto.randomBytes(6).toString('hex').toLowerCase()
+// Validate format AFTER generation, BEFORE checkpoint write: exactly 12 lowercase hex characters
+// .toLowerCase() ensures consistency across JS runtimes (defense-in-depth)
+if (!/^[0-9a-f]{12}$/.test(rawNonce)) {
+  throw new Error(`Session nonce generation failed. Must be 12 hex chars from crypto.randomBytes(6). Retry arc invocation.`)
+}
+const sessionNonce = rawNonce
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
   id, schema_version: 5, plan_file: planFile,
@@ -388,19 +428,38 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 
 ### Stale Arc Team Scan
 
-CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs after checkpoint init (where `id` is available) for both new and resumed arcs. Only targets `arc-forge-*` and `arc-plan-review-*` prefixes — phase 5-8 teams use `rune-*` prefixes and are handled by the sub-command's own pre-create guard.
+CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs after checkpoint init (where `id` is available) for both new and resumed arcs. Covers both arc-owned teams (`arc-*` prefixes) and sub-command teams (`rune-*` prefixes).
 
 ```javascript
 // CC-5: Placed after checkpoint init — id is available here
 // CC-3: Use find instead of ls -d (SEC-007 compliance)
 // SECURITY-CRITICAL: ARC_TEAM_PREFIXES must remain hardcoded string literals.
-// These values are interpolated into shell `find -name` commands (line 395).
+// These values are interpolated into shell `find -name` commands (see find loop below).
 // If externalized to config (e.g., talisman.yml), shell metacharacter injection becomes possible.
-const ARC_TEAM_PREFIXES = ["arc-forge-", "arc-plan-review-"]
+//
+// arc-* prefixes: teams created directly by arc (Phase 2 plan review)
+// rune-* prefixes: teams created by delegated sub-commands (forge, work, review, mend, audit)
+const ARC_TEAM_PREFIXES = [
+  "arc-forge-", "arc-plan-review-",          // arc-owned teams
+  "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-audit-"  // sub-command teams
+]
+
+// SECURITY: Validate all prefixes before use in shell commands
+for (const prefix of ARC_TEAM_PREFIXES) {
+  if (!/^[a-z-]+$/.test(prefix)) {
+    throw new Error(`Invalid team prefix: ${prefix} (only lowercase letters and hyphens allowed)`)
+  }
+}
+
+// Collect in-progress teams from checkpoint to exclude from cleanup
+const activeTeams = Object.values(checkpoint.phases)
+  .filter(p => p.status === "in_progress" && p.team_name)
+  .map(p => p.team_name)
 
 for (const prefix of ARC_TEAM_PREFIXES) {
   const dirs = Bash(`find ~/.claude/teams -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
   for (const dir of dirs) {
+    // basename() is safe — find output comes from trusted ~/.claude/teams/ directory
     const teamName = basename(dir)
 
     // SEC-003: Validate team name before any filesystem operations
@@ -411,6 +470,14 @@ for (const prefix of ARC_TEAM_PREFIXES) {
     // Don't clean our own team (current arc session)
     // BACK-002 FIX: Use exact prefix+id match instead of fragile substring includes()
     if (teamName === `${prefix}${id}`) continue
+    // Don't clean teams that are actively in-progress in checkpoint
+    if (activeTeams.includes(teamName)) continue
+    // SEC: Symlink attack prevention — don't follow symlinks
+    // SEC-006 FIX: Strict equality prevents matching "symlink" in stderr error messages
+    if (Bash(`test -L ~/.claude/teams/${teamName} && echo symlink`).trim() === "symlink") {
+      warn(`ARC-SECURITY: Skipping ${teamName} — symlink detected`)
+      continue
+    }
 
     // This team is from a different arc session — orphaned
     warn(`CDX-7: Stale arc team from prior session: ${teamName} — cleaning`)
@@ -426,6 +493,12 @@ On resume, validate checkpoint integrity before proceeding:
 ```
 1. Find most recent checkpoint: find .claude/arc -maxdepth 2 -name checkpoint.json -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1
 2. Read .claude/arc/{id}/checkpoint.json — extract plan_file for downstream phases
+2b. Validate session_nonce from checkpoint (prevents tampering):
+   ```javascript
+   if (!/^[0-9a-f]{12}$/.test(checkpoint.session_nonce)) {
+     throw new Error("Invalid session_nonce in checkpoint — possible tampering")
+   }
+   ```
 3. Schema migration (default missing schema_version: `const version = checkpoint.schema_version ?? 1`):
    if version < 2, migrate v1 → v2:
    a. Add plan_refine: { status: "skipped", ... }
@@ -785,6 +858,7 @@ Read and execute the arc-phase-completion-stamp.md algorithm. Appends a persiste
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
 | Schema v1/v2/v3/v4 checkpoint on --resume | Auto-migrate to v5 |
+| Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |
 | Verify mend spot-check timeout (>4 min) | Skip convergence check, proceed to audit with warning |
 | Spot-check agent produces no output | Default to "halted" (fail-closed) |
 | Findings diverging after mend | Halt convergence immediately, proceed to audit |
