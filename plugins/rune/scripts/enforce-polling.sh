@@ -22,6 +22,7 @@ umask 077
 # Pre-flight: jq is required for JSON parsing.
 # If missing, exit 0 (non-blocking) — allow rather than crash.
 if ! command -v jq &>/dev/null; then
+  echo "WARNING: jq not found — enforce-polling.sh hook is inactive" >&2
   exit 0
 fi
 
@@ -50,10 +51,20 @@ case "$COMMAND" in *sleep*) ;; *) exit 0 ;; esac
 # Normalize multiline commands (catches newline-separated sleep/echo)
 NORMALIZED=$(printf '%s\n' "$COMMAND" | tr '\n' ' ')
 
+# Pre-filter: skip if the command starts with echo/printf/cat/grep (false positive on quoted patterns)
+# Known limitation: regex cannot distinguish shell quoting context. Commands that *mention*
+# the anti-pattern in string literals (e.g., echo "sleep 30 && echo poll") would false-positive.
+# This pre-filter catches the most common case.
+case "$NORMALIZED" in
+  echo\ *|printf\ *|cat\ *|grep\ *) exit 0 ;;
+esac
+
 # Detection: sleep + echo/printf pattern
 # Catches && and ; separators + echo and printf variants
 # NOTE: || excluded — "sleep N || echo" is error fallback, not polling anti-pattern
-if printf '%s\n' "$NORMALIZED" | grep -qE 'sleep[[:space:]]+[0-9]+[[:space:]]*(&&|;)[[:space:]]*(echo|printf)'; then
+# SEC-002 FIX: Word boundary — (^|[[:space:];|&(]) anchors "sleep" to prevent
+# matching substrings like "nosleep" in variable/function names.
+if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[0-9]+[[:space:]]*(&&|;)[[:space:]]*(echo|printf)'; then
   # Threshold: only block sleep >= 10s (startup probes use sleep 1-5)
   SLEEP_NUM=$(printf '%s\n' "$NORMALIZED" | grep -oE 'sleep[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+')
   [[ "${SLEEP_NUM:-0}" -lt 10 ]] && exit 0
@@ -78,7 +89,7 @@ if printf '%s\n' "$NORMALIZED" | grep -qE 'sleep[[:space:]]+[0-9]+[[:space:]]*(&
              "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json \
              "${CWD}"/tmp/.rune-plan-*.json "${CWD}"/tmp/.rune-forge-*.json; do
       if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
-        active_workflow=$(basename "$f" | sed 's/\.rune-\([a-z]*\)-.*/\1/')
+        active_workflow=1
         break
       fi
     done
