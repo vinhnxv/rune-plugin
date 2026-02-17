@@ -121,16 +121,17 @@ Dispatcher loop:
 ```
 1. Read/create checkpoint state
 2. Determine current phase (first incomplete in PHASE_ORDER)
-3. Record phase start time: const phaseStart = Date.now()
-4. Invoke phase (delegates to existing commands with their own teams)
-5. Read phase output artifact (SUMMARY HEADER ONLY — Glyph Budget)
-6. Record phase duration: updateCheckpoint({ phase, duration_ms: Date.now() - phaseStart })
-7. Update checkpoint state + artifact hash
-8. Check total pipeline timeout
-9. Proceed to next phase or halt on failure
+3. Invoke phase (delegates to existing commands with their own teams)
+   - Phase timing (start/duration) is recorded automatically around invocation
+4. Read phase output artifact (SUMMARY HEADER ONLY — Glyph Budget)
+5. Update checkpoint state + artifact hash
+6. Check total pipeline timeout
+7. Proceed to next phase or halt on failure
 ```
 
 The dispatcher reads only structured summary headers from artifacts, not full content. Full artifacts are passed by file path to the next phase.
+
+**Phase invocation model**: Each phase algorithm is a function invoked by the dispatcher. Phase reference files use `return` for early exits — this exits the phase function, and the dispatcher proceeds to the next phase in `PHASE_ORDER`.
 
 ### Phase Constants
 
@@ -219,8 +220,12 @@ if command -v jq >/dev/null 2>&1; then
     # Skip checkpoints older than 7 days (abandoned)
     started_at=$(jq -r '.started_at // empty' "$f" 2>/dev/null)
     if [ -n "$started_at" ]; then
-      # BSD date (-j -f) with GNU fallback (-d). Parse failure → 0 → large age → skipped as stale.
+      # BSD date (-j -f) with GNU fallback (-d).
+      # Parse failure → epoch=0 → age=now-0=currentTimestamp → exceeds 7-day threshold → skipped as stale.
       epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${started_at%%.*}" +%s 2>/dev/null || date -d "${started_at}" +%s 2>/dev/null || echo 0)
+      # SEC-002 FIX: Validate epoch is numeric before arithmetic (defense against malformed started_at)
+      if ! [[ "$epoch" =~ ^[0-9]+$ ]]; then continue; fi
+      [ "$epoch" -eq 0 ] && echo "WARNING: Failed to parse started_at: $started_at" >&2
       age_s=$(( $(date +%s) - epoch ))
       # Skip if age is negative (future timestamp = suspicious) or > 7 days (abandoned)
       [ "$age_s" -lt 0 ] 2>/dev/null && continue
@@ -251,7 +256,7 @@ otherWorkflows=$(find tmp -maxdepth 1 -name ".rune-*.json" 2>/dev/null | while r
   fi
 done | wc -l | tr -d ' ')
 if [ "$otherWorkflows" -gt 0 ] 2>/dev/null; then
-  echo "Advisory: $otherWorkflows other active Rune workflow(s) detected. Concurrent workflows may cause git index contention."
+  echo "Advisory: $otherWorkflows active Rune workflow(s) detected (may include delegated sub-commands from this arc). Independent Rune commands may cause git index contention."
 fi
 ```
 
@@ -390,10 +395,10 @@ if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid arc identifier")
 // MUST be cryptographically random — NOT derived from timestamp or arc id.
 // LLM shortcutting this to `arc{id}` defeats the security purpose.
 const rawNonce = crypto.randomBytes(6).toString('hex').toLowerCase()
-// Validate format BEFORE checkpoint write: exactly 12 lowercase hex characters
+// Validate format AFTER generation, BEFORE checkpoint write: exactly 12 lowercase hex characters
 // .toLowerCase() ensures consistency across JS runtimes (defense-in-depth)
 if (!/^[0-9a-f]{12}$/.test(rawNonce)) {
-  throw new Error(`Nonce generation failure: ${rawNonce}. Must be 12 hex chars from crypto.randomBytes(6).`)
+  throw new Error(`Session nonce generation failed. Must be 12 hex chars from crypto.randomBytes(6). Retry arc invocation.`)
 }
 const sessionNonce = rawNonce
 
@@ -429,7 +434,7 @@ CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs af
 // CC-5: Placed after checkpoint init — id is available here
 // CC-3: Use find instead of ls -d (SEC-007 compliance)
 // SECURITY-CRITICAL: ARC_TEAM_PREFIXES must remain hardcoded string literals.
-// These values are interpolated into shell `find -name` commands.
+// These values are interpolated into shell `find -name` commands (see find loop below).
 // If externalized to config (e.g., talisman.yml), shell metacharacter injection becomes possible.
 //
 // arc-* prefixes: teams created directly by arc (Phase 2 plan review)
@@ -468,7 +473,8 @@ for (const prefix of ARC_TEAM_PREFIXES) {
     // Don't clean teams that are actively in-progress in checkpoint
     if (activeTeams.includes(teamName)) continue
     // SEC: Symlink attack prevention — don't follow symlinks
-    if (Bash(`test -L ~/.claude/teams/${teamName} && echo symlink`).includes("symlink")) {
+    // SEC-006 FIX: Strict equality prevents matching "symlink" in stderr error messages
+    if (Bash(`test -L ~/.claude/teams/${teamName} && echo symlink`).trim() === "symlink") {
       warn(`ARC-SECURITY: Skipping ${teamName} — symlink detected`)
       continue
     }

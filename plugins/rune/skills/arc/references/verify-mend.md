@@ -17,7 +17,8 @@ const mendSummary = parseMendSummary(resolutionReport)
 
 if (checkpoint.phases.mend.status === "skipped" || mendSummary.total === 0 || mendSummary.fixed === 0) {
   updateCheckpoint({ phase: "verify_mend", status: "skipped", phase_sequence: 8, team_name: null })
-  // Early exit — skip this phase, dispatcher proceeds to next phase in PHASE_ORDER
+  // Early exit — skip this phase. Each phase is invoked as a function by the dispatcher;
+  // `return` exits the phase function and the dispatcher proceeds to the next phase in PHASE_ORDER.
   return
 }
 
@@ -51,7 +52,7 @@ if (mendModifiedFiles.length === 0) {
     phase_sequence: 8,
     team_name: null
   })
-  // Early exit — no files to check, dispatcher proceeds to next phase in PHASE_ORDER
+  // Early exit — no files to check (see first early exit above for dispatcher model)
   return
 }
 ```

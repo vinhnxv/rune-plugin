@@ -64,7 +64,9 @@ if (postReviewStateFiles.length > 1) {
 }
 // NOTE: reviewTeamName variable needed for TOME relocation (STEP 4, line 81).
 // Work/mend/audit don't need this — only code-review copies TOME to arc artifacts dir.
-let reviewTeamName = `rune-review-${Date.now()}`  // fallback
+// SEC-003 FIX: Fallback uses Date.now() (numeric only — safe for filesystem/regex).
+// BACK-012 FIX: TOME relocation uses glob discovery instead of team name derivation.
+let reviewTeamName = `rune-review-${Date.now()}`  // fallback — only used for checkpoint, not TOME path
 if (postReviewStateFiles.length > 0) {
   try {
     const actualTeamName = JSON.parse(Read(postReviewStateFiles[0])).team_name
@@ -80,8 +82,14 @@ if (postReviewStateFiles.length > 0) {
 // STEP 4: TOME relocation (copy, not move — original remains for debugging)
 // Source: tmp/reviews/{review-id}/TOME.md (produced by /rune:review)
 // Target: tmp/arc/{id}/tome.md (consumed by Phase 7: MEND)
-const reviewId = reviewTeamName.replace('rune-review-', '')
-Bash(`cp -- "tmp/reviews/${reviewId}/TOME.md" "tmp/arc/${id}/tome.md"`)
+// BACK-012 FIX: Discover TOME via glob — decoupled from team name resolution.
+// This prevents "file not found" when fallback team name differs from actual review directory.
+const tomeCandidates = Glob('tmp/reviews/review-*/TOME.md').sort().reverse()
+if (tomeCandidates.length === 0) {
+  warn('No TOME found in tmp/reviews/ — code review may have produced no findings')
+} else {
+  Bash(`cp -- "${tomeCandidates[0]}" "tmp/arc/${id}/tome.md"`)
+}
 
 // STEP 5: Update checkpoint
 updateCheckpoint({

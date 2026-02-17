@@ -78,6 +78,8 @@ if (phase_team === null && current_phase) {
   }
   const type = typeMap[current_phase]
   if (type) {
+    // BACK-004 FIX: Best-effort fallback — Glob order is arbitrary. First active match is used.
+    // Primary team discovery is checkpoint.team_name above; this is degraded-mode recovery.
     const stateFiles = Glob(`tmp/.rune-${type}-*.json`)
     for (const f of stateFiles) {
       try {
