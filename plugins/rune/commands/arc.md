@@ -453,6 +453,7 @@ On resume, validate checkpoint integrity before proceeding:
 
    ```javascript
    const ORPHAN_STALE_THRESHOLD = 1_800_000  // 30 min — crash recovery staleness
+   // Mirrors FORBIDDEN_KEYS in prePhaseCleanup (ARC-6, line 307) — keep in sync
    const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
    for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
@@ -488,7 +489,9 @@ On resume, validate checkpoint integrity before proceeding:
      for (const f of stateFiles) {
        try {
          const state = JSON.parse(Read(f))
-         if (state.status === "active" && (Date.now() - new Date(state.started).getTime()) > ORPHAN_STALE_THRESHOLD) {
+         // NaN guard: missing/malformed started → treat as stale (conservative toward cleanup)
+         const age = Date.now() - new Date(state.started).getTime()
+         if (state.status === "active" && (Number.isNaN(age) || age > ORPHAN_STALE_THRESHOLD)) {
            warn(`ORCH-1: Stale ${type} state file: ${f} — marking crash_recovered`)
            state.status = "completed"
            state.completed = new Date().toISOString()

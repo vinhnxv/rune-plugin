@@ -215,7 +215,7 @@ Rune Echoes (.claude/echoes/) untouched.
 | Flag | Effect |
 |------|--------|
 | `--all` | Remove ALL tmp/ artifacts including active workflows. Still requires user confirmation (Step 3). |
-| `--dry-run` | Show what would be removed without deleting. Combinable with `--all` to preview full cleanup scope. |
+| `--dry-run` | Show what would be removed without deleting. Combinable with `--all` and `--heal` to preview cleanup scope. |
 | `--heal` | Recover orphaned resources from crashed workflows. Scans for stale state files and orphaned team/task dirs. Off by default. |
 
 ### --dry-run Example
@@ -253,7 +253,9 @@ for (const type of ["work", "review", "mend", "audit", "forge"]) {  // CC-4: inc
     try {
       const state = JSON.parse(Read(f))
       if (state.status !== "active") continue
-      if (isStale(state.started, ORPHAN_STALE_THRESHOLD)) {
+      // isStale: age > threshold. NaN (missing/malformed started) → treat as stale.
+      const age = Date.now() - new Date(state.started).getTime()
+      if (Number.isNaN(age) || age > ORPHAN_STALE_THRESHOLD) {
         staleStateFiles.push({ file: f, state, type })
       } else {
         activeStateFiles.push({ file: f, state, type })  // CC-1 FIX: track active separately
@@ -265,8 +267,8 @@ for (const type of ["work", "review", "mend", "audit", "forge"]) {  // CC-4: inc
 }
 
 // STEP 2: Scan ~/.claude/teams/ for orphaned rune-prefixed team dirs
-const RUNE_TEAM_PATTERN = /^(rune-work|rune-review|rune-mend|rune-audit|rune-plan|rune-forge|arc-forge|arc-plan-review|arc-work|arc-review|arc-mend|arc-audit)-/
-const teamDirs = Bash("find ~/.claude/teams -maxdepth 1 -type d 2>/dev/null")  // CC-3: find not ls
+const RUNE_TEAM_PATTERN = /^(rune-work|rune-review|rune-mend|rune-audit|rune-plan|rune-forge|arc-forge|arc-plan-review)-/
+const teamDirs = Bash("find ~/.claude/teams -mindepth 1 -maxdepth 1 -type d 2>/dev/null")  // CC-3: find not ls; -mindepth 1 excludes base dir
   .split('\n').filter(Boolean)
 const orphanedTeams = []
 

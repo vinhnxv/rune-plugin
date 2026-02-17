@@ -258,9 +258,11 @@ Contract:
     3. Try TeamDelete({ team_name: teamName })
     4. Fallback: rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/
   Security:
-    - Uses find -maxdepth 1 instead of ls -d (SEC-007)
     - Regex + path-traversal check co-located before any rm -rf
+  Caller responsibilities:
+    - Callers should use find -maxdepth 1 instead of ls -d (SEC-007) for team dir discovery
   Error handling: TeamDelete failure is expected (team may not exist) — fall through to rm -rf
+  Usage note: Designed for orphan cleanup — does not attempt teammate shutdown. For active team cleanup, use the Dynamic Cleanup pattern.
 ```
 
 ```javascript
@@ -287,7 +289,7 @@ Defense-in-depth — each layer targets a different failure mode.
 
 - **Trigger**: `arc --resume` (after checkpoint read, before phase dispatch)
 - **Catches**: Orphaned teams from the *same arc session's* prior crashed attempt
-- **Action**: Iterate checkpoint phases → `safeTeamCleanup()` for orphaned `team_name` entries → reset phase status to `"pending"` → clean stale state files (`isStale() + status === "active"` → mark `crash_recovered`)
+- **Action**: Iterate checkpoint phases → validated `rm -rf` (same pattern as `safeTeamCleanup()`) for orphaned `team_name` entries → reset phase status to `"pending"` → clean stale state files (age check + `status === "active"` → mark `crash_recovered`)
 - **Scope**: Checkpoint-recorded teams only
 
 ### Layer 2: `/rune:rest --heal` (rest.md)
@@ -302,7 +304,7 @@ Defense-in-depth — each layer targets a different failure mode.
 
 - **Trigger**: Any `arc` invocation (after checkpoint init, before Phase 1)
 - **Catches**: Stale arc-specific teams from *prior arc sessions*
-- **Action**: Scan `~/.claude/teams/` for `arc-forge-*` and `arc-plan-review-*` dirs → skip current session's teams → `safeTeamCleanup()`
+- **Action**: Scan `~/.claude/teams/` for `arc-forge-*` and `arc-plan-review-*` dirs → skip current session's teams → validated `rm -rf` (same pattern as `safeTeamCleanup()`)
 - **Scope**: Arc-prefixed teams only (rune-* handled by sub-command pre-create guards)
 
 ### Coverage Matrix
