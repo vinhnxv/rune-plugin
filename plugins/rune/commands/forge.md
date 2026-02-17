@@ -384,8 +384,9 @@ for (const agentName of uniqueAgents(assignments)) {
 }
 
 // Elicitation Sage — summon per eligible section (v1.31)
-// Skipped if talisman elicitation.enabled === false
 // ATE-1: subagent_type: "general-purpose", identity via prompt
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+if (!elicitEnabled) { /* skip sage summoning entirely */ }
 let totalSagesSpawned = 0
 const MAX_FORGE_SAGES = 6
 
@@ -417,7 +418,12 @@ for (const [sectionIndex, [section, agents]] of assignments.entries()) {
       ## Assignment
       Phase: forge:3 (enrichment)
       Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
-      Section content (first 2000 chars): ${(section.content || '').slice(0, 2000)}
+      Section content (first 2000 chars): ${((section.content || '')
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]')
+        .replace(/!\[.*?\]\(.*?\)/g, '')
+        .replace(/^#{1,6}\s+/gm, '')
+        .slice(0, 2000))}
 
       Auto-select the top-scored method for this section's topics.
       Write output to: tmp/forge/{timestamp}/${section.slug}-elicitation-sage.md

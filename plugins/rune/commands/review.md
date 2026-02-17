@@ -335,7 +335,7 @@ const securityFiles = changedFiles.filter(f =>
 
 if (elicitEnabled && securityFiles.length >= 3) {
   // review:6 methods: Red Team vs Blue Team (T1), Challenge from Critical Perspective (T1)
-  const securitySageCount = Math.min(2, securityFiles.length >= 6 ? 2 : 1)
+  const securitySageCount = securityFiles.length >= 6 ? 2 : 1
 
   for (let i = 0; i < securitySageCount; i++) {
     Task({

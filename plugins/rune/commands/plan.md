@@ -201,9 +201,16 @@ After approach selection, summon 1-3 elicitation-sage teammates for multi-perspe
 **Talisman check**: Read `.claude/talisman.yml` → if `elicitation.enabled` is explicitly `false`, skip this step entirely.
 
 ```javascript
+// Talisman kill switch — early exit if elicitation disabled
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+if (!elicitEnabled) { /* skip Step 3.5 entirely */ }
+
 // 1. Compute fan-out using simplified keyword count threshold (not float scoring)
 //    Decree-arbiter P2: Float comparisons unreliable in LLM pseudocode.
 //    Use keyword count → lookup table instead.
+// NOTE: Brainstorm uses 15 keywords (wider activation) vs 10 in forge/review sites.
+// Intentional: brainstorm is the first user-facing sage invocation — broader net catches
+// more opportunities for structured reasoning before the plan is finalized.
 const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
   "migration", "performance", "decision", "approach", "comparison",
   "breaking-change", "auth", "api", "complex", "novel"]
@@ -212,8 +219,7 @@ const keywordHits = elicitKeywords.filter(k => contextText.includes(k)).length
 
 // Lookup table: keyword hits → sage count (capped at 3 for brainstorm)
 let sageCount
-if (keywordHits >= 6) sageCount = 3      // High complexity
-else if (keywordHits >= 4) sageCount = 3  // Medium-high
+if (keywordHits >= 4) sageCount = 3       // High complexity (4+ keywords → max sages)
 else if (keywordHits >= 2) sageCount = 2  // Moderate
 else sageCount = 1                         // Simple — still 1 sage minimum
 
@@ -258,8 +264,8 @@ for (let i = 0; i < sageCount; i++) {
       ## Assignment
       Phase: plan:0 (brainstorm)
       Assigned method: ${method.method_name} (method #${method.num})
-      Feature: {sanitized_feature_description}
-      Chosen approach: {selected_approach}
+      Feature: {sanitized_feature_description}  // LLM orchestrator fills from brainstorm context
+      Chosen approach: {selected_approach}      // LLM orchestrator fills from Step 3 selection
       Brainstorm context: Read tmp/plans/{timestamp}/brainstorm-decisions.md
 
       Apply ONLY the method "${method.method_name}" to this brainstorm context.
@@ -467,8 +473,9 @@ for (const [section, agents] of assignments) {
 }
 
 // 4.5. Elicitation Sage — summon per eligible section (NEW — v1.31)
-//       Skipped if talisman elicitation.enabled === false
 //       ATE-1: subagent_type: "general-purpose", identity via prompt
+const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+if (!elicitEnabled) { /* skip sage summoning entirely */ }
 let totalSagesSpawned = 0
 const MAX_FORGE_SAGES = 6
 
@@ -493,7 +500,12 @@ for (const [sectionIndex, section] of sections.entries()) {
       ## Assignment
       Phase: forge:3 (enrichment)
       Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
-      Section content (first 2000 chars): ${(section.content || '').slice(0, 2000)}
+      Section content (first 2000 chars): ${((section.content || '')
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]')
+        .replace(/!\[.*?\]\(.*?\)/g, '')
+        .replace(/^#{1,6}\s+/gm, '')
+        .slice(0, 2000))}
 
       Auto-select the top-scored method for this section's topics.
       Write output to: tmp/plans/{timestamp}/forge/${section.slug}-elicitation-sage.md
