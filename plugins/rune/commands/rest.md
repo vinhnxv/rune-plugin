@@ -34,6 +34,8 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/mend/{id}/` | Mend resolution reports, fixer outputs | Yes (if completed) |
 | `tmp/arc/{id}/` | Arc pipeline artifacts (enriched plans, TOME, reports) | Yes (if completed) |
 | `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional, symlink-guarded) |
+| `~/.claude/teams/{rune-*/arc-*}/` | Orphaned team configs from crashed workflows | `--heal` only |
+| `~/.claude/tasks/{rune-*/arc-*}/` | Orphaned task lists from crashed workflows | `--heal` only |
 
 ## What Is Preserved
 
@@ -46,6 +48,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/.rune-mend-*.json` (active) | Mend concurrency detection |
 | `tmp/.rune-work-*.json` (active) | Active work workflow state |
 | `tmp/.rune-forge-*.json` (active) | Active forge workflow state |
+| `~/.claude/teams/{name}/` (active, < 30 min) | Teams referenced by active state files (`--heal` preserves these) |
 
 ## Steps
 
@@ -212,7 +215,8 @@ Rune Echoes (.claude/echoes/) untouched.
 | Flag | Effect |
 |------|--------|
 | `--all` | Remove ALL tmp/ artifacts including active workflows. Still requires user confirmation (Step 3). |
-| `--dry-run` | Show what would be removed without deleting. Combinable with `--all` to preview full cleanup scope. |
+| `--dry-run` | Show what would be removed without deleting. Combinable with `--all` and `--heal` to preview cleanup scope. |
+| `--heal` | Recover orphaned resources from crashed workflows. Scans for stale state files and orphaned team/task dirs. Off by default. |
 
 ### --dry-run Example
 
@@ -229,6 +233,124 @@ Would preserve:
   .claude/echoes/  (persistent memory)
 ```
 
+### --heal Mode
+
+Recovers orphaned resources from crashed workflows. Unlike `--all` (which removes everything), `--heal` specifically targets stale state files and orphaned team/task directories that were left behind when a sub-command crashed before reaching its cleanup phase.
+
+**Why `--heal` not `--force`**: `--force` implies "delete everything including active". `--heal` conveys "fix broken state" — specifically targets orphans while protecting genuinely active workflows.
+
+#### Algorithm
+
+```
+// STEP 1: Partition active state files into stale vs active
+const ORPHAN_STALE_THRESHOLD = 1_800_000  // 30 min (CC-6)
+const staleStateFiles = []
+const activeStateFiles = []  // CC-1 FIX: separate list for safety check
+
+// See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
+for (const type of ["work", "review", "mend", "audit", "forge"]) {  // CC-4: include forge
+  const files = Glob(`tmp/.rune-${type}-*.json`)
+  for (const f of files) {
+    try {
+      const state = JSON.parse(Read(f))
+      if (state.status !== "active") continue
+      // isStale: age > threshold. NaN (missing/malformed started) → treat as stale.
+      const age = Date.now() - new Date(state.started).getTime()
+      if (Number.isNaN(age) || age > ORPHAN_STALE_THRESHOLD) {
+        staleStateFiles.push({ file: f, state, type })
+      } else {
+        activeStateFiles.push({ file: f, state, type })  // CC-1 FIX: track active separately
+      }
+    } catch (e) {
+      warn(`${f}: unreadable — skipping`)
+    }
+  }
+}
+
+// STEP 2: Scan ~/.claude/teams/ for orphaned rune-prefixed team dirs
+const RUNE_TEAM_PATTERN = /^(rune-work|rune-review|rune-mend|rune-audit|rune-plan|rune-forge|arc-forge|arc-plan-review)-/
+const teamDirsRaw = Bash("find ~/.claude/teams -mindepth 1 -maxdepth 1 -type d 2>/dev/null")  // CC-3: find not ls; -mindepth 1 excludes base dir
+const teamDirs = teamDirsRaw.split('\n').filter(Boolean)
+// BACK-003 FIX: Warn when teams directory is missing (matches error handling table promise)
+if (teamDirs.length === 0 && !Bash("test -d ~/.claude/teams && echo ok 2>/dev/null").includes("ok")) {
+  warn("~/.claude/teams/ not found — skipping team dir scan")
+}
+const orphanedTeams = []
+
+for (const dir of teamDirs) {
+  const teamName = basename(dir)
+  if (!RUNE_TEAM_PATTERN.test(teamName)) continue  // Not a rune team — skip
+  if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) continue  // Invalid name — skip
+
+  // Check if any ACTIVE state file references this team (CC-1 FIX: check active, not stale)
+  const isReferenced = activeStateFiles.some(s =>
+    s.state.team_name === teamName
+  )
+  if (isReferenced) continue  // Team is actively used — skip
+
+  orphanedTeams.push(teamName)
+}
+
+// STEP 3: Present and confirm
+if (staleStateFiles.length === 0 && orphanedTeams.length === 0) {
+  log("No orphaned resources found. System is clean.")
+  return
+}
+
+AskUserQuestion({
+  questions: [{
+    question: `Found ${staleStateFiles.length} stale state files and ${orphanedTeams.length} orphaned teams. Clean up?`,
+    header: "Heal",
+    options: [
+      { label: "Clean all (Recommended)", description: "Remove orphaned teams + reset stale state files" },
+      { label: "Dry run", description: "Show what would be cleaned without removing" },
+      { label: "Cancel", description: "Leave everything as-is" }
+    ]
+  }]
+})
+
+// STEP 4: Execute cleanup
+for (const teamName of orphanedTeams) {
+  // Inline rm -rf pattern (TeamDelete skipped — orphaned teams have no active session)
+  // Defense-in-depth: re-validate despite Step 2 filter
+  if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
+  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+}
+
+for (const { file, state } of staleStateFiles) {
+  state.status = "completed"
+  state.completed = new Date().toISOString()
+  state.crash_recovered = true
+  Write(file, JSON.stringify(state))
+}
+
+// STEP 5: Clean orphaned signal directories
+// BACK-006 FIX: Also match teams from staleStateFiles (their team dirs may already be gone
+// but signal dirs can persist if the team dir was manually deleted)
+const staleTeamNames = staleStateFiles.map(s => s.state.team_name).filter(Boolean)
+const signalDirs = Glob("tmp/.rune-signals/*/")
+for (const dir of signalDirs) {
+  const teamName = basename(dir)
+  if (orphanedTeams.includes(teamName) || staleTeamNames.includes(teamName)) {
+    Bash(`rm -rf "${dir}" 2>/dev/null`)
+  }
+}
+
+// STEP 6: Report
+log(`Heal complete.`)
+log(`  Stale state files reset: ${staleStateFiles.length}`)
+log(`  Orphaned teams removed: ${orphanedTeams.length}`)
+```
+
+**Staleness heuristic**: A state file is considered stale if `status === "active"` AND `started` is older than 30 minutes. This is 2x the longest inner timeout (15 min), providing margin for slow workflows while still catching genuine crashes.
+
+**Safety guarantees**:
+- Active state files (< 30 min, status "active") are never touched
+- Team dirs referenced by active state files are preserved
+- User confirmation required before any cleanup
+- Team name validated with `/^[a-zA-Z0-9_-]+$/` before any `rm -rf`
+- Uses `find` instead of `ls` for team dir scanning (SEC-007 compliance)
+
 ## Error Handling
 
 | Error | Recovery |
@@ -237,6 +359,9 @@ Would preserve:
 | State file unreadable (corrupt JSON) | Treat associated directory as active (skip) |
 | Path resolves outside `tmp/` | Skip with warning, do not delete |
 | Permission denied on remove | Report which directories failed, continue with rest |
+| `~/.claude/teams/` not accessible (`--heal`) | Report warning, skip team dir scan, still process stale state files |
+| Team dir removal failed (`--heal`) | Log team name and error, continue with remaining orphans |
+| State file update failed (`--heal`) | Log file path, skip to next stale file (do not halt) |
 
 ## Notes
 

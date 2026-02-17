@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.29.2] - 2026-02-17
+
+### Fixed
+- CDX-7: Post-delegation cleanup guard for crashed sub-commands — three-layer orphan defense prevents resource leaks from crashed workflows
+
+### Added
+- `/rune:rest --heal` flag for manual orphan recovery — scans for stale state files and orphaned team directories
+- Arc resume pre-flight cleanup (ORCH-1) — automatically cleans orphaned teams when resuming arc sessions
+- Arc pre-flight stale team scan — removes stale arc-specific teams from prior sessions
+- Crash recovery documentation for all 4 arc-phase reference files
+
+### Changed
+- `team-lifecycle-guard.md`: Added `safeTeamCleanup()` utility, `isStale()` staleness detection, and orphan recovery pattern documentation
+
+### Upgrade Note
+If you have orphaned team directories from prior crashed workflows, run `/rune:rest --heal` to clean them up.
+
 ## [1.29.1] - 2026-02-17
 
 Fix: Arc inter-phase team cleanup guard (ARC-6).
@@ -573,7 +590,7 @@ Feature release: Arc pipeline expanded from 6 to 8 phases with plan refinement, 
 - arc.md: Phase 2.5 PLAN REFINEMENT — orchestrator-only concern extraction from CONCERN verdicts into `concern-context.md` for worker awareness. All-CONCERN escalation via AskUserQuestion
 - arc.md: Phase 2.7 VERIFICATION GATE — deterministic zero-LLM checks (file references, heading links, acceptance criteria, TODO/FIXME, talisman patterns). Git history annotation for stale file references
 - arc.md: `PHASE_ORDER` constant — canonical 8-element array for resume validation by name, not sequence numbers
-- arc.md: `PHASE_TIMEOUTS` — per-phase hardcoded time budgets (delegated phases use inner-timeout + 60s buffer). `ARC_TOTAL_TIMEOUT` (90 min) and `STALE_THRESHOLD` (5 min)
+- arc.md: `PHASE_TIMEOUTS` — per-phase hardcoded time budgets (delegated phases use inner-timeout + 60s buffer). `ARC_TOTAL_TIMEOUT` (90 min, later increased to 120 min in v1.17.0) and `STALE_THRESHOLD` (5 min)
 - arc.md: Checkpoint schema v2 — adds `schema_version: 2`, `plan_refine` and `verification` phase entries
 - arc.md: Backward-compatible checkpoint migration — auto-upgrades v1 checkpoints on read (inserts new phases as "skipped")
 - arc.md: Timeout monitoring in Phase 1 (FORGE) and Phase 2 (PLAN REVIEW) polling loops with completion-before-timeout check, stale detection, and final sweep

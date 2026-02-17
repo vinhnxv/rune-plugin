@@ -14,18 +14,28 @@ Both are observed in production and cause workflow failures if not handled.
 
 ## Pre-Create Guard
 
-Before `TeamCreate`, clean up stale teams from crashed prior sessions:
+Before `TeamCreate`, clean up stale teams from crashed prior sessions.
+Mirrors the canonical version in `rune-orchestration/references/team-lifecycle-guard.md`.
 
 ```javascript
 // 1. Validate identifier (REQUIRED — this is the ONLY barrier against path traversal)
+// Security pattern: SAFE_IDENTIFIER_PATTERN = /^[a-zA-Z0-9_-]+$/ — alphanumeric, hyphens, underscores only
 if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("Invalid identifier")
 // SEC-003: Redundant path traversal check — defense-in-depth
 if (identifier.includes('..')) throw new Error('Path traversal detected')
 
-// 2. Attempt TeamDelete (catches most cases)
-try { TeamDelete() } catch (e) {
-  // 3. Fallback: direct directory removal (handles orphaned state)
-  Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
+// 2. Attempt TeamDelete with retry (handles active teammates from crashed sessions)
+// NOTE: Pre-create guard may orphan active teammates from crashed sessions.
+// This is an accepted trade-off — blocking on zombie teammates prevents new sessions.
+let teamDeleted = false
+try { TeamDelete(); teamDeleted = true } catch (e) {
+  // First attempt failed (e.g., active members from crashed session)
+  // Wait briefly for members to notice missing coordination state, then retry
+  Bash('sleep 5')
+  try { TeamDelete(); teamDeleted = true } catch (e2) {
+    // 3. Fallback: direct directory removal (handles orphaned state)
+    Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
+  }
 }
 
 // 4. Create fresh team
@@ -36,7 +46,7 @@ TeamCreate({ team_name: `${teamPrefix}-${identifier}` })
 - Identifier validation and `rm -rf` are co-located (same code block)
 - The regex `/^[a-zA-Z0-9_-]+$/` prevents shell metacharacters and path traversal
 - The `..` check is redundant but provides defense-in-depth
-- `TeamDelete` is tried first (clean API path); `rm -rf` is the fallback only
+- `TeamDelete` is tried first with retry (clean API path); `rm -rf` is the fallback only
 
 **When to use**: Before EVERY `TeamCreate` call. No exceptions.
 
@@ -63,7 +73,8 @@ try { TeamDelete() } catch (e) {
 
 ## Cancel Command Pattern
 
-Cancel commands use the same cleanup-with-fallback but add broadcast + task cancellation:
+Cancel commands use the Dynamic Cleanup pattern with broadcast + task cancellation prepended.
+See the canonical version in `rune-orchestration/references/team-lifecycle-guard.md` for full pseudocode.
 
 ```javascript
 // 1. Broadcast cancellation
@@ -77,9 +88,17 @@ for (const task of tasks) {
   }
 }
 
-// 3. Shutdown all teammates
-for (const member of teamMembers) {
-  SendMessage({ type: "shutdown_request", recipient: member.name, content: "Cancelled" })
+// 3. Dynamic member discovery + shutdown
+let allMembers = []
+try {
+  const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
+} catch (e) {
+  allMembers = [...fallbackList]
+}
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Cancelled" })
 }
 
 // 4. Wait (max 30s)
@@ -149,7 +168,8 @@ for (const member of allMembers) {
 // 3. Wait for shutdown approvals (max 30s)
 
 // 4. TeamDelete with fallback
-// NOTE: team_name must be validated before this point — see "Input Validation" section above
+// SEC-9 FIX: Re-validate team_name before rm -rf (defense-in-depth — team_name was read from config.json)
+if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) throw new Error(`Invalid team_name: ${team_name}`)
 try { TeamDelete() } catch (e) {
   Bash(`rm -rf ~/.claude/teams/${team_name}/ ~/.claude/tasks/${team_name}/ 2>/dev/null`)
 }
@@ -219,3 +239,7 @@ All multi-agent commands: plan.md, work.md, arc.md, mend.md, review.md, audit.md
 - Always update workflow state files (e.g., `tmp/.rune-review-{id}.json`) AFTER team cleanup, not before
 - The 30s wait is a best-effort grace period — some agents may need longer for complex file writes
 - Arc pipelines call TeamCreate/TeamDelete per-phase, so each phase transition needs the pre-create guard
+
+## CDX-7 Crash Recovery (Cross-Reference)
+
+For crash recovery patterns (CDX-7), including `safeTeamCleanup()`, `isStale()`, and the three-layer orphan defense, see the canonical version at `plugins/rune/skills/rune-orchestration/references/team-lifecycle-guard.md`.

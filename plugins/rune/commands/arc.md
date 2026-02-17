@@ -157,6 +157,10 @@ const ARC_TOTAL_TIMEOUT = 7_200_000  // 120 min (honest budget — old 90 min wa
 const STALE_THRESHOLD = 300_000      // 5 min
 const CONVERGENCE_MAX_ROUNDS = 2     // Max mend retries (3 total passes)
 const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward/cross-file)
+
+// Shared prototype pollution guard — used by prePhaseCleanup (ARC-6) and ORCH-1 resume cleanup.
+// BACK-005 FIX: Single definition replaces two duplicate inline Sets.
+const FORBIDDEN_PHASE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 ```
 
 See [phase-tool-matrix.md](../skills/rune-orchestration/references/phase-tool-matrix.md) for per-phase tool restrictions and time budget details.
@@ -254,6 +258,13 @@ if (planFile.startsWith('/')) {
   error(`Absolute paths not allowed: ${planFile}. Use a relative path from project root.`)
   return
 }
+// CDX-010 FIX: Reject symlinks — a symlink at plans/evil.md -> /etc/passwd would
+// pass all regex/traversal checks above but read arbitrary files via Read().
+// Use Bash test -L (not stat) for portability across macOS/Linux.
+if (Bash(`test -L "${planFile}" && echo "symlink"`).includes("symlink")) {
+  error(`Plan path is a symlink (not following): ${planFile}`)
+  return
+}
 ```
 
 ### Plan Freshness Check (FRESH-1)
@@ -304,9 +315,8 @@ function prePhaseCleanup(checkpoint) {
     // active team, not a named target. For stale teams from prior phases (which the
     // orchestrator may not be leading), only rm -rf works.
     // See team-lifecycle-guard.md "Cleanup Fallback" section.
-    const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
     for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
-      if (FORBIDDEN_KEYS.has(phaseName)) continue
+      if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue
       if (!phaseInfo || typeof phaseInfo !== 'object') continue
       if (!phaseInfo.team_name || typeof phaseInfo.team_name !== 'string') continue
       // ARC-6 STATUS GUARD: Denylist approach — only "in_progress" is preserved.
@@ -382,12 +392,45 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 })
 ```
 
+### Stale Arc Team Scan
+
+CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs after checkpoint init (where `id` is available) for both new and resumed arcs. Only targets `arc-forge-*` and `arc-plan-review-*` prefixes — phase 5-8 teams use `rune-*` prefixes and are handled by the sub-command's own pre-create guard.
+
+```javascript
+// CC-5: Placed after checkpoint init — id is available here
+// CC-3: Use find instead of ls -d (SEC-007 compliance)
+// SECURITY-CRITICAL: ARC_TEAM_PREFIXES must remain hardcoded string literals.
+// These values are interpolated into shell `find -name` commands (line 395).
+// If externalized to config (e.g., talisman.yml), shell metacharacter injection becomes possible.
+const ARC_TEAM_PREFIXES = ["arc-forge-", "arc-plan-review-"]
+
+for (const prefix of ARC_TEAM_PREFIXES) {
+  const dirs = Bash(`find ~/.claude/teams -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
+  for (const dir of dirs) {
+    const teamName = basename(dir)
+
+    // SEC-003: Validate team name before any filesystem operations
+    if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
+    // Defense-in-depth: redundant with regex above, per safeTeamCleanup() contract
+    if (teamName.includes('..')) continue
+
+    // Don't clean our own team (current arc session)
+    // BACK-002 FIX: Use exact prefix+id match instead of fragile substring includes()
+    if (teamName === `${prefix}${id}`) continue
+
+    // This team is from a different arc session — orphaned
+    warn(`CDX-7: Stale arc team from prior session: ${teamName} — cleaning`)
+    Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+  }
+}
+```
+
 ## --resume Logic
 
 On resume, validate checkpoint integrity before proceeding:
 
 ```
-1. Find most recent checkpoint: find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | xargs ls -t 2>/dev/null | head -1
+1. Find most recent checkpoint: find .claude/arc -maxdepth 2 -name checkpoint.json -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1
 2. Read .claude/arc/{id}/checkpoint.json — extract plan_file for downstream phases
 3. Schema migration (default missing schema_version: `const version = checkpoint.schema_version ?? 1`):
    if version < 2, migrate v1 → v2:
@@ -419,8 +462,70 @@ On resume, validate checkpoint integrity before proceeding:
    a. Verify artifact file exists at recorded path
    b. Compute SHA-256 of artifact, compare against stored artifact_hash
    c. If hash mismatch → demote phase to "pending" + warn user
-6. Resume from first incomplete/failed/pending phase in PHASE_ORDER
-7. ARC-6: Clean stale teams from prior session before resuming.
+6. ### Orphan Cleanup (ORCH-1)
+   CDX-7 Layer 1: Clean orphaned teams and stale state files from a prior crashed attempt.
+   Runs BEFORE resume dispatch. Resets orphaned phase statuses so phases re-execute cleanly.
+   Distinct from ARC-6 (step 8) which only cleans team dirs without status reset.
+
+   ```javascript
+   const ORPHAN_STALE_THRESHOLD = 1_800_000  // 30 min — crash recovery staleness
+
+   for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
+     if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue
+     if (typeof phaseInfo !== 'object' || phaseInfo === null) continue
+
+     // Skip phases without recorded team_name
+     if (!phaseInfo.team_name || typeof phaseInfo.team_name !== 'string') continue
+
+     // SEC-003: Validate team name before any filesystem operations
+     if (!/^[a-zA-Z0-9_-]+$/.test(phaseInfo.team_name)) {
+       warn(`ORCH-1: Invalid team name for phase ${phaseName}: "${phaseInfo.team_name}" — skipping`)
+       continue
+     }
+     // Defense-in-depth: redundant with regex above, per safeTeamCleanup() contract
+     if (phaseInfo.team_name.includes('..')) continue
+
+     if (["completed", "skipped", "cancelled"].includes(phaseInfo.status)) {
+       // Defensive: verify team is actually gone — clean if not
+       Bash(`rm -rf ~/.claude/teams/${phaseInfo.team_name}/ ~/.claude/tasks/${phaseInfo.team_name}/ 2>/dev/null`)
+       continue
+     }
+
+     // Phase is "in_progress" or "failed" — team may be orphaned from prior crash
+     Bash(`rm -rf ~/.claude/teams/${phaseInfo.team_name}/ ~/.claude/tasks/${phaseInfo.team_name}/ 2>/dev/null`)
+
+     // Clear team_name so phase re-creates a fresh team on retry
+     phaseInfo.team_name = null
+     phaseInfo.status = "pending"
+   }
+
+   // Clean stale state files from crashed sub-commands (CC-4: includes forge)
+   // See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
+   for (const type of ["work", "review", "mend", "audit", "forge"]) {
+     const stateFiles = Glob(`tmp/.rune-${type}-*.json`)
+     for (const f of stateFiles) {
+       try {
+         const state = JSON.parse(Read(f))
+         // NaN guard: missing/malformed started → treat as stale (conservative toward cleanup)
+         const age = Date.now() - new Date(state.started).getTime()
+         if (state.status === "active" && (Number.isNaN(age) || age > ORPHAN_STALE_THRESHOLD)) {
+           warn(`ORCH-1: Stale ${type} state file: ${f} — marking crash_recovered`)
+           state.status = "completed"
+           state.completed = new Date().toISOString()
+           state.crash_recovered = true
+           Write(f, JSON.stringify(state))
+         }
+       } catch (e) {
+         warn(`ORCH-1: Unreadable state file ${f} — skipping`)
+       }
+     }
+   }
+
+   Write(checkpointPath, checkpoint)  // Save cleaned checkpoint
+   ```
+
+7. Resume from first incomplete/failed/pending phase in PHASE_ORDER
+8. ARC-6: Clean stale teams from prior session before resuming.
    Unlike CDX-7 Layer 1 (which resets phase status), this only cleans teams
    without changing phase status — the phase dispatching logic handles retries.
    `prePhaseCleanup(checkpoint)`
@@ -626,9 +731,11 @@ After the completion report, persist arc quality metrics to echoes for cross-ses
 
 ```javascript
 if (exists(".claude/echoes/")) {
+  // CDX-009 FIX: totalDuration is in milliseconds (Date.now() - arcStart), so divide by 60_000 for minutes.
+  const totalDuration = Date.now() - arcStart  // milliseconds
   const metrics = {
     plan: checkpoint.plan_file,
-    duration_minutes: Math.round(totalDuration / 60),
+    duration_minutes: Math.round(totalDuration / 60_000),
     phases_completed: Object.values(checkpoint.phases).filter(p => p.status === "completed").length,
     tome_findings: { p1: p1Count, p2: p2Count, p3: p3Count },
     convergence_rounds: checkpoint.convergence.history.length,

@@ -2,7 +2,7 @@
 
 Invoke `/rune:work` logic on the enriched plan. Swarm workers implement tasks with incremental commits.
 
-**Team**: `arc-work-{id}` (delegated to `/rune:work` --- manages its own TeamCreate/TeamDelete with guards)
+**Team**: `arc-work-{id}` (delegated to `/rune:work` — manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Full access (Read, Write, Edit, Bash, Glob, Grep)
 **Timeout**: 35 min (PHASE_TIMEOUTS.work = 2_100_000 — inner 30m + 5m setup)
 **Inputs**: id (string), enriched plan path (`tmp/arc/{id}/enriched-plan.md`), concern context (optional: `tmp/arc/{id}/concern-context.md`), verification report (optional: `tmp/arc/{id}/verification-report.md`), `--approve` flag
@@ -46,11 +46,16 @@ workContext += `\n\n## Quality Contract\nAll code must include:\n- Type annotati
 // Arc reads the team name back from the work state file or teammate idle notification.
 // The team name is recorded in checkpoint for cancel-arc discovery.
 // SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
-// CDX-2 NOTE: Glob matches ALL work state files, not just the current arc session's.
-// Glob returns files sorted by mtime (most recent first), so [0] picks the latest.
-// If multiple state files exist from prior runs, warn but proceed with most recent.
-const workStateFiles = Glob("tmp/.rune-work-*.json")
-if (workStateFiles.length > 1) warn(`Multiple work state files found (${workStateFiles.length}) — using most recent`)
+// SEC-001 FIX: Filter state files to current session timeframe to prevent cross-session confusion.
+// Only consider "active" state files created within the phase timeout window.
+const workStateFiles = Glob("tmp/.rune-work-*.json").filter(f => {
+  try {
+    const state = JSON.parse(Read(f))
+    const age = Date.now() - new Date(state.started).getTime()
+    return state.status === "active" && !Number.isNaN(age) && age < PHASE_TIMEOUTS.work
+  } catch (e) { return false }
+})
+if (workStateFiles.length > 1) warn(`Multiple active work state files found (${workStateFiles.length}) — using most recent`)
 const workTeamName = workStateFiles.length > 0
   ? JSON.parse(Read(workStateFiles[0])).team_name
   : `rune-work-${Date.now()}`
@@ -59,10 +64,13 @@ if (!/^[a-zA-Z0-9_-]+$/.test(workTeamName)) throw new Error(`Invalid team_name f
 updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 5, team_name: workTeamName })
 
 // STEP 4: After work completes, produce work summary
-Write(`tmp/arc/${id}/work-summary.md`, {
+// CDX-003 FIX: Assign workSummary to a variable so sha256() in STEP 5 can reference it.
+// Previously, Write() used an inline object but sha256() referenced an undefined `workSummary`.
+const workSummary = JSON.stringify({
   tasks_completed: completedCount, tasks_failed: failedCount,
   files_committed: committedFiles, uncommitted_changes: uncommittedList, commits: commitSHAs
 })
+Write(`tmp/arc/${id}/work-summary.md`, workSummary)
 
 // STEP 5: Update checkpoint
 updateCheckpoint({
@@ -75,6 +83,25 @@ updateCheckpoint({
 **Output**: Implemented code (committed) + `tmp/arc/{id}/work-summary.md`
 
 **Failure policy**: Halt if <50% tasks complete. Partial work is committed via incremental commits (E5).
+
+## Crash Recovery
+
+If this phase crashes before reaching cleanup, the following resources are orphaned:
+
+| Resource | Location |
+|----------|----------|
+| Team config | `~/.claude/teams/rune-work-{identifier}/` |
+| Task list | `~/.claude/tasks/rune-work-{identifier}/` |
+| State file | `tmp/.rune-work-*.json` (stuck in `"active"` status) |
+| Signal dir | `tmp/.rune-signals/rune-work-{identifier}/` |
+
+### Recovery Layers
+
+If this phase crashes, the orphaned resources above are recovered by the 3-layer defense:
+Layer 1 (ORCH-1 resume), Layer 2 (`/rune:rest --heal`), Layer 3 (arc pre-flight stale scan).
+Work phase teams use `rune-work-*` prefix — handled by the sub-command's own pre-create guard (not Layer 3).
+
+See [team-lifecycle-guard.md](team-lifecycle-guard.md) §Orphan Recovery Pattern for full layer descriptions and coverage matrix.
 
 ## --approve Routing
 

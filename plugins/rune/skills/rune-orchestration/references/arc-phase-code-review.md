@@ -2,7 +2,7 @@
 
 Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundtable Circle lifecycle.
 
-**Team**: `arc-review-{id}` (delegated to `/rune:review` --- manages its own TeamCreate/TeamDelete with guards)
+**Team**: `arc-review-{id}` (delegated to `/rune:review` — manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Read, Glob, Grep, Write (own output file only)
 **Timeout**: 15 min (PHASE_TIMEOUTS.code_review = 900_000 — inner 10m + 5m setup)
 **Inputs**: id (string), gap analysis path (optional: `tmp/arc/{id}/gap-analysis.md`)
@@ -40,9 +40,15 @@ if (exists(`tmp/arc/${id}/gap-analysis.md`)) {
 // Delegation pattern: /rune:review creates its own team (e.g., rune-review-{identifier}).
 // Arc reads the team name from the review state file or teammate idle notification.
 // SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
-// CDX-2 NOTE: Glob matches ALL review state files — [0] is most recent by mtime.
-const reviewStateFiles = Glob("tmp/.rune-review-*.json")
-if (reviewStateFiles.length > 1) warn(`Multiple review state files found (${reviewStateFiles.length}) — using most recent`)
+// SEC-001 FIX: Filter to current session timeframe to prevent cross-session confusion
+const reviewStateFiles = Glob("tmp/.rune-review-*.json").filter(f => {
+  try {
+    const state = JSON.parse(Read(f))
+    const age = Date.now() - new Date(state.started).getTime()
+    return state.status === "active" && !Number.isNaN(age) && age < PHASE_TIMEOUTS.code_review
+  } catch (e) { return false }
+})
+if (reviewStateFiles.length > 1) warn(`Multiple active review state files found (${reviewStateFiles.length}) — using most recent`)
 const reviewTeamName = reviewStateFiles.length > 0
   ? JSON.parse(Read(reviewStateFiles[0])).team_name
   : `rune-review-${Date.now()}`
@@ -116,3 +122,22 @@ Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See arc.md Int
 ## Docs-Only Work Output
 
 If Phase 5 produced only documentation files, the review still runs correctly. Rune Gaze's docs-only override ensures Knowledge Keeper is summoned. The TOME will contain `DOC-` and `QUAL-` prefixed findings.
+
+## Crash Recovery
+
+If this phase crashes before reaching cleanup, the following resources are orphaned:
+
+| Resource | Location |
+|----------|----------|
+| Team config | `~/.claude/teams/rune-review-{identifier}/` |
+| Task list | `~/.claude/tasks/rune-review-{identifier}/` |
+| State file | `tmp/.rune-review-*.json` (stuck in `"active"` status) |
+| Signal dir | `tmp/.rune-signals/rune-review-{identifier}/` |
+
+### Recovery Layers
+
+If this phase crashes, the orphaned resources above are recovered by the 3-layer defense:
+Layer 1 (ORCH-1 resume), Layer 2 (`/rune:rest --heal`), Layer 3 (arc pre-flight stale scan).
+Review phase teams use `rune-review-*` prefix — handled by the sub-command's own pre-create guard (not Layer 3).
+
+See [team-lifecycle-guard.md](team-lifecycle-guard.md) §Orphan Recovery Pattern for full layer descriptions and coverage matrix.

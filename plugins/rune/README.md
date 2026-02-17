@@ -73,6 +73,7 @@ claude --plugin-dir /path/to/rune-plugin
 # Clean up tmp/ artifacts from completed workflows
 /rune:rest
 /rune:rest --dry-run          # Preview what would be removed
+/rune:rest --heal             # Recover orphaned teams from crashed workflows
 
 # Manage agent memory
 /rune:echoes show     # View memory state
