@@ -30,15 +30,18 @@ allowed-tools:
 
 Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`, `chunk-orchestrator`, `chunk-scoring`, `convergence-gate`
 
 ## Flags
 
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off (reviews all branch changes) |
-| `--dry-run` | Show scope selection and Ash plan without summoning agents | Off |
+| `--dry-run` | Show scope selection, Ash plan, and chunk plan (if chunking) without summoning agents | Off |
 | `--max-agents <N>` | Limit total Ash summoned (built-in + custom). Range: 1-8 | All selected |
+| `--no-chunk` | Force single-pass review (disable chunking regardless of file count) | Off |
+| `--chunk-size <N>` | Override target files per chunk (default: 15) | 15 |
+| `--no-converge` | Disable convergence loop — single review pass per chunk, report still generated | Off |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
 
@@ -47,6 +50,7 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 - Which Ash would be summoned
 - File assignments per Ash (with context budget caps)
 - Estimated team size
+- Chunk plan (if file count exceeds `CHUNK_THRESHOLD`): files per chunk, complexity scores, convergence tier
 
 No teams, tasks, state files, or agents are created. Use this to preview scope before committing to a full review.
 
@@ -80,6 +84,38 @@ else
   done)
 fi
 ```
+
+### Chunk Decision Routing
+
+After file collection, determine review path:
+
+```javascript
+// Read chunk config from talisman (review: section)
+const talisman = readTalisman()
+const CHUNK_THRESHOLD = flags['--chunk-size']
+  ? parseInt(flags['--chunk-size'])
+  : (talisman?.review?.chunk_threshold ?? 20)
+const MAX_CHUNKS = talisman?.review?.max_chunks ?? 5
+
+if (changed_files.length > CHUNK_THRESHOLD && !flags.includes('--no-chunk')) {
+  // Route to chunked review — delegate to chunk-orchestrator.md
+  // All existing single-pass phases (1-7) run INSIDE each chunk iteration
+  // See chunk-orchestrator.md for the full algorithm:
+  //   - File scoring (chunk-scoring.md)
+  //   - Chunk grouping (directory-aware, flat fallback)
+  //   - Per-chunk Roundtable Circle (distinct team names: rune-review-{id}-chunk-{N})
+  //   - Convergence loop (convergence-gate.md)
+  //   - Cross-chunk TOME merge
+  log(`Chunked review: ${changed_files.length} files > threshold ${CHUNK_THRESHOLD}`)
+  log(`Token cost scales ~${Math.min(Math.ceil(changed_files.length / CHUNK_THRESHOLD), MAX_CHUNKS)}x vs single-pass.`)
+  // ROUTING: exit single-pass flow here — chunk-orchestrator takes over
+  runChunkedReview(changed_files, flags, identifier)
+  return  // Phase 0 routing complete
+}
+// else: continue with single-pass review below (zero behavioral change)
+```
+
+**Single-pass path** continues for `changed_files.length <= CHUNK_THRESHOLD` or when `--no-chunk` is set.
 
 **Scope summary** (displayed after file collection in non-partial mode):
 ```
@@ -655,6 +691,28 @@ if (totalFindings > 0) {
   log("No P1/P2 findings. Codebase looks clean.")
 }
 ```
+
+## Chunked Review (Large Changesets)
+
+When `changed_files.length > CHUNK_THRESHOLD` (default: 20) and `--no-chunk` is not set, review is routed to the chunked path. The inner Roundtable Circle pipeline (Phases 1–7) runs unchanged for each chunk — chunking wraps, never modifies the core review.
+
+**Key behaviors:**
+- Each chunk gets a distinct team lifecycle (`rune-review-{id}-chunk-{N}`) with pre-create guard applied between chunks
+- Finding IDs use standard `{PREFIX}-{NUM}` format with a `chunk="N"` attribute in the `<!-- RUNE:FINDING -->` HTML comment (not a prefix, to preserve dedup/parsing compatibility)
+- Cross-chunk dedup runs on `(file, line_range_bucket)` keys — strip any chunk context before keying
+- Per-chunk timeout scales with `chunk.totalComplexity`; max 5 chunks (circuit breaker)
+- Files beyond MAX_CHUNKS are logged to Coverage Gaps in the unified TOME
+
+**Output paths:**
+- Per-chunk TOMEs: `tmp/reviews/{id}/chunk-{N}/TOME.md`
+- Unified TOME: `tmp/reviews/{id}/TOME.md`
+- Convergence report: `tmp/reviews/{id}/convergence-report.md`
+- Cross-cutting findings (optional): `tmp/reviews/{id}/cross-cutting.md`
+
+**Reference files:**
+- Full chunking algorithm: [`chunk-orchestrator.md`](../skills/roundtable-circle/references/chunk-orchestrator.md)
+- File scoring and grouping: [`chunk-scoring.md`](../skills/roundtable-circle/references/chunk-scoring.md)
+- Convergence metrics, thresholds, and decision matrix: [`convergence-gate.md`](../skills/roundtable-circle/references/convergence-gate.md)
 
 ## Error Handling
 

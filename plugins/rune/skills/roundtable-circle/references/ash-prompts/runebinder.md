@@ -169,6 +169,71 @@ findings that don't exist in the source files. Copy evidence blocks EXACTLY.
 Aggregate only — never fabricate.
 ```
 
+## Cross-Chunk Merge
+
+When chunked review is active, Runebinder receives multiple chunk TOMEs instead of a single set of Ash output files. The cross-chunk merge produces a unified TOME from all chunk TOMEs.
+
+### Finding ID Format
+
+Finding IDs use the standard `{PREFIX}-{NUM}` format (e.g., `BACK-001`, `SEC-002`). Chunk attribution is tracked via a `chunk` attribute in the `<!-- RUNE:FINDING -->` HTML comment:
+
+```html
+<!-- RUNE:FINDING nonce="{session_nonce}" id="BACK-001" chunk="1" file="{file}" line="{line}" severity="P2" -->
+```
+
+This preserves full compatibility with the existing dedup algorithm and all downstream TOME parsing (mend, audit, Truthsight) — no parser changes required.
+
+### Cross-Chunk Dedup
+
+When merging chunk TOMEs, apply the standard 5-line window dedup algorithm with one modification: **strip the `chunk` attribute before keying**. This allows the dedup to recognize the same file + line range flagged in multiple chunks as a duplicate:
+
+```
+dedup key = (finding.file, lineBucket(finding.line, 5), finding.category)
+// chunk attribute is NOT part of the key — dedup operates across chunks
+```
+
+Priority order remains: `SEC > BACK > DOC > QUAL > FRONT > CDX`
+
+After dedup, the winning finding retains its `chunk` attribute for traceability.
+
+### Merge Output Header
+
+The unified TOME header includes chunk attribution:
+
+```markdown
+# TOME — {workflow_type} Summary (Chunked: {chunk_count} chunks)
+
+**{identifier_label}:** {identifier}
+**Date:** {timestamp}
+**Chunks:** {chunk_count}
+**Ash:** {completed_count}/{summoned_count} completed
+
+**Per-Chunk Summary:**
+| Chunk | Files | Pre-Dedup Findings | Status |
+|-------|-------|--------------------|--------|
+| 1 | {file_count} | {finding_count} | complete |
+| 2 | {file_count} | {finding_count} | complete |
+| N | {file_count} | {finding_count} | complete |
+
+**Total findings:** {deduped_count} (from {pre_dedup_count} pre-dedup across all chunks)
+```
+
+### Merge Rules
+
+1. **Read all chunk TOMEs** from `tmp/reviews/{id}/chunk-{N}/TOME.md`
+2. **Parse findings** from each chunk TOME using `<!-- RUNE:FINDING -->` markers
+3. **Preserve `chunk` attribute** — add `chunk="N"` to each parsed finding (N = chunk index, 1-based)
+4. **Apply cross-chunk dedup** — strip chunk attribute before keying, retain chunk in winner
+5. **Write unified TOME** with chunk-attributed findings and per-chunk summary header
+6. **Keep chunk TOMEs** — do NOT delete chunk TOMEs after merge (needed for mend nonce validation and audit traceability)
+
+### Missing Chunk TOMEs
+
+If a chunk TOME is missing (timeout or error):
+- Record the chunk in Coverage Gaps: `Chunk {N} — timeout/error — {file_count} files not reviewed`
+- Continue merging available chunk TOMEs
+- Log total coverage: `{covered_files}/{total_files} files covered across {available_chunks}/{total_chunks} chunks`
+
 ## Variables
 
 | Variable | Source | Example |

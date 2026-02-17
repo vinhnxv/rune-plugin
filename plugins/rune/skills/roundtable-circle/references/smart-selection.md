@@ -111,6 +111,36 @@ If a single file exceeds 500 lines, it consumes significant context. For files >
 - Prioritize reading the first 200 lines + any functions flagged by `grep`
 - Note in findings if only partial file was reviewed
 
+## Chunk-Aware Budget Enforcement
+
+When chunked review is active (file count exceeds `chunk_threshold`), budget enforcement operates per-chunk rather than globally.
+
+### Per-Chunk Budget Rules
+
+- Each chunk's file count must not exceed `MIN_ASH_BUDGET` (20 — Ward Sentinel's cap). Files exceeding this limit are split into a new chunk by the chunk orchestrator before review begins.
+- Budget allocation per Ash is computed per-chunk: each chunk is treated as an independent review scope with its own file assignments.
+- Each chunk gets its own `select_scope()` pass using the standard extension → Ash mapping, applied only to the chunk's files.
+- Coverage Gaps in a chunk TOME reflect only the files within that chunk that exceeded budget — not files in other chunks (which have their own TOME).
+
+### Security-Pinned Files
+
+Files matching `SECURITY_CRITICAL_PATTERNS` (e.g., `**/auth/**`, `**/middleware/auth*`, `**/security/**`, `**/validators/**`, `**/*permission*`) are treated as read-only context in every chunk:
+
+- Security-pinned files are included in every chunk's Ward Sentinel scope regardless of which chunk they are assigned to.
+- They do NOT count against the per-chunk file budget (they are injected as context, not as review targets).
+- This ensures Ward Sentinel always has auth/validation context when reviewing any chunk, preventing context-split vulnerabilities where auth logic in one chunk is invisible to reviewers of another chunk.
+
+### Chunk Budget Flow
+
+```
+for each chunk:
+  1. Classify chunk files using standard extension → Ash mapping
+  2. Sort by scope priority (same as single-pass)
+  3. Cap at MIN_ASH_BUDGET per Ash
+  4. Inject SECURITY_CRITICAL_PATTERNS files as read-only context (not counted against budget)
+  5. Files beyond budget → listed in chunk TOME "Coverage Gaps"
+```
+
 ## References
 
 - [Rune Gaze](rune-gaze.md) — Extension classification rules
