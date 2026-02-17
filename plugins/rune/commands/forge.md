@@ -535,6 +535,9 @@ Agents should produce **concrete, actionable** recommendations with evidence fro
 
 Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
+> **ANTI-PATTERN — NEVER DO THIS:**
+> `Bash("sleep 60 && echo poll check")` — This skips TaskList entirely. You MUST call `TaskList` every cycle. See review.md Phase 4 for the correct inline loop template.
+
 ```javascript
 // QUAL-006 MITIGATION (P2): Add hard timeout to prevent runaway forge sessions.
 // Without a timeout, a stalled forge agent could block indefinitely.

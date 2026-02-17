@@ -46,10 +46,39 @@ defaults:
   disable_ashes: []
 
 # ──────────────────────────────────────────────
+# Solution Arena — Competitive solution evaluation (v1.24.0+)
+# ──────────────────────────────────────────────
+solution_arena:
+  enabled: true
+  skip_for_types: ["fix"]
+
+# ──────────────────────────────────────────────
+# Elicitation — Structured reasoning agent (v1.31.0+)
+# ──────────────────────────────────────────────
+elicitation:
+  enabled: true
+
+# ──────────────────────────────────────────────
 # Echoes — Memory persistence
 # ──────────────────────────────────────────────
 echoes:
   version_controlled: false
+
+# ──────────────────────────────────────────────
+# Review — Chunked review and convergence settings (v1.35.0+)
+# ──────────────────────────────────────────────
+review:
+  chunk_threshold: 20
+  chunk_target_size: 15
+  max_chunks: 5
+  cross_cutting_pass: true
+  chunk_strategy: "directory"  # RESERVED — not yet consumed
+  convergence_enabled: true
+  convergence_tier_override: null
+  convergence_density_threshold: 0.3
+  convergence_evidence_threshold: 0.7
+  convergence_confidence_threshold: 0.6
+  convergence_coverage_threshold: 0.4
 
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings
@@ -112,6 +141,11 @@ codex:
   work_advisory:
     enabled: true
     max_diff_size: 15000
+  review_diff:
+    enabled: true
+    max_diff_size: 15000
+    context_lines: 5
+    include_new_files_full: true
   verification:
     enabled: true
     fuzzy_match_threshold: 0.7

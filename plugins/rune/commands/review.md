@@ -37,8 +37,11 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off (reviews all branch changes) |
-| `--dry-run` | Show scope selection and Ash plan without summoning agents | Off |
+| `--dry-run` | Show scope selection, Ash plan, and chunk plan (if chunking) without summoning agents | Off |
 | `--max-agents <N>` | Limit total Ash summoned (built-in + custom). Range: 1-8 | All selected |
+| `--no-chunk` | Force single-pass review (disable chunking regardless of file count) | Off |
+| `--chunk-size <N>` | Override chunk threshold — file count that triggers chunking (default: 20) | 20 |
+| `--no-converge` | Disable convergence loop — single review pass per chunk, report still generated | Off |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
 
@@ -47,6 +50,7 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 - Which Ash would be summoned
 - File assignments per Ash (with context budget caps)
 - Estimated team size
+- Chunk plan (if file count exceeds `CHUNK_THRESHOLD`): files per chunk, complexity scores, convergence tier
 
 No teams, tasks, state files, or agents are created. Use this to preview scope before committing to a full review.
 
@@ -80,6 +84,48 @@ else
   done)
 fi
 ```
+
+### Chunk Decision Routing
+
+After file collection, determine review path:
+
+```javascript
+// Read chunk config from talisman (review: section)
+const talisman = readTalisman()
+// SEC-004 FIX: Guard against prototype pollution on talisman config access
+const reviewConfig = Object.hasOwn(talisman ?? {}, 'review') ? talisman.review : {}
+// SEC-006 FIX: parseInt with explicit radix 10
+// BACK-012 FIX: --chunk-size overrides CHUNK_THRESHOLD (file count trigger), not CHUNK_TARGET_SIZE
+// SEC-006 FIX: Validate parsed integer is within range 5-200 (rejects NaN and garbage like "5abc")
+const rawChunkSize = flags['--chunk-size'] ? parseInt(flags['--chunk-size'], 10) : NaN
+const CHUNK_THRESHOLD = (!Number.isNaN(rawChunkSize) && rawChunkSize >= 5 && rawChunkSize <= 200)
+  ? rawChunkSize
+  : (reviewConfig?.chunk_threshold ?? 20)
+// QUAL-004 FIX: Read CHUNK_TARGET_SIZE from talisman review config (was missing)
+const CHUNK_TARGET_SIZE = reviewConfig?.chunk_target_size ?? 15
+const MAX_CHUNKS = reviewConfig?.max_chunks ?? 5
+
+// BACK-013 FIX: Normalize flags access — use object key lookup consistently (not .includes())
+if (changed_files.length > CHUNK_THRESHOLD && !flags['--no-chunk']) {
+  // Route to chunked review — delegate to chunk-orchestrator.md
+  // All existing single-pass phases (1-7) run INSIDE each chunk iteration
+  // See chunk-orchestrator.md for the full algorithm:
+  //   - File scoring (chunk-scoring.md)
+  //   - Chunk grouping (directory-aware, flat fallback)
+  //   - Per-chunk Roundtable Circle (distinct team names: rune-review-{id}-chunk-{N})
+  //   - Convergence loop (convergence-gate.md)
+  //   - Cross-chunk TOME merge
+  log(`Chunked review: ${changed_files.length} files > threshold ${CHUNK_THRESHOLD}`)
+  log(`Token cost scales ~${Math.min(Math.ceil(changed_files.length / CHUNK_THRESHOLD), MAX_CHUNKS)}x vs single-pass.`)
+  // QUAL-003 FIX: Correct argument order — definition is (changed_files, identifier, flags, config)
+  // Previously had flags and identifier swapped, which would break team names at runtime
+  runChunkedReview(changed_files, identifier, flags, reviewConfig)
+  return  // Phase 0 routing complete
+}
+// else: continue with single-pass review below (zero behavioral change)
+```
+
+**Single-pass path** continues for `changed_files.length <= CHUNK_THRESHOLD` or when `--no-chunk` is set.
 
 **Scope summary** (displayed after file collection in non-partial mode):
 ```
@@ -209,6 +255,9 @@ if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("Invalid review identi
 if (identifier.includes('..')) throw new Error('Path traversal detected in review identifier')
 
 // STEP 2: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+// SEC-002 FIX: Defense-in-depth — re-assert identifier validation before any shell interpolation.
+// Primary validation at STEP 1 (line above). This assertion catches logic errors that skip STEP 1.
+if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("SEC-002: identifier re-validation failed before shell interpolation")
 let teamDeleteSucceeded = false
 const RETRY_DELAYS = [0, 3000, 8000]
 for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
@@ -259,6 +308,9 @@ try {
 Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/rune-review-${identifier}/config.json" || echo "WARN: config.json not found after TeamCreate"`)
 
 // 6.5. Phase 2 BRIDGE: Create signal directory for event-driven sync
+// SEC-009 FIX: Re-assert identifier validation before signal dir creation (defense-in-depth)
+// Primary validation at STEP 1 (line 244). This prevents stale identifier from path injection.
+if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("SEC-009: identifier re-validation failed before signal dir creation")
 const signalDir = `tmp/.rune-signals/rune-review-${identifier}`
 Bash(`mkdir -p "${signalDir}" && find "${signalDir}" -mindepth 1 -delete`)
 Write(`${signalDir}/.expected`, String(selectedAsh.length))
@@ -437,8 +489,37 @@ The Tarnished does not review code directly. Focus solely on coordination.
 
 Poll TaskList with timeout guard until all tasks complete. Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
+> **ANTI-PATTERN — NEVER DO THIS:**
+> ```
+> Bash("sleep 45 && echo poll check")   // WRONG: no TaskList, wrong interval
+> Bash("sleep 60 && echo poll check 2") // WRONG: arbitrary sleep, no progress check
+> ```
+> This pattern skips TaskList entirely, uses wrong intervals, and provides zero task visibility.
+
+**Correct monitoring sequence** — execute this loop using tool calls:
+
+```
+POLL_INTERVAL = 30          // seconds (from pollIntervalMs: 30_000)
+MAX_ITERATIONS = 20         // ceil(600_000 / 30_000) = 20 cycles = 10 min timeout
+STALE_WARN = 300_000        // 5 minutes
+
+for iteration in 1..MAX_ITERATIONS:
+  1. Call TaskList tool            ← MANDATORY every cycle
+  2. Count completed vs ashCount
+  3. Log: "Review progress: {completed}/{ashCount} tasks"
+  4. If completed >= ashCount → break (all done)
+  5. Check stale: any task in_progress > 5 min → log warning
+  6. Call Bash("sleep 30")         ← exactly 30s, not 45/60/arbitrary
+
+If loop exhausted (iteration > MAX_ITERATIONS):
+  Call TaskList one final time (final sweep)
+  Log: "Review timeout. Partial results: {completed}/{ashCount}"
+```
+
+The key rule: **every poll cycle MUST call `TaskList`** to check actual task status. Never sleep-and-guess.
+
 ```javascript
-// See skills/roundtable-circle/references/monitor-utility.md
+// Pseudocode reference — see monitor-utility.md for full implementation
 const result = waitForCompletion(teamName, ashCount, {
   timeoutMs: 600_000,        // 10 minutes
   staleWarnMs: 300_000,      // 5 minutes
@@ -570,7 +651,11 @@ If inscription.json has `verification.enabled: true`:
 const teamName = "rune-review-{identifier}"
 let allMembers = []
 try {
-  const teamConfig = Read(`~/.claude/teams/${teamName}/config.json`)
+  // SEC-003 FIX: SDK Read() resolves CLAUDE_CONFIG_DIR automatically — no hardcoded ~/.claude/.
+  // Read() is SDK-safe: it uses the runtime config dir, not a shell-interpolated path.
+  // Previously documented with bare ~/.claude/ which was misleading for CHOME-aware users.
+  const teamConfigPath = `~/.claude/teams/${teamName}/config.json`  // CHOME-SAFE: SDK Read() resolves CLAUDE_CONFIG_DIR automatically
+  const teamConfig = Read(teamConfigPath)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
@@ -655,6 +740,28 @@ if (totalFindings > 0) {
   log("No P1/P2 findings. Codebase looks clean.")
 }
 ```
+
+## Chunked Review (Large Changesets)
+
+When `changed_files.length > CHUNK_THRESHOLD` (default: 20) and `--no-chunk` is not set, review is routed to the chunked path. The inner Roundtable Circle pipeline (Phases 1–7) runs unchanged for each chunk — chunking wraps, never modifies the core review.
+
+**Key behaviors:**
+- Each chunk gets a distinct team lifecycle (`rune-review-{id}-chunk-{N}`) with pre-create guard applied between chunks
+- Finding IDs use standard `{PREFIX}-{NUM}` format with a `chunk="N"` attribute in the `<!-- RUNE:FINDING -->` HTML comment (not a prefix, to preserve dedup/parsing compatibility)
+- Cross-chunk dedup runs on `(file, line_range_bucket)` keys — strip any chunk context before keying
+- Per-chunk timeout scales with `chunk.totalComplexity`; max 5 chunks (circuit breaker)
+- Files beyond MAX_CHUNKS are logged to Coverage Gaps in the unified TOME
+
+**Output paths:**
+- Per-chunk TOMEs: `tmp/reviews/{id}/chunk-{N}/TOME.md`
+- Unified TOME: `tmp/reviews/{id}/TOME.md`
+- Convergence report: `tmp/reviews/{id}/convergence-report.md`
+- Cross-cutting findings (optional): `tmp/reviews/{id}/cross-cutting.md`
+
+**Reference files:**
+- Full chunking algorithm: [`chunk-orchestrator.md`](../skills/roundtable-circle/references/chunk-orchestrator.md)
+- File scoring and grouping: [`chunk-scoring.md`](../skills/roundtable-circle/references/chunk-scoring.md)
+- Convergence metrics, thresholds, and decision matrix: [`convergence-gate.md`](../skills/roundtable-circle/references/convergence-gate.md)
 
 ## Error Handling
 

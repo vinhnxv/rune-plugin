@@ -398,6 +398,9 @@ See [worker-prompts.md](work/references/worker-prompts.md) for full worker promp
 
 Poll TaskList with timeout guard to track progress. See [monitor-utility.md](../skills/roundtable-circle/references/monitor-utility.md) for the shared polling utility.
 
+> **ANTI-PATTERN — NEVER DO THIS:**
+> `Bash("sleep 60 && echo poll check")` — This skips TaskList entirely. You MUST call `TaskList` every cycle. See review.md Phase 4 for the correct inline loop template.
+
 ```javascript
 const result = waitForCompletion(teamName, taskCount, {
   timeoutMs: 1_800_000,      // 30 minutes (work involves implementation + ward checks)

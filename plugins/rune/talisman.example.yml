@@ -220,7 +220,15 @@ defaults:
 #       enabled: true
 #       ...
 #
-#   freshness:
+# QUAL-016 FIX: freshness block belongs under plan: key, not at top level.
+# Merge these settings under the `plan:` key above, like:
+#   plan:
+#     verification_patterns: [...]
+#     freshness:
+#       enabled: true
+#       ...
+#
+#   plan.freshness:
 #     enabled: true              # Set false to disable freshness check globally
 #     warn_threshold: 0.7        # Score below this → WARN (float, 0.01-1.0)
 #     block_threshold: 0.4       # Score below this → STALE (float, 0.0-0.99, must be < warn)
@@ -276,6 +284,26 @@ elicitation:
 # ──────────────────────────────────────────────
 echoes:
   version_controlled: false    # Set true to track .claude/echoes/ in git
+
+# ──────────────────────────────────────────────
+# Review — Chunked review and convergence settings (v1.35.0+)
+# ──────────────────────────────────────────────
+# review:
+  # Chunked review settings (triggered when changed files exceed chunk_threshold)
+  # SEC-005 FIX: Document valid ranges for numeric config values
+  # chunk_threshold: 20        # Files above this trigger chunking (default: 20, range: 5-200)
+  # chunk_target_size: 15      # Target files per chunk (default: 15, range: 3-50)
+  # max_chunks: 5              # Circuit breaker — max chunks before redistribution (default: 5, range: 1-20)
+  # cross_cutting_pass: true   # Enable cross-cutting inter-module review pass (default: true)
+  # chunk_strategy: "directory" # "directory" (group by dir) | "flat" (simple split) (default: directory) [RESERVED — not yet consumed]
+  #
+  # Convergence loop settings (adaptive 3-tier system)
+  # convergence_enabled: true              # Enable review convergence loop (default: true)
+  # convergence_tier_override: null        # Force tier: "minimal" | "standard" | "thorough" | null (auto-detect)
+  # convergence_density_threshold: 0.3     # Min findings/file for code chunks (default: 0.3)
+  # convergence_evidence_threshold: 0.7    # Min findings-with-evidence ratio (default: 0.7)
+  # convergence_confidence_threshold: 0.6  # Min avg confidence score (default: 0.6)
+  # convergence_coverage_threshold: 0.4    # Min files-with-findings ratio for code chunks (default: 0.4)
 
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings

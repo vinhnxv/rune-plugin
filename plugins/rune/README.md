@@ -381,9 +381,9 @@ work:
 #     checks:
 #       - name: version_sync
 #         source:
-#           path: ".claude-plugin/plugin.json"
+#           file: ".claude-plugin/plugin.json"     # SEC-012 FIX: key is `file:` (not `path:`)
 #           extractor: json_field
-#           field: "$.version"
+#           field: "version"                        # SEC-012 FIX: dot-path (not JSONPath `$.version`)
 #         targets:
 #           - path: "CLAUDE.md"
 #             pattern: "version: {value}"
@@ -392,8 +392,8 @@ work:
 #         phase: ["plan", "post-work"]
 #       - name: agent_count
 #         source:
-#           path: "agents/review/*.md"
-#           extractor: line_count
+#           file: "agents/review/*.md"             # SEC-012 FIX: key is `file:` (not `path:`)
+#           extractor: glob_count                   # QUAL-015 FIX: glob_count (not line_count) — counts matching files
 #         targets:
 #           - path: "CLAUDE.md"
 #             pattern: "{value} agents"
@@ -487,7 +487,7 @@ Rune uses Elden Ring-inspired theming:
 ## Known Limitations
 
 - **Agent Teams is experimental** — Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable. Behavior may change across Claude Code releases.
-- **Context budget caps** — Each Ash can review a limited number of files (20-30). Large codebases will have coverage gaps reported in the TOME.
+- **Context budget caps** — Each Ash can review a limited number of files (20-30). Large changesets (>20 files) are automatically split into chunks for thorough review with per-chunk quality metrics and adaptive convergence. For very large codebases in audit mode, coverage gaps are still reported in the TOME.
 - **No incremental audit** — `/rune:audit` scans all files each run. There is no diff-based "only audit what changed since last audit" mode yet.
 - **Concurrent sessions** — Only one `/rune:review`, `/rune:audit`, or `/rune:arc` can run at a time. Use `/rune:cancel-review`, `/rune:cancel-audit`, or `/rune:cancel-arc` to stop an active session.
 - **Manual cleanup optional** — Run `/rune:rest` to remove `tmp/` artifacts, or let the OS handle them.
