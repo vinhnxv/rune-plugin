@@ -121,8 +121,11 @@ async function reviewSingleChunk(chunk, identifier, flags, securityPins, arcRema
   })
 
   // ── MONITOR ───────────────────────────────────────────────────────────────
-  // MUST call TaskList every 30s — never Bash("sleep N && echo ...") without TaskList.
-  // See review.md Phase 4 anti-pattern warning and monitor-utility.md for full contract.
+  // **ANTI-PATTERN — NEVER DO THIS:**
+  //   Bash("sleep 45 && echo poll check") — skips TaskList, provides zero visibility
+  //   Bash("sleep 60 && echo poll check 2") — wrong interval AND skips TaskList
+  // **CORRECT**: Call TaskList on every poll cycle.
+  // See monitor-utility.md and the polling-guard skill for the canonical monitoring loop.
   waitForCompletion(teamName, ashCount, {
     timeoutMs: perChunkTimeout,  // dynamic per-chunk budget
     staleWarnMs: 300_000,        // 5 minutes

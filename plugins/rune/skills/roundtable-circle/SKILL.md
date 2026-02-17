@@ -237,6 +237,12 @@ See `references/ash-prompts/` for individual prompts.
 
 Use the shared monitoring utility to poll TaskList with timeout and stale detection. See [references/monitor-utility.md](references/monitor-utility.md) for the full utility specification and per-command configuration table.
 
+> **ANTI-PATTERN — NEVER DO THIS:**
+> - `Bash("sleep 45 && echo poll check")` — skips TaskList, provides zero visibility
+> - `Bash("sleep 60 && echo poll check 2")` — wrong interval AND skips TaskList
+>
+> **CORRECT**: Call `TaskList` on every poll cycle. See [references/monitor-utility.md](references/monitor-utility.md) and the `polling-guard` skill for the canonical monitoring loop.
+
 ```javascript
 // See references/monitor-utility.md
 const result = waitForCompletion(teamName, ashCount, {

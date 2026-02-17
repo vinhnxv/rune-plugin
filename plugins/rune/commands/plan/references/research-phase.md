@@ -326,6 +326,12 @@ Task({
 
 Poll TaskList until all active research tasks are completed. Uses the shared polling utility -- see [`skills/roundtable-circle/references/monitor-utility.md`](../../../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
+> **ANTI-PATTERN — NEVER DO THIS:**
+> - `Bash("sleep 45 && echo poll check")` — skips TaskList, provides zero visibility
+> - `Bash("sleep 60 && echo poll check 2")` — wrong interval AND skips TaskList
+>
+> **CORRECT**: Call `TaskList` on every poll cycle. See [`monitor-utility.md`](../../../skills/roundtable-circle/references/monitor-utility.md) and the `polling-guard` skill for the canonical monitoring loop.
+
 ```javascript
 // See skills/roundtable-circle/references/monitor-utility.md
 const result = waitForCompletion(teamName, researchTaskCount, {
