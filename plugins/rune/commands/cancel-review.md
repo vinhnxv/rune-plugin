@@ -79,6 +79,9 @@ if (activeStates.length === 1) {
   if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) { warn("Invalid derived identifier: " + identifier); return }
   team_name = state.team_name
 }
+
+// QUAL-005 FIX: Null guard for team_name (matches cancel-arc.md pattern)
+if (!team_name) { warn("No team_name in state file — cannot cancel."); return }
 ```
 
 ### 3. Broadcast Cancellation
@@ -128,7 +131,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) throw new Error("Invalid team_name")
 const RETRY_DELAYS = [0, 3000, 8000]
 for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
   if (attempt > 0) {
-    warn(`Cancel cleanup: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    warn(`Cancel cleanup: TeamDelete attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
     Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
   }
   try {

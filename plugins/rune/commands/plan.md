@@ -628,10 +628,18 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifie
 // CRITICAL: The identifier validation on the line above (/^[a-zA-Z0-9_-]+$/) is the ONLY
 // barrier preventing path traversal. Do NOT move, skip, or weaken this check.
 if (timestamp.includes('..')) throw new Error('Path traversal detected')
-try { TeamDelete() } catch (e) {
-  // SAFETY: safeTeamCleanup pattern — timestamp validated above (/^[a-zA-Z0-9_-]+$/ + includes('..'))
-  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-plan-${timestamp}/" "$CHOME/tasks/rune-plan-${timestamp}/" 2>/dev/null`)
+// QUAL-004 FIX: Retry-with-backoff to match all other cleanup phases
+const CLEANUP_DELAYS = [0, 3000, 8000]
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`plan cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
 }
+// SAFETY: safeTeamCleanup pattern — timestamp validated above (/^[a-zA-Z0-9_-]+$/ + includes('..'))
+// SEC-003 FIX: Cleanup phases only remove the workflow's own dirs. Cross-workflow scans
+// belong in pre-create guards (gated behind !teamDeleteSucceeded), not end-of-workflow cleanup.
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-plan-${timestamp}/" "$CHOME/tasks/rune-plan-${timestamp}/" 2>/dev/null`)
 
 // 4. Present plan to user
 Read("plans/YYYY-MM-DD-{type}-{feature-name}-plan.md")

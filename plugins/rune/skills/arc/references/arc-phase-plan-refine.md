@@ -80,8 +80,16 @@ if (allConcern) {
   const forgeNote = checkpoint.flags.no_forge
     ? "\n\nNote: Forge enrichment was skipped (--no-forge). CONCERNs may be more likely on a raw plan."
     : ""
+
+  // BACK-002 FIX: --confirm flag gates escalation behavior
+  // Default (no --confirm): auto-proceed with warnings
+  // With --confirm: pause for user input
+  if (!checkpoint.flags.confirm) {
+    warn(`All ${reviewersWithVerdictFiles.length} reviewers raised CONCERN — auto-proceeding (use --confirm to pause)`)
+    // Fall through to implementation with concern context already written at STEP 3
+  } else {
   const escalationResponse = AskUserQuestion({
-    question: `All 3 reviewers raised concerns (no PASS verdicts).${forgeNote} Proceed to implementation?`,
+    question: `All ${reviewersWithVerdictFiles.length} reviewers raised concerns (no PASS verdicts).${forgeNote} Proceed to implementation?`,
     header: "Escalate",
     options: [
       { label: "Proceed with warnings", description: "Implementation will include concern context" },
@@ -114,6 +122,7 @@ if (allConcern) {
     return
   }
   // "Proceed with warnings" — fall through to normal completion below
+  } // end else (--confirm flag set)
 }
 
 // STEP 5: Verify written content and update checkpoint

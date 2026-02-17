@@ -394,9 +394,8 @@ function prePhaseCleanup(checkpoint) {
     }
 
     // Step C: Single TeamDelete after cross-phase filesystem cleanup
-    // TOME-8 FIX: Reduced from 3x retry to 1x — filesystem cleanup should have
-    // already unblocked SDK state. If this single attempt doesn't work, more retries
-    // with sleep won't help. Avoids worst-case 22s sleep per phase transition.
+    // Single attempt is intentional — filesystem cleanup above should have unblocked
+    // SDK state. If this doesn't work, more retries with sleep won't help.
     try { TeamDelete() } catch (e3) { /* SDK state cleared or was already clear */ }
 
   } catch (e) {
@@ -460,7 +459,7 @@ CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs af
 // arc-* prefixes: teams created directly by arc (Phase 2 plan review)
 // rune-* prefixes: teams created by delegated sub-commands (forge, work, review, mend, audit)
 const ARC_TEAM_PREFIXES = [
-  "arc-forge-", "arc-plan-review-",          // arc-owned teams
+  "arc-forge-", "arc-plan-review-", "arc-verify-",  // arc-owned teams
   "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-audit-"  // sub-command teams
 ]
 
@@ -476,6 +475,10 @@ const activeTeams = Object.values(checkpoint.phases)
   .filter(p => p.status === "in_progress" && p.team_name)
   .map(p => p.team_name)
 
+// SEC-004 NOTE: Known limitation — this cross-workflow scan runs unconditionally during
+// prePhaseCleanup. Architecturally correct for arc (owns all phases, serial execution),
+// but could collide with concurrent non-arc workflows (e.g., standalone /rune:review).
+// TODO: Shared lock file or advisory lock to coordinate with non-arc workflows.
 for (const prefix of ARC_TEAM_PREFIXES) {
   const dirs = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
   for (const dir of dirs) {
@@ -621,7 +624,7 @@ On resume, validate checkpoint integrity before proceeding:
    }
 
    // Step C: Single TeamDelete after checkpoint + stale scan filesystem cleanup
-   // TOME-8 FIX: Reduced from 3x retry to 1x (same rationale as prePhaseCleanup)
+   // Single attempt — same rationale as prePhaseCleanup Step C
    try { TeamDelete() } catch (e) { /* SDK state cleared or was already clear */ }
 
    Write(checkpointPath, checkpoint)  // Save cleaned checkpoint

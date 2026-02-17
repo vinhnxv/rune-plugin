@@ -13,6 +13,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **ash-guide** | Agent invocation reference and Ash selection guide |
 | **elicitation** | BMAD-derived structured reasoning methods — Deep integration via elicitation-sage across plan, forge, review, and mend phases |
 | **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
+| **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
 | **arc** | End-to-end orchestration pipeline (10 phases: freshness → forge → plan review → work → code review → mend → audit) |
 
 ## Commands

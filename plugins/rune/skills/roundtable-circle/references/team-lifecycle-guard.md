@@ -1,4 +1,4 @@
-<!-- NOTE: The canonical version of team lifecycle guard is at ../../../rune-orchestration/references/team-lifecycle-guard.md. This file is kept in sync. -->
+<!-- NOTE: This is a subset of the canonical version at ../../../rune-orchestration/references/team-lifecycle-guard.md. Core patterns (Pre-Create Guard, Dynamic Cleanup, Cancel Pattern) are kept in sync; arc-specific sections are omitted. -->
 
 # Team Lifecycle Guard — Safe TeamCreate/TeamDelete
 
@@ -34,14 +34,16 @@ if (newTeamName.includes('..')) throw new Error('Path traversal detected')
 // STEP 2: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
 // Rationale: Members need time to finish current tool call and approve shutdown.
 // 3s covers most cases; 8s covers complex file writes. Total max 11s wait.
+let teamDeleteSucceeded = false
 const RETRY_DELAYS = [0, 3000, 8000]
 for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
   if (attempt > 0) {
-    warn(`teamTransition: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    warn(`teamTransition: TeamDelete attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
     Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
   }
   try {
     TeamDelete()
+    teamDeleteSucceeded = true
     break
   } catch (e) {
     if (attempt === RETRY_DELAYS.length - 1) {
@@ -50,14 +52,18 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
   }
 }
 
-// STEP 3: Filesystem fallback (stale same-name team from prior crash + cross-workflow scan)
-// rm -rf unconditionally — no exists() guard (eliminates TOCTOU window)
-// CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${newTeamName}/" "$CHOME/tasks/${newTeamName}/" 2>/dev/null`)
-// Cross-workflow scan — clean ANY stale rune/arc team dirs
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
-// Retry TeamDelete after filesystem cleanup (SDK state may be unblocked now)
-try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+// STEP 3: Filesystem fallback (only when STEP 2 failed — avoids blast radius on happy path)
+// CDX-003 FIX: Gate behind !teamDeleteSucceeded to prevent cross-workflow scan from
+// wiping concurrent workflows when TeamDelete already succeeded cleanly.
+if (!teamDeleteSucceeded) {
+  // rm -rf unconditionally — no exists() guard (eliminates TOCTOU window)
+  // CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${newTeamName}/" "$CHOME/tasks/${newTeamName}/" 2>/dev/null`)
+  // Cross-workflow scan — clean ANY stale rune/arc team dirs
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  // Retry TeamDelete after filesystem cleanup (SDK state may be unblocked now)
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+}
 
 // STEP 4: TeamCreate with "Already leading" catch-and-recover
 // Match: "Already leading" — centralized string match for SDK error detection
@@ -286,7 +292,7 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 
 | Phase | Team Owner | Lifecycle |
 |-------|-----------|-----------|
-| Phase 1: FORGE | `/rune:forge` (delegated since v1.28.2) | Forge manages own lifecycle |
+| Phase 1: FORGE | `/rune:forge` (delegated) | Forge manages own lifecycle |
 | Phase 2: PLAN REVIEW | Arc orchestrator | `arc-plan-review-{id}` |
 | Phase 2.5: REFINE | Orchestrator-only (no team) | N/A |
 | Phase 2.7: VERIFY | Orchestrator-only (no team) | N/A |

@@ -69,6 +69,8 @@ if (forgeStateFiles.length > 1) warn(`Multiple forge state files found (${forgeS
 let forgeTeamName = forgeStateFiles.length > 0
   ? JSON.parse(Read(forgeStateFiles[0])).team_name
   : `rune-forge-${Date.now()}`
+// SEC-001 FIX: Validate BEFORE any Bash interpolation (team_name from state file is untrusted)
+if (!/^[a-zA-Z0-9_-]+$/.test(forgeTeamName)) throw new Error(`Invalid team_name from state file: ${forgeTeamName}`)
 // SEC-002 FIX: Verify team actually exists (defense against stale state files from prior runs)
 // TOME-5 FIX: Use CHOME-based check instead of bare ~/.claude/ path
 const forgeTeamExists = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${forgeTeamName}/config.json" && echo "exists"`).trim() === "exists"
@@ -76,8 +78,6 @@ if (forgeStateFiles.length > 0 && !forgeTeamExists) {
   warn(`Forge state file references team "${forgeTeamName}" but team does not exist — using fallback`)
   forgeTeamName = `rune-forge-${Date.now()}`
 }
-// SEC-2 FIX: Validate team_name from state file before storing in checkpoint (TOCTOU defense)
-if (!/^[a-zA-Z0-9_-]+$/.test(forgeTeamName)) throw new Error(`Invalid team_name from state file: ${forgeTeamName}`)
 updateCheckpoint({ phase: "forge", status: "in_progress", phase_sequence: 1, team_name: forgeTeamName })
 
 // STEP 3: Verify enriched plan exists and has content

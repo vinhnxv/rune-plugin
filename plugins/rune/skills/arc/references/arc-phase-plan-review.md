@@ -41,15 +41,18 @@ if (id.includes('..')) throw new Error('Path traversal detected in arc id')
 // clearing SDK leadership state + prior phase team dirs. This inline guard is
 // defense-in-depth for the specific team being created (stale same-name team).
 // teamTransition — inlined 5-step protocol (see team-lifecycle-guard.md)
-// STEP 1: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+// STEP 1: Validate — done above at lines 37-39 (defense-in-depth, upstream validated at arc init)
+// STEP 2: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+let teamDeleteSucceeded = false
 const RETRY_DELAYS = [0, 3000, 8000]
 for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
   if (attempt > 0) {
-    warn(`arc-plan-review: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    warn(`arc-plan-review: TeamDelete attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
     Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
   }
   try {
     TeamDelete()
+    teamDeleteSucceeded = true
     break
   } catch (e) {
     if (attempt === RETRY_DELAYS.length - 1) {
@@ -57,10 +60,15 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
     }
   }
 }
-// STEP 2: rm-rf TARGET team dirs (filesystem fallback)
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-plan-review-${id}/" "$CHOME/tasks/arc-plan-review-${id}/" 2>/dev/null`)
-// STEP 3: Cross-workflow scan — clean ANY stale rune/arc team dirs
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+// STEP 3: Filesystem fallback (only when STEP 2 failed — avoids blast radius on happy path)
+// CDX-003 FIX: Gate behind !teamDeleteSucceeded to prevent cross-workflow scan from
+// wiping concurrent workflows when TeamDelete already succeeded cleanly.
+if (!teamDeleteSucceeded) {
+  // SEC-003: id validated at lines 37-39 — contains only [a-zA-Z0-9_-]
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-plan-review-${id}/" "$CHOME/tasks/arc-plan-review-${id}/" 2>/dev/null`)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+}
 // STEP 4: TeamCreate with "Already leading" catch-and-recover
 try {
   TeamCreate({ team_name: `arc-plan-review-${id}` })
@@ -79,7 +87,6 @@ try {
 // STEP 5: Post-create verification
 // TOME-3 FIX: Use Bash test -f + CHOME for consistency with command files
 Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/arc-plan-review-${id}/config.json" || echo "WARN: config.json not found after TeamCreate"`)
-
 
 // Delegation checklist: see arc-delegation-checklist.md (Phase 2)
 const reviewers = [
@@ -222,5 +229,6 @@ for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
   }
 }
 // Filesystem fallback with CHOME
+// SEC-005: id validated at line 37 — contains only [a-zA-Z0-9_-]
 Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-plan-review-${id}/" "$CHOME/tasks/arc-plan-review-${id}/" 2>/dev/null`)
 ```

@@ -280,14 +280,16 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge identifi
 if (timestamp.includes('..')) throw new Error('Path traversal detected in forge identifier')
 
 // STEP 2: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+let teamDeleteSucceeded = false
 const RETRY_DELAYS = [0, 3000, 8000]
 for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
   if (attempt > 0) {
-    warn(`teamTransition: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    warn(`teamTransition: TeamDelete attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
     Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
   }
   try {
     TeamDelete()
+    teamDeleteSucceeded = true
     break
   } catch (e) {
     if (attempt === RETRY_DELAYS.length - 1) {
@@ -296,10 +298,14 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
   }
 }
 
-// STEP 3: Filesystem fallback + cross-workflow scan
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-${timestamp}/" "$CHOME/tasks/rune-forge-${timestamp}/" 2>/dev/null`)
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
-try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+// STEP 3: Filesystem fallback (only when STEP 2 failed — avoids blast radius on happy path)
+// CDX-003 FIX: Gate behind !teamDeleteSucceeded to prevent cross-workflow scan from
+// wiping concurrent workflows when TeamDelete already succeeded cleanly.
+if (!teamDeleteSucceeded) {
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-${timestamp}/" "$CHOME/tasks/rune-forge-${timestamp}/" 2>/dev/null`)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+}
 
 // STEP 4: TeamCreate with "Already leading" catch-and-recover
 // Match: "Already leading" — centralized string match for SDK error detection
@@ -615,7 +621,16 @@ for (const member of allMembers) {
 if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge identifier")
 
 // 4. Cleanup team with fallback (see team-lifecycle-guard.md)
-try { TeamDelete() } catch (e) {
+// QUAL-003 FIX: Retry-with-backoff to match pre-create guard pattern
+const CLEANUP_DELAYS = [0, 3000, 8000]
+let cleanupSucceeded = false
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`forge cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-${timestamp}/" "$CHOME/tasks/rune-forge-${timestamp}/" 2>/dev/null`)
 }
 

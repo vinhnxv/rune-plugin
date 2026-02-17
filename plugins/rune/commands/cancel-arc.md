@@ -170,26 +170,30 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 ```javascript
 // phase_team resolved in Step 2 from checkpoint.phases[current_phase].team_name
 // (with legacy fallback for older checkpoints)
-// TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
-const RETRY_DELAYS = [0, 3000, 8000]
-for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
-  if (attempt > 0) {
-    warn(`Cancel cleanup: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
-    Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
-  }
-  try {
-    TeamDelete()
-    break
-  } catch (e) {
-    if (attempt === RETRY_DELAYS.length - 1) {
-      warn(`Cancel cleanup: TeamDelete failed after ${RETRY_DELAYS.length} attempts. Using filesystem fallback.`)
+// SEC-003 FIX: Validate phase_team early + skip retry loop for null phase_team
+if (phase_team && !/^[a-zA-Z0-9_-]+$/.test(phase_team)) throw new Error("Invalid phase_team")
+if (phase_team && phase_team.includes('..')) throw new Error('Path traversal detected in phase_team')
+if (phase_team) {
+  // TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+  const RETRY_DELAYS = [0, 3000, 8000]
+  for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
+    if (attempt > 0) {
+      warn(`Cancel cleanup: TeamDelete attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+      Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
+    }
+    try {
+      TeamDelete()
+      break
+    } catch (e) {
+      if (attempt === RETRY_DELAYS.length - 1) {
+        warn(`Cancel cleanup: TeamDelete failed after ${RETRY_DELAYS.length} attempts. Using filesystem fallback.`)
+      }
     }
   }
-}
-// Filesystem fallback with CHOME
-if (phase_team && /^[a-zA-Z0-9_-]+$/.test(phase_team)) {
+  // Filesystem fallback with CHOME
+  // SEC-003: phase_team validated above — contains only [a-zA-Z0-9_-]
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${phase_team}/" "$CHOME/tasks/${phase_team}/" 2>/dev/null`)
-}
+} // end if (phase_team)
 ```
 
 ### 4. Update Checkpoint
