@@ -151,6 +151,10 @@ Read the plan and split into sections at `##` headings:
 const planContent = Read(planPath)
 const sections = parseSections(planContent)  // Split at ## headings
 // Each section: { title, content, slug }
+// Sanitize slugs before use in file paths (REVIEW-013)
+for (const section of sections) {
+  section.slug = (section.slug || '').replace(/[^a-z0-9_-]/g, '-')
+}
 ```
 
 ## Phase 2: Forge Gaze Selection
@@ -386,66 +390,72 @@ for (const agentName of uniqueAgents(assignments)) {
 // Elicitation Sage — summon per eligible section (v1.31)
 // ATE-1: subagent_type: "general-purpose", identity via prompt
 const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
-if (!elicitEnabled) { /* skip sage summoning entirely */ }
+// MAX_FORGE_SAGES caps the total elicitation sages spawned across all sections,
+// preventing resource exhaustion when many sections match elicitation keywords.
 let totalSagesSpawned = 0
 const MAX_FORGE_SAGES = 6
 
-for (const [sectionIndex, [section, agents]] of assignments.entries()) {
-  if (totalSagesSpawned >= MAX_FORGE_SAGES) break
+if (elicitEnabled) {
+  for (const [sectionIndex, [section, agents]] of assignments.entries()) {
+    if (totalSagesSpawned >= MAX_FORGE_SAGES) break
 
-  // Quick keyword pre-filter
-  const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
-    "migration", "performance", "decision", "approach", "comparison"]
-  const sectionText = (section.title + " " + (section.content || '').slice(0, 200)).toLowerCase()
-  if (!elicitKeywords.some(k => sectionText.includes(k))) continue
+    // Quick keyword pre-filter
+    // Canonical keyword list — see elicitation-sage.md § Canonical Keyword List for the source of truth
+    const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
+      "migration", "performance", "decision", "approach", "comparison"]
+    const sectionText = (section.title + " " + (section.content || '').slice(0, 200)).toLowerCase()
+    if (!elicitKeywords.some(k => sectionText.includes(k))) continue
 
-  TaskCreate({
-    subject: `Elicitation: "${section.title}" — elicitation-sage`,
-    description: `Apply structured reasoning to plan section "${section.title}".
-      Auto-select top method from skills/elicitation/methods.csv for forge:3 phase.
-      Write output to: tmp/forge/{timestamp}/${section.slug}-elicitation-sage.md`
-  })
+    TaskCreate({
+      subject: `Elicitation: "${section.title}" — elicitation-sage`,
+      description: `Apply structured reasoning to plan section "${section.title}".
+        Auto-select top method from skills/elicitation/methods.csv for forge:3 phase.
+        Write output to: tmp/forge/{timestamp}/${section.slug}-elicitation-sage.md`
+    })
 
-  Task({
-    team_name: "rune-forge-{timestamp}",
-    name: `elicitation-sage-${sectionIndex}`,
-    subagent_type: "general-purpose",
-    prompt: `You are elicitation-sage — structured reasoning specialist.
+    Task({
+      team_name: "rune-forge-{timestamp}",
+      name: `elicitation-sage-${sectionIndex}`,
+      subagent_type: "general-purpose",
+      prompt: `You are elicitation-sage — structured reasoning specialist.
 
-      ## Bootstrap
-      Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
+        ## Bootstrap
+        Read skills/elicitation/SKILL.md and skills/elicitation/methods.csv first.
 
-      ## Assignment
-      Phase: forge:3 (enrichment)
-      Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
-      Section content (first 2000 chars): ${((section.content || '')
-        .replace(/<!--[\s\S]*?-->/g, '')
-        .replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]')
-        .replace(/!\[.*?\]\(.*?\)/g, '')
-        .replace(/^#{1,6}\s+/gm, '')
-        .slice(0, 2000))}
+        ## Assignment
+        Phase: forge:3 (enrichment)
+        Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
+        Section content (first 2000 chars): ${((section.content || '')
+          .replace(/<!--[\s\S]*?-->/g, '')
+          .replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]')
+          .replace(/!\[.*?\]\(.*?\)/g, '')
+          .replace(/&[a-zA-Z0-9#]+;/g, '')
+          .replace(/[\u200B-\u200D\uFEFF]/g, '')
+          .replace(/^#{1,6}\s+/gm, '')
+          .slice(0, 2000))}
 
-      Auto-select the top-scored method for this section's topics.
-      Write output to: tmp/forge/{timestamp}/${section.slug}-elicitation-sage.md
+        Auto-select the top-scored method for this section's topics.
+        Write output to: tmp/forge/{timestamp}/${section.slug}-elicitation-sage.md
 
-      YOUR LIFECYCLE:
-      1. TaskList() → find your task
-      2. TaskUpdate({ taskId, owner: "elicitation-sage-${sectionIndex}", status: "in_progress" })
-      3. Bootstrap: Read SKILL.md + methods.csv
-      4. Score methods for this section, select top match
-      5. Apply the selected method to the section
-      6. Write structured reasoning output
-      7. TaskUpdate({ taskId, status: "completed" })
-      8. SendMessage({ type: "message", recipient: "team-lead", content: "Seal: elicitation for {section} done." })
+        YOUR LIFECYCLE:
+        1. TaskList() → find your task
+        2. TaskUpdate({ taskId, owner: "elicitation-sage-${sectionIndex}", status: "in_progress" })
+        3. Bootstrap: Read SKILL.md + methods.csv
+        4. Score methods for this section, select top match
+        5. Apply the selected method to the section
+        6. Write structured reasoning output
+        7. TaskUpdate({ taskId, status: "completed" })
+        8. SendMessage({ type: "message", recipient: "team-lead", content: "Seal: elicitation for {section} done." })
 
-      EXIT: Task done → idle → exit
-      SHUTDOWN: Approve immediately
+        EXIT: Task done → idle → exit
+        SHUTDOWN: Approve immediately
 
-      Do not write implementation code. Structured reasoning output only.`,
-    run_in_background: true
-  })
-  totalSagesSpawned++
-}
+        Do not write implementation code. Structured reasoning output only.`,
+      run_in_background: true
+    })
+    totalSagesSpawned++
+  }
+} // end elicitEnabled guard
 ```
 
 ### Enrichment Output Format

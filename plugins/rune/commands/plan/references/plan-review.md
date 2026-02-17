@@ -141,6 +141,7 @@ Task({
 const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
 if (elicitEnabled) {
   // Keyword count determines sage count (simplified threshold — no float scoring)
+  // Canonical keyword list — see elicitation-sage.md § Canonical Keyword List for the source of truth
   const planText = Read(planPath).slice(0, 1000).toLowerCase()
   const elicitKeywords = ["architecture", "security", "risk", "design", "trade-off",
     "migration", "performance", "decision", "approach", "comparison"]
@@ -163,6 +164,13 @@ if (elicitEnabled) {
 
         Auto-select the #${i + 1} top-scored method for plan:4 phase.
         Write output to: tmp/plans/{timestamp}/elicitation-review-${i + 1}.md
+
+        ## Lifecycle
+        1. TaskList() to find your assigned task
+        2. TaskGet({ taskId }) to read full details
+        3. TaskUpdate({ taskId, status: "in_progress" }) before starting
+        4. Do your analysis work (write output file)
+        5. TaskUpdate({ taskId, status: "completed" }) when done
 
         Do not write implementation code. Structured reasoning output only.
         When done, SendMessage to team-lead: "Seal: elicitation review done."`,

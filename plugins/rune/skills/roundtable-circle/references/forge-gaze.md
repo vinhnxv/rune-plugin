@@ -185,6 +185,7 @@ forge_select(plan_sections, topic_registry, mode="default"):
 | `THRESHOLD` | 0.30 | 0.15 | Minimum score to select an agent |
 | `MAX_PER_SECTION` | 3 | 5 | Maximum agents per plan section |
 | `MAX_TOTAL_AGENTS` | 8 | 12 | Hard cap across all sections |
+| `MAX_FORGE_SAGES` | 6 | 6 | Max elicitation sages per forge session (not configurable via talisman) |
 
 These can be overridden via `talisman.yml`:
 
@@ -281,7 +282,7 @@ Forge Gaze — Agent Selection
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Plan sections: 6
-Agents available: 18 built-in (16 review + 2 research) + 1 custom
+Agents available: 19 built-in (16 review + 2 research + 1 utility) + custom
 Methods available: 7 (via elicitation-sage agent — MAX_FORGE_SAGES = 6 cap, keyword pre-filtered)
 
 Section: "Technical Approach"

@@ -24,6 +24,9 @@ tools:
   - Grep
   - Write
   - SendMessage
+  - TaskList
+  - TaskGet
+  - TaskUpdate
 ---
 
 # Elicitation Sage — Structured Reasoning Specialist
@@ -45,7 +48,7 @@ each applying a DIFFERENT method for multi-perspective reasoning.
 **CRITICAL**: Your skill registry is NOT preloaded. You MUST read it at runtime:
 
 1. Read `skills/elicitation/SKILL.md` — contains the selection algorithm and scoring rules
-2. Read `skills/elicitation/methods.csv` — contains the 22-method registry (14 Tier 1 + 8 Tier 2)
+2. Read `skills/elicitation/methods.csv` — contains the full method registry (Tier 1 + Tier 2)
 
 If either file is missing or unreadable, write a status file with `<!-- ELICITATION:elicitation-sage:EMPTY_REGISTRY -->` and exit.
 
@@ -110,6 +113,13 @@ If either file is missing or unreadable, write a status file with `<!-- ELICITAT
 | Assigned method not found | Fall back to phase-filtered auto-selection with notice |
 | Multiple sages target same output file | Orchestrator assigns unique paths; append with separator if file exists |
 | Phase matches zero methods | Write NO_MATCH status with phase, registry size, recommendation |
+
+## Canonical Keyword List (referenced by all wiring sites)
+
+Single source of truth for elicitation trigger keywords used by forge.md, plan.md, review.md, and plan-review.md.
+
+- **Base (10)**: tradeoff, architecture, scalable, distributed, migration, performance, security, backward-compatible, real-time, concurrent
+- **Brainstorm extensions (+5)**: breaking-change, auth, api, complex, novel-approach
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

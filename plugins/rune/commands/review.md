@@ -334,10 +334,28 @@ const securityFiles = changedFiles.filter(f =>
 )
 
 if (elicitEnabled && securityFiles.length >= 3) {
+  // REVIEW-002: Sanitize file paths before prompt interpolation — reject paths with
+  // shell metacharacters, backticks, $() constructs, or path traversal sequences.
+  const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
+  const safeSecurityFiles = securityFiles
+    .filter(f => SAFE_PATH_PATTERN.test(f) && !f.includes('..'))
+    .slice(0, 10)
+
   // review:6 methods: Red Team vs Blue Team (T1), Challenge from Critical Perspective (T1)
   const securitySageCount = securityFiles.length >= 6 ? 2 : 1
+  // NOTE: Sage tasks are supplementary — not counted in ashCount for the Phase 4 monitor.
+  // Sage output is advisory-only (see REVIEW-010 below).
+  // NOTE: Sage teammates are NOT counted toward the max_ashes cap from talisman.yml.
+  // They are auto-summoned based on security file heuristics, independent of Ash selection.
 
   for (let i = 0; i < securitySageCount; i++) {
+    // REVIEW-006: Create task for sage before spawning — enables monitor tracking
+    TaskCreate({
+      subject: `Elicitation sage security analysis ${i + 1}`,
+      description: `Security reasoning for: ${safeSecurityFiles.join(", ")}. Output: tmp/reviews/{identifier}/elicitation-security-${i + 1}.md`,
+      activeForm: `Sage security analysis ${i + 1}...`
+    })
+
     Task({
       team_name: "rune-review-{identifier}",
       name: `elicitation-sage-security-${i + 1}`,
@@ -351,9 +369,12 @@ if (elicitEnabled && securityFiles.length >= 3) {
         Phase: review:6 (code review)
         Auto-select the #${i + 1} top-scored security method (filter: review:6 phase + security topics).
         Changed files: Read tmp/reviews/{identifier}/changed-files.txt
-        Focus on security analysis of: ${securityFiles.slice(0, 10).join(", ")}
+        Focus on security analysis of: ${safeSecurityFiles.join(", ")}
 
         Write output to: tmp/reviews/{identifier}/elicitation-security-${i + 1}.md
+        // REVIEW-010: Advisory output: sage results written to tmp/reviews/{identifier}/elicitation-security-*.md
+        // are NOT aggregated into TOME by Runebinder. They serve as supplementary analysis for the
+        // Tarnished during Phase 7 cleanup.
 
         Do not write implementation code. Security reasoning only.
         When done, SendMessage to team-lead: "Seal: elicitation security review done."`,
