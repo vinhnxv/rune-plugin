@@ -149,6 +149,11 @@ if (elicitEnabled) {
   const reviewSageCount = keywordHits >= 4 ? 3 : keywordHits >= 2 ? 2 : 1
 
   for (let i = 0; i < reviewSageCount; i++) {
+    TaskCreate({
+      subject: `Elicitation sage plan review #${i + 1}`,
+      description: `Apply top-scored elicitation method #${i + 1} for plan:4 phase structured reasoning on ${planPath}`,
+      activeForm: `Sage #${i + 1} analyzing plan...`
+    })
     Task({
       team_name: "rune-plan-{timestamp}",
       name: `elicitation-sage-review-${i + 1}`,

@@ -255,6 +255,9 @@ if (!quickMode) {
 //    ATE-1 COMPLIANCE: subagent_type MUST be "general-purpose", identity via prompt.
 //    ATE-1 EXEMPTION: Plan team not yet created at Phase 0. enforce-teams.sh passes
 //    because no plan state file (tmp/.rune-plan-*.json) exists at this point.
+//    NOTE: If another active Rune workflow (review/audit/work) is running concurrently,
+//    enforce-teams.sh WILL block these bare Task calls. This exemption only holds when
+//    /rune:plan runs standalone.
 //    If a plan state file is ever added pre-Phase 1, add "plan" to the hook's exclusion list.
 for (let i = 0; i < sageCount; i++) {
   const method = selectedMethods[i]
@@ -270,14 +273,14 @@ for (let i = 0; i < sageCount; i++) {
       ## Assignment
       Phase: plan:0 (brainstorm)
       Assigned method: ${method.method_name} (method #${method.num})
-      Feature: {sanitized_feature_description}  // LLM orchestrator fills from brainstorm context — apply same sanitization chain as forge agents (strip HTML comments/entities, code fences, zero-width chars, markdown headings)
-      Chosen approach: {selected_approach}      // LLM orchestrator fills from Step 3 selection — same sanitization as Feature above
+      Feature: ${((featureDescription || '').replace(/<!--[\s\S]*?-->/g, '').replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]').replace(/!\[.*?\]\(.*?\)/g, '').replace(/^#{1,6}\s+/gm, '').replace(/&[a-zA-Z0-9#]+;/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '').slice(0, 2000))}
+      Chosen approach: ${((selectedApproach || '').replace(/<!--[\s\S]*?-->/g, '').replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]').replace(/!\[.*?\]\(.*?\)/g, '').replace(/^#{1,6}\s+/gm, '').replace(/&[a-zA-Z0-9#]+;/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '').slice(0, 2000))}
       Brainstorm context: Read tmp/plans/{timestamp}/brainstorm-decisions.md
 
       ## Lifecycle
       1. Read skills/elicitation/SKILL.md and methods.csv (bootstrap)
       2. Apply ONLY the method "${method.method_name}" to the brainstorm context
-      3. Write output to: tmp/plans/{timestamp}/elicitation-${method.method_name.toLowerCase().replace(/ /g, '-')}.md
+      3. Write output to: tmp/plans/{timestamp}/elicitation-${method.method_name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}.md
       4. Do not write implementation code. Structured reasoning output only.`,
     run_in_background: true
   })
@@ -293,7 +296,7 @@ for (let i = 0; i < sageCount; i++) {
 // 6. In --quick mode: auto-summon 1 sage without AskUserQuestion
 
 // ── END elicitation gate ──
-} // end if (elicitEnabled)
+} // end elicitEnabled guard
 ```
 
 Exit condition: All sage outputs written (or user explicitly skips).
@@ -448,7 +451,7 @@ for (const [section, agents] of assignments) {
         Focus on: ${agent.perspective}
 
         ## Section to Enrich
-        Title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
+        Title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 200)}"
         // CDX-001 MITIGATION (P1): Sanitize untrusted plan content before interpolation
         // into forge agent prompts. Plan content may contain forge-enriched external content
         // (web search results, codex output) with adversarial instructions.
@@ -517,7 +520,7 @@ for (const [sectionIndex, section] of sections.entries()) {
 
       ## Assignment
       Phase: forge:3 (enrichment)
-      Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
+      Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 200)}"
       Section content (first 2000 chars): ${((section.content || '')
         .replace(/<!--[\s\S]*?-->/g, '')
         .replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]')
@@ -536,7 +539,7 @@ for (const [sectionIndex, section] of sections.entries()) {
   totalSagesSpawned++
 }
 // ── END forge elicitation gate ──
-} // end if (elicitEnabled)
+} // end elicitEnabled guard
 
 // 5. After all forge agents + sages complete, merge enrichments into plan
 //    Read tmp/plans/{timestamp}/forge/*.md -> insert under matching sections
@@ -575,6 +578,7 @@ Token budget: {budget}M. Proceed? [Y/n]
 
 Runs scroll-reviewer for document quality, then automated verification gate (deterministic checks including talisman patterns, universal checks, CommonMark compliance, measurability, filler detection). Optionally summons decree-arbiter, knowledge-keeper, and codex-plan-reviewer for technical review.
 
+// TRUST BOUNDARY: Sage has raw Read access to plan file. Truthbinding Protocol provides defense-in-depth.
 **Inputs**: Plan document from Phase 2/3, talisman config
 **Outputs**: `tmp/plans/{timestamp}/scroll-review.md`, `tmp/plans/{timestamp}/decree-review.md`, `tmp/plans/{timestamp}/knowledge-review.md`, `tmp/plans/{timestamp}/codex-plan-review.md`
 **Error handling**: BLOCK verdict -> address before presenting; CONCERN verdicts -> include as warnings
@@ -605,7 +609,7 @@ let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/rune-plan-${timestamp}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-  allMembers = members.map(m => m.name).filter(Boolean)
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
   // Defense-in-depth: SDK already excludes team-lead from config.members
 } catch (e) {
   // FALLBACK: Config read failed — use known teammate list from command context

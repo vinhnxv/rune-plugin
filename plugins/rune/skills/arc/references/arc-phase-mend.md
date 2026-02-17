@@ -98,18 +98,13 @@ const recurringPatterns = (tomeContent.match(/<!-- RUNE:FINDING/g) || []).length
 
 if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
   // Synchronous sage — MUST complete before mend-fixers read its output
-  // ATE-1 EXEMPTION: This bare Task runs synchronously in the arc orchestrator context.
-  // enforce-teams.sh checks for arc checkpoint files at .claude/arc/*/checkpoint.json
-  // with "in_progress" status. During arc mend, the checkpoint DOES have mend "in_progress"
-  // — but the hook currently passes because it checks for rune-specific state files
-  // (tmp/.rune-*), not arc checkpoint phases. If enforce-teams.sh is updated to check
-  // arc checkpoints, this call will need team_name.
+  // ATE-1: Sage uses parent arc-mend team context. No bare Task exemption needed.
   // Context cost: ~5-10K tokens (reads SKILL.md + methods.csv + TOME excerpt, writes output).
-  // Acceptable for orchestrator pre-delegation analysis. If context is a concern,
-  // wrap in a lightweight team (arc-mend-sage-{id}).
-  // Lifecycle: synchronous sage skips task lifecycle (no team context) — no TaskList/TaskGet/TaskUpdate.
-  // This is intentional: the sage runs in the orchestrator's own context before delegation.
+  // Acceptable for orchestrator pre-delegation analysis.
+  // Lifecycle: synchronous sage runs in mend team context — TaskList/TaskGet/TaskUpdate available
+  // but not required (single pre-delegation analysis step).
   Task({
+    team_name: `rune-mend-${id}`,
     name: "elicitation-sage-mend",
     subagent_type: "general-purpose",
     prompt: `You are elicitation-sage — structured reasoning specialist.

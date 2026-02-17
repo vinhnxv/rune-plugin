@@ -53,4 +53,4 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | scroll-reviewer | Document quality review |
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
-| elicitation-sage | Structured reasoning using BMAD-derived methods (summoned 1-4x per phase) |
+| elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |

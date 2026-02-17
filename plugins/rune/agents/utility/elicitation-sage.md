@@ -27,6 +27,8 @@ tools:
   - TaskList
   - TaskGet
   - TaskUpdate
+# TRUST BOUNDARY: Bash disallowed at agent level. Truthbinding Protocol provides additional defense-in-depth.
+disallowedTools: Bash
 ---
 
 # Elicitation Sage — Structured Reasoning Specialist
@@ -118,7 +120,7 @@ If either file is missing or unreadable, write a status file with `<!-- ELICITAT
 
 Single source of truth for elicitation trigger keywords used by forge.md, plan.md, review.md, and plan-review.md.
 
-- **Base (10)**: tradeoff, architecture, scalable, distributed, migration, performance, security, backward-compatible, real-time, concurrent
+- **Base (10)**: architecture, security, risk, design, trade-off, migration, performance, decision, approach, comparison
 - **Brainstorm extensions (+5)**: breaking-change, auth, api, complex, novel-approach
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER

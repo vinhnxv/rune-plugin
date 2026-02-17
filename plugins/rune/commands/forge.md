@@ -280,7 +280,10 @@ if (timestamp.includes('..')) throw new Error('Path traversal detected in forge 
 
 // Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
 try { TeamDelete() } catch (e) {
-  Bash("rm -rf ~/.claude/teams/rune-forge-{timestamp}/ ~/.claude/tasks/rune-forge-{timestamp}/ 2>/dev/null")
+  Bash("sleep 5")
+  try { TeamDelete() } catch (e2) {
+    Bash("rm -rf ~/.claude/teams/rune-forge-{timestamp}/ ~/.claude/tasks/rune-forge-{timestamp}/ 2>/dev/null")
+  }
 }
 TeamCreate({ team_name: "rune-forge-{timestamp}" })
 
@@ -297,6 +300,7 @@ for (const sf of existingForge) {
   }
 }
 
+// Defense-in-depth: intentional redundancy — re-validates after state file write and before filesystem operations
 // SEC-003 FIX: Validate timestamp with SAFE_IDENTIFIER_PATTERN before path interpolation
 if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge timestamp identifier")
 
@@ -390,12 +394,13 @@ for (const agentName of uniqueAgents(assignments)) {
 // Elicitation Sage — summon per eligible section (v1.31)
 // ATE-1: subagent_type: "general-purpose", identity via prompt
 const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
-// MAX_FORGE_SAGES caps the total elicitation sages spawned across all sections,
-// preventing resource exhaustion when many sections match elicitation keywords.
-let totalSagesSpawned = 0
-const MAX_FORGE_SAGES = 6
-
 if (elicitEnabled) {
+  // MAX_FORGE_SAGES caps the total elicitation sages spawned across all sections,
+  // preventing resource exhaustion when many sections match elicitation keywords.
+  // Future: configurable via talisman.yml elicitation.max_sages (range 1-10). Currently hardcoded.
+  let totalSagesSpawned = 0
+  const MAX_FORGE_SAGES = 6
+
   for (const [sectionIndex, [section, agents]] of assignments.entries()) {
     if (totalSagesSpawned >= MAX_FORGE_SAGES) break
 
@@ -424,7 +429,8 @@ if (elicitEnabled) {
 
         ## Assignment
         Phase: forge:3 (enrichment)
-        Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()\/]/g, '').slice(0, 200)}"
+        Section title: "${section.title.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 200)}"
+        // Sage prompts use 2000 char limit (focused analysis) vs 8000 for forge agents (comprehensive enrichment)
         Section content (first 2000 chars): ${((section.content || '')
           .replace(/<!--[\s\S]*?-->/g, '')
           .replace(/\`\`\`[\s\S]*?\`\`\`/g, '[code-block-removed]')

@@ -11,7 +11,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **roundtable-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
 | **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
 | **ash-guide** | Agent invocation reference and Ash selection guide |
-| **elicitation** | BMAD-derived structured reasoning methods — Active via dedicated `elicitation-sage` agent integration |
+| **elicitation** | BMAD-derived structured reasoning methods — Deep integration via elicitation-sage across plan, forge, review, and mend phases |
 | **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | **arc** | End-to-end orchestration pipeline (10 phases: freshness → forge → plan review → work → code review → mend → audit) |
 
