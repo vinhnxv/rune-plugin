@@ -24,6 +24,26 @@
 *.pyc, __pycache__/, .git/, node_modules/, dist/, build/, .next/
 ```
 
+## Source Code Classification
+
+BACK-003 FIX: Canonical `isSourceCode()` definition — referenced by convergence-gate.md for chunk type classification.
+
+```javascript
+// isSourceCode: returns true for code extensions, false for doc/config extensions.
+// Used by convergence-gate.md (chunk type classification) and selectConvergenceTier (all-doc detection).
+const SOURCE_CODE_EXTENSIONS = new Set([
+  'py', 'go', 'rs', 'rb', 'java', 'kt', 'scala',  // Backend
+  'ts', 'tsx', 'js', 'jsx', 'vue', 'svelte',        // Frontend
+  'sql', 'sh', 'bash', 'zsh',                        // DB/shell
+  'c', 'cpp', 'h', 'hpp', 'cs', 'swift', 'zig',     // Systems
+])
+
+function isSourceCode(filePath) {
+  const ext = (filePath ?? '').split('.').pop()?.toLowerCase() ?? ''
+  return SOURCE_CODE_EXTENSIONS.has(ext)
+}
+```
+
 ## Three-Way Classification
 
 `select_scope()` returns one of:

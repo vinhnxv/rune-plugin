@@ -121,18 +121,32 @@ Each chunk is scored on 4 orthogonal dimensions after every TOME merge round.
 - Chunks with < 3 files auto-pass (too few files for meaningful density measurement)
 - `Math.max(chunkFindings.length, 1)` prevents division by zero in Evidence Ratio
 
-## `computeChunkMetrics(unifiedTome, chunk)`
+## `computeChunkMetrics(unifiedTome, chunk, config)`
 
 **Inputs**:
 - `unifiedTome` — string: merged TOME content after all chunk TOMEs combined
 - `chunk` — `{ files, chunkIndex }[]`
+- `config` — talisman.yml `review` section (may be null). Required for `passesThresholds` to apply talisman overrides.
 
 **Outputs**: `{ chunkIndex, finding_density, evidence_ratio, confidence_mean, coverage_completeness, is_code_chunk, finding_count, file_count, pass }`
 
 **Error handling**: Metric parse failure → treat chunk as failing (conservative); log warning.
 
 ```javascript
-function computeChunkMetrics(unifiedTome, chunk) {
+function computeChunkMetrics(unifiedTome, chunk, config) {
+  // BACK-002 FIX: Explicit 0-file guard — degenerate chunks should warn, not silently pass
+  if (chunk.files.length === 0) {
+    warn('computeChunkMetrics: 0-file chunk detected — auto-pass with warning')
+    return {
+      chunkIndex: chunk.chunkIndex,
+      finding_density: 0, evidence_ratio: 0,
+      confidence_mean: 0, coverage_completeness: 0,
+      is_code_chunk: false, finding_count: 0,
+      file_count: 0, pass: true,
+      note: 'auto-pass: 0 files (degenerate chunk)',
+    }
+  }
+
   // Auto-pass tiny chunks — not enough files for meaningful density measurement
   if (chunk.files.length < 3) {
     return {
@@ -180,21 +194,31 @@ function computeChunkMetrics(unifiedTome, chunk) {
 
 // BACK-007 FIX: Wire talisman config values to threshold checks.
 // Without this, the convergence_*_threshold keys in talisman.yml are dead config.
+// SEC-004 FIX: Validate numeric talisman config values within acceptable range
+function clampNumeric(value, min, max, fallback) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return fallback
+  return Math.max(min, Math.min(max, value))
+}
+
 function passesThresholds(density, evidence, confidence, coverage, isCode, config) {
   const t = isCode
     ? {
-        density:    config?.convergence_density_threshold    ?? 0.3,
-        evidence:   config?.convergence_evidence_threshold   ?? 0.7,
-        confidence: config?.convergence_confidence_threshold ?? 0.6,
-        coverage:   config?.convergence_coverage_threshold   ?? 0.4,
+        // SEC-004 FIX: Validate config values are numbers in range [0.0, 1.0]
+        density:    clampNumeric(config?.convergence_density_threshold,    0.0, 1.0, 0.3),
+        evidence:   clampNumeric(config?.convergence_evidence_threshold,   0.0, 1.0, 0.7),
+        confidence: clampNumeric(config?.convergence_confidence_threshold, 0.0, 1.0, 0.6),
+        coverage:   clampNumeric(config?.convergence_coverage_threshold,   0.0, 1.0, 0.4),
       }
+    // BACK-006 NOTE: Doc-chunk thresholds are intentionally hardcoded (not configurable via talisman).
+    // Doc thresholds are stable — density/coverage expectations for docs are universally lower.
+    // If customization is needed, add convergence_doc_*_threshold keys to talisman.example.yml.
     : { density: 0.1, evidence: 0.5, confidence: 0.5, coverage: 0.2 }
   return density >= t.density && evidence >= t.evidence &&
          confidence >= t.confidence && coverage >= t.coverage
 }
 ```
 
-## `evaluateConvergence(unifiedTome, reviewedChunks, allChunks, round, history)`
+## `evaluateConvergence(unifiedTome, reviewedChunks, allChunks, round, history, config)`
 
 **Inputs**:
 - `unifiedTome` — current merged TOME string
@@ -202,14 +226,16 @@ function passesThresholds(density, evidence, confidence, coverage, isCode, confi
 - `allChunks` — complete chunk list (for returning flagged chunks by index)
 - `round` — `number`: current round index (0 = initial)
 - `history` — `{ round, chunk_metrics, verdict, timestamp }[]`
+- `config` — talisman.yml `review` section (may be null). Passed through to `computeChunkMetrics`.
 
 **Outputs**: `{ verdict: 'converged' | 'retry' | 'halted', flaggedChunks, chunkMetrics, reason? }`
 
 **Error handling**: If metrics cannot be parsed for a chunk, it is treated as failing (conservative bias).
 
 ```javascript
-function evaluateConvergence(unifiedTome, reviewedChunks, allChunks, round, history) {
-  const chunkMetrics = reviewedChunks.map(chunk => computeChunkMetrics(unifiedTome, chunk))
+function evaluateConvergence(unifiedTome, reviewedChunks, allChunks, round, history, config) {
+  // BACK-001 FIX: Pass config through to computeChunkMetrics so talisman threshold overrides take effect
+  const chunkMetrics = reviewedChunks.map(chunk => computeChunkMetrics(unifiedTome, chunk, config))
   const failedChunks = chunkMetrics.filter(m => !m.pass)
 
   // CONVERGED: all chunks pass thresholds
@@ -230,7 +256,8 @@ function evaluateConvergence(unifiedTome, reviewedChunks, allChunks, round, hist
           reason: `Failed chunks not decreasing: ${prevFailCount} → ${failedChunks.length}`,
         }
       }
-      // Global trend check: if we've seen this failure count before, we're oscillating
+      // BACK-010 FIX: Enhanced oscillation detection — catches trend reversals (e.g., 3→1→2→1→2)
+      // in addition to exact count matches from prior rounds.
       const historicalFailCounts = history
         .filter(h => h.chunk_metrics)
         .map(h => h.chunk_metrics.filter(m => !m.pass).length)
@@ -238,6 +265,17 @@ function evaluateConvergence(unifiedTome, reviewedChunks, allChunks, round, hist
         return {
           verdict: 'halted', flaggedChunks: [], chunkMetrics,
           reason: `Oscillation detected: failure count ${failedChunks.length} seen in prior round`,
+        }
+      }
+      // Trend reversal: failures increased after a previous improvement
+      if (historicalFailCounts.length >= 2) {
+        const lastTwo = historicalFailCounts.slice(-2)
+        // Pattern: was improving (lastTwo[0] > lastTwo[1]) but now increasing again
+        if (lastTwo[0] > lastTwo[1] && failedChunks.length > lastTwo[1]) {
+          return {
+            verdict: 'halted', flaggedChunks: [], chunkMetrics,
+            reason: `Trend reversal: ${lastTwo[0]}→${lastTwo[1]}→${failedChunks.length} (improving then worsening)`,
+          }
         }
       }
     }
@@ -267,7 +305,7 @@ Round 1+ (re-reviews):
   → Same or more failures?       → HALTED (diverging — stop)
 
 Circuit breaker:
-  round >= MAX_CONVERGENCE_ROUNDS → HALTED regardless of metric state
+  round >= tier.maxRounds → HALTED regardless of metric state
 ```
 
 ## `selectCrossChunkContext(flaggedChunk, allChunks, currentTome)`

@@ -8,6 +8,9 @@
 ```javascript
 // QUAL-001 + QUAL-008 FIX: Config namespace is `review:` (not `rune-gaze:`).
 // talisman.example.yml and review.md both use `review:` — reference docs must match.
+// QUAL-009 NOTE: CHUNK_THRESHOLD default (20) appears in: chunk-scoring.md, chunk-orchestrator.md, review.md.
+// The authoritative value is talisman.review.chunk_threshold. These are documentation defaults only —
+// all runtime code reads from config ?? 20. If changing the default, update all 3 files.
 const CHUNK_THRESHOLD   = 20   // Files above this trigger chunking (configurable: review.chunk_threshold)
 const CHUNK_TARGET_SIZE = 15   // Target files per chunk (configurable: review.chunk_target_size)
 const MAX_CHUNKS        = 5    // Circuit breaker — prevents runaway review loops (configurable: review.max_chunks)
@@ -56,7 +59,10 @@ const SECURITY_CRITICAL_PATTERNS = [
 
 ```javascript
 function scoreFile(file, diffStats) {
-  const stat = diffStats[file]
+  // SEC-003 FIX: Guard against prototype property access on diffStats.
+  // File paths from git diff are user-derived — use Object.hasOwn to prevent
+  // 'constructor', 'toString', etc. from matching prototype properties.
+  const stat = Object.hasOwn(diffStats, file) ? diffStats[file] : undefined
   // CRITICAL: Math.max floor prevents zero-complexity for renamed/permission-changed files
   const linesChanged = Math.max(
     (stat?.insertions ?? 0) + (stat?.deletions ?? 0),
@@ -222,22 +228,26 @@ function groupIntoChunks(scoredFiles, targetSize = CHUNK_TARGET_SIZE) {
     const droppedFiles = dropped.flatMap(c => c.files.map(f => f.file))
     warn(`Chunk count ${splitChunks.length} exceeds MAX_CHUNKS=${MAX_CHUNKS}. Redistributing ${droppedFiles.length} files into larger chunks.`)
 
-    // BACK-004 FIX: Redistribute excess files into the last allowed chunk.
-    // These files ARE reviewed (they're in the chunk), but if the last chunk exceeds
-    // MIN_ASH_BUDGET, per-Ash file caps may cause incomplete coverage. This is logged
-    // as a Coverage Gap warning — not a contradiction (redistribution + warning coexist).
-    const lastChunk = splitChunks[MAX_CHUNKS - 1]
-    lastChunk.files.push(...dropped.flatMap(c => c.files))
-    lastChunk.totalComplexity += dropped.reduce((s, c) => s + c.totalComplexity, 0)
-
-    // Log files that pushed beyond MIN_ASH_BUDGET as Coverage Gaps
-    // These files are IN the chunk but may exceed individual Ash context budgets
-    if (lastChunk.files.length > MIN_ASH_BUDGET) {
-      const gapFiles = lastChunk.files.slice(MIN_ASH_BUDGET).map(f => f.file)
-      warn(`Coverage Gaps (files exceed per-Ash budget in oversized chunk): ${gapFiles.join(', ')}`)
+    // BACK-009 FIX: Redistribute excess files round-robin across ALL allowed chunks
+    // instead of dumping into the last chunk. Prevents imbalanced 60+ file last chunk.
+    const allowedChunks = splitChunks.slice(0, MAX_CHUNKS)
+    const excessFiles = dropped.flatMap(c => c.files)
+    const excessComplexity = dropped.reduce((s, c) => s + c.totalComplexity, 0)
+    for (let i = 0; i < excessFiles.length; i++) {
+      const targetChunk = allowedChunks[i % MAX_CHUNKS]
+      targetChunk.files.push(excessFiles[i])
+      targetChunk.totalComplexity += excessFiles[i].complexity
     }
 
-    return splitChunks.slice(0, MAX_CHUNKS)
+    // Log files that pushed any chunk beyond MIN_ASH_BUDGET as Coverage Gaps
+    for (const chunk of allowedChunks) {
+      if (chunk.files.length > MIN_ASH_BUDGET) {
+        const gapFiles = chunk.files.slice(MIN_ASH_BUDGET).map(f => f.file)
+        warn(`Coverage Gaps (chunk ${chunk.chunkIndex + 1} exceeds per-Ash budget): ${gapFiles.join(', ')}`)
+      }
+    }
+
+    return allowedChunks
   }
 
   return splitChunks

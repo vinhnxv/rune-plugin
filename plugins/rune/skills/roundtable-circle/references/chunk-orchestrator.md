@@ -14,7 +14,9 @@ const CHUNK_THRESHOLD   = config?.chunk_threshold   ?? 20
 const CHUNK_TARGET_SIZE = config?.chunk_target_size ?? 15
 const MAX_CHUNKS        = config?.max_chunks        ?? 5
 
-const noChunk = flags.includes('--no-chunk')
+// SEC-001 FIX: Use object key lookup (flags['--key']) not array-style flags.includes()
+// Must match review.md's BACK-013 FIX pattern for consistent flags access
+const noChunk = flags['--no-chunk']
 
 if (changed_files.length <= CHUNK_THRESHOLD || noChunk) {
   // ── SINGLE-PASS ──────────────────────────────────────────────────────────
@@ -150,7 +152,19 @@ async function reviewSingleChunk(chunk, identifier, flags, securityPins, arcRema
 // QUAL-002 FIX: `config` is `talisman?.review` (the review: section), NOT the full talisman object.
 // Caller (review.md) passes `reviewConfig` — all config keys (chunk_threshold, convergence_tier_override,
 // convergence_density_threshold, etc.) live directly under config, not under config.review.
-async function runChunkedReview(changed_files, identifier, flags, config) {
+// BACK-007 FIX: Added arcRemainingMs as 5th parameter — enables dynamic per-chunk timeout
+// when invoked from arc Phase 6. Defaults to null (uses 660_000ms per-chunk default).
+async function runChunkedReview(changed_files, identifier, flags, config, arcRemainingMs) {
+  // SEC-002 FIX: Defense-in-depth — re-validate identifier at chunk orchestrator boundary
+  // Primary validation in review.md Phase 2, but chunk-orchestrator is a separate trust boundary
+  if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("SEC-002: identifier validation failed in runChunkedReview")
+  // QUAL-005 FIX: Assert config is talisman?.review, NOT the full talisman object
+  // If caller passes full talisman, auto-normalize to prevent wrong threshold lookups
+  if (config?.review && !config?.convergence_enabled && config?.review?.convergence_enabled !== undefined) {
+    warn('QUAL-005: config appears to be full talisman object — normalizing to config.review')
+    config = config.review
+  }
+
   // ── SCORING + GROUPING ────────────────────────────────────────────────────
   const diffStats    = parseDiffNumstat()  // git diff --numstat: batch call, not per-file
   const scoredFiles  = changed_files.map(f => scoreFile(f, diffStats))
@@ -162,7 +176,8 @@ async function runChunkedReview(changed_files, identifier, flags, config) {
   const securityPins = collectSecurityPins(scoredFiles)
 
   // ── CONVERGENCE TIER ─────────────────────────────────────────────────────
-  const convergenceEnabled = !flags.includes('--no-converge') &&
+  // SEC-001 FIX: Use object key lookup consistently with review.md's BACK-013 pattern
+  const convergenceEnabled = !flags['--no-converge'] &&
                              (config?.convergence_enabled ?? true)
   const tier = selectConvergenceTier(scoredFiles, chunks, config)
 
@@ -170,7 +185,8 @@ async function runChunkedReview(changed_files, identifier, flags, config) {
   displayCostWarning(chunkCount, tier)
 
   // ── DRY RUN ───────────────────────────────────────────────────────────────
-  if (flags.includes('--dry-run')) {
+  // SEC-001 FIX: Object key lookup for flags consistency
+  if (flags['--dry-run']) {
     displayDryRunPlan(chunks, tier, securityPins, chunkCount)
     return
   }
@@ -187,6 +203,8 @@ async function runChunkedReview(changed_files, identifier, flags, config) {
   // For STANDARD (maxRounds=2): 0,1,2 = 3 passes = correct (initial + 2 re-reviews).
   // The bug was actually in the comment — the loop bound is correct for "total passes = maxRounds + 1".
   // The real fix is ensuring the loop terminates correctly with the convergence gate (break on converged/halted).
+  // BACK-005 FIX: maxTotalPasses derived from tier.maxRounds (not undefined MAX_CONVERGENCE_ROUNDS)
+  // STANDARD: maxRounds=2 → 3 total passes (initial + 2 re-reviews)
   const maxTotalPasses = convergenceEnabled ? tier.maxRounds + 1 : 1
   for (let round = 0; round < maxTotalPasses; round++) {
     const isReReview = round > 0
@@ -207,14 +225,23 @@ async function runChunkedReview(changed_files, identifier, flags, config) {
       try {
         // QUAL-014 FIX: Call reviewSingleChunk (renamed from runChunkReview)
         // BACK-011 FIX: Pass chunksToReview.length for dynamic timeout calculation
+        // BACK-007 FIX: Pass arcRemainingMs (5th param) from runChunkedReview scope
+        // instead of hardcoded null — enables dynamic per-chunk timeout in arc context
         const result = await reviewSingleChunk(chunk, identifier, flags, [
           ...securityPins,
           ...contextFiles,
-        ], null, chunksToReview.length)
+        ], arcRemainingMs ?? null, chunksToReview.length)
         roundTomes.push(result)
       } catch (chunkError) {
         warn(`Chunk ${chunk.chunkIndex + 1} failed: ${chunkError.message}. Partial results preserved.`)
         writeChunkProgress(identifier, chunk.chunkIndex, 'failed')
+        // BACK-008 FIX: Push sentinel result so mergeChunkTomes records a Coverage Gap
+        // instead of silently omitting the chunk's files from the unified TOME
+        roundTomes.push({
+          chunkIndex: chunk.chunkIndex,
+          tome: `<!-- RUNE:COVERAGE_GAP chunk="${chunk.chunkIndex + 1}" reason="chunk failed: ${chunkError.message}" files="${chunk.files.map(f => f.file ?? f).join(', ')}" -->`,
+          path: null,
+        })
         // Continue with remaining chunks — partial review is better than no review
       }
     }
@@ -236,8 +263,10 @@ async function runChunkedReview(changed_files, identifier, flags, config) {
       break
     }
 
-    const { verdict, flaggedChunks, chunkMetrics } = evaluateConvergence(
-      unifiedTome, chunksToReview, chunks, round, convergenceHistory
+    // BACK-001 FIX: Pass config to evaluateConvergence so talisman overrides reach computeChunkMetrics
+    // BACK-004 FIX: Destructure `reason` from the verdict object — `chunkMetrics` is an array, not the verdict
+    const { verdict, flaggedChunks, chunkMetrics, reason: haltReason } = evaluateConvergence(
+      unifiedTome, chunksToReview, chunks, round, convergenceHistory, config
     )
     convergenceHistory.push({ round, chunk_metrics: chunkMetrics, verdict, timestamp: now() })
 
@@ -245,7 +274,8 @@ async function runChunkedReview(changed_files, identifier, flags, config) {
       log(`✓ Convergence achieved at round ${round}`)
       break
     } else if (verdict === 'halted') {
-      warn(`⚠ Convergence halted: ${chunkMetrics.reason ?? 'metrics not improving'}. Proceeding with current TOME.`)
+      // BACK-004 FIX: Use destructured `haltReason` from verdict, not `chunkMetrics.reason` (which is undefined)
+      warn(`⚠ Convergence halted: ${haltReason ?? 'metrics not improving'}. Proceeding with current TOME.`)
       break
     } else if (verdict === 'retry') {
       log(`↻ Re-review needed: ${flaggedChunks.length} chunk(s) below quality threshold`)
@@ -332,20 +362,28 @@ function replaceChunkTomes(existing, updated, updatedChunks) {
 Chunk state is written to `tmp/reviews/{id}/chunk-{N}/.status` for `--resume` support.
 
 ```javascript
-// Chunk state machine: pending → in_progress → completed | completed_partial | failed
-function writeChunkProgress(identifier, chunkIndex, status) {
-  // 'completed_partial' when chunk timed out but partial Ash outputs were collected
+// Chunk state machine: pending → active → completed | partial | failed
+// QUAL-007 FIX: Aligned status values with project convention (active/partial instead of in_progress/completed_partial)
+function writeChunkProgress(identifier, chunkIndex, status, sessionNonce) {
+  // 'partial' when chunk timed out but partial Ash outputs were collected (matches mend convention)
   Write(`tmp/reviews/${identifier}/chunk-${chunkIndex}/.status`, JSON.stringify({
-    chunkIndex, status, timestamp: now(),
+    // SEC-005 FIX: Include session nonce to prevent stale status files from prior sessions
+    // being trusted on --resume. Validate nonce before trusting status on resume.
+    chunkIndex, status, timestamp: now(), session_nonce: sessionNonce ?? null,
   }))
 }
 
 // On --resume: read .status markers to skip completed chunks
-function getCompletedChunks(identifier, chunkCount) {
+// BACK-013 NOTE: Chunks with status 'partial' or 'failed' restart from scratch on --resume.
+// Partial chunk TOMEs from the previous run are NOT merged — a fresh review provides
+// better coverage than attempting to splice partial results.
+function getCompletedChunks(identifier, chunkCount, sessionNonce) {
   return Array.from({ length: chunkCount }, (_, i) => i).filter(i => {
     try {
       const s = JSON.parse(Read(`tmp/reviews/${identifier}/chunk-${i}/.status`) ?? '{}')
-      return s.status === 'completed'  // Skip completed only; retry completed_partial and failed
+      // SEC-005 FIX: Validate session nonce before trusting status — stale files from prior sessions are retried
+      if (sessionNonce && s.session_nonce && s.session_nonce !== sessionNonce) return false
+      return s.status === 'completed'  // Skip completed only; retry partial and failed
     } catch (_) { return false }
   })
 }
@@ -360,8 +398,11 @@ read-only, 3-minute timeout). Skipped on timeout — does not block the review.
 function shouldRunCrossCuttingPass(unifiedTome, chunks, config) {
   if (config?.cross_cutting_pass === false) return false
   if (chunks.length < 3) return false
+  // BACK-011 FIX: Use 2-level directory grouping instead of top-level only.
+  // split('/')[0] returns 'plugins' for nearly all files in monorepo-style projects.
+  // 2-level (e.g., 'plugins/rune') provides meaningful directory diversity signal.
   const topDirs = new Set(chunks.flatMap(c =>
-    c.files.map(f => (f.file ?? f).split('/')[0])
+    c.files.map(f => (f.file ?? f).split('/').slice(0, 2).join('/'))
   ))
   return topDirs.size >= 3
 }

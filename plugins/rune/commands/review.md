@@ -30,7 +30,7 @@ allowed-tools:
 
 Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`, `chunk-orchestrator`, `chunk-scoring`, `convergence-gate`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
 
 ## Flags
 
@@ -40,7 +40,7 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 | `--dry-run` | Show scope selection, Ash plan, and chunk plan (if chunking) without summoning agents | Off |
 | `--max-agents <N>` | Limit total Ash summoned (built-in + custom). Range: 1-8 | All selected |
 | `--no-chunk` | Force single-pass review (disable chunking regardless of file count) | Off |
-| `--chunk-size <N>` | Override target files per chunk (default: 15) | 15 |
+| `--chunk-size <N>` | Override chunk threshold — file count that triggers chunking (default: 20) | 20 |
 | `--no-converge` | Disable convergence loop — single review pass per chunk, report still generated | Off |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
@@ -96,8 +96,10 @@ const talisman = readTalisman()
 const reviewConfig = Object.hasOwn(talisman ?? {}, 'review') ? talisman.review : {}
 // SEC-006 FIX: parseInt with explicit radix 10
 // BACK-012 FIX: --chunk-size overrides CHUNK_THRESHOLD (file count trigger), not CHUNK_TARGET_SIZE
-const CHUNK_THRESHOLD = flags['--chunk-size']
-  ? parseInt(flags['--chunk-size'], 10)
+// SEC-006 FIX: Validate parsed integer is within range 5-200 (rejects NaN and garbage like "5abc")
+const rawChunkSize = flags['--chunk-size'] ? parseInt(flags['--chunk-size'], 10) : NaN
+const CHUNK_THRESHOLD = (!Number.isNaN(rawChunkSize) && rawChunkSize >= 5 && rawChunkSize <= 200)
+  ? rawChunkSize
   : (reviewConfig?.chunk_threshold ?? 20)
 // QUAL-004 FIX: Read CHUNK_TARGET_SIZE from talisman review config (was missing)
 const CHUNK_TARGET_SIZE = reviewConfig?.chunk_target_size ?? 15
@@ -652,7 +654,7 @@ try {
   // SEC-003 FIX: SDK Read() resolves CLAUDE_CONFIG_DIR automatically — no hardcoded ~/.claude/.
   // Read() is SDK-safe: it uses the runtime config dir, not a shell-interpolated path.
   // Previously documented with bare ~/.claude/ which was misleading for CHOME-aware users.
-  const teamConfigPath = `~/.claude/teams/${teamName}/config.json`  // SDK-safe: resolved by Read()
+  const teamConfigPath = `~/.claude/teams/${teamName}/config.json`  // CHOME-SAFE: SDK Read() resolves CLAUDE_CONFIG_DIR automatically
   const teamConfig = Read(teamConfigPath)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
