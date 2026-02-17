@@ -14,6 +14,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **elicitation** | BMAD-derived structured reasoning methods — Deep integration via elicitation-sage across plan, forge, review, and mend phases |
 | **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
+| **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
 | **arc** | End-to-end orchestration pipeline (10 phases: freshness → forge → plan review → work → code review → mend → audit) |
 
 ## Commands
@@ -48,6 +49,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
    - **NEVER** use `Bash("sleep N && echo poll check")` as a monitoring pattern. This skips TaskList entirely and provides zero visibility into task progress.
    - **ALWAYS** call `TaskList` between sleeps to check actual task status.
    - **ALWAYS** use `pollIntervalMs` from config (30s for all commands), never arbitrary values like 45s or 60s.
+   - **Enforcement**: `enforce-polling.sh` PreToolUse hook (POLL-001) blocks sleep+echo anti-patterns at runtime. The `polling-guard` skill provides background knowledge for correct monitoring patterns.
 
 ## Hook Infrastructure
 
@@ -56,14 +58,15 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | Hook | Script | Purpose |
 |------|--------|---------|
 | `PreToolUse:Write\|Edit\|Bash\|NotebookEdit` | `scripts/enforce-readonly.sh` | SEC-001: Blocks write tools for review/audit Ashes when `.readonly-active` marker exists. |
-| `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
+| `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
+| `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
 | `TaskCompleted` | `scripts/on-task-completed.sh` + haiku quality gate | Writes signal files to `tmp/.rune-signals/{team}/` when Ashes complete tasks. Enables 5-second filesystem-based completion detection. Also runs a haiku-model quality gate that validates task completion legitimacy (blocks premature/generic completions). |
 | `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
 
 All hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 (non-blocking) and the system falls back gracefully. Hook configuration lives in `hooks/hooks.json`.
 
-**Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-teams.sh`) emit deny/allow decisions directly. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), TaskCompleted 10s (signal I/O + haiku gate), TeammateIdle 15s (inscription parse + output validation).
+**Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-polling.sh`, `enforce-teams.sh`) emit deny/allow decisions directly. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), TaskCompleted 10s (signal I/O + haiku gate), TeammateIdle 15s (inscription parse + output validation).
 
 ## References
 
