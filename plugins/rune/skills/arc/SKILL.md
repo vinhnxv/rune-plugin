@@ -1,5 +1,5 @@
 ---
-name: rune:arc
+name: arc
 description: |
   End-to-end orchestration pipeline. Chains forge, plan review, plan refinement,
   verification, work, gap analysis, code review, mend, verify mend (convergence gate), and audit
@@ -16,6 +16,8 @@ description: |
   assistant: "Resuming arc from Phase 5 (WORK) — validating checkpoint integrity..."
   </example>
 user-invocable: true
+disable-model-invocation: true
+argument-hint: "[plan-file-path | --resume]"
 allowed-tools:
   - Read
   - Write
@@ -163,7 +165,7 @@ const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m
 const FORBIDDEN_PHASE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 ```
 
-See [phase-tool-matrix.md](../skills/rune-orchestration/references/phase-tool-matrix.md) for per-phase tool restrictions and time budget details.
+See [phase-tool-matrix.md](references/phase-tool-matrix.md) for per-phase tool restrictions and time budget details.
 
 ## Pre-flight
 
@@ -269,11 +271,11 @@ if (Bash(`test -L "${planFile}" && echo "symlink"`).includes("symlink")) {
 
 ### Plan Freshness Check (FRESH-1)
 
-See [freshness-gate.md](../skills/rune-orchestration/references/freshness-gate.md) for the full algorithm (5 weighted signals, composite score, STALE/WARN/PASS decision).
+See [freshness-gate.md](references/freshness-gate.md) for the full algorithm (5 weighted signals, composite score, STALE/WARN/PASS decision).
 
 **Summary**: Zero-LLM-cost structural drift detection. Produces `freshnessResult` object stored in checkpoint + `tmp/arc/{id}/freshness-report.md`. Plans without `git_sha` skip the check (backward compat). STALE plans prompt user: re-plan, override, or abort.
 
-Read and execute the algorithm from `../skills/rune-orchestration/references/freshness-gate.md`. Store `freshnessResult` for checkpoint initialization below.
+Read and execute the algorithm from `references/freshness-gate.md`. Store `freshnessResult` for checkpoint initialization below.
 
 ### Total Pipeline Timeout Check
 
@@ -541,7 +543,7 @@ Demoting Phase 2 to "pending" — will re-run plan review.
 
 ## Phase 1: FORGE (skippable with --no-forge)
 
-See [arc-phase-forge.md](../skills/rune-orchestration/references/arc-phase-forge.md) for the full algorithm.
+See [arc-phase-forge.md](references/arc-phase-forge.md) for the full algorithm.
 
 **Team**: Delegated to `/rune:forge` — forge manages its own team lifecycle (`rune-forge-{id}`)
 **Output**: `tmp/arc/{id}/enriched-plan.md`
@@ -554,7 +556,7 @@ Read and execute the arc-phase-forge.md algorithm. Update checkpoint on completi
 
 ## Phase 2: PLAN REVIEW (circuit breaker)
 
-See [arc-phase-plan-review.md](../skills/rune-orchestration/references/arc-phase-plan-review.md) for the full algorithm.
+See [arc-phase-plan-review.md](references/arc-phase-plan-review.md) for the full algorithm.
 
 **Team**: `arc-plan-review-{id}` — follows ATE-1 pattern
 **Output**: `tmp/arc/{id}/plan-review.md`
@@ -565,7 +567,7 @@ Read and execute the arc-phase-plan-review.md algorithm. Update checkpoint on co
 
 ## Phase 2.5: PLAN REFINEMENT (conditional)
 
-See [arc-phase-plan-refine.md](../skills/rune-orchestration/references/arc-phase-plan-refine.md) for the full algorithm.
+See [arc-phase-plan-refine.md](references/arc-phase-plan-refine.md) for the full algorithm.
 
 **Team**: None (orchestrator-only)
 **Output**: `tmp/arc/{id}/concern-context.md` (or skipped if no CONCERNs)
@@ -581,11 +583,11 @@ Zero-LLM-cost deterministic checks on the enriched plan. Orchestrator-only — n
 **Outputs**: `tmp/arc/{id}/verification-report.md`
 **Error handling**: Non-blocking — proceed with warnings. Log issues but do not halt.
 
-See [verification-gate.md](../skills/rune-orchestration/references/verification-gate.md) for the full algorithm.
+See [verification-gate.md](references/verification-gate.md) for the full algorithm.
 
 ## Phase 5: WORK
 
-See [arc-phase-work.md](../skills/rune-orchestration/references/arc-phase-work.md) for the full algorithm.
+See [arc-phase-work.md](references/arc-phase-work.md) for the full algorithm.
 
 **Team**: `arc-work-{id}` — follows ATE-1 pattern
 **Output**: Implemented code (committed) + `tmp/arc/{id}/work-summary.md`
@@ -604,11 +606,11 @@ Deterministic, orchestrator-only check that cross-references plan acceptance cri
 **Outputs**: `tmp/arc/{id}/gap-analysis.md`
 **Error handling**: Non-blocking (WARN). Gap analysis is advisory — missing criteria are flagged but do not halt the pipeline. Evaluator quality metrics (docstring coverage, function length, evaluation tests) are informational for Phase 6 reviewers.
 
-See [gap-analysis.md](../skills/rune-orchestration/references/gap-analysis.md) for the full algorithm.
+See [gap-analysis.md](references/gap-analysis.md) for the full algorithm.
 
 ## Phase 6: CODE REVIEW
 
-See [arc-phase-code-review.md](../skills/rune-orchestration/references/arc-phase-code-review.md) for the full algorithm.
+See [arc-phase-code-review.md](references/arc-phase-code-review.md) for the full algorithm.
 
 **Team**: `arc-review-{id}` — follows ATE-1 pattern
 **Output**: `tmp/arc/{id}/tome.md`
@@ -621,7 +623,7 @@ Read and execute the arc-phase-code-review.md algorithm. Update checkpoint on co
 
 ## Phase 7: MEND
 
-See [arc-phase-mend.md](../skills/rune-orchestration/references/arc-phase-mend.md) for the full algorithm.
+See [arc-phase-mend.md](references/arc-phase-mend.md) for the full algorithm.
 
 **Team**: `arc-mend-{id}` — follows ATE-1 pattern
 **Output**: `tmp/arc/{id}/resolution-report.md`
@@ -640,11 +642,11 @@ Lightweight orchestrator-only check that detects regressions introduced by mend 
 **Outputs**: `tmp/arc/{id}/spot-check-round-{N}.md` (or mini-TOME on retry: `tmp/arc/{id}/tome-round-{N}.md`)
 **Error handling**: Non-blocking — halting proceeds to audit with warning. The convergence gate either retries or gives up gracefully.
 
-See [verify-mend.md](../skills/rune-orchestration/references/verify-mend.md) for the full algorithm.
+See [verify-mend.md](references/verify-mend.md) for the full algorithm.
 
 ## Phase 8: AUDIT (informational)
 
-See [arc-phase-audit.md](../skills/rune-orchestration/references/arc-phase-audit.md) for the full algorithm.
+See [arc-phase-audit.md](references/arc-phase-audit.md) for the full algorithm.
 
 **Team**: `arc-audit-{id}` — follows ATE-1 pattern
 **Output**: `tmp/arc/{id}/audit-report.md`
@@ -758,7 +760,7 @@ if (exists(".claude/echoes/")) {
 
 ## Post-Arc Plan Completion Stamp
 
-See [arc-phase-completion-stamp.md](../skills/rune-orchestration/references/arc-phase-completion-stamp.md) for the full algorithm.
+See [arc-phase-completion-stamp.md](references/arc-phase-completion-stamp.md) for the full algorithm.
 
 Read and execute the arc-phase-completion-stamp.md algorithm. Appends a persistent completion record to the plan file with phase results, convergence history, and overall status. Runs after echo persist, before the final "Done" output.
 

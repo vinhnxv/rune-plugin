@@ -13,6 +13,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **ash-guide** | Agent invocation reference and Ash selection guide |
 | **elicitation** | BMAD-derived structured reasoning methods with phase-aware auto-selection |
 | **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
+| **arc** | End-to-end orchestration pipeline (forge → plan review → work → code review → mend → audit) |
 
 ## Commands
 
@@ -67,4 +68,4 @@ All hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 (non-b
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow
 - [Configuration](references/configuration-guide.md) — talisman.yml schema and defaults
 - [Session handoff](references/session-handoff.md) — Session state template for compaction and resume
-- [Delegation checklist](skills/rune-orchestration/references/arc-delegation-checklist.md) — Arc phase delegation contracts (RUN/SKIP/ADAPT)
+- [Delegation checklist](skills/arc/references/arc-delegation-checklist.md) — Arc phase delegation contracts (RUN/SKIP/ADAPT)

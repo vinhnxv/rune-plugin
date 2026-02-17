@@ -52,7 +52,7 @@ No teams, tasks, state files, or agents are created. Use this to preview scope b
 
 ## Phase 0: Pre-flight
 
-<!-- DELEGATION-CONTRACT: Changes to Phase 0 steps must be reflected in skills/rune-orchestration/references/arc-delegation-checklist.md (Phase 6) -->
+<!-- DELEGATION-CONTRACT: Changes to Phase 0 steps must be reflected in skills/arc/references/arc-delegation-checklist.md (Phase 6) -->
 
 ```bash
 # Determine what to review

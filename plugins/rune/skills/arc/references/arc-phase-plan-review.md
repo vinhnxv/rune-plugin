@@ -42,7 +42,7 @@ try { TeamDelete() } catch (e) {
 }
 TeamCreate({ team_name: `arc-plan-review-${id}` })
 
-// Delegation checklist: see rune-orchestration/references/arc-delegation-checklist.md (Phase 2)
+// Delegation checklist: see arc-delegation-checklist.md (Phase 2)
 const reviewers = [
   { name: "scroll-reviewer", agent: "agents/utility/scroll-reviewer.md", focus: "Document quality" },
   { name: "decree-arbiter", agent: "agents/utility/decree-arbiter.md", focus: "Technical soundness" },

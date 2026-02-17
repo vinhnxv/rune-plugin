@@ -439,7 +439,6 @@ plugins/rune/
 │   ├── work/            # 2 swarm workers (work pipeline)
 │   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper
 ├── commands/
-│   ├── arc.md           # /rune:arc
 │   ├── cancel-arc.md    # /rune:cancel-arc
 │   ├── forge.md         # /rune:forge
 │   ├── mend.md          # /rune:mend
@@ -453,6 +452,9 @@ plugins/rune/
 │   ├── echoes.md        # /rune:echoes
 │   └── rest.md          # /rune:rest
 ├── skills/
+│   ├── arc/                 # /rune:arc (end-to-end pipeline)
+│   │   ├── SKILL.md
+│   │   └── references/      # Arc-specific phase refs, delegation checklist
 │   ├── rune-orchestration/  # Core coordination
 │   │   └── references/      # e.g. team-lifecycle-guard.md
 │   ├── context-weaving/     # Context management
