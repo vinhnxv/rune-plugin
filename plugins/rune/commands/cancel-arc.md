@@ -170,10 +170,25 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 ```javascript
 // phase_team resolved in Step 2 from checkpoint.phases[current_phase].team_name
 // (with legacy fallback for older checkpoints)
-try { TeamDelete() } catch (e) {
-  if (phase_team && /^[a-zA-Z0-9_-]+$/.test(phase_team)) {
-    Bash(`rm -rf ~/.claude/teams/${phase_team}/ ~/.claude/tasks/${phase_team}/ 2>/dev/null`)
+// TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+const RETRY_DELAYS = [0, 3000, 8000]
+for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
+  if (attempt > 0) {
+    warn(`Cancel cleanup: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
   }
+  try {
+    TeamDelete()
+    break
+  } catch (e) {
+    if (attempt === RETRY_DELAYS.length - 1) {
+      warn(`Cancel cleanup: TeamDelete failed after ${RETRY_DELAYS.length} attempts. Using filesystem fallback.`)
+    }
+  }
+}
+// Filesystem fallback with CHOME
+if (phase_team && /^[a-zA-Z0-9_-]+$/.test(phase_team)) {
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${phase_team}/" "$CHOME/tasks/${phase_team}/" 2>/dev/null`)
 }
 ```
 

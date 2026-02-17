@@ -10,40 +10,81 @@ The Claude Agent SDK has two constraints:
 
 Both are observed in production and cause workflow failures if not handled.
 
-## Pre-Create Guard
+## Pre-Create Guard (teamTransition Protocol)
 
-Before `TeamCreate`, clean up stale teams from crashed prior sessions:
+Before `TeamCreate`, safely transition from the current team to a new one using the
+inlined teamTransition protocol. This replaces the previous 3-step escalation (v1.33.0).
 
 ```javascript
-// 1. Validate identifier (REQUIRED — this is the ONLY barrier against path traversal)
-// Security pattern: SAFE_IDENTIFIER_PATTERN = /^[a-zA-Z0-9_-]+$/ — alphanumeric, hyphens, underscores only
-if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) throw new Error("Invalid identifier")
-// SEC-003: Redundant path traversal check — defense-in-depth
-if (identifier.includes('..')) throw new Error('Path traversal detected')
+// teamTransition: Safely transition from current team to a new one.
+// Contract:
+//   Input:  newTeamName (string, pre-validated with /^[a-zA-Z0-9_-]+$/)
+//   Effect: Current team destroyed, new team created, leadership transferred
+//   Throws: If TeamCreate fails after all cleanup attempts
+//
+// MUST be inlined at every TeamCreate call site. No exceptions.
+// This protocol replaces the previous 3-step escalation (v1.33.0).
 
-// 2. Attempt TeamDelete with 3-step escalation (handles stale teams from crashed sessions)
-// NOTE: Pre-create guard may orphan active teammates from crashed sessions.
-// This is an accepted trade-off — blocking on zombie teammates prevents new sessions.
-try { TeamDelete() } catch (e) {
-  // Step A: rm-rf TARGET team dirs (handles orphaned state for THIS team)
-  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups (e.g., ~/.claude-work)
-  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamPrefix}-${identifier}/" "$CHOME/tasks/${teamPrefix}-${identifier}/" 2>/dev/null`)
-  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
-  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
-  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
-  // Step C: Retry TeamDelete to clear SDK internal leadership state
-  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+// STEP 1: Validate (defense-in-depth — caller should also validate)
+if (!/^[a-zA-Z0-9_-]+$/.test(newTeamName)) throw new Error(`Invalid team name: ${newTeamName}`)
+if (newTeamName.includes('..')) throw new Error('Path traversal detected')
+
+// STEP 2: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+// Rationale: Members need time to finish current tool call and approve shutdown.
+// 3s covers most cases; 8s covers complex file writes. Total max 11s wait.
+const RETRY_DELAYS = [0, 3000, 8000]
+for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
+  if (attempt > 0) {
+    warn(`teamTransition: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
+  }
+  try {
+    TeamDelete()
+    break
+  } catch (e) {
+    if (attempt === RETRY_DELAYS.length - 1) {
+      warn(`teamTransition: TeamDelete failed after ${RETRY_DELAYS.length} attempts. Using filesystem fallback.`)
+    }
+  }
 }
 
-// 4. Create fresh team
-TeamCreate({ team_name: `${teamPrefix}-${identifier}` })
+// STEP 3: Filesystem fallback (stale same-name team from prior crash + cross-workflow scan)
+// rm -rf unconditionally — no exists() guard (eliminates TOCTOU window)
+// CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${newTeamName}/" "$CHOME/tasks/${newTeamName}/" 2>/dev/null`)
+// Cross-workflow scan — clean ANY stale rune/arc team dirs
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \\( -name "rune-*" -o -name "arc-*" \\) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \\( -name "rune-*" -o -name "arc-*" \\) -exec rm -rf {} + 2>/dev/null`)
+// Retry TeamDelete after filesystem cleanup (SDK state may be unblocked now)
+try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+
+// STEP 4: TeamCreate with "Already leading" catch-and-recover
+// Match: "Already leading" — centralized string match for SDK error detection
+try {
+  TeamCreate({ team_name: newTeamName })
+} catch (createError) {
+  if (createError.message?.includes('Already leading')) {
+    warn(`teamTransition: Leadership state leak detected. Attempting final cleanup.`)
+    try { TeamDelete() } catch (e) { /* exhausted */ }
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${newTeamName}/" "$CHOME/tasks/${newTeamName}/" 2>/dev/null`)
+    // Final attempt — if this fails, the error propagates to caller
+    TeamCreate({ team_name: newTeamName })
+  } else {
+    throw createError
+  }
+}
+
+// STEP 5: Post-create verification
+// CHOME pattern for multi-account support
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${newTeamName}/config.json" || echo "WARN: config.json not found after TeamCreate"`)
 ```
 
 **Key safety properties:**
 - Identifier validation and `rm -rf` are co-located (same code block)
 - The regex `/^[a-zA-Z0-9_-]+$/` prevents shell metacharacters and path traversal
 - The `..` check is redundant but provides defense-in-depth
-- `TeamDelete` is tried first (clean API path); `rm -rf` is the fallback only
+- `TeamDelete` retries with backoff (0s, 3s, 8s) before filesystem fallback
+- "Already leading" catch-and-recover handles SDK leadership state leaks
+- Post-create verification confirms team directory was created
 - All Bash commands resolve `CLAUDE_CONFIG_DIR` via `CHOME` — never hardcode `~/.claude`
 
 **When to use**: Before EVERY `TeamCreate` call. No exceptions.
@@ -73,8 +114,10 @@ for (const task of tasks) {
 }
 
 // 3. Dynamic member discovery + shutdown (see Dynamic Cleanup pattern below)
+// CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
 let allMembers = []
 try {
+  // Read() resolves CLAUDE_CONFIG_DIR automatically (SDK call)
   const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
@@ -89,7 +132,7 @@ for (const member of allMembers) {
 
 // 5. TeamDelete with fallback
 try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/${teamPrefix}-${identifier}/ ~/.claude/tasks/${teamPrefix}-${identifier}/ 2>/dev/null`)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamPrefix}-${identifier}/" "$CHOME/tasks/${teamPrefix}-${identifier}/" 2>/dev/null`)
 }
 ```
 
@@ -108,10 +151,10 @@ Hardcoding teammate names in cleanup logic creates a **zombie teammate problem**
 
 ### config.json Schema
 
-The Agent SDK maintains a team config file at `~/.claude/teams/{team_name}/config.json`:
+The Agent SDK maintains a team config file at `$CHOME/teams/{team_name}/config.json` (where `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`):
 
 ```javascript
-// ~/.claude/teams/{team_name}/config.json (managed by Agent SDK)
+// $CHOME/teams/{team_name}/config.json (managed by Agent SDK)
 {
   "team_name": "rune-review-abc123",
   "members": [
@@ -131,7 +174,7 @@ Key properties:
 
 ```javascript
 // 1. Read team config to discover ALL active teammates
-// Read returns file text; Claude interprets JSON structure from the content
+// Read() resolves CLAUDE_CONFIG_DIR automatically (SDK call)
 let allMembers = []
 try {
   const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
@@ -155,7 +198,7 @@ for (const member of allMembers) {
 // SEC-9 FIX: Re-validate team_name before rm -rf (defense-in-depth — team_name was read from config.json)
 if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) throw new Error(`Invalid team_name: ${team_name}`)
 try { TeamDelete() } catch (e) {
-  Bash(`rm -rf ~/.claude/teams/${team_name}/ ~/.claude/tasks/${team_name}/ 2>/dev/null`)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${team_name}/" "$CHOME/tasks/${team_name}/" 2>/dev/null`)
 }
 ```
 
@@ -166,7 +209,7 @@ try { TeamDelete() } catch (e) {
 Every team lifecycle MUST end with this 4-step sequence. Skipping any step risks zombie state.
 
 ### Step 1: Dynamic Member Discovery
-Read `~/.claude/teams/{team_name}/config.json` to get ALL members.
+Read `$CHOME/teams/{team_name}/config.json` to get ALL members (Read() resolves CLAUDE_CONFIG_DIR automatically).
 Do NOT rely on static lists — they miss dynamically-added teammates.
 
 ### Step 2: Shutdown All Members
@@ -181,17 +224,15 @@ for (const member of allMembers) {
 ```javascript
 try { TeamDelete() } catch (e) {
   // Fallback: rm -rf (filesystem only — SDK state already cleared by TeamDelete attempt)
-  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
 }
 ```
 
 ### Step 4: Verify No Zombie State
 ```javascript
 // Check that team directory is actually gone
-if (exists(`~/.claude/teams/${teamName}/`)) {
-  warn(`Zombie team detected: ${teamName} — directory persists after cleanup`)
-  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
-}
+// CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -d "$CHOME/teams/${teamName}/" && echo "WARN: Zombie team detected: ${teamName}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
 ```
 
 ### Critical ordering rules
@@ -203,9 +244,9 @@ if (exists(`~/.claude/teams/${teamName}/`)) {
 ### Existing Implementations
 
 The cancel commands already use this dynamic discovery pattern:
-- `cancel-review.md` — reads `~/.claude/teams/${team_name}/config.json`, iterates `config.members`
+- `cancel-review.md` — reads `$CHOME/teams/${team_name}/config.json`, iterates `config.members`
 - `cancel-audit.md` — same pattern as cancel-review
-- `cancel-arc.md` — reads `~/.claude/teams/${phase_team}/config.json`, iterates `teamConfig.members`
+- `cancel-arc.md` — reads `$CHOME/teams/${phase_team}/config.json`, iterates `teamConfig.members`
 
 These serve as canonical examples of the pattern. All new cleanup logic should follow the same approach.
 
@@ -322,7 +363,7 @@ Contract:
   Steps:
     1. Validate teamName against SAFE_IDENTIFIER_PATTERN
     2. Defense-in-depth: reject if teamName contains '..'
-    3. rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/
+    3. CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/"
   Security:
     - Regex + path-traversal check co-located before any rm -rf
   Caller responsibilities:
@@ -347,7 +388,8 @@ function safeTeamCleanup(teamName) {
   // NOTE: TeamDelete() targets the CALLER's active team only — it does not accept a
   // team_name parameter. For orphan cleanup (where the caller is NOT leading the target
   // team), only direct filesystem removal works. See arc SKILL.md prePhaseCleanup comment.
-  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+  // CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
 }
 ```
 
@@ -374,7 +416,7 @@ Defense-in-depth — each layer targets a different failure mode.
 
 - **Trigger**: User runs `/rune:rest --heal`
 - **Catches**: Orphaned teams from *any* crashed session (cross-session)
-- **Action**: Scan `~/.claude/teams/` for rune-/arc-prefixed dirs → scan `tmp/.rune-{type}-*.json` for stale active state files → user confirmation → `safeTeamCleanup()` + state file reset + signal dir cleanup
+- **Action**: Scan `$CHOME/teams/` for rune-/arc-prefixed dirs → scan `tmp/.rune-{type}-*.json` for stale active state files → user confirmation → `safeTeamCleanup()` + state file reset + signal dir cleanup
 - **Scope**: All rune-managed teams (broadest coverage)
 - **Safety**: User confirmation required; active workflows (< 30 min) preserved
 
@@ -382,7 +424,7 @@ Defense-in-depth — each layer targets a different failure mode.
 
 - **Trigger**: Any `arc` invocation (after checkpoint init, before Phase 1)
 - **Catches**: Stale arc-specific teams from *prior arc sessions*
-- **Action**: Scan `~/.claude/teams/` for `arc-forge-*` and `arc-plan-review-*` dirs → skip current session's teams → validated `rm -rf` (same pattern as `safeTeamCleanup()`)
+- **Action**: Scan `$CHOME/teams/` for `arc-forge-*` and `arc-plan-review-*` dirs → skip current session's teams → validated `rm -rf` (same pattern as `safeTeamCleanup()`)
 - **Scope**: Arc-prefixed teams only (rune-* handled by sub-command pre-create guards)
 
 ### Coverage Matrix
@@ -412,7 +454,7 @@ Arc phase references (extracted from arc SKILL.md): arc-phase-forge.md, arc-phas
 
 ## Notes
 
-- The filesystem fallback (`rm -rf ~/.claude/teams/...`) is safe — these directories only contain Agent SDK coordination state, not user data
+- The filesystem fallback (`rm -rf $CHOME/teams/...`) is safe — these directories only contain Agent SDK coordination state, not user data
 - For additional defense-in-depth, commands that delete user-facing directories (e.g., `/rune:rest`) should use `realpath` containment checks in addition to team name validation
 - Do not interpolate unsanitized external input into team names — validate first
 - Always update workflow state files (e.g., `tmp/.rune-review-{id}.json`) AFTER team cleanup, not before

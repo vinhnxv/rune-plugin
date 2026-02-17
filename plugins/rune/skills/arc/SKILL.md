@@ -74,6 +74,7 @@ Chains ten phases into a single automated pipeline: forge, plan review, plan ref
 /rune:arc --resume                    # Resume from last checkpoint
 /rune:arc --resume --no-forge         # Resume, skipping forge on retry
 /rune:arc <plan_file.md> --skip-freshness   # Skip freshness validation
+/rune:arc <plan_file.md> --confirm          # Pause on all-CONCERN escalation
 ```
 
 ## Flags
@@ -84,6 +85,7 @@ Chains ten phases into a single automated pipeline: forge, plan review, plan ref
 | `--approve` | Require human approval for each work task (Phase 5 only) | Off |
 | `--resume` | Resume from last checkpoint. Plan path auto-detected from checkpoint | Off |
 | `--skip-freshness` | Skip plan freshness check (bypass stale-plan detection) | Off |
+| `--confirm` | Pause for user input when all plan reviewers raise CONCERN verdicts (Phase 2.5). Without this flag, auto-proceeds with warnings | Off |
 
 ## Pipeline Overview
 
@@ -93,7 +95,7 @@ Phase 1:   FORGE → Research-enrich plan sections
 Phase 2:   PLAN REVIEW → 3 parallel reviewers + circuit breaker
     ↓ (plan-review.md) — HALT on BLOCK
 Phase 2.5: PLAN REFINEMENT → Extract CONCERNs, write concern context (conditional)
-    ↓ (concern-context.md) — HALT on all-CONCERN escalation (user choice)
+    ↓ (concern-context.md) — WARN on all-CONCERN (auto-proceed; --confirm to pause)
 Phase 2.7: VERIFICATION GATE → Deterministic plan checks (zero LLM)
     ↓ (verification-report.md)
 Phase 5:   WORK → Swarm implementation + incremental commits
@@ -344,7 +346,14 @@ function prePhaseCleanup(checkpoint) {
     // so the SDK finds the directory and properly clears internal leadership tracking.
     // If dirs are already gone, TeamDelete may not clear state — hence "first" ordering.
     // See team-lifecycle-guard.md "Team Completion Verification" section.
-    try { TeamDelete() } catch (e) { warn(`ARC-6: TeamDelete() cleanup: ${e.message}`) }
+    // Retry-with-backoff (3 attempts: 0s, 3s, 8s)
+    const CLEANUP_DELAYS = [0, 3000, 8000]
+    for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+      if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+      try { TeamDelete(); break } catch (e) {
+        warn(`ARC-6: TeamDelete attempt ${attempt + 1} failed: ${e.message}`)
+      }
+    }
 
     // Strategy 2: Checkpoint-aware filesystem cleanup for ALL prior-phase teams
     // rm -rf targets named teams from checkpoint (may include teams this session
@@ -374,7 +383,7 @@ function prePhaseCleanup(checkpoint) {
       // SEC-002: rm -rf unconditionally — no exists() guard (eliminates TOCTOU window).
       // rm -rf on a nonexistent path is a no-op, so this is safe.
       // ARC-6: teamName validated above — contains only [a-zA-Z0-9_-]
-      Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
 
       // Post-removal verification: detect if cleaning happened or if dir persists
       if (exists(`~/.claude/teams/${teamName}/`)) {
@@ -384,7 +393,14 @@ function prePhaseCleanup(checkpoint) {
 
     // Step C: Retry TeamDelete after cross-phase filesystem cleanup
     // Pre-create guard v2: clearing dirs may have unblocked SDK leadership state
-    try { TeamDelete() } catch (e3) { /* SDK state cleared or was already clear */ }
+    // Retry-with-backoff (3 attempts: 0s, 3s, 8s)
+    const STEP_C_DELAYS = [0, 3000, 8000]
+    for (let attempt = 0; attempt < STEP_C_DELAYS.length; attempt++) {
+      if (attempt > 0) Bash(`sleep ${STEP_C_DELAYS[attempt] / 1000}`)
+      try { TeamDelete(); break } catch (e3) {
+        if (attempt === STEP_C_DELAYS.length - 1) { /* SDK state cleared or was already clear */ }
+      }
+    }
 
   } catch (e) {
     // Top-level guard: defensive infrastructure must NEVER halt the pipeline.
@@ -411,7 +427,7 @@ const sessionNonce = rawNonce
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
   id, schema_version: 5, plan_file: planFile,
-  flags: { approve: approveFlag, no_forge: noForgeFlag, skip_freshness: skipFreshnessFlag },
+  flags: { approve: approveFlag, no_forge: noForgeFlag, skip_freshness: skipFreshnessFlag, confirm: confirmFlag },
   freshness: freshnessResult || null,
   session_nonce: sessionNonce, phase_sequence: 0,
   phases: {
@@ -464,9 +480,9 @@ const activeTeams = Object.values(checkpoint.phases)
   .map(p => p.team_name)
 
 for (const prefix of ARC_TEAM_PREFIXES) {
-  const dirs = Bash(`find ~/.claude/teams -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
+  const dirs = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
   for (const dir of dirs) {
-    // basename() is safe — find output comes from trusted ~/.claude/teams/ directory
+    // basename() is safe — find output comes from trusted teams/ directory
     const teamName = basename(dir)
 
     // SEC-003: Validate team name before any filesystem operations
@@ -481,14 +497,14 @@ for (const prefix of ARC_TEAM_PREFIXES) {
     if (activeTeams.includes(teamName)) continue
     // SEC: Symlink attack prevention — don't follow symlinks
     // SEC-006 FIX: Strict equality prevents matching "symlink" in stderr error messages
-    if (Bash(`test -L ~/.claude/teams/${teamName} && echo symlink`).trim() === "symlink") {
+    if (Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -L "$CHOME/teams/${teamName}" && echo symlink`).trim() === "symlink") {
       warn(`ARC-SECURITY: Skipping ${teamName} — symlink detected`)
       continue
     }
 
     // This team is from a different arc session — orphaned
     warn(`CDX-7: Stale arc team from prior session: ${teamName} — cleaning`)
-    Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
   }
 }
 ```
@@ -547,7 +563,14 @@ On resume, validate checkpoint integrity before proceeding:
    // Clear SDK leadership state before filesystem cleanup
    // Same rationale as prePhaseCleanup — TeamDelete must run while dirs exist
    // See team-lifecycle-guard.md "Team Completion Verification" section.
-   try { TeamDelete() } catch (e) { warn(`ORCH-1: TeamDelete() pre-cleanup: ${e.message}`) }
+   // Retry-with-backoff (3 attempts: 0s, 3s, 8s)
+   const ORCH1_PRE_DELAYS = [0, 3000, 8000]
+   for (let attempt = 0; attempt < ORCH1_PRE_DELAYS.length; attempt++) {
+     if (attempt > 0) Bash(`sleep ${ORCH1_PRE_DELAYS[attempt] / 1000}`)
+     try { TeamDelete(); break } catch (e) {
+       warn(`ORCH-1: TeamDelete pre-cleanup attempt ${attempt + 1} failed: ${e.message}`)
+     }
+   }
 
    for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
      if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue
@@ -566,12 +589,12 @@ On resume, validate checkpoint integrity before proceeding:
 
      if (["completed", "skipped", "cancelled"].includes(phaseInfo.status)) {
        // Defensive: verify team is actually gone — clean if not
-       Bash(`rm -rf ~/.claude/teams/${phaseInfo.team_name}/ ~/.claude/tasks/${phaseInfo.team_name}/ 2>/dev/null`)
+       Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${phaseInfo.team_name}/" "$CHOME/tasks/${phaseInfo.team_name}/" 2>/dev/null`)
        continue
      }
 
      // Phase is "in_progress" or "failed" — team may be orphaned from prior crash
-     Bash(`rm -rf ~/.claude/teams/${phaseInfo.team_name}/ ~/.claude/tasks/${phaseInfo.team_name}/ 2>/dev/null`)
+     Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${phaseInfo.team_name}/" "$CHOME/tasks/${phaseInfo.team_name}/" 2>/dev/null`)
 
      // Clear team_name so phase re-creates a fresh team on retry
      phaseInfo.team_name = null
@@ -602,7 +625,14 @@ On resume, validate checkpoint integrity before proceeding:
 
    // Step C: Retry TeamDelete after checkpoint + stale scan filesystem cleanup
    // Pre-create guard v2: rm-rf of checkpoint teams may have unblocked SDK leadership state
-   try { TeamDelete() } catch (e) { /* SDK state cleared or was already clear */ }
+   // Retry-with-backoff (3 attempts: 0s, 3s, 8s)
+   const ORCH1_POST_DELAYS = [0, 3000, 8000]
+   for (let attempt = 0; attempt < ORCH1_POST_DELAYS.length; attempt++) {
+     if (attempt > 0) Bash(`sleep ${ORCH1_POST_DELAYS[attempt] / 1000}`)
+     try { TeamDelete(); break } catch (e) {
+       if (attempt === ORCH1_POST_DELAYS.length - 1) { /* SDK state cleared or was already clear */ }
+     }
+   }
 
    Write(checkpointPath, checkpoint)  // Save cleaned checkpoint
    ```
@@ -864,7 +894,7 @@ Next steps:
 | Artifact hash mismatch on resume | Demote phase to pending, re-run |
 | Phase timeout | Halt, preserve checkpoint, suggest `--resume` |
 | BLOCK verdict in plan review | Halt, report blocker details |
-| All-CONCERN escalation (3x CONCERN) | AskUserQuestion: proceed, halt, or re-run review |
+| All-CONCERN escalation (3x CONCERN) | Auto-proceed with warning (use `--confirm` to pause) |
 | <50% work tasks complete | Halt, partial commits preserved |
 | >3 FAILED mend findings | Halt, resolution report available |
 | Worker crash mid-phase | Phase team cleanup, checkpoint preserved |

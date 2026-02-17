@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.34.0] - 2026-02-18
+
+### Changed
+- **teamTransition() 5-step inlined protocol**: Retry-with-backoff (0s, 3s, 8s), filesystem fallback, "Already leading" catch-and-recover, post-create verification
+- **Pre-create guards hardened**: All 9 pre-create guards (7 commands + arc-phase-plan-review + verify-mend) use inlined teamTransition pattern
+- **CHOME fix in cleanup phases**: All 6 command cleanup phases + 3 cancel commands now use `CLAUDE_CONFIG_DIR` pattern instead of bare `~/.claude/`
+- **Arc prePhaseCleanup + ORCH-1 hardened**: Retry-with-backoff + CHOME pattern in inter-phase cleanup
+- **Cancel commands hardened**: Retry-with-backoff + CHOME in all 3 cancel commands
+- **Reference doc sync**: team-lifecycle-guard.md canonical protocol + roundtable-circle copy synced
+
 ## [1.33.0] - 2026-02-18
 
 ### Fixed

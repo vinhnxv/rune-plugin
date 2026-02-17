@@ -272,24 +272,52 @@ if (!isArcContext) {
 ## Phase 4: Summon Forge Agents
 
 ```javascript
-// Validate identifier before rm -rf
+// Pre-create guard: teamTransition protocol (see team-lifecycle-guard.md)
 const timestamp = Date.now().toString()
+
+// STEP 1: Validate (defense-in-depth)
 if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge identifier")
-// SEC-003: Redundant path traversal check — defense-in-depth with regex above
 if (timestamp.includes('..')) throw new Error('Path traversal detected in forge identifier')
 
-// Pre-create guard: cleanup stale team if exists (see team-lifecycle-guard.md)
-try { TeamDelete() } catch (e) {
-  // Step A: rm-rf TARGET team dirs
-  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups
-  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-{timestamp}/" "$CHOME/tasks/rune-forge-{timestamp}/" 2>/dev/null`)
-  // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
-  // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
-  Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
-  // Step C: Retry TeamDelete to clear SDK internal leadership state
-  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+// STEP 2: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+const RETRY_DELAYS = [0, 3000, 8000]
+for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
+  if (attempt > 0) {
+    warn(`teamTransition: TeamDelete attempt ${attempt} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
+  }
+  try {
+    TeamDelete()
+    break
+  } catch (e) {
+    if (attempt === RETRY_DELAYS.length - 1) {
+      warn(`teamTransition: TeamDelete failed after ${RETRY_DELAYS.length} attempts. Using filesystem fallback.`)
+    }
+  }
 }
-TeamCreate({ team_name: "rune-forge-{timestamp}" })
+
+// STEP 3: Filesystem fallback + cross-workflow scan
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-${timestamp}/" "$CHOME/tasks/rune-forge-${timestamp}/" 2>/dev/null`)
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+
+// STEP 4: TeamCreate with "Already leading" catch-and-recover
+// Match: "Already leading" — centralized string match for SDK error detection
+try {
+  TeamCreate({ team_name: "rune-forge-{timestamp}" })
+} catch (createError) {
+  if (createError.message?.includes('Already leading')) {
+    warn(`teamTransition: Leadership state leak detected. Attempting final cleanup.`)
+    try { TeamDelete() } catch (e) { /* exhausted */ }
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-${timestamp}/" "$CHOME/tasks/rune-forge-${timestamp}/" 2>/dev/null`)
+    TeamCreate({ team_name: "rune-forge-{timestamp}" })
+  } else {
+    throw createError
+  }
+}
+
+// STEP 5: Post-create verification
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/rune-forge-${timestamp}/config.json" || echo "WARN: config.json not found after TeamCreate"`)
 
 // Concurrent session check (matches review.md/audit.md pattern)
 const existingForge = Glob("tmp/.rune-forge-*.json")
@@ -584,7 +612,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge identifi
 
 // 4. Cleanup team with fallback (see team-lifecycle-guard.md)
 try { TeamDelete() } catch (e) {
-  Bash("rm -rf ~/.claude/teams/rune-forge-{timestamp}/ ~/.claude/tasks/rune-forge-{timestamp}/ 2>/dev/null")
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-${timestamp}/" "$CHOME/tasks/rune-forge-${timestamp}/" 2>/dev/null`)
 }
 
 // Update state file to completed (matches work.md/review.md/audit.md pattern)
