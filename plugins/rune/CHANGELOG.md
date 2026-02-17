@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.32.0] - 2026-02-18
+
+### Added
+- **Mend file ownership enforcement** — three-layer defense preventing concurrent file edits by mend fixers
+  - Layer 1: Path normalization in parse-tome.md (`normalizeFindingPath()`) — prevents `./src/foo.ts` and `src/foo.ts` creating duplicate groups
+  - Layer 2: `blockedBy` serialization via cross-group dependency detection (`extractCrossFileRefs()`) — dependent groups execute sequentially
+  - Layer 3: PreToolUse hook (`scripts/validate-mend-fixer-paths.sh`) — hard enforcement blocking Write/Edit/NotebookEdit to files outside assigned group
+- `file_targets` and `finding_ids` metadata in mend TaskCreate — parity with work.md ownership tracking
+- Sequential batching for 6+ file groups (max 5 concurrent fixers per batch)
+- `validate-mend-fixer-paths.sh` registered in `hooks/hooks.json` as PreToolUse hook
+- Phase 1.5 cross-group dependency detection in mend.md with sanitized regex extraction
+
+### Changed
+- `mend-fixer.md` security note updated to reference active hook enforcement (was "Recommended")
+- `parse-tome.md` now includes "Path Normalization" section before "Group by File"
+- `mend.md` Phase 3 wraps fixer summoning in batch loop with per-batch monitoring
+- `mend.md` Phase 4 clarified as single-batch only (multi-batch monitoring is inline in Phase 3)
+
+### Security
+- SEC-MEND-001: Mend fixer file scope enforcement via PreToolUse hook (fail-open design, jq-based JSON deny)
+- Inscription-based ownership validation prevents fixers from editing files outside their assigned group
+- Cross-file dependency sanitization: HTML comment stripping, code fence removal, 1KB input cap
+
 ## [1.29.2] - 2026-02-17
 
 ### Fixed

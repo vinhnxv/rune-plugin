@@ -53,6 +53,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 |------|--------|---------|
 | `PreToolUse:Write\|Edit\|Bash\|NotebookEdit` | `scripts/enforce-readonly.sh` | SEC-001: Blocks write tools for review/audit Ashes when `.readonly-active` marker exists. |
 | `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
+| `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
 | `TaskCompleted` | `scripts/on-task-completed.sh` + haiku quality gate | Writes signal files to `tmp/.rune-signals/{team}/` when Ashes complete tasks. Enables 5-second filesystem-based completion detection. Also runs a haiku-model quality gate that validates task completion legitimacy (blocks premature/generic completions). |
 | `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
 

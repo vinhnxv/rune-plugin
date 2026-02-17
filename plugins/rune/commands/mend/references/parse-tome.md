@@ -46,6 +46,35 @@ Apply Dedup Hierarchy: `SEC > BACK > DOC > QUAL > FRONT > CDX`
 
 If the same file+line has findings from multiple categories, keep only the highest-priority one. Log deduplicated findings for transparency.
 
+## Path Normalization
+
+Before grouping findings by file, normalize all file paths to prevent duplicate groups for the same file (e.g., `./src/foo.ts` vs `src/foo.ts`):
+
+```javascript
+// Security pattern: SAFE_FILE_PATH — see security-patterns.md
+const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
+
+function normalizeFindingPath(path) {
+  let normalized = path.replace(/^\.\//, '')           // Strip leading ./
+  if (normalized.includes('..') || normalized.startsWith('/') || !SAFE_FILE_PATH.test(normalized)) {
+    warn(`Unsafe path in finding: ${path} — skipping`)
+    return null
+  }
+  normalized = normalized.replace(/\/+/g, '/')         // Collapse multiple slashes
+  if (normalized.endsWith('/') && normalized.length > 1) {
+    normalized = normalized.slice(0, -1)               // Strip trailing slash
+  }
+  return normalized
+}
+
+// Apply normalization to all extracted findings before grouping
+for (const finding of findings) {
+  const normalized = normalizeFindingPath(finding.file)
+  if (!normalized) { finding.skipped = true; continue }
+  finding.file = normalized
+}
+```
+
 ## Group by File
 
 Group findings by target file to prevent concurrent edits:
