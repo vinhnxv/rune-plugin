@@ -115,11 +115,12 @@ When {review_mode} is "review":
    # SEC-003: {default_branch} validated by orchestrator against /^[a-zA-Z0-9._\/-]+$/
    # SEC-003: {diff_context} validated as integer: [[ "${diff_context}" =~ ^[0-9]+$ ]] || diff_context=5
    # SEC-003: {identifier} validated by orchestrator against /^[a-zA-Z0-9_-]+$/
-   git diff -M90% --diff-filter=ACMR {default_branch}...HEAD -U{diff_context} -- "file1.py" "file2.py" > "tmp/reviews/{identifier}/codex-diff-batch-N.patch"
+   git diff -M90% --diff-filter=ACMRD {default_branch}...HEAD -U{diff_context} -- "file1.py" "file2.py" > "tmp/reviews/{identifier}/codex-diff-batch-N.patch"
    ```
    - `-U{diff_context}`: configurable context lines (default 5, from talisman.codex.review_diff.context_lines)
    - `-M90%`: rename detection to avoid duplicate content from rename + add
-   - `--diff-filter=ACMR`: added, copied, modified, renamed files only
+   - `--diff-filter=ACMRD`: added, copied, modified, renamed, **and deleted** files
+   - CDX-001: `D` (deleted) included so security-relevant file removals are visible to review
    - Write to temp file (SEC-003: avoid embedding raw diff in shell string)
    - Truncate to max_diff_size per batch (default 15000 chars, from talisman.codex.review_diff.max_diff_size)
 
@@ -127,7 +128,10 @@ When {review_mode} is "review":
    ```bash
    # New files have no diff base — generate proper unified diff format
    # SEC-005: Always quote file paths to prevent shell metacharacter injection
-   git diff --no-index /dev/null "$file" >> "tmp/reviews/{identifier}/codex-diff-batch-N.patch" 2>/dev/null || true
+   git diff --no-index /dev/null "$file" >> "tmp/reviews/{identifier}/codex-diff-batch-N.patch" 2>/dev/null
+   diff_status=$?
+   # CDX-002: Only tolerate exit 1 (expected: files differ). Real errors (2+) are logged.
+   if [ "$diff_status" -gt 1 ]; then echo "WARN: diff failed for $file (exit $diff_status)" >&2; fi
    ```
 
 3. Verify diff is non-empty. If empty for a batch (files unchanged or mode-only changes), skip that batch.

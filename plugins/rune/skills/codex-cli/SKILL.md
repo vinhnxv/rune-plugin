@@ -192,13 +192,16 @@ For `/rune:review`, pass diff content instead of file lists:
 
 ```bash
 # 1. Extract diff for batch (with rename detection)
-git diff -M90% --diff-filter=ACMR "${DEFAULT_BRANCH}...HEAD" -U"${DIFF_CONTEXT:-5}" \
+git diff -M90% --diff-filter=ACMRD "${DEFAULT_BRANCH}...HEAD" -U"${DIFF_CONTEXT:-5}" \
   -- file1.py file2.py \
   > "tmp/reviews/${ID}/codex-diff-batch-${N}.patch"
 
 # 1b. For new files (no diff base), generate unified diff format
 git diff --no-index /dev/null "$file" \
-  >> "tmp/reviews/${ID}/codex-diff-batch-${N}.patch" 2>/dev/null || true
+  >> "tmp/reviews/${ID}/codex-diff-batch-${N}.patch" 2>/dev/null
+diff_status=$?
+# CDX-002: Only tolerate exit 1 (expected: files differ). Real errors (2+) are logged.
+if [ "$diff_status" -gt 1 ]; then echo "WARN: diff failed for $file (exit $diff_status)" >&2; fi
 
 # 2. Truncate to budget (SEC-008: line-based to avoid splitting multi-byte chars)
 awk -v max="${MAX_DIFF_SIZE:-15000}" '{
