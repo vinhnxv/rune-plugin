@@ -88,16 +88,19 @@ if [[ ! -f "$INSCRIPTION_PATH" ]]; then
   exit 0
 fi
 
-# Extract all file_group entries from inscription to build the allowed file set
-# Each fixer has a file_group array; we collect all of them since we can't
-# reliably identify which specific fixer is calling (transcript_path doesn't
-# contain fixer name reliably). The key defense is: files NOT in ANY fixer's
-# group are blocked. Files in another fixer's group are allowed here but
-# contention is prevented by blockedBy serialization (Phase 1.5).
+# Extract all file_group entries from inscription to build the allowed file set.
+# DESIGN LIMITATION (SEC-001): We collect ALL fixers' file groups into one flat
+# allowlist because transcript_path format is undocumented and may not contain
+# the fixer name reliably. This means fixer-A can write to fixer-B's files.
+# Compensating controls: (1) blockedBy serialization prevents temporal overlap
+# for dependent groups (Phase 1.5), (2) prompt instructions restrict each fixer
+# to its assigned files, (3) ward check in Phase 5 catches any regressions.
+# The key guarantee: files NOT in ANY fixer's group are blocked.
 ALLOWED_FILES=$(jq -r '.fixers[].file_group[]' "$INSCRIPTION_PATH" 2>/dev/null || true)
 
 if [[ -z "$ALLOWED_FILES" ]]; then
-  # Empty file group list — fail open (allow)
+  # Empty file group list — fail open (allow) but warn if inscription exists
+  echo "WARNING: inscription.json exists but yielded no allowed files — file ownership enforcement disabled for this call" >&2
   exit 0
 fi
 

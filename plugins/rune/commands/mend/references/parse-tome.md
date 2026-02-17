@@ -55,6 +55,11 @@ Before grouping findings by file, normalize all file paths to prevent duplicate 
 const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
 
 function normalizeFindingPath(path) {
+  if (!path || typeof path !== 'string') return null   // Null/undefined guard
+  if (path.length > 500) {                             // Length cap (matches sanitization cap)
+    warn(`Path exceeds 500-char cap: ${path.slice(0, 50)}...`)
+    return null
+  }
   let normalized = path.replace(/^\.\//, '')           // Strip leading ./
   if (normalized.includes('..') || normalized.startsWith('/') || !SAFE_FILE_PATH.test(normalized)) {
     warn(`Unsafe path in finding: ${path} — skipping`)

@@ -117,6 +117,15 @@ fixer_count = min(file_groups.length, 5)
 | 2-5 | file_groups.length |
 | 6+ | 5 (sequential batches for remaining groups) |
 
+**Zero-fixer guard**: If all findings were deduplicated, skipped, or marked FALSE_POSITIVE during Phase 0-1, `fixer_count` is 0. Skip directly to Phase 6 (Resolution Report) with a "no actionable findings" summary:
+
+```javascript
+if (fixer_count === 0) {
+  log("No actionable findings after dedup/skip — skipping to Resolution Report")
+  // Jump to Phase 6 with empty resolution entries
+}
+```
+
 ### Phase 1.5: Cross-Group Dependency Detection
 
 Detect cross-file references in finding guidance and serialize dependent groups via `blockedBy`. Pattern adapted from `work.md` ownership conflict detection.
@@ -135,11 +144,18 @@ function extractCrossFileRefs(fixGuidance, evidence) {
     .replace(/```[\s\S]*?```/g, '')      // Strip code blocks
     .slice(0, 1000)                       // Cap at 1KB
 
-  // Pattern: file mentions with common prepositions
+  // Pattern 1: file mentions with common prepositions
   const filePattern = /(?:in|to|at|after|before|from|see)\s+([a-zA-Z0-9._\-\/]+\.(ts|js|py|md|json|sh|yml|yaml))/gi
   let match
   while ((match = filePattern.exec(safeText)) !== null) {
-    const normalized = normalizeFindingPath(match[1])  // from parse-tome.md
+    const normalized = normalizeFindingPath(match[1])
+    if (normalized) refs.add(normalized)
+  }
+
+  // Pattern 2: backtick-quoted paths (common in markdown fix guidance)
+  const backtickPattern = /`([a-zA-Z0-9._\-\/]+\.(ts|js|py|md|json|sh|yml|yaml))`/gi
+  while ((match = backtickPattern.exec(safeText)) !== null) {
+    const normalized = normalizeFindingPath(match[1])
     if (normalized) refs.add(normalized)
   }
 
@@ -158,7 +174,9 @@ function extractCrossFileRefs(fixGuidance, evidence) {
 // Build dependency graph between file groups
 const fileGroupDeps = {}  // { fileA: Set([fileB, fileC]) }
 
-// Security cap: skip O(n²) dependency check if >50 file groups
+// Security cap: 50 groups (lower than work.md's 200) because mend cross-ref extraction
+// uses regex parsing per finding pair — more expensive than work.md's directory containment check.
+// Typical TOME size is <30 files, so 50 provides ample headroom.
 if (Object.keys(fileGroups).length > 50) {
   warn(`Cross-group dependency check skipped: ${Object.keys(fileGroups).length} groups exceeds cap of 50`)
 } else {
@@ -240,7 +258,6 @@ for (const [file, findings] of Object.entries(fileGroups)) {
   const taskId = TaskCreate({
     subject: `Fix findings in ${file}`,
     description: `
-      File group: ${file}
       File Ownership: ${file}
       Findings:
       ${findings.map(f => `- ${f.id}: ${f.title} (${f.severity})
@@ -350,10 +367,11 @@ for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
 
   // Per-batch monitoring: wait for this batch to complete before starting the next
   if (totalBatches > 1) {
+    const perBatchTimeout = Math.floor(innerPollingTimeout / totalBatches)
     const batchResult = waitForCompletion(teamName, batch.length, {
-      timeoutMs: Math.floor(innerPollingTimeout / totalBatches),
-      staleWarnMs: 300_000,
-      autoReleaseMs: 600_000,
+      timeoutMs: perBatchTimeout,
+      staleWarnMs: Math.min(300_000, Math.floor(perBatchTimeout * 0.6)),
+      autoReleaseMs: Math.min(600_000, Math.floor(perBatchTimeout * 0.9)),
       pollIntervalMs: 30_000,
       label: `Mend batch ${batchIdx + 1}/${totalBatches}`
     })
@@ -536,7 +554,7 @@ if (crossFileFixed.length === 0) {
     const result = Bash(ward.command)
     if (result.exitCode !== 0) {
       warn(`Phase 5.6: ward "${ward.name}" failed after cross-file fixes`)
-      for (const edit of crossFileEditLog.reverse()) {
+      for (const edit of [...crossFileEditLog].reverse()) {
         try { Edit(edit.file, { old_string: edit.new_string, new_string: edit.old_string }) } catch (e) {
           warn(`Phase 5.6: rollback failed for ${edit.file}: ${e.message}`)
         }
