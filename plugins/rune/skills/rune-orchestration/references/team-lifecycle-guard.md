@@ -160,6 +160,44 @@ try { TeamDelete() } catch (e) {
 
 **When to use**: In ALL cleanup phases — both normal completion and cancellation — where the teammate list may not be statically known. This replaces iterating over a hardcoded array of teammate names.
 
+## Team Completion Verification (Anti-Zombie Contract)
+
+Every team lifecycle MUST end with this 4-step sequence. Skipping any step risks zombie state.
+
+### Step 1: Dynamic Member Discovery
+Read `~/.claude/teams/{team_name}/config.json` to get ALL members.
+Do NOT rely on static lists — they miss dynamically-added teammates.
+
+### Step 2: Shutdown All Members
+```javascript
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
+}
+// Wait max 30s for shutdown_approved responses.
+```
+
+### Step 3: TeamDelete (SDK state + filesystem)
+```javascript
+try { TeamDelete() } catch (e) {
+  // Fallback: rm -rf (filesystem only — SDK state already cleared by TeamDelete attempt)
+  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+}
+```
+
+### Step 4: Verify No Zombie State
+```javascript
+// Check that team directory is actually gone
+if (exists(`~/.claude/teams/${teamName}/`)) {
+  warn(`Zombie team detected: ${teamName} — directory persists after cleanup`)
+  Bash(`rm -rf ~/.claude/teams/${teamName}/ ~/.claude/tasks/${teamName}/ 2>/dev/null`)
+}
+```
+
+### Critical ordering rules
+1. `TeamDelete()` MUST run BEFORE `rm -rf` (SDK needs dirs to clear leadership)
+2. `rm -rf` is the FALLBACK, never the primary cleanup path
+3. In `prePhaseCleanup` (multi-team), `TeamDelete` runs ONCE first (own team), then `rm -rf` loop runs for all checkpoint teams (including foreign teams)
+
 ### Existing Implementations
 
 The cancel commands already use this dynamic discovery pattern:
@@ -294,6 +332,11 @@ Contract:
 ```
 
 ```javascript
+// WARNING: safeTeamCleanup uses rm-rf only — it does NOT clear SDK session state.
+// If the current session is leading the target team, call TeamDelete() FIRST,
+// then use safeTeamCleanup for any remaining filesystem cleanup.
+// See "Team Completion Verification" section for the correct sequence.
+
 // Pseudocode
 function safeTeamCleanup(teamName) {
   if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) throw new Error(`Invalid teamName: ${teamName}`)
