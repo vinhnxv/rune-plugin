@@ -330,6 +330,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | ash-guide | Agent invocation reference |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
+| arc | End-to-end orchestration pipeline (forge → plan review → work → code review → mend → audit) |
 
 ## Configuration
 

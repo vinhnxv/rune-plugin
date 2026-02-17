@@ -11,7 +11,7 @@ Appends a persistent completion record to the plan file after arc finishes. Upda
 **Preconditions**: Arc pipeline has finished (all phases completed, skipped, or failed). Plan file exists on disk.
 **Error handling**: Plan file not found → warn + skip. Write fails → warn + skip (read-only file or permission error). No completed phases → skip stamp.
 
-**Consumers**: arc.md (post-completion stub)
+**Consumers**: SKILL.md (post-completion stub)
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 

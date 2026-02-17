@@ -119,7 +119,7 @@ updateCheckpoint({
 
 Delegated to `/rune:mend` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
 
-Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See arc.md Inter-Phase Cleanup Guard section.
+Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See SKILL.md Inter-Phase Cleanup Guard section.
 
 **Output**: `tmp/arc/{id}/resolution-report.md`
 
