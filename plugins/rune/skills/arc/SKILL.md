@@ -190,7 +190,7 @@ if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
     exit 1
   fi
 
-  git checkout -b -- "$branch_name"
+  git checkout -b "$branch_name"
 fi
 ```
 
@@ -312,11 +312,16 @@ function prePhaseCleanup(checkpoint) {
       return
     }
 
-    // Strategy 1: Checkpoint-aware cleanup via direct filesystem removal
-    // IMPORTANT: Do NOT use TeamDelete() here. TeamDelete() targets the CALLER'S
-    // active team, not a named target. For stale teams from prior phases (which the
-    // orchestrator may not be leading), only rm -rf works.
-    // See team-lifecycle-guard.md "Cleanup Fallback" section.
+    // Strategy 1: Clear SDK session leadership state FIRST (while dirs still exist)
+    // TeamDelete() targets the CURRENT SESSION's active team. Must run BEFORE rm -rf
+    // so the SDK finds the directory and properly clears internal leadership tracking.
+    // If dirs are already gone, TeamDelete may not clear state — hence "first" ordering.
+    // See team-lifecycle-guard.md "Team Completion Verification" section.
+    try { TeamDelete() } catch (e) { warn(`ARC-6: TeamDelete() cleanup: ${e.message}`) }
+
+    // Strategy 2: Checkpoint-aware filesystem cleanup for ALL prior-phase teams
+    // rm -rf targets named teams from checkpoint (may include teams this session
+    // never led). TeamDelete can't target foreign teams — only rm -rf works here.
     for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
       if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue
       if (!phaseInfo || typeof phaseInfo !== 'object') continue
@@ -349,12 +354,6 @@ function prePhaseCleanup(checkpoint) {
         warn(`ARC-6: rm -rf failed for ${teamName} — directory still exists`)
       }
     }
-
-    // Strategy 2: Bare TeamDelete (complements Strategy 1)
-    // Strategy 1 cleans prior-phase teams tracked in checkpoint via rm -rf.
-    // Strategy 2 cleans the CURRENT SESSION's active team (if any) via TeamDelete().
-    // These target different things — Strategy 1 uses filesystem paths, Strategy 2 uses session state.
-    try { TeamDelete() } catch (e) { warn(`ARC-6: TeamDelete() cleanup: ${e.message}`) }
 
   } catch (e) {
     // Top-level guard: defensive infrastructure must NEVER halt the pipeline.
@@ -471,6 +470,11 @@ On resume, validate checkpoint integrity before proceeding:
 
    ```javascript
    const ORPHAN_STALE_THRESHOLD = 1_800_000  // 30 min — crash recovery staleness
+
+   // Clear SDK leadership state before filesystem cleanup
+   // Same rationale as prePhaseCleanup — TeamDelete must run while dirs exist
+   // See team-lifecycle-guard.md "Team Completion Verification" section.
+   try { TeamDelete() } catch (e) { warn(`ORCH-1: TeamDelete() pre-cleanup: ${e.message}`) }
 
    for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
      if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue

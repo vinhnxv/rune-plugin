@@ -323,6 +323,15 @@ codex:
   work_advisory:
     enabled: true                    # Set false to skip advisory in work pipeline
     max_diff_size: 15000             # Truncate diff to this many chars (default: 15000)
+  # Diff-focused review settings (for /rune:review — v1.31.0+)
+  # When enabled, Codex Oracle reviews unified diffs instead of whole files.
+  # This reduces irrelevant findings on unchanged code and improves token efficiency.
+  # Only applies to /rune:review — /rune:audit always uses file-focused review.
+  review_diff:
+    enabled: true                      # Use diff instead of whole files (default: true)
+    max_diff_size: 15000               # Max diff chars per codex exec batch (default: 15000)
+    context_lines: 5                   # Lines of context around each change (default: 5)
+    include_new_files_full: true       # Include full content for new/untracked files (default: true)
   # Cross-model verification settings (Phase 5.5 — hallucination guard)
   verification:
     enabled: true                    # Cross-model verification (recommended: true)

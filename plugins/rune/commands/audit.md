@@ -266,7 +266,11 @@ Task({
   name: "{ash-name}",
   subagent_type: "general-purpose",
   prompt: /* Load from roundtable-circle/references/ash-prompts/{role}.md
-             Substitute: {changed_files} with audit file list, {output_path}, {task_id}, {branch}, {timestamp} */,
+             Substitute: {changed_files} with audit file list, {output_path}, {task_id}, {branch}, {timestamp}
+             // Codex Oracle additionally requires: {context_budget}, {codex_model}, {codex_reasoning},
+             // {review_mode}, {default_branch}, {identifier}, {skip_git_check_flag},
+             // {diff_context} (review-mode only), {max_diff_size} (review-mode only)
+             // review_mode is always "audit" for /rune:audit (Codex Oracle uses file-focused strategy) */,
   run_in_background: true
 })
 
