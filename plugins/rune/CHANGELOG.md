@@ -13,7 +13,7 @@
   - Step A: `rm -rf` target team dirs (same as before)
   - Step B: Cross-workflow `find` scan for ANY stale `rune-*`/`arc-*` dirs (new)
   - Step C: Retry `TeamDelete()` to clear SDK internal state (new)
-- All pre-create guard `Bash()` commands now resolve `CLAUDE_CONFIG_DIR` via `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"` — supports multi-account setups (e.g., `~/.claude-true-dev`)
+- All pre-create guard `Bash()` commands now resolve `CLAUDE_CONFIG_DIR` via `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"` — supports multi-account setups (e.g., `~/.claude-work`)
 - `prePhaseCleanup()` in arc SKILL.md: added retry `TeamDelete()` after rm-rf loop
 - ORCH-1 resume cleanup: added retry `TeamDelete()` after checkpoint + stale scan cleanup
 - Updated critical ordering rules in team-lifecycle-guard.md (both copies)

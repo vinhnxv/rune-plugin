@@ -211,7 +211,7 @@ if (identifier.includes('..')) throw new Error('Path traversal detected in revie
 try { TeamDelete() } catch (e) {
   // Step A: rm-rf TARGET team dirs
   // SEC-003: identifier validated above — contains only [a-zA-Z0-9_-]
-  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups (e.g., ~/.claude-true-dev)
+  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups (e.g., ~/.claude-work)
   Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-review-{identifier}/" "$CHOME/tasks/rune-review-{identifier}/" 2>/dev/null`)
   // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
   // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow

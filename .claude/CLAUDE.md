@@ -422,6 +422,21 @@ These skills live in `.claude/skills/` and take priority over plugin-level skill
 - `/create-agent-skills` — comprehensive reference with 13 reference docs, 2 templates, 10 workflows. Use for auditing existing skills, understanding best practices, or building complex router-style skills.
 - `/skill-creator` — lightweight guide with init/validate/package scripts. Use for quick skill scaffolding and packaging.
 
+## CLAUDE_CONFIG_DIR — Multi-Account Support
+
+Users may set `CLAUDE_CONFIG_DIR` to a custom path (e.g., `~/.claude-work`, `~/.claude-personal`). **Never hardcode `~/.claude/`** in `Bash()` commands that reference teams/tasks directories.
+
+**Pattern for all shell commands:**
+```bash
+CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+rm -rf "$CHOME/teams/..." "$CHOME/tasks/..." 2>/dev/null
+find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null
+```
+
+- `TeamCreate`/`TeamDelete`/`Read` of config.json — the SDK resolves the config dir automatically
+- `Bash()` with `rm -rf` or `find` — must resolve via `CHOME` (shell commands run literally)
+- See `team-lifecycle-guard.md` for the canonical pre-create guard pattern
+
 ## Project Rules
 
 - Don't commit plan files (`./plans/*.md`)

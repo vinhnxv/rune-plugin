@@ -29,7 +29,7 @@ if (identifier.includes('..')) throw new Error('Path traversal detected')
 // This is an accepted trade-off — blocking on zombie teammates prevents new sessions.
 try { TeamDelete() } catch (e) {
   // Step A: rm-rf TARGET team dirs (handles orphaned state for THIS team)
-  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups (e.g., ~/.claude-true-dev)
+  // CHOME resolves CLAUDE_CONFIG_DIR for multi-account setups (e.g., ~/.claude-work)
   Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamPrefix}-${identifier}/" "$CHOME/tasks/${teamPrefix}-${identifier}/" 2>/dev/null`)
   // Step B: Cross-workflow scan — clean ANY stale rune/arc team dirs
   // Fixes "Already leading team X" when blocker is a DIFFERENT team from prior crashed workflow
