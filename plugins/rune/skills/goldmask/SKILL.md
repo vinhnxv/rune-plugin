@@ -1,0 +1,324 @@
+---
+name: goldmask
+description: |
+  Cross-layer impact analysis with Wisdom Layer (WHY understanding) and Lore Layer (risk intelligence).
+  Goldmask traces WHAT must change, WHY it was built that way, and HOW RISKY the area is.
+  Three layers: Impact (5 Haiku tracers), Wisdom (1 Sonnet sage), Lore (1 Haiku analyst).
+  Use when analyzing code changes, planning modifications, or assessing blast radius.
+
+  <example>
+  Context: Running standalone impact analysis
+  user: "/rune:goldmask HEAD~3..HEAD"
+  assistant: "Loading goldmask for cross-layer impact analysis"
+  </example>
+
+  <example>
+  Context: Checking blast radius before a refactor
+  user: "/rune:goldmask src/auth/ src/payment/"
+  assistant: "Loading goldmask for impact + wisdom + lore analysis on specified files"
+  </example>
+user-invocable: true
+argument-hint: "[diff-spec or file list]"
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+  - Task
+  - TeamCreate
+  - TeamDelete
+  - TaskCreate
+  - TaskList
+  - TaskGet
+  - TaskUpdate
+  - SendMessage
+---
+
+# Goldmask Skill — Cross-Layer Impact Analysis
+
+Three-layer investigation that answers: **WHAT** must change (Impact), **WHY** it was built that way (Wisdom), and **HOW RISKY** the area is (Lore). Includes Collateral Damage Detection (CDD) to predict blast radius.
+
+## ATE-1 ENFORCEMENT
+
+**CRITICAL**: Every `Task` call in this skill MUST include `team_name`. Bare `Task` calls without `team_name` cause context explosion and are blocked by the `enforce-teams.sh` hook.
+
+## Architecture — Goldmask's Three Eyes
+
+```
+                    +---------------------------------------+
+                    |       GOLDMASK COORDINATOR            |
+                    |       (Sonnet)                        |
+                    |                                       |
+                    |  Synthesize all three layers:          |
+                    |  1. WHAT must change (Impact)          |
+                    |  2. WHY it was built (Wisdom)          |
+                    |  3. HOW RISKY is this area (Lore)      |
+                    |                                       |
+                    |  Produce: GOLDMASK.md + findings.json  |
+                    +-------------------+-------------------+
+                                        | reads all layer outputs
+            +--------------------------++--------------------------+
+            |                           |                           |
+    +-------v--------+   +-------------v---------+   +-------------v------+
+    |  IMPACT LAYER   |   |   WISDOM LAYER         |   |  LORE LAYER        |
+    |  5 Tracers      |   |   1 Sage (Sonnet)       |   |  1 Analyst (Haiku) |
+    |  (Haiku each)   |   |   - git blame            |   |  - git log          |
+    |  - grep/glob    |   |   - commit context       |   |  - risk scoring     |
+    |  - dependency   |   |   - intent classify      |   |  - co-change graph  |
+    |    tracing      |   |   - caution scoring      |   |  - hotspot detect   |
+    +----------------+   +------------------------+   +-------------------+
+```
+
+## Modes
+
+| Mode | Trigger | Agents | Output |
+|------|---------|--------|--------|
+| **Full investigation** | `/rune:goldmask <diff-spec>` | 8 (5+1+1+1) | GOLDMASK.md + findings.json + risk-map.json |
+| **Quick check** | `/rune:goldmask --quick <files>` | 0 (deterministic) | Warnings only — compares predicted vs actual |
+| **Intelligence** | `/rune:goldmask --lore <diff-spec>` | 1 (Lore only) | risk-map.json for file sorting |
+
+## Phase Sequencing
+
+```
+Phase 1: LORE ANALYSIS (parallel with Phase 2)
+    |  Lore Analyst --> risk-map.json
+    |  (Haiku, ~15-30s)
+    |
+Phase 2: IMPACT TRACING (parallel with Phase 1, 5 tracers)
+    |  Data, API, Business, Event, Config Tracers --> 5 reports
+    |  (Haiku x 5, ~30-60s)
+    |
+    +-- Lore + Impact complete --> Phase 3 starts
+    |
+Phase 3: WISDOM INVESTIGATION (sequential — needs Impact output)
+    |  Wisdom Sage receives:
+    |    - All MUST-CHANGE + SHOULD-CHECK findings from Impact
+    |    - risk-map.json from Lore (for risk tier context)
+    |  Wisdom Sage --> intent classifications + caution scores
+    |  (Sonnet, ~60-120s)
+    |
+Phase 4: COORDINATION + CDD
+    |  Goldmask Coordinator merges all three layers
+    |  --> GOLDMASK.md + findings.json
+    |  (Sonnet, ~60-90s)
+    |
+Total estimated time: 3-5 minutes
+Total agents: 8 (5 Haiku + 1 Haiku + 1 Sonnet + 1 Sonnet)
+```
+
+## Orchestration Protocol
+
+### 0. Parse Input
+
+```
+$ARGUMENTS = diff-spec (e.g., HEAD~3..HEAD) or file list (e.g., src/auth/ src/payment/)
+
+If --quick flag: skip to Quick Check mode (no agents).
+If --lore flag: skip to Intelligence mode (Lore only).
+Otherwise: Full investigation.
+```
+
+Validate input:
+```
+if (!/^[a-zA-Z0-9._\/ ~^:-]+$/.test($ARGUMENTS))
+  → reject with "Invalid input characters"
+```
+
+### 1. Resolve Changed Files
+
+```bash
+# For diff-spec:
+git diff --name-only {diff-spec}
+
+# For file list:
+# Use provided paths directly
+```
+
+If no changed files found, report "No changes detected" and exit.
+
+### 2. Generate Session ID + Output Directory
+
+```
+session_id = "goldmask-" + Date.now()
+output_dir = "tmp/goldmask/{session_id}/"
+
+# If invoked from arc:
+output_dir = "tmp/arc/{arc_id}/goldmask/"
+```
+
+Create output directory and write `inscription.json`:
+```json
+{
+  "session_id": "{session_id}",
+  "output_dir": "{output_dir}",
+  "changed_files": ["..."],
+  "mode": "full|quick|intelligence",
+  "layers": {
+    "impact": { "expected_files": ["data-layer.md", "api-contract.md", "business-logic.md", "event-message.md", "config-dependency.md"] },
+    "wisdom": { "expected_files": ["wisdom-report.md"] },
+    "lore":   { "expected_files": ["risk-map.json"] }
+  }
+}
+```
+
+### 3. Pre-Create Guard + Team Lifecycle
+
+Follow the 3-step pre-create guard from `team-lifecycle-guard.md`:
+
+```
+Step 0: Try TeamDelete("{session_id}") — may succeed if leftover
+Step A: rm -rf target team/task dirs (use CHOME pattern)
+Step B: Cross-workflow find scan for stale goldmask-* dirs
+Step C: Retry TeamDelete if Step A found dirs
+```
+
+Then:
+```
+TeamCreate("{session_id}")
+```
+
+### 4. Create Tasks + Spawn Agents
+
+Create 8 tasks (one per agent), then spawn via `Task` with `team_name`:
+
+**Phase 1+2 (parallel — Lore + 5 Impact tracers):**
+
+```
+TaskCreate("Lore analysis — compute risk-map.json from git history")
+TaskCreate("Data layer tracing — schema, ORM, migrations")
+TaskCreate("API contract tracing — endpoints, request/response shapes")
+TaskCreate("Business logic tracing — services, domain rules, validators")
+TaskCreate("Event/message tracing — event schemas, pub/sub, DLQ")
+TaskCreate("Config/dependency tracing — env vars, config reads, CI/CD")
+```
+
+Spawn all 6 in parallel using `Task` with:
+- `team_name: "{session_id}"`
+- `subagent_type: "general-purpose"`
+- Agent identity via prompt (not agent file reference)
+- Include changed files list and output path in prompt
+- Include reference to `investigation-protocol.md` for tracers
+- Include reference to `lore-protocol.md` for Lore Analyst
+
+**Phase 3 (sequential — after Impact + Lore complete):**
+
+```
+TaskCreate("Wisdom investigation — intent classification + caution scoring")
+```
+
+Spawn Wisdom Sage after all Phase 1+2 tasks complete:
+- Include all MUST-CHANGE and SHOULD-CHECK findings from Impact reports
+- Include risk-map.json from Lore
+- Include reference to `wisdom-protocol.md`
+
+**Phase 4 (sequential — after Wisdom complete):**
+
+```
+TaskCreate("Coordinator synthesis — merge all layers into GOLDMASK.md")
+```
+
+Spawn Coordinator after Wisdom completes:
+- Include all layer outputs
+- Include reference to `output-format.md` and `confidence-scoring.md`
+
+### 5. Monitor with Polling
+
+Use correct polling pattern (POLL-001 compliant):
+
+```
+pollIntervalMs = 30000
+timeoutMs = 300000  # 5 minutes
+maxIterations = ceil(timeoutMs / pollIntervalMs)  # 10
+
+for i in 1..maxIterations:
+    TaskList()  # MUST call on every cycle
+    count completed tasks
+    if all_completed: break
+    if stale (no progress for 3 cycles): warn
+    Bash("sleep 30")
+```
+
+### 6. Graceful Degradation
+
+Each layer is independently valuable:
+- **Impact alone** = Goldmask v1 (answers "what must change")
+- **Lore alone** = risk sorting (answers "how risky is this area")
+- **Wisdom alone** = intent context (answers "why was it built this way")
+- **Any combination** = better than any single layer
+
+If a layer fails:
+- Impact 1-2 tracers fail: Coordinator uses available data (PARTIAL)
+- Impact 3+ tracers fail: Mark Impact as FAILED, Wisdom + Lore still run
+- Wisdom timeout (>120s): Skip wisdom annotations, produce Impact + Lore report
+- Lore timeout (>60s): Emit partial risk-map, non-blocking
+- Lore non-git: Skip entirely, use static fallback
+
+### 7. Cleanup
+
+```
+# Shutdown all teammates
+for each teammate in team config:
+    SendMessage(type: "shutdown_request", recipient: teammate)
+
+# Wait for approvals (max 30s)
+# Then cleanup:
+TeamDelete("{session_id}")
+
+# Fallback if TeamDelete fails:
+CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+rm -rf "$CHOME/teams/{session_id}" "$CHOME/tasks/{session_id}" 2>/dev/null
+```
+
+### 8. Report
+
+Read `{output_dir}/GOLDMASK.md` and present summary to user.
+
+## Quick Check Mode (--quick)
+
+No agents spawned. Deterministic checks only:
+
+```
+1. Read existing GOLDMASK.md from plan-time (if exists)
+2. Compare predicted MUST-CHANGE files vs committed files
+3. For each missing file: emit WARNING with risk tier + caution level
+4. Exit — non-blocking
+```
+
+## Intelligence Mode (--lore)
+
+Single agent (Lore Analyst) only:
+
+```
+1. Spawn Lore Analyst with file list
+2. Wait for risk-map.json
+3. Output risk-sorted file list with tier annotations
+4. Cleanup
+```
+
+## Output Paths
+
+```
+tmp/goldmask/{session_id}/
++-- inscription.json
++-- data-layer.md
++-- api-contract.md
++-- business-logic.md
++-- event-message.md
++-- config-dependency.md
++-- risk-map.json
++-- wisdom-report.md
++-- GOLDMASK.md
++-- findings.json
+```
+
+## Reference Files
+
+- [trace-patterns.md](references/trace-patterns.md) — Grep/Glob patterns per language per layer
+- [confidence-scoring.md](references/confidence-scoring.md) — Noisy-OR formula + caution scoring
+- [intent-signals.md](references/intent-signals.md) — Design intent classification patterns
+- [output-format.md](references/output-format.md) — GOLDMASK.md + findings.json + risk-map.json schemas
+- [investigation-protocol.md](references/investigation-protocol.md) — 5-step protocol for Impact tracers
+- [wisdom-protocol.md](references/wisdom-protocol.md) — 6-step protocol for Wisdom Sage
+- [lore-protocol.md](references/lore-protocol.md) — Risk scoring formula for Lore Analyst

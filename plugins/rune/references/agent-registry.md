@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 31 agents** (16 review + 5 research + 2 work + 8 utility)
+**Total: 43 agents** (16 review + 5 research + 2 work + 8 utility + 8 investigation)
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 
@@ -54,3 +54,16 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
+
+## Investigation Agents (`agents/investigation/`)
+
+| Agent | Purpose |
+|-------|---------|
+| data-layer-tracer | Impact tracing across data models, schemas, migrations, and storage layers |
+| api-contract-tracer | Impact tracing across API endpoints, contracts, request/response schemas |
+| business-logic-tracer | Impact tracing across business rules, domain logic, and workflow orchestration |
+| event-flow-tracer | Impact tracing across event buses, message queues, pub/sub, and async pipelines |
+| config-env-tracer | Impact tracing across configuration, environment variables, feature flags, and deployment settings |
+| wisdom-sage | Git archaeology — commit intent classification, caution scoring via git blame analysis |
+| lore-analyst | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration |
+| goldmask-coordinator | Three-layer synthesis — merges Impact + Wisdom + Lore findings into unified GOLDMASK.md report |
