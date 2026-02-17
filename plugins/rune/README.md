@@ -381,9 +381,9 @@ work:
 #     checks:
 #       - name: version_sync
 #         source:
-#           path: ".claude-plugin/plugin.json"
+#           file: ".claude-plugin/plugin.json"     # SEC-012 FIX: key is `file:` (not `path:`)
 #           extractor: json_field
-#           field: "$.version"
+#           field: "version"                        # SEC-012 FIX: dot-path (not JSONPath `$.version`)
 #         targets:
 #           - path: "CLAUDE.md"
 #             pattern: "version: {value}"
@@ -392,8 +392,8 @@ work:
 #         phase: ["plan", "post-work"]
 #       - name: agent_count
 #         source:
-#           path: "agents/review/*.md"
-#           extractor: line_count
+#           file: "agents/review/*.md"             # SEC-012 FIX: key is `file:` (not `path:`)
+#           extractor: glob_count                   # QUAL-015 FIX: glob_count (not line_count) — counts matching files
 #         targets:
 #           - path: "CLAUDE.md"
 #             pattern: "{value} agents"

@@ -433,6 +433,9 @@ Poll TaskList to track fixer progress. **Note**: When using sequential batching 
 
 See [monitor-utility.md](../skills/roundtable-circle/references/monitor-utility.md) for the shared polling utility.
 
+> **ANTI-PATTERN — NEVER DO THIS:**
+> `Bash("sleep 60 && echo poll check")` — This skips TaskList entirely. You MUST call `TaskList` every cycle. See review.md Phase 4 for the correct inline loop template.
+
 > **zsh compatibility**: When implementing polling in Bash, never use `status` as a variable name — it is read-only in zsh (macOS default). Use `task_status` or `tstat` instead.
 
 ```javascript

@@ -6,9 +6,11 @@
 ## Constants
 
 ```javascript
-const CHUNK_THRESHOLD   = 20   // Files above this trigger chunking (configurable: rune-gaze.chunk_threshold)
-const CHUNK_TARGET_SIZE = 15   // Target files per chunk (configurable: rune-gaze.chunk_target_size)
-const MAX_CHUNKS        = 5    // Circuit breaker — prevents runaway review loops (configurable: rune-gaze.max_chunks)
+// QUAL-001 + QUAL-008 FIX: Config namespace is `review:` (not `rune-gaze:`).
+// talisman.example.yml and review.md both use `review:` — reference docs must match.
+const CHUNK_THRESHOLD   = 20   // Files above this trigger chunking (configurable: review.chunk_threshold)
+const CHUNK_TARGET_SIZE = 15   // Target files per chunk (configurable: review.chunk_target_size)
+const MAX_CHUNKS        = 5    // Circuit breaker — prevents runaway review loops (configurable: review.max_chunks)
 const MIN_ASH_BUDGET    = 20   // Ward Sentinel's cap — no chunk should exceed this
 ```
 
@@ -61,7 +63,11 @@ function scoreFile(file, diffStats) {
     1
   )
   // Fallback: wc -l for untracked files not in diffStats
-  const effectiveLines = stat ? linesChanged : (wcLines(file) || 1)
+  // SEC-011 FIX: Validate file path before shell interpolation in wcLines.
+  // File paths with backticks, $(), or semicolons could execute arbitrary commands.
+  const SAFE_PATH = /^[a-zA-Z0-9._\-\/]+$/
+  const effectiveLines = stat ? linesChanged
+    : (SAFE_PATH.test(file) ? (wcLines(file) || 1) : 1)
 
   const sizeFactor = Math.min(effectiveLines / 50, 3.0)
   const typeFactor = TYPE_WEIGHTS[ext(file)] ?? 1.0
@@ -142,6 +148,9 @@ function splitChunk(chunk, maxSize = MIN_ASH_BUDGET) {
   // Sort by complexity descending — interleave high/low for balance
   const sorted = [...chunk.files].sort((a, b) => b.complexity - a.complexity)
   const subChunks = []
+  // BACK-005 FIX: Sub-chunks get temporary chunkIndex from parent. Step 5 of groupIntoChunks()
+  // re-indexes ALL chunks sequentially after split, so duplicate indices here are transient.
+  // Added comment to clarify the intentional re-index at step 5.
   let current = { files: [], totalComplexity: 0, chunkIndex: chunk.chunkIndex }
 
   for (const scored of sorted) {
@@ -213,16 +222,19 @@ function groupIntoChunks(scoredFiles, targetSize = CHUNK_TARGET_SIZE) {
     const droppedFiles = dropped.flatMap(c => c.files.map(f => f.file))
     warn(`Chunk count ${splitChunks.length} exceeds MAX_CHUNKS=${MAX_CHUNKS}. Redistributing ${droppedFiles.length} files into larger chunks.`)
 
-    // Redistribute excess files back into the last allowed chunk
-    // (not silently dropped — they become Coverage Gaps if still oversized)
+    // BACK-004 FIX: Redistribute excess files into the last allowed chunk.
+    // These files ARE reviewed (they're in the chunk), but if the last chunk exceeds
+    // MIN_ASH_BUDGET, per-Ash file caps may cause incomplete coverage. This is logged
+    // as a Coverage Gap warning — not a contradiction (redistribution + warning coexist).
     const lastChunk = splitChunks[MAX_CHUNKS - 1]
     lastChunk.files.push(...dropped.flatMap(c => c.files))
     lastChunk.totalComplexity += dropped.reduce((s, c) => s + c.totalComplexity, 0)
 
     // Log files that pushed beyond MIN_ASH_BUDGET as Coverage Gaps
+    // These files are IN the chunk but may exceed individual Ash context budgets
     if (lastChunk.files.length > MIN_ASH_BUDGET) {
       const gapFiles = lastChunk.files.slice(MIN_ASH_BUDGET).map(f => f.file)
-      warn(`Coverage Gaps (beyond MAX_CHUNKS capacity): ${gapFiles.join(', ')}`)
+      warn(`Coverage Gaps (files exceed per-Ash budget in oversized chunk): ${gapFiles.join(', ')}`)
     }
 
     return splitChunks.slice(0, MAX_CHUNKS)

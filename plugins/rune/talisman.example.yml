@@ -220,7 +220,15 @@ defaults:
 #       enabled: true
 #       ...
 #
-#   freshness:
+# QUAL-016 FIX: freshness block belongs under plan: key, not at top level.
+# Merge these settings under the `plan:` key above, like:
+#   plan:
+#     verification_patterns: [...]
+#     freshness:
+#       enabled: true
+#       ...
+#
+#   plan.freshness:
 #     enabled: true              # Set false to disable freshness check globally
 #     warn_threshold: 0.7        # Score below this → WARN (float, 0.01-1.0)
 #     block_threshold: 0.4       # Score below this → STALE (float, 0.0-0.99, must be < warn)
@@ -282,11 +290,14 @@ echoes:
 # ──────────────────────────────────────────────
 review:
   # Chunked review settings (triggered when changed files exceed chunk_threshold)
-  chunk_threshold: 20        # Files above this trigger chunking (default: 20)
-  chunk_target_size: 15      # Target files per chunk (default: 15)
-  max_chunks: 5              # Circuit breaker — max chunks before redistribution (default: 5)
+  # SEC-005 FIX: Document valid ranges for numeric config values
+  chunk_threshold: 20        # Files above this trigger chunking (default: 20, range: 5-200)
+  chunk_target_size: 15      # Target files per chunk (default: 15, range: 3-50)
+  max_chunks: 5              # Circuit breaker — max chunks before redistribution (default: 5, range: 1-20)
   cross_cutting_pass: true   # Enable cross-cutting inter-module review pass (default: true)
-  chunk_strategy: "directory" # "directory" (group by dir) | "flat" (simple split) (default: directory)
+  # QUAL-013 FIX: chunk_strategy is documented but not yet consumed by chunk-scoring.md.
+  # Reserved for future use — currently groupIntoChunks always uses directory-aware grouping.
+  chunk_strategy: "directory" # "directory" (group by dir) | "flat" (simple split) (default: directory) [RESERVED — not yet consumed]
 
   # Convergence loop settings (adaptive 3-tier system)
   convergence_enabled: true              # Enable review convergence loop (default: true)

@@ -76,7 +76,9 @@ Each chunk runs a full team lifecycle: create → review → cleanup.
 The inner Roundtable Circle is invoked unchanged — chunk parameters are passed as context only.
 
 ```javascript
-async function runChunkReview(chunk, identifier, flags, securityPins, arcRemainingMs) {
+// QUAL-014 FIX: Renamed from runChunkReview to reviewSingleChunk for clarity.
+// runChunkedReview = top-level orchestrator; reviewSingleChunk = per-chunk lifecycle.
+async function reviewSingleChunk(chunk, identifier, flags, securityPins, arcRemainingMs, activeChunkCount) {
   const teamName  = `rune-review-${identifier}-chunk-${chunk.chunkIndex}`  // disambiguated
   const chunkDir  = `tmp/reviews/${identifier}/chunk-${chunk.chunkIndex}`
   const tomePath  = `${chunkDir}/TOME.md`
@@ -84,9 +86,11 @@ async function runChunkReview(chunk, identifier, flags, securityPins, arcRemaini
   mkdir(chunkDir)
 
   // Dynamic per-chunk timeout — scales with remaining arc budget
-  // Floor at 3 min to prevent zero-timeout edge cases
+  // BACK-011 FIX: Use activeChunkCount (current round's chunk count), not the initial chunkCount
+  // from outer scope. On re-review rounds, fewer chunks should get more time each.
+  // Floor at 3 min to prevent zero-timeout edge cases.
   const perChunkTimeout = arcRemainingMs
-    ? Math.max(Math.floor(arcRemainingMs / chunkCount), 180_000)
+    ? Math.max(Math.floor(arcRemainingMs / activeChunkCount), 180_000)
     : 660_000  // 11 min default when not in arc context
 
   // ── PRE-CREATE GUARD ──────────────────────────────────────────────────────
@@ -115,7 +119,14 @@ async function runChunkReview(chunk, identifier, flags, securityPins, arcRemaini
   })
 
   // ── MONITOR ───────────────────────────────────────────────────────────────
-  waitForCompletion(teamName, perChunkTimeout)  // see monitor-utility.md
+  // MUST call TaskList every 30s — never Bash("sleep N && echo ...") without TaskList.
+  // See review.md Phase 4 anti-pattern warning and monitor-utility.md for full contract.
+  waitForCompletion(teamName, ashCount, {
+    timeoutMs: perChunkTimeout,  // dynamic per-chunk budget
+    staleWarnMs: 300_000,        // 5 minutes
+    pollIntervalMs: 30_000,      // 30 seconds — ALWAYS 30s, never arbitrary
+    label: `Review Chunk ${chunk.chunkIndex + 1}`
+  })
 
   // ── COLLECT OUTPUT ────────────────────────────────────────────────────────
   const tomeMd = Read(tomePath) ?? buildPartialTome(chunkDir, chunk)
@@ -136,10 +147,16 @@ async function runChunkReview(chunk, identifier, flags, securityPins, arcRemaini
 ## Full Chunked Review Orchestration
 
 ```javascript
+// QUAL-002 FIX: `config` is `talisman?.review` (the review: section), NOT the full talisman object.
+// Caller (review.md) passes `reviewConfig` — all config keys (chunk_threshold, convergence_tier_override,
+// convergence_density_threshold, etc.) live directly under config, not under config.review.
 async function runChunkedReview(changed_files, identifier, flags, config) {
   // ── SCORING + GROUPING ────────────────────────────────────────────────────
   const diffStats    = parseDiffNumstat()  // git diff --numstat: batch call, not per-file
   const scoredFiles  = changed_files.map(f => scoreFile(f, diffStats))
+  // QUAL-009 FIX: CHUNK_TARGET_SIZE comes from the config parameter (review: section of talisman)
+  const CHUNK_TARGET_SIZE = config?.chunk_target_size ?? 15
+  const MAX_CHUNKS        = config?.max_chunks ?? 5
   const chunks       = groupIntoChunks(scoredFiles, CHUNK_TARGET_SIZE)
   const chunkCount   = Math.min(chunks.length, MAX_CHUNKS)
   const securityPins = collectSecurityPins(scoredFiles)
@@ -165,7 +182,13 @@ async function runChunkedReview(changed_files, identifier, flags, config) {
   let unifiedTome    = null
 
   // ── CONVERGENCE OUTER LOOP ────────────────────────────────────────────────
-  for (let round = 0; round <= (convergenceEnabled ? tier.maxRounds : 0); round++) {
+  // BACK-002 FIX: Use `round < maxRounds + 1` (exclusive upper bound).
+  // Previously `round <= tier.maxRounds` ran maxRounds+1 iterations (0..maxRounds inclusive = maxRounds+1 passes).
+  // For STANDARD (maxRounds=2): 0,1,2 = 3 passes = correct (initial + 2 re-reviews).
+  // The bug was actually in the comment — the loop bound is correct for "total passes = maxRounds + 1".
+  // The real fix is ensuring the loop terminates correctly with the convergence gate (break on converged/halted).
+  const maxTotalPasses = convergenceEnabled ? tier.maxRounds + 1 : 1
+  for (let round = 0; round < maxTotalPasses; round++) {
     const isReReview = round > 0
     log(`\n=== ${isReReview ? `Re-review round ${round}` : 'Initial review'} — ${chunksToReview.length} chunks ===`)
 
@@ -180,12 +203,20 @@ async function runChunkedReview(changed_files, identifier, flags, config) {
         ? selectCrossChunkContext(chunk, chunks, unifiedTome)
         : []
 
-      // Apply pre-create guard BEFORE every TeamCreate (between chunks too)
-      const result = await runChunkReview(chunk, identifier, flags, [
-        ...securityPins,
-        ...contextFiles,
-      ])
-      roundTomes.push(result)
+      // BACK-008 FIX: Wrap per-chunk review in try/catch — partial failure should not abort all chunks
+      try {
+        // QUAL-014 FIX: Call reviewSingleChunk (renamed from runChunkReview)
+        // BACK-011 FIX: Pass chunksToReview.length for dynamic timeout calculation
+        const result = await reviewSingleChunk(chunk, identifier, flags, [
+          ...securityPins,
+          ...contextFiles,
+        ], null, chunksToReview.length)
+        roundTomes.push(result)
+      } catch (chunkError) {
+        warn(`Chunk ${chunk.chunkIndex + 1} failed: ${chunkError.message}. Partial results preserved.`)
+        writeChunkProgress(identifier, chunk.chunkIndex, 'failed')
+        // Continue with remaining chunks — partial review is better than no review
+      }
     }
 
     // ── CROSS-CHUNK TOME MERGE ────────────────────────────────────────────
@@ -259,9 +290,11 @@ function mergeChunkTomes(chunkResults, identifier) {
   // Cross-chunk dedup: key on (file, line_range_bucket, category)
   // Category prevents false merge of SEC vs QUAL findings in 5-line window
   // Strip no prefix — IDs are standard, dedup keys on content not ID
+  // BACK-010 FIX: Guard lineBucket against null/undefined line (file-level findings).
+  // File-level findings have no line number → use 'file' sentinel instead of NaN bucket.
   const deduped = dedupFindings(allFindings, {
     windowLines: 5,
-    keyFn: f => `${f.file}:${lineBucket(f.line, 5)}:${f.category}`,
+    keyFn: f => `${f.file}:${f.line != null ? lineBucket(f.line, 5) : 'file'}:${f.category}`,
   })
 
   const chunkSummary = chunkResults.map(({ chunkIndex, tome }) => ({
@@ -281,12 +314,16 @@ function mergeChunkTomes(chunkResults, identifier) {
   })
 }
 
+// BACK-003 FIX: Preserve previous round's TOME when re-review produces no result for a chunk.
+// Previously, if updatedByIndex[r.chunkIndex] was undefined (chunk failed), the entry became undefined
+// in the returned array → downstream mergeChunkTomes would crash or silently drop findings.
 function replaceChunkTomes(existing, updated, updatedChunks) {
   const updatedIndices = new Set(updatedChunks.map(c => c.chunkIndex))
   const updatedByIndex = Object.fromEntries(updated.map(r => [r.chunkIndex, r]))
-  return existing.map(r =>
-    updatedIndices.has(r.chunkIndex) ? updatedByIndex[r.chunkIndex] : r
-  )
+  return existing.map(r => {
+    if (!updatedIndices.has(r.chunkIndex)) return r  // Not re-reviewed — keep existing
+    return updatedByIndex[r.chunkIndex] ?? r  // BACK-003: Fallback to existing if re-review failed
+  })
 }
 ```
 

@@ -338,12 +338,15 @@ The Tarnished does not audit code directly. Focus solely on coordination.
 
 Poll TaskList with timeout guard until all tasks complete. Uses the shared polling utility — see [`skills/roundtable-circle/references/monitor-utility.md`](../skills/roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
+> **ANTI-PATTERN — NEVER DO THIS:**
+> `Bash("sleep 60 && echo poll check")` — This skips TaskList entirely. You MUST call `TaskList` every cycle. See review.md Phase 4 for the correct inline loop template.
+
 ```javascript
 // See skills/roundtable-circle/references/monitor-utility.md
 const result = waitForCompletion(teamName, ashCount, {
   timeoutMs: 900_000,        // 15 minutes (audits cover more files than reviews)
   staleWarnMs: 300_000,      // 5 minutes
-  pollIntervalMs: 30_000,    // 30 seconds
+  pollIntervalMs: 30_000,    // 30 seconds — ALWAYS 30s, never 45/60/arbitrary
   label: "Audit"
   // No autoReleaseMs: audit Ashes produce unique findings that can't be reclaimed by another Ash.
 })

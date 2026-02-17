@@ -32,7 +32,7 @@ The tier is selected **once** at the start (after Phase 1 scoring) and does not 
 **Inputs**:
 - `scoredFiles` — `{ file, complexity, riskFactor, type }[]` — output of `scoreFile`
 - `chunks` — `{ files, totalComplexity, chunkIndex }[]` — from `groupIntoChunks`
-- `config` — talisman.yml `rune-gaze` section (may be null)
+- `config` — talisman.yml `review` section (may be null). Caller passes `talisman?.review`.
 
 **Outputs**: `{ name, maxRounds, reason }` — selected convergence tier
 
@@ -47,7 +47,9 @@ const TIERS = {
 
 function selectConvergenceTier(scoredFiles, chunks, config) {
   // User override via talisman.yml: convergence_tier_override: "thorough"
-  const override = config?.convergence_tier_override?.toLowerCase()
+  // SEC-008 FIX: Type check before .toLowerCase() — non-string values (numbers, booleans) would throw
+  const rawOverride = config?.convergence_tier_override
+  const override = typeof rawOverride === 'string' ? rawOverride.toLowerCase() : undefined
   if (override && TIERS[override]) {
     return { ...TIERS[override], reason: `User override via talisman.yml: ${override}` }
   }
@@ -55,15 +57,23 @@ function selectConvergenceTier(scoredFiles, chunks, config) {
     warn(`Unknown convergence_tier_override "${override}" — falling back to auto-detect`)
   }
 
+  // SEC-001 FIX: Guard against empty scoredFiles (division by zero → NaN → silent misclassification)
+  if (scoredFiles.length === 0) {
+    return { ...TIERS.minimal, reason: 'Empty changeset — no files to score' }
+  }
+
   // Signal 1: Any high-risk file present (auth/security/payment/crypto)?
   const hasHighRiskFile = scoredFiles.some(f => f.riskFactor >= 2.0)
 
-  // Signal 2: Aggregate complexity mean
+  // Signal 2: Aggregate complexity mean (safe — empty guard above prevents /0)
   const avg = scoredFiles.reduce((sum, f) => sum + f.complexity, 0) / scoredFiles.length
 
   // Signal 3: Are ALL chunks documentation-only?
+  // isSourceCode: returns true for code extensions (.py, .ts, .js, .go, .rs, .rb, .java, .tsx, .jsx, .sql, .sh)
+  // and false for doc/config extensions (.md, .txt, .yml, .yaml, .json, .toml, .ini)
+  // Defined in smart-selection.md — referenced here for chunk type classification.
   const allDocOnly = chunks.every(chunk =>
-    chunk.files.filter(f => isSourceCode(f)).length === 0
+    chunk.files.filter(f => isSourceCode(f.file ?? f)).length === 0
   )
 
   // Signal 4: Total file count
@@ -143,9 +153,11 @@ function computeChunkMetrics(unifiedTome, chunk) {
   const findingDensity       = chunkFindings.length / chunk.files.length
   const evidenceRatio        = chunkFindings.filter(f => f.hasRuneTrace).length /
                                Math.max(chunkFindings.length, 1)
+  // BACK-009 FIX: Zero-finding chunks should not fail confidence threshold.
+  // A chunk with 0 findings means it passed cleanly — default to 1.0, not 0.
   const confidenceMean       = chunkFindings.length > 0
     ? chunkFindings.reduce((sum, f) => sum + (f.confidence ?? 0.5), 0) / chunkFindings.length
-    : 0
+    : 1.0
   const filesWithFindings    = new Set(chunkFindings.map(f => f.file)).size
   const coverageCompleteness = filesWithFindings / chunk.files.length
 
@@ -161,13 +173,21 @@ function computeChunkMetrics(unifiedTome, chunk) {
     is_code_chunk:         isCodeChunk,
     finding_count:         chunkFindings.length,
     file_count:            chunk.files.length,
-    pass: passesThresholds(findingDensity, evidenceRatio, confidenceMean, coverageCompleteness, isCodeChunk),
+    // BACK-007 FIX: Pass config to passesThresholds so talisman overrides take effect
+    pass: passesThresholds(findingDensity, evidenceRatio, confidenceMean, coverageCompleteness, isCodeChunk, config),
   }
 }
 
-function passesThresholds(density, evidence, confidence, coverage, isCode) {
+// BACK-007 FIX: Wire talisman config values to threshold checks.
+// Without this, the convergence_*_threshold keys in talisman.yml are dead config.
+function passesThresholds(density, evidence, confidence, coverage, isCode, config) {
   const t = isCode
-    ? { density: 0.3, evidence: 0.7, confidence: 0.6, coverage: 0.4 }
+    ? {
+        density:    config?.convergence_density_threshold    ?? 0.3,
+        evidence:   config?.convergence_evidence_threshold   ?? 0.7,
+        confidence: config?.convergence_confidence_threshold ?? 0.6,
+        coverage:   config?.convergence_coverage_threshold   ?? 0.4,
+      }
     : { density: 0.1, evidence: 0.5, confidence: 0.5, coverage: 0.2 }
   return density >= t.density && evidence >= t.evidence &&
          confidence >= t.confidence && coverage >= t.coverage
@@ -197,15 +217,27 @@ function evaluateConvergence(unifiedTome, reviewedChunks, allChunks, round, hist
     return { verdict: 'converged', flaggedChunks: [], chunkMetrics }
   }
 
-  // HALTED: failed chunk count not decreasing vs previous round (diverging or stagnant)
+  // BACK-006 FIX: Check global trend across ALL previous rounds (not just the last one).
+  // Detects oscillation (e.g., 3 → 2 → 3) that single-round comparison misses.
   if (history.length > 0) {
     const prevMetrics = history[history.length - 1].chunk_metrics
     if (prevMetrics) {
       const prevFailCount = prevMetrics.filter(m => !m.pass).length
+      // Immediate check: stagnant or worsening vs previous round
       if (failedChunks.length >= prevFailCount) {
         return {
           verdict: 'halted', flaggedChunks: [], chunkMetrics,
           reason: `Failed chunks not decreasing: ${prevFailCount} → ${failedChunks.length}`,
+        }
+      }
+      // Global trend check: if we've seen this failure count before, we're oscillating
+      const historicalFailCounts = history
+        .filter(h => h.chunk_metrics)
+        .map(h => h.chunk_metrics.filter(m => !m.pass).length)
+      if (historicalFailCounts.includes(failedChunks.length) && history.length >= 2) {
+        return {
+          verdict: 'halted', flaggedChunks: [], chunkMetrics,
+          reason: `Oscillation detected: failure count ${failedChunks.length} seen in prior round`,
         }
       }
     }
@@ -260,10 +292,14 @@ function selectCrossChunkContext(flaggedChunk, allChunks, currentTome) {
     .flatMap(c => c.files.map(f => f.file ?? f))
 
   // 1. Files imported by flagged chunk files that live in OTHER chunks
+  // SEC-007 FIX: Validate import-resolved paths against SAFE_PATH_PATTERN to prevent
+  // path traversal via crafted import statements (e.g., import from '../../etc/passwd')
+  const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
   for (const file of flaggedChunk.files) {
     try {
       const imports = extractImports(file.file ?? file)
       for (const imp of imports) {
+        if (!SAFE_PATH_PATTERN.test(imp) || imp.includes('..')) continue  // SEC-007: reject unsafe paths
         if (!flaggedFileSet.has(imp) && allOtherFiles.includes(imp)) {
           contextFiles.add(imp)
         }
@@ -360,10 +396,10 @@ Trend: IMPROVING (findings +4, failed chunks 1 → 0)
 
 ## Talisman Config Keys
 
-All keys live under `rune-gaze:` in `.claude/talisman.yml`:
+All keys live under `review:` in `.claude/talisman.yml` (QUAL-001 FIX: standardized from `rune-gaze:`):
 
 ```yaml
-rune-gaze:
+review:
   convergence_enabled: true            # Enable convergence loop (default: true)
   convergence_tier_override: null      # Force tier: "minimal" | "standard" | "thorough" | null
   # max_convergence_rounds is DERIVED from tier — do not set directly
