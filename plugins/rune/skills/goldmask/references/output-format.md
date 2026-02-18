@@ -88,7 +88,7 @@ Found {N} issues in this co-change cluster.
 
 ## Historical Risk Assessment
 
-| File | Risk Tier | Commits/90d | Churn | Owners | Past P1s | Co-Changes With |
+| File | Risk Tier | Commits/{window}d | Churn | Owners | Past P1s | Co-Changes With |
 |------|-----------|-------------|-------|--------|----------|-----------------|
 | {file} | CRITICAL | {N} | {N} | {N} | {N} | {files} |
 ```

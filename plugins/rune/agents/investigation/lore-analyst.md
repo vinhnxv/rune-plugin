@@ -45,7 +45,7 @@ Before any analysis, run these guards:
 | G1 | `git rev-parse --is-inside-work-tree` | Abort — not a git repo |
 | G2 | `git rev-parse --is-shallow-repository` | Warn — limited history |
 | G3 | Date calculation for lookback window (see macOS fallback in lore-protocol.md) | Use fallback date command |
-| G4 | `git ls-files \| wc -l` <= 5000 | Warn — large repo, sample top 500 by churn |
+| G4 | Count unique files from `git log --name-only --after="{window_start}" --format=""` <= 5000 | Warn — large repo, sample top 500 by churn |
 | G5 | `git rev-list --count --after="{window_start}" HEAD` >= 5 | Skip analysis — insufficient commits in window |
 
 If G1 fails, abort entirely. For G2-G5, proceed with documented limitations.
@@ -57,15 +57,20 @@ If G1 fails, abort entirely. For G2-G5, proceed with documented limitations.
 Extract all history in one command using NUL-byte separators for reliable parsing:
 
 ```bash
-git log --numstat --format="%x00%H%x00%an%x00%aI" --no-merges -- "${file_list[@]}" | head -10000
+git log --numstat --no-merges --no-renames --diff-filter=ACMR \
+  --format="%x00%H%x00%an%x00%aI" \
+  -- "${file_list[@]}" | head -10000
 ```
 
 Parse into per-file records: commit hash, author, date, lines added, lines deleted.
+
+**Truncation guard**: If output reaches exactly 10000 lines, log `G6 (log truncation): WARN — git log output truncated at 10000 lines. Risk scores may be incomplete for low-frequency files.`
 
 **Sanitization**: Author names (`%an`) and emails can contain arbitrary strings. Before using parsed values:
 - Strip non-printable characters (control chars, NUL bytes)
 - Escape JSON metacharacters when writing to JSON output
 - Use NUL-byte (`%x00`) separators for field boundaries (not COMMIT_START sentinels, which are guessable)
+- Validate parsed JSON before writing: ensure `risk-map.json` passes `jq .` or equivalent validation
 
 ### Step 2 — Compute 5 Metrics per File
 
@@ -74,7 +79,7 @@ Parse into per-file records: commit hash, author, date, lines added, lines delet
 | **Frequency** | Number of commits touching this file | 0.35 |
 | **Churn** | Total lines added + deleted | 0.25 |
 | **Recency** | Days since last modification (inverse — recent = higher) | 0.15 |
-| **Ownership** | top_contributor_commits / total_commits. High = concentrated = risky | 0.15 |
+| **Ownership** | top_contributor_commits / total_commits. High = concentrated = risky. Single-commit files default to 0.5 (see lore-protocol.md) | 0.15 |
 | **Echo** | Number of Rune echo references to this file (from `.claude/echoes/`) | 0.10 |
 
 ### Step 3 — Percentile Normalization
@@ -96,10 +101,10 @@ risk = 0.35 * freq_pctl + 0.25 * churn_pctl + 0.15 * recency_pctl + 0.15 * owner
 
 | Tier | Percentile | Description |
 |------|-----------|-------------|
-| CRITICAL | Top 10% | Highest risk — frequent changes, high churn, concentrated ownership |
-| HIGH | 10-30% | Elevated risk — significant change history |
-| MEDIUM | 30-70% | Moderate risk — normal change patterns |
-| LOW | Bottom 30% | Lower risk — stable, well-distributed ownership |
+| CRITICAL | >= 90th percentile | Highest risk — frequent changes, high churn, concentrated ownership |
+| HIGH | >= 70th percentile | Elevated risk — significant change history |
+| MEDIUM | >= 30th percentile | Moderate risk — normal change patterns |
+| LOW | < 30th percentile | Lower risk — stable, well-distributed ownership |
 | STALE | No commits in lookback window | Dormant — use `git ls-files` left-join to detect |
 
 ### Step 6 — Co-Change Graph

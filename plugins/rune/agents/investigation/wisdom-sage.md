@@ -1,5 +1,5 @@
 ---
-name: goldmask-wisdom-sage
+name: wisdom-sage
 model: sonnet
 maxTurns: 30
 description: |
@@ -10,7 +10,7 @@ description: |
 
   <example>
   user: "Analyze the intent behind the rate limiter implementation"
-  assistant: "I'll use goldmask-wisdom-sage to git blame the code and classify the original developer intent."
+  assistant: "I'll use wisdom-sage to git blame the code and classify the original developer intent."
   </example>
 tools:
   - Bash
@@ -45,6 +45,7 @@ For each finding received from the Impact Layer, execute 6 steps:
 - Extract the specific code region to investigate
 
 ### Step 2 — BLAME
+- Validate file path: `[[ "${file}" =~ ^[a-zA-Z0-9._/ -]+$ ]] || { echo "Unsafe file path: ${file}"; skip; }`
 - Validate line range: `[[ "${start}" =~ ^[0-9]+$ ]] && [[ "${end}" =~ ^[0-9]+$ ]]`
 - Run `git blame --porcelain -L "${start},${end}" -- "${file}"` for affected lines
 - Extract: commit hash, author, date, original filename (if renamed)

@@ -21,6 +21,7 @@ macOS `date` does not support `-d`. Use dual fallback:
 ```bash
 # Default: 180 days (configurable via talisman goldmask.layers.lore.lookback_days)
 LOOKBACK_DAYS="${LOOKBACK_DAYS:-180}"
+[[ "$LOOKBACK_DAYS" =~ ^[0-9]+$ ]] || { echo "Invalid lookback_days: $LOOKBACK_DAYS"; exit 1; }
 WINDOW_START=$(date -d "${LOOKBACK_DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -v-${LOOKBACK_DAYS}d +%Y-%m-%d)
 ```
 
@@ -30,10 +31,12 @@ One git command extracts all needed data:
 
 ```bash
 # Use NUL-byte separators for reliable parsing — avoids guessable sentinel strings
-git log --all --numstat --no-merges --no-renames \
+# File-scoped: only analyze files in the changed set (not --all branches)
+git log --numstat --no-merges --no-renames \
   --diff-filter=ACMR \
-  --pretty=format:'%x00CSTART_%x00%H%x00%aN%x00%aE%x00%ct%x00%s' \
-  --after="$WINDOW_START"
+  --pretty=format:'%x00%H%x00%aN%x00%aE%x00%ct%x00%s' \
+  --after="$WINDOW_START" \
+  -- "${file_list[@]}"
 ```
 
 **Sanitization**: Author names (`%aN`) and emails (`%aE`) can contain arbitrary strings.
@@ -46,7 +49,7 @@ When parsing, strip non-printable characters and escape JSON metacharacters befo
 - `%ct` — committer timestamp (unix)
 - `%s` — subject line
 
-**Numstat output** (per file, after each COMMIT_START line):
+**Numstat output** (per file, after each NUL-delimited commit record):
 ```
 {lines_added}\t{lines_deleted}\t{file_path}
 ```

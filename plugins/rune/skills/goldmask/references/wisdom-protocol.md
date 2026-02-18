@@ -134,7 +134,7 @@ caution = min(1.0, caution)
 Gather modifier inputs:
 - `code_age_days` — from blame author-time
 - `distinct_authors` — count unique authors from blame
-- `author_still_active` — check if author has commits in last 90 days: `git log --oneline --author="{name}" --since="90 days ago" -1`
+- `author_still_active` — check if author has commits in last 90 days: `git log --oneline --author="{name}" --since="90 days ago" -1` (sanitize `{name}`: strip shell metacharacters `$\`` before interpolation)
 - `has_warning_comments` — from Step 4 analysis
 - `has_todo_with_reason` — from Step 4 analysis
 

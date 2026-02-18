@@ -136,7 +136,7 @@ const tokens = cleanArgs.split(/\s+/).filter(t => t.length > 0)
 if (tokens.some(token => token.startsWith('-')))
   → reject with "Git flag injection detected — arguments must not start with '-'"
 // SEC-10: Reject path traversal (per-token check — allows git range operator '..')
-if (tokens.some(t => t === '..' || t.startsWith('../')))
+if (tokens.some(t => t === '..' || t.includes('/../') || t.startsWith('../') || t.endsWith('/..')))
   → reject with "Path traversal detected — '..' tokens are not allowed"
 ```
 
@@ -144,7 +144,7 @@ if (tokens.some(t => t === '..' || t.startsWith('../')))
 
 ```bash
 # For diff-spec (MUST quote $ARGUMENTS in all Bash interpolation):
-git diff --name-only "${diff_spec}"
+git diff --name-only -- "${diff_spec}"
 
 # For file list:
 # Use provided paths directly
@@ -156,6 +156,8 @@ If no changed files found, report "No changes detected" and exit.
 
 ```
 session_id = "goldmask-" + Date.now()
+// SEC-5: Validate session_id immediately after generation (defense-in-depth)
+if (!/^[a-zA-Z0-9_-]+$/.test(session_id)) { error("Invalid session_id"); return }
 output_dir = "tmp/goldmask/{session_id}/"
 
 # If invoked from arc:
@@ -244,16 +246,18 @@ Spawn Coordinator after Wisdom completes:
 Use correct polling pattern (POLL-001 compliant):
 
 ```
-pollIntervalMs = 30000
-timeoutMs = 300000  # 5 minutes
-maxIterations = ceil(timeoutMs / pollIntervalMs)  # 10
+// Read from talisman goldmask section (with defaults)
+const talisman = readTalisman()
+pollIntervalMs = talisman?.goldmask?.poll_interval_ms ?? 30000
+timeoutMs = talisman?.goldmask?.timeout_ms ?? 300000  // 5 minutes default
+maxIterations = ceil(timeoutMs / pollIntervalMs)
 
 for i in 1..maxIterations:
     TaskList()  # MUST call on every cycle
     count completed tasks
     if all_completed: break
     if stale (no progress for 3 cycles): warn
-    Bash("sleep 30")
+    Bash("sleep 30")  # NEVER combine with && echo — use bare sleep only (POLL-001)
 ```
 
 ### 6. Graceful Degradation
@@ -298,7 +302,7 @@ Read `{output_dir}/GOLDMASK.md` and present summary to user.
 No agents spawned. Deterministic checks only:
 
 ```
-1. Read existing GOLDMASK.md from plan-time (if exists)
+1. Read existing GOLDMASK.md — discovery order: `tmp/goldmask/*/GOLDMASK.md` (most recent), `tmp/arc/*/goldmask/GOLDMASK.md`, or `--report <path>` argument
 2. Compare predicted MUST-CHANGE files vs committed files
 3. For each missing file: emit WARNING with risk tier + caution level
 4. Exit — non-blocking
