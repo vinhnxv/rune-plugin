@@ -31,9 +31,11 @@ if (checkpoint.phases.mend.status === "skipped" || mendSummary.total === 0) {
 // EC-1: Mend made no progress — prevent infinite retry on unfixable findings
 if (mendSummary.fixed === 0 && mendSummary.failed > 0) {
   warn(`Mend fixed 0 findings (${mendSummary.failed} failed) — manual intervention required.`)
+  // BACK-001 FIX: p1_remaining and p2_remaining are null (not 0) because TOME has not been read yet.
+  // EC-1 fires before STEP 1 — actual finding counts are unknown at this stage.
   checkpoint.convergence.history.push({
     round: mendRound, findings_before: mendSummary.total, findings_after: mendSummary.failed,
-    p1_remaining: 0, p2_remaining: null, verdict: 'halted', reason: 'zero_progress', timestamp: new Date().toISOString()
+    p1_remaining: null, p2_remaining: null, verdict: 'halted', reason: 'zero_progress', timestamp: new Date().toISOString()
   })
   updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null,
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport) })
@@ -53,18 +55,20 @@ try {
   currentTome = Read(tomeFile)
 } catch (e) {
   warn(`TOME not found at ${tomeFile} — review may have timed out.`)
+  // BACK-001 FIX: p1_remaining/p2_remaining null — TOME not available, counts unknown
   checkpoint.convergence.history.push({
     round: mendRound, findings_before: 0, findings_after: 0,
-    p1_remaining: 0, p2_remaining: null, verdict: 'halted', reason: 'tome_missing', timestamp: new Date().toISOString()
+    p1_remaining: null, p2_remaining: null, verdict: 'halted', reason: 'tome_missing', timestamp: new Date().toISOString()
   })
   updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null })
   return
 }
 if (!currentTome || (!currentTome.includes('RUNE:FINDING') && !currentTome.includes('<!-- CLEAN -->'))) {
   warn(`TOME at ${tomeFile} appears empty or malformed — halting convergence.`)
+  // BACK-001 FIX: p1_remaining/p2_remaining null — TOME malformed, counts unreliable
   checkpoint.convergence.history.push({
     round: mendRound, findings_before: 0, findings_after: 0,
-    p1_remaining: 0, p2_remaining: null, verdict: 'halted', reason: 'tome_malformed', timestamp: new Date().toISOString()
+    p1_remaining: null, p2_remaining: null, verdict: 'halted', reason: 'tome_malformed', timestamp: new Date().toISOString()
   })
   updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null })
   return
@@ -82,13 +86,17 @@ let scopeStats = null
 // Without nonce validation, stale/injected markers from prior sessions could inflate counts.
 const sessionNonce = checkpoint.session_nonce
 // BACK-013 FIX: Validate nonce format before use in string matching (defense-in-depth)
+// SEC-001 FIX: On invalid nonce, set effectiveNonce to null so ternary takes allMarkers branch.
+// Previously, invalid nonce was used in filter → matched zero markers → silently disabled smart scoring.
+let effectiveNonce = sessionNonce
 if (sessionNonce && !/^[a-zA-Z0-9_-]+$/.test(sessionNonce)) {
   warn(`Invalid session nonce format: ${sessionNonce} — falling back to unfiltered markers`)
+  effectiveNonce = null
 }
 const allMarkers = currentTome.match(/<!-- RUNE:FINDING[^>]*-->/g) || []
-const findingMarkers = sessionNonce
-  ? allMarkers.filter(m => m.includes(`nonce="${sessionNonce}"`))
-  : allMarkers  // Fallback: no nonce in checkpoint (pre-v1.11.0) → use all markers
+const findingMarkers = effectiveNonce
+  ? allMarkers.filter(m => m.includes(`nonce="${effectiveNonce}"`))
+  : allMarkers  // Fallback: no nonce or invalid nonce → use all markers
 if (findingMarkers.some(m => /scope="(in-diff|pre-existing)"/.test(m))) {
   // SEC-006 FIX: Case-insensitive severity matching to prevent p1 bypass via lowercase
   const p3Markers = findingMarkers.filter(m => /severity="P3"/i.test(m))

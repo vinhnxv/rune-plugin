@@ -758,9 +758,16 @@ On resume, validate checkpoint integrity before proceeding:
    e. Set schema_version: 7
 3g. If schema_version < 8, migrate v7 → v8:
    a. Add minCycles to convergence.tier if not present:
-      checkpoint.convergence.tier.minCycles = checkpoint.convergence.tier.minCycles ?? (
-        checkpoint.convergence.tier.name === 'LIGHT' ? 1 : 2
-      )
+      // SEC-005 FIX: Guard for null/corrupt convergence.tier — prevents TypeError on resume
+      if (checkpoint.convergence?.tier && typeof checkpoint.convergence.tier === 'object') {
+        checkpoint.convergence.tier.minCycles = checkpoint.convergence.tier.minCycles ?? (
+          checkpoint.convergence.tier.name === 'LIGHT' ? 1 : 2
+        )
+      } else {
+        // Corrupt tier — replace with STANDARD default (includes minCycles)
+        checkpoint.convergence = checkpoint.convergence ?? {}
+        checkpoint.convergence.tier = { name: 'STANDARD', maxCycles: 3, minCycles: 2 }
+      }
    b. // convergence.history entries will have p2_remaining: undefined for pre-v8 rounds.
       // No migration needed — evaluateConvergence reads p2_remaining only for the current round.
    c. Set schema_version: 8

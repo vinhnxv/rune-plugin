@@ -122,21 +122,29 @@ function evaluateConvergence(currentFindingCount, p1Count, p2Count, checkpoint, 
   const findingThreshold = !Number.isNaN(rawThreshold) ? Math.max(0, Math.min(100, rawThreshold)) : 0
   // Validate ratio: reject values outside (0.1, 0.9)
   const rawRatio = parseFloat(config?.review?.arc_convergence_improvement_ratio ?? 0.5)
-  const improvementRatio = isNaN(rawRatio) ? 0.5 : Math.max(0.1, Math.min(0.9, rawRatio))
+  const improvementRatio = Number.isNaN(rawRatio) ? 0.5 : Math.max(0.1, Math.min(0.9, rawRatio))
 
   // BACK-017 FIX: minCycles from tier (with talisman override)
   // SEC-005 type guard: reject arrays/objects from YAML (parseInt([3],10) returns 3 silently)
   const rawMinVal = config?.review?.arc_convergence_min_cycles
   const parsedMinCycles = (rawMinVal != null && (typeof rawMinVal === 'number' || typeof rawMinVal === 'string'))
     ? parseInt(String(rawMinVal), 10) : NaN
-  const rawMinCycles = !Number.isNaN(parsedMinCycles) ? parsedMinCycles : (tier.minCycles ?? 2)
-  const minCycles = Math.max(1, Math.min(maxCycles, rawMinCycles))
+  const effectiveMinCycles = !Number.isNaN(parsedMinCycles) ? parsedMinCycles : (tier.minCycles ?? 2)
+  const minCycles = Math.max(1, Math.min(maxCycles, effectiveMinCycles))
   if (!Number.isNaN(parsedMinCycles) && parsedMinCycles > maxCycles) {
     warn(`arc_convergence_min_cycles (${parsedMinCycles}) exceeds max_cycles (${maxCycles}) — clamped to ${maxCycles}`)
+  }
+  // BACK-002 FIX: Warn when minCycles equals maxCycles — retry window collapses to zero
+  if (minCycles === maxCycles) {
+    warn(`arc_convergence_min_cycles (${minCycles}) equals max_cycles (${maxCycles}) — only 1 cycle available for convergence check`)
   }
 
   // BACK-019 FIX: P2 threshold (with talisman override)
   // SEC-005 type guard applied (same pattern as maxCycles/findingThreshold)
+  // BACK-007 NOTE: Default p2Threshold=0 means ANY P2 finding blocks convergence at step 2.
+  // If diff-scope is disabled (smart scoring unavailable), this forces all maxCycles iterations
+  // before circuit-breaker halts. Users with pre-existing P2 findings should either:
+  // (a) enable diff-scope (default), or (b) set arc_convergence_p2_threshold > 0.
   const rawP2Val = config?.review?.arc_convergence_p2_threshold
   const parsedP2Threshold = (rawP2Val != null && (typeof rawP2Val === 'number' || typeof rawP2Val === 'string'))
     ? parseInt(String(rawP2Val), 10) : NaN
@@ -162,6 +170,13 @@ function evaluateConvergence(currentFindingCount, p1Count, p2Count, checkpoint, 
   // to allow convergence at the final eligible cycle. Otherwise STANDARD tier
   // round 2 (round+1=3 >= maxCycles=3) halts even when all findings are resolved.
 
+  // 0. BACK-005 FIX: Zero-findings short-circuit — skip minCycles gate when no findings remain.
+  // Without this, a clean TOME (0 findings) still forces a retry when minCycles > 1,
+  // wasting a full review-mend cycle that immediately converges at step 2 (0 ≤ 0).
+  if (currentFindingCount === 0) {
+    return 'converged'  // No findings remain — converged regardless of minCycles
+  }
+
   // 1. BACK-017 FIX: Minimum cycles gate — force re-review before convergence
   if (round + 1 < minCycles) {
     return 'retry'      // Haven't reached minimum cycles — force re-review
@@ -179,7 +194,7 @@ function evaluateConvergence(currentFindingCount, p1Count, p2Count, checkpoint, 
     if (smartScoringEnabled) {
       const score = computeConvergenceScore(scopeStats, checkpoint, config)
       const convergenceThreshold = parseFloat(config?.review?.convergence?.convergence_threshold ?? 0.7)
-      const safeThreshold = isNaN(convergenceThreshold) ? 0.7 : Math.max(0.1, Math.min(1.0, convergenceThreshold))
+      const safeThreshold = Number.isNaN(convergenceThreshold) ? 0.7 : Math.max(0.1, Math.min(1.0, convergenceThreshold))
       if (score.total >= safeThreshold) {
         return 'converged'  // Smart scoring: remaining findings are mostly P3/pre-existing noise
       }
@@ -230,7 +245,11 @@ Computes a composite convergence score from scope-aware signals. Used by `evalua
 
 ```javascript
 function computeConvergenceScore(scopeStats, checkpoint, config) {
-  if (!scopeStats || typeof scopeStats !== 'object') return null
+  // BACK-006 FIX: Return zero-score object instead of null for invalid input.
+  // Prevents null.total TypeError in callers that forget truthiness guard.
+  if (!scopeStats || typeof scopeStats !== 'object') {
+    return { total: 0.0, components: { p3: 0, preExisting: 0, trend: 0, base: 0 }, reason: 'invalid_input' }
+  }
 
   const { p1Count, p2Count, p3Count, preExistingCount, inDiffCount, totalFindings } = scopeStats
 
