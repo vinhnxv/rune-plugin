@@ -78,7 +78,7 @@ if (commitCount === "0") {
 // 2. Push branch
 const pushResult = Bash(`git push -u origin -- "${currentBranch}"`)
 if (pushResult.exitCode !== 0) {
-  warn("Ship phase: Push failed. Create PR manually: git push -u origin " + currentBranch)
+  warn(`Ship phase: Push failed. Create PR manually: git push -u origin \`${currentBranch}\``)
   updateCheckpoint({ phase: "ship", status: "failed" })
   return
 }

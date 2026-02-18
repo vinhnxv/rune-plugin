@@ -326,7 +326,7 @@ if (arcConfig.ship.wait_ci) {
   // If CI checks never pass, the PR remains in "auto-merge pending" state indefinitely.
   // The merge report documents this as AUTO-MERGE REQUESTED (not MERGED).
   log("Enabling auto-merge (waiting for CI checks)...")
-  const autoResult = Bash(`${GH_ENV} gh pr merge ${prNumber} ${strategyFlag} --auto`)
+  const autoResult = Bash(`${GH_ENV} gh pr merge "${prNumber}" ${strategyFlag} --auto`)
   if (autoResult.exitCode !== 0) {
     warn("Merge phase: gh pr merge --auto failed. Check PR status and merge manually.")
     updateCheckpoint({ phase: "merge", status: "failed" })
@@ -336,7 +336,7 @@ if (arcConfig.ship.wait_ci) {
 } else {
   // Merge immediately without waiting for CI
   log("Merging PR immediately (CI wait disabled)...")
-  const mergeResult = Bash(`${GH_ENV} gh pr merge ${prNumber} ${strategyFlag} --delete-branch`)
+  const mergeResult = Bash(`${GH_ENV} gh pr merge "${prNumber}" ${strategyFlag} --delete-branch`)
   if (mergeResult.exitCode !== 0) {
     warn("Merge phase: Merge failed. Check PR and merge manually: gh pr merge --squash")
     updateCheckpoint({ phase: "merge", status: "failed" })

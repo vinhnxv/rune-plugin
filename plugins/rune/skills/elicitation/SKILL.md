@@ -1,10 +1,11 @@
 ---
 name: elicitation
 description: |
-  Context-aware elicitation method selection for Rune workflows.
-  Provides structured reasoning techniques (Tree of Thoughts, Pre-mortem,
-  Red Team, 5 Whys, etc.) during planning, review, and work phases.
-  Auto-loaded by plan, forge, and review commands when applicable.
+  Use when comparing multiple approaches, when a decision has security or architecture
+  implications, when root cause analysis is needed, or when thinking needs structure.
+  Provides 22 reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, ADR).
+  Auto-loaded by plan, forge, and review commands for eligible sections.
+  Keywords: structured reasoning, trade-off, decision, compare approaches, risk analysis.
 
   <example>
   Context: During plan brainstorm, user needs structured approach selection

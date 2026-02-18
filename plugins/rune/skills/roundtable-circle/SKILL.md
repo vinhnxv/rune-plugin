@@ -1,9 +1,9 @@
 ---
 name: roundtable-circle
 description: |
-  Orchestrates multi-agent code reviews using Agent Teams with up to 8 Ashes teammates (6 built-in + custom).
-  This skill should be used when running /rune:review or /rune:audit. Each Ash gets its own 200k context window.
-  Handles scope selection, team creation, inscription generation, Ash summoning, monitoring, aggregation, verification, and cleanup.
+  Use when running /rune:review or /rune:audit, when spawning multiple review agents,
+  or when orchestrating Agent Teams for code analysis. Handles team lifecycle, inscription
+  contracts, Ash monitoring, TOME aggregation, and cleanup for up to 8 parallel reviewers.
 
   <example>
   Context: Running a code review

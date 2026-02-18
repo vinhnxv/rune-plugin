@@ -1,12 +1,10 @@
 ---
 name: arc
 description: |
-  End-to-end orchestration pipeline. Chains forge, plan review, plan refinement,
-  verification, semantic verification (Codex), work, gap analysis, codex gap analysis,
-  code review, mend, verify mend (convergence gate), audit, ship (PR creation),
-  and merge (rebase + auto-merge) into a single automated pipeline with checkpoint-based resume,
-  per-phase teams, circuit breakers, convergence gate with regression detection,
-  cross-model Codex verification, 3-layer talisman config resolution, and artifact-based handoff.
+  Use when you want to go from plan to merged PR in one command, when running
+  the full development pipeline (forge + work + review + mend + ship + merge),
+  or when resuming a previously interrupted pipeline. 14-phase automated pipeline
+  with checkpoint resume, convergence loops, and cross-model verification.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
@@ -555,6 +553,7 @@ function resolveArcConfig(talisman, inlineFlags) {
   // Layer 2: Talisman overrides (null-safe)
   const talismanDefaults = talisman?.arc?.defaults ?? {}
   const talismanShip = talisman?.arc?.ship ?? {}
+  const talismanPreMerge = talisman?.arc?.pre_merge_checks ?? {}  // QUAL-001 FIX
 
   const config = {
     no_forge:        talismanDefaults.no_forge ?? defaults.no_forge,
@@ -573,7 +572,17 @@ function resolveArcConfig(talisman, inlineFlags) {
       pr_monitoring: talismanShip.pr_monitoring ?? defaults.ship.pr_monitoring,
       rebase_before_merge: talismanShip.rebase_before_merge ?? defaults.ship.rebase_before_merge,
       // BACK-012 FIX: Include co_authors in 3-layer resolution (was read from raw talisman)
-      co_authors: Array.isArray(talisman?.work?.co_authors) ? talisman.work.co_authors : [],
+      // QUAL-003 FIX: Check arc.ship.co_authors first, fall back to work.co_authors
+      co_authors: Array.isArray(talismanShip.co_authors) ? talismanShip.co_authors
+        : Array.isArray(talisman?.work?.co_authors) ? talisman.work.co_authors : [],
+    },
+    // QUAL-001 FIX: Include pre_merge_checks in config resolution (was missing — talisman overrides silently ignored)
+    pre_merge_checks: {
+      migration_conflict: talismanPreMerge.migration_conflict ?? true,
+      schema_conflict: talismanPreMerge.schema_conflict ?? true,
+      lock_file_conflict: talismanPreMerge.lock_file_conflict ?? true,
+      uncommitted_changes: talismanPreMerge.uncommitted_changes ?? true,
+      migration_paths: Array.isArray(talismanPreMerge.migration_paths) ? talismanPreMerge.migration_paths : [],
     }
   }
 
@@ -1281,10 +1290,10 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 
 ## Post-Arc Plan Completion Stamp
 
-> **IMPORTANT — Execution order**: This step runs FIRST after Phase 8 completes, before echo persist
-> and the verbose completion report. The plan stamp writes a persistent completion record to the plan
-> file — it MUST execute before context-heavy steps (echo persist, completion report) that risk
-> triggering context compaction. If compaction occurs, the stamp is already safely written.
+> **IMPORTANT — Execution order**: This step runs FIRST after Phase 9.5 MERGE completes (or Phase 8 AUDIT
+> if ship/merge are skipped), before echo persist and the verbose completion report. The plan stamp writes
+> a persistent completion record to the plan file — it MUST execute before context-heavy steps (echo persist,
+> completion report) that risk triggering context compaction. If compaction occurs, the stamp is already safely written.
 
 See [arc-phase-completion-stamp.md](references/arc-phase-completion-stamp.md) for the full algorithm.
 
@@ -1366,7 +1375,7 @@ Checkpoint: .claude/arc/{id}/checkpoint.json
 Next steps:
 1. Review audit report: tmp/arc/{id}/audit-report.md
 2. git log --oneline — Review commits
-3. Create PR for branch {branch_name}
+3. {pr_url ? "Review PR: " + pr_url : "Create PR for branch " + branch_name}
 4. /rune:rest — Clean up tmp/ artifacts when done
 ```
 
@@ -1376,7 +1385,9 @@ Next steps:
 > teammates left alive by incomplete phase cleanup. Without this sweep, the lead session spins
 > on idle notifications ("Twisting...") because the SDK still holds leadership state from
 > the last phase's team. This is the safety net — `prePhaseCleanup` handles inter-phase cleanup,
-> but there is no subsequent phase to trigger cleanup after Phase 8.
+> but there is no subsequent phase to trigger cleanup after Phase 9.5 (the last phase).
+> Phases 9 and 9.5 are orchestrator-only so their cleanup is a no-op, but Phase 8 (AUDIT)
+> summons a team that needs cleanup.
 
 ```javascript
 // POST-ARC FINAL SWEEP (ARC-9)

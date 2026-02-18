@@ -1,15 +1,11 @@
 ---
 name: zsh-compat
 description: |
-  Background knowledge for zsh shell compatibility in Bash commands.
-  macOS uses zsh as the default shell since Catalina. Claude Code's Bash tool
-  inherits the user's shell, so commands must be zsh-safe. This skill covers
-  common pitfalls: read-only variables, glob NOMATCH, word splitting, array
-  indexing, and other bash-vs-zsh differences.
-  Load when generating any Bash command, especially in multi-agent workflows
-  where LLM-generated shell code runs unsupervised.
-  Keywords: zsh, bash, shell compatibility, NOMATCH, status variable, nullglob,
-  read-only variable, glob, macOS shell.
+  Use when generating Bash commands on macOS, when ZSH-001 hook denies a command,
+  when "read-only variable" or "no matches found" errors appear in shell output,
+  or when writing for loops over glob patterns. Covers read-only variables (status,
+  pipestatus, ERRNO), glob NOMATCH protection, word splitting, and array indexing.
+  Keywords: zsh, NOMATCH, status variable, read-only, nullglob, glob, ZSH-001.
 
   <example>
   Context: LLM generating a Bash command with a loop over glob pattern.

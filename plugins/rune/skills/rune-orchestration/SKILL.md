@@ -1,9 +1,10 @@
 ---
 name: rune-orchestration
 description: |
-  Architecture reference for multi-agent orchestration: coordination patterns, output formats, conflict resolution, and file-based handoff.
-  This skill should be used when choosing orchestration architecture (supervisor vs swarm vs pipeline), defining agent output formats, or resolving conflicting agent findings.
-  For pre-summon budgets and overflow prevention, the context-weaving skill should be used instead.
+  Use when choosing between supervisor, swarm, or pipeline coordination for multi-agent
+  workflows, when defining agent output formats, or when resolving conflicting findings
+  from multiple agents. Covers file-based handoff, inscription contracts, and TOME merging.
+  For context overflow prevention, use context-weaving instead.
 
   <example>
   Context: Running multi-agent code review

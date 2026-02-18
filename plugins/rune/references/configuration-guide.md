@@ -95,13 +95,14 @@ Arc pipeline configuration lives under the `arc:` key. Config resolution follows
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `auto_pr` | boolean | `true` | Create PR automatically after audit. CLI: `--no-pr` to disable. |
-| `auto_merge` | boolean | `false` | Merge PR automatically after CI. CLI: `--no-merge` to disable. |
+| `auto_merge` | boolean | `false` | Merge PR automatically (see `wait_ci` for CI gate). CLI: `--no-merge` to disable. |
 | `merge_strategy` | string | `"squash"` | Merge strategy: `squash`, `merge`, or `rebase`. |
 | `wait_ci` | boolean | `false` | Wait for CI checks before merge. |
 | `draft` | boolean | `false` | Create PR as draft. CLI: `--draft`. |
 | `labels` | string[] | `[]` | Labels to apply to PR. |
 | `pr_monitoring` | boolean | `false` | Include post-deploy monitoring section in PR body. Note: distinct from `work.pr_monitoring` — `arc.ship.pr_monitoring` only applies to arc-created PRs. |
 | `rebase_before_merge` | boolean | `true` | Rebase onto target branch before merge. |
+| `co_authors` | string[] | `[]` | Co-Authored-By lines in `"Name <email>"` format. Falls back to `work.co_authors` if not set here. |
 
 ### `arc.pre_merge_checks` — Phase 9.5 (MERGE) pre-merge checklist
 

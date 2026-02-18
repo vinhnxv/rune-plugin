@@ -18,6 +18,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
 | **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 14 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend → audit → ship → merge) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection |
+| **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
 
 ## Commands
 
@@ -93,6 +94,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
 | `TaskCompleted` | `scripts/on-task-completed.sh` + haiku quality gate | Writes signal files to `tmp/.rune-signals/{team}/` when Ashes complete tasks. Enables 5-second filesystem-based completion detection. Also runs a haiku-model quality gate that validates task completion legitimacy (blocks premature/generic completions). |
 | `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
+| `SessionStart:startup\|resume` | `scripts/session-start.sh` | Loads using-rune workflow routing into context. Runs synchronously to ensure routing is available from first message. |
 
 All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL hooks (`enforce-readonly.sh`, `validate-mend-fixer-paths.sh`) exit 2 (blocking). Non-security hooks exit 0 (non-blocking). A `SessionStart` hook validates `jq` availability and warns if missing. Hook configuration lives in `hooks/hooks.json`.
 

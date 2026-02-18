@@ -1,12 +1,11 @@
 ---
 name: polling-guard
 description: |
-  Reference for correct monitoring loop patterns in Rune multi-agent workflows.
-  Covers DO/DON'T for waitForCompletion translation, anti-patterns to avoid,
-  and the enforcement hook (POLL-001) that blocks bad patterns at runtime.
-  Load this skill when entering a monitoring/polling context during any
-  multi-agent workflow (review, audit, work, mend, plan, forge, arc).
-  Keywords: waitForCompletion, polling loop, TaskList monitoring, sleep+echo.
+  Use when entering a monitoring loop for agent completion, when POLL-001 hook
+  denies a sleep+echo command, or when translating waitForCompletion pseudocode
+  into actual polling calls. Covers correct TaskList-based monitoring, per-command
+  poll intervals, and anti-patterns that bypass task visibility.
+  Keywords: waitForCompletion, polling loop, TaskList, sleep+echo, POLL-001.
 
   <example>
   Context: Orchestrator entering monitoring phase of a review workflow.

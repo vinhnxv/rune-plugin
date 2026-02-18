@@ -216,7 +216,7 @@ codex:
   sandbox: "read-only"              # Sandbox mode (always read-only for review)
   context_budget: 20                # Max files to review (default: 20)
   confidence_threshold: 80          # Min confidence to report finding (default: 80)
-  workflows: [review, audit, plan, forge, work]  # Which workflows use Codex Oracle
+  workflows: [review, audit, plan, forge, work, mend]  # Which workflows use Codex Oracle (mend added v1.39.0)
   work_advisory:
     enabled: true                   # Set false to skip advisory in work pipeline
     max_diff_size: 15000            # Truncate diff to this many chars (default: 15000)
