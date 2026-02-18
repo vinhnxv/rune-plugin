@@ -12,6 +12,49 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
+## Progressive Focus (Re-Review Rounds)
+
+On convergence retry (round > 0), Phase 6 uses a focused scope instead of the full branch diff:
+
+```javascript
+// Before delegating to /rune:review, check for re-review context
+const round = checkpoint.convergence?.round ?? 0
+
+if (round > 0) {
+  // Re-review: use progressive focus scope from convergence controller
+  const focusFile = `tmp/arc/${id}/review-focus-round-${round}.json`
+  let focus = null
+  if (exists(focusFile)) {
+    try {
+      focus = JSON.parse(Read(focusFile))
+      if (!Array.isArray(focus?.focus_files) || focus.focus_files.length === 0) {
+        warn(`Re-review focus file malformed or empty — using full scope`)
+        focus = null
+      }
+    } catch (e) {
+      warn(`Re-review focus file unparseable: ${e.message} — using full scope`)
+      focus = null
+    }
+  }
+  if (focus) {
+    // Override changed_files for this review pass
+    changed_files = focus.focus_files
+    log(`Re-review round ${round}: ${changed_files.length} files (${focus.mend_modified.length} mend-modified + ${focus.dependency_files?.length ?? 0} dependencies)`)
+  }
+  // Reduce Ash count for focused reviews
+  maxAgents = Math.min(3, maxAgents)  // Cap at 3 Ashes for re-review
+  // Reduce timeout proportionally
+  reviewTimeout = Math.floor(PHASE_TIMEOUTS.code_review * 0.6)
+  // NOTE: Focused re-review always runs single-pass (not chunked), regardless of CHUNK_THRESHOLD
+}
+```
+
+## TOME Relocation Per Round
+
+TOME output path varies by convergence round to prevent overwriting:
+- Round 0: `tmp/arc/{id}/tome.md` (current behavior)
+- Round N (N>0): `tmp/arc/{id}/tome-round-{N}.md` (preserves round 0 TOME for reference)
+
 ## Algorithm
 
 ```javascript
@@ -81,14 +124,18 @@ if (postReviewStateFiles.length > 0) {
 
 // STEP 4: TOME relocation (copy, not move — original remains for debugging)
 // Source: tmp/reviews/{review-id}/TOME.md (produced by /rune:review)
-// Target: tmp/arc/{id}/tome.md (consumed by Phase 7: MEND)
+// Target: round-aware path (consumed by Phase 7: MEND)
 // BACK-012 FIX: Discover TOME via glob — decoupled from team name resolution.
-// This prevents "file not found" when fallback team name differs from actual review directory.
 const tomeCandidates = Glob('tmp/reviews/review-*/TOME.md').sort().reverse()
 if (tomeCandidates.length === 0) {
   warn('No TOME found in tmp/reviews/ — code review may have produced no findings')
 } else {
-  Bash(`cp -- "${tomeCandidates[0]}" "tmp/arc/${id}/tome.md"`)
+  // Round-aware TOME relocation: round 0 → tome.md, round N → tome-round-{N}.md
+  const convergenceRound = checkpoint.convergence?.round ?? 0
+  const tomeTarget = convergenceRound === 0
+    ? `tmp/arc/${id}/tome.md`
+    : `tmp/arc/${id}/tome-round-${convergenceRound}.md`
+  Bash(`cp -- "${tomeCandidates[0]}" "${tomeTarget}"`)
 }
 
 // STEP 5: Update checkpoint

@@ -40,7 +40,7 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains ten phases into a single automated pipeline: forge, plan review, plan refinement, verification, work, gap analysis, code review, mend, verify mend (convergence gate), and audit. Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, and 7.5). Artifact-based handoff connects phases. Checkpoint state enables resume after failure.
+Chains ten phases into a single automated pipeline: forge, plan review, plan refinement, verification, work, gap analysis, code review, mend, verify mend (convergence controller), and audit. Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, and 5.5). Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`
 
@@ -106,8 +106,8 @@ Phase 6:   CODE REVIEW → Roundtable Circle review
     ↓ (tome.md)
 Phase 7:   MEND → Parallel finding resolution
     ↓ (resolution-report.md) — HALT on >3 FAILED
-Phase 7.5: VERIFY MEND → Convergence gate (spot-check + retry loop)
-    ↓ converged → proceed | retry → loop to Phase 7 (max 2 retries) | halted → warn + proceed
+Phase 7.5: VERIFY MEND → Convergence controller (adaptive review-mend loop)
+    ↓ converged → proceed | retry → loop to Phase 6+7 (tier-based max cycles) | halted → warn + proceed
 Phase 8:   AUDIT → Final quality gate (informational)
     ↓ (audit-report.md)
 Post-arc: PLAN STAMP → Append completion record to plan file (runs FIRST — context-safe)
@@ -120,7 +120,7 @@ Output: Implemented, reviewed, and fixed feature
 
 ## Arc Orchestrator Design (ARC-1)
 
-The arc orchestrator is a **lightweight dispatcher**, not a monolithic agent. Each phase summons a **new team with fresh context** (except Phases 2.5, 2.7, 5.5, and 7.5 which are orchestrator-only). Phase artifacts serve as the handoff mechanism.
+The arc orchestrator is a **lightweight dispatcher**, not a monolithic agent. Each phase summons a **new team with fresh context** (except Phases 2.5, 2.7, and 5.5 which are orchestrator-only). Phase 7.5 is the convergence controller — it evaluates mend results and may reset Phase 6+7 to trigger re-review cycles. Phase artifacts serve as the handoff mechanism.
 
 Dispatcher loop:
 ```
@@ -163,10 +163,35 @@ const PHASE_TIMEOUTS = {
   verify_mend:   240_000,    //  4 min (orchestrator-only, no team)
   audit:       1_200_000,    // 20 min (inner 15m + 5m setup)
 }
-const ARC_TOTAL_TIMEOUT = 7_200_000  // 120 min (honest budget — old 90 min was routinely exceeded)
+// Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
+// See review-mend-convergence.md for tier selection logic.
+// LIGHT (2 cycles):    94 + 42 + 1×26 = 162 min
+// STANDARD (3 cycles): 94 + 42 + 2×26 = 188 min
+// THOROUGH (5 cycles): 94 + 42 + 4×26 = 240 min → hard cap at 240 min
+const ARC_TOTAL_TIMEOUT_DEFAULT = 7_200_000  // 120 min fallback (used before tier selection)
+const ARC_TOTAL_TIMEOUT_HARD_CAP = 14_400_000  // 240 min (4 hours) — absolute hard cap
 const STALE_THRESHOLD = 300_000      // 5 min
-const CONVERGENCE_MAX_ROUNDS = 2     // Max mend retries (3 total passes)
 const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward/cross-file)
+
+// Convergence cycle budgets for dynamic timeout calculation
+const CYCLE_BUDGET = {
+  pass_1_review: 900_000,    // 15 min (full Phase 6)
+  pass_N_review: 540_000,    //  9 min (60% of full — focused re-review)
+  pass_1_mend:   1_380_000,  // 23 min (full Phase 7)
+  pass_N_mend:   780_000,    // 13 min (retry mend)
+  convergence:   240_000,    //  4 min (Phase 7.5 evaluation)
+}
+
+function calculateDynamicTimeout(tier) {
+  const basePhaseBudget = PHASE_TIMEOUTS.forge + PHASE_TIMEOUTS.plan_review +
+    PHASE_TIMEOUTS.plan_refine + PHASE_TIMEOUTS.verification +
+    PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis + PHASE_TIMEOUTS.audit  // ~94 min
+  const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
+  const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
+  const maxCycles = tier?.maxCycles ?? 3
+  const dynamicTimeout = basePhaseBudget + cycle1Budget + (maxCycles - 1) * cycleNBudget
+  return Math.min(dynamicTimeout, ARC_TOTAL_TIMEOUT_HARD_CAP)
+}
 
 // Shared prototype pollution guard — used by prePhaseCleanup (ARC-6) and ORCH-1 resume cleanup.
 // BACK-005 FIX: Single definition replaces two duplicate inline Sets.
@@ -236,7 +261,10 @@ if command -v jq >/dev/null 2>&1; then
       [ "$age_s" -lt 0 ] 2>/dev/null && continue
       [ "$age_s" -gt 604800 ] 2>/dev/null && continue
     fi
-    jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null
+    # EXIT-CODE FIX: || true normalizes exit code when select() filters out everything
+    # (no in_progress phases). Without this, jq exits non-zero → loop exit code propagates →
+    # LLM sees "Error: Exit code 5" and may cascade-fail parallel sibling tool calls.
+    jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null || true
   done)
 else
   # NOTE: grep fallback is imprecise — matches "in_progress" anywhere in file, not field-specific.
@@ -255,7 +283,8 @@ fi
 # Advisory: check for other active rune workflows (not just arc)
 otherWorkflows=$(find tmp -maxdepth 1 -name ".rune-*.json" 2>/dev/null | while read f; do
   if command -v jq >/dev/null 2>&1; then
-    jq -r 'select(.status == "active") | .status' "$f" 2>/dev/null
+    # EXIT-CODE FIX: || true — same rationale as concurrent arc check above
+    jq -r 'select(.status == "active") | .status' "$f" 2>/dev/null || true
   else
     grep -q '"status"[[:space:]]*:[[:space:]]*"active"' "$f" 2>/dev/null && echo "active"
   fi
@@ -315,8 +344,11 @@ const arcStart = Date.now()
 
 function checkArcTimeout() {
   const elapsed = Date.now() - arcStart
-  if (elapsed > ARC_TOTAL_TIMEOUT) {
-    error(`Arc pipeline exceeded ${ARC_TOTAL_TIMEOUT / 60_000}-minute total timeout (elapsed: ${Math.round(elapsed/60000)}min).`)
+  const effectiveTimeout = checkpoint?.convergence?.tier
+    ? calculateDynamicTimeout(checkpoint.convergence.tier)
+    : ARC_TOTAL_TIMEOUT_DEFAULT
+  if (elapsed > effectiveTimeout) {
+    error(`Arc pipeline exceeded ${Math.round(effectiveTimeout / 60_000)}-minute total timeout (elapsed: ${Math.round(elapsed/60000)}min).`)
     updateCheckpoint({ status: "timeout" })
     return true
   }
@@ -438,7 +470,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     audit:        { status: "pending", artifact: null, artifact_hash: null, team_name: null }
   },
-  convergence: { round: 0, max_rounds: CONVERGENCE_MAX_ROUNDS, history: [] },
+  convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [] },
   commits: [],
   started_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
@@ -538,7 +570,14 @@ On resume, validate checkpoint integrity before proceeding:
    a. Add freshness: null
    b. Add flags.skip_freshness: false
    c. Set schema_version: 5
-3e. Resume freshness re-check:
+3e. If schema_version < 6, migrate v5 → v6:
+   a. Add convergence.tier: TIERS.standard (safe default)
+      // NOTE: Do NOT call selectReviewMendTier() here. Migrated checkpoints use
+      // STANDARD as a safe default. Tier re-selection would use stale git state
+      // from before the resume. (decree-arbiter P2)
+   b. Set convergence.max_rounds: TIERS.standard.maxCycles (= 3)
+   c. Set schema_version: 6
+3f. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)
@@ -742,15 +781,17 @@ prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-mend.md algorithm. Update checkpoint on completion.
 
-## Phase 7.5: VERIFY MEND (convergence gate)
+## Phase 7.5: VERIFY MEND (review-mend convergence controller)
 
-Lightweight orchestrator-only check that detects regressions introduced by mend fixes. Compares finding counts, runs a targeted spot-check on modified files, and decides whether to retry mend or proceed to audit.
+Adaptive convergence controller that evaluates mend results and decides whether to loop back for another full review-mend cycle (Phase 6→7→7.5) or proceed to audit. Replaces the previous single-pass spot-check with a tier-based multi-cycle loop.
 
-**Inputs**: resolution report, TOME, committed files
-**Outputs**: `tmp/arc/{id}/spot-check-round-{N}.md` (or mini-TOME on retry: `tmp/arc/{id}/tome-round-{N}.md`)
-**Error handling**: Non-blocking — halting proceeds to audit with warning. The convergence gate either retries or gives up gracefully.
+**Team**: None for convergence evaluation. Delegates full re-review via dispatcher loop-back (resets Phase 6+7 to "pending").
+**Inputs**: Resolution report (round-aware path), TOME, checkpoint convergence state, talisman config
+**Outputs**: Updated checkpoint with convergence verdict. On retry: `review-focus-round-{N}.json` for progressive scope.
+**Error handling**: Non-blocking — halting proceeds to audit with warning. The convergence controller either retries or gives up gracefully.
 
 See [verify-mend.md](references/verify-mend.md) for the full algorithm.
+See [review-mend-convergence.md](../roundtable-circle/references/review-mend-convergence.md) for shared tier selection and convergence evaluation logic.
 
 ## Phase 8: AUDIT (informational)
 
@@ -859,9 +900,13 @@ Phases:
   7.5  VERIFY MEND:     {status} — {convergence_verdict} (round {round}/{max_rounds})
   8.   AUDIT:           {status} — audit-report.md
 
-Convergence: {convergence.round + 1} mend pass(es)
+Review-Mend Convergence:
+  Tier: {convergence.tier.name} ({convergence.tier.maxCycles} max cycles)
+  Reason: {convergence.tier.reason}
+  Cycles completed: {convergence.round + 1}/{convergence.tier.maxCycles}
+
   {for each entry in convergence.history:}
-  Round {N}: {findings_before} → {findings_after} findings ({verdict})
+  Cycle {N}: {findings_before} → {findings_after} findings ({verdict})
 
 Commits: {commit_count} on branch {branch_name}
 Files changed: {file_count}
@@ -896,7 +941,7 @@ Next steps:
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
-| Schema v1/v2/v3/v4 checkpoint on --resume | Auto-migrate to v5 |
+| Schema v1/v2/v3/v4/v5 checkpoint on --resume | Auto-migrate to v6 |
 | Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |
 | Verify mend spot-check timeout (>4 min) | Skip convergence check, proceed to audit with warning |
 | Spot-check agent produces no output | Default to "halted" (fail-closed) |

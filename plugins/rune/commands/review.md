@@ -42,6 +42,8 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 | `--no-chunk` | Force single-pass review (disable chunking regardless of file count) | Off |
 | `--chunk-size <N>` | Override chunk threshold — file count that triggers chunking (default: 20) | 20 |
 | `--no-converge` | Disable convergence loop — single review pass per chunk, report still generated | Off |
+| `--cycles <N>` | Run N standalone review passes with TOME merge (1-5, numeric only). Arc-only auto-detection is not available in standalone mode. | 1 (single pass) |
+| `--scope-file <path>` | Override `changed_files` with a JSON file containing `{ focus_files: [...] }`. Used by arc convergence controller for progressive re-review scope. | None (use git diff) |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
 
@@ -83,6 +85,35 @@ else
     [ -f "$repo_root/$f" ] && [ ! -L "$repo_root/$f" ] && echo "$f"
   done)
 fi
+```
+
+### Scope File Override (--scope-file)
+
+When `--scope-file` is provided, override git-diff-based `changed_files`:
+
+```javascript
+// --scope-file: Override changed_files from a JSON focus file (used by arc convergence controller)
+if (flags['--scope-file']) {
+  const scopePath = flags['--scope-file']
+  // Security pattern: SAFE_FILE_PATH — see security-patterns.md
+  const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
+  if (!SAFE_FILE_PATH.test(scopePath) || scopePath.includes('..') || scopePath.startsWith('/')) {
+    error(`Invalid --scope-file path: ${scopePath}`)
+    return
+  }
+  try {
+    const scopeData = JSON.parse(Read(scopePath))
+    if (Array.isArray(scopeData?.focus_files) && scopeData.focus_files.length > 0) {
+      // Filter to files that actually exist
+      changed_files = scopeData.focus_files.filter(f => exists(f))
+      log(`Scope override: ${changed_files.length} files from ${scopePath}`)
+    } else {
+      warn(`--scope-file ${scopePath} has no focus_files — falling back to git diff scope`)
+    }
+  } catch (e) {
+    warn(`Failed to parse --scope-file: ${e.message} — falling back to git diff scope`)
+  }
+}
 ```
 
 ### Chunk Decision Routing
@@ -228,6 +259,80 @@ To run the full review: /rune:review
 ```
 
 Do NOT proceed to Phase 2. Exit here.
+
+### Multi-Pass Cycle Wrapper (--cycles)
+
+When `--cycles N` is specified with N > 1, Phase 2 through Phase 7 run inside a cycle loop. Each cycle gets a fresh team with a cycle-numbered identifier. After all cycles, TOMEs are merged.
+
+```javascript
+// Parse --cycles (validated as numeric 1-5 in flag parsing)
+const cycleCount = flags['--cycles'] ? parseInt(flags['--cycles'], 10) : 1
+if (Number.isNaN(cycleCount) || cycleCount < 1 || cycleCount > 5) {
+  error(`Invalid --cycles value: ${flags['--cycles']}. Must be numeric 1-5.`)
+  return
+}
+
+if (cycleCount > 1) {
+  log(`Multi-pass review: ${cycleCount} cycles requested`)
+  const cycleTomes = []
+
+  for (let cycle = 1; cycle <= cycleCount; cycle++) {
+    const cycleIdentifier = `${identifier}-cycle-${cycle}`
+    log(`\n--- Cycle ${cycle}/${cycleCount} (team: rune-review-${cycleIdentifier}) ---`)
+
+    // Run Phase 2-7 with cycleIdentifier instead of identifier
+    // Each cycle creates its own team, runs the full Roundtable Circle,
+    // and produces a TOME at tmp/reviews/{cycleIdentifier}/TOME.md
+    // (Phase 2-7 code below handles this when cycleIdentifier is set)
+
+    // After cycle completes, collect the TOME path
+    const cycleTomePath = `tmp/reviews/${cycleIdentifier}/TOME.md`
+    if (exists(cycleTomePath)) {
+      cycleTomes.push(cycleTomePath)
+    } else {
+      warn(`Cycle ${cycle} produced no TOME — skipping in merge`)
+    }
+  }
+
+  // Merge cycle TOMEs into final TOME
+  if (cycleTomes.length === 0) {
+    warn(`All ${cycleCount} cycles produced no findings.`)
+  } else if (cycleTomes.length === 1) {
+    // Single TOME — copy as-is
+    Bash(`cp -- "${cycleTomes[0]}" "tmp/reviews/${identifier}/TOME.md"`)
+  } else {
+    // Multi-TOME merge: deduplicate by finding ID, keep highest severity
+    // Merge follows the same dedup hierarchy as Runebinder (SEC > BACK > DOC > QUAL > FRONT > CDX)
+    log(`Merging ${cycleTomes.length} cycle TOMEs...`)
+    const mergedFindings = []
+    const seenFindings = new Set()  // Track by file:line:prefix to dedup
+
+    for (const tomePath of cycleTomes) {
+      const tomeContent = Read(tomePath)
+      const findings = extractFindings(tomeContent)  // Parse RUNE:FINDING markers
+      for (const f of findings) {
+        const dedupKey = `${f.file}:${f.line}:${f.prefix}`
+        if (!seenFindings.has(dedupKey)) {
+          seenFindings.add(dedupKey)
+          mergedFindings.push(f)
+        }
+        // If duplicate, keep existing (first-seen wins — consistent with Runebinder)
+      }
+    }
+
+    // Write merged TOME
+    Write(`tmp/reviews/${identifier}/TOME.md`, formatMergedTome(mergedFindings, cycleTomes.length))
+  }
+
+  // Write state and exit — multi-pass complete
+  // (Cleanup follows standard Phase 7 pattern for the base identifier)
+  return
+}
+
+// Single-pass (cycleCount === 1): continue with standard Phase 2-7 below
+```
+
+**NOTE**: When `cycleCount === 1` (the default), this wrapper is a no-op and the standard single-pass path continues unchanged. Multi-pass is only available in standalone `/rune:review` — arc convergence uses the Phase 7.5 convergence controller instead.
 
 ## Phase 2: Forge Team
 

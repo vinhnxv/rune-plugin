@@ -250,6 +250,26 @@ defaults:
 #     total: 7200000          # 120 minutes total pipeline (default)
 
 # ──────────────────────────────────────────────
+# Arc — Convergence loop settings (v1.38.0+)
+# ──────────────────────────────────────────────
+# Adaptive review-mend convergence loop in /rune:arc (Phase 7.5).
+# The arc pipeline repeats code review → mend cycles until findings converge.
+# Tier selection (LIGHT/STANDARD/THOROUGH) is automatic based on changeset size
+# and risk signals, but can be overridden here.
+#
+# NOTE: These keys use the `arc_` prefix to avoid collision with the standalone
+# review convergence keys above (convergence_enabled, convergence_tier_override, etc.).
+# Arc convergence controls the Phase 6→7→7.5 loop; review convergence controls
+# per-chunk convergence within a single Phase 6 invocation.
+#
+# arc:
+#   arc_convergence_enabled: true              # Enable arc convergence loop (default: true)
+#   arc_convergence_tier_override: null         # Force tier: "light" | "standard" | "thorough" | null (auto-detect)
+#   arc_convergence_p1_threshold: 0            # Max P1 findings to consider converged (default: 0 — zero tolerance)
+#   arc_convergence_total_threshold: 3         # Max total findings to consider converged (default: 3)
+#   arc_convergence_progress_floor: 0.1        # Min improvement ratio per cycle to continue (default: 0.1 = 10%)
+
+# ──────────────────────────────────────────────
 # Solution Arena — Competitive solution evaluation (v1.24.0+)
 # ──────────────────────────────────────────────
 # Phase 1.8 in /rune:plan — generates 2-5 alternative solutions and

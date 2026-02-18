@@ -11,7 +11,7 @@ Invoke `/rune:mend` logic on the TOME. Parallel fixers resolve findings from the
 - Checkpoint convergence state (`checkpoint.convergence.round`)
 - Arc identifier (`id`)
 
-**Outputs**: `tmp/arc/{id}/resolution-report.md`
+**Outputs**: Round 0: `tmp/arc/{id}/resolution-report.md`, Round N: `tmp/arc/{id}/resolution-report-round-{N}.md`
 
 **Consumers**: Phase 7.5 (VERIFY MEND) reads the resolution report to detect regressions
 
@@ -157,13 +157,26 @@ if (postMendStateFiles.length > 0) {
 }
 ```
 
+## Resolution Report Naming (Round-Aware)
+
+The resolution report path varies by convergence round:
+
+```javascript
+const mendRound = checkpoint.convergence?.round ?? 0
+const resolutionReportPath = mendRound === 0
+  ? `tmp/arc/${id}/resolution-report.md`
+  : `tmp/arc/${id}/resolution-report-round-${mendRound}.md`
+// Write resolution report to round-aware path
+Write(resolutionReportPath, resolutionReport)
+```
+
 ## Completion and Halt Check
 
 ```javascript
 const failedCount = countFindings("FAILED", resolutionReport)
 updateCheckpoint({
   phase: "mend", status: failedCount > 3 ? "failed" : "completed",
-  artifact: `tmp/arc/${id}/resolution-report.md`, artifact_hash: sha256(resolutionReport), phase_sequence: 7
+  artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport), phase_sequence: 7
 })
 ```
 
@@ -184,7 +197,7 @@ Delegated to `/rune:mend` — manages its own TeamCreate/TeamDelete with guards 
 
 Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See SKILL.md Inter-Phase Cleanup Guard section.
 
-**Output**: `tmp/arc/{id}/resolution-report.md`
+**Output**: Round 0: `tmp/arc/{id}/resolution-report.md`, Round N: `tmp/arc/{id}/resolution-report-round-{N}.md`
 
 **Failure policy**: Halt if >3 FAILED findings remain. User manually fixes, runs `/rune:arc --resume`.
 
