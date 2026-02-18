@@ -247,7 +247,9 @@ defaults:
 #     mend: 1380000           # 23 minutes (default: inner 15m + 5m setup + 3m ward)
 #     verify_mend: 240000     # 4 minutes (default, orchestrator-only)
 #     audit: 1200000          # 20 minutes (default: inner 15m + 5m setup)
-#     total: 7200000          # 120 minutes total pipeline (default)
+#     semantic_verification: 180000  # 3 minutes (default, v1.39.0+)
+#     codex_gap_analysis: 660000     # 11 minutes (default, v1.39.0+)
+#     total: 9720000          # 162 minutes total pipeline (default, dynamic per tier)
 
 # ──────────────────────────────────────────────
 # Arc — Convergence loop settings (v1.37.0+)

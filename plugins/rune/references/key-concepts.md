@@ -26,11 +26,11 @@ Each Ash is an Agent Teams teammate with its own 200k context window. An Ash emb
 
 Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents distributed across 3 Ashes — see circle-registry.md for mapping). Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts. Codex Oracle wraps `codex exec` via Bash to provide cross-model verification using GPT-5.3-codex.
 
-The "Perspectives" column lists review focus areas aligned with dedicated agent files (e.g., Forge Warden's 8 perspectives map to 8 agents in `agents/review/`). Duplication detection (mimic-detector) is part of Forge Warden, not Pattern Weaver.
+The "Perspectives" column lists review focus areas aligned with dedicated agent files (e.g., Forge Warden's 9 perspectives map to 9 agents in `agents/review/`). Duplication detection (mimic-detector) is part of Forge Warden, not Pattern Weaver.
 
 | Ash | Perspectives | Agent Source | When Summoned |
 |-----------|-------------|-------------|-------------|
-| **Forge Warden** | Architecture, performance, logic, type safety, missing logic, design anti-patterns, data integrity, duplication | Dedicated agent files | Backend, infra, config, or unclassified files changed |
+| **Forge Warden** | Code quality, architecture, performance, logic, type safety, missing logic, design anti-patterns, data integrity, duplication | Dedicated agent files | Backend, infra, config, or unclassified files changed |
 | **Ward Sentinel** | All security perspectives | Dedicated agent files | Always (+ priority on `.claude/` files) |
 | **Pattern Weaver** | Simplicity, cross-cutting patterns, dead code, incomplete implementations, TDD & test quality, async & concurrency | Dedicated agent files | Always |
 | **Glyph Scribe** | Type safety, components, performance, hooks, accessibility | Inline perspectives | Frontend files changed |
@@ -95,7 +95,7 @@ Line-level diff intelligence for review and mend workflows. Generates expanded l
 
 ## Arc Pipeline
 
-End-to-end orchestration across 10 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), plan refinement (concern extraction, orchestrator-only), verification gate (deterministic checks, zero-LLM), work (swarm implementation), gap analysis (plan-to-code compliance, deterministic, orchestrator-only), code review (Roundtable Circle), mend (parallel finding resolution), verify mend (convergence gate with smart scoring, scope-aware signals, and adaptive retry cycles based on tier), and audit (final gate). Each delegated phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions and time budgets enforce least privilege.
+End-to-end orchestration across 12 phases: forge (research enrichment), plan review (3-reviewer circuit breaker), plan refinement (concern extraction, orchestrator-only), verification gate (deterministic checks, zero-LLM), semantic verification (Codex cross-model analysis, v1.39.0+), work (swarm implementation), gap analysis (plan-to-code compliance, deterministic, orchestrator-only), codex gap analysis (Codex cross-model gap detection, v1.39.0+), code review (Roundtable Circle), mend (parallel finding resolution), verify mend (convergence gate with smart scoring, scope-aware signals, and adaptive retry cycles based on tier), and audit (final gate). Each delegated phase summons a fresh team. Checkpoint-based resume (`.claude/arc/{id}/checkpoint.json`) with artifact integrity validation (SHA-256 hashes). Per-phase tool restrictions and time budgets enforce least privilege.
 
 ## Mend
 

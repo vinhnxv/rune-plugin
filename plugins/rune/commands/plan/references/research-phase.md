@@ -228,7 +228,7 @@ const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || e
 const codexDisabled = talisman?.codex?.disabled === true
 
 if (codexAvailable && !codexDisabled) {
-  const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
+  const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
   if (codexWorkflows.includes("plan")) {
     // SEC-002: Validate talisman codex config before shell interpolation
     // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST -- see security-patterns.md

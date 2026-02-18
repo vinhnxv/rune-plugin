@@ -163,6 +163,8 @@ const postMendStateFiles = Glob("tmp/.rune-mend-*.json").filter(f => {
     return isRelevant && isValidAge
   } catch (e) { return false }
 })
+// BACK-008 FIX: Sort by modification time (newest first) to pick most recent state file
+postMendStateFiles.sort((a, b) => b.localeCompare(a))
 if (postMendStateFiles.length > 1) {
   warn(`Multiple mend state files found (${postMendStateFiles.length}) — using most recent`)
 }

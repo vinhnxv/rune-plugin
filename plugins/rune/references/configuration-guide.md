@@ -40,7 +40,7 @@ codex:                                 # Codex CLI integration (see codex-cli sk
   disabled: false                      # Kill switch — skip Codex entirely
   model: "gpt-5.3-codex"              # Model for codex exec
   reasoning: "high"                    # Reasoning effort (high | medium | low)
-  workflows: [review, audit, plan, forge, work]  # Which pipelines use Codex
+  workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex — "mend" added in v1.39.0 for post-fix verification
   work_advisory:
     enabled: true                      # Codex advisory in /rune:work
 

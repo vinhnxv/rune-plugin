@@ -372,7 +372,7 @@ When Codex is available, get an independent complexity assessment to prevent ove
 
 ```
 // QUAL-005 FIX: Add codexWorkflows check — respects user removing "plan" from workflows
-codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
+codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
 if codexAvailable AND NOT codexDisabled AND codexWorkflows.includes("plan") AND talisman.codex.shatter.enabled !== false:
   planSummary = Read(planPath)[0..8000]
 

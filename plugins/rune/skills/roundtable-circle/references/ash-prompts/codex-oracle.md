@@ -28,7 +28,9 @@
 > model unrestricted read access to ALL repository files, including secrets.
 
 **Pre-flight check (orchestrator responsibility):**
-1. Before running `codex exec`, verify `.codexignore` exists at the repo root.
+1. Before running `codex exec`, verify `.codexignore` exists at the repo root AND contains at least one non-empty, non-comment line (lines starting with `#` are comments; blank lines are ignored).
+   - If the file exists but is empty or contains only comments/blank lines, treat it as missing (same warning as step 2).
+   - **1b.** Validate `.codexignore` includes at minimum: `.env*`, `*.pem`, `*.key`, `.git/`. If any of these are missing, warn the user: "WARNING: .codexignore is missing required exclusion(s): {list}. Add them before proceeding with --full-auto."
 2. If missing, warn the user: "WARNING: .codexignore not found. --full-auto allows Codex to read ALL files including secrets. Create .codexignore before proceeding."
 3. Suggest creating one from the default template below.
 

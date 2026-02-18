@@ -192,7 +192,7 @@ Cross-model solution evaluation. Codex provides an independent assessment of the
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
 const talisman = readTalisman()
 const codexDisabled = talisman?.codex?.disabled === true
-const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
+const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
 const arenaEnabled = talisman?.codex?.arena?.enabled !== false
 const arenaRole = talisman?.codex?.arena?.role ?? "judge"  // "judge" | "generator" | "both"
 

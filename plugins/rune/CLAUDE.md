@@ -16,7 +16,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
 | **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
-| **arc** | End-to-end orchestration pipeline (10 phases: freshness → forge → plan review → work → code review → mend → adaptive convergence → audit) |
+| **arc** | End-to-end orchestration pipeline (12 phases: freshness → forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend → audit) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection |
 
 ## Commands
@@ -70,7 +70,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `TaskCompleted` | `scripts/on-task-completed.sh` + haiku quality gate | Writes signal files to `tmp/.rune-signals/{team}/` when Ashes complete tasks. Enables 5-second filesystem-based completion detection. Also runs a haiku-model quality gate that validates task completion legitimacy (blocks premature/generic completions). |
 | `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
 
-All hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 (non-blocking) and the system falls back gracefully. Hook configuration lives in `hooks/hooks.json`.
+All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL hooks (`enforce-readonly.sh`, `validate-mend-fixer-paths.sh`) exit 2 (blocking). Non-security hooks exit 0 (non-blocking). A `SessionStart` hook validates `jq` availability and warns if missing. Hook configuration lives in `hooks/hooks.json`.
 
 **Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-polling.sh`, `enforce-zsh-compat.sh`, `enforce-teams.sh`) emit deny/allow decisions directly. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), TaskCompleted 10s (signal I/O + haiku gate), TeammateIdle 15s (inscription parse + output validation).
 

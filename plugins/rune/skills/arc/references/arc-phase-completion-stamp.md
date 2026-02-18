@@ -107,8 +107,10 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
     ['2',   'PLAN REVIEW',     'plan_review'],
     ['2.5', 'PLAN REFINEMENT', 'plan_refine'],
     ['2.7', 'VERIFICATION',    'verification'],
+    ['2.8', 'SEMANTIC VERIFICATION', 'semantic_verification'],
     ['5',   'WORK',            'work'],
     ['5.5', 'GAP ANALYSIS',    'gap_analysis'],
+    ['5.6', 'CODEX GAP ANALYSIS', 'codex_gap_analysis'],
     ['6',   'CODE REVIEW',     'code_review'],
     ['7',   'MEND',            'mend'],
     ['7.5', 'VERIFY MEND',     'verify_mend'],
@@ -127,7 +129,8 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
   let convergenceSection = ""
   const history = checkpoint.convergence?.history || []
   if (history.length > 0) {
-    convergenceSection = `### Convergence\n\n- ${history.length + 1} mend pass(es)\n`
+    // BACK-009 FIX: history.length is already the pass count (each entry = 1 pass). +1 was off-by-one.
+    convergenceSection = `### Convergence\n\n- ${history.length} mend pass(es)\n`
     for (const entry of history) {
       let roundLine = `- Round ${entry.round}: ${entry.findings_before} → ${entry.findings_after} findings (${entry.verdict})`
       // v1.38.0: Include smart convergence score when available

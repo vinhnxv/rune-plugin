@@ -457,10 +457,13 @@ for fn in long_fns[:10]: print(fn)
       : "0"
     if (parseInt(evalExists) > 0) {
       // BACK-202 FIX: Capture exit code before piping to avoid tail masking pytest status
-      const evalResult = Bash(`timeout 30s python -m pytest evaluation/ -v --tb=line 2>&1 > /tmp/rune-eval-out.txt; echo $?`)
+      // SEC-016 FIX: Use project-local tmp instead of /tmp to avoid shared-temp collisions
+      const evalTmpFile = `tmp/.rune-eval-out-${Date.now()}.txt`
+      const evalResult = Bash(`timeout 30s python -m pytest evaluation/ -v --tb=line 2>&1 > "${evalTmpFile}"; echo $?`)
       const evalRc = parseInt(evalResult.stdout.trim())
-      const evalOutput = Bash(`tail -20 /tmp/rune-eval-out.txt`).stdout.trim()
-      Bash(`rm -f /tmp/rune-eval-out.txt`)
+      const evalOutput = Bash(`tail -20 "${evalTmpFile}"`).stdout.trim()
+      Bash(`rm -f "${evalTmpFile}"`)
+
       const output = evalOutput
       // Parse pass/fail counts from pytest summary
       const summaryMatch = output.match(/(\d+) passed(?:, (\d+) failed)?/)
@@ -557,9 +560,12 @@ Cross-model gap detection using Codex to compare plan expectations against actua
 ```javascript
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
 const codexDisabled = talisman?.codex?.disabled === true
-const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
+const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
 const gapEnabled = talisman?.codex?.gap_analysis?.enabled !== false
 
+// BACK-003 FIX: Gate on "work" workflow — Codex gap analysis is a work-phase sub-step,
+// not a standalone workflow. The codexWorkflows array includes "mend" for mend-phase Codex
+// integration, but gap analysis specifically requires "work" to be enabled.
 if (!codexAvailable || codexDisabled || !codexWorkflows.includes("work") || !gapEnabled) {
   Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Codex gap analysis skipped (unavailable or disabled).")
   updateCheckpoint({ phase: "codex_gap_analysis", status: "completed", phase_sequence: 5.6, team_name: null })
@@ -656,8 +662,8 @@ Task({
 ### STEP 5: Monitor and Cleanup
 
 ```javascript
-// Monitor: timeout from talisman (default 10 min)
-waitForCompletion("codex-gap-analyzer", talisman?.codex?.gap_analysis?.timeout ?? 600_000)
+// CDX-002 FIX: Normalize timeout to ms (talisman value is seconds, matching bash timeout)
+waitForCompletion("codex-gap-analyzer", (talisman?.codex?.gap_analysis?.timeout ?? 600) * 1000)
 
 // Shutdown + cleanup
 SendMessage({ type: "shutdown_request", recipient: "codex-gap-analyzer" })

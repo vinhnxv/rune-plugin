@@ -243,15 +243,28 @@ for (const finding of findings) {
   }
 }
 
-// STEP 4: SEC-WS-003 — Strip ALL existing scope attributes BEFORE injecting
+// STEP 4: SEC-WS-003 — Strip ALL non-canonical attributes BEFORE injecting scope
 // An Ash (or reviewed code via prompt injection) could pre-insert scope="in-diff"
+// or inject arbitrary attributes (fake severity, etc.)
 // SEC-001 FIX: Apply strip-loop to remove ALL occurrences (not just first per marker)
+// SEC-017 FIX: Strip ALL non-canonical attributes, not just scope.
+// Canonical attributes: nonce, id, file, line, severity, scope
+const CANONICAL_ATTRS = new Set(['nonce', 'id', 'file', 'line', 'severity', 'scope'])
 let taggedTome = tome
-// First pass: strip scope attributes from RUNE:FINDING markers (global, handles multiple)
-const SCOPE_ATTR = /\s*scope="[^"]*"/g
 taggedTome = taggedTome.replace(
   /<!-- RUNE:FINDING\s+([^>]+)-->/g,
-  (marker) => marker.replace(SCOPE_ATTR, '')
+  (marker, attrs) => {
+    // Parse all key="value" pairs, keep only canonical ones (excluding scope — re-injected in STEP 5)
+    const kept = []
+    const attrPattern = /(\w+)="([^"]*)"/g
+    let m
+    while ((m = attrPattern.exec(attrs)) !== null) {
+      if (CANONICAL_ATTRS.has(m[1]) && m[1] !== 'scope') {
+        kept.push(`${m[1]}="${m[2]}"`)
+      }
+    }
+    return `<!-- RUNE:FINDING ${kept.join(' ')} -->`
+  }
 )
 
 // STEP 5: Inject scope attribute into RUNE:FINDING markers
