@@ -209,7 +209,7 @@ from review.md. Step ordering matters — scope building depends on default bran
 ## Codex Oracle
 
 Conditional on two checks:
-1. `codex` CLI is detected on the system (see `roundtable-circle/references/codex-detection.md`)
+1. `codex` CLI is detected on the system (see [codex-detection.md](../../roundtable-circle/references/codex-detection.md))
 2. `"review"` is listed in `talisman.codex.workflows` configuration
 
 When both conditions are met, the Codex Oracle is included as an additional reviewer. Its findings use the `CDX` prefix and participate in the standard dedup hierarchy and TOME aggregation.

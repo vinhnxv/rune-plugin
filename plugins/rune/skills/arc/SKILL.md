@@ -344,7 +344,7 @@ See [freshness-gate.md](references/freshness-gate.md) for the full algorithm (5 
 
 **Summary**: Zero-LLM-cost structural drift detection. Produces `freshnessResult` object stored in checkpoint + `tmp/arc/{id}/freshness-report.md`. Plans without `git_sha` skip the check (backward compat). STALE plans prompt user: re-plan, override, or abort.
 
-Read and execute the algorithm from `references/freshness-gate.md`. Store `freshnessResult` for checkpoint initialization below.
+Read and execute the algorithm from [freshness-gate.md](references/freshness-gate.md). Store `freshnessResult` for checkpoint initialization below.
 
 ### Total Pipeline Timeout Check
 

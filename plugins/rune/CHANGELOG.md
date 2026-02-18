@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.39.2] — 2026-02-19
+
+### Fixed
+- **DOC-001**: Pre-commit checklist now says "all four files" with flat numbering (was "three" with ambiguous "Also sync" separator)
+- **DOC-002**: Pre-commit checklist marketplace.json path now qualified with "repo-root" to avoid ambiguity
+- **SEC-001**: Validation command `$f` variable now properly quoted: `$(basename "$(dirname "$f")")`
+- **QUAL-001**: Converted remaining backtick path in `arc-phase-code-review.md` to markdown link
+- **QUAL-006**: Added zsh glob compliance note to Skill Compliance section (covers both `skills/` and `commands/`)
+
+### Changed
+- **Plugin version**: 1.39.1 → 1.39.2
+- Pre-commit file paths now use full relative paths from repo root for clarity
+
 ## [1.39.1] — 2026-02-18
 
 ### Fixed

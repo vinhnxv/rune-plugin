@@ -34,7 +34,7 @@ All Rune workflows that invoke Codex MUST follow these patterns.
 ## Detection
 
 Run the canonical detection algorithm before any Codex invocation.
-See `roundtable-circle/references/codex-detection.md` for the full 9-step algorithm.
+See [codex-detection.md](../roundtable-circle/references/codex-detection.md) for the full 9-step algorithm.
 
 ```
 1. Read talisman.yml (project or global)
@@ -186,7 +186,7 @@ timeout 600 codex exec \
 
 > **Note:** This is a simplified example. For the full hardened prompt with security anchors,
 > Truthbinding protocol, and injection mitigations, see
-> `roundtable-circle/references/ash-prompts/codex-oracle.md` Review Mode section.
+> [codex-oracle.md](../roundtable-circle/references/ash-prompts/codex-oracle.md) Review Mode section.
 
 For `/rune:review`, pass diff content instead of file lists:
 
@@ -317,7 +317,7 @@ After receiving Codex output, verify EVERY finding:
    - Description doesn't match reality → UNVERIFIED → exclude
 
 Only findings that pass ALL three checks are included as CONFIRMED.
-See `roundtable-circle/references/ash-prompts/codex-oracle.md` for the full guard protocol.
+See [codex-oracle.md](../roundtable-circle/references/ash-prompts/codex-oracle.md) for the full guard protocol.
 
 ## Output Conventions
 
@@ -404,9 +404,9 @@ the global `codex.reasoning` for that specific feature only.
 
 | File | What It Provides |
 |------|-----------------|
-| `roundtable-circle/references/codex-detection.md` | Canonical 9-step detection algorithm |
-| `roundtable-circle/references/ash-prompts/codex-oracle.md` | Full Ash prompt template with hallucination guard |
-| `roundtable-circle/references/circle-registry.md` | Codex Oracle's place in Ash registry |
+| [codex-detection.md](../roundtable-circle/references/codex-detection.md) | Canonical 9-step detection algorithm |
+| [codex-oracle.md](../roundtable-circle/references/ash-prompts/codex-oracle.md) | Full Ash prompt template with hallucination guard |
+| [circle-registry.md](../roundtable-circle/references/circle-registry.md) | Codex Oracle's place in Ash registry |
 | `talisman.example.yml` (codex section) | All configurable options with comments |
 
 ## Quick Reference

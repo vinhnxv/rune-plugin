@@ -324,14 +324,18 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 
 | Skill | Purpose |
 |-------|---------|
-| rune-orchestration | Multi-agent coordination patterns |
+| arc | End-to-end orchestration pipeline (forge → plan review → work → code review → mend → audit) |
+| ash-guide | Agent invocation reference |
+| chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
+| codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | context-weaving | Context overflow/rot prevention |
+| elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
+| goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers) |
+| polling-guard | Monitoring loop fidelity — correct waitForCompletion translation |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
-| elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
-| ash-guide | Agent invocation reference |
-| codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
-| arc | End-to-end orchestration pipeline (forge → plan review → work → code review → mend → audit) |
+| rune-orchestration | Multi-agent coordination patterns |
+| zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
 
 ## Configuration
 
@@ -435,6 +439,7 @@ plugins/rune/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── agents/
+│   ├── investigation/   # 8 impact/wisdom/lore agents (Goldmask v2)
 │   ├── review/          # 16 review agents
 │   │   └── references/  # Shared review checklists
 │   ├── research/        # 5 research agents (plan pipeline)
@@ -457,15 +462,20 @@ plugins/rune/
 │   ├── arc/                 # /rune:arc (end-to-end pipeline)
 │   │   ├── SKILL.md
 │   │   └── references/      # Arc-specific phase refs, delegation checklist
-│   ├── rune-orchestration/  # Core coordination
-│   │   └── references/      # e.g. team-lifecycle-guard.md
+│   ├── ash-guide/           # Agent reference
+│   ├── chome-pattern/       # CLAUDE_CONFIG_DIR resolution
+│   ├── codex-cli/           # Codex CLI integration
 │   ├── context-weaving/     # Context management
+│   ├── elicitation/         # BMAD-derived reasoning methods
+│   │   └── references/      # methods.csv, examples.md, phase-mapping.md
+│   ├── goldmask/            # Cross-layer impact analysis
+│   ├── polling-guard/       # Monitoring loop fidelity
 │   ├── roundtable-circle/   # Review orchestration
 │   │   └── references/      # e.g. rune-gaze.md, custom-ashes.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
-│   ├── elicitation/         # BMAD-derived reasoning methods
-│   │   └── references/      # methods.csv, examples.md, phase-mapping.md
-│   └── ash-guide/    # Agent reference
+│   ├── rune-orchestration/  # Core coordination
+│   │   └── references/      # e.g. team-lifecycle-guard.md
+│   └── zsh-compat/          # zsh shell compatibility
 ├── talisman.example.yml
 ├── CLAUDE.md
 ├── LICENSE
