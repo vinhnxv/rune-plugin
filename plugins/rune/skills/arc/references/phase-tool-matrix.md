@@ -12,7 +12,7 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 | Phase 5.5 (GAP ANALYSIS) | Read, Glob, Grep, Bash (git diff, grep) | Orchestrator-only -- deterministic cross-reference |
 | Phase 6 (CODE REVIEW) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Review -- no codebase modification |
 | Phase 7 (MEND) | Orchestrator: full. Fixers: restricted (see mend-fixer) | Least privilege for fixers |
-| Phase 7.5 (VERIFY MEND) | Read, Glob, Grep, Bash (git diff), Task (Explore) | Orchestrator-only -- regression spot-check |
+| Phase 7.5 (VERIFY MEND) | Read, Glob, Grep, Write, Bash (git diff) | Orchestrator-only — convergence controller (no team) |
 | Phase 8 (AUDIT) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Audit -- no codebase modification |
 
 Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`". Only the arc orchestrator writes to checkpoint.json.
@@ -29,9 +29,9 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 | GAP ANALYSIS | 1 min | Orchestrator-only, deterministic text checks |
 | CODE REVIEW | 15 min | Inner 10m + 5m setup budget |
 | MEND | 23 min | Inner 15m + 5m setup + 3m ward/cross-file |
-| VERIFY MEND | 4 min | Single Explore spot-check (orchestrator-only) |
+| VERIFY MEND | 4 min | Convergence evaluation (orchestrator-only); re-review cycles run as separate Phase 6+7 |
 | AUDIT | 20 min | Inner 15m + 5m setup budget |
 
-**Total pipeline hard ceiling**: 120 minutes (`ARC_TOTAL_TIMEOUT`).
+**Total pipeline hard ceiling**: Dynamic (162-240 min based on tier; hard cap 240 min). See `calculateDynamicTimeout()` in SKILL.md.
 
 Delegated phases use inner-timeout + 60s buffer so the delegated command handles its own timeout first; the arc timeout is a safety net only.

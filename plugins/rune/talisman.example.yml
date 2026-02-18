@@ -250,6 +250,25 @@ defaults:
 #     total: 7200000          # 120 minutes total pipeline (default)
 
 # ──────────────────────────────────────────────
+# Arc — Convergence loop settings (v1.37.0+)
+# ──────────────────────────────────────────────
+# Adaptive review-mend convergence loop in /rune:arc (Phase 7.5).
+# The arc pipeline repeats code review → mend cycles until findings converge.
+# Tier selection (LIGHT/STANDARD/THOROUGH) is automatic based on changeset size
+# and risk signals, but can be overridden here.
+#
+# NOTE: These keys use the `arc_` prefix to avoid collision with the standalone
+# review convergence keys above (convergence_enabled, convergence_tier_override, etc.).
+# Arc convergence controls the Phase 6→7→7.5 loop; review convergence controls
+# per-chunk convergence within a single Phase 6 invocation.
+#
+# NOTE: Arc convergence keys belong under the `review:` section below.
+# The code reads from config.review.arc_convergence_* (not config.arc.*).
+# See the `review:` section for the actual commented-out keys:
+#   arc_convergence_tier_override, arc_convergence_max_cycles,
+#   arc_convergence_finding_threshold, arc_convergence_improvement_ratio
+
+# ──────────────────────────────────────────────
 # Solution Arena — Competitive solution evaluation (v1.24.0+)
 # ──────────────────────────────────────────────
 # Phase 1.8 in /rune:plan — generates 2-5 alternative solutions and
@@ -280,7 +299,13 @@ echoes:
 # ──────────────────────────────────────────────
 # Review — Chunked review and convergence settings (v1.35.0+)
 # ──────────────────────────────────────────────
-# review:
+# review:                                # Uncomment this line AND the desired child keys below to enable review settings.
+  # Auto-mend: invoke /rune:mend automatically after review completes (v1.38.0+)
+  # When enabled, skips the post-review AskUserQuestion and pipes the TOME
+  # directly into the mend pipeline. Only triggers when P1/P2 findings exist.
+  # Also activatable per-invocation via --auto-mend flag (flag overrides config).
+  # auto_mend: false             # Set true to enable auto-mend globally (default: false)
+  #
   # Chunked review settings (triggered when changed files exceed chunk_threshold)
   # SEC-005 FIX: Document valid ranges for numeric config values
   # chunk_threshold: 20        # Files above this trigger chunking (default: 20, range: 5-200)
@@ -291,11 +316,20 @@ echoes:
   #
   # Convergence loop settings (adaptive 3-tier system)
   # convergence_enabled: true              # Enable review convergence loop (default: true)
-  # convergence_tier_override: null        # Force tier: "minimal" | "standard" | "thorough" | null (auto-detect)
+  # convergence_tier_override: null        # Force tier: "light" | "standard" | "thorough" | null (auto-detect)
   # convergence_density_threshold: 0.3     # Min findings/file for code chunks (default: 0.3)
   # convergence_evidence_threshold: 0.7    # Min findings-with-evidence ratio (default: 0.7)
   # convergence_confidence_threshold: 0.6  # Min avg confidence score (default: 0.6)
   # convergence_coverage_threshold: 0.4    # Min files-with-findings ratio for code chunks (default: 0.4)
+  #
+  # Arc review-mend convergence (v1.37.0+)
+  # NOTE: These keys use 'arc_' prefix to distinguish from chunked review keys above.
+  # Arc convergence controls the Phase 6→7→7.5 loop; review convergence controls
+  # per-chunk convergence within a single Phase 6 invocation.
+  # arc_convergence_tier_override: null     # Force: "light" | "standard" | "thorough" | null (auto-detect)
+  # arc_convergence_max_cycles: null        # Hard override: 1-5 (overrides tier, use sparingly)
+  # arc_convergence_finding_threshold: 0    # P1 findings below this count = converged (default: 0)
+  # arc_convergence_improvement_ratio: 0.5  # Findings must decrease by this ratio to continue (default: 0.5)
 
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings

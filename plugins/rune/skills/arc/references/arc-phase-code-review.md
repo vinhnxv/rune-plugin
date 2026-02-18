@@ -12,6 +12,67 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
+## Progressive Focus (Re-Review Rounds)
+
+On convergence retry (round > 0), Phase 6 uses a focused scope instead of the full branch diff:
+
+```javascript
+// Before delegating to /rune:review, check for re-review context
+const round = checkpoint.convergence?.round ?? 0
+
+if (round > 0) {
+  // Re-review: use progressive focus scope from convergence controller
+  const focusFile = `tmp/arc/${id}/review-focus-round-${round}.json`
+  let focus = null
+  if (exists(focusFile)) {
+    try {
+      focus = JSON.parse(Read(focusFile))
+      if (!Array.isArray(focus?.focus_files) || focus.focus_files.length === 0) {
+        warn(`Re-review focus file malformed or empty — using full scope`)
+        focus = null
+      }
+    } catch (e) {
+      warn(`Re-review focus file unparseable: ${e.message} — using full scope`)
+      focus = null
+    }
+  }
+  if (focus) {
+    // SEC-009: Validate each focus_files entry before use
+    const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
+    changed_files = focus.focus_files.filter(f =>
+      typeof f === 'string' && SAFE_FILE_PATH.test(f) && !f.includes('..') && !f.startsWith('/')
+    )
+    log(`Re-review round ${round}: ${changed_files.length} files (${focus.mend_modified.length} mend-modified + ${focus.dependency_files?.length ?? 0} dependencies)`)
+  }
+  // QUAL-017: Reduce Ash count for focused reviews — 3 is sufficient for mend-modified files.
+  // Documented in CHANGELOG v1.37.0 and phase-tool-matrix.md.
+  maxAgents = Math.min(3, maxAgents)  // Cap at 3 Ashes for re-review
+  // Reduce timeout proportionally (minimum 5 min to allow meaningful review)
+  // BACK-007 FIX: Floor prevents sub-minute timeout when PHASE_TIMEOUTS.code_review is small
+  reviewTimeout = Math.max(300_000, Math.floor(PHASE_TIMEOUTS.code_review * 0.6))
+  // NOTE: Focused re-review always runs single-pass (not chunked), regardless of CHUNK_THRESHOLD
+}
+```
+
+## TOME Relocation Per Round
+
+TOME output path varies by convergence round to prevent overwriting:
+- Round 0: `tmp/arc/{id}/tome.md` (current behavior)
+- Round N (N>0): `tmp/arc/{id}/tome-round-{N}.md` (preserves round 0 TOME for reference)
+
+## CRITICAL — Delegation Contract
+
+This phase is **delegated** to `/rune:review` via sub-command invocation (Task tool). The arc orchestrator MUST NOT call `TeamCreate` for this phase. The `/rune:review` sub-command manages its own team lifecycle in a separate process. Attempting to create a team inline in the orchestrator would fail with "Already leading team X" if SDK leadership state leaked from Phase 2 (PLAN REVIEW).
+
+The orchestrator's role in Phase 6 is limited to:
+1. Run `prePhaseCleanup(checkpoint)` — clear stale teams and SDK state
+2. Invoke `/rune:review` logic — the sub-command creates and manages its own team
+3. Discover team name from state file — record in checkpoint for cancel-arc
+4. Relocate TOME artifact — copy from review output dir to arc artifacts
+5. Update checkpoint — record artifact path and hash
+
+**DO NOT** create a team, create tasks, or spawn agents inline for this phase.
+
 ## Algorithm
 
 ```javascript
@@ -81,20 +142,39 @@ if (postReviewStateFiles.length > 0) {
 
 // STEP 4: TOME relocation (copy, not move — original remains for debugging)
 // Source: tmp/reviews/{review-id}/TOME.md (produced by /rune:review)
-// Target: tmp/arc/{id}/tome.md (consumed by Phase 7: MEND)
+// Target: round-aware path (consumed by Phase 7: MEND)
 // BACK-012 FIX: Discover TOME via glob — decoupled from team name resolution.
-// This prevents "file not found" when fallback team name differs from actual review directory.
-const tomeCandidates = Glob('tmp/reviews/review-*/TOME.md').sort().reverse()
+// SEC-012 FIX: Filter candidates by recency — only consider TOMEs created after this phase started.
+// Without this filter, the glob matches ALL review TOMEs (including from prior arc sessions).
+const phaseStartTime = checkpoint.phases.code_review?.started_at ? new Date(checkpoint.phases.code_review.started_at).getTime() : Date.now() - PHASE_TIMEOUTS.code_review
+const tomeCandidates = Glob('tmp/reviews/review-*/TOME.md')
+  .filter(f => {
+    try { return Bash(`stat -f %m "${f}" 2>/dev/null || stat -c %Y "${f}" 2>/dev/null`).trim() * 1000 >= phaseStartTime } catch (e) { return true }
+  })
+  .sort().reverse()
+// BUG FIX: Lift tomeTarget to outer scope — needed by STEP 5 checkpoint update.
+// Previously scoped inside else-block, causing undefined reference in STEP 5.
+const convergenceRound = checkpoint.convergence?.round ?? 0
+const tomeTarget = convergenceRound === 0
+  ? `tmp/arc/${id}/tome.md`
+  : `tmp/arc/${id}/tome-round-${convergenceRound}.md`
 if (tomeCandidates.length === 0) {
   warn('No TOME found in tmp/reviews/ — code review may have produced no findings')
 } else {
-  Bash(`cp -- "${tomeCandidates[0]}" "tmp/arc/${id}/tome.md"`)
+  Bash(`cp -- "${tomeCandidates[0]}" "${tomeTarget}"`)
 }
 
+// STEP 4.5: Read TOME content for checkpoint integrity hash
+// BUG FIX: `sha256(tome)` referenced undefined variable `tome`.
+// Now reads tomeTarget content explicitly.
+const tomeContent = exists(tomeTarget) ? Read(tomeTarget) : ''
+
 // STEP 5: Update checkpoint
+// BUG FIX: artifact path was hardcoded to `tome.md` — wrong on convergence retry
+// rounds where TOME is at `tome-round-{N}.md`. Now uses round-aware tomeTarget.
 updateCheckpoint({
   phase: "code_review", status: "completed",
-  artifact: `tmp/arc/${id}/tome.md`, artifact_hash: sha256(tome), phase_sequence: 6
+  artifact: tomeTarget, artifact_hash: sha256(tomeContent), phase_sequence: 6
 })
 ```
 

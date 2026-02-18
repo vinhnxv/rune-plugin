@@ -95,7 +95,7 @@ When you run `/rune:arc`, Rune chains 10 phases into one automated pipeline:
 5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code + doc-consistency via talisman verification_patterns (zero LLM cost, advisory)
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
 7. **MEND** — Parallel fixers resolve findings from TOME
-7.5. **VERIFY MEND** — Convergence gate: spot-checks mend fixes for regressions, retries up to 2x if P1s remain, halts on divergence
+7.5. **VERIFY MEND** — Adaptive convergence controller: loops Phase 6→7→7.5 until findings converge or tier max cycles reached (LIGHT: 2, STANDARD: 3, THOROUGH: 5). Proceeds to audit with warning on halt
 8. **AUDIT** — Final quality gate (informational)
 
 Note: Phase numbers match the internal arc skill pipeline (Phases 3-4 are internal forge/plan-review and not shown in this summary).

@@ -223,14 +223,25 @@ try {
 for (const member of allMembers) { SendMessage({ type: "shutdown_request", recipient: member, content: "Plan review complete" }) }
 // SEC-003: id validated at arc init (/^arc-[a-zA-Z0-9_-]+$/) — see Initialize Checkpoint section
 // TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+let cleanupTeamDeleteSucceeded = false
 const CLEANUP_DELAYS = [0, 3000, 8000]
 for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
   if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
-  try { TeamDelete(); break } catch (e) {
+  try { TeamDelete(); cleanupTeamDeleteSucceeded = true; break } catch (e) {
     if (attempt === CLEANUP_DELAYS.length - 1) warn(`arc-plan-review cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
   }
 }
-// Filesystem fallback with CHOME
-// SEC-005: id validated at line 37 — contains only [a-zA-Z0-9_-]
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-plan-review-${id}/" "$CHOME/tasks/arc-plan-review-${id}/" 2>/dev/null`)
+// QUAL-012 FIX: Gate filesystem fallback behind !cleanupTeamDeleteSucceeded (CDX-003 pattern).
+// When TeamDelete succeeds cleanly, rm-rf is unnecessary and adds blast radius risk.
+if (!cleanupTeamDeleteSucceeded) {
+  // Filesystem fallback with CHOME
+  // SEC-005: id validated at line 37 — contains only [a-zA-Z0-9_-]
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-plan-review-${id}/" "$CHOME/tasks/arc-plan-review-${id}/" 2>/dev/null`)
+  // Step C: Post-rm-rf TeamDelete to clear SDK leadership state.
+  // BUG FIX: If TeamDelete failed above (e.g., "Cannot cleanup team with N active members"),
+  // rm-rf removed the dirs that were blocking TeamDelete. Try once more — TeamDelete may
+  // now succeed because the "active members" dirs are gone. Without this, SDK leadership
+  // state leaks to Phase 6+ causing "Already leading team" errors on next TeamCreate.
+  try { TeamDelete() } catch (e) { /* SDK state will be handled by prePhaseCleanup Strategy 4 */ }
+}
 ```
