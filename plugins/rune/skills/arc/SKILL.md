@@ -619,7 +619,7 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 7, plan_file: planFile,
+  id, schema_version: 8, plan_file: planFile,
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm },
   arc_config: arcConfig,
   pr_url: null,
@@ -756,7 +756,15 @@ On resume, validate checkpoint integrity before proceeding:
    c. checkpoint.arc_config = checkpoint.arc_config ?? null
    d. checkpoint.pr_url = checkpoint.pr_url ?? null
    e. Set schema_version: 7
-3g. Resume freshness re-check:
+3g. If schema_version < 8, migrate v7 → v8:
+   a. Add minCycles to convergence.tier if not present:
+      checkpoint.convergence.tier.minCycles = checkpoint.convergence.tier.minCycles ?? (
+        checkpoint.convergence.tier.name === 'LIGHT' ? 1 : 2
+      )
+   b. // convergence.history entries will have p2_remaining: undefined for pre-v8 rounds.
+      // No migration needed — evaluateConvergence reads p2_remaining only for the current round.
+   c. Set schema_version: 8
+3h. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)

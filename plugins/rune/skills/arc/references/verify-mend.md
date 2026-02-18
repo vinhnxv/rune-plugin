@@ -33,7 +33,7 @@ if (mendSummary.fixed === 0 && mendSummary.failed > 0) {
   warn(`Mend fixed 0 findings (${mendSummary.failed} failed) — manual intervention required.`)
   checkpoint.convergence.history.push({
     round: mendRound, findings_before: mendSummary.total, findings_after: mendSummary.failed,
-    p1_remaining: 0, verdict: 'halted', reason: 'zero_progress', timestamp: new Date().toISOString()
+    p1_remaining: 0, p2_remaining: null, verdict: 'halted', reason: 'zero_progress', timestamp: new Date().toISOString()
   })
   updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null,
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport) })
@@ -55,7 +55,7 @@ try {
   warn(`TOME not found at ${tomeFile} — review may have timed out.`)
   checkpoint.convergence.history.push({
     round: mendRound, findings_before: 0, findings_after: 0,
-    verdict: 'halted', reason: 'tome_missing', timestamp: new Date().toISOString()
+    p1_remaining: 0, p2_remaining: null, verdict: 'halted', reason: 'tome_missing', timestamp: new Date().toISOString()
   })
   updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null })
   return
@@ -64,7 +64,7 @@ if (!currentTome || (!currentTome.includes('RUNE:FINDING') && !currentTome.inclu
   warn(`TOME at ${tomeFile} appears empty or malformed — halting convergence.`)
   checkpoint.convergence.history.push({
     round: mendRound, findings_before: 0, findings_after: 0,
-    verdict: 'halted', reason: 'tome_malformed', timestamp: new Date().toISOString()
+    p1_remaining: 0, p2_remaining: null, verdict: 'halted', reason: 'tome_malformed', timestamp: new Date().toISOString()
   })
   updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null })
   return
@@ -72,6 +72,7 @@ if (!currentTome || (!currentTome.includes('RUNE:FINDING') && !currentTome.inclu
 
 const currentFindingCount = countTomeFindings(currentTome)
 const p1Count = countP1Findings(currentTome)
+const p2Count = countP2Findings(currentTome)  // v1.41.0: Count P2 findings for convergence awareness
 
 // v1.38.0: Extract scope stats for smart convergence scoring
 // Scope stats are available when diff-scope tagging was applied (review.md Phase 5.3).
@@ -95,6 +96,7 @@ if (findingMarkers.some(m => /scope="(in-diff|pre-existing)"/.test(m))) {
   const inDiffMarkers = findingMarkers.filter(m => /scope="in-diff"/.test(m))
   scopeStats = {
     p1Count,
+    p2Count,
     p3Count: p3Markers.length,
     preExistingCount: preExistingMarkers.length,
     inDiffCount: inDiffMarkers.length,
@@ -105,11 +107,11 @@ if (findingMarkers.some(m => /scope="(in-diff|pre-existing)"/.test(m))) {
 
 ## STEP 2: Evaluate Convergence
 
-Uses shared `evaluateConvergence()` from review-mend-convergence.md. Passes `scopeStats` (v1.38.0+) for smart convergence scoring when diff-scope data is available.
+Uses shared `evaluateConvergence()` from review-mend-convergence.md. Passes `p2Count` (v1.41.0+) for P2 awareness and `scopeStats` (v1.38.0+) for smart convergence scoring when diff-scope data is available.
 
 ```javascript
 const talisman = readTalisman()
-const verdict = evaluateConvergence(currentFindingCount, p1Count, checkpoint, talisman, scopeStats)
+const verdict = evaluateConvergence(currentFindingCount, p1Count, p2Count, checkpoint, talisman, scopeStats)
 
 // v1.38.0: Compute convergence score for history record (observability — R6 mitigation)
 let convergenceScore = null
@@ -127,10 +129,11 @@ checkpoint.convergence.history.push({
   findings_before: prevFindings === Infinity ? currentFindingCount : prevFindings,
   findings_after: currentFindingCount,
   p1_remaining: p1Count,
+  p2_remaining: p2Count,                         // v1.41.0: P2 observability
   mend_fixed: mendSummary.fixed,
   mend_failed: mendSummary.failed,
   // v1.38.0: Scope-aware fields for smart convergence observability
-  scope_stats: scopeStats ?? null,              // { p1Count, p3Count, preExistingCount, inDiffCount, totalFindings }
+  scope_stats: scopeStats ?? null,              // { p1Count, p2Count, p3Count, preExistingCount, inDiffCount, totalFindings }
   convergence_score: convergenceScore ?? null,   // { total, components, reason } from computeConvergenceScore()
   verdict,
   timestamp: new Date().toISOString()
@@ -206,6 +209,17 @@ if (verdict === 'converged') {
     phase_sequence: 8, team_name: null
   })
   // → Dispatcher proceeds to Phase 8 (AUDIT) with warning
+}
+```
+
+## Helper: countP2Findings
+
+```javascript
+// Count P2 findings from TOME content
+// Matches <!-- RUNE:FINDING severity="P2" ... --> markers (case-insensitive for SEC-006 compliance)
+function countP2Findings(tomeContent) {
+  const markers = tomeContent.match(/<!-- RUNE:FINDING[^>]*severity="P2"[^>]*-->/gi) || []
+  return markers.length
 }
 ```
 

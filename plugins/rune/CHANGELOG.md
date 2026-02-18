@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.41.0] — 2026-02-19
+
+### Fixed
+- **BACK-017** (P1): `evaluateConvergence()` premature convergence — P1=0 check at position 1 short-circuited the entire tier system, making `maxCycles` dead code. Reordered decision cascade: minCycles gate → P1+P2 threshold → smart scoring → circuit breaker.
+- **BACK-018** (P2): Circuit breaker (maxCycles check) moved from position 3 to position 4 — allows convergence at the final eligible cycle instead of halting.
+- **BACK-019** (P2): P2 findings now considered in convergence decisions — both `evaluateConvergence()` and `computeConvergenceScore()` check P2 count against configurable threshold.
+
+### Added
+- `minCycles` per tier: LIGHT=1, STANDARD=2, THOROUGH=2 — minimum re-review cycles before convergence is allowed
+- `p2Threshold` parameter in convergence evaluation — blocks convergence when P2 findings exceed threshold
+- `countP2Findings()` helper in verify-mend.md — counts P2 TOME markers (case-insensitive)
+- `p2_remaining` field in convergence history records for observability
+- New talisman keys: `arc_convergence_min_cycles`, `arc_convergence_p2_threshold` under `review:` section
+- Checkpoint schema v8 with `minCycles` in tier and `p2_remaining` in history
+- Configuration guide `review.arc_convergence_*` table with all convergence keys documented
+
+### Changed
+- `evaluateConvergence()` signature: 5 params → 6 params (added `p2Count` as 3rd parameter)
+- `computeConvergenceScore()` now reads `p2Count` from `scopeStats` and applies P2 hard gate
+- `scopeStats` object now includes `p2Count` field
+- Tier table updated with Min Cycles column
+- **Plugin version**: 1.40.1 → 1.41.0
+
 ## [1.40.1] — 2026-02-19
 
 ### Fixed

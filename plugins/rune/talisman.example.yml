@@ -363,7 +363,9 @@ echoes:
   # per-chunk convergence within a single Phase 6 invocation.
   # arc_convergence_tier_override: null     # Force: "light" | "standard" | "thorough" | null (auto-detect)
   # arc_convergence_max_cycles: null        # Hard override: 1-5 (overrides tier, use sparingly)
+  # arc_convergence_min_cycles: null        # Min re-review cycles before convergence (1-maxCycles, default: tier-based LIGHT:1/STANDARD:2/THOROUGH:2)
   # arc_convergence_finding_threshold: 0    # P1 findings below this count = converged (default: 0)
+  # arc_convergence_p2_threshold: 0         # P2 findings below this count = eligible for convergence (default: 0 = any P2 blocks)
   # arc_convergence_improvement_ratio: 0.5  # Findings must decrease by this ratio to continue (default: 0.5)
   #
   # Diff-scope tagging (v1.38.0+)

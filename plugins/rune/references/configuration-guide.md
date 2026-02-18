@@ -63,6 +63,9 @@ review:
   convergence:
     smart_scoring: true                  # Enable smart convergence scoring
     convergence_threshold: 0.7           # Score >= this = converged (0.1-1.0)
+  # Arc convergence (v1.37.0+, enhanced v1.41.0) — controls Phase 6→7→7.5 loop
+  # arc_convergence_min_cycles: null     # Min re-review cycles (1-maxCycles, default: tier-based)
+  # arc_convergence_p2_threshold: 0      # P2 findings below this count = eligible (default: 0)
 
 work:
   ward_commands: ["make check", "npm test"]
@@ -134,6 +137,19 @@ Per-phase timeout values in milliseconds. Values are clamped to 10s–3600s rang
 | `audit` | number | 1200000 | Phase 8: Audit (20 min) |
 | `ship` | number | 300000 | Phase 9: PR creation (5 min, v1.40.0+) |
 | `merge` | number | 600000 | Phase 9.5: Merge (10 min, v1.40.0+) |
+
+### `review.arc_convergence_*` — Review-mend convergence (v1.37.0+, enhanced v1.41.0)
+
+Arc convergence keys live under the `review:` section (not `arc:`) and use the `arc_` prefix to avoid collision with chunked review convergence keys.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `arc_convergence_tier_override` | string \| null | `null` | Force tier: `"light"`, `"standard"`, `"thorough"`, or `null` (auto-detect). |
+| `arc_convergence_max_cycles` | number \| null | `null` | Hard override for max review-mend cycles (1-5). Overrides tier, use sparingly. |
+| `arc_convergence_min_cycles` | number \| null | `null` | Min re-review cycles before convergence allowed (1-maxCycles). Default: tier-based (LIGHT=1, STANDARD=2, THOROUGH=2). v1.41.0+. |
+| `arc_convergence_finding_threshold` | number | `0` | P1 findings at or below this count = converged (0-100). |
+| `arc_convergence_p2_threshold` | number | `0` | P2 findings at or below this count = eligible for convergence (0-100). Default 0 = any P2 blocks convergence. v1.41.0+. |
+| `arc_convergence_improvement_ratio` | number | `0.5` | Findings must decrease by this ratio to continue (0.1-0.9). |
 
 ### `arc.consistency` — Cross-file consistency checks (v1.17.0+)
 
