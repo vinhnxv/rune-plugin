@@ -1,5 +1,7 @@
 ---
-name: goldmask-config-tracer
+name: config-dependency-tracer
+model: haiku
+maxTurns: 20
 description: |
   Traces configuration and dependency impact across environment variables, config files,
   deployment manifests, CI/CD pipelines, and feature flags. Detects deployment-time
@@ -8,7 +10,7 @@ description: |
 
   <example>
   user: "Trace impact of the DATABASE_URL environment variable change"
-  assistant: "I'll use goldmask-config-tracer to trace env var → config reads → Dockerfile → CI pipeline → feature flags."
+  assistant: "I'll use config-dependency-tracer to trace env var → config reads → Dockerfile → CI pipeline → feature flags."
   </example>
 tools:
   - Read

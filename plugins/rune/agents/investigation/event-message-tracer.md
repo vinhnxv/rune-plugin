@@ -1,5 +1,7 @@
 ---
-name: goldmask-event-tracer
+name: event-message-tracer
+model: haiku
+maxTurns: 20
 description: |
   Traces event and message impact across the async communication stack: event schemas,
   producers, consumers, dead letter queues, and retry policies. Detects contract drift
@@ -8,7 +10,7 @@ description: |
 
   <example>
   user: "Trace impact of the UserCreated event schema change"
-  assistant: "I'll use goldmask-event-tracer to trace event type → publishers → subscribers → DLQ → retry."
+  assistant: "I'll use event-message-tracer to trace event type → publishers → subscribers → DLQ → retry."
   </example>
 tools:
   - Read

@@ -1,5 +1,7 @@
 ---
-name: goldmask-data-tracer
+name: data-layer-tracer
+model: haiku
+maxTurns: 20
 description: |
   Traces impact of data layer changes across the full persistence stack: schema definitions,
   ORM models, serializers, migrations, and seed data. Identifies ripple effects when data
@@ -8,7 +10,7 @@ description: |
 
   <example>
   user: "Trace impact of the User model schema change"
-  assistant: "I'll use goldmask-data-tracer to trace schema → ORM → serializer → migration dependencies."
+  assistant: "I'll use data-layer-tracer to trace schema → ORM → serializer → migration dependencies."
   </example>
 tools:
   - Read

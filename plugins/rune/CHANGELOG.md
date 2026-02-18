@@ -14,7 +14,7 @@
 - New `goldmask` talisman configuration section with layer-specific settings, CDD thresholds, and mode selection
 
 ### Changed
-- Agent count: 35 → 43 (added 8 investigation agents)
+- Agent count: 31 → 39 (added 8 investigation agents)
 - Skills: 11 → 12 (added goldmask)
 
 ## [1.35.0] - 2026-02-18

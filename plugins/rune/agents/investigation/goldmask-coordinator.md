@@ -1,5 +1,7 @@
 ---
 name: goldmask-coordinator
+model: sonnet
+maxTurns: 25
 description: |
   Three-layer synthesis agent — merges Impact Layer (5 tracers), Wisdom Layer (intent + caution),
   and Lore Layer (risk scores) outputs into a unified GOLDMASK.md report with prioritized
@@ -62,18 +64,26 @@ For each Impact finding, attach:
 - Lore risk score + tier (if available for same file)
 - Cross-references to other Impact findings on the same file
 
-### Step 5 — Compute Four-Dimensional Priority
+### Step 5 — Compute Three-Dimensional Priority
+
+The priority formula uses 3 configurable dimensions matching talisman `priority_weights`:
 
 ```
-priority = 0.40 * impact + 0.20 * risk + 0.20 * caution + 0.20 * collateral
+priority = impact_weight * impact + wisdom_weight * caution + lore_weight * risk
 ```
 
-| Dimension | Source | Scale |
-|-----------|--------|-------|
-| **Impact** | Tracer classification (MUST=1.0, SHOULD=0.6, MAY=0.3) | 0.0-1.0 |
-| **Risk** | Lore Analyst risk score (file-level) | 0.0-1.0 |
-| **Caution** | Wisdom Sage caution score (region-level) | 0.0-1.0 |
-| **Collateral** | Noisy-OR of 5 collateral signals (see Step 6) | 0.0-1.0 |
+Default weights (from talisman `goldmask.priority_weights`):
+```
+priority = 0.40 * impact + 0.35 * caution + 0.25 * risk
+```
+
+| Dimension | Talisman Key | Source | Scale |
+|-----------|-------------|--------|-------|
+| **Impact** | `impact: 0.40` | Tracer classification (MUST=1.0, SHOULD=0.6, MAY=0.3) | 0.0-1.0 |
+| **Wisdom (Caution)** | `wisdom: 0.35` | Wisdom Sage caution score (region-level) | 0.0-1.0 |
+| **Lore (Risk)** | `lore: 0.25` | Lore Analyst risk score (file-level) | 0.0-1.0 |
+
+**Collateral** is computed separately in Step 6 and reported as a supplementary metric (not part of the priority formula). It appears in the Collateral Damage Assessment section of GOLDMASK.md.
 
 ### Step 6 — Collateral Damage Assessment
 
@@ -116,7 +126,7 @@ Write two files:
 
 **GOLDMASK.md** — Sections (in order):
 1. **Executive Summary**: total findings, critical count, swarm count, high-collateral count
-2. **Priority Findings**: P1 (>=0.80), P2 (0.60-0.79), P3 (0.40-0.59), P4 (<0.40). Each finding: `[GOLD-NNN] file:line — description` + Impact/Risk/Caution/Collateral/Priority Score/Action
+2. **Priority Findings**: P1 (>=0.80), P2 (0.60-0.79), P3 (0.40-0.59), P4 (<0.40). Each finding: `[GOLD-{LAYER}-NNN] file:line — description` + Impact/Risk/Caution/Priority Score/Action
 3. **Collateral Damage Assessment**: table of findings with collateral > 0.50 (signals + blast radius)
 4. **Swarm Clusters**: each cluster with files, coupling, finding count, recommendation
 5. **Historical Risk Assessment**: highest-risk files table + wisdom advisories table
@@ -126,8 +136,8 @@ Write two files:
 **findings.json** — Machine-readable companion:
 ```json
 {
-  "findings": [{ "id": "GOLD-001", "file": "...", "line": 42, "priority": 0.87,
-    "impact": 1.0, "risk": 0.92, "caution": 0.75, "collateral": 0.82,
+  "findings": [{ "id": "GOLD-API-001", "file": "...", "line": 42, "priority": 0.87,
+    "impact": 1.0, "risk": 0.92, "caution": 0.75,
     "sources": ["API-003", "BIZ-001"], "classification": "MUST-CHANGE", "swarm": "..." }],
   "swarms": [{ "name": "...", "files": ["..."], "risk": 0.94 }],
   "metadata": { "total_findings": 0, "report_date": "YYYY-MM-DD" }

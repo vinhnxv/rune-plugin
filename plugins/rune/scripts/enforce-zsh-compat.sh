@@ -63,18 +63,19 @@ if [[ -z "$COMMAND" ]]; then
   exit 0
 fi
 
-# Fast-path: skip if none of the target patterns appear
+# Normalize multiline commands BEFORE fast-path (BACK-005: multiline for-loops missed)
+NORMALIZED=$(printf '%s\n' "$COMMAND" | tr '\n' ' ')
+
+# Fast-path: skip if none of the target patterns appear (operates on normalized input)
 has_status_assign=""
 has_for_glob=""
-case "$COMMAND" in *status=*) has_status_assign=1 ;; esac
-case "$COMMAND" in *for*in*\**do*) has_for_glob=1 ;; esac
+case "$NORMALIZED" in *status=*) has_status_assign=1 ;; esac
+# BACK-005: Also detect `?` glob character (zsh NOMATCH-triggering)
+case "$NORMALIZED" in *for*in*[*?]*do*) has_for_glob=1 ;; esac
 
 if [[ -z "$has_status_assign" && -z "$has_for_glob" ]]; then
   exit 0
 fi
-
-# Normalize multiline commands for pattern matching
-NORMALIZED=$(printf '%s\n' "$COMMAND" | tr '\n' ' ')
 
 # ─── Check A: bare `status=` assignment ───────────────────────────────────────
 # Anchored to: start of string, whitespace, semicolon, pipe, ampersand, parenthesis,

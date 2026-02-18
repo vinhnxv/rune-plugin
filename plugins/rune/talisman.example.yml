@@ -220,14 +220,6 @@ defaults:
 #       enabled: true
 #       ...
 #
-# QUAL-016 FIX: freshness block belongs under plan: key, not at top level.
-# Merge these settings under the `plan:` key above, like:
-#   plan:
-#     verification_patterns: [...]
-#     freshness:
-#       enabled: true
-#       ...
-#
 #   plan.freshness:
 #     enabled: true              # Set false to disable freshness check globally
 #     warn_threshold: 0.7        # Score below this → WARN (float, 0.01-1.0)
@@ -457,6 +449,7 @@ codex:
 #       enabled: true                    # Enable Wisdom Layer (git archaeology)
 #       model: sonnet                    # Model for wisdom-sage (sonnet recommended for reasoning)
 #       max_blame_files: 50             # Max files to git-blame (default: 50, range: 10-200)
+#       max_findings_to_investigate: 20  # Max findings from Impact Layer to investigate (default: 20)
 #       intent_classification: true      # Classify commit intent (bugfix, feature, refactor, etc.)
 #       caution_threshold: 0.7          # Caution score threshold for flagging (0.0-1.0, default: 0.7)
 #     lore:

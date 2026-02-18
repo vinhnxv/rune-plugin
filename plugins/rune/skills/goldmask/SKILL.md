@@ -105,7 +105,7 @@ Phase 4: COORDINATION + CDD
     |  (Sonnet, ~60-90s)
     |
 Total estimated time: 3-5 minutes
-Total agents: 8 (5 Haiku + 1 Haiku + 1 Sonnet + 1 Sonnet)
+Total agents: 8 (5 Haiku tracers + 1 Haiku lore-analyst + 1 Sonnet wisdom-sage + 1 Sonnet coordinator)
 ```
 
 ## Orchestration Protocol
@@ -122,14 +122,22 @@ Otherwise: Full investigation.
 
 Validate input:
 ```
-if (!/^[a-zA-Z0-9._\/ ~^:-]+$/.test($ARGUMENTS))
+// Strip own operational flags before validation
+const ownFlags = ['--quick', '--lore']
+let cleanArgs = $ARGUMENTS
+for (const flag of ownFlags) {
+  cleanArgs = cleanArgs.replace(new RegExp(flag + '\\b', 'g'), '').trim()
+}
+
+if (!/^[a-zA-Z0-9._\/ ~^:-]+$/.test(cleanArgs))
   → reject with "Invalid input characters"
-// SEC-10: Reject git flag injection — no token may start with '-'
-if ($ARGUMENTS.split(/\s+/).some(token => token.startsWith('-')))
+// SEC-10: Reject git flag injection — no unknown token may start with '-'
+const tokens = cleanArgs.split(/\s+/).filter(t => t.length > 0)
+if (tokens.some(token => token.startsWith('-')))
   → reject with "Git flag injection detected — arguments must not start with '-'"
-// SEC-10: Reject path traversal
-if ($ARGUMENTS.includes('..') && !$ARGUMENTS.match(/\.\.[.]/))
-  → warn "'..' detected — only git range operator '..' is allowed"
+// SEC-10: Reject path traversal (per-token check — allows git range operator '..')
+if (tokens.some(t => t === '..' || t.startsWith('../')))
+  → reject with "Path traversal detected — '..' tokens are not allowed"
 ```
 
 ### 1. Resolve Changed Files
@@ -151,6 +159,8 @@ session_id = "goldmask-" + Date.now()
 output_dir = "tmp/goldmask/{session_id}/"
 
 # If invoked from arc:
+# SEC-5: Validate arc_id before path construction (same guard as session_id)
+if (!/^[a-zA-Z0-9_-]+$/.test(arc_id)) { error("Invalid arc_id"); return }
 output_dir = "tmp/arc/{arc_id}/goldmask/"
 ```
 

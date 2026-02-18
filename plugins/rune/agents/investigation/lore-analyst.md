@@ -1,5 +1,7 @@
 ---
-name: goldmask-lore-analyst
+name: lore-analyst
+model: haiku
+maxTurns: 25
 description: |
   Quantitative git history analysis agent — computes per-file risk scores, churn metrics,
   co-change clustering, and ownership concentration. Produces risk-map.json for the
@@ -8,7 +10,7 @@ description: |
 
   <example>
   user: "Compute risk scores for files affected by the auth refactor"
-  assistant: "I'll use goldmask-lore-analyst to analyze git history, compute churn metrics, and build a risk map."
+  assistant: "I'll use lore-analyst to analyze git history, compute churn metrics, and build a risk map."
   </example>
 tools:
   - Bash
@@ -42,10 +44,11 @@ Before any analysis, run these guards:
 |-------|-------|----------|
 | G1 | `git rev-parse --is-inside-work-tree` | Abort — not a git repo |
 | G2 | `git rev-parse --is-shallow-repository` | Warn — limited history |
-| G3 | `git rev-list --count HEAD` >= 5 | Warn — insufficient history for meaningful stats |
+| G3 | Date calculation for lookback window (see macOS fallback in lore-protocol.md) | Use fallback date command |
 | G4 | `git ls-files \| wc -l` <= 5000 | Warn — large repo, sample top 500 by churn |
+| G5 | `git rev-list --count --after="{window_start}" HEAD` >= 5 | Skip analysis — insufficient commits in window |
 
-If G1 fails, abort entirely. For G2-G4, proceed with documented limitations.
+If G1 fails, abort entirely. For G2-G5, proceed with documented limitations.
 
 ## Analysis Protocol
 
@@ -59,6 +62,11 @@ git log --numstat --format="%x00%H%x00%an%x00%aI" --no-merges -- "${file_list[@]
 
 Parse into per-file records: commit hash, author, date, lines added, lines deleted.
 
+**Sanitization**: Author names (`%an`) and emails can contain arbitrary strings. Before using parsed values:
+- Strip non-printable characters (control chars, NUL bytes)
+- Escape JSON metacharacters when writing to JSON output
+- Use NUL-byte (`%x00`) separators for field boundaries (not COMMIT_START sentinels, which are guessable)
+
 ### Step 2 — Compute 5 Metrics per File
 
 | Metric | Formula | Weight |
@@ -66,7 +74,7 @@ Parse into per-file records: commit hash, author, date, lines added, lines delet
 | **Frequency** | Number of commits touching this file | 0.35 |
 | **Churn** | Total lines added + deleted | 0.25 |
 | **Recency** | Days since last modification (inverse — recent = higher) | 0.15 |
-| **Ownership** | 1 - (top_contributor_commits / total_commits). Low = concentrated = risky | 0.15 |
+| **Ownership** | top_contributor_commits / total_commits. High = concentrated = risky | 0.15 |
 | **Echo** | Number of Rune echo references to this file (from `.claude/echoes/`) | 0.10 |
 
 ### Step 3 — Percentile Normalization
@@ -92,7 +100,7 @@ risk = 0.35 * freq_pctl + 0.25 * churn_pctl + 0.15 * recency_pctl + 0.15 * owner
 | HIGH | 10-30% | Elevated risk — significant change history |
 | MEDIUM | 30-70% | Moderate risk — normal change patterns |
 | LOW | Bottom 30% | Lower risk — stable, well-distributed ownership |
-| STALE | No commits in 180+ days | Dormant — may contain outdated patterns |
+| STALE | No commits in lookback window | Dormant — use `git ls-files` left-join to detect |
 
 ### Step 6 — Co-Change Graph
 

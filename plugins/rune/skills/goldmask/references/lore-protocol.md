@@ -8,7 +8,7 @@ Run before any analysis. If a guard trips, degrade gracefully.
 
 | Guard | Check | Failure Mode |
 |-------|-------|-------------|
-| G1: Non-git | `git rev-parse --git-dir 2>/dev/null` | Skip entirely — return empty risk-map |
+| G1: Non-git | `git rev-parse --is-inside-work-tree 2>/dev/null` | Skip entirely — return empty risk-map |
 | G2: Shallow clone | `git rev-parse --is-shallow-repository` | Degraded mode — echoes only, no history metrics |
 | G3: Window check | Date calculation (see macOS fallback below) | Use fallback date command |
 | G4: Large repo | Count files in window > 5000 | Sparse mode — analyze top 500 by revision count |
@@ -19,7 +19,9 @@ Run before any analysis. If a guard trips, degrade gracefully.
 macOS `date` does not support `-d`. Use dual fallback:
 
 ```bash
-WINDOW_START=$(date -d "90 days ago" +%Y-%m-%d 2>/dev/null || date -v-90d +%Y-%m-%d)
+# Default: 180 days (configurable via talisman goldmask.layers.lore.lookback_days)
+LOOKBACK_DAYS="${LOOKBACK_DAYS:-180}"
+WINDOW_START=$(date -d "${LOOKBACK_DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -v-${LOOKBACK_DAYS}d +%Y-%m-%d)
 ```
 
 ## Step 2: Single-Pass Extraction
@@ -27,11 +29,15 @@ WINDOW_START=$(date -d "90 days ago" +%Y-%m-%d 2>/dev/null || date -v-90d +%Y-%m
 One git command extracts all needed data:
 
 ```bash
+# Use NUL-byte separators for reliable parsing — avoids guessable sentinel strings
 git log --all --numstat --no-merges --no-renames \
   --diff-filter=ACMR \
-  --pretty=format:'COMMIT_START%x00%H%x00%aN%x00%aE%x00%ct%x00%s' \
+  --pretty=format:'%x00CSTART_%x00%H%x00%aN%x00%aE%x00%ct%x00%s' \
   --after="$WINDOW_START"
 ```
+
+**Sanitization**: Author names (`%aN`) and emails (`%aE`) can contain arbitrary strings.
+When parsing, strip non-printable characters and escape JSON metacharacters before writing to `risk-map.json`.
 
 **Format fields** (NUL-separated to handle special chars in author names):
 - `%H` — full commit hash

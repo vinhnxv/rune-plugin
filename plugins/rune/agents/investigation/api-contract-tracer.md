@@ -1,5 +1,7 @@
 ---
-name: goldmask-api-tracer
+name: api-contract-tracer
+model: haiku
+maxTurns: 20
 description: |
   Traces API contract changes across the full request/response lifecycle: route definitions,
   controller handlers, request validators, response serializers, API docs, and client SDK
@@ -8,7 +10,7 @@ description: |
 
   <example>
   user: "Trace impact of the /users endpoint change"
-  assistant: "I'll use goldmask-api-tracer to trace route → handler → validator → serializer → docs → client SDK."
+  assistant: "I'll use api-contract-tracer to trace route → handler → validator → serializer → docs → client SDK."
   </example>
 tools:
   - Read

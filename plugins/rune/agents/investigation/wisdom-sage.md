@@ -1,5 +1,7 @@
 ---
 name: goldmask-wisdom-sage
+model: sonnet
+maxTurns: 30
 description: |
   Git archaeology agent — understands WHY code was written by analyzing git blame,
   commit messages, and code comments. Classifies developer intent and computes caution
@@ -43,7 +45,8 @@ For each finding received from the Impact Layer, execute 6 steps:
 - Extract the specific code region to investigate
 
 ### Step 2 — BLAME
-- Run `git blame --porcelain -L {start},{end} -- "${file}"` for affected lines
+- Validate line range: `[[ "${start}" =~ ^[0-9]+$ ]] && [[ "${end}" =~ ^[0-9]+$ ]]`
+- Run `git blame --porcelain -L "${start},${end}" -- "${file}"` for affected lines
 - Extract: commit hash, author, date, original filename (if renamed)
 - Handle edge cases: uncommitted lines, binary files, shallow clones
 
@@ -62,14 +65,14 @@ Classify using one of 8 categories:
 
 | Intent | Description | Caution Modifier |
 |--------|-------------|-----------------|
-| WORKAROUND | Temporary fix for known issue |
-| CONSTRAINT | Required by external system/API/spec |
-| OPTIMIZATION | Performance improvement |
-| COMPATIBILITY | Cross-platform or version support |
-| CONVENTION | Team/project style or pattern |
-| DEFENSIVE | Guard against edge case or error |
-| EXPLORATORY | Prototype or experiment |
-| UNKNOWN | Cannot determine intent |
+| CONSTRAINT | Required by external system/API/spec | 0.90 |
+| WORKAROUND | Temporary fix for known issue | 0.80 |
+| DEFENSIVE | Guard against edge case or error | 0.75 |
+| COMPATIBILITY | Cross-platform or version support | 0.75 |
+| OPTIMIZATION | Performance improvement | 0.60 |
+| CONVENTION | Team/project style or pattern | 0.55 |
+| UNKNOWN | Cannot determine intent | 0.40 |
+| EXPLORATORY | Prototype or experiment | 0.20 |
 
 ### Step 6 — CAUTION
 Compute caution score using the canonical formula from [confidence-scoring.md](../../skills/goldmask/references/confidence-scoring.md):

@@ -26,11 +26,15 @@ For each finding:
 Run `git blame` on affected lines to find original authors and commit hashes.
 
 ```bash
+# Validate line range is numeric before interpolation
+[[ "${start}" =~ ^[0-9]+$ ]] && [[ "${end}" =~ ^[0-9]+$ ]] || { echo "Invalid line range"; exit 1; }
+
 # Use --porcelain for machine-parseable output (10-50x less output than --line-porcelain)
-git blame --porcelain -L {start},{end} -w {file}
+git blame --porcelain -L "${start},${end}" -w -- "${file}"
 
 # -w: ignore whitespace changes (surface the semantic author)
 # -L: target specific lines (not the whole file)
+# --: separates options from file path (prevents flag injection via filename)
 ```
 
 ### Parsing Porcelain Output

@@ -1,5 +1,7 @@
 ---
-name: goldmask-business-tracer
+name: business-logic-tracer
+model: haiku
+maxTurns: 20
 description: |
   Traces business logic impact across service methods, domain rules, validators, and state
   machines. Identifies ripple effects when core business rules change.
@@ -7,7 +9,7 @@ description: |
 
   <example>
   user: "Trace impact of the order status transition change"
-  assistant: "I'll use goldmask-business-tracer to trace service → domain → validator → state machine dependencies."
+  assistant: "I'll use business-logic-tracer to trace service → domain → validator → state machine dependencies."
   </example>
 tools:
   - Read
