@@ -1112,10 +1112,11 @@ Report ONLY gaps with evidence. Format: [CDX-GAP-NNN] {type: MISSING | EXTRA | I
           2.5. SEC-008 FIX: Verify .codexignore exists before --full-auto:
                Bash("test -f .codexignore && echo yes || echo no")
                If "no": write "Skipped: .codexignore not found" to output, complete task, exit.
-          3. Run: timeout ${talisman?.codex?.gap_analysis?.timeout ?? 600} codex exec \\
+          3. SEC-R1-001 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion on prompt content
+             Run: cat "tmp/arc/${id}/codex-gap-prompt.txt" | timeout ${talisman?.codex?.gap_analysis?.timeout ?? 600} codex exec \\
                -m "${codexModel}" --config model_reasoning_effort="high" \\
                --sandbox read-only --full-auto --skip-git-repo-check \\
-               "$(cat tmp/arc/${id}/codex-gap-prompt.txt)" 2>/dev/null
+               - 2>/dev/null
           4. Parse output for gap findings
           5. Write results to tmp/arc/${id}/codex-gap-analysis.md
              Format: [CDX-GAP-NNN] {type: MISSING | EXTRA | INCOMPLETE | DRIFT} {description}

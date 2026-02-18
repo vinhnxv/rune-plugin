@@ -331,7 +331,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 
 | Skill | Purpose |
 |-------|---------|
-| arc | End-to-end orchestration pipeline (forge → plan review → work → code review → mend → audit → ship → merge) |
+| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 14 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend → audit → ship → merge) |
 | ash-guide | Agent invocation reference |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
