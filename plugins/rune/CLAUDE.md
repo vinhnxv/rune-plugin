@@ -19,6 +19,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 14 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend → audit → ship → merge) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection |
 | **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
+| **arc-batch** | Sequential batch arc execution — runs /rune:arc across multiple plans with crash recovery and progress tracking |
 
 ## Commands
 
@@ -33,6 +34,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | `/rune:mend` | Parallel finding resolution from TOME |
 | `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 14 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend (convergence loop) → audit → ship → merge |
+| `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:elicit` | Interactive elicitation method selection |

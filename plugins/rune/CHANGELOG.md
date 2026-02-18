@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.42.0] — 2026-02-19
+
+### Added
+- **`/rune:arc-batch` skill**: Sequential batch arc execution across multiple plan files
+  - Glob or queue file input: `/rune:arc-batch plans/*.md` or `/rune:arc-batch queue.txt`
+  - Full 14-phase pipeline (forge through merge) per plan
+  - Crash recovery with `--resume` from `batch-progress.json`
+  - Signal handling (SIGINT/SIGTERM/SIGHUP) with clean child process termination
+  - Git health checks before each run (stuck rebase, stale lock, MERGE_HEAD, dirty tree)
+  - Inter-run cleanup: checkout main, pull latest, delete feature branch, clean state
+  - Retry up to 3 attempts per plan with `--resume` on retry
+  - macOS compatibility: `setsid` fallback when not available on darwin
+  - `--dry-run` flag to preview queue without executing
+  - `--no-merge` flag to skip auto-merge (PRs remain open)
+  - `batch-progress.json` with schema_version for future compatibility
+  - `tmp/.rune-batch-*.json` state file emission for workflow discovery
+  - Pre-flight validation via `arc-batch-preflight.sh` (exists, symlink, traversal, duplicate, empty)
+- New scripts: `arc-batch.sh`, `arc-batch-preflight.sh`
+- Batch algorithm reference: `skills/arc-batch/references/batch-algorithm.md`
+
+### Changed
+- **Plugin version**: 1.41.0 → 1.42.0
+- Skills count: 13 → 14 (plugin.json, marketplace.json descriptions)
+- marketplace.json skills array: added `./skills/arc-batch`
+- CLAUDE.md: added arc-batch to Skills and Commands tables
+- README.md: added Batch Mode section and Quick Start examples
+
 ## [1.41.0] — 2026-02-19
 
 ### Fixed

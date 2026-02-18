@@ -26,6 +26,7 @@ Do not auto-invoke heavyweight commands — suggest and let the user confirm.
 | "Implement this" / "build it" / "execute the plan" | `/rune:work plans/...` | Swarm workers execute a plan file |
 | "Fix these findings" / "resolve the review" | `/rune:mend tmp/.../TOME.md` | Parallel resolution of review findings |
 | "Run everything" / "ship it" / "end to end" | `/rune:arc plans/...` | Full 14-phase pipeline (forge → work → review → mend → ship → merge) |
+| "Batch arc" / "run all plans" / "overnight" / "multiple plans" | `/rune:arc-batch plans/*.md` | Sequential batch arc execution with auto-merge and crash recovery |
 | "Deepen this plan" / "add more detail" / "enrich" | `/rune:forge plans/...` | Forge Gaze topic-aware enrichment |
 | "What changed?" / "blast radius" / "impact analysis" | `/rune:goldmask` | Cross-layer impact analysis (Impact + Wisdom + Lore) |
 | "Help me think through" / "structured reasoning" | `/rune:elicit` | Interactive elicitation method selection |
@@ -56,6 +57,7 @@ Do not auto-invoke heavyweight commands — suggest and let the user confirm.
 | `/rune:work` | Yes (swarm) | 10-30 min | Plan file path |
 | `/rune:mend` | Yes (per file) | 3-10 min | TOME file path |
 | `/rune:arc` | Yes (per phase) | 30-90 min | Plan file path |
+| `/rune:arc-batch` | Yes (per plan) | 45-240 min/plan | Plan glob or queue file |
 | `/rune:forge` | Yes (per section) | 5-15 min | Plan file path |
 | `/rune:goldmask` | Yes (8 tracers) | 5-10 min | Diff spec or file list |
 | `/rune:elicit` | No | 2-5 min | Topic |
