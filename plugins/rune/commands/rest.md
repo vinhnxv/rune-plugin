@@ -33,6 +33,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/scratch/` | Session scratch pads | Yes |
 | `tmp/mend/{id}/` | Mend resolution reports, fixer outputs | Yes (if completed) |
 | `tmp/arc/{id}/` | Arc pipeline artifacts (enriched plans, TOME, reports) | Yes (if completed) |
+| `tmp/arc-batch/` | Batch progress, logs, config | Yes (if no active batch) |
 | `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional, symlink-guarded) |
 | `~/.claude/teams/{rune-*/arc-*}/` (or `$CLAUDE_CONFIG_DIR/teams/` if set) | Orphaned team configs from crashed workflows | `--heal` only |
 | `~/.claude/tasks/{rune-*/arc-*}/` (or `$CLAUDE_CONFIG_DIR/tasks/` if set) | Orphaned task lists from crashed workflows | `--heal` only |
@@ -48,6 +49,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/.rune-mend-*.json` (active) | Mend concurrency detection |
 | `tmp/.rune-work-*.json` (active) | Active work workflow state |
 | `tmp/.rune-forge-*.json` (active) | Active forge workflow state |
+| `tmp/.rune-batch-*.json` (active) | Active batch workflow state |
 | `~/.claude/teams/{name}/` (active, < 30 min) | Teams referenced by active state files (`--heal` preserves these) |
 
 ## Steps
@@ -56,7 +58,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 
 ```bash
 # Look for active state files (status != completed, cancelled)
-ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json tmp/.rune-work-*.json tmp/.rune-forge-*.json 2>/dev/null
+ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json tmp/.rune-work-*.json tmp/.rune-forge-*.json tmp/.rune-batch-*.json 2>/dev/null
 
 # Check for active arc sessions via checkpoint.json
 # Arc uses .claude/arc/*/checkpoint.json instead of tmp/.rune-arc-*.json state files
@@ -176,6 +178,23 @@ else
   echo "SKIP: tmp/arc/ — active arc session detected (see above)"
 fi
 
+# Remove batch artifacts (only if no active batch — check state files)
+active_batch=""
+for f in tmp/.rune-batch-*.json(N); do
+  [ -f "$f" ] || continue
+  if command -v jq >/dev/null 2>&1; then
+    batch_st=$(jq -r '.status // "unknown"' "$f" 2>/dev/null)
+    if [[ "$batch_st" == "active" ]]; then
+      active_batch="$f"
+      echo "SKIP: tmp/arc-batch/ — active batch detected ($f)"
+      break
+    fi
+  fi
+done
+if [ -z "$active_batch" ]; then
+  rm -rf tmp/arc-batch/
+fi
+
 # Remove scratch files (unconditional — no state file)
 rm -rf tmp/scratch/
 
@@ -196,6 +215,7 @@ rm -f tmp/.rune-review-{completed_ids}.json
 rm -f tmp/.rune-audit-{completed_ids}.json
 rm -f tmp/.rune-mend-{completed_ids}.json
 rm -f tmp/.rune-work-{completed_ids}.json
+rm -f tmp/.rune-batch-{completed_ids}.json
 ```
 
 **Note:** `tmp/plans/` and `tmp/scratch/` are removed unconditionally (no active-state check). `tmp/work/` is conditionally removed — it checks for active work teams first (work proposals in `tmp/work/{timestamp}/proposals/` are needed during `--approve` mode). `tmp/mend/` directories follow the same active-state check as reviews and audits. `tmp/arc/` directories are checked via `.claude/arc/*/checkpoint.json` — if any phase has `in_progress` status, the associated `tmp/arc/{id}/` directory is preserved. Arc checkpoint state at `.claude/arc/` is not cleaned — it lives outside `tmp/` and is needed for `--resume`.
@@ -248,7 +268,7 @@ const staleStateFiles = []
 const activeStateFiles = []  // CC-1 FIX: separate list for safety check
 
 // See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
-for (const type of ["work", "review", "mend", "audit", "forge"]) {  // CC-4: include forge
+for (const type of ["work", "review", "mend", "audit", "forge", "batch"]) {  // CC-4: include forge, QUAL-003: include batch
   const files = Glob(`tmp/.rune-${type}-*.json`)
   for (const f of files) {
     try {

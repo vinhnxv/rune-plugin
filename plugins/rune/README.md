@@ -68,6 +68,13 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:elicit
 /rune:elicit "Which auth approach is best for this API?"
 
+# Batch arc execution (multiple plans, sequential)
+/rune:arc-batch plans/*.md              # Process all matching plans
+/rune:arc-batch batch-queue.txt         # Read plans from queue file
+/rune:arc-batch plans/*.md --dry-run    # Preview queue without running
+/rune:arc-batch plans/*.md --no-merge   # PRs created but not merged
+/rune:arc-batch --resume                # Resume interrupted batch
+
 # Cancel active workflows
 /rune:cancel-review
 /rune:cancel-audit
@@ -108,6 +115,18 @@ When you run `/rune:arc`, Rune chains 14 phases into one automated pipeline:
 Note: Phase numbers match the internal arc skill pipeline (Phases 3-4 are internal forge/plan-review and not shown in this summary).
 
 Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates artifact integrity with SHA-256 hashes. Feature branches auto-created when on main.
+
+## Batch Mode (Sequential Multi-Plan Execution)
+
+When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan files sequentially:
+
+1. **Pre-flight** — Validate all plan files exist, no duplicates or symlinks
+2. **For each plan** — Full 14-phase arc pipeline (forge through merge)
+3. **Inter-run cleanup** — Checkout main, pull latest, clean state
+4. **Retry on failure** — Up to 3 `--resume` attempts per plan, then skip
+5. **Progress tracking** — `batch-progress.json` enables `--resume` for interrupted batches
+
+Batch mode runs headless with `--dangerously-skip-permissions`. Ensure all plans are trusted.
 
 ## Mend Mode (Finding Resolution)
 
@@ -342,7 +361,9 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | rune-orchestration | Multi-agent coordination patterns |
+| using-rune | Workflow discovery and intent routing |
 | zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
+| arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
 
 ## Configuration
 
