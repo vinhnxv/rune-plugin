@@ -16,7 +16,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
 | **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
-| **arc** | End-to-end orchestration pipeline (14 phases: freshness → forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend → audit → ship → merge) |
+| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 14 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend → audit → ship → merge) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection |
 
 ## Commands

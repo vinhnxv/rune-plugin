@@ -37,9 +37,19 @@ function runPreMergeChecklist(currentBranch, defaultBranch, arcConfig) {
   // 1. Migration conflict detection (CHECK-DECREE-001: toggleable)
   if (checks.migration_conflict !== false) {
     // Support custom migration paths from talisman (CHECK-DECREE-002)
-    const migrationGlobs = (Array.isArray(checks.migration_paths) && checks.migration_paths.length > 0)
+    // SEC-002 FIX: Validate each migration path against safe glob regex before shell interpolation.
+    // Reject entries containing shell metacharacters that could break double-quote quoting.
+    const SAFE_GLOB_RE = /^[a-zA-Z0-9._\/*\-]+$/
+    const rawGlobs = (Array.isArray(checks.migration_paths) && checks.migration_paths.length > 0)
       ? checks.migration_paths
       : ["**/migrations/**", "**/db/migrate/**", "**/alembic/**", "**/prisma/migrations/**"]
+    const migrationGlobs = rawGlobs.filter(g => {
+      if (typeof g !== 'string' || !SAFE_GLOB_RE.test(g)) {
+        warn(`Pre-merge: Invalid migration_path entry rejected: "${g}"`)
+        return false
+      }
+      return true
+    })
 
     const migrationPathArgs = migrationGlobs.map(g => `"${g}"`).join(' ')
 
@@ -202,10 +212,11 @@ if (highIssues.length > 0) {
   for (const issue of highIssues) {
     warn(`  [${issue.type}] ${issue.message}`)
   }
-  AskUserQuestion({
+  // BACK-001 FIX: Capture user response and handle abort path
+  const userResponse = AskUserQuestion({
     questions: [{
       question: `Pre-merge found ${highIssues.length} high-severity issue(s). Proceed with merge?`,
-      header: "Pre-Merge Checklist",
+      header: "Pre-Merge",
       options: [
         { label: "Proceed anyway", description: "Continue merge despite warnings" },
         { label: "Abort merge", description: "Stop -- resolve issues manually first" }
@@ -213,9 +224,19 @@ if (highIssues.length > 0) {
       multiSelect: false
     }]
   })
-  // If user chooses "Abort merge":
-  // updateCheckpoint({ phase: "merge", status: "failed" })
-  // return
+  // Check if user chose "Abort merge"
+  if (userResponse?.answers?.["Pre-merge found"] === "Abort merge" ||
+      JSON.stringify(userResponse).includes("Abort merge")) {
+    warn("User chose to abort merge due to HIGH severity pre-merge issues.")
+    const abortReport = `# Merge Report\n\nStatus: ABORTED\nReason: User aborted due to ${highIssues.length} HIGH severity issue(s).\n\n## Issues\n${highIssues.map(i => `- **${i.type}**: ${i.message}`).join('\n')}`
+    Write(`tmp/arc/${id}/merge-report.md`, abortReport)
+    updateCheckpoint({
+      phase: "merge", status: "failed",
+      artifact: `tmp/arc/${id}/merge-report.md`,
+      artifact_hash: sha256(abortReport)
+    })
+    return
+  }
 }
 
 if (mediumIssues.length > 0) {
@@ -224,6 +245,8 @@ if (mediumIssues.length > 0) {
 
 // 3. Rebase onto main (conflict check)
 if (arcConfig.ship.rebase_before_merge) {
+  // BACK-007 FIX: Save pre-rebase SHA for recovery if push fails after rebase
+  const preRebaseSha = Bash("git rev-parse HEAD").trim()
   log("Rebasing onto main to check for conflicts...")
   const rebaseResult = Bash(`git rebase "origin/${defaultBranch}"`)
 
@@ -253,31 +276,67 @@ if (arcConfig.ship.rebase_before_merge) {
   log("Rebase successful. Pushing updated branch...")
   const pushResult = Bash(`git push --force-with-lease origin -- "${currentBranch}"`)
   if (pushResult.exitCode !== 0) {
-    warn("Merge phase: Force-push after rebase failed. Merge manually.")
+    // BACK-007 FIX: Provide pre-rebase SHA for recovery
+    warn("Merge phase: Force-push after rebase failed. Local branch is in rebased state.")
+    warn(`To restore pre-rebase state: git reset --hard ${preRebaseSha}`)
     updateCheckpoint({ phase: "merge", status: "failed" })
     return
   }
 }
 
+// BACK-005 FIX: Verify gh CLI availability before merge (mirrors Phase 9 ship check)
+const ghMergeAvailable = Bash(`${GH_ENV} command -v gh >/dev/null 2>&1 && gh auth status 2>&1 | grep -q 'Logged in' && echo 'ok'`).trim() === "ok"
+if (!ghMergeAvailable) {
+  warn("Merge phase: gh CLI not available or not authenticated. Skipping merge.")
+  warn("Install: https://cli.github.com/ then run: gh auth login")
+  updateCheckpoint({ phase: "merge", status: "skipped" })
+  return
+}
+
+// BACK-004 FIX: Verify Phase 9 (SHIP) completed successfully before attempting merge
+if (checkpoint.phases.ship?.status !== "completed") {
+  warn(`Merge phase: Ship phase status is "${checkpoint.phases.ship?.status}" (expected "completed"). Skipping merge.`)
+  updateCheckpoint({ phase: "merge", status: "skipped" })
+  return
+}
+
+// SEC-003 FIX: Validate pr_url format before use in reports and commands
+const PR_URL_RE = /^https:\/\/[a-zA-Z0-9._\/-]+\/pull\/\d+$/
+if (!PR_URL_RE.test(checkpoint.pr_url)) {
+  warn(`Merge phase: Invalid PR URL format: "${checkpoint.pr_url}". Skipping merge.`)
+  updateCheckpoint({ phase: "merge", status: "skipped" })
+  return
+}
+
+// SEC-004 FIX: Extract PR number from validated URL for explicit gh pr merge target
+const prNumber = checkpoint.pr_url.match(/\/pull\/(\d+)$/)?.[1]
+
 // 4. Merge PR
+// SEC-001 FIX: Validate merge_strategy against allowlist (warns on invalid, defaults to squash)
 const MERGE_STRATEGIES = { squash: "--squash", rebase: "--rebase", merge: "--merge" }
 const strategy = arcConfig.ship.merge_strategy
+if (!MERGE_STRATEGIES[strategy]) {
+  warn(`Merge phase: Invalid merge_strategy "${strategy}" -- defaulting to squash`)
+}
 const strategyFlag = MERGE_STRATEGIES[strategy] ?? "--squash"
 
 if (arcConfig.ship.wait_ci) {
   // Use --auto: merge when all required checks pass
+  // BACK-003 NOTE: --auto enables GitHub's auto-merge. The phase reports "completed" immediately.
+  // If CI checks never pass, the PR remains in "auto-merge pending" state indefinitely.
+  // The merge report documents this as AUTO-MERGE REQUESTED (not MERGED).
   log("Enabling auto-merge (waiting for CI checks)...")
-  const autoResult = Bash(`${GH_ENV} gh pr merge ${strategyFlag} --auto`)
+  const autoResult = Bash(`${GH_ENV} gh pr merge ${prNumber} ${strategyFlag} --auto`)
   if (autoResult.exitCode !== 0) {
     warn("Merge phase: gh pr merge --auto failed. Check PR status and merge manually.")
     updateCheckpoint({ phase: "merge", status: "failed" })
     return
   }
-  log("Auto-merge enabled. PR will merge when CI checks pass.")
+  log("Auto-merge enabled. PR will merge when CI checks pass. Verify CI completion manually.")
 } else {
   // Merge immediately without waiting for CI
   log("Merging PR immediately (CI wait disabled)...")
-  const mergeResult = Bash(`${GH_ENV} gh pr merge ${strategyFlag} --delete-branch`)
+  const mergeResult = Bash(`${GH_ENV} gh pr merge ${prNumber} ${strategyFlag} --delete-branch`)
   if (mergeResult.exitCode !== 0) {
     warn("Merge phase: Merge failed. Check PR and merge manually: gh pr merge --squash")
     updateCheckpoint({ phase: "merge", status: "failed" })
@@ -289,7 +348,7 @@ if (arcConfig.ship.wait_ci) {
 // 5. Write merge report
 const mergeReport = `# Merge Report
 
-Status: ${arcConfig.ship.wait_ci ? "AUTO-MERGE ENABLED" : "MERGED"}
+Status: ${arcConfig.ship.wait_ci ? "AUTO-MERGE REQUESTED (verify CI completion manually)" : "MERGED"}
 Branch: ${currentBranch}
 Target: ${defaultBranch}
 Strategy: ${arcConfig.ship.merge_strategy}

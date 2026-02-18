@@ -115,9 +115,24 @@ Arc pipeline configuration lives under the `arc:` key. Config resolution follows
 
 ### `arc.timeouts` — Per-phase timeout overrides (activated v1.40.0)
 
-Per-phase timeout values in milliseconds. Feed `calculateDynamicTimeout()`. New in v1.40.0: `ship` (300000) and `merge` (600000).
+Per-phase timeout values in milliseconds. Values are clamped to 10s–3600s range. Total pipeline timeout is computed dynamically by `calculateDynamicTimeout(tier)` and is not configurable.
 
-See `talisman.example.yml` for the full list of timeout keys and default values.
+| Key | Type | Default (ms) | Description |
+|-----|------|-------------|-------------|
+| `forge` | number | 900000 | Phase 1: Research enrichment (15 min) |
+| `plan_review` | number | 900000 | Phase 2: Plan review (15 min) |
+| `plan_refine` | number | 180000 | Phase 2.5: Plan refinement (3 min) |
+| `verification` | number | 30000 | Phase 2.7: Verification gate (30 sec) |
+| `semantic_verification` | number | 180000 | Phase 2.8: Codex semantic check (3 min) |
+| `work` | number | 2100000 | Phase 5: Work execution (35 min) |
+| `gap_analysis` | number | 60000 | Phase 5.5: Gap analysis (1 min) |
+| `codex_gap_analysis` | number | 660000 | Phase 5.6: Codex gap analysis (11 min) |
+| `code_review` | number | 900000 | Phase 6: Code review (15 min) |
+| `mend` | number | 1380000 | Phase 7: Mend (23 min) |
+| `verify_mend` | number | 240000 | Phase 7.5: Verify mend (4 min) |
+| `audit` | number | 1200000 | Phase 8: Audit (20 min) |
+| `ship` | number | 300000 | Phase 9: PR creation (5 min, v1.40.0+) |
+| `merge` | number | 600000 | Phase 9.5: Merge (10 min, v1.40.0+) |
 
 ### `arc.consistency` — Cross-file consistency checks (v1.17.0+)
 

@@ -94,19 +94,32 @@ const safePrTitle = prTitle.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 70) ||
 
 // 4. Build PR body
 const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`).trim()
-const auditSummary = exists(`tmp/arc/${id}/audit-report.md`)
+
+// SEC-006 FIX: Wrap audit summary in code fence to prevent markdown injection from reviewed content.
+// Audit report may contain content from compromised agents or tampered files.
+const rawAuditSummary = exists(`tmp/arc/${id}/audit-report.md`)
   ? Read(`tmp/arc/${id}/audit-report.md`).split('\n').slice(0, 20).join('\n')
   : "Audit report not available"
+const auditSummary = '```\n' + rawAuditSummary + '\n```'
 
 // Read talisman PR settings
 const monitoringRequired = arcConfig.ship.pr_monitoring
-const coAuthors = talisman?.work?.co_authors ?? []
+// BACK-012 FIX: Read co_authors from arcConfig.ship (resolved via resolveArcConfig)
+// instead of raw talisman?.work?.co_authors, so the 3-layer resolution chain applies.
+const coAuthors = arcConfig.ship.co_authors ?? []
 const validCoAuthors = coAuthors.filter(a => /^[^<>\n]+\s+<[^@\n]+@[^>\n]+>$/.test(a))
 const coAuthorLines = validCoAuthors.map(a => `Co-Authored-By: ${a}`).join('\n')
 
+// SEC-005 FIX: Re-validate plan_file from checkpoint before PR body interpolation.
+// On resume, the checkpoint may have been tampered — re-validate same regex as arc init.
+const SAFE_PATH_RE = /^[a-zA-Z0-9._\/-]+$/
+const safePlanFile = SAFE_PATH_RE.test(checkpoint.plan_file) && !checkpoint.plan_file.includes('..')
+  ? checkpoint.plan_file
+  : "(invalid plan path)"
+
 const prBody = `## Summary
 
-Implemented from plan: \`${checkpoint.plan_file}\`
+Implemented from plan: \`${safePlanFile}\`
 Pipeline: \`/rune:arc\` (${Object.values(checkpoint.phases).filter(p => p.status === "completed").length} phases completed)
 
 ### Changes
@@ -166,7 +179,11 @@ if (prResult.exitCode !== 0) {
   return
 }
 
+// BACK-009 FIX: Validate PR URL format from gh output before storing
 const prUrl = prResult.stdout.trim()
+if (!/^https:\/\//.test(prUrl)) {
+  warn(`Ship phase: gh pr create returned unexpected output (not a URL): "${prUrl.slice(0, 100)}"`)
+}
 log(`PR created: ${prUrl}`)
 
 // 6. Update checkpoint

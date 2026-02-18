@@ -94,8 +94,10 @@ When you run `/rune:arc`, Rune chains 14 phases into one automated pipeline:
 2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
 2.5. **PLAN REFINEMENT** — Extracts CONCERN verdicts into concern-context.md for worker awareness (orchestrator-only)
 2.7. **VERIFICATION GATE** — Deterministic checks (file refs, headings, acceptance criteria, post-forge freshness re-check) with zero LLM cost. The full freshness gate runs during pre-flight (before Phase 1) using 5-signal composite score; Phase 2.7 only re-checks forge-expanded file references. Use `--skip-freshness` to bypass the pre-flight check.
+2.8. **SEMANTIC VERIFICATION** — Codex cross-model contradiction detection on the enriched plan (v1.39.0+)
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
 5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code + doc-consistency via talisman verification_patterns (zero LLM cost, advisory)
+5.6. **CODEX GAP ANALYSIS** — Codex cross-model plan-vs-implementation gap detection (v1.39.0+)
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
 7. **MEND** — Parallel fixers resolve findings from TOME
 7.5. **VERIFY MEND** — Adaptive convergence controller: loops Phase 6→7→7.5 until findings converge or tier max cycles reached (LIGHT: 2, STANDARD: 3, THOROUGH: 5). Proceeds to audit with warning on halt

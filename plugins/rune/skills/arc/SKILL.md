@@ -564,12 +564,16 @@ function resolveArcConfig(talisman, inlineFlags) {
     ship: {
       auto_pr:       talismanShip.auto_pr ?? defaults.ship.auto_pr,
       auto_merge:    talismanShip.auto_merge ?? defaults.ship.auto_merge,
-      merge_strategy: talismanShip.merge_strategy ?? defaults.ship.merge_strategy,
+      // SEC-001 FIX: Validate merge_strategy against allowlist at config resolution time
+      merge_strategy: ["squash", "rebase", "merge"].includes(talismanShip.merge_strategy)
+        ? talismanShip.merge_strategy : defaults.ship.merge_strategy,
       wait_ci:       talismanShip.wait_ci ?? defaults.ship.wait_ci,
       draft:         talismanShip.draft ?? defaults.ship.draft,
       labels:        Array.isArray(talismanShip.labels) ? talismanShip.labels : defaults.ship.labels,  // SEC-DECREE-002: validate array
       pr_monitoring: talismanShip.pr_monitoring ?? defaults.ship.pr_monitoring,
       rebase_before_merge: talismanShip.rebase_before_merge ?? defaults.ship.rebase_before_merge,
+      // BACK-012 FIX: Include co_authors in 3-layer resolution (was read from raw talisman)
+      co_authors: Array.isArray(talisman?.work?.co_authors) ? talisman.work.co_authors : [],
     }
   }
 
@@ -1330,8 +1334,10 @@ Phases:
   2.   PLAN REVIEW:     {status} — plan-review.md ({verdict})
   2.5  PLAN REFINEMENT: {status} — {concerns_count} concerns extracted
   2.7  VERIFICATION:    {status} — {issues_count} issues
+  2.8  SEMANTIC VERIFY: {status} — codex-semantic-verification.md
   5.   WORK:            {status} — {tasks_completed}/{tasks_total} tasks
   5.5  GAP ANALYSIS:    {status} — {addressed}/{total} criteria addressed
+  5.6  CODEX GAP:       {status} — codex-gap-analysis.md
   6.   CODE REVIEW:     {status} — tome.md ({finding_count} findings)
   7.   MEND:            {status} — {fixed}/{total} findings resolved
   7.5  VERIFY MEND:     {status} — {convergence_verdict} (cycle {convergence.round + 1}/{convergence.tier.maxCycles})
