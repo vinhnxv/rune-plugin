@@ -80,6 +80,10 @@ let scopeStats = null
 // SEC-007 FIX: Filter markers by session nonce before extracting scope stats.
 // Without nonce validation, stale/injected markers from prior sessions could inflate counts.
 const sessionNonce = checkpoint.session_nonce
+// BACK-013 FIX: Validate nonce format before use in string matching (defense-in-depth)
+if (sessionNonce && !/^[a-zA-Z0-9_-]+$/.test(sessionNonce)) {
+  warn(`Invalid session nonce format: ${sessionNonce} — falling back to unfiltered markers`)
+}
 const allMarkers = currentTome.match(/<!-- RUNE:FINDING[^>]*-->/g) || []
 const findingMarkers = sessionNonce
   ? allMarkers.filter(m => m.includes(`nonce="${sessionNonce}"`))

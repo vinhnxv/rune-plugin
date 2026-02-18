@@ -205,7 +205,7 @@ const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || e
 const codexDisabled = talisman?.codex?.disabled === true
 
 if (codexAvailable && !codexDisabled) {
-  const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
+  const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
   if (codexWorkflows.includes("forge")) {
     // Add Codex Oracle to the topic registry for this session
     // It will be matched against section topics like any other forge agent

@@ -529,7 +529,7 @@ const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || e
 const codexDisabled = talisman?.codex?.disabled === true
 
 if (codexAvailable && !codexDisabled) {
-  const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
+  const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
   const advisoryEnabled = talisman?.codex?.work_advisory?.enabled !== false
 
   if (codexWorkflows.includes("work") && advisoryEnabled) {

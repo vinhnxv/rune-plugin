@@ -113,8 +113,10 @@ if (diffScopeEnabled && changed_files.length > 0) {
     if (flags['--partial']) {
       diffOutput = Bash(`git diff --cached --unified=0 -M`)
     } else {
-      // SEC-003 FIX: Use -- separator to prevent argument injection from branch names
-      diffOutput = Bash(`git diff --unified=0 -M -- "${default_branch}...HEAD"`)
+      // SEC-003 FIX: BRANCH_NAME_REGEX (line 104) is the correct defense against argument injection.
+      // Do NOT use `--` separator here — it causes git to interpret the revision range as a file path,
+      // silently producing zero diff output (BACK-005).
+      diffOutput = Bash(`git diff --unified=0 -M "${default_branch}...HEAD"`)
     }
 
     if (diffOutput.exitCode !== 0) {
