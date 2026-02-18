@@ -58,13 +58,11 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 ## Versioning & Pre-Commit Checklist
 
-Every change to this plugin MUST include updates to all three files:
+Every change to this plugin MUST include updates to all four files:
 
-1. **`.claude-plugin/plugin.json`** — Bump version using semver
-2. **`CHANGELOG.md`** — Document changes using Keep a Changelog format
-3. **`README.md`** — Verify/update component counts and tables
-
-Also sync:
+1. **`plugins/rune/.claude-plugin/plugin.json`** — Bump version using semver
+2. **`plugins/rune/CHANGELOG.md`** — Document changes using Keep a Changelog format
+3. **`plugins/rune/README.md`** — Verify/update component counts and tables
 4. **`.claude-plugin/marketplace.json`** (repo root) — Match plugin version in `plugins[].version`
 
 ### Version Bumping Rules
@@ -76,7 +74,7 @@ Also sync:
 ### Pre-Commit Checklist
 
 - [ ] Version bumped in `.claude-plugin/plugin.json`
-- [ ] Same version in `.claude-plugin/marketplace.json` `plugins[].version`
+- [ ] Same version in repo-root `.claude-plugin/marketplace.json` `plugins[].version`
 - [ ] CHANGELOG.md updated with changes
 - [ ] README.md component counts verified
 - [ ] README.md Skills table includes all skills
@@ -110,6 +108,7 @@ When adding or modifying skills, verify:
 
 ### Reference Links
 - [ ] Files in `references/` linked as `[file.md](references/file.md)` — not backtick paths
+- [ ] zsh glob compatibility: `(N)` qualifier on all `for ... in GLOB; do` loops (applies to `skills/*/SKILL.md` AND `commands/*.md` — the `enforce-zsh-compat.sh` hook enforces at runtime)
 
 ### Validation Commands
 
@@ -119,7 +118,7 @@ grep -rn '`references/\|`assets/\|`scripts/' plugins/rune/skills/*/SKILL.md
 
 # Verify all skills have name and description
 for f in plugins/rune/skills/*/SKILL.md(N); do
-  echo "=== $(basename $(dirname $f)) ==="
+  echo "=== $(basename "$(dirname "$f")") ==="
   head -20 "$f" | grep -E '^(name|description):' || echo "MISSING"
 done
 
