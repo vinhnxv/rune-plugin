@@ -357,7 +357,7 @@ ETCHED Echo (agent memory)
 
 ### YAML Frontmatter Schema
 
-Remembrance documents use structured YAML frontmatter. See `references/remembrance-schema.md` for the full schema specification.
+Remembrance documents use structured YAML frontmatter. See [remembrance-schema.md](references/remembrance-schema.md) for the full schema specification.
 
 **Required fields**: `title`, `category`, `tags`, `date`, `symptom`, `root_cause`, `solution_summary`, `confidence`, `verified_by`
 

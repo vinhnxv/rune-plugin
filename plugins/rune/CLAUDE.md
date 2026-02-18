@@ -56,6 +56,32 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
    - **ALWAYS** use `pollIntervalMs` from config (30s for all commands), never arbitrary values like 45s or 60s.
    - **Enforcement**: `enforce-polling.sh` PreToolUse hook (POLL-001) blocks sleep+echo anti-patterns at runtime. The `polling-guard` skill provides background knowledge for correct monitoring patterns.
 
+## Versioning & Pre-Commit Checklist
+
+Every change to this plugin MUST include updates to all three files:
+
+1. **`.claude-plugin/plugin.json`** — Bump version using semver
+2. **`CHANGELOG.md`** — Document changes using Keep a Changelog format
+3. **`README.md`** — Verify/update component counts and tables
+
+Also sync:
+4. **`.claude-plugin/marketplace.json`** (repo root) — Match plugin version in `plugins[].version`
+
+### Version Bumping Rules
+
+- **MAJOR** (2.0.0): Breaking changes to agent protocols, hook contracts, or talisman schema
+- **MINOR** (1.39.0): New agents, skills, commands, or workflow features
+- **PATCH** (1.38.1): Bug fixes, doc updates, minor improvements
+
+### Pre-Commit Checklist
+
+- [ ] Version bumped in `.claude-plugin/plugin.json`
+- [ ] Same version in `.claude-plugin/marketplace.json` `plugins[].version`
+- [ ] CHANGELOG.md updated with changes
+- [ ] README.md component counts verified
+- [ ] README.md Skills table includes all skills
+- [ ] plugin.json description counts match actual files
+
 ## Hook Infrastructure
 
 Rune uses Claude Code hooks for event-driven agent synchronization, quality gates, and security enforcement:
@@ -73,6 +99,35 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL hooks (`enforce-readonly.sh`, `validate-mend-fixer-paths.sh`) exit 2 (blocking). Non-security hooks exit 0 (non-blocking). A `SessionStart` hook validates `jq` availability and warns if missing. Hook configuration lives in `hooks/hooks.json`.
 
 **Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-polling.sh`, `enforce-zsh-compat.sh`, `enforce-teams.sh`) emit deny/allow decisions directly. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), TaskCompleted 10s (signal I/O + haiku gate), TeammateIdle 15s (inscription parse + output validation).
+
+## Skill Compliance
+
+When adding or modifying skills, verify:
+
+### Frontmatter (Required)
+- [ ] `name:` present and matches directory name
+- [ ] `description:` describes what it does and when to use it
+
+### Reference Links
+- [ ] Files in `references/` linked as `[file.md](references/file.md)` — not backtick paths
+
+### Validation Commands
+
+```bash
+# Check for unlinked references (should return nothing)
+grep -rn '`references/\|`assets/\|`scripts/' plugins/rune/skills/*/SKILL.md
+
+# Verify all skills have name and description
+for f in plugins/rune/skills/*/SKILL.md(N); do
+  echo "=== $(basename $(dirname $f)) ==="
+  head -20 "$f" | grep -E '^(name|description):' || echo "MISSING"
+done
+
+# Count components (verify against plugin.json)
+echo "Agents: $(find plugins/rune/agents -name '*.md' -not -path '*/references/*' | wc -l)"
+echo "Skills: $(find plugins/rune/skills -name 'SKILL.md' | wc -l)"
+echo "Commands: $(find plugins/rune/commands -name '*.md' -not -path '*/references/*' | wc -l)"
+```
 
 ## References
 

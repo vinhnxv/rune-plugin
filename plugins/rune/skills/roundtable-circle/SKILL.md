@@ -231,7 +231,7 @@ Findings: 2 P1, 3 P2, 2 P3. Confidence: 0.85. Self-reviewed: yes."
 
 Full spec: [Inscription Protocol](../rune-orchestration/references/inscription-protocol.md)
 
-See `references/ash-prompts/` for individual prompts.
+See [ash-prompts/](references/ash-prompts/) for individual prompts.
 
 ## Phase 4: Monitor
 

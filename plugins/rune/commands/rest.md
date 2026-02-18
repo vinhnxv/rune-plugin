@@ -60,7 +60,7 @@ ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json tmp/.run
 
 # Check for active arc sessions via checkpoint.json
 # Arc uses .claude/arc/*/checkpoint.json instead of tmp/.rune-arc-*.json state files
-for f in .claude/arc/*/checkpoint.json; do
+for f in .claude/arc/*/checkpoint.json(N); do
   [ -f "$f" ] || continue
   if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then
     arc_id=$(basename "$(dirname "$f")")
@@ -150,7 +150,7 @@ rm -rf tmp/plans/
 # Remove work artifacts — conditional on no active work teams
 # Check work state files for active status (consistent with review/audit/mend checks)
 active_work=""
-for f in tmp/.rune-work-*.json; do
+for f in tmp/.rune-work-*.json(N); do
   [ -f "$f" ] && grep -q '"status"[[:space:]]*:[[:space:]]*"active"' "$f" && active_work="$f"
 done
 if [ -z "$active_work" ]; then
@@ -162,7 +162,7 @@ fi
 # Remove arc artifacts — conditional on no active arc sessions
 # Arc uses .claude/arc/*/checkpoint.json (not tmp/.rune-arc-*.json state files)
 active_arc=""
-for f in .claude/arc/*/checkpoint.json; do
+for f in .claude/arc/*/checkpoint.json(N); do
   [ -f "$f" ] || continue
   if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then
     active_arc="$f"

@@ -44,7 +44,7 @@ Task rune:review:ward-sentinel(...)
 ### Composite Ash Invocation (review/audit workflows)
 
 The `/rune:review` and `/rune:audit` commands use `general-purpose` subagents with composite
-Ash prompt templates from `roundtable-circle/references/ash-prompts/`. Each Ash embeds
+Ash prompt templates from [ash-prompts/](../roundtable-circle/references/ash-prompts/). Each Ash embeds
 multiple agent perspectives into a single teammate. This is intentional — composite Ashes
 don't map 1:1 to individual agent files.
 
