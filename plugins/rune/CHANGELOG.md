@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.42.1] — 2026-02-19
+
+### Fixed
+- **arc-batch nested session guard**: `arc-batch.sh` now unsets `CLAUDECODE` environment variable before spawning child `claude -p` processes. Fixes "cannot be launched inside another Claude Code session" error when `/rune:arc-batch` is invoked from within an active Claude Code session.
+
+### Changed
+- **Plugin version**: 1.42.0 → 1.42.1
+
 ## [1.42.0] — 2026-02-19
 
 ### Added

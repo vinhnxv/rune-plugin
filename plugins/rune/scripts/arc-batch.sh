@@ -39,6 +39,13 @@ BATCH_START=$(date +%s)
 CURRENT_PID=0
 CLEANING_UP=false
 
+# ── Nested session guard ──
+# When arc-batch.sh is launched via Bash tool from within a Claude Code session,
+# the CLAUDECODE env var is inherited by child processes. This causes `claude -p`
+# to refuse to start ("cannot be launched inside another Claude Code session").
+# Unsetting it here allows child claude processes to run independently.
+unset CLAUDECODE 2>/dev/null || true
+
 # ── setsid availability check (CC-2: macOS compatibility) ──
 # setsid is not available by default on macOS (darwin).
 # When available, use it for process group isolation.
