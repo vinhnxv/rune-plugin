@@ -6,11 +6,11 @@ Shared tier selection, convergence evaluation, and progressive focus logic for b
 
 The number of review-mend cycles scales with changeset complexity.
 
-| Tier | Review-Mend Cycles | Trigger |
-|------|-------------------|---------|
-| **LIGHT** | 2 | ≤100 lines changed AND no high-risk files AND type=fix |
-| **STANDARD** | 3 | 100-2000 lines OR mixed code/docs (default) |
-| **THOROUGH** | 5 | >2000 lines OR high-risk files OR architectural changes |
+| Tier | Max Cycles | Min Cycles | Trigger |
+|------|-----------|-----------|---------|
+| **LIGHT** | 2 | 1 | ≤100 lines changed AND no high-risk files AND type=fix |
+| **STANDARD** | 3 | 2 | 100-2000 lines OR mixed code/docs (default) |
+| **THOROUGH** | 5 | 2 | >2000 lines OR high-risk files OR architectural changes |
 
 ## Tier Selection Engine
 
@@ -28,9 +28,9 @@ const HIGH_RISK_PATTERNS = [
 ]
 
 const TIERS = {
-  light:    { name: 'LIGHT',    maxCycles: 2 },
-  standard: { name: 'STANDARD', maxCycles: 3 },
-  thorough: { name: 'THOROUGH', maxCycles: 5 },
+  light:    { name: 'LIGHT',    maxCycles: 2, minCycles: 1 },
+  standard: { name: 'STANDARD', maxCycles: 3, minCycles: 2 },
+  thorough: { name: 'THOROUGH', maxCycles: 5, minCycles: 2 },
 }
 
 // SEC-007 helper: compute auto-tier without config override (for warning comparison)
@@ -99,8 +99,9 @@ Used by Phase 7.5 to decide: converge, retry, or halt.
 **Outputs**: Verdict (`converged` | `retry` | `halted`)
 
 ```javascript
-function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config, scopeStats) {
+function evaluateConvergence(currentFindingCount, p1Count, p2Count, checkpoint, config, scopeStats) {
   const round = checkpoint.convergence.round
+  const tier = checkpoint.convergence.tier ?? TIERS.standard
   // SEC-005: Apply arc_convergence_max_cycles override with clamping (1-5)
   const rawMaxCycles = config?.review?.arc_convergence_max_cycles
   // SEC-002 FIX: Use Number.isNaN instead of || to avoid falsy-zero bug (parseInt("1") || 3 = 1, but parseInt("0") || 3 = 3)
@@ -112,7 +113,7 @@ function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config, s
     // BACK-001 NOTE: checkpoint.convergence.max_rounds is a legacy field — not read by evaluateConvergence.
     // The canonical source is tier.maxCycles (from checkpoint.convergence.tier). max_rounds remains
     // in checkpoint schema for backward compatibility but is effectively dead data.
-    : checkpoint.convergence.tier?.maxCycles ?? TIERS.standard.maxCycles
+    : tier.maxCycles ?? TIERS.standard.maxCycles
   // SEC-003 FIX: Add upper bound (100) to prevent threshold=9999 from bypassing convergence
   // QUAL-005 FIX: Match rawMaxCycles pattern — separate extraction from parsing, type-guard before parseInt
   const rawThresholdVal = config?.review?.arc_convergence_finding_threshold
@@ -121,40 +122,92 @@ function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config, s
   const findingThreshold = !Number.isNaN(rawThreshold) ? Math.max(0, Math.min(100, rawThreshold)) : 0
   // Validate ratio: reject values outside (0.1, 0.9)
   const rawRatio = parseFloat(config?.review?.arc_convergence_improvement_ratio ?? 0.5)
-  const improvementRatio = isNaN(rawRatio) ? 0.5 : Math.max(0.1, Math.min(0.9, rawRatio))
+  const improvementRatio = Number.isNaN(rawRatio) ? 0.5 : Math.max(0.1, Math.min(0.9, rawRatio))
+
+  // BACK-017 FIX: minCycles from tier (with talisman override)
+  // SEC-005 type guard: reject arrays/objects from YAML (parseInt([3],10) returns 3 silently)
+  const rawMinVal = config?.review?.arc_convergence_min_cycles
+  const parsedMinCycles = (rawMinVal != null && (typeof rawMinVal === 'number' || typeof rawMinVal === 'string'))
+    ? parseInt(String(rawMinVal), 10) : NaN
+  const effectiveMinCycles = !Number.isNaN(parsedMinCycles) ? parsedMinCycles : (tier.minCycles ?? 2)
+  const minCycles = Math.max(1, Math.min(maxCycles, effectiveMinCycles))
+  if (!Number.isNaN(parsedMinCycles) && parsedMinCycles > maxCycles) {
+    warn(`arc_convergence_min_cycles (${parsedMinCycles}) exceeds max_cycles (${maxCycles}) — clamped to ${maxCycles}`)
+  }
+  // BACK-002 FIX: Warn when minCycles equals maxCycles — retry window collapses to zero
+  if (minCycles === maxCycles) {
+    warn(`arc_convergence_min_cycles (${minCycles}) equals max_cycles (${maxCycles}) — only 1 cycle available for convergence check`)
+  }
+
+  // BACK-019 FIX: P2 threshold (with talisman override)
+  // SEC-005 type guard applied (same pattern as maxCycles/findingThreshold)
+  // BACK-007 NOTE: Default p2Threshold=0 means ANY P2 finding blocks convergence at step 2.
+  // If diff-scope is disabled (smart scoring unavailable), this forces all maxCycles iterations
+  // before circuit-breaker halts. Users with pre-existing P2 findings should either:
+  // (a) enable diff-scope (default), or (b) set arc_convergence_p2_threshold > 0.
+  const rawP2Val = config?.review?.arc_convergence_p2_threshold
+  const parsedP2Threshold = (rawP2Val != null && (typeof rawP2Val === 'number' || typeof rawP2Val === 'string'))
+    ? parseInt(String(rawP2Val), 10) : NaN
+  const p2Threshold = !Number.isNaN(parsedP2Threshold)
+    ? Math.max(0, Math.min(100, parsedP2Threshold)) : 0
+
+  // Guard: ensure p2Count is a finite number (defense-in-depth for undefined/NaN)
+  const safeP2Count = Number.isFinite(p2Count) ? p2Count : 0
 
   // Get previous round's finding count
   // BACK-002 NOTE: Invariant: round === history.length throughout the convergence lifecycle.
-  // Oscillation detection (line 134) uses history.length; evaluation uses round. They MUST stay in sync.
+  // Oscillation detection uses history.length; evaluation uses round. They MUST stay in sync.
   const prevFindings = round === 0 ? Infinity
     : checkpoint.convergence.history[round - 1]?.findings_after ?? Infinity
 
-  // Decision cascade
-  // BACK-003 NOTE: findingThreshold checks P1 count only (not total findings).
-  // The talisman key arc_convergence_finding_threshold is a P1-specific threshold.
-  if (p1Count <= findingThreshold) {
-    return 'converged'  // P1 count below acceptable threshold
+  // BACK-002 invariant assertion (defense-in-depth)
+  if (round !== checkpoint.convergence.history.length) {
+    warn(`Invariant violation: round (${round}) !== history.length (${checkpoint.convergence.history.length})`)
   }
 
-  // Smart convergence scoring (v1.38.0+) — scope-aware early convergence
-  // When diff-scope data is available, compute a composite score from P3 dominance,
-  // pre-existing noise, and trend signals. High scores (>= threshold) trigger early
-  // convergence even when total finding count hasn't reached zero.
+  // === REORDERED DECISION CASCADE ===
+  // Forge finding (flaw-hunter): circuit breaker must be AFTER convergence checks
+  // to allow convergence at the final eligible cycle. Otherwise STANDARD tier
+  // round 2 (round+1=3 >= maxCycles=3) halts even when all findings are resolved.
+
+  // 0. BACK-005 FIX: Zero-findings short-circuit — skip minCycles gate when no findings remain.
+  // Without this, a clean TOME (0 findings) still forces a retry when minCycles > 1,
+  // wasting a full review-mend cycle that immediately converges at step 2 (0 ≤ 0).
+  if (currentFindingCount === 0) {
+    return 'converged'  // No findings remain — converged regardless of minCycles
+  }
+
+  // 1. BACK-017 FIX: Minimum cycles gate — force re-review before convergence
+  if (round + 1 < minCycles) {
+    return 'retry'      // Haven't reached minimum cycles — force re-review
+  }
+
+  // 2. BACK-019 FIX: P1 AND P2 thresholds — both must pass
+  if (p1Count <= findingThreshold && safeP2Count <= p2Threshold) {
+    return 'converged'  // Both P1 and P2 below acceptable thresholds
+  }
+
+  // 3. Smart convergence scoring (now only fires after minCycles met)
   // scopeStats is optional — null/undefined for pre-v1.38.0 TOMEs or disabled diff-scope.
   if (scopeStats && config?.review?.diff_scope?.enabled !== false) {
     const smartScoringEnabled = config?.review?.convergence?.smart_scoring !== false  // Default: true
     if (smartScoringEnabled) {
       const score = computeConvergenceScore(scopeStats, checkpoint, config)
       const convergenceThreshold = parseFloat(config?.review?.convergence?.convergence_threshold ?? 0.7)
-      const safeThreshold = isNaN(convergenceThreshold) ? 0.7 : Math.max(0.1, Math.min(1.0, convergenceThreshold))
+      const safeThreshold = Number.isNaN(convergenceThreshold) ? 0.7 : Math.max(0.1, Math.min(1.0, convergenceThreshold))
       if (score.total >= safeThreshold) {
         return 'converged'  // Smart scoring: remaining findings are mostly P3/pre-existing noise
       }
     }
   }
+
+  // 4. BACK-018 FIX: Circuit breaker — hard limit (moved from position 1 to position 4)
+  // Fires AFTER convergence checks so the final eligible cycle can still converge.
   if (round + 1 >= maxCycles) {
-    return 'halted'     // Max cycles reached — circuit breaker
+    return 'halted'     // Max cycles reached — findings still unresolved
   }
+
+  // 5. Stagnation — findings not decreasing AND P1 not improving (unchanged)
   // BACK-016 FIX: Check P1 progress alongside total count — severity shift (P1→P3) is meaningful
   // even when total count unchanged. prevP1 defaults to Infinity for round 0 (same as prevFindings).
   const prevP1 = round === 0 ? Infinity
@@ -162,16 +215,17 @@ function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config, s
   if (currentFindingCount >= prevFindings && p1Count >= prevP1) {
     return 'halted'     // Findings not decreasing AND P1 not improving — truly stagnant
   }
-  // BACK-005 FIX: Oscillation detection — compare only against round N-2 (A→B→A pattern).
-  // Previous version compared ALL prior rounds, but scope changes (full → focused) make
-  // cross-scope count comparisons unreliable.
+
+  // 6. Oscillation detection (unchanged)
+  // BACK-005 FIX: Compare only against round N-2 (A→B→A pattern).
   if (checkpoint.convergence.history.length >= 2) {
     const twoRoundsBack = checkpoint.convergence.history[checkpoint.convergence.history.length - 2]
     if (twoRoundsBack && twoRoundsBack.findings_after === currentFindingCount) {
       return 'halted'   // Oscillation detected (A→B→A pattern)
     }
   }
-  // Improvement ratio check (guard prevFindings > 0 for NaN safety)
+
+  // 7. Improvement ratio check (unchanged, guard prevFindings > 0 for NaN safety)
   if (currentFindingCount > 0 && prevFindings > 0 &&
       currentFindingCount / prevFindings > (1 - improvementRatio)) {
     return 'halted'     // Improvement too small — diminishing returns
@@ -191,13 +245,32 @@ Computes a composite convergence score from scope-aware signals. Used by `evalua
 
 ```javascript
 function computeConvergenceScore(scopeStats, checkpoint, config) {
-  if (!scopeStats || typeof scopeStats !== 'object') return null
+  // BACK-006 FIX: Return zero-score object instead of null for invalid input.
+  // Prevents null.total TypeError in callers that forget truthiness guard.
+  if (!scopeStats || typeof scopeStats !== 'object') {
+    return { total: 0.0, components: { p3: 0, preExisting: 0, trend: 0, base: 0 }, reason: 'invalid_input' }
+  }
 
-  const { p1Count, p3Count, preExistingCount, inDiffCount, totalFindings } = scopeStats
+  const { p1Count, p2Count, p3Count, preExistingCount, inDiffCount, totalFindings } = scopeStats
+
+  // BACK-019 FIX: Parse P2 threshold from config (same logic as evaluateConvergence)
+  const rawP2Val = config?.review?.arc_convergence_p2_threshold
+  const parsedP2Threshold = (rawP2Val != null && (typeof rawP2Val === 'number' || typeof rawP2Val === 'string'))
+    ? parseInt(String(rawP2Val), 10) : NaN
+  const p2Threshold = !Number.isNaN(parsedP2Threshold)
+    ? Math.max(0, Math.min(100, parsedP2Threshold)) : 0
+
+  // Guard: ensure p2Count is finite (defense-in-depth — matches evaluateConvergence pattern)
+  const safeP2Count = Number.isFinite(p2Count) ? p2Count : 0
 
   // Hard gate: P1 findings prevent smart convergence — always retry or fix
   if (p1Count > 0) {
     return { total: 0.0, components: { p3: 0, preExisting: 0, trend: 0, base: 0 }, reason: 'p1_active' }
+  }
+
+  // BACK-019 FIX: P2 hard gate — if P2 above threshold, smart scoring returns low score
+  if (safeP2Count > p2Threshold) {
+    return { total: 0.0, components: { p3: 0, preExisting: 0, trend: 0, base: 0 }, reason: `P2 count (${safeP2Count}) exceeds threshold (${p2Threshold})` }
   }
 
   // Guard: no findings = fully converged
@@ -346,12 +419,17 @@ review:
   # convergence keys (convergence_tier_override, convergence_density_threshold, etc.)
   arc_convergence_tier_override: null     # Force: "light" | "standard" | "thorough" | null
   arc_convergence_max_cycles: null        # Hard override: 1-5 (overrides tier, use sparingly)
+  arc_convergence_min_cycles: null        # Min re-review cycles before convergence (1-maxCycles, default: tier-based)
   arc_convergence_finding_threshold: 0    # P1 findings below this count = converged (default: 0)
+  arc_convergence_p2_threshold: 0         # P2 findings below this count = eligible for convergence (default: 0)
   arc_convergence_improvement_ratio: 0.5  # Findings must decrease by this ratio to continue (default: 0.5)
 ```
 
 **Validation**:
 - `arc_convergence_max_cycles`: Clamped to 1-5 range. Values outside are silently clamped.
+- `arc_convergence_min_cycles`: Clamped to 1-maxCycles range. Warning emitted if exceeds maxCycles. Default: tier-based (LIGHT=1, STANDARD=2, THOROUGH=2).
+- `arc_convergence_finding_threshold`: Clamped to 0-100 range. P1-specific threshold.
+- `arc_convergence_p2_threshold`: Clamped to 0-100 range. Default 0 (any P2 blocks convergence). Raise to allow some P2 findings without forcing additional cycles.
 - `arc_convergence_improvement_ratio`: Clamped to 0.1-0.9 range. NaN → 0.5 default.
 - `arc_convergence_tier_override`: Must be a key of `TIERS` or null. Invalid values ignored with warning.
 
