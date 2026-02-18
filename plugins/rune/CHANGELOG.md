@@ -1,5 +1,74 @@
 # Changelog
 
+## [1.39.1] — 2026-02-18
+
+### Fixed
+- **AUDIT-ARCH-002**: rune-smith Step 6.5 now checks `codexWorkflows.includes("work")` gate — consistent with all other Codex integration points
+- **AUDIT-SEC-001**: rune-smith Step 6.5 now verifies `.codexignore` exists before `--full-auto` invocation
+- **AUDIT-SEC-004**: Elicitation cross-model protocol (SKILL.md) now includes `.codexignore` pre-flight at step 2.5
+
+### Added
+- CHANGELOG entries for v1.38.0 and v1.39.0 (previously missing)
+
+### Changed
+- **Plugin version**: 1.39.0 → 1.39.1
+
+## [1.39.0] — 2026-02-18
+
+### Added
+- **Codex Deep Integration** — 9 new cross-model integration points extending Codex Oracle from 5 to 14 workflow touchpoints. Each uses GPT-5.3-codex as a second-perspective verification layer. All follow the Canonical Codex Integration Pattern (detect → validate → spawn → execute → verify → output → cleanup).
+  - **IP-1: Elicitation Sage cross-model reasoning** — `codex_role` column added to methods.csv. Adversarial methods (Red Team vs Blue Team, Pre-mortem, Challenge) now use Codex for the opposing perspective. Orchestrator spawns Codex teammate; sage reads output file.
+  - **IP-2: Mend Fix Verification** — Phase 5.8 in mend.md. After fixers apply TOME fixes, Codex batch-verifies all diffs for regressions, weak fixes, and conflicts. Verdicts: GOOD_FIX, WEAK_FIX, REGRESSION, CONFLICT.
+  - **IP-3: Arena Judge** — Cross-model solution evaluation in Plan Phase 1.8B. Codex scores solutions on 5 dimensions + optional solution generation mode. Cross-model agreement bonus in scoring matrix.
+  - **IP-4: Semantic Verification (Phase 2.8)** — New arc phase after Phase 2.7. Codex checks enriched plan for internal contradictions (technology, scope, timeline, dependency). Separate phase with own 120s budget (doesn't conflict with Phase 2.7's 30s deterministic gate).
+  - **IP-5: Codex Gap Analysis** — Arc Phase 5.6, after Claude gap analysis. Compares plan expectations vs actual implementation. Findings: MISSING, EXTRA, INCOMPLETE, DRIFT.
+  - **IP-6: Trial Forger edge cases** — Step 4.5 in trial-forger.md. Before writing tests, Codex suggests 5-10 edge cases (boundary values, null inputs, concurrency, error paths).
+  - **IP-7: Rune Smith inline advisory** — Step 6.5 in rune-smith.md. Optional quick Codex check on worker diffs. **Disabled by default** (opt-in via `codex.rune_smith.enabled: true`).
+  - **IP-8: Shatter complexity scoring** — Cross-model blended score in Plan Phase 2.5. 70% Claude + 30% Codex weighted average for shatter gate decisions.
+  - **IP-9: Echo validation** — Before persisting learnings to `.claude/echoes/`, Codex checks if insight is generalizable or context-specific. Tags context-specific entries for lower retrieval priority.
+- 9 new talisman keys under `codex:` — `elicitation`, `mend_verification`, `arena`, `semantic_verification`, `gap_analysis`, `trial_forger`, `rune_smith`, `shatter`, `echo_validation`
+- `"mend"` added to default `codex.workflows` fallback array across all command files
+- `.codexignore` pre-flight checks added to mend.md, trial-forger.md, arc SKILL.md (SEC-002 fixes)
+- Arc phases updated: Phase 2.8 (semantic verification), Phase 5.6 (Codex gap analysis)
+- codex-cli SKILL.md output conventions table updated with all 9 new output paths
+
+### Changed
+- **Plugin version**: 1.38.0 → 1.39.0
+- **elicitation-sage.md**: Added Cross-Model Workflow section with sage-side synthesis protocol
+- **elicitation SKILL.md**: Added Cross-Model Routing section, codex_role CSV column documentation, orchestrator-level protocol
+- **methods.csv**: Added `codex_role` column (11th column). 3 methods tagged: Red Team vs Blue Team (`red_team`), Pre-mortem Analysis (`failure`), Challenge from Critical Perspective (`critic`)
+- **solution-arena.md**: Added Codex Arena Judge sub-step 1.8B extension + scoring integration in 1.8C
+- **gap-analysis.md**: Extended with Codex Gap Analysis (Phase 5.6) section
+- **arc SKILL.md**: Added Phase 2.8 (semantic verification) + Codex gap analysis phase + checkpoint schema update
+- **CLAUDE.md**: Updated skill descriptions, phase list, and codex-cli skill description
+
+### Known Issues
+- **AUDIT-ARCH-002** (P2): rune-smith Step 6.5 missing `codexWorkflows` gate — fixed in post-arc patch
+- **AUDIT-SEC-001/004** (P2): `.codexignore` pre-flight missing in rune-smith + elicitation protocol — fixed in post-arc patch
+
+## [1.38.0] — 2026-02-18
+
+### Added
+- **Diff-Scope Engine** — Generates per-file line ranges from `git diff` for review scope awareness. Enriches `inscription.json` with `diff_scope` data, enabling TOME finding tagging (`in-diff` vs `pre-existing`) and scope-aware mend priority filtering.
+  - New shared reference: `rune-orchestration/references/diff-scope.md` (Diff Scope Engine + TOME Tagger)
+  - New shared reference: `roundtable-circle/references/diff-scope-awareness.md` (Ash-facing guidance)
+  - `inscription.json` schema extended with `diff_scope` object (enabled, base_ref, ranges, expansion_zone)
+  - TOME Phase 5.3 tagger: classifies findings as `in-diff` or `pre-existing` based on line ranges
+  - Mend priority filtering: `in-diff` findings prioritized over `pre-existing`
+- **Smart Convergence Scoring** — `computeConvergenceScore()` with 4-component weighted formula replacing simple finding-count comparison. Components: finding reduction (40%), severity improvement (25%), scope coverage (20%), fix success rate (15%). Partially mitigates SCOPE-BIAS (P3 from v1.37.0).
+- 3 new talisman keys: `review.diff_scope.expansion` (default: 8), `review.diff_scope.max_files` (default: 200), `review.convergence.smart_scoring` (default: true)
+- Diff Scope Awareness section added to all 6 Ash prompt files (codex-oracle, forge-warden, glyph-scribe, knowledge-keeper, pattern-weaver, ward-sentinel)
+
+### Changed
+- **Plugin version**: 1.37.0 → 1.38.0
+- **review.md**: Added diff-scope generation in Phase 0, `--no-diff-scope` flag
+- **parse-tome.md**: Added scope-based priority sorting for mend file groups
+- **review-mend-convergence.md**: Replaced simple threshold with `computeConvergenceScore()` + configurable `convergence_threshold` (default: 0.7)
+- **arc SKILL.md**: Phase 5.5 gap analysis now receives diff scope data
+- **verify-mend.md**: Convergence evaluation uses smart scoring when enabled
+- **inscription-schema.md**: Documented `diff_scope` object schema
+- **arc-phase-completion-stamp.md**: Completion report includes diff scope summary
+
 ## [1.37.0] — 2026-02-18
 
 ### Added

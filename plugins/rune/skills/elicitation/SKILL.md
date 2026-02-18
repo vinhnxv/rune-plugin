@@ -223,6 +223,12 @@ When an orchestrator (plan, forge, arc) selects a method with a non-empty `codex
 ```
 1. DETECT: After method selection, check if selected method has codex_role != ""
 2. GATE: codex available (command -v codex) + talisman.codex.elicitation.enabled !== false
+2.5. SEC-004 FIX: .codexignore pre-flight (required for --full-auto):
+   codexignoreExists = Bash("test -f .codexignore && echo yes || echo no").trim() === "yes"
+   if NOT codexignoreExists:
+     log("Elicitation: .codexignore missing — skipping Codex cross-model (--full-auto requires .codexignore)")
+     // Fall through to single-model elicitation
+     SKIP cross-model steps below
 3. VALIDATE: Apply security allowlists before spawning:
    // SEC-001 FIX: CODEX_MODEL_ALLOWLIST validation
    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
