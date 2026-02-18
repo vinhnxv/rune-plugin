@@ -13,14 +13,14 @@
 - 8 new investigation agents in `agents/investigation/`: 5 impact tracers + wisdom-sage + lore-analyst + goldmask-coordinator
 - New `goldmask` talisman configuration section with layer-specific settings, CDD thresholds, and mode selection
 - **Adaptive review-mend convergence loop** — Phase 7.5 (verify_mend) now runs a full review-mend convergence controller instead of single-pass spot-check. Repeats Phase 6→7→7.5 until findings converge or max cycles reached.
-- **3-tier convergence system** — LIGHT (2 cycles, <=100 lines), STANDARD (3 cycles, default), THOROUGH (5 cycles, >2000 lines or high-risk). Tier auto-detected from changeset size and risk signals.
+- **3-tier convergence system** — LIGHT (2 cycles, ≤100 lines AND no high-risk files AND type=fix), STANDARD (3 cycles, default), THOROUGH (5 cycles, >2000 lines OR high-risk files OR large features). Tier auto-detected from changeset size, risk signals, and plan type.
 - **Progressive review focus** — Re-review rounds narrow scope to mend-modified files + 1-hop dependencies (max 10 additional). Reduces review cost on retry cycles.
 - **Dynamic arc timeout** — `calculateDynamicTimeout(tier)` replaces fixed `ARC_TOTAL_TIMEOUT`. Scales 162-240 min based on tier, hard cap at 240 min.
 - **Shared convergence reference** — `roundtable-circle/references/review-mend-convergence.md` contains `selectReviewMendTier()`, `evaluateConvergence()`, `buildProgressiveFocus()` shared by arc and standalone review.
 - **`--cycles <N>` flag for `/rune:review`** — Run N standalone review passes (1-5, numeric only) with TOME dedup merge. Standalone equivalent of arc convergence loop.
 - **`--scope-file <path>` flag for `/rune:review`** — Override changed_files from a JSON focus file. Used by arc convergence controller for progressive re-review scope.
 - **`--no-converge` flag for `/rune:review`** — Disable convergence loop for single review pass per chunk (report still generated).
-- **`--auto-mend` flag for `/rune:review`** — Auto-invoke `/rune:mend` after review completes when P1/P2 findings exist. Also configurable via `review.auto_mend: true` in talisman.yml.
+- **`--auto-mend` flag for `/rune:review`** — Auto-invoke `/rune:mend` after review completes when P1/P2 findings exist (skips post-review AskUserQuestion). Also configurable via `review.auto_mend: true` in talisman.yml.
 - **Arc convergence talisman keys** — `arc_convergence_tier_override`, `arc_convergence_max_cycles`, `arc_convergence_finding_threshold`, `arc_convergence_improvement_ratio` (all under `review:` with `arc_` prefix to avoid collision with standalone review convergence keys).
 - **Checkpoint schema v6** — Adds `convergence.tier` object (name, maxCycles, reason). Auto-migrated from v5 with `TIERS.standard` default.
 
@@ -35,7 +35,7 @@
 - **Plugin version**: 1.36.0 → 1.37.0
 
 ### Known Limitations
-- **SCOPE-BIAS** (P3, tracked for v1.38.0): `findings_before` comparison in convergence evaluation is biased by scope reduction (full → focused review). See `review-mend-convergence.md` §Scope Limitation Note.
+- **SCOPE-BIAS** (P3, tracked for v1.38.0): `findings_before` comparison in convergence evaluation is biased by scope reduction (full → focused review). Pass 1 reviews all changed files; pass 2+ reviews only mend-modified files + dependencies. A decrease in findings may reflect narrower scope rather than code improvement. See `review-mend-convergence.md` §Scope Limitation Note.
 
 ## [1.35.0] - 2026-02-18
 

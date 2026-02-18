@@ -8,7 +8,7 @@ The number of review-mend cycles scales with changeset complexity.
 
 | Tier | Review-Mend Cycles | Trigger |
 |------|-------------------|---------|
-| **LIGHT** | 1-2 | ≤100 lines changed AND no high-risk files AND type=fix |
+| **LIGHT** | 2 | ≤100 lines changed AND no high-risk files AND type=fix |
 | **STANDARD** | 3 | 100-2000 lines OR mixed code/docs (default) |
 | **THOROUGH** | 5 | >2000 lines OR high-risk files OR architectural changes |
 
@@ -49,7 +49,8 @@ function selectReviewMendTier(diffStats, planMeta, config) {
   // NOTE: Uses arc_convergence_tier_override (not convergence_tier_override)
   // to avoid collision with chunked review's convergence_tier_override key.
   const override = config?.review?.arc_convergence_tier_override
-  if (override && TIERS[override]) {
+  // SEC-004 FIX: Type-check override before TIERS lookup — reject non-string values (arrays, objects)
+  if (typeof override === 'string' && TIERS[override]) {
     // SEC-007: Compute auto-tier for comparison — warn if override disagrees
     const autoTier = computeAutoTier(diffStats, planMeta)
     if (autoTier && autoTier !== override) {
@@ -102,32 +103,56 @@ function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config) {
   const round = checkpoint.convergence.round
   // SEC-005: Apply arc_convergence_max_cycles override with clamping (1-5)
   const rawMaxCycles = config?.review?.arc_convergence_max_cycles
-  const maxCycles = rawMaxCycles != null
-    ? Math.max(1, Math.min(5, parseInt(rawMaxCycles, 10) || TIERS.standard.maxCycles))
+  // SEC-002 FIX: Use Number.isNaN instead of || to avoid falsy-zero bug (parseInt("1") || 3 = 1, but parseInt("0") || 3 = 3)
+  // SEC-005 FIX: Type guard — reject arrays/objects from YAML (parseInt([3], 10) returns 3 silently)
+  const parsedMaxCycles = (rawMaxCycles != null && (typeof rawMaxCycles === 'number' || typeof rawMaxCycles === 'string'))
+    ? parseInt(String(rawMaxCycles), 10) : NaN
+  const maxCycles = !Number.isNaN(parsedMaxCycles)
+    ? Math.max(1, Math.min(5, parsedMaxCycles))
+    // BACK-001 NOTE: checkpoint.convergence.max_rounds is a legacy field — not read by evaluateConvergence.
+    // The canonical source is tier.maxCycles (from checkpoint.convergence.tier). max_rounds remains
+    // in checkpoint schema for backward compatibility but is effectively dead data.
     : checkpoint.convergence.tier?.maxCycles ?? TIERS.standard.maxCycles
-  const findingThreshold = Math.max(0, parseInt(config?.review?.arc_convergence_finding_threshold ?? 0, 10)) || 0
+  // SEC-003 FIX: Add upper bound (100) to prevent threshold=9999 from bypassing convergence
+  // QUAL-005 FIX: Match rawMaxCycles pattern — separate extraction from parsing, type-guard before parseInt
+  const rawThresholdVal = config?.review?.arc_convergence_finding_threshold
+  const rawThreshold = (rawThresholdVal != null && (typeof rawThresholdVal === 'number' || typeof rawThresholdVal === 'string'))
+    ? parseInt(String(rawThresholdVal), 10) : NaN
+  const findingThreshold = !Number.isNaN(rawThreshold) ? Math.max(0, Math.min(100, rawThreshold)) : 0
   // Validate ratio: reject values outside (0.1, 0.9)
   const rawRatio = parseFloat(config?.review?.arc_convergence_improvement_ratio ?? 0.5)
   const improvementRatio = isNaN(rawRatio) ? 0.5 : Math.max(0.1, Math.min(0.9, rawRatio))
 
   // Get previous round's finding count
+  // BACK-002 NOTE: Invariant: round === history.length throughout the convergence lifecycle.
+  // Oscillation detection (line 134) uses history.length; evaluation uses round. They MUST stay in sync.
   const prevFindings = round === 0 ? Infinity
     : checkpoint.convergence.history[round - 1]?.findings_after ?? Infinity
 
   // Decision cascade
+  // BACK-003 NOTE: findingThreshold checks P1 count only (not total findings).
+  // The talisman key arc_convergence_finding_threshold is a P1-specific threshold.
   if (p1Count <= findingThreshold) {
     return 'converged'  // P1 count below acceptable threshold
   }
   if (round + 1 >= maxCycles) {
     return 'halted'     // Max cycles reached — circuit breaker
   }
-  if (currentFindingCount >= prevFindings) {
-    return 'halted'     // Findings not decreasing — diverging or stagnant
+  // BACK-016 FIX: Check P1 progress alongside total count — severity shift (P1→P3) is meaningful
+  // even when total count unchanged. prevP1 defaults to Infinity for round 0 (same as prevFindings).
+  const prevP1 = round === 0 ? Infinity
+    : checkpoint.convergence.history[round - 1]?.p1_remaining ?? Infinity
+  if (currentFindingCount >= prevFindings && p1Count >= prevP1) {
+    return 'halted'     // Findings not decreasing AND P1 not improving — truly stagnant
   }
-  // Oscillation detection: finding count matches a prior round (ported from convergence-gate.md)
-  if (checkpoint.convergence.history.length >= 2 &&
-      checkpoint.convergence.history.some(h => h.findings_after === currentFindingCount)) {
-    return 'halted'     // Oscillation detected
+  // BACK-005 FIX: Oscillation detection — compare only against round N-2 (A→B→A pattern).
+  // Previous version compared ALL prior rounds, but scope changes (full → focused) make
+  // cross-scope count comparisons unreliable.
+  if (checkpoint.convergence.history.length >= 2) {
+    const twoRoundsBack = checkpoint.convergence.history[checkpoint.convergence.history.length - 2]
+    if (twoRoundsBack && twoRoundsBack.findings_after === currentFindingCount) {
+      return 'halted'   // Oscillation detected (A→B→A pattern)
+    }
   }
   // Improvement ratio check (guard prevFindings > 0 for NaN safety)
   if (currentFindingCount > 0 && prevFindings > 0 &&

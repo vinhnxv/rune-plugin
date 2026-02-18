@@ -44,10 +44,12 @@ if (round > 0) {
     )
     log(`Re-review round ${round}: ${changed_files.length} files (${focus.mend_modified.length} mend-modified + ${focus.dependency_files?.length ?? 0} dependencies)`)
   }
-  // Reduce Ash count for focused reviews
+  // QUAL-017: Reduce Ash count for focused reviews — 3 is sufficient for mend-modified files.
+  // Documented in CHANGELOG v1.37.0 and phase-tool-matrix.md.
   maxAgents = Math.min(3, maxAgents)  // Cap at 3 Ashes for re-review
-  // Reduce timeout proportionally
-  reviewTimeout = Math.floor(PHASE_TIMEOUTS.code_review * 0.6)
+  // Reduce timeout proportionally (minimum 5 min to allow meaningful review)
+  // BACK-007 FIX: Floor prevents sub-minute timeout when PHASE_TIMEOUTS.code_review is small
+  reviewTimeout = Math.max(300_000, Math.floor(PHASE_TIMEOUTS.code_review * 0.6))
   // NOTE: Focused re-review always runs single-pass (not chunked), regardless of CHUNK_THRESHOLD
 }
 ```
@@ -142,7 +144,14 @@ if (postReviewStateFiles.length > 0) {
 // Source: tmp/reviews/{review-id}/TOME.md (produced by /rune:review)
 // Target: round-aware path (consumed by Phase 7: MEND)
 // BACK-012 FIX: Discover TOME via glob — decoupled from team name resolution.
-const tomeCandidates = Glob('tmp/reviews/review-*/TOME.md').sort().reverse()
+// SEC-012 FIX: Filter candidates by recency — only consider TOMEs created after this phase started.
+// Without this filter, the glob matches ALL review TOMEs (including from prior arc sessions).
+const phaseStartTime = checkpoint.phases.code_review?.started_at ? new Date(checkpoint.phases.code_review.started_at).getTime() : Date.now() - PHASE_TIMEOUTS.code_review
+const tomeCandidates = Glob('tmp/reviews/review-*/TOME.md')
+  .filter(f => {
+    try { return Bash(`stat -f %m "${f}" 2>/dev/null || stat -c %Y "${f}" 2>/dev/null`).trim() * 1000 >= phaseStartTime } catch (e) { return true }
+  })
+  .sort().reverse()
 // BUG FIX: Lift tomeTarget to outer scope — needed by STEP 5 checkpoint update.
 // Previously scoped inside else-block, causing undefined reference in STEP 5.
 const convergenceRound = checkpoint.convergence?.round ?? 0

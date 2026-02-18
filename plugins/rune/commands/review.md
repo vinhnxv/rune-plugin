@@ -44,6 +44,7 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 | `--no-converge` | Disable convergence loop — single review pass per chunk, report still generated | Off |
 | `--cycles <N>` | Run N standalone review passes with TOME merge (1-5, numeric only). Arc-only auto-detection is not available in standalone mode. | 1 (single pass) |
 | `--scope-file <path>` | Override `changed_files` with a JSON file containing `{ focus_files: [...] }`. Used by arc convergence controller for progressive re-review scope. | None (use git diff) |
+| `--auto-mend` | Automatically invoke `/rune:mend` after review completes if P1/P2 findings exist. Skips the post-review AskUserQuestion. Also configurable via `review.auto_mend: true` in talisman.yml. | Off |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
 
@@ -126,6 +127,9 @@ After file collection, determine review path:
 // Read chunk config from talisman (review: section)
 const talisman = readTalisman()
 // SEC-004 FIX: Guard against prototype pollution on talisman config access
+// SEC-014 NOTE: Object.hasOwn on top-level 'review' key prevents prototype pollution.
+// Nested properties (chunk_threshold, chunk_target_size, etc.) are NOT hasOwn-guarded;
+// instead, range clamping (5-200, 3-50, 1-20) is the security control for numeric values.
 const reviewConfig = Object.hasOwn(talisman ?? {}, 'review') ? talisman.review : {}
 // SEC-006 FIX: parseInt with explicit radix 10
 // BACK-012 FIX: --chunk-size overrides CHUNK_THRESHOLD (file count trigger), not CHUNK_TARGET_SIZE
@@ -288,14 +292,18 @@ if (cycleCount > 1) {
     const cycleIdentifier = `${identifier}-cycle-${cycle}`
     log(`\n--- Cycle ${cycle}/${cycleCount} (team: rune-review-${cycleIdentifier}) ---`)
 
-    // Run Phase 2-7 with cycleIdentifier instead of identifier
+    // BACK-011 FIX: Explicit invocation pattern for Phase 2-7 per cycle.
     // Each cycle creates its own team, runs the full Roundtable Circle,
     // and produces a TOME at tmp/reviews/{cycleIdentifier}/TOME.md
-    // (Phase 2-7 code below handles this when cycleIdentifier is set)
+    runSinglePassReview(changed_files, cycleIdentifier, flags, reviewConfig)
+    // runSinglePassReview encapsulates Phase 2 (Forge Team) through Phase 7 (Cleanup)
+    // with cycleIdentifier substituted for identifier in all team names and output paths.
 
     // After cycle completes, collect the TOME path
+    // SEC-004 FIX: Reject symlinks — tmp/ is orchestrator-controlled but defense-in-depth
     const cycleTomePath = `tmp/reviews/${cycleIdentifier}/TOME.md`
-    if (exists(cycleTomePath)) {
+    // SEC-001 FIX: Use strict equality instead of .includes() — prevents false match on stderr containing "symlink"
+    if (exists(cycleTomePath) && Bash(`test -L "${cycleTomePath}" && echo symlink 2>/dev/null`).trim() !== 'symlink') {
       cycleTomes.push(cycleTomePath)
     } else {
       warn(`Cycle ${cycle} produced no TOME — skipping in merge`)
@@ -307,6 +315,8 @@ if (cycleCount > 1) {
     warn(`All ${cycleCount} cycles produced no findings.`)
   } else if (cycleTomes.length === 1) {
     // Single TOME — copy as-is
+    // SEC-003 NOTE: cycleTomes[0] path safety — constructed from validated identifier (regex [a-zA-Z0-9_-]+)
+    // + integer cycle number. Both components are sanitized; no user-controlled segments reach cp.
     Bash(`cp -- "${cycleTomes[0]}" "tmp/reviews/${identifier}/TOME.md"`)
   } else {
     // Multi-TOME merge: deduplicate by finding ID, keep highest severity
@@ -334,6 +344,22 @@ if (cycleCount > 1) {
 
   // Write state and exit — multi-pass complete
   // (Cleanup follows standard Phase 7 pattern for the base identifier)
+
+  // Auto-mend for multi-pass: invoke mend on the merged TOME if enabled
+  const autoMendMulti = flags['--auto-mend'] || (talisman?.review?.auto_mend === true)
+  const mergedTomePath = `tmp/reviews/${identifier}/TOME.md`
+  if (autoMendMulti && exists(mergedTomePath)) {
+    const mergedTome = Read(mergedTomePath)
+    const mp1 = (mergedTome.match(/severity="P1"/g) || []).length
+    const mp2 = (mergedTome.match(/severity="P2"/g) || []).length
+    if (mp1 + mp2 > 0) {
+      log(`Auto-mend (multi-pass): ${mp1} P1 + ${mp2} P2 findings. Invoking /rune:mend...`)
+      Skill("rune:mend", mergedTomePath)
+    } else {
+      log("Auto-mend (multi-pass): no P1/P2 findings in merged TOME. Skipping mend.")
+    }
+  }
+
   return
 }
 
@@ -827,13 +853,75 @@ if (exists(".claude/echoes/reviewer/")) {
 // 6. Read and present TOME.md to user
 Read("tmp/reviews/{identifier}/TOME.md")
 
-// 7. Offer next steps based on findings
+// 7. Offer next steps based on findings (or auto-mend)
 const tomeContent = Read(`tmp/reviews/${identifier}/TOME.md`)
 const p1Count = (tomeContent.match(/severity="P1"/g) || []).length
 const p2Count = (tomeContent.match(/severity="P2"/g) || []).length
 const totalFindings = p1Count + p2Count
 
-if (totalFindings > 0) {
+// Auto-mend: flag takes precedence, then talisman config
+const autoMend = flags['--auto-mend'] || (talisman?.review?.auto_mend === true)
+
+if (totalFindings > 0 && autoMend) {
+  // ── AUTO-MEND MODE ──
+  // Skip AskUserQuestion — invoke mend directly on the TOME.
+  // This mirrors arc's Phase 6→7 transition for standalone review workflows.
+  log(`Auto-mend: ${p1Count} P1 + ${p2Count} P2 findings detected. Invoking /rune:mend...`)
+
+  const tomePath = `tmp/reviews/${identifier}/TOME.md`
+  // SEC-001: tomePath is constructed from validated identifier — no user input
+  Skill("rune:mend", tomePath)
+
+  // After mend completes, read and present the resolution report
+  const mendStateFiles = Glob("tmp/.rune-mend-*.json").filter(f => {
+    try {
+      const state = JSON.parse(Read(f))
+      return state.status === "completed" || state.status === "partial"
+    } catch (e) { return false }
+  }).sort().reverse()
+
+  if (mendStateFiles.length > 0) {
+    try {
+      const mendState = JSON.parse(Read(mendStateFiles[0]))
+      if (mendState.report_path && exists(mendState.report_path)) {
+        const report = Read(mendState.report_path)
+        log(`\nAuto-mend resolution report: ${mendState.report_path}`)
+
+        // Parse resolution summary for user display
+        const fixedCount = (report.match(/\*\*Status\*\*: FIXED/g) || []).length
+        const failedCount = (report.match(/\*\*Status\*\*: FAILED/g) || []).length
+        const skippedCount = (report.match(/\*\*Status\*\*: SKIPPED/g) || []).length
+
+        log(`\nReview + Mend summary:`)
+        log(`  Findings: ${totalFindings} P1/P2`)
+        log(`  Fixed: ${fixedCount}`)
+        log(`  Failed: ${failedCount}`)
+        log(`  Skipped: ${skippedCount}`)
+
+        if (failedCount > 0) {
+          AskUserQuestion({
+            questions: [{
+              question: `Auto-mend complete with ${failedCount} failed findings. What next?`,
+              header: "Next",
+              options: [
+                { label: "Review failures manually", description: `${failedCount} findings need manual attention` },
+                { label: "git diff", description: "Inspect all changes made by mend" },
+                { label: "/rune:rest", description: "Clean up tmp/ artifacts" }
+              ],
+              multiSelect: false
+            }]
+          })
+        } else {
+          log(`\nAll findings resolved. Run \`git diff\` to inspect changes or \`/rune:rest\` to clean up.`)
+        }
+      }
+    } catch (e) {
+      warn(`Failed to read mend resolution: ${e.message}`)
+    }
+  }
+
+} else if (totalFindings > 0) {
+  // ── INTERACTIVE MODE (default) ──
   AskUserQuestion({
     questions: [{
       question: `Review complete: ${p1Count} critical + ${p2Count} major findings. What next?`,

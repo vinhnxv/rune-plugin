@@ -165,10 +165,12 @@ const PHASE_TIMEOUTS = {
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// LIGHT (2 cycles):    94 + 42 + 1×26 = 162 min
-// STANDARD (3 cycles): 94 + 42 + 2×26 = 188 min
-// THOROUGH (5 cycles): 94 + 42 + 4×26 = 240 min → hard cap at 240 min
-const ARC_TOTAL_TIMEOUT_DEFAULT = 7_200_000  // 120 min fallback (used before tier selection)
+// QUAL-007 FIX: Base budget sum is ~89.5 min (not 94):
+//   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + work(35) + gap_analysis(1) + audit(20) = 89.5 min
+// LIGHT (2 cycles):    89.5 + 42 + 1×26 = 157.5 min ≈ 158 min
+// STANDARD (3 cycles): 89.5 + 42 + 2×26 = 183.5 min ≈ 184 min
+// THOROUGH (5 cycles): 89.5 + 42 + 4×26 = 235.5 min ≈ 236 min → hard cap at 240 min
+const ARC_TOTAL_TIMEOUT_DEFAULT = 9_720_000  // 162 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 14_400_000  // 240 min (4 hours) — absolute hard cap
 const STALE_THRESHOLD = 300_000      // 5 min
 const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward/cross-file)
@@ -438,6 +440,7 @@ function prePhaseCleanup(checkpoint) {
     // ghost team and cleared state. Only iterates completed/failed/skipped phases.
     // This handles the Phase 2 → Phase 6+ leadership leak where Phase 2's rm-rf fallback
     // cleared dirs before TeamDelete could clear SDK state (see team-lifecycle-guard.md).
+    let strategy4Resolved = false
     for (const [pn, pi] of Object.entries(checkpoint.phases)) {
       if (FORBIDDEN_PHASE_KEYS.has(pn)) continue
       if (!pi?.team_name || typeof pi.team_name !== 'string') continue
@@ -446,17 +449,25 @@ function prePhaseCleanup(checkpoint) {
 
       const tn = pi.team_name
       // Recreate minimal dir so SDK can find and release the team
+      // SEC-001 TRUST BOUNDARY: tn comes from checkpoint.phases[].team_name (untrusted).
+      // Validated above: FORBIDDEN_PHASE_KEYS, type check, status != in_progress, regex /^[a-zA-Z0-9_-]+$/.
       Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && mkdir -p "$CHOME/teams/${tn}" && printf '{"team_name":"%s","members":[]}' "${tn}" > "$CHOME/teams/${tn}/config.json" 2>/dev/null`)
       try {
         TeamDelete()
         // Success — SDK leadership state cleared. Clean up the recreated dir.
         Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${tn}/" "$CHOME/tasks/${tn}/" 2>/dev/null`)
+        strategy4Resolved = true
         break  // SDK only tracks one team at a time — done
       } catch (e4) {
         // Not the team SDK was tracking, or TeamDelete failed for another reason.
         // Clean up the recreated dir and try the next checkpoint team.
         Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${tn}/" "$CHOME/tasks/${tn}/" 2>/dev/null`)
       }
+    }
+    // BACK-009 FIX: Warn if Strategy 4 exhausted all checkpoint phases without finding the ghost team.
+    // Non-fatal — the ghost team may be from a different session not recorded in this checkpoint.
+    if (!strategy4Resolved) {
+      warn('ARC-6 Strategy 4: ghost team not found in checkpoint — may be from a different session. The phase pre-create guard will handle remaining cleanup.')
     }
 
   } catch (e) {
@@ -482,6 +493,17 @@ if (!/^[0-9a-f]{12}$/.test(rawNonce)) {
 }
 const sessionNonce = rawNonce
 
+// SEC-006 FIX: Compute tier BEFORE checkpoint init (was referenced but never defined)
+// SEC-011 FIX: Null guard — parseDiffStats may return null on empty/malformed git output
+const diffStats = parseDiffStats(Bash(`git diff --stat ${defaultBranch}...HEAD`)) ?? { insertions: 0, deletions: 0, files: [] }
+const planMeta = extractYamlFrontmatter(Read(planFile))
+const talisman = readTalisman()
+const tier = selectReviewMendTier(diffStats, planMeta, talisman)
+// SEC-005 FIX: Collect changed files for progressive focus fallback (EC-9 paradox recovery)
+const changedFiles = diffStats.files || []
+// Calculate dynamic total timeout based on tier
+const arcTotalTimeout = calculateDynamicTimeout(tier)
+
 Write(`.claude/arc/${id}/checkpoint.json`, {
   id, schema_version: 6, plan_file: planFile,
   flags: { approve: approveFlag, no_forge: noForgeFlag, skip_freshness: skipFreshnessFlag, confirm: confirmFlag },
@@ -499,7 +521,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     audit:        { status: "pending", artifact: null, artifact_hash: null, team_name: null }
   },
-  convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [] },
+  convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [], original_changed_files: changedFiles },
   commits: [],
   started_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
@@ -804,7 +826,7 @@ Read and execute the arc-phase-code-review.md algorithm. Update checkpoint on co
 See [arc-phase-mend.md](references/arc-phase-mend.md) for the full algorithm.
 
 **Team**: `arc-mend-{id}` — follows ATE-1 pattern
-**Output**: `tmp/arc/{id}/resolution-report.md`
+**Output**: Round 0: `tmp/arc/{id}/resolution-report.md`, Round N: `tmp/arc/{id}/resolution-report-round-{N}.md`
 **Failure**: Halt if >3 FAILED findings remain. User manually fixes, runs `/rune:arc --resume`.
 
 // ARC-6: Clean stale teams before delegating to sub-command
@@ -892,7 +914,7 @@ if (exists(".claude/echoes/")) {
     duration_minutes: Math.round(totalDuration / 60_000),
     phases_completed: Object.values(checkpoint.phases).filter(p => p.status === "completed").length,
     tome_findings: { p1: p1Count, p2: p2Count, p3: p3Count },
-    convergence_rounds: checkpoint.convergence.history.length,
+    convergence_cycles: checkpoint.convergence.history.length,
     mend_fixed: mendFixedCount,
     gap_addressed: addressedCount,
     gap_missing: missingCount,
@@ -903,7 +925,7 @@ if (exists(".claude/echoes/")) {
     source: `rune:arc ${id}`,
     content: `Arc completed: ${metrics.phases_completed}/10 phases, ` +
       `${metrics.tome_findings.p1} P1 findings, ` +
-      `${metrics.convergence_rounds} mend round(s), ` +
+      `${metrics.convergence_cycles} mend cycle(s), ` +
       `${metrics.gap_missing} missing criteria. ` +
       `Duration: ${metrics.duration_minutes}min.`
   })
@@ -928,7 +950,7 @@ Phases:
   5.5  GAP ANALYSIS:    {status} — {addressed}/{total} criteria addressed
   6.   CODE REVIEW:     {status} — tome.md ({finding_count} findings)
   7.   MEND:            {status} — {fixed}/{total} findings resolved
-  7.5  VERIFY MEND:     {status} — {convergence_verdict} (round {round}/{max_rounds})
+  7.5  VERIFY MEND:     {status} — {convergence_verdict} (cycle {convergence.round + 1}/{convergence.tier.maxCycles})
   8.   AUDIT:           {status} — audit-report.md
 
 Review-Mend Convergence:
@@ -968,7 +990,7 @@ Next steps:
 | >3 FAILED mend findings | Halt, resolution report available |
 | Worker crash mid-phase | Phase team cleanup, checkpoint preserved |
 | Branch conflict | Warn user, suggest manual resolution |
-| Total pipeline timeout (120 min) | Halt, preserve checkpoint, suggest `--resume` |
+| Total pipeline timeout (dynamic: 162-240 min based on tier) | Halt, preserve checkpoint, suggest `--resume` |
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
