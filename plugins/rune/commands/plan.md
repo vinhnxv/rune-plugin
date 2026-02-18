@@ -371,7 +371,9 @@ When Codex is available, get an independent complexity assessment to prevent ove
 > (reasoning: medium, timeout <= 120s, input < 5KB, single JSON value output).
 
 ```
-if codexAvailable AND NOT codexDisabled AND talisman.codex.shatter.enabled !== false:
+// QUAL-005 FIX: Add codexWorkflows check — respects user removing "plan" from workflows
+codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work"]
+if codexAvailable AND NOT codexDisabled AND codexWorkflows.includes("plan") AND talisman.codex.shatter.enabled !== false:
   planSummary = Read(planPath)[0..8000]
 
   # SEC-003: Write prompt to temp file

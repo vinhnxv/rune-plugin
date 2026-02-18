@@ -655,6 +655,12 @@ const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan",
 const mendVerifyEnabled = talisman?.codex?.mend_verification?.enabled !== false
 
 if (codexAvailable && !codexDisabled && codexWorkflows.includes("mend") && mendVerifyEnabled) {
+  // SEC-002 FIX: .codexignore pre-flight check before --full-auto
+  const codexignoreExists = Bash(`test -f .codexignore && echo "yes" || echo "no"`).trim() === "yes"
+  if (!codexignoreExists) {
+    warn("Phase 5.8: .codexignore missing — skipping Codex verification (required for --full-auto)")
+    // Fall through to else block (skip verification)
+  } else {
   log("Phase 5.8: Codex Mend Verification — spawning verification teammate...")
 
   // Security: CODEX_MODEL_ALLOWLIST — see security-patterns.md
@@ -666,7 +672,10 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("mend") && mendV
     ? talisman.codex.reasoning : "high"
 
   // Security: SAFE_IDENTIFIER_PATTERN — id validated at Phase 2 (line 222)
-  if (!/^[a-zA-Z0-9_-]+$/.test(id)) { warn("Phase 5.8: invalid id — skipping"); /* skip */ }
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    warn("Phase 5.8: invalid id — skipping Codex verification")
+    return  // BACK-002 FIX: Early exit prevents downstream use of unsanitized id
+  }
 
   // Bounds-check max_diff_size
   const rawMaxDiff = Number(talisman?.codex?.mend_verification?.max_diff_size)
@@ -780,6 +789,7 @@ Confidence >= 80% only. Omit findings you cannot verify.`
     // Shutdown verifier
     try { SendMessage({ type: "shutdown_request", recipient: "codex-mend-verifier", content: "Verification complete" }) } catch (e) {}
   }
+  } // SEC-002: closes codexignoreExists else block
 } else {
   log("Phase 5.8: Codex Mend Verification skipped (codex unavailable or disabled)")
 }

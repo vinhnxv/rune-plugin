@@ -348,9 +348,8 @@ echoes:
   # convergence:
   #   smart_scoring: true            # Enable smart convergence scoring (default: true)
   #   convergence_threshold: 0.7     # Score >= this = converged (default: 0.7, range: 0.1-1.0)
-  #   p3_dominance_threshold: 0.7    # RESERVED — no effect in v1.38.0. Planned for future per-component thresholds.
-  #   noise_threshold: 0.5           # RESERVED — no effect in v1.38.0. Planned for future per-component thresholds.
-  #   # Current hardcoded weights: P3=0.4, preExisting=0.3, trend=0.2, base=0.1
+  #   # QUAL-011: p3_dominance_threshold and noise_threshold removed — they had no effect in v1.38.0.
+  #   # Per-component thresholds are planned for a future release. Current hardcoded weights: P3=0.4, preExisting=0.3, trend=0.2, base=0.1
 
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings
@@ -422,12 +421,14 @@ codex:
   verification:
     enabled: true                    # Cross-model verification (recommended: true)
     fuzzy_match_threshold: 0.7       # Code snippet match threshold (0.0-1.0, default: 0.7)
-    cross_model_bonus: 0.15          # Confidence boost when Claude + Codex agree on same finding
+    cross_model_bonus: 0.15          # Confidence boost when Claude + Codex agree on same finding (review/audit scope)
   # ── Deep Integration Keys (v1.39.0+) ──────────────────
   # Cross-model elicitation for adversarial reasoning methods
   elicitation:
     enabled: true                    # Cross-model structured reasoning (default: true)
-    methods: []                      # Auto-detect from codex_role column (empty = all cross-model methods)
+    # QUAL-003: methods and timeout are consumed by the orchestrator's cross-model routing (elicitation/SKILL.md STEP 3-5).
+    # Orchestrator codex invocation code ships with the routing protocol — these keys are active.
+    methods: []                      # Auto-detect from codex_role column (empty OR omitted = all cross-model methods)
     timeout: 300                     # Codex timeout per elicitation invocation (default: 300s)
   # Post-fix Codex verification in /rune:mend
   mend_verification:
@@ -438,7 +439,7 @@ codex:
     enabled: true                    # Enable Codex Arena Judge (default: true)
     role: "judge"                    # "judge" | "generator" | "both" (default: "judge")
     timeout: 300                     # Arena judge timeout (default: 300s)
-    cross_model_bonus: 0.15          # Confidence bonus for cross-model agreement (MC-3: separate from verification key)
+    cross_model_bonus: 0.15          # Confidence bonus for cross-model agreement in arena (MC-3: separate from verification scope above)
   # Semantic contradiction detection in /rune:arc Phase 2.8
   # NOTE: Key is "semantic_verification" (not "verification_gate") to distinguish from Phase 2.7 (MC-2)
   semantic_verification:

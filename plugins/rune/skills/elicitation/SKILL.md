@@ -223,22 +223,32 @@ When an orchestrator (plan, forge, arc) selects a method with a non-empty `codex
 ```
 1. DETECT: After method selection, check if selected method has codex_role != ""
 2. GATE: codex available (command -v codex) + talisman.codex.elicitation.enabled !== false
-3. SPAWN: Create codex teammate in the workflow's existing team:
+3. VALIDATE: Apply security allowlists before spawning:
+   // SEC-001 FIX: CODEX_MODEL_ALLOWLIST validation
+   const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
+   const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
+     ? talisman.codex.model : "gpt-5.3-codex"
+   // SEC-010 FIX: CODEX_REASONING_ALLOWLIST validation
+   const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+   const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning ?? "")
+     ? talisman.codex.reasoning : "medium"
+   const rawElicitTimeout = Number(talisman?.codex?.elicitation?.timeout)
+   const elicitTimeout = Math.max(60, Math.min(660, Number.isFinite(rawElicitTimeout) ? rawElicitTimeout : 300))
+4. SPAWN: Create codex teammate in the workflow's existing team:
    Task({
      team_name: "{current_team}",
      name: "codex-elicitation-{method_slug}",
      subagent_type: "general-purpose",
      prompt: buildCrossModelPrompt(codexRole, method, context, nonce)
    })
-4. EXECUTE: Teammate runs codex exec with SEC-003 temp file pattern:
+5. EXECUTE: Teammate runs codex exec with SEC-003 temp file pattern:
    - Write prompt to tmp/{workflow}/{id}/elicitation/codex-prompt-{method_slug}.txt
-   - timeout 300 codex exec -m {model} --sandbox read-only --full-auto
+   - timeout {elicitTimeout} codex exec -m "{codexModel}" --sandbox read-only --full-auto
+     --config model_reasoning_effort="{codexReasoning}"
      --skip-git-repo-check "$(cat {prompt_file})" 2>/dev/null
-   - CODEX_MODEL_ALLOWLIST: /^gpt-5(\.\d+)?-codex$/
-   - CODEX_REASONING_ALLOWLIST: ["high", "medium", "low"]
-5. OUTPUT: Write result to tmp/{workflow}/{id}/elicitation/codex-{method_slug}.md
-6. CLEANUP: Shutdown codex teammate, delete prompt temp file
-7. SAGE READS: The elicitation-sage reads the Codex output file and synthesizes
+6. OUTPUT: Write result to tmp/{workflow}/{id}/elicitation/codex-{method_slug}.md
+7. CLEANUP: Shutdown codex teammate, delete prompt temp file
+8. SAGE READS: The elicitation-sage reads the Codex output file and synthesizes
 ```
 
 ### Cross-Model Prompt Builder

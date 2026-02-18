@@ -114,7 +114,7 @@ The Codex output is written to a temp file that you read.
 1. **Check for codex_role**: After finding your assigned method in methods.csv, check the `codex_role` column
 2. **If codex_role is non-empty**: Look for the Codex perspective file at:
    `tmp/{workflow}/{id}/elicitation/codex-{method_slug}.md`
-   (where `method_slug` is the method name lowercased with spaces replaced by hyphens)
+   (where `method_slug = method_name.toLowerCase().replace(/[^a-z0-9-]/g, '-')` — QUAL-007 FIX: matches plan.md regex)
 3. **If file exists**: Read it and synthesize both perspectives (yours + Codex) using the Cross-Model Output Format below
 4. **If file does not exist**: Proceed with single-model output. Add note: "Codex perspective unavailable — using single-model analysis"
 

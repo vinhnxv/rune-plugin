@@ -204,6 +204,9 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan") && arena
   const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
   const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning ?? "")
     ? talisman.codex.reasoning : "high"
+  // QUAL-002 FIX: Read arena timeout from talisman instead of hardcoding
+  const rawArenaTimeout = Number(talisman?.codex?.arena?.timeout)
+  const arenaTimeout = Math.max(60, Math.min(660, Number.isFinite(rawArenaTimeout) ? rawArenaTimeout : 300))
 
   // SEC-003: Write prompt to temp file
   const nonce = Bash("head -c 4 /dev/urandom | xxd -p").trim()
@@ -251,7 +254,7 @@ Report as: [CDX-ARENA-NNN] {solution_name}: {score}/10 — {brief assessment}`
       1. TaskList() -> claim the "Codex Arena Judge" task
       2. Check codex availability
       3. Run codex exec with the prompt file (SEC-003):
-         Bash(\`timeout 300 codex exec -m "${codexModel}" \\
+         Bash(\`timeout ${arenaTimeout} codex exec -m "${codexModel}" \\
            --config model_reasoning_effort="${codexReasoning}" \\
            --sandbox read-only --full-auto --skip-git-repo-check \\
            "$(cat tmp/plans/${timestamp}/arena/codex-judge-prompt.txt)" 2>/dev/null\`)

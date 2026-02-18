@@ -112,8 +112,13 @@ if (codexAvailable && !codexDisabled && trialForgerEnabled) {
   const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
   const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
     ? talisman.codex.model : "gpt-5.3-codex"
-  const codexReasoning = talisman?.codex?.trial_forger?.reasoning ?? "medium"
-  const codexTimeout = talisman?.codex?.trial_forger?.timeout ?? 120
+  // BACK-008 FIX: Validate reasoning against allowlist
+  const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+  const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.trial_forger?.reasoning ?? "")
+    ? talisman.codex.trial_forger.reasoning : "medium"
+  // BACK-005 FIX: Bounds-check timeout
+  const rawTimeout = Number(talisman?.codex?.trial_forger?.timeout)
+  const codexTimeout = Math.max(30, Math.min(300, Number.isFinite(rawTimeout) ? rawTimeout : 120))
 
   // SEC-003: Write prompt to temp file — NEVER inline interpolation (CC-4)
   // MC-1: Nonce boundary around untrusted code content
@@ -141,7 +146,7 @@ Return a numbered list. Each entry: brief description + why it matters.`
   const edgeCaseResult = Bash(`timeout ${codexTimeout} codex exec \
     -m "${codexModel}" --config model_reasoning_effort="${codexReasoning}" \
     --sandbox read-only --full-auto --skip-git-repo-check \
-    "$(cat ${promptPath})" 2>/dev/null`)
+    "$(cat "${promptPath}")" 2>/dev/null`)
 
   // Cleanup temp prompt file
   Bash(`rm -f "${promptPath}" 2>/dev/null`)
@@ -155,6 +160,10 @@ Return a numbered list. Each entry: brief description + why it matters.`
       .map(line => line.trim())
     // Append to discovered test patterns as additional edge cases
     // These supplement — not replace — Claude's own edge case analysis
+    discoveredTestPlan.edgeCaseSuggestions = [
+      ...(discoveredTestPlan.edgeCaseSuggestions || []),
+      ...edgeCases.map(c => ({ source: "codex", suggestion: c }))
+    ]
   } else {
     log("Codex edge case suggestions: unavailable or empty — proceeding with Claude-only analysis")
   }
