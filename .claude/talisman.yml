@@ -152,9 +152,34 @@ codex:
     cross_model_bonus: 0.15
 
 # ──────────────────────────────────────────────
-# Arc — Cross-file consistency checks (v1.17.0+)
+# Arc — Default flag overrides + ship/merge (v1.40.0+)
 # ──────────────────────────────────────────────
+# 3-layer priority: hardcoded defaults → talisman.yml → CLI flags
 arc:
+  defaults:
+    no_forge: false
+    approve: false
+    skip_freshness: false
+    confirm: false
+
+  ship:
+    auto_pr: true
+    auto_merge: false
+    merge_strategy: "squash"
+    wait_ci: false
+    draft: false
+    labels: []
+    pr_monitoring: false
+    rebase_before_merge: true
+
+  pre_merge_checks:
+    migration_conflict: true
+    schema_conflict: true
+    lock_file_conflict: true
+    uncommitted_changes: true
+    migration_paths: []
+
+  # ── Cross-file consistency checks (v1.17.0+) ──
   consistency:
     checks:
       # Version must match between plugin.json and marketplace.json

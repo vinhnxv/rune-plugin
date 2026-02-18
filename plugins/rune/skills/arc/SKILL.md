@@ -3,13 +3,14 @@ name: arc
 description: |
   End-to-end orchestration pipeline. Chains forge, plan review, plan refinement,
   verification, semantic verification (Codex), work, gap analysis, codex gap analysis,
-  code review, mend, verify mend (convergence gate), and audit
-  into a single automated pipeline with checkpoint-based resume, per-phase teams, circuit breakers,
-  convergence gate with regression detection, cross-model Codex verification, and artifact-based handoff.
+  code review, mend, verify mend (convergence gate), audit, ship (PR creation),
+  and merge (rebase + auto-merge) into a single automated pipeline with checkpoint-based resume,
+  per-phase teams, circuit breakers, convergence gate with regression detection,
+  cross-model Codex verification, 3-layer talisman config resolution, and artifact-based handoff.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
-  assistant: "The Tarnished begins the arc — 12 phases of forge, review, mend, and convergence..."
+  assistant: "The Tarnished begins the arc — 14 phases of forge, review, mend, convergence, ship, and merge..."
   </example>
 
   <example>
@@ -41,7 +42,7 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains twelve phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, code review, mend, verify mend (convergence controller), and audit. Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, and 5.5). Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure.
+Chains fourteen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, code review, mend, verify mend (convergence controller), audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, 9, and 9.5). Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`
 
@@ -62,7 +63,7 @@ Chains twelve phases into a single automated pipeline: forge, plan review, plan 
 - `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely. No shared task list, no SendMessage, no context isolation. This is the root cause of context explosion.
 - Using named `subagent_type` values (e.g., `"rune:utility:scroll-reviewer"`, `"compound-engineering:research:best-practices-researcher"`, `"rune:review:ward-sentinel"`) — these resolve to non-general-purpose agents. Always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
 
-**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 12 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
+**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 14 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
 
 **ENFORCEMENT:** The `enforce-teams.sh` PreToolUse hook blocks bare Task calls when a Rune workflow is active. If your Task call is blocked, add `team_name` to it.
 
@@ -76,6 +77,9 @@ Chains twelve phases into a single automated pipeline: forge, plan review, plan 
 /rune:arc --resume --no-forge         # Resume, skipping forge on retry
 /rune:arc <plan_file.md> --skip-freshness   # Skip freshness validation
 /rune:arc <plan_file.md> --confirm          # Pause on all-CONCERN escalation
+/rune:arc <plan_file.md> --no-pr           # Skip PR creation (Phase 9)
+/rune:arc <plan_file.md> --no-merge        # Skip auto-merge (Phase 9.5)
+/rune:arc <plan_file.md> --draft           # Create PR as draft
 ```
 
 ## Flags
@@ -87,6 +91,9 @@ Chains twelve phases into a single automated pipeline: forge, plan review, plan 
 | `--resume` | Resume from last checkpoint. Plan path auto-detected from checkpoint | Off |
 | `--skip-freshness` | Skip plan freshness check (bypass stale-plan detection) | Off |
 | `--confirm` | Pause for user input when all plan reviewers raise CONCERN verdicts (Phase 2.5). Without this flag, auto-proceeds with warnings | Off |
+| `--no-pr` | Skip Phase 9 (PR creation). Overrides `arc.ship.auto_pr` from talisman | Off |
+| `--no-merge` | Skip Phase 9.5 (auto merge). Overrides `arc.ship.auto_merge` from talisman | Off |
+| `--draft` | Create PR as draft. Overrides `arc.ship.draft` from talisman | Off |
 
 ## Pipeline Overview
 
@@ -115,13 +122,17 @@ Phase 7.5: VERIFY MEND → Convergence controller (adaptive review-mend loop)
     ↓ converged → proceed | retry → loop to Phase 6+7 (tier-based max cycles) | halted → warn + proceed
 Phase 8:   AUDIT → Final quality gate (informational)
     ↓ (audit-report.md)
+Phase 9:   SHIP → Push branch + create PR (orchestrator-only)
+    ↓ (pr-body.md + checkpoint.pr_url)
+Phase 9.5: MERGE → Rebase + conflict check + auto-merge (orchestrator-only)
+    ↓ (merge-report.md)
 Post-arc: PLAN STAMP → Append completion record to plan file (runs FIRST — context-safe)
 Post-arc: ECHO PERSIST → Save arc metrics to echoes
 Post-arc: COMPLETION REPORT → Display summary to user
-Output: Implemented, reviewed, and fixed feature
+Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 6, 7, 7.5, 8) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 6, 7, 7.5, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
 
 ## Arc Orchestrator Design (ARC-1)
 
@@ -146,7 +157,7 @@ The dispatcher reads only structured summary headers from artifacts, not full co
 ### Phase Constants
 
 ```javascript
-const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'code_review', 'mend', 'verify_mend', 'audit']
+const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'code_review', 'mend', 'verify_mend', 'audit', 'ship', 'merge']
 
 // SETUP_BUDGET: time for team creation, task creation, agent spawning, report, cleanup.
 // MEND_EXTRA_BUDGET: additional time for ward check, cross-file mend, doc-consistency.
@@ -156,28 +167,39 @@ const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'sem
 const SETUP_BUDGET = 300_000          //  5 min — team creation, parsing, report, cleanup
 const MEND_EXTRA_BUDGET = 180_000     //  3 min — ward check, cross-file, doc-consistency
 
+// Talisman-aware phase timeouts (v1.40.0+): talisman overrides → hardcoded defaults
+// CFG-DECREE-002: Clamp each talisman timeout to sane range (10s - 1hr)
+const talismanTimeouts = talisman?.arc?.timeouts ?? {}
+for (const [key, val] of Object.entries(talismanTimeouts)) {
+  if (typeof val === 'number') {
+    talismanTimeouts[key] = Math.max(10_000, Math.min(val, 3_600_000))
+  }
+}
+
 const PHASE_TIMEOUTS = {
-  forge:         900_000,    // 15 min (inner 10m + 5m setup)
-  plan_review:   900_000,    // 15 min (inner 10m + 5m setup)
-  plan_refine:   180_000,    //  3 min (orchestrator-only, no team)
-  verification:   30_000,    // 30 sec (orchestrator-only, no team)
-  semantic_verification: 180_000,  //  3 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
-  work:        2_100_000,    // 35 min (inner 30m + 5m setup)
-  gap_analysis:    60_000,    //  1 min (orchestrator-only, no team)
-  codex_gap_analysis: 660_000,  // 11 min (orchestrator-only, codex teammate — Architecture Rule #1 lightweight inline exception)
-  code_review:   900_000,    // 15 min (inner 10m + 5m setup)
-  mend:        1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
-  verify_mend:   240_000,    //  4 min (orchestrator-only, no team)
-  audit:       1_200_000,    // 20 min (inner 15m + 5m setup)
+  forge:         talismanTimeouts.forge ?? 900_000,    // 15 min (inner 10m + 5m setup)
+  plan_review:   talismanTimeouts.plan_review ?? 900_000,    // 15 min (inner 10m + 5m setup)
+  plan_refine:   talismanTimeouts.plan_refine ?? 180_000,    //  3 min (orchestrator-only, no team)
+  verification:  talismanTimeouts.verification ?? 30_000,    // 30 sec (orchestrator-only, no team)
+  semantic_verification: talismanTimeouts.semantic_verification ?? 180_000,  //  3 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
+  work:          talismanTimeouts.work ?? 2_100_000,    // 35 min (inner 30m + 5m setup)
+  gap_analysis:  talismanTimeouts.gap_analysis ?? 60_000,    //  1 min (orchestrator-only, no team)
+  codex_gap_analysis: talismanTimeouts.codex_gap_analysis ?? 660_000,  // 11 min (orchestrator-only, codex teammate — Architecture Rule #1 lightweight inline exception)
+  code_review:   talismanTimeouts.code_review ?? 900_000,    // 15 min (inner 10m + 5m setup)
+  mend:          talismanTimeouts.mend ?? 1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
+  verify_mend:   talismanTimeouts.verify_mend ?? 240_000,    //  4 min (orchestrator-only, no team)
+  audit:         talismanTimeouts.audit ?? 1_200_000,    // 20 min (inner 15m + 5m setup)
+  ship:          talismanTimeouts.ship ?? 300_000,      //  5 min (orchestrator-only, push + PR creation)
+  merge:         talismanTimeouts.merge ?? 600_000,     // 10 min (orchestrator-only, rebase + merge + CI wait)
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// DOC-002 FIX: Base budget sum is ~103.5 min (includes v1.39.0 phases):
+// DOC-002 FIX: Base budget sum is ~118.5 min (includes v1.39.0 phases + v1.40.0 ship/merge):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
-//   codex_gap_analysis(11) + work(35) + gap_analysis(1) + audit(20) = 103.5 min
-// LIGHT (2 cycles):    103.5 + 42 + 1×26 = 171.5 min ≈ 172 min
-// STANDARD (3 cycles): 103.5 + 42 + 2×26 = 197.5 min ≈ 198 min
-// THOROUGH (5 cycles): 103.5 + 42 + 4×26 = 249.5 min → hard cap at 240 min
+//   codex_gap_analysis(11) + work(35) + gap_analysis(1) + audit(20) + ship(5) + merge(10) = 118.5 min
+// LIGHT (2 cycles):    118.5 + 42 + 1×26 = 186.5 min ≈ 187 min
+// STANDARD (3 cycles): 118.5 + 42 + 2×26 = 212.5 min ≈ 213 min
+// THOROUGH (5 cycles): 118.5 + 42 + 4×26 = 264.5 min → hard cap at 240 min
 const ARC_TOTAL_TIMEOUT_DEFAULT = 9_720_000  // 162 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 14_400_000  // 240 min (4 hours) — absolute hard cap
 const STALE_THRESHOLD = 300_000      // 5 min
@@ -196,7 +218,8 @@ function calculateDynamicTimeout(tier) {
   const basePhaseBudget = PHASE_TIMEOUTS.forge + PHASE_TIMEOUTS.plan_review +
     PHASE_TIMEOUTS.plan_refine + PHASE_TIMEOUTS.verification +
     PHASE_TIMEOUTS.semantic_verification + PHASE_TIMEOUTS.codex_gap_analysis +
-    PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis + PHASE_TIMEOUTS.audit  // ~103.5 min
+    PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis + PHASE_TIMEOUTS.audit +
+    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~118.5 min (v1.40.0: +ship +merge)
   const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
   const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
   const maxCycles = tier?.maxCycles ?? 3
@@ -507,6 +530,79 @@ const sessionNonce = rawNonce
 const diffStats = parseDiffStats(Bash(`git diff --stat ${defaultBranch}...HEAD`)) ?? { insertions: 0, deletions: 0, files: [] }
 const planMeta = extractYamlFrontmatter(Read(planFile))
 const talisman = readTalisman()
+
+// 3-layer config resolution: hardcoded defaults → talisman → inline CLI flags (v1.40.0+)
+// Contract: inline flags ALWAYS override talisman; talisman overrides hardcoded defaults.
+function resolveArcConfig(talisman, inlineFlags) {
+  // Layer 1: Hardcoded defaults
+  const defaults = {
+    no_forge: false,
+    approve: false,
+    skip_freshness: false,
+    confirm: false,
+    ship: {
+      auto_pr: true,
+      auto_merge: false,
+      merge_strategy: "squash",
+      wait_ci: false,
+      draft: false,
+      labels: [],
+      pr_monitoring: false,
+      rebase_before_merge: true,
+    }
+  }
+
+  // Layer 2: Talisman overrides (null-safe)
+  const talismanDefaults = talisman?.arc?.defaults ?? {}
+  const talismanShip = talisman?.arc?.ship ?? {}
+
+  const config = {
+    no_forge:        talismanDefaults.no_forge ?? defaults.no_forge,
+    approve:         talismanDefaults.approve ?? defaults.approve,
+    skip_freshness:  talismanDefaults.skip_freshness ?? defaults.skip_freshness,
+    confirm:         talismanDefaults.confirm ?? defaults.confirm,
+    ship: {
+      auto_pr:       talismanShip.auto_pr ?? defaults.ship.auto_pr,
+      auto_merge:    talismanShip.auto_merge ?? defaults.ship.auto_merge,
+      // SEC-001 FIX: Validate merge_strategy against allowlist at config resolution time
+      merge_strategy: ["squash", "rebase", "merge"].includes(talismanShip.merge_strategy)
+        ? talismanShip.merge_strategy : defaults.ship.merge_strategy,
+      wait_ci:       talismanShip.wait_ci ?? defaults.ship.wait_ci,
+      draft:         talismanShip.draft ?? defaults.ship.draft,
+      labels:        Array.isArray(talismanShip.labels) ? talismanShip.labels : defaults.ship.labels,  // SEC-DECREE-002: validate array
+      pr_monitoring: talismanShip.pr_monitoring ?? defaults.ship.pr_monitoring,
+      rebase_before_merge: talismanShip.rebase_before_merge ?? defaults.ship.rebase_before_merge,
+      // BACK-012 FIX: Include co_authors in 3-layer resolution (was read from raw talisman)
+      co_authors: Array.isArray(talisman?.work?.co_authors) ? talisman.work.co_authors : [],
+    }
+  }
+
+  // Layer 3: Inline CLI flags override (only if explicitly passed)
+  if (inlineFlags.no_forge !== undefined) config.no_forge = inlineFlags.no_forge
+  if (inlineFlags.approve !== undefined) config.approve = inlineFlags.approve
+  if (inlineFlags.skip_freshness !== undefined) config.skip_freshness = inlineFlags.skip_freshness
+  if (inlineFlags.confirm !== undefined) config.confirm = inlineFlags.confirm
+  // Ship flags can also be overridden inline
+  if (inlineFlags.no_pr !== undefined) config.ship.auto_pr = !inlineFlags.no_pr
+  if (inlineFlags.no_merge !== undefined) config.ship.auto_merge = !inlineFlags.no_merge
+  if (inlineFlags.draft !== undefined) config.ship.draft = inlineFlags.draft
+
+  return config
+}
+
+// Parse inline flags and resolve config
+const inlineFlags = {
+  no_forge: args.includes('--no-forge') ? true : undefined,
+  approve: args.includes('--approve') ? true : undefined,
+  skip_freshness: args.includes('--skip-freshness') ? true : undefined,
+  confirm: args.includes('--confirm') ? true : undefined,
+  no_pr: args.includes('--no-pr') ? true : undefined,
+  no_merge: args.includes('--no-merge') ? true : undefined,
+  draft: args.includes('--draft') ? true : undefined,
+}
+const arcConfig = resolveArcConfig(talisman, inlineFlags)
+// Use arcConfig.no_forge, arcConfig.approve, arcConfig.ship.auto_pr, etc. throughout
+
 const tier = selectReviewMendTier(diffStats, planMeta, talisman)
 // SEC-005 FIX: Collect changed files for progressive focus fallback (EC-9 paradox recovery)
 const changedFiles = diffStats.files || []
@@ -514,12 +610,14 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 6, plan_file: planFile,
-  flags: { approve: approveFlag, no_forge: noForgeFlag, skip_freshness: skipFreshnessFlag, confirm: confirmFlag },
+  id, schema_version: 7, plan_file: planFile,
+  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm },
+  arc_config: arcConfig,
+  pr_url: null,
   freshness: freshnessResult || null,
   session_nonce: sessionNonce, phase_sequence: 0,
   phases: {
-    forge:        { status: noForgeFlag ? "skipped" : "pending", artifact: null, artifact_hash: null, team_name: null },
+    forge:        { status: arcConfig.no_forge ? "skipped" : "pending", artifact: null, artifact_hash: null, team_name: null },
     plan_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     plan_refine:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
@@ -530,7 +628,9 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     code_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
-    audit:        { status: "pending", artifact: null, artifact_hash: null, team_name: null }
+    audit:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    ship:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    merge:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
   },
   convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [], original_changed_files: changedFiles },
   commits: [],
@@ -553,7 +653,7 @@ CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs af
 // arc-* prefixes: teams created directly by arc (Phase 2 plan review)
 // rune-* prefixes: teams created by delegated sub-commands (forge, work, review, mend, audit)
 const ARC_TEAM_PREFIXES = [
-  "arc-forge-", "arc-plan-review-", "arc-verify-",  // arc-owned teams
+  "arc-forge-", "arc-plan-review-", "arc-verify-", "arc-gap-",  // arc-owned teams
   "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-audit-"  // sub-command teams
 ]
 
@@ -641,7 +741,13 @@ On resume, validate checkpoint integrity before proceeding:
       if (convergence.round > 0) { /* keep existing max_rounds */ }
       else { convergence.max_rounds = TIERS.standard.maxCycles (= 3) }
    c. Set schema_version: 6
-3f. Resume freshness re-check:
+3f. If schema_version < 7, migrate v6 → v7:
+   a. Add phases.ship: { status: "pending", artifact: null, artifact_hash: null, team_name: null }
+   b. Add phases.merge: { status: "pending", artifact: null, artifact_hash: null, team_name: null }
+   c. checkpoint.arc_config = checkpoint.arc_config ?? null
+   d. checkpoint.pr_url = checkpoint.pr_url ?? null
+   e. Set schema_version: 7
+3g. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)
@@ -1006,10 +1112,11 @@ Report ONLY gaps with evidence. Format: [CDX-GAP-NNN] {type: MISSING | EXTRA | I
           2.5. SEC-008 FIX: Verify .codexignore exists before --full-auto:
                Bash("test -f .codexignore && echo yes || echo no")
                If "no": write "Skipped: .codexignore not found" to output, complete task, exit.
-          3. Run: timeout ${talisman?.codex?.gap_analysis?.timeout ?? 600} codex exec \\
+          3. SEC-R1-001 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion on prompt content
+             Run: cat "tmp/arc/${id}/codex-gap-prompt.txt" | timeout ${talisman?.codex?.gap_analysis?.timeout ?? 600} codex exec \\
                -m "${codexModel}" --config model_reasoning_effort="high" \\
                --sandbox read-only --full-auto --skip-git-repo-check \\
-               "$(cat tmp/arc/${id}/codex-gap-prompt.txt)" 2>/dev/null
+               - 2>/dev/null
           4. Parse output for gap findings
           5. Write results to tmp/arc/${id}/codex-gap-analysis.md
              Format: [CDX-GAP-NNN] {type: MISSING | EXTRA | INCOMPLETE | DRIFT} {description}
@@ -1107,6 +1214,32 @@ prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-audit.md algorithm. Update checkpoint on completion.
 
+## Phase 9: SHIP (PR Creation)
+
+See [arc-phase-ship.md](references/arc-phase-ship.md) for the full algorithm.
+
+**Team**: None (orchestrator-only)
+**Output**: `tmp/arc/{id}/pr-body.md`
+**Failure**: Skip PR creation, proceed to completion report. User creates PR manually.
+
+// ARC-6: prePhaseCleanup not needed (orchestrator-only, no team)
+// SEC-DECREE-003: Set GH_PROMPT_DISABLED=1 before all `gh` commands to prevent interactive prompts in automation.
+
+Read and execute the arc-phase-ship.md algorithm. Update checkpoint on completion.
+
+## Phase 9.5: MERGE (Rebase + Auto Merge)
+
+See [arc-phase-merge.md](references/arc-phase-merge.md) for the full algorithm.
+
+**Team**: None (orchestrator-only)
+**Output**: `tmp/arc/{id}/merge-report.md`
+**Failure**: Skip merge, PR remains open. User merges manually.
+
+// ARC-6: prePhaseCleanup not needed (orchestrator-only, no team)
+// SEC-DECREE-003: Set GH_PROMPT_DISABLED=1 before all `gh` commands to prevent interactive prompts in automation.
+
+Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completion.
+
 ## Phase Transition Contracts (ARC-3)
 
 | From | To | Artifact | Contract |
@@ -1123,7 +1256,9 @@ Read and execute the arc-phase-audit.md algorithm. Update checkpoint on completi
 | MEND | VERIFY MEND | `resolution-report.md` | Fixed/FP/Failed finding list |
 | VERIFY MEND | MEND (retry) | `review-focus-round-{N}.json` | Phase 6+7 reset to pending, progressive focus scope |
 | VERIFY MEND | AUDIT | `resolution-report.md` + checkpoint convergence | Convergence verdict (converged/halted) |
-| AUDIT | Done | `audit-report.md` | Final audit report. Pipeline summary to user |
+| AUDIT | SHIP | `audit-report.md` | Audit complete, quality gates passed |
+| SHIP | MERGE | `pr-body.md` + `checkpoint.pr_url` | PR created, URL stored |
+| MERGE | Done | `merge-report.md` | Merged or auto-merge enabled. Pipeline summary to user |
 
 ## Failure Policy (ARC-5)
 
@@ -1141,6 +1276,8 @@ Read and execute the arc-phase-audit.md algorithm. Update checkpoint on completi
 | MEND | Halt if >3 FAILED findings | User fixes, `/rune:arc --resume` |
 | VERIFY MEND | Non-blocking — retries up to tier max cycles (LIGHT: 2, STANDARD: 3, THOROUGH: 5), then proceeds | Convergence gate is advisory |
 | AUDIT | Does not halt — informational | User reviews audit report |
+| SHIP | Skip PR creation, proceed to completion report. Branch was pushed | User creates PR manually: `gh pr create` |
+| MERGE | Skip merge, PR remains open. Rebase conflicts → warn with resolution steps | User merges manually: `gh pr merge --squash` |
 
 ## Post-Arc Plan Completion Stamp
 
@@ -1175,7 +1312,7 @@ if (exists(".claude/echoes/")) {
   appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
     layer: "inscribed",
     source: `rune:arc ${id}`,
-    content: `Arc completed: ${metrics.phases_completed}/12 phases, ` +
+    content: `Arc completed: ${metrics.phases_completed}/14 phases, ` +
       `${metrics.tome_findings.p1} P1 findings, ` +
       `${metrics.convergence_cycles} mend cycle(s), ` +
       `${metrics.gap_missing} missing criteria. ` +
@@ -1198,12 +1335,18 @@ Phases:
   2.   PLAN REVIEW:     {status} — plan-review.md ({verdict})
   2.5  PLAN REFINEMENT: {status} — {concerns_count} concerns extracted
   2.7  VERIFICATION:    {status} — {issues_count} issues
+  2.8  SEMANTIC VERIFY: {status} — codex-semantic-verification.md
   5.   WORK:            {status} — {tasks_completed}/{tasks_total} tasks
   5.5  GAP ANALYSIS:    {status} — {addressed}/{total} criteria addressed
+  5.6  CODEX GAP:       {status} — codex-gap-analysis.md
   6.   CODE REVIEW:     {status} — tome.md ({finding_count} findings)
   7.   MEND:            {status} — {fixed}/{total} findings resolved
   7.5  VERIFY MEND:     {status} — {convergence_verdict} (cycle {convergence.round + 1}/{convergence.tier.maxCycles})
   8.   AUDIT:           {status} — audit-report.md
+  9.   SHIP:            {status} — PR: {pr_url || "skipped"}
+  9.5  MERGE:           {status} — {merge_strategy} {wait_ci ? "(auto-merge pending)" : "(merged)"}
+
+PR: {pr_url || "N/A — create manually with `gh pr create`"}
 
 Review-Mend Convergence:
   Tier: {convergence.tier.name} ({convergence.tier.maxCycles} max cycles)
@@ -1324,10 +1467,16 @@ try {
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
-| Schema v1-v5 checkpoint on --resume | Auto-migrate to v6 |
+| Schema v1-v6 checkpoint on --resume | Auto-migrate to v7 |
 | Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |
 | Convergence evaluation timeout (>4 min) | Skip convergence check, proceed to audit with warning |
 | TOME missing or malformed after re-review | Default to "halted" (fail-closed) |
 | Findings diverging after mend | Halt convergence immediately, proceed to audit |
 | Convergence circuit breaker (tier max cycles) | Stop retrying, proceed to audit with remaining findings |
+| Ship phase: gh CLI not available | Skip PR creation, proceed to completion report |
+| Ship phase: Push failed | Skip PR creation, warn with manual push command |
+| Ship phase: PR creation failed | Branch pushed, warn user to create PR manually |
+| Merge phase: Rebase conflicts | Abort rebase, warn with manual resolution steps |
+| Merge phase: Pre-merge checklist CRITICAL | Abort merge, write merge-report.md |
+| Merge phase: Merge failed | PR remains open, warn user to merge manually |
 | Zombie teammates after arc completion (ARC-9) | Final sweep sends shutdown_request + TeamDelete. Fallback: `/rune:cancel-arc` |

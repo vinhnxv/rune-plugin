@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.40.0] — 2026-02-19
+
+### Added
+- Arc Phase 9 (SHIP): Auto PR creation after audit via `gh pr create` with generated template
+- Arc Phase 9.5 (MERGE): Rebase onto main + auto squash-merge with pre-merge checklist
+- 3-layer talisman config resolution for arc: hardcoded defaults → talisman.yml → CLI flags
+- `arc.defaults`, `arc.ship`, `arc.pre_merge_checks` talisman sections
+- Activated `arc.timeouts` talisman section (was reserved since v1.12.0)
+- New CLI flags: `--no-pr`, `--no-merge`, `--draft`
+- Checkpoint schema v7 with ship/merge phase tracking and pr_url
+- Pre-merge checklist: migration conflicts, schema drift, lock files, uncommitted changes
+- Configuration guide `## arc` section with full schema documentation (DOC-KK-010)
+
+### Changed
+- Arc pipeline expanded from 12 to 14 phases
+- `calculateDynamicTimeout()` includes ship (300000ms) + merge (600000ms) phase budgets
+- **Plugin version**: 1.39.2 → 1.40.0
+
 ## [1.39.2] — 2026-02-19
 
 ### Fixed

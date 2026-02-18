@@ -2,7 +2,7 @@
 
 Appends a persistent completion record to the plan file after arc finishes. Updates the plan's Status field. Creates an audit trail of arc executions.
 
-**Team**: None (orchestrator-only, runs after Phase 8)
+**Team**: None (orchestrator-only, runs after Phase 9.5 MERGE or Phase 8 AUDIT if ship/merge skipped)
 **Tools**: Read, Write, Bash (git queries)
 **Timeout**: 30 seconds (fast — single file read+write)
 
@@ -115,6 +115,8 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
     ['7',   'MEND',            'mend'],
     ['7.5', 'VERIFY MEND',     'verify_mend'],
     ['8',   'AUDIT',           'audit'],
+    ['9',   'SHIP',            'ship'],
+    ['9.5', 'MERGE',           'merge'],
   ]
 
   let phaseTable = "| # | Phase | Status | Detail |\n|---|-------|--------|--------|\n"
@@ -153,17 +155,22 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
   const commitCount = (checkpoint.commits || []).length
   const runOrdinal = existingRecords + 1
 
+  // PR URL (v1.40.0: from Phase 9 SHIP)
+  const prUrl = checkpoint.pr_url || null
+
   return `## Arc Completion Record — Run ${runOrdinal}\n\n` +
     `**Completed at**: ${completedAt}\n` +
     `**Duration**: ${duration} min\n` +
     `**Arc ID**: ${checkpoint.id}\n` +
     `**Branch**: ${branch}\n` +
+    (prUrl ? `**PR**: ${prUrl}\n` : '') +
     `**Checkpoint**: .claude/arc/${checkpoint.id}/checkpoint.json\n\n` +
     `### Phase Results\n\n` +
     phaseTable + `\n` +
     convergenceSection + `\n` +
     `### Summary\n\n` +
     `- **Commits**: ${commitCount} on branch \`${branch}\`\n` +
+    (prUrl ? `- **PR**: ${prUrl}\n` : '') +
     `- **Overall status**: ${newStatus}\n`
 }
 ```
