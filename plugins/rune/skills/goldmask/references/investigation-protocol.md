@@ -86,7 +86,7 @@ Write structured output to `{output_dir}/{layer}-layer.md`:
 
 ## Findings
 
-### GOLD-{LAYER}-{NNN} [{CLASSIFICATION}] (confidence: {score})
+### {LAYER}-{NNN} [{CLASSIFICATION}] (confidence: {score})
 
 **Changed symbol**: `{symbol}` in `{changed_file}:{line}`
 **Impacted file**: `{dependent_file}:{line}`
@@ -102,7 +102,7 @@ Write structured output to `{output_dir}/{layer}-layer.md`:
 
 ### Finding ID Convention
 
-Format: `GOLD-{LAYER}-{NNN}` where LAYER is:
+Format: `{LAYER}-{NNN}` where LAYER is (tracers use these prefixes; coordinator maps to `GOLD-NNN` in final output):
 - `DATA` — Data Layer
 - `API` — API Contract
 - `BIZ` — Business Logic

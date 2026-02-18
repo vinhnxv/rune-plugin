@@ -124,13 +124,19 @@ Validate input:
 ```
 if (!/^[a-zA-Z0-9._\/ ~^:-]+$/.test($ARGUMENTS))
   → reject with "Invalid input characters"
+// SEC-10: Reject git flag injection — no token may start with '-'
+if ($ARGUMENTS.split(/\s+/).some(token => token.startsWith('-')))
+  → reject with "Git flag injection detected — arguments must not start with '-'"
+// SEC-10: Reject path traversal
+if ($ARGUMENTS.includes('..') && !$ARGUMENTS.match(/\.\.[.]/))
+  → warn "'..' detected — only git range operator '..' is allowed"
 ```
 
 ### 1. Resolve Changed Files
 
 ```bash
-# For diff-spec:
-git diff --name-only {diff-spec}
+# For diff-spec (MUST quote $ARGUMENTS in all Bash interpolation):
+git diff --name-only "${diff_spec}"
 
 # For file list:
 # Use provided paths directly
@@ -266,9 +272,11 @@ for each teammate in team config:
 # Then cleanup:
 TeamDelete("{session_id}")
 
+# SEC-5: Validate session_id before rm-rf (project convention)
+if (!/^[a-zA-Z0-9_-]+$/.test(session_id)) { error("Invalid session_id"); return }
 # Fallback if TeamDelete fails:
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-rm -rf "$CHOME/teams/{session_id}" "$CHOME/tasks/{session_id}" 2>/dev/null
+rm -rf "$CHOME/teams/${session_id}" "$CHOME/tasks/${session_id}" 2>/dev/null
 ```
 
 ### 8. Report

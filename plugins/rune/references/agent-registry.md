@@ -62,8 +62,8 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | data-layer-tracer | Impact tracing across data models, schemas, migrations, and storage layers |
 | api-contract-tracer | Impact tracing across API endpoints, contracts, request/response schemas |
 | business-logic-tracer | Impact tracing across business rules, domain logic, and workflow orchestration |
-| event-flow-tracer | Impact tracing across event buses, message queues, pub/sub, and async pipelines |
-| config-env-tracer | Impact tracing across configuration, environment variables, feature flags, and deployment settings |
+| event-message-tracer | Impact tracing across event buses, message queues, pub/sub, and async pipelines |
+| config-dependency-tracer | Impact tracing across configuration, environment variables, feature flags, and deployment settings |
 | wisdom-sage | Git archaeology — commit intent classification, caution scoring via git blame analysis |
 | lore-analyst | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration |
 | goldmask-coordinator | Three-layer synthesis — merges Impact + Wisdom + Lore findings into unified GOLDMASK.md report |

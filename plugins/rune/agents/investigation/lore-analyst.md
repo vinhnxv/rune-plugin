@@ -13,6 +13,7 @@ description: |
 tools:
   - Bash
   - Read
+  - Write
   - Grep
   - Glob
   - SendMessage
@@ -53,7 +54,7 @@ If G1 fails, abort entirely. For G2-G4, proceed with documented limitations.
 Extract all history in one command using NUL-byte separators for reliable parsing:
 
 ```bash
-git log --numstat --format="%x00%H%x00%an%x00%aI" --no-merges -- {file_list} | head -10000
+git log --numstat --format="%x00%H%x00%an%x00%aI" --no-merges -- "${file_list[@]}" | head -10000
 ```
 
 Parse into per-file records: commit hash, author, date, lines added, lines deleted.

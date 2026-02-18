@@ -13,6 +13,7 @@ description: |
 tools:
   - Bash
   - Read
+  - Write
   - Grep
   - Glob
   - SendMessage
@@ -42,12 +43,12 @@ For each finding received from the Impact Layer, execute 6 steps:
 - Extract the specific code region to investigate
 
 ### Step 2 — BLAME
-- Run `git blame --porcelain -L {start},{end} {file}` for affected lines
+- Run `git blame --porcelain -L {start},{end} -- "${file}"` for affected lines
 - Extract: commit hash, author, date, original filename (if renamed)
 - Handle edge cases: uncommitted lines, binary files, shallow clones
 
 ### Step 3 — CONTEXT
-- Run `git show --format="%H%n%an%n%ae%n%aI%n%B" --no-patch {hash}` for each unique commit
+- Run `git show --format="%H%n%an%n%ae%n%aI%n%B" --no-patch "${hash}"` for each unique commit
 - Extract full commit message body (not just subject line)
 - Look for PR references, issue links, review comments
 
@@ -61,26 +62,31 @@ Classify using one of 8 categories:
 
 | Intent | Description | Caution Modifier |
 |--------|-------------|-----------------|
-| WORKAROUND | Temporary fix for known issue | +0.25 |
-| CONSTRAINT | Required by external system/API/spec | +0.30 |
-| OPTIMIZATION | Performance improvement | +0.10 |
-| COMPATIBILITY | Cross-platform or version support | +0.20 |
-| CONVENTION | Team/project style or pattern | +0.05 |
-| DEFENSIVE | Guard against edge case or error | +0.20 |
-| EXPLORATORY | Prototype or experiment | -0.10 |
-| UNKNOWN | Cannot determine intent | +0.15 |
+| WORKAROUND | Temporary fix for known issue |
+| CONSTRAINT | Required by external system/API/spec |
+| OPTIMIZATION | Performance improvement |
+| COMPATIBILITY | Cross-platform or version support |
+| CONVENTION | Team/project style or pattern |
+| DEFENSIVE | Guard against edge case or error |
+| EXPLORATORY | Prototype or experiment |
+| UNKNOWN | Cannot determine intent |
 
 ### Step 6 — CAUTION
-Compute caution score (capped at 1.0):
+Compute caution score using the canonical formula from [confidence-scoring.md](../../skills/goldmask/references/confidence-scoring.md):
 
 ```
-base = 0.30
-+ intent_modifier          (from table above)
-+ age_modifier             (>2yr: +0.10, >5yr: +0.20)
-+ contributor_modifier     (single author: +0.05, departed: +0.10)
-+ comment_modifier         (WARNING/SAFETY: +0.15, HACK: +0.10, TODO: +0.05)
-= caution_score            (capped at 1.0)
+caution = base_by_intent + age_modifier + contributor_modifier + comment_modifier
+caution = min(1.0, caution)  # Cap at 1.0
 ```
+
+Base values by intent (from confidence-scoring.md):
+- CONSTRAINT: 0.90, WORKAROUND: 0.80, DEFENSIVE: 0.75, COMPATIBILITY: 0.75
+- OPTIMIZATION: 0.60, CONVENTION: 0.55, UNKNOWN: 0.40, EXPLORATORY: 0.20
+
+Modifiers:
+- Age > 365 days: +0.10, > 1095 days: +0.15
+- Single author: +0.10, Single author + departed: +0.20
+- Warning comments: +0.10, TODO with reason: +0.05
 
 ## Output Format
 

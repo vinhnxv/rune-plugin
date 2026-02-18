@@ -12,6 +12,7 @@ description: |
   </example>
 tools:
   - Read
+  - Write
   - Grep
   - Glob
   - SendMessage

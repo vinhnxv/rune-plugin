@@ -57,7 +57,8 @@
         "./skills/polling-guard",
         "./skills/roundtable-circle",
         "./skills/rune-echoes",
-        "./skills/rune-orchestration"
+        "./skills/rune-orchestration",
+        "./skills/zsh-compat"
       ],
       "source": "./plugins/rune"
     }

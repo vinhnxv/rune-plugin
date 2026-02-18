@@ -109,8 +109,8 @@ This prevents one outlier file (e.g., 500 commits) from compressing all others t
 ## Step 5: Risk Score
 
 ```
-risk_score = 0.35 * frequency_pctl + 0.25 * churn_pctl + 0.15 * recency
-           + 0.15 * ownership_risk + 0.10 * echo_correlation
+risk_score = 0.35 * frequency_pctl + 0.25 * churn_pctl + 0.15 * recency_pctl
+           + 0.15 * ownership_pctl + 0.10 * echo_pctl
 ```
 
 ## Step 6: Tier Classification
