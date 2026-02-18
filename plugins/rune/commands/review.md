@@ -88,6 +88,59 @@ else
 fi
 ```
 
+### Diff Range Generation (Phase 0 — Diff-Scope Engine)
+
+Generate line-level diff ranges for downstream TOME tagging (Phase 5.3) and scope-aware mend filtering. See `rune-orchestration/references/diff-scope.md` for the full algorithm.
+
+```javascript
+// Read talisman config for diff scope settings
+const talisman = readTalisman()
+const diffScopeEnabled = talisman?.review?.diff_scope?.enabled !== false  // Default: true
+
+let diffScope = { enabled: false }
+
+if (diffScopeEnabled && changed_files.length > 0) {
+  // SEC-WS-001: Validate defaultBranch before shell interpolation
+  const BRANCH_NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
+  if (!BRANCH_NAME_REGEX.test(default_branch) || default_branch.includes('..')) {
+    warn(`Invalid default branch name: ${default_branch} — disabling diff scope`)
+  } else {
+    // Single-invocation diff — O(1) shell calls (see diff-scope.md STEP 2-3)
+    const EXPANSION_ZONE = Math.max(0, Math.min(100, talisman?.review?.diff_scope?.expansion ?? 8))
+    let diffOutput
+    if (flags['--partial']) {
+      diffOutput = Bash(`git diff --cached --unified=0 -M`)
+    } else {
+      diffOutput = Bash(`git diff --unified=0 -M "${default_branch}...HEAD"`)
+    }
+
+    if (diffOutput.exitCode !== 0) {
+      warn(`git diff failed (exit ${diffOutput.exitCode}) — disabling diff scope`)
+    } else {
+      // Parse diff output into per-file line ranges
+      // See diff-scope.md STEP 3 for full parsing algorithm
+      const headSha = Bash(`git rev-parse HEAD`).trim()
+      const ranges = parseDiffRanges(diffOutput, EXPANSION_ZONE)  // diff-scope.md STEP 3-4
+
+      diffScope = {
+        enabled: true,
+        base: default_branch,
+        expansion: EXPANSION_ZONE,
+        ranges: ranges,
+        head_sha: headSha,
+        version: 1
+      }
+    }
+  }
+}
+
+// Write diff ranges to file for large diffs (>50 files)
+if (diffScope.enabled && Object.keys(diffScope.ranges).length > 50) {
+  Write(`tmp/reviews/${identifier}/diff-ranges.json`, JSON.stringify(diffScope.ranges))
+  log(`Diff ranges written to tmp/reviews/${identifier}/diff-ranges.json (${Object.keys(diffScope.ranges).length} files)`)
+}
+```
+
 ### Scope File Override (--scope-file)
 
 When `--scope-file` is provided, override git-diff-based `changed_files`:
@@ -386,7 +439,8 @@ Write("tmp/.rune-review-{identifier}.json", {
 })
 
 // 4. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
-Write("tmp/reviews/{identifier}/inscription.json", { ... })
+// Include diff_scope from Phase 0 diff range generation
+Write("tmp/reviews/{identifier}/inscription.json", { ..., diff_scope: diffScope })
 
 // 5. Pre-create guard: teamTransition protocol (see team-lifecycle-guard.md)
 // STEP 1: Validate (defense-in-depth)
@@ -716,6 +770,74 @@ for (const ash of selectedAsh) {
 ```
 
 This is a transparency flag, not a hard minimum. Zero findings on a small changeset is normal. Zero findings on 20+ files warrants a second look.
+
+## Phase 5.3: Diff-Scope Tagging (orchestrator-only)
+
+Tags each RUNE:FINDING in the TOME with `scope="in-diff"` or `scope="pre-existing"` based on diff ranges generated in Phase 0. Runs after aggregation and BEFORE Cross-Model Verification so Codex findings also get scope attributes.
+
+**Team**: None (orchestrator-only)
+**Input**: `tmp/reviews/{identifier}/TOME.md`, `tmp/reviews/{identifier}/inscription.json` (diff_scope field)
+**Output**: Modified `tmp/reviews/{identifier}/TOME.md` with scope attributes injected
+
+See `rune-orchestration/references/diff-scope.md` "Scope Tagging (Phase 5.3)" for the full algorithm.
+
+```javascript
+const inscription = JSON.parse(Read(`tmp/reviews/${identifier}/inscription.json`))
+const diffScope = inscription.diff_scope
+
+if (diffScope?.enabled && diffScope?.ranges) {
+  // STEP 1b: Verify HEAD hasn't changed (stale range detection)
+  const currentHead = Bash(`git rev-parse HEAD`).trim()
+  if (diffScope.head_sha && currentHead !== diffScope.head_sha) {
+    warn(`HEAD changed since diff range generation (${diffScope.head_sha} → ${currentHead}). Ranges may be stale.`)
+  }
+
+  // STEP 2: Parse all RUNE:FINDING markers from TOME
+  const tome = Read(`tmp/reviews/${identifier}/TOME.md`)
+  const findings = parseAllFindings(tome)  // [{file, line, severity, offset, fullMatch}]
+
+  // STEP 3: Tag each finding with scope
+  for (const finding of findings) {
+    const normalizedFile = finding.file.replace(/^\.\//, '').normalize('NFC')
+    const fileRanges = diffScope.ranges[normalizedFile]
+
+    if (!fileRanges) {
+      finding.scope = "pre-existing"
+    } else if (fileRanges.length === 1 && fileRanges[0][1] === null) {
+      finding.scope = "in-diff"      // New file / rename / binary
+    } else {
+      const inRange = fileRanges.some(([start, end]) =>
+        finding.line >= start && finding.line <= end
+      )
+      finding.scope = inRange ? "in-diff" : "pre-existing"
+    }
+  }
+
+  // STEP 4: SEC-WS-003 — Strip existing scope attributes before injecting
+  let taggedTome = tome.replace(
+    /<!-- RUNE:FINDING\s+([^>]*?)(\s*scope="[^"]*")([^>]*?)-->/g,
+    '<!-- RUNE:FINDING $1$3-->'
+  )
+
+  // STEP 5: Inject orchestrator-determined scope attributes
+  taggedTome = injectScopeAttributes(taggedTome, findings)
+
+  // STEP 6: Validate — re-parse and confirm finding count matches
+  const retaggedCount = (taggedTome.match(/<!-- RUNE:FINDING/g) || []).length
+  if (retaggedCount !== findings.length) {
+    warn(`Tagging validation failed: expected ${findings.length}, found ${retaggedCount}. Using original TOME.`)
+  } else {
+    Write(`tmp/reviews/${identifier}/TOME.md`, taggedTome)
+  }
+
+  // STEP 7: Log tagging summary
+  const inDiff = findings.filter(f => f.scope === "in-diff").length
+  const preExisting = findings.filter(f => f.scope === "pre-existing").length
+  log(`Diff-scope tagging: ${inDiff} in-diff, ${preExisting} pre-existing (of ${findings.length} total)`)
+} else {
+  log("Diff-scope tagging skipped: diff_scope not enabled or no ranges")
+}
+```
 
 <!-- NOTE: "Phase 5.5" in review.md refers to Cross-Model Verification (Codex Oracle).
      Other pipelines use 5.5 for different sub-phases (audit: Truthseer Validator, arc: Gap Analysis). -->

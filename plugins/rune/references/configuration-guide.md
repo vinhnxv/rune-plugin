@@ -52,6 +52,18 @@ solution_arena:
 echoes:
   version_controlled: false
 
+review:
+  # Diff-scope tagging (v1.38.0+) — generates line-level diff ranges for scope-aware review
+  diff_scope:
+    enabled: true                        # Enable diff range generation and TOME tagging
+    expansion: 8                         # Context lines above/below each hunk (0-50)
+    tag_pre_existing: true               # Tag unchanged-code findings as "pre-existing"
+    fix_pre_existing_p1: true            # Always fix pre-existing P1 findings in mend
+  # Smart convergence scoring (v1.38.0+) — scope-aware composite scoring
+  convergence:
+    smart_scoring: true                  # Enable smart convergence scoring
+    convergence_threshold: 0.7           # Score >= this = converged (0.1-1.0)
+
 work:
   ward_commands: ["make check", "npm test"]
   max_workers: 3

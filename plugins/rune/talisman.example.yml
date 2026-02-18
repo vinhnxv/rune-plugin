@@ -330,6 +330,26 @@ echoes:
   # arc_convergence_max_cycles: null        # Hard override: 1-5 (overrides tier, use sparingly)
   # arc_convergence_finding_threshold: 0    # P1 findings below this count = converged (default: 0)
   # arc_convergence_improvement_ratio: 0.5  # Findings must decrease by this ratio to continue (default: 0.5)
+  #
+  # Diff-scope tagging (v1.38.0+)
+  # Generates line-level diff ranges from git, enriches inscription.json so Ashes know
+  # which lines changed, and tags TOME findings as "in-diff" or "pre-existing" after
+  # aggregation. Mend uses scope tags to prioritize PR-relevant findings.
+  # diff_scope:
+  #   enabled: true                  # Enable diff range generation and TOME tagging (default: true)
+  #   expansion: 8                   # Lines of context above/below each hunk (default: 8, range: 0-50)
+  #   tag_pre_existing: true         # Tag unchanged-code findings as "pre-existing" (default: true)
+  #   fix_pre_existing_p1: true      # Always fix pre-existing P1 findings in mend (default: true)
+  #
+  # Smart convergence scoring (v1.38.0+)
+  # Extends arc convergence with scope-aware composite scoring. When enabled, the
+  # convergence gate evaluates finding COMPOSITION (P3 dominance, pre-existing noise)
+  # rather than just raw count. Requires diff_scope.enabled: true for full benefit.
+  # convergence:
+  #   smart_scoring: true            # Enable smart convergence scoring (default: true)
+  #   convergence_threshold: 0.7     # Score >= this = converged (default: 0.7, range: 0.1-1.0)
+  #   p3_dominance_threshold: 0.7    # RESERVED — per-component threshold for future use
+  #   noise_threshold: 0.5           # RESERVED — per-component threshold for future use
 
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings

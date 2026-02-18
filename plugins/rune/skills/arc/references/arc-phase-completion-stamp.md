@@ -129,7 +129,18 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
   if (history.length > 0) {
     convergenceSection = `### Convergence\n\n- ${history.length + 1} mend pass(es)\n`
     for (const entry of history) {
-      convergenceSection += `- Round ${entry.round}: ${entry.findings_before} → ${entry.findings_after} findings (${entry.verdict})\n`
+      let roundLine = `- Round ${entry.round}: ${entry.findings_before} → ${entry.findings_after} findings (${entry.verdict})`
+      // v1.38.0: Include smart convergence score when available
+      if (entry.convergence_score?.total != null) {
+        roundLine += ` [score: ${entry.convergence_score.total}]`
+      }
+      convergenceSection += roundLine + `\n`
+    }
+    // v1.38.0: Include final convergence score breakdown if available
+    const lastEntry = history[history.length - 1]
+    if (lastEntry?.convergence_score?.components) {
+      const c = lastEntry.convergence_score.components
+      convergenceSection += `- Smart scoring: P3=${c.p3}, pre-existing=${c.preExisting}, trend=${c.trend}, base=${c.base}\n`
     }
   } else {
     convergenceSection = `### Convergence\n\n- 1 mend pass (no retries needed)\n`

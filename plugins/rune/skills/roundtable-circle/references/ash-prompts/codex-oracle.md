@@ -315,6 +315,17 @@ OUT_OF_SCOPE findings that pass steps 1-3 are real but not in scope for this rev
 - Missing validation at system boundaries
 - Naming and convention inconsistencies
 
+## Diff Scope Awareness
+
+This review includes `diff_scope` data in inscription.json showing which line ranges
+were changed in this PR. When reporting findings:
+- **Prioritize** findings on changed lines (these are most actionable)
+- **Still report** findings on unchanged lines if they are P1 (critical/security)
+- For P2/P3 findings on unchanged lines, prefix the finding title with `[PRE-EXISTING]`
+  to help downstream filtering
+
+This is guidance, not a hard filter — your review quality should not be compromised.
+
 ## OUTPUT FORMAT
 
 Write markdown to `{output_path}`:
