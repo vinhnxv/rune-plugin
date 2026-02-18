@@ -67,7 +67,7 @@ codex:
   sandbox: "read-only"                 # Always read-only (reserved for future use)
   context_budget: 20                   # Max files per session
   confidence_threshold: 80             # Min confidence % to report findings
-  workflows: [review, audit, plan, forge, work]  # Which pipelines use Codex
+  workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex (v1.39.0: added "mend")
   skip_git_check: false                # Pass --skip-git-repo-check if true
   work_advisory:
     enabled: true                      # Codex advisory in /rune:work
@@ -331,14 +331,33 @@ Each workflow writes Codex output to a designated path:
 | plan (research) | `tmp/plans/{id}/research/codex-analysis.md` | CDX |
 | plan (review) | `tmp/plans/{id}/codex-plan-review.md` | CDX |
 | work (advisory) | `tmp/work/{id}/codex-advisory.md` | CDX |
+| elicitation | `tmp/{workflow}/{id}/elicitation/codex-prompt-{method}.txt` | CDX |
+| mend (verification) | `tmp/mend/{id}/codex-mend-verification.md` | CDX-MEND |
+| arena (judge) | `tmp/plans/{id}/arena/codex-arena-judge.md` | CDX-ARENA |
+| arc (semantic) | `tmp/arc/{id}/codex-semantic-verification.md` | CDX |
+| arc (gap) | `tmp/arc/{id}/codex-gap-analysis.md` | CDX-GAP |
+| work (trial-forger) | `tmp/work/{id}/codex-edge-cases.md` | CDX |
+| work (rune-smith) | `tmp/work/{id}/codex-smith-prompt.txt` (temp) | CDX |
 
 **Every codex outcome** (success, failure, skip, error) MUST produce an MD file at the
 designated path. Even skip/error messages are written so downstream phases know Codex was attempted.
 
 ## Architecture Rules
 
-1. **Separate teammate**: Codex MUST always run on a separate teammate (`Task` with `run_in_background: true`),
+1. **Separate teammate**: Codex MUST run on a separate teammate (`Task` with `run_in_background: true`).
    Do not inline in the orchestrator. This isolates untrusted codex output from the main context window.
+
+   **Lightweight Inline Exception** (v1.39.0+): Integration points that meet ALL of the following
+   criteria may run `codex exec` inline (without a separate teammate):
+   - `reasoning: "low"` or `"medium"` (never `"high"`)
+   - `timeout <= 120s`
+   - Input < 5KB (truncated before exec)
+   - Output parsed for a single value (JSON score, verdict, or pass/fail flag — not full reviews)
+   - SEC-003 applied (prompt written to temp file, not inline interpolation)
+   - Nonce boundary around untrusted content
+
+   Current inline exceptions: Semantic Verification (Point 4), Trial Forger (Point 6),
+   Rune Smith Advisory (Point 7, default OFF), Shatter Scoring (Point 8), Echo Validation (Point 9).
 
 2. **Always write to MD file**: Every outcome produces an MD file at the designated output path.
 
@@ -349,8 +368,37 @@ designated path. Even skip/error messages are written so downstream phases know 
 5. **Truthbinding**: Codex prompts MUST include the ANCHOR anti-injection preamble
    (see `codex-oracle.md` for the canonical prompt).
 
-6. **Codex counts toward max_ashes**: When summoned, Codex Oracle counts against the
-   `talisman.settings.max_ashes` cap (default 8).
+6. **Codex counts toward max_ashes**: When summoned as a full review teammate (Codex Oracle in
+   review/audit), Codex counts against the `talisman.settings.max_ashes` cap (default 8).
+
+   **Additive exception** (v1.39.0+): Cross-model methods that use the lightweight inline pattern
+   (e.g., elicitation sage cross-model, semantic verification, trial forger edge cases) do NOT
+   count toward max_ashes because they run within existing agents, not as separate teammates.
+   Only dedicated Codex teammates (codex-oracle, codex-mend-verifier, codex-arena-judge,
+   codex-gap-analyzer) count toward the cap.
+
+## Codex Timeout Budget (v1.39.0+)
+
+With all 9 deep integration points enabled, a full `/rune:arc` run adds up to 7 additional
+`codex exec` calls (~35 min total). Plan your arc total timeout accordingly:
+
+| Point | Timeout | Phase |
+|-------|---------|-------|
+| Elicitation Sage | 300s | Plan brainstorm |
+| Mend Verification | 660s | Post-mend |
+| Arena Judge | 300s | Plan arena |
+| Semantic Verification | 120s | Arc Phase 2.8 |
+| Gap Analysis | 600s | Arc Phase 5.6 |
+| Trial Forger | 120s | Work (per test task) |
+| Rune Smith | 120s | Work (per worker task, opt-in) |
+| Shatter | 120s | Plan Phase 2.5 |
+| Echo Validation | 60s | Post-workflow |
+
+**Default** (`rune_smith.enabled: false`): ~2100s (~35 min) additional overhead.
+**All enabled** (`rune_smith.enabled: true` + 3 workers x 5 tasks): ~5700s (~95 min).
+
+Per-feature `reasoning` keys (e.g., `codex.semantic_verification.reasoning: "medium"`) override
+the global `codex.reasoning` for that specific feature only.
 
 ## Cross-References
 

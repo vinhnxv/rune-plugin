@@ -403,7 +403,8 @@ codex:
   context_budget: 20                 # Max files to review per session (default: 20)
   confidence_threshold: 80           # Min confidence % to report a finding (default: 80)
   # Which workflows use Codex Oracle. Remove a workflow name to skip Codex in that pipeline.
-  workflows: [review, audit, plan, forge, work]
+  # "mend" added in v1.39.0 for post-fix verification.
+  workflows: [review, audit, plan, forge, work, mend]
   # Work advisory settings (Phase 4.5 of /rune:work — non-blocking plan-vs-implementation check)
   work_advisory:
     enabled: true                    # Set false to skip advisory in work pipeline
@@ -422,6 +423,53 @@ codex:
     enabled: true                    # Cross-model verification (recommended: true)
     fuzzy_match_threshold: 0.7       # Code snippet match threshold (0.0-1.0, default: 0.7)
     cross_model_bonus: 0.15          # Confidence boost when Claude + Codex agree on same finding
+  # ── Deep Integration Keys (v1.39.0+) ──────────────────
+  # Cross-model elicitation for adversarial reasoning methods
+  elicitation:
+    enabled: true                    # Cross-model structured reasoning (default: true)
+    methods: []                      # Auto-detect from codex_role column (empty = all cross-model methods)
+    timeout: 300                     # Codex timeout per elicitation invocation (default: 300s)
+  # Post-fix Codex verification in /rune:mend
+  mend_verification:
+    enabled: true                    # Enable post-fix verification (default: true)
+    max_diff_size: 15000             # Max diff chars for verification (default: 15000)
+  # Codex Arena Judge in /rune:plan Phase 1.8
+  arena:
+    enabled: true                    # Enable Codex Arena Judge (default: true)
+    role: "judge"                    # "judge" | "generator" | "both" (default: "judge")
+    timeout: 300                     # Arena judge timeout (default: 300s)
+    cross_model_bonus: 0.15          # Confidence bonus for cross-model agreement (MC-3: separate from verification key)
+  # Semantic contradiction detection in /rune:arc Phase 2.8
+  # NOTE: Key is "semantic_verification" (not "verification_gate") to distinguish from Phase 2.7 (MC-2)
+  semantic_verification:
+    enabled: true                    # Enable semantic contradiction detection (default: true)
+    timeout: 120                     # Shorter timeout for inline check (default: 120s)
+    reasoning: "medium"              # Overrides global codex.reasoning for this feature
+  # Cross-model gap detection in /rune:arc Phase 5.6
+  gap_analysis:
+    enabled: true                    # Enable cross-model gap detection (default: true)
+    timeout: 600                     # Gap analysis timeout (default: 600s)
+  # Edge case suggestions for /rune:work trial-forger
+  trial_forger:
+    enabled: true                    # Enable edge case suggestions before test writing (default: true)
+    timeout: 120                     # Quick check — 2 min max
+    reasoning: "medium"              # Overrides global codex.reasoning for this feature
+  # Rune Smith inline advisory during implementation
+  rune_smith:
+    enabled: false                   # DISABLED by default — opt-in only (cost-intensive per worker per task)
+    timeout: 120                     # Quick check — 2 min max
+    reasoning: "low"                 # Low reasoning for speed
+    min_diff_size: 100               # Skip for trivial changes below this char count
+    confidence_threshold: 90         # Only report CRITICAL findings (>= 90% confidence)
+  # Cross-model complexity scoring in /rune:plan Phase 2.5 (Shatter)
+  shatter:
+    enabled: true                    # Enable cross-model complexity scoring (default: true)
+    weight: 0.3                      # Codex weight in blended score (default: 0.3, range: 0.0-1.0)
+  # Echo learning generalizability validation before persist
+  echo_validation:
+    enabled: true                    # Enable learning generalizability check (default: true)
+    timeout: 60                      # Very quick check (default: 60s)
+    reasoning: "low"                 # Low reasoning for simple classification
 
 # ──────────────────────────────────────────────
 # Arc — Cross-file consistency checks (v1.17.0+)

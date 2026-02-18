@@ -12,7 +12,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
 | **ash-guide** | Agent invocation reference and Ash selection guide |
 | **elicitation** | BMAD-derived structured reasoning methods — Deep integration via elicitation-sage across plan, forge, review, and mend phases |
-| **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
+| **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config, 9-point deep integration (elicitation, mend verification, arena, semantic check, gap analysis, trial forger, rune smith advisory, shatter scoring, echo validation) |
 | **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
 | **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
