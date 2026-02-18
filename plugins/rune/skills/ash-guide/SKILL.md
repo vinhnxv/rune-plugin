@@ -1,8 +1,10 @@
 ---
 name: ash-guide
 description: |
-  Provides a quick reference for invoking Rune agents correctly.
-  This skill should be used when summoning agents, troubleshooting "agent not found" errors, or selecting review agents.
+  Use when summoning Rune agents, when encountering "agent not found" errors, when
+  selecting which review agents to use, or when checking agent capabilities and tools.
+  Quick reference for all 39 agents across 5 categories (review, research, work,
+  utility, investigation). Keywords: agent list, Ash, subagent type, agent not found.
 
   <example>
   Context: User wants to know which agents are available

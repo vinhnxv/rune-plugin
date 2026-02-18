@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.40.1] — 2026-02-19
+
+### Fixed
+- **QUAL-001** (P1): `resolveArcConfig()` now resolves `pre_merge_checks` from talisman — user overrides were silently ignored
+- **SEC-001** (P2): Quoted `prNumber` in `gh pr merge` commands (defensive quoting convention)
+- **SEC-002** (P2): Wrapped branch name in backticks in ship phase push failure warning
+- **QUAL-002** (P2): Added `mend` to README codex `workflows` example array
+- **QUAL-003** (P2): `co_authors` resolution now checks `arc.ship.co_authors` first, falls back to `work.co_authors`
+- **QUAL-004** (P2): Added `co_authors` row to configuration-guide.md `arc.ship` table with fallback note
+- **DOC-001** (P2): Post-arc plan stamp now says "after Phase 9.5" (was "after Phase 8")
+- **DOC-002** (P2): Completion report step 3 is now conditional on `pr_url`
+- **DOC-003** (P3): ARC-9 Final Sweep comment updated to reference Phase 9.5
+- **DOC-005** (P3): `auto_merge` description clarified — "see `wait_ci` for CI gate" (was "after CI")
+
+### Added
+- New `using-rune` skill: workflow discovery and intent routing — suggests correct `/rune:*` command
+- `SessionStart` hook: loads workflow routing into context at session start
+- 11 skill description rewrites with trigger keywords for better Claude auto-detection
+
+### Changed
+- **Plugin version**: 1.40.0 → 1.40.1
+- Skills count: 12 → 13
+
 ## [1.40.0] — 2026-02-19
 
 ### Added

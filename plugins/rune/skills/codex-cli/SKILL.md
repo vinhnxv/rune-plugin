@@ -1,9 +1,10 @@
 ---
 name: codex-cli
 description: |
-  Canonical reference for interacting with the OpenAI Codex CLI from Rune workflows.
-  Covers detection, execution, error handling, talisman configuration, and security prerequisites.
-  Load this skill when any command needs to invoke `codex exec` or check Codex availability.
+  Use when invoking `codex exec`, checking Codex availability, configuring cross-model
+  verification, or troubleshooting Codex integration errors. Covers detection, execution,
+  error handling, sandbox modes, talisman config, and .codexignore prerequisites.
+  Keywords: codex, cross-model, GPT, oracle, codex exec, codexignore.
 
   <example>
   Context: A Rune command needs to run Codex for cross-model review.

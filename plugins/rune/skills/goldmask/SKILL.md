@@ -1,10 +1,11 @@
 ---
 name: goldmask
 description: |
-  Cross-layer impact analysis with Wisdom Layer (WHY understanding) and Lore Layer (risk intelligence).
-  Goldmask traces WHAT must change, WHY it was built that way, and HOW RISKY the area is.
-  Three layers: Impact (5 Haiku tracers), Wisdom (1 Sonnet sage), Lore (1 Haiku analyst).
-  Use when analyzing code changes, planning modifications, or assessing blast radius.
+  Use when assessing blast radius of changes, when understanding WHY code was written a
+  certain way, when planning risky modifications, or when a refactor could have hidden
+  side effects. Traces WHAT changes, WHY it exists (git archaeology), and HOW RISKY
+  the area is (churn + ownership metrics). Keywords: impact analysis, blast radius,
+  risk assessment, code archaeology, why was this written.
 
   <example>
   Context: Running standalone impact analysis

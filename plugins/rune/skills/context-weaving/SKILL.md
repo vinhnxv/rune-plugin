@@ -1,9 +1,10 @@
 ---
 name: context-weaving
 description: |
-  Unified context management: overflow prevention, compression, and filesystem offloading.
-  Should be loaded for any Rune multi-agent workflow to enforce Glyph Budgets, plan orchestration, and prevent "Prompt is too long" errors.
-  Also applicable for long sessions (50+ messages) to compress context.
+  Use when spawning 4+ agents, when "Prompt is too long" errors appear, when sessions
+  exceed 50 messages, or when context feels degraded. Prevents overflow before agent
+  summoning, compresses long sessions, and offloads verbose content to filesystem.
+  Keywords: context overflow, prompt too long, glyph budget, compression, long session.
 
   <example>
   Context: About to launch 4 review agents

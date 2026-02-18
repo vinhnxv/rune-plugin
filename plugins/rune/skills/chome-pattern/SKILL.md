@@ -1,11 +1,11 @@
 ---
 name: chome-pattern
 description: |
-  Reference for the CHOME pattern — resolving CLAUDE_CONFIG_DIR for multi-account
-  Claude Code setups. Covers when to use CHOME vs bare ~/.claude/, classification
-  of SDK vs Bash contexts, and canonical patterns for team lifecycle commands.
-  Load this skill when writing Bash commands that reference ~/.claude/ paths,
-  or when auditing existing code for hardcoded config directory references.
+  Use when writing Bash commands that reference ~/.claude/ paths, when auditing
+  code for hardcoded config directories, or when teams/tasks directories fail to
+  resolve in multi-account setups. Covers CLAUDE_CONFIG_DIR resolution, SDK vs
+  Bash classification, and team lifecycle path patterns.
+  Keywords: CLAUDE_CONFIG_DIR, CHOME, ~/.claude, multi-account, config directory.
 
   <example>
   Context: A command needs to rm-rf team directories after cleanup.
