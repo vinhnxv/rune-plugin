@@ -37,8 +37,11 @@ if (round > 0) {
     }
   }
   if (focus) {
-    // Override changed_files for this review pass
-    changed_files = focus.focus_files
+    // SEC-009: Validate each focus_files entry before use
+    const SAFE_FILE_PATH = /^[a-zA-Z0-9._\-\/]+$/
+    changed_files = focus.focus_files.filter(f =>
+      typeof f === 'string' && SAFE_FILE_PATH.test(f) && !f.includes('..') && !f.startsWith('/')
+    )
     log(`Re-review round ${round}: ${changed_files.length} files (${focus.mend_modified.length} mend-modified + ${focus.dependency_files?.length ?? 0} dependencies)`)
   }
   // Reduce Ash count for focused reviews
@@ -54,6 +57,19 @@ if (round > 0) {
 TOME output path varies by convergence round to prevent overwriting:
 - Round 0: `tmp/arc/{id}/tome.md` (current behavior)
 - Round N (N>0): `tmp/arc/{id}/tome-round-{N}.md` (preserves round 0 TOME for reference)
+
+## CRITICAL — Delegation Contract
+
+This phase is **delegated** to `/rune:review` via sub-command invocation (Task tool). The arc orchestrator MUST NOT call `TeamCreate` for this phase. The `/rune:review` sub-command manages its own team lifecycle in a separate process. Attempting to create a team inline in the orchestrator would fail with "Already leading team X" if SDK leadership state leaked from Phase 2 (PLAN REVIEW).
+
+The orchestrator's role in Phase 6 is limited to:
+1. Run `prePhaseCleanup(checkpoint)` — clear stale teams and SDK state
+2. Invoke `/rune:review` logic — the sub-command creates and manages its own team
+3. Discover team name from state file — record in checkpoint for cancel-arc
+4. Relocate TOME artifact — copy from review output dir to arc artifacts
+5. Update checkpoint — record artifact path and hash
+
+**DO NOT** create a team, create tasks, or spawn agents inline for this phase.
 
 ## Algorithm
 
@@ -127,21 +143,29 @@ if (postReviewStateFiles.length > 0) {
 // Target: round-aware path (consumed by Phase 7: MEND)
 // BACK-012 FIX: Discover TOME via glob — decoupled from team name resolution.
 const tomeCandidates = Glob('tmp/reviews/review-*/TOME.md').sort().reverse()
+// BUG FIX: Lift tomeTarget to outer scope — needed by STEP 5 checkpoint update.
+// Previously scoped inside else-block, causing undefined reference in STEP 5.
+const convergenceRound = checkpoint.convergence?.round ?? 0
+const tomeTarget = convergenceRound === 0
+  ? `tmp/arc/${id}/tome.md`
+  : `tmp/arc/${id}/tome-round-${convergenceRound}.md`
 if (tomeCandidates.length === 0) {
   warn('No TOME found in tmp/reviews/ — code review may have produced no findings')
 } else {
-  // Round-aware TOME relocation: round 0 → tome.md, round N → tome-round-{N}.md
-  const convergenceRound = checkpoint.convergence?.round ?? 0
-  const tomeTarget = convergenceRound === 0
-    ? `tmp/arc/${id}/tome.md`
-    : `tmp/arc/${id}/tome-round-${convergenceRound}.md`
   Bash(`cp -- "${tomeCandidates[0]}" "${tomeTarget}"`)
 }
 
+// STEP 4.5: Read TOME content for checkpoint integrity hash
+// BUG FIX: `sha256(tome)` referenced undefined variable `tome`.
+// Now reads tomeTarget content explicitly.
+const tomeContent = exists(tomeTarget) ? Read(tomeTarget) : ''
+
 // STEP 5: Update checkpoint
+// BUG FIX: artifact path was hardcoded to `tome.md` — wrong on convergence retry
+// rounds where TOME is at `tome-round-{N}.md`. Now uses round-aware tomeTarget.
 updateCheckpoint({
   phase: "code_review", status: "completed",
-  artifact: `tmp/arc/${id}/tome.md`, artifact_hash: sha256(tome), phase_sequence: 6
+  artifact: tomeTarget, artifact_hash: sha256(tomeContent), phase_sequence: 6
 })
 ```
 

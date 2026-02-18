@@ -33,13 +33,29 @@ const TIERS = {
   thorough: { name: 'THOROUGH', maxCycles: 5 },
 }
 
+// SEC-007 helper: compute auto-tier without config override (for warning comparison)
+function computeAutoTier(diffStats, planMeta) {
+  const totalLines = diffStats.insertions + diffStats.deletions
+  const hasHighRisk = diffStats.files.some(f => matchesAnyPattern(f, HIGH_RISK_PATTERNS))
+  const planType = planMeta?.type
+  const fileCount = diffStats.files.length
+  if (totalLines > 2000 || hasHighRisk || (planType === 'feat' && fileCount > 20)) return 'thorough'
+  if (totalLines <= 100 && !hasHighRisk && planType === 'fix') return 'light'
+  return 'standard'
+}
+
 function selectReviewMendTier(diffStats, planMeta, config) {
   // User override via talisman.yml (arc-specific namespace per decree-arbiter P1)
   // NOTE: Uses arc_convergence_tier_override (not convergence_tier_override)
   // to avoid collision with chunked review's convergence_tier_override key.
   const override = config?.review?.arc_convergence_tier_override
   if (override && TIERS[override]) {
-    return { ...TIERS[override], reason: `User override: ${override}` }
+    // SEC-007: Compute auto-tier for comparison — warn if override disagrees
+    const autoTier = computeAutoTier(diffStats, planMeta)
+    if (autoTier && autoTier !== override) {
+      warn(`Tier override "${override}" disagrees with auto-detected "${autoTier}" — using override. This may increase compute time.`)
+    }
+    return { ...TIERS[override], reason: `User override: ${override} (auto-detected: ${autoTier ?? 'unknown'})` }
   }
 
   // Signal 1: Total lines changed (primary signal)
@@ -84,7 +100,11 @@ Used by Phase 7.5 to decide: converge, retry, or halt.
 ```javascript
 function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config) {
   const round = checkpoint.convergence.round
-  const maxCycles = checkpoint.convergence.tier?.maxCycles ?? TIERS.standard.maxCycles
+  // SEC-005: Apply arc_convergence_max_cycles override with clamping (1-5)
+  const rawMaxCycles = config?.review?.arc_convergence_max_cycles
+  const maxCycles = rawMaxCycles != null
+    ? Math.max(1, Math.min(5, parseInt(rawMaxCycles, 10) || TIERS.standard.maxCycles))
+    : checkpoint.convergence.tier?.maxCycles ?? TIERS.standard.maxCycles
   const findingThreshold = Math.max(0, parseInt(config?.review?.arc_convergence_finding_threshold ?? 0, 10)) || 0
   // Validate ratio: reject values outside (0.1, 0.9)
   const rawRatio = parseFloat(config?.review?.arc_convergence_improvement_ratio ?? 0.5)
@@ -192,7 +212,7 @@ Under `review:` section in talisman.yml. Uses `arc_` prefix to avoid collision w
 
 ```yaml
 review:
-  # Arc review-mend convergence (v1.38.0+)
+  # Arc review-mend convergence (v1.37.0+)
   # NOTE: These keys use 'arc_' prefix to distinguish from chunked review
   # convergence keys (convergence_tier_override, convergence_density_threshold, etc.)
   arc_convergence_tier_override: null     # Force: "light" | "standard" | "thorough" | null
@@ -208,4 +228,5 @@ review:
 
 ## Scope Limitation Note
 
-**SCOPE-BIAS** (P3 — unresolved): `findings_before` comparison is biased by scope reduction (full → focused review). Pass 1 reviews all changed files; pass 2+ reviews only mend-modified files + dependencies. A decrease in findings may reflect narrower scope rather than code improvement. This is a known limitation — consider scope-adjusted ratio in a future version.
+<!-- TODO(v1.38.0): SCOPE-BIAS — scope-adjusted convergence ratio -->
+**SCOPE-BIAS** (P3 — documented limitation): `findings_before` comparison is biased by scope reduction (full → focused review). Pass 1 reviews all changed files; pass 2+ reviews only mend-modified files + dependencies. A decrease in findings may reflect narrower scope rather than code improvement. This is a known limitation — consider scope-adjusted ratio in a future version.

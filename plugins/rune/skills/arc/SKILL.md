@@ -430,6 +430,35 @@ function prePhaseCleanup(checkpoint) {
     // SDK state. If this doesn't work, more retries with sleep won't help.
     try { TeamDelete() } catch (e3) { /* SDK state cleared or was already clear */ }
 
+    // Strategy 4 (SDK leadership nuclear reset): If Strategies 1-3 all failed because
+    // a prior phase's cleanup already rm-rf'd team dirs before TeamDelete could clear
+    // SDK internal leadership tracking, the SDK still thinks we're leading a ghost team.
+    // Fix: temporarily recreate each checkpoint-recorded team's minimal dir so TeamDelete
+    // can find it and release leadership. When TeamDelete succeeds, we've found the
+    // ghost team and cleared state. Only iterates completed/failed/skipped phases.
+    // This handles the Phase 2 → Phase 6+ leadership leak where Phase 2's rm-rf fallback
+    // cleared dirs before TeamDelete could clear SDK state (see team-lifecycle-guard.md).
+    for (const [pn, pi] of Object.entries(checkpoint.phases)) {
+      if (FORBIDDEN_PHASE_KEYS.has(pn)) continue
+      if (!pi?.team_name || typeof pi.team_name !== 'string') continue
+      if (pi.status === 'in_progress') continue
+      if (!/^[a-zA-Z0-9_-]+$/.test(pi.team_name)) continue
+
+      const tn = pi.team_name
+      // Recreate minimal dir so SDK can find and release the team
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && mkdir -p "$CHOME/teams/${tn}" && printf '{"team_name":"%s","members":[]}' "${tn}" > "$CHOME/teams/${tn}/config.json" 2>/dev/null`)
+      try {
+        TeamDelete()
+        // Success — SDK leadership state cleared. Clean up the recreated dir.
+        Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${tn}/" "$CHOME/tasks/${tn}/" 2>/dev/null`)
+        break  // SDK only tracks one team at a time — done
+      } catch (e4) {
+        // Not the team SDK was tracking, or TeamDelete failed for another reason.
+        // Clean up the recreated dir and try the next checkpoint team.
+        Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${tn}/" "$CHOME/tasks/${tn}/" 2>/dev/null`)
+      }
+    }
+
   } catch (e) {
     // Top-level guard: defensive infrastructure must NEVER halt the pipeline.
     warn(`ARC-6: prePhaseCleanup failed (${e.message}) — proceeding anyway`)
@@ -454,7 +483,7 @@ if (!/^[0-9a-f]{12}$/.test(rawNonce)) {
 const sessionNonce = rawNonce
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 5, plan_file: planFile,
+  id, schema_version: 6, plan_file: planFile,
   flags: { approve: approveFlag, no_forge: noForgeFlag, skip_freshness: skipFreshnessFlag, confirm: confirmFlag },
   freshness: freshnessResult || null,
   session_nonce: sessionNonce, phase_sequence: 0,
@@ -575,7 +604,9 @@ On resume, validate checkpoint integrity before proceeding:
       // NOTE: Do NOT call selectReviewMendTier() here. Migrated checkpoints use
       // STANDARD as a safe default. Tier re-selection would use stale git state
       // from before the resume. (decree-arbiter P2)
-   b. Set convergence.max_rounds: TIERS.standard.maxCycles (= 3)
+   b. // SEC-008: Preserve existing max_rounds if convergence already in progress
+      if (convergence.round > 0) { /* keep existing max_rounds */ }
+      else { convergence.max_rounds = TIERS.standard.maxCycles (= 3) }
    c. Set schema_version: 6
 3f. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
@@ -818,8 +849,8 @@ Read and execute the arc-phase-audit.md algorithm. Update checkpoint on completi
 | GAP ANALYSIS | CODE REVIEW | `gap-analysis.md` | Criteria coverage (ADDRESSED/MISSING/PARTIAL) |
 | CODE REVIEW | MEND | `tome.md` | TOME with `<!-- RUNE:FINDING ... -->` markers |
 | MEND | VERIFY MEND | `resolution-report.md` | Fixed/FP/Failed finding list |
-| VERIFY MEND | MEND (retry) | `tome-round-{N}.md` | Mini-TOME with RUNE:FINDING from spot-check |
-| VERIFY MEND | AUDIT | `spot-check-round-{N}.md` | Spot-check results (SPOT:FINDING or SPOT:CLEAN) |
+| VERIFY MEND | MEND (retry) | `review-focus-round-{N}.json` | Phase 6+7 reset to pending, progressive focus scope |
+| VERIFY MEND | AUDIT | `resolution-report.md` + checkpoint convergence | Convergence verdict (converged/halted) |
 | AUDIT | Done | `audit-report.md` | Final audit report. Pipeline summary to user |
 
 ## Failure Policy (ARC-5)
@@ -834,7 +865,7 @@ Read and execute the arc-phase-audit.md algorithm. Update checkpoint on completi
 | GAP ANALYSIS | Non-blocking — WARN only | Advisory context for code review |
 | CODE REVIEW | Does not halt | Produces findings or clean report |
 | MEND | Halt if >3 FAILED findings | User fixes, `/rune:arc --resume` |
-| VERIFY MEND | Non-blocking — retries up to 2x, then proceeds | Convergence gate is advisory |
+| VERIFY MEND | Non-blocking — retries up to tier max cycles (LIGHT: 2, STANDARD: 3, THOROUGH: 5), then proceeds | Convergence gate is advisory |
 | AUDIT | Does not halt — informational | User reviews audit report |
 
 ## Post-Arc Plan Completion Stamp
@@ -941,9 +972,9 @@ Next steps:
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
-| Schema v1/v2/v3/v4/v5 checkpoint on --resume | Auto-migrate to v6 |
+| Schema v1-v5 checkpoint on --resume | Auto-migrate to v6 |
 | Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |
-| Verify mend spot-check timeout (>4 min) | Skip convergence check, proceed to audit with warning |
-| Spot-check agent produces no output | Default to "halted" (fail-closed) |
+| Convergence evaluation timeout (>4 min) | Skip convergence check, proceed to audit with warning |
+| TOME missing or malformed after re-review | Default to "halted" (fail-closed) |
 | Findings diverging after mend | Halt convergence immediately, proceed to audit |
-| Convergence circuit breaker (max 2 retries) | Stop retrying, proceed to audit with remaining findings |
+| Convergence circuit breaker (tier max cycles) | Stop retrying, proceed to audit with remaining findings |

@@ -250,7 +250,7 @@ defaults:
 #     total: 7200000          # 120 minutes total pipeline (default)
 
 # ──────────────────────────────────────────────
-# Arc — Convergence loop settings (v1.38.0+)
+# Arc — Convergence loop settings (v1.37.0+)
 # ──────────────────────────────────────────────
 # Adaptive review-mend convergence loop in /rune:arc (Phase 7.5).
 # The arc pipeline repeats code review → mend cycles until findings converge.
@@ -262,12 +262,8 @@ defaults:
 # Arc convergence controls the Phase 6→7→7.5 loop; review convergence controls
 # per-chunk convergence within a single Phase 6 invocation.
 #
-# arc:
-#   arc_convergence_enabled: true              # Enable arc convergence loop (default: true)
-#   arc_convergence_tier_override: null         # Force tier: "light" | "standard" | "thorough" | null (auto-detect)
-#   arc_convergence_p1_threshold: 0            # Max P1 findings to consider converged (default: 0 — zero tolerance)
-#   arc_convergence_total_threshold: 3         # Max total findings to consider converged (default: 3)
-#   arc_convergence_progress_floor: 0.1        # Min improvement ratio per cycle to continue (default: 0.1 = 10%)
+# NOTE: Arc convergence keys belong under the `review:` section below.
+# The code reads from config.review.arc_convergence_* (not config.arc.*).
 
 # ──────────────────────────────────────────────
 # Solution Arena — Competitive solution evaluation (v1.24.0+)
@@ -316,6 +312,15 @@ echoes:
   # convergence_evidence_threshold: 0.7    # Min findings-with-evidence ratio (default: 0.7)
   # convergence_confidence_threshold: 0.6  # Min avg confidence score (default: 0.6)
   # convergence_coverage_threshold: 0.4    # Min files-with-findings ratio for code chunks (default: 0.4)
+  #
+  # Arc review-mend convergence (v1.37.0+)
+  # NOTE: These keys use 'arc_' prefix to distinguish from chunked review keys above.
+  # Arc convergence controls the Phase 6→7→7.5 loop; review convergence controls
+  # per-chunk convergence within a single Phase 6 invocation.
+  # arc_convergence_tier_override: null     # Force: "light" | "standard" | "thorough" | null (auto-detect)
+  # arc_convergence_max_cycles: null        # Hard override: 1-5 (overrides tier, use sparingly)
+  # arc_convergence_finding_threshold: 0    # P1 findings below this count = converged (default: 0)
+  # arc_convergence_improvement_ratio: 0.5  # Findings must decrease by this ratio to continue (default: 0.5)
 
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings

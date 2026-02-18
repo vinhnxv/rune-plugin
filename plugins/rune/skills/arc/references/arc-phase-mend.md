@@ -24,7 +24,7 @@ Invoke `/rune:mend` logic on the TOME. Parallel fixers resolve findings from the
 The TOME input file varies based on the convergence round:
 
 ```javascript
-const mendRound = checkpoint.convergence?.round || 0
+const mendRound = checkpoint.convergence?.round ?? 0
 const tomeSource = mendRound === 0
   ? `tmp/arc/${id}/tome.md`
   : `tmp/arc/${id}/tome-round-${mendRound}.md`

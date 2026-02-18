@@ -104,8 +104,10 @@ if (flags['--scope-file']) {
   try {
     const scopeData = JSON.parse(Read(scopePath))
     if (Array.isArray(scopeData?.focus_files) && scopeData.focus_files.length > 0) {
-      // Filter to files that actually exist
-      changed_files = scopeData.focus_files.filter(f => exists(f))
+      // SEC-001: Validate each entry against SAFE_FILE_PATH before use
+      changed_files = scopeData.focus_files.filter(f =>
+        typeof f === 'string' && SAFE_FILE_PATH.test(f) && !f.includes('..') && !f.startsWith('/') && exists(f)
+      )
       log(`Scope override: ${changed_files.length} files from ${scopePath}`)
     } else {
       warn(`--scope-file ${scopePath} has no focus_files — falling back to git diff scope`)
@@ -275,6 +277,12 @@ if (Number.isNaN(cycleCount) || cycleCount < 1 || cycleCount > 5) {
 if (cycleCount > 1) {
   log(`Multi-pass review: ${cycleCount} cycles requested`)
   const cycleTomes = []
+
+  // SEC-002: Defense-in-depth — re-validate identifier before constructing cycleIdentifier
+  if (!/^[a-zA-Z0-9_-]+$/.test(identifier)) {
+    error(`Invalid identifier in multi-pass wrapper: ${identifier}`)
+    return
+  }
 
   for (let cycle = 1; cycle <= cycleCount; cycle++) {
     const cycleIdentifier = `${identifier}-cycle-${cycle}`
