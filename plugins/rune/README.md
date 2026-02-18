@@ -361,7 +361,9 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | rune-orchestration | Multi-agent coordination patterns |
+| using-rune | Workflow discovery and intent routing |
 | zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
+| arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
 
 ## Configuration
 

@@ -33,6 +33,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/scratch/` | Session scratch pads | Yes |
 | `tmp/mend/{id}/` | Mend resolution reports, fixer outputs | Yes (if completed) |
 | `tmp/arc/{id}/` | Arc pipeline artifacts (enriched plans, TOME, reports) | Yes (if completed) |
+| `tmp/arc-batch/` | Batch progress, logs, config | Yes (if no active batch) |
 | `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional, symlink-guarded) |
 | `~/.claude/teams/{rune-*/arc-*}/` (or `$CLAUDE_CONFIG_DIR/teams/` if set) | Orphaned team configs from crashed workflows | `--heal` only |
 | `~/.claude/tasks/{rune-*/arc-*}/` (or `$CLAUDE_CONFIG_DIR/tasks/` if set) | Orphaned task lists from crashed workflows | `--heal` only |
@@ -267,7 +268,7 @@ const staleStateFiles = []
 const activeStateFiles = []  // CC-1 FIX: separate list for safety check
 
 // See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
-for (const type of ["work", "review", "mend", "audit", "forge"]) {  // CC-4: include forge
+for (const type of ["work", "review", "mend", "audit", "forge", "batch"]) {  // CC-4: include forge, QUAL-003: include batch
   const files = Glob(`tmp/.rune-${type}-*.json`)
   for (const f of files) {
     try {

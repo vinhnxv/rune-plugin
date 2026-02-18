@@ -26,6 +26,14 @@ MAX_RETRIES=$(jq -r '.max_retries // 3' "$CONFIG_FILE")
 MAX_BUDGET=$(jq -r '.max_budget // 15.0' "$CONFIG_FILE")
 MAX_TURNS=$(jq -r '.max_turns // 200' "$CONFIG_FILE")
 
+# SEC-002 FIX: Validate config values before use in shell commands
+[[ "$PLANS_FILE" =~ ^[a-zA-Z0-9._/-]+$ ]] || { echo "[arc-batch] ERROR: Invalid plans_file path" >&2; exit 1; }
+[[ "$PLUGIN_DIR" =~ ^[a-zA-Z0-9._/-]+$ ]] || { echo "[arc-batch] ERROR: Invalid plugin_dir path" >&2; exit 1; }
+[[ "$PROGRESS_FILE" =~ ^[a-zA-Z0-9._/-]+$ ]] || { echo "[arc-batch] ERROR: Invalid progress_file path" >&2; exit 1; }
+[[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || MAX_RETRIES=3
+[[ "$MAX_BUDGET" =~ ^[0-9]+\.?[0-9]*$ ]] || MAX_BUDGET=15.0
+[[ "$MAX_TURNS" =~ ^[0-9]+$ ]] || MAX_TURNS=200
+
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BATCH_START=$(date +%s)
 CURRENT_PID=0
@@ -42,13 +50,13 @@ fi
 
 # ── Signal Handling ──
 cleanup() {
+  local exit_code=$?  # BACK-001 FIX: Capture $? FIRST before any other statements
   # Guard against double-signal re-entrance
   $CLEANING_UP && return
   CLEANING_UP=true
   trap - SIGINT SIGTERM SIGHUP  # Prevent re-entry
 
-  local exit_code=$?
-  echo "[arc-batch] Signal received. Cleaning up..."
+  echo "[arc-batch] Signal received (exit=$exit_code). Cleaning up..."
 
   # Kill child claude process (positive PID — CC-3 alignment)
   if [[ "$CURRENT_PID" -gt 0 ]] && kill -0 "$CURRENT_PID" 2>/dev/null; then
@@ -83,10 +91,14 @@ pre_run_git_health() {
     git rebase --abort 2>/dev/null || true
   fi
 
-  # 2. Remove stale index lock (from prior crashed commit)
+  # 2. Remove stale index lock (SEC-003 FIX: check liveness before removal)
   if [[ -f .git/index.lock ]]; then
-    echo "  WARNING: Stale .git/index.lock detected, removing..."
-    rm -f .git/index.lock
+    if ! lsof .git/index.lock >/dev/null 2>&1; then
+      echo "  WARNING: Stale .git/index.lock detected, removing..."
+      rm -f .git/index.lock
+    else
+      echo "  WARNING: .git/index.lock held by active process, skipping removal"
+    fi
   fi
 
   # 3. Check for MERGE_HEAD (incomplete merge)
@@ -95,11 +107,12 @@ pre_run_git_health() {
     git merge --abort 2>/dev/null || true
   fi
 
-  # 4. Ensure clean working tree
+  # 4. Ensure clean working tree (BACK-006 FIX: exclude tmp/ and .claude/ from clean)
   if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
     echo "  WARNING: Dirty working tree, resetting..."
+    git status --porcelain 2>/dev/null >&2  # SEC-004 FIX: log files being discarded
     git checkout -- . 2>/dev/null || true
-    git clean -fd 2>/dev/null || true
+    git clean -fd -e tmp/ -e .claude/ 2>/dev/null || true
   fi
 }
 
@@ -130,11 +143,11 @@ cleanup_state() {
     shopt -u nullglob
   fi
 
-  # All modes: kill orphaned teams
-  find "$CHOME/teams/" -maxdepth 1 -type d \
+  # All modes: kill orphaned teams (BACK-007 FIX: pre-check directory existence)
+  [[ -d "$CHOME/teams" ]] && find "$CHOME/teams/" -maxdepth 1 -type d \
     \( -name "rune-*" -o -name "arc-*" \) \
     -exec rm -rf {} + 2>/dev/null || true
-  find "$CHOME/tasks/" -maxdepth 1 -type d \
+  [[ -d "$CHOME/tasks" ]] && find "$CHOME/tasks/" -maxdepth 1 -type d \
     \( -name "rune-*" -o -name "arc-*" \) \
     -exec rm -rf {} + 2>/dev/null || true
 
@@ -197,13 +210,19 @@ echo ""
 
 COMPLETED=0
 FAILED=0
-SKIPPED=0
 
 while IFS= read -r plan || [[ -n "$plan" ]]; do
   # Skip empty lines and comments
   [[ -z "$plan" || "$plan" == \#* ]] && continue
 
   INDEX=$(jq --arg p "$plan" '[.plans[] | .path] | index($p)' "$PROGRESS_FILE")
+
+  # BACK-004 FIX: Validate INDEX — null means plan not found in progress file
+  if [[ "$INDEX" == "null" || -z "$INDEX" ]]; then
+    echo "  ERROR: Plan not found in progress file: $plan" >&2
+    FAILED=$((FAILED + 1))
+    continue
+  fi
 
   # Skip already completed plans (for --resume)
   PLAN_STATUS=$(jq -r --argjson idx "$INDEX" '.plans[$idx].status' "$PROGRESS_FILE")
@@ -251,6 +270,11 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
     # --dangerously-skip-permissions: headless mode — no interactive prompts
     # --no-session-persistence: ephemeral session — no state leak between runs
     # WARNING: Plans execute with full permissions. Ensure all plans are trusted.
+    # BACK-002/BACK-008 FIX: Use pipe instead of process substitution.
+    # Process substitution >(tee ...) has two issues:
+    # 1. With setsid, $! is the PID of setsid — exit code of claude is lost
+    # 2. tee processes can become orphaned on signal, accumulating FDs
+    # Pipe + pipefail ensures correct exit code propagation and clean tee lifecycle.
     if $HAS_SETSID; then
       setsid claude -p "$EFFECTIVE_CMD" \
         --plugin-dir "$PLUGIN_DIR" \
@@ -259,7 +283,7 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
         --dangerously-skip-permissions \
         --max-turns "$MAX_TURNS" \
         --max-budget-usd "$MAX_BUDGET" \
-        > >(tee "$LOG_FILE") 2>&1 &
+        2>&1 | tee "$LOG_FILE" &
     else
       # macOS fallback: direct execution without setsid
       claude -p "$EFFECTIVE_CMD" \
@@ -269,7 +293,7 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
         --dangerously-skip-permissions \
         --max-turns "$MAX_TURNS" \
         --max-budget-usd "$MAX_BUDGET" \
-        > >(tee "$LOG_FILE") 2>&1 &
+        2>&1 | tee "$LOG_FILE" &
     fi
     CURRENT_PID=$!
     if wait "$CURRENT_PID" 2>/dev/null; then

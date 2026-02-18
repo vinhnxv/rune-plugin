@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+umask 077
 
 # ──────────────────────────────────────────────
 # arc-batch-preflight.sh — Pre-validate plan files
@@ -29,6 +30,13 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
   # 3. Path traversal check
   if [[ "$plan" == *".."* ]]; then
     echo "ERROR: Path traversal rejected: $plan" >&2
+    ERRORS=$((ERRORS + 1))
+    continue
+  fi
+
+  # 3.5 SEC-001 FIX: Character-set validation (aligns with forge.md/arc.md pattern)
+  if [[ ! "$plan" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
+    echo "ERROR: Invalid characters in path: $plan" >&2
     ERRORS=$((ERRORS + 1))
     continue
   fi
