@@ -88,6 +88,62 @@ else
 fi
 ```
 
+### Diff Range Generation (Phase 0 — Diff-Scope Engine)
+
+Generate line-level diff ranges for downstream TOME tagging (Phase 5.3) and scope-aware mend filtering. See `rune-orchestration/references/diff-scope.md` for the full algorithm.
+
+```javascript
+// Read talisman config for diff scope settings
+const talisman = readTalisman()
+const diffScopeEnabled = talisman?.review?.diff_scope?.enabled !== false  // Default: true
+
+let diffScope = { enabled: false }
+
+if (diffScopeEnabled && changed_files.length > 0) {
+  // SEC-WS-001: Validate defaultBranch before shell interpolation
+  const BRANCH_NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
+  if (!BRANCH_NAME_REGEX.test(default_branch) || default_branch.includes('..')) {
+    warn(`Invalid default branch name: ${default_branch} — disabling diff scope`)
+  } else {
+    // Single-invocation diff — O(1) shell calls (see diff-scope.md STEP 2-3)
+    // SEC-010 FIX: Clamp to 0-50 (aligned with docs). SEC-004 FIX: Type-guard.
+    const rawExpansion = talisman?.review?.diff_scope?.expansion ?? 8
+    const EXPANSION_ZONE = Math.max(0, Math.min(50, typeof rawExpansion === 'number' ? rawExpansion : 8))
+    let diffOutput
+    if (flags['--partial']) {
+      diffOutput = Bash(`git diff --cached --unified=0 -M`)
+    } else {
+      // SEC-003 FIX: Use -- separator to prevent argument injection from branch names
+      diffOutput = Bash(`git diff --unified=0 -M -- "${default_branch}...HEAD"`)
+    }
+
+    if (diffOutput.exitCode !== 0) {
+      warn(`git diff failed (exit ${diffOutput.exitCode}) — disabling diff scope`)
+    } else {
+      // Parse diff output into per-file line ranges
+      // See diff-scope.md STEP 3 for full parsing algorithm
+      const headSha = Bash(`git rev-parse HEAD`).trim()
+      const ranges = parseDiffRanges(diffOutput, EXPANSION_ZONE)  // diff-scope.md STEP 3-4
+
+      diffScope = {
+        enabled: true,
+        base: default_branch,
+        expansion: EXPANSION_ZONE,
+        ranges: ranges,
+        head_sha: headSha,
+        version: 1
+      }
+    }
+  }
+}
+
+// Write diff ranges to file for large diffs (>50 files)
+if (diffScope.enabled && Object.keys(diffScope.ranges).length > 50) {
+  Write(`tmp/reviews/${identifier}/diff-ranges.json`, JSON.stringify(diffScope.ranges))
+  log(`Diff ranges written to tmp/reviews/${identifier}/diff-ranges.json (${Object.keys(diffScope.ranges).length} files)`)
+}
+```
+
 ### Scope File Override (--scope-file)
 
 When `--scope-file` is provided, override git-diff-based `changed_files`:
@@ -386,7 +442,8 @@ Write("tmp/.rune-review-{identifier}.json", {
 })
 
 // 4. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
-Write("tmp/reviews/{identifier}/inscription.json", { ... })
+// Include diff_scope from Phase 0 diff range generation
+Write("tmp/reviews/{identifier}/inscription.json", { ..., diff_scope: diffScope })
 
 // 5. Pre-create guard: teamTransition protocol (see team-lifecycle-guard.md)
 // STEP 1: Validate (defense-in-depth)
@@ -716,6 +773,31 @@ for (const ash of selectedAsh) {
 ```
 
 This is a transparency flag, not a hard minimum. Zero findings on a small changeset is normal. Zero findings on 20+ files warrants a second look.
+
+## Phase 5.3: Diff-Scope Tagging (orchestrator-only)
+
+Tags each RUNE:FINDING in the TOME with `scope="in-diff"` or `scope="pre-existing"` based on diff ranges generated in Phase 0. Runs after aggregation and BEFORE Cross-Model Verification so Codex findings also get scope attributes.
+
+**Team**: None (orchestrator-only)
+**Input**: `tmp/reviews/{identifier}/TOME.md`, `tmp/reviews/{identifier}/inscription.json` (diff_scope field)
+**Output**: Modified `tmp/reviews/{identifier}/TOME.md` with scope attributes injected
+
+See `rune-orchestration/references/diff-scope.md` "Scope Tagging (Phase 5.3)" for the full algorithm.
+
+```javascript
+// QUAL-001 FIX: Delegate to diff-scope.md canonical algorithm instead of reimplementing inline.
+// See rune-orchestration/references/diff-scope.md "Scope Tagging (Phase 5.3)" for full algorithm
+// (STEP 1-8: parse markers, validate attributes, tag scope, strip+inject, validate count, log summary).
+const inscription = JSON.parse(Read(`tmp/reviews/${identifier}/inscription.json`))
+const diffScope = inscription.diff_scope
+
+if (diffScope?.enabled && diffScope?.ranges) {
+  const taggedTome = scopeTagTome(identifier, diffScope)  // diff-scope.md STEP 1-8
+  // taggedTome is null on validation failure (rollback to original TOME)
+} else {
+  log("Diff-scope tagging skipped: diff_scope not enabled or no ranges")
+}
+```
 
 <!-- NOTE: "Phase 5.5" in review.md refers to Cross-Model Verification (Codex Oracle).
      Other pipelines use 5.5 for different sub-phases (audit: Truthseer Validator, arc: Gap Analysis). -->

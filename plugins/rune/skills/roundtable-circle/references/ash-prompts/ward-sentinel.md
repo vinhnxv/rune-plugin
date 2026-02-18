@@ -99,6 +99,10 @@ You review ALL files regardless of type. Security vulnerabilities can hide anywh
 - Provide specific code-level fixes (not just "add validation")
 - Reference OWASP/CWE identifiers where applicable
 
+## Diff Scope Awareness
+
+See [diff-scope-awareness.md](../diff-scope-awareness.md) for scope guidance when `diff_scope` data is present in inscription.json.
+
 ## OUTPUT FORMAT
 
 Write markdown to `{output_path}`:

@@ -74,6 +74,10 @@ You are the Glyph Scribe — frontend code reviewer for this review session.
 - Missing alt text on images
 - Focus management issues
 
+## Diff Scope Awareness
+
+See [diff-scope-awareness.md](../diff-scope-awareness.md) for scope guidance when `diff_scope` data is present in inscription.json.
+
 ## OUTPUT FORMAT
 
 Write markdown to `{output_path}`:

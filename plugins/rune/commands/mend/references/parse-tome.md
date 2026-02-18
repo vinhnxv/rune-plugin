@@ -31,11 +31,22 @@ Before parsing, validate TOME freshness:
 Parse structured `<!-- RUNE:FINDING -->` markers from TOME:
 
 ```
-<!-- RUNE:FINDING nonce="{session_nonce}" id="SEC-001" file="src/auth/login.ts" line="42" severity="P1" -->
+<!-- RUNE:FINDING nonce="{session_nonce}" id="SEC-001" file="src/auth/login.ts" line="42" severity="P1" scope="in-diff" -->
 ### SEC-001: SQL Injection in Login Handler
 **Evidence:** `query = f"SELECT * FROM users WHERE id = {user_id}"`
 **Fix guidance:** Replace string concatenation with parameterized query
 <!-- /RUNE:FINDING -->
+```
+
+### Scope Attribute Extraction
+
+The `scope` attribute is optional — backward compatible with untagged TOMEs (pre-v1.38.0).
+
+```javascript
+// Extract scope from RUNE:FINDING marker (added by review.md Phase 5.3)
+const scope = marker.match(/scope="(in-diff|pre-existing)"/)?.[1] || "in-diff"
+// Default to "in-diff" for backward compatibility — untagged findings are treated as in-diff
+// This preserves existing mend behavior for TOMEs without diff-scope tagging
 ```
 
 **Nonce validation**: Each finding marker contains a session nonce. Validate that the nonce matches the TOME session nonce from the header. Markers with invalid or missing nonces are flagged as `INJECTED` and reported to the user -- these are not processed.
@@ -93,6 +104,64 @@ fileGroups = {
 ```
 
 **Per-fixer cap**: Maximum 10 findings per fixer. If a file group exceeds 10, split into sub-groups with sequential processing.
+
+## Scope-Aware Priority Filtering
+
+When findings have `scope` attributes (from review.md Phase 5.3 diff-scope tagging), apply scope-aware priority to focus mend budget on PR-relevant findings:
+
+```javascript
+// Read talisman config for scope filtering behavior
+const talisman = readTalisman()
+const fixPreExistingP1 = talisman?.review?.diff_scope?.fix_pre_existing_p1 !== false  // Default: true
+
+// Apply scope-aware priority
+// QUAL-003: scope = raw TOME attribute ("in-diff"|"pre-existing"|undefined).
+//           scopeAction = mend decision ("fix"|"skip"). Check scopeAction for mend behavior.
+// QUAL-004 FIX: Hoist inDiffCount above loop (was O(N^2) recomputed per iteration)
+const inDiffCount = allFindings.filter(f => f.scope === "in-diff").length
+
+for (const finding of allFindings) {
+  if (finding.scope === "pre-existing") {
+    if (finding.severity === "P1" && fixPreExistingP1) {
+      // P1 findings: always fix regardless of scope (security/crash issues)
+      finding.scopeAction = "fix"
+    } else if (finding.severity === "P2") {
+      // P2 findings: fix if in-diff, skip if pre-existing
+      // Exception: fix pre-existing P2 if fewer than 5 total in-diff findings
+      finding.scopeAction = inDiffCount < 5 ? "fix" : "skip"
+    } else {
+      // DOC-006 FIX: P3 pre-existing findings: always skip (not actionable for this PR)
+      finding.scopeAction = "skip"
+    }
+  } else {
+    // in-diff findings: normal priority rules apply
+    if (finding.severity === "P3" && inDiffCount >= 10) {
+      finding.scopeAction = "skip"  // Too many in-diff findings — skip P3
+    } else {
+      finding.scopeAction = "fix"
+    }
+  }
+}
+
+// Filter: remove skipped pre-existing findings from file groups
+// Skipped findings are still recorded in the resolution report as SKIPPED (scope)
+const actionableFindings = allFindings.filter(f => f.scopeAction === "fix" || !f.scope)
+const skippedByScope = allFindings.filter(f => f.scopeAction === "skip")
+if (skippedByScope.length > 0) {
+  log(`Scope filtering: ${skippedByScope.length} pre-existing findings skipped (${actionableFindings.length} actionable)`)
+}
+```
+
+**Backward compatibility**: When `scope` attribute is absent (untagged TOME), `scopeAction` defaults to `"fix"` — all findings are processed normally. No behavioral change for pre-v1.38.0 TOMEs.
+
+**Edge case — zero in-diff findings**: When ALL findings are `scope="pre-existing"` and none are P1, all findings would be skipped. In this case, fall back to fixing all P2 findings regardless of scope (disable scope filtering for that round) and log a "zero in-diff" warning:
+
+```javascript
+if (actionableFindings.length === 0 && allFindings.length > 0) {
+  warn("Zero in-diff findings — disabling scope filtering for this round")
+  for (const f of allFindings) { f.scopeAction = "fix" }
+}
+```
 
 ## Skip FALSE_POSITIVE
 

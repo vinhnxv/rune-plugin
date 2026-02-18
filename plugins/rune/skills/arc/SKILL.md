@@ -975,6 +975,84 @@ Next steps:
 4. /rune:rest — Clean up tmp/ artifacts when done
 ```
 
+## Post-Arc Final Sweep (ARC-9)
+
+> **IMPORTANT — Execution order**: This step runs AFTER the completion report. It catches zombie
+> teammates left alive by incomplete phase cleanup. Without this sweep, the lead session spins
+> on idle notifications ("Twisting...") because the SDK still holds leadership state from
+> the last phase's team. This is the safety net — `prePhaseCleanup` handles inter-phase cleanup,
+> but there is no subsequent phase to trigger cleanup after Phase 8.
+
+```javascript
+// POST-ARC FINAL SWEEP (ARC-9)
+// Catches zombie teammates from the last delegated phase (typically Phase 8: AUDIT).
+// prePhaseCleanup only runs BEFORE each phase — nothing cleans up AFTER the last phase.
+// Without this, teammates survive and the lead spins on idle notifications indefinitely.
+
+try {
+  // Strategy A: Discover remaining teammates from checkpoint and shutdown
+  // Iterate ALL phases with recorded team_name (not just the last one —
+  // earlier phases may also have zombies if their cleanup was incomplete).
+  for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
+    if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue
+    if (!phaseInfo?.team_name || typeof phaseInfo.team_name !== 'string') continue
+    if (!/^[a-zA-Z0-9_-]+$/.test(phaseInfo.team_name)) continue
+
+    const teamName = phaseInfo.team_name
+
+    // Try to read team config to discover live members
+    try {
+      // Read() resolves CLAUDE_CONFIG_DIR automatically (SDK call)
+      const teamConfig = Read(`~/.claude/teams/${teamName}/config.json`)
+      const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+      const memberNames = members.map(m => m.name).filter(Boolean)
+
+      if (memberNames.length > 0) {
+        // Send shutdown_request to every discovered member
+        for (const member of memberNames) {
+          SendMessage({ type: "shutdown_request", recipient: member, content: "Arc pipeline complete — final sweep" })
+        }
+        // Brief grace period for shutdown approval responses (5s)
+        Bash(`sleep 5`)
+      }
+    } catch (e) {
+      // Team config unreadable — dir may already be gone. That's fine.
+    }
+  }
+
+  // Strategy B: Clear SDK leadership state with retry-with-backoff
+  // Same pattern as prePhaseCleanup Strategy 1 — must clear SDK state
+  // so the session can exit cleanly without spinning on idle notifications.
+  const SWEEP_DELAYS = [0, 3000, 5000]
+  let sweepCleared = false
+  for (let attempt = 0; attempt < SWEEP_DELAYS.length; attempt++) {
+    if (attempt > 0) Bash(`sleep ${SWEEP_DELAYS[attempt] / 1000}`)
+    try { TeamDelete(); sweepCleared = true; break } catch (e) {
+      // Expected if no active team — SDK state already clear
+    }
+  }
+
+  // Strategy C: Filesystem fallback — rm -rf all checkpoint-recorded teams
+  // Only runs if TeamDelete didn't succeed (same CDX-003 gate as prePhaseCleanup)
+  if (!sweepCleared) {
+    for (const [pn, pi] of Object.entries(checkpoint.phases)) {
+      if (FORBIDDEN_PHASE_KEYS.has(pn)) continue
+      if (!pi?.team_name || typeof pi.team_name !== 'string') continue
+      if (!/^[a-zA-Z0-9_-]+$/.test(pi.team_name)) continue
+
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${pi.team_name}/" "$CHOME/tasks/${pi.team_name}/" 2>/dev/null`)
+    }
+    // Final TeamDelete attempt after filesystem cleanup
+    try { TeamDelete() } catch (e) { /* SDK state cleared or was already clear */ }
+  }
+
+} catch (e) {
+  // Defensive — final sweep must NEVER halt the pipeline or prevent the completion
+  // report from being shown. If this fails, the user can still /rune:cancel-arc.
+  warn(`ARC-9: Final sweep failed (${e.message}) — use /rune:cancel-arc if session is stuck`)
+}
+```
+
 ## Error Handling
 
 | Error | Recovery |
@@ -1000,3 +1078,4 @@ Next steps:
 | TOME missing or malformed after re-review | Default to "halted" (fail-closed) |
 | Findings diverging after mend | Halt convergence immediately, proceed to audit |
 | Convergence circuit breaker (tier max cycles) | Stop retrying, proceed to audit with remaining findings |
+| Zombie teammates after arc completion (ARC-9) | Final sweep sends shutdown_request + TeamDelete. Fallback: `/rune:cancel-arc` |

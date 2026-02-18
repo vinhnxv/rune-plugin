@@ -315,6 +315,10 @@ OUT_OF_SCOPE findings that pass steps 1-3 are real but not in scope for this rev
 - Missing validation at system boundaries
 - Naming and convention inconsistencies
 
+## Diff Scope Awareness
+
+See [diff-scope-awareness.md](../diff-scope-awareness.md) for scope guidance when `diff_scope` data is present in inscription.json.
+
 ## OUTPUT FORMAT
 
 Write markdown to `{output_path}`:

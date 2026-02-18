@@ -99,7 +99,7 @@ Used by Phase 7.5 to decide: converge, retry, or halt.
 **Outputs**: Verdict (`converged` | `retry` | `halted`)
 
 ```javascript
-function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config) {
+function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config, scopeStats) {
   const round = checkpoint.convergence.round
   // SEC-005: Apply arc_convergence_max_cycles override with clamping (1-5)
   const rawMaxCycles = config?.review?.arc_convergence_max_cycles
@@ -135,6 +135,23 @@ function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config) {
   if (p1Count <= findingThreshold) {
     return 'converged'  // P1 count below acceptable threshold
   }
+
+  // Smart convergence scoring (v1.38.0+) — scope-aware early convergence
+  // When diff-scope data is available, compute a composite score from P3 dominance,
+  // pre-existing noise, and trend signals. High scores (>= threshold) trigger early
+  // convergence even when total finding count hasn't reached zero.
+  // scopeStats is optional — null/undefined for pre-v1.38.0 TOMEs or disabled diff-scope.
+  if (scopeStats && config?.review?.diff_scope?.enabled !== false) {
+    const smartScoringEnabled = config?.review?.convergence?.smart_scoring !== false  // Default: true
+    if (smartScoringEnabled) {
+      const score = computeConvergenceScore(scopeStats, checkpoint, config)
+      const convergenceThreshold = parseFloat(config?.review?.convergence?.convergence_threshold ?? 0.7)
+      const safeThreshold = isNaN(convergenceThreshold) ? 0.7 : Math.max(0.1, Math.min(1.0, convergenceThreshold))
+      if (score.total >= safeThreshold) {
+        return 'converged'  // Smart scoring: remaining findings are mostly P3/pre-existing noise
+      }
+    }
+  }
   if (round + 1 >= maxCycles) {
     return 'halted'     // Max cycles reached — circuit breaker
   }
@@ -162,6 +179,92 @@ function evaluateConvergence(currentFindingCount, p1Count, checkpoint, config) {
 
   return 'retry'        // Findings decreasing meaningfully — another cycle
 }
+```
+
+## Smart Convergence Scoring (v1.38.0+)
+
+Computes a composite convergence score from scope-aware signals. Used by `evaluateConvergence()` to detect early convergence when remaining findings are mostly noise (P3 severity or pre-existing code).
+
+**Inputs**: `scopeStats` (from TOME parsing), `checkpoint`, `config`
+**Outputs**: `{ total, components, reason }` — score between 0.0 and 1.0
+**Error handling**: Missing/null scopeStats → returns null (caller must guard). P1 > 0 → returns 0.0 (hard gate).
+
+```javascript
+function computeConvergenceScore(scopeStats, checkpoint, config) {
+  if (!scopeStats || typeof scopeStats !== 'object') return null
+
+  const { p1Count, p3Count, preExistingCount, inDiffCount, totalFindings } = scopeStats
+
+  // Hard gate: P1 findings prevent smart convergence — always retry or fix
+  if (p1Count > 0) {
+    return { total: 0.0, components: { p3: 0, preExisting: 0, trend: 0, base: 0 }, reason: 'p1_active' }
+  }
+
+  // Guard: no findings = fully converged
+  if (totalFindings === 0) {
+    return { total: 1.0, components: { p3: 0, preExisting: 0, trend: 0, base: 1.0 }, reason: 'zero_findings' }
+  }
+
+  // Edge case: zero in-diff findings — all findings are pre-existing
+  // If nothing in the PR diff remains, this is ideal convergence
+  if (inDiffCount === 0 && totalFindings > 0) {
+    return { total: 1.0, components: { p3: 0, preExisting: 1.0, trend: 0, base: 1.0 }, reason: 'zero_in_diff' }
+  }
+
+  // Component 1: P3 dominance ratio (weight: 0.4)
+  // High P3 ratio means remaining findings are low-severity polish items
+  const p3Ratio = totalFindings > 0 ? p3Count / totalFindings : 0
+
+  // Component 2: Pre-existing noise ratio (weight: 0.3)
+  // High pre-existing ratio means findings aren't caused by this PR
+  const preExistingRatio = totalFindings > 0 ? preExistingCount / totalFindings : 0
+
+  // Component 3: Trend — findings decreasing from previous round? (weight: 0.2)
+  const round = checkpoint.convergence?.round ?? 0
+  const prevFindings = round === 0 ? Infinity
+    : checkpoint.convergence.history[round - 1]?.findings_after ?? Infinity
+  const trendDecreasing = (totalFindings < prevFindings) ? 1.0 : 0.0
+
+  // Component 4: Base (weight: 0.1) — always contributes minimum score
+  const base = 1.0
+
+  // Weights — hardcoded for v1.38.0. Talisman-configurable in future version.
+  // Sum must equal 1.0: 0.4 + 0.3 + 0.2 + 0.1 = 1.0
+  const total = 0.4 * p3Ratio + 0.3 * preExistingRatio + 0.2 * trendDecreasing + 0.1 * base
+
+  return {
+    total: Math.round(total * 100) / 100,  // Round to 2 decimal places
+    components: {
+      p3: Math.round(p3Ratio * 100) / 100,
+      preExisting: Math.round(preExistingRatio * 100) / 100,
+      trend: trendDecreasing,
+      base
+    },
+    reason: null
+  }
+}
+```
+
+### Score Interpretation
+
+| Score Range | Verdict Effect | Meaning |
+|-------------|---------------|---------|
+| >= 0.7 | `converged` | Remaining findings are mostly P3/pre-existing noise — safe to stop |
+| 0.5 - 0.7 | No effect (existing logic decides) | Mixed signals — let improvement ratio and cycle limits decide |
+| < 0.5 | No effect (existing logic decides) | Active findings remain — existing halting conditions apply |
+| 0.0 | Always | P1 findings present — never converge via smart scoring |
+
+### Talisman Config Keys (smart convergence)
+
+Under `review:` section. Requires `diff_scope.enabled: true` (default) for scope stats to be available.
+
+```yaml
+review:
+  convergence:
+    smart_scoring: true              # Enable smart convergence scoring (default: true)
+    convergence_threshold: 0.7       # Score >= this = converged (default: 0.7, range: 0.1-1.0)
+    # p3_dominance_threshold: 0.7    # RESERVED — no effect in v1.38.0. Planned for future per-component thresholds.
+    # noise_threshold: 0.5           # RESERVED — no effect in v1.38.0. Planned for future per-component thresholds.
 ```
 
 ## Progressive Review Focus
@@ -253,5 +356,6 @@ review:
 
 ## Scope Limitation Note
 
-<!-- TODO(v1.38.0): SCOPE-BIAS — scope-adjusted convergence ratio -->
-**SCOPE-BIAS** (P3 — documented limitation): `findings_before` comparison is biased by scope reduction (full → focused review). Pass 1 reviews all changed files; pass 2+ reviews only mend-modified files + dependencies. A decrease in findings may reflect narrower scope rather than code improvement. This is a known limitation — consider scope-adjusted ratio in a future version.
+**SCOPE-BIAS** (P3 — partially mitigated in v1.38.0): `findings_before` comparison is biased by scope reduction (full → focused review). Pass 1 reviews all changed files; pass 2+ reviews only mend-modified files + dependencies. A decrease in findings may reflect narrower scope rather than code improvement.
+
+**v1.38.0 mitigation**: Smart convergence scoring (`computeConvergenceScore()`) partially addresses this by evaluating finding COMPOSITION (P3 ratio, pre-existing ratio) rather than raw count. A focused review with 5 P3 pre-existing findings scores higher than 5 P1 in-diff findings, correctly identifying the former as noise. However, the raw `findings_before` vs `findings_after` comparison in `evaluateConvergence()` (line ~145) still uses counts without scope adjustment. Full scope-adjusted ratio remains a future improvement.

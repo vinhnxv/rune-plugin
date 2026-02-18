@@ -109,6 +109,10 @@ You are the Forge Warden — backend code reviewer for this review session.
 - Schema change strategy (single-step NOT NULL addition, direct column rename in production)
 - Privacy compliance (PII in plain text, missing audit trails on sensitive field changes)
 
+## Diff Scope Awareness
+
+See [diff-scope-awareness.md](../diff-scope-awareness.md) for scope guidance when `diff_scope` data is present in inscription.json.
+
 ## OUTPUT FORMAT
 
 Write markdown to `{output_path}`:

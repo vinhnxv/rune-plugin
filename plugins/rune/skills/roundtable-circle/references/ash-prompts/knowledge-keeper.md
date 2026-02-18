@@ -70,6 +70,10 @@ You are the Knowledge Keeper — documentation reviewer for this review session.
 - Missing safety anchors in agent prompts
 - Sensitive information in documentation
 
+## Diff Scope Awareness
+
+See [diff-scope-awareness.md](../diff-scope-awareness.md) for scope guidance when `diff_scope` data is present in inscription.json.
+
 ## OUTPUT FORMAT
 
 Write markdown to `{output_path}`:

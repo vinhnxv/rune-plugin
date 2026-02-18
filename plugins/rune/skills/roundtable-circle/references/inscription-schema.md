@@ -41,6 +41,17 @@
     "max_reverify_agents": "integer — max re-verify agents to summon"
   },
 
+  "diff_scope": {
+    "enabled": "boolean — whether diff-scope tagging is active (default: true)",
+    "base": "string — base branch for diff (e.g., 'main')",
+    "expansion": "integer — ±N lines expansion zone (default: 8)",
+    "ranges": {
+      "file/path.ts": "[[startLine, endLine], ...] — expanded line ranges. null endLine = to end of file (new/renamed files)"
+    },
+    "head_sha": "string — HEAD commit SHA at diff generation time (for stale detection)",
+    "version": "integer — schema version (currently: 1)"
+  },
+
   "context_engineering": {
     "read_ordering": "source_first | reference_first",
     "instruction_anchoring": "boolean — ANCHOR + RE-ANCHOR in prompts",
@@ -125,6 +136,7 @@
 | `teammates[].name` | Yes | — |
 | `teammates[].output_file` | Yes | — |
 | `teammates[].required_sections` | Yes | — |
+| `diff_scope` | No | `{ "enabled": false }` |
 | `aggregator` | No | No aggregation |
 | `verification` | No | `{ "enabled": false }` |
 | `context_engineering` | No | Defaults applied |

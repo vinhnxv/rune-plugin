@@ -113,6 +113,10 @@ You review ALL file types, focusing on code quality, simplicity, and consistency
 - Blocking calls in async context (time.sleep, std::fs, readFileSync in async functions)
 - Frontend timing (stale async responses without request cancellation, animation races, boolean flags for mutually exclusive states)
 
+## Diff Scope Awareness
+
+See [diff-scope-awareness.md](../diff-scope-awareness.md) for scope guidance when `diff_scope` data is present in inscription.json.
+
 ## OUTPUT FORMAT
 
 Write markdown to `{output_path}`:
