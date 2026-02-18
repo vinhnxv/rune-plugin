@@ -101,14 +101,7 @@ You review ALL files regardless of type. Security vulnerabilities can hide anywh
 
 ## Diff Scope Awareness
 
-This review includes `diff_scope` data in inscription.json showing which line ranges
-were changed in this PR. When reporting findings:
-- **Prioritize** findings on changed lines (these are most actionable)
-- **Still report** findings on unchanged lines if they are P1 (critical/security)
-- For P2/P3 findings on unchanged lines, prefix the finding title with `[PRE-EXISTING]`
-  to help downstream filtering
-
-This is guidance, not a hard filter — your review quality should not be compromised.
+See [diff-scope-awareness.md](../diff-scope-awareness.md) for scope guidance when `diff_scope` data is present in inscription.json.
 
 ## OUTPUT FORMAT
 

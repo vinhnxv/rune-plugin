@@ -263,8 +263,8 @@ review:
   convergence:
     smart_scoring: true              # Enable smart convergence scoring (default: true)
     convergence_threshold: 0.7       # Score >= this = converged (default: 0.7, range: 0.1-1.0)
-    p3_dominance_threshold: 0.7      # RESERVED — per-component threshold for future use
-    noise_threshold: 0.5             # RESERVED — per-component threshold for future use
+    # p3_dominance_threshold: 0.7    # RESERVED — no effect in v1.38.0. Planned for future per-component thresholds.
+    # noise_threshold: 0.5           # RESERVED — no effect in v1.38.0. Planned for future per-component thresholds.
 ```
 
 ## Progressive Review Focus

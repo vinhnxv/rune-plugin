@@ -77,9 +77,16 @@ const p1Count = countP1Findings(currentTome)
 // Scope stats are available when diff-scope tagging was applied (review.md Phase 5.3).
 // For untagged TOMEs (pre-v1.38.0), scopeStats is null → evaluateConvergence skips smart scoring.
 let scopeStats = null
-const findingMarkers = currentTome.match(/<!-- RUNE:FINDING[^>]*-->/g) || []
+// SEC-007 FIX: Filter markers by session nonce before extracting scope stats.
+// Without nonce validation, stale/injected markers from prior sessions could inflate counts.
+const sessionNonce = checkpoint.session_nonce
+const allMarkers = currentTome.match(/<!-- RUNE:FINDING[^>]*-->/g) || []
+const findingMarkers = sessionNonce
+  ? allMarkers.filter(m => m.includes(`nonce="${sessionNonce}"`))
+  : allMarkers  // Fallback: no nonce in checkpoint (pre-v1.11.0) → use all markers
 if (findingMarkers.some(m => /scope="(in-diff|pre-existing)"/.test(m))) {
-  const p3Markers = findingMarkers.filter(m => /severity="P3"/.test(m))
+  // SEC-006 FIX: Case-insensitive severity matching to prevent p1 bypass via lowercase
+  const p3Markers = findingMarkers.filter(m => /severity="P3"/i.test(m))
   const preExistingMarkers = findingMarkers.filter(m => /scope="pre-existing"/.test(m))
   const inDiffMarkers = findingMarkers.filter(m => /scope="in-diff"/.test(m))
   scopeStats = {

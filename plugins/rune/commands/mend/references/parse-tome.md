@@ -115,6 +115,11 @@ const talisman = readTalisman()
 const fixPreExistingP1 = talisman?.review?.diff_scope?.fix_pre_existing_p1 !== false  // Default: true
 
 // Apply scope-aware priority
+// QUAL-003: scope = raw TOME attribute ("in-diff"|"pre-existing"|undefined).
+//           scopeAction = mend decision ("fix"|"skip"). Check scopeAction for mend behavior.
+// QUAL-004 FIX: Hoist inDiffCount above loop (was O(N^2) recomputed per iteration)
+const inDiffCount = allFindings.filter(f => f.scope === "in-diff").length
+
 for (const finding of allFindings) {
   if (finding.scope === "pre-existing") {
     if (finding.severity === "P1" && fixPreExistingP1) {
@@ -123,15 +128,13 @@ for (const finding of allFindings) {
     } else if (finding.severity === "P2") {
       // P2 findings: fix if in-diff, skip if pre-existing
       // Exception: fix pre-existing P2 if fewer than 5 total in-diff findings
-      const inDiffCount = allFindings.filter(f => f.scope === "in-diff").length
       finding.scopeAction = inDiffCount < 5 ? "fix" : "skip"
     } else {
-      // P3 findings: fix only if in-diff AND total in-diff findings < 10
+      // DOC-006 FIX: P3 pre-existing findings: always skip (not actionable for this PR)
       finding.scopeAction = "skip"
     }
   } else {
     // in-diff findings: normal priority rules apply
-    const inDiffCount = allFindings.filter(f => f.scope === "in-diff").length
     if (finding.severity === "P3" && inDiffCount >= 10) {
       finding.scopeAction = "skip"  // Too many in-diff findings — skip P3
     } else {

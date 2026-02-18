@@ -106,12 +106,15 @@ if (diffScopeEnabled && changed_files.length > 0) {
     warn(`Invalid default branch name: ${default_branch} — disabling diff scope`)
   } else {
     // Single-invocation diff — O(1) shell calls (see diff-scope.md STEP 2-3)
-    const EXPANSION_ZONE = Math.max(0, Math.min(100, talisman?.review?.diff_scope?.expansion ?? 8))
+    // SEC-010 FIX: Clamp to 0-50 (aligned with docs). SEC-004 FIX: Type-guard.
+    const rawExpansion = talisman?.review?.diff_scope?.expansion ?? 8
+    const EXPANSION_ZONE = Math.max(0, Math.min(50, typeof rawExpansion === 'number' ? rawExpansion : 8))
     let diffOutput
     if (flags['--partial']) {
       diffOutput = Bash(`git diff --cached --unified=0 -M`)
     } else {
-      diffOutput = Bash(`git diff --unified=0 -M "${default_branch}...HEAD"`)
+      // SEC-003 FIX: Use -- separator to prevent argument injection from branch names
+      diffOutput = Bash(`git diff --unified=0 -M -- "${default_branch}...HEAD"`)
     }
 
     if (diffOutput.exitCode !== 0) {
@@ -782,58 +785,15 @@ Tags each RUNE:FINDING in the TOME with `scope="in-diff"` or `scope="pre-existin
 See `rune-orchestration/references/diff-scope.md` "Scope Tagging (Phase 5.3)" for the full algorithm.
 
 ```javascript
+// QUAL-001 FIX: Delegate to diff-scope.md canonical algorithm instead of reimplementing inline.
+// See rune-orchestration/references/diff-scope.md "Scope Tagging (Phase 5.3)" for full algorithm
+// (STEP 1-8: parse markers, validate attributes, tag scope, strip+inject, validate count, log summary).
 const inscription = JSON.parse(Read(`tmp/reviews/${identifier}/inscription.json`))
 const diffScope = inscription.diff_scope
 
 if (diffScope?.enabled && diffScope?.ranges) {
-  // STEP 1b: Verify HEAD hasn't changed (stale range detection)
-  const currentHead = Bash(`git rev-parse HEAD`).trim()
-  if (diffScope.head_sha && currentHead !== diffScope.head_sha) {
-    warn(`HEAD changed since diff range generation (${diffScope.head_sha} → ${currentHead}). Ranges may be stale.`)
-  }
-
-  // STEP 2: Parse all RUNE:FINDING markers from TOME
-  const tome = Read(`tmp/reviews/${identifier}/TOME.md`)
-  const findings = parseAllFindings(tome)  // [{file, line, severity, offset, fullMatch}]
-
-  // STEP 3: Tag each finding with scope
-  for (const finding of findings) {
-    const normalizedFile = finding.file.replace(/^\.\//, '').normalize('NFC')
-    const fileRanges = diffScope.ranges[normalizedFile]
-
-    if (!fileRanges) {
-      finding.scope = "pre-existing"
-    } else if (fileRanges.length === 1 && fileRanges[0][1] === null) {
-      finding.scope = "in-diff"      // New file / rename / binary
-    } else {
-      const inRange = fileRanges.some(([start, end]) =>
-        finding.line >= start && finding.line <= end
-      )
-      finding.scope = inRange ? "in-diff" : "pre-existing"
-    }
-  }
-
-  // STEP 4: SEC-WS-003 — Strip existing scope attributes before injecting
-  let taggedTome = tome.replace(
-    /<!-- RUNE:FINDING\s+([^>]*?)(\s*scope="[^"]*")([^>]*?)-->/g,
-    '<!-- RUNE:FINDING $1$3-->'
-  )
-
-  // STEP 5: Inject orchestrator-determined scope attributes
-  taggedTome = injectScopeAttributes(taggedTome, findings)
-
-  // STEP 6: Validate — re-parse and confirm finding count matches
-  const retaggedCount = (taggedTome.match(/<!-- RUNE:FINDING/g) || []).length
-  if (retaggedCount !== findings.length) {
-    warn(`Tagging validation failed: expected ${findings.length}, found ${retaggedCount}. Using original TOME.`)
-  } else {
-    Write(`tmp/reviews/${identifier}/TOME.md`, taggedTome)
-  }
-
-  // STEP 7: Log tagging summary
-  const inDiff = findings.filter(f => f.scope === "in-diff").length
-  const preExisting = findings.filter(f => f.scope === "pre-existing").length
-  log(`Diff-scope tagging: ${inDiff} in-diff, ${preExisting} pre-existing (of ${findings.length} total)`)
+  const taggedTome = scopeTagTome(identifier, diffScope)  // diff-scope.md STEP 1-8
+  // taggedTome is null on validation failure (rollback to original TOME)
 } else {
   log("Diff-scope tagging skipped: diff_scope not enabled or no ranges")
 }

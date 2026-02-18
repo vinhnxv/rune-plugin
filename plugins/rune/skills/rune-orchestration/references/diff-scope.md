@@ -26,8 +26,10 @@ if (!BRANCH_NAME_REGEX.test(defaultBranch) || defaultBranch.includes('..')) {
 // Three-dot syntax uses merge base, handling merge commits correctly.
 const talisman = readTalisman()
 const EXPANSION_ZONE = talisman?.review?.diff_scope?.expansion ?? 8
-// SEC: Clamp expansion to 0-100 range to prevent resource exhaustion
-const expansion = Math.max(0, Math.min(100, EXPANSION_ZONE))
+// SEC-010 FIX: Clamp expansion to 0-50 range (aligned with talisman.example.yml docs)
+// SEC-004 FIX: Type-guard before clamping — non-numeric values fallback to default 8
+const rawExpansion = typeof EXPANSION_ZONE === 'number' ? EXPANSION_ZONE : 8
+const expansion = Math.max(0, Math.min(50, rawExpansion))
 
 let diffOutput
 if (flags['--partial']) {
@@ -68,6 +70,7 @@ for (const section of fileSections) {
   // Path normalization: POSIX forward-slash, NFC form, repo-root-relative
   const normalizedPath = filePath
     .replace(/\\/g, '/')          // Windows backslash to forward slash
+    .replace(/\/+/g, '/')         // SEC-011 FIX: Collapse double-slashes (key mismatch prevention)
     .normalize('NFC')             // NFC normalization for macOS compatibility
 
   // Security: validate path before use
@@ -172,7 +175,7 @@ return diffScope
 ## Scope Tagging (Phase 5.3)
 
 Tags each RUNE:FINDING in the TOME with `scope="in-diff"` or `scope="pre-existing"`.
-Runs after Phase 5 (Aggregation) and BEFORE Phase 5.5 (Cross-Model Verification).
+Runs after Phase 5 (Aggregation) and BEFORE Phase 5.5 (Cross-Model Verification in `/rune:review`; not to be confused with Arc Phase 5.5 Gap Analysis).
 
 ```javascript
 // STEP 1: Read TOME and diff_scope from inscription.json
@@ -200,8 +203,23 @@ while ((match = FINDING_PATTERN.exec(tome)) !== null) {
   const file = attrs.match(/file="([^"]+)"/)?.[1]
   const line = parseInt(attrs.match(/line="(\d+)"/)?.[1], 10)
   const severity = attrs.match(/severity="([^"]+)"/)?.[1]
+
+  // SEC-002 FIX: Validate attribute values at extraction time
+  // Severity must be P1/P2/P3 (case-insensitive, normalized to uppercase)
+  const normalizedSeverity = severity?.toUpperCase()
+  if (normalizedSeverity && !/^P[1-3]$/.test(normalizedSeverity)) {
+    warn(`Invalid severity "${severity}" in FINDING marker — skipping`)
+    continue
+  }
+  // File path must pass safe-path check (no path traversal, no special chars)
+  const SAFE_FILE_PATH = /^[a-zA-Z0-9._\/-]+$/
+  if (file && (!SAFE_FILE_PATH.test(file) || file.includes('..'))) {
+    warn(`Unsafe file path "${file}" in FINDING marker — skipping`)
+    continue
+  }
+
   if (file && !isNaN(line)) {
-    findings.push({ file, line, severity, offset: match.index, fullMatch: match[0] })
+    findings.push({ file, line, severity: normalizedSeverity, offset: match.index, fullMatch: match[0] })
   }
 }
 
@@ -225,11 +243,15 @@ for (const finding of findings) {
   }
 }
 
-// STEP 4: SEC-WS-003 — Strip existing scope attributes BEFORE injecting
+// STEP 4: SEC-WS-003 — Strip ALL existing scope attributes BEFORE injecting
 // An Ash (or reviewed code via prompt injection) could pre-insert scope="in-diff"
-let taggedTome = tome.replace(
-  /<!-- RUNE:FINDING\s+([^>]*?)(\s*scope="[^"]*")([^>]*?)-->/g,
-  '<!-- RUNE:FINDING $1$3-->'
+// SEC-001 FIX: Apply strip-loop to remove ALL occurrences (not just first per marker)
+let taggedTome = tome
+// First pass: strip scope attributes from RUNE:FINDING markers (global, handles multiple)
+const SCOPE_ATTR = /\s*scope="[^"]*"/g
+taggedTome = taggedTome.replace(
+  /<!-- RUNE:FINDING\s+([^>]+)-->/g,
+  (marker) => marker.replace(SCOPE_ATTR, '')
 )
 
 // STEP 5: Inject scope attribute into RUNE:FINDING markers
