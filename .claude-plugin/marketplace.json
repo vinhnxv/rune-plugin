@@ -13,8 +13,8 @@
   "plugins": [
     {
       "name": "rune",
-      "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, and audit with Agent Teams. Includes 16 specialized review agents, 5 research agents, 12 commands, and 10 skills. BMAD-derived elicitation methods for structured reasoning. Multi-language quality guidance (Python, TypeScript, Rust).",
-      "version": "1.36.0",
+      "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, and audit with Agent Teams. Includes 16 review agents, 5 research agents, 8 investigation agents, 8 utility agents, 12 commands, and 12 skills. BMAD-derived elicitation methods for structured reasoning. Multi-language quality guidance (Python, TypeScript, Rust).",
+      "version": "1.37.0",
       "author": {
         "name": "vinhnxv",
         "email": "vinh.ngxv@gmail.com",
@@ -53,10 +53,12 @@
         "./skills/codex-cli",
         "./skills/context-weaving",
         "./skills/elicitation",
+        "./skills/goldmask",
         "./skills/polling-guard",
         "./skills/roundtable-circle",
         "./skills/rune-echoes",
-        "./skills/rune-orchestration"
+        "./skills/rune-orchestration",
+        "./skills/zsh-compat"
       ],
       "source": "./plugins/rune"
     }

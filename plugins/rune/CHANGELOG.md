@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.37.0] — 2026-02-18
+
+### Added
+- **Goldmask v2 — Wisdom Layer**: Three-layer cross-layer impact analysis (Impact + Wisdom + Lore) with Collateral Damage Detection
+  - Impact Layer: 5 Haiku tracers for dependency tracing across data, API, business, event, and config layers
+  - Wisdom Layer: Sonnet-powered git archaeology — understands WHY code was written via git blame, commit intent classification, and caution scoring
+  - Lore Layer: Quantitative git history analysis — per-file risk scores, churn metrics, co-change clustering, ownership concentration
+  - Collateral Damage Detection: Noisy-OR blast-radius scoring + Swarm Detection for bugs that travel in pairs
+  - Goldmask Coordinator: Three-layer synthesis into unified GOLDMASK.md report with findings.json
+- New `/rune:goldmask` standalone skill for on-demand investigation
+- 8 new investigation agents in `agents/investigation/`: 5 impact tracers + wisdom-sage + lore-analyst + goldmask-coordinator
+- New `goldmask` talisman configuration section with layer-specific settings, CDD thresholds, and mode selection
+
+### Changed
+- Agent count: 31 → 39 (added 8 investigation agents)
+- Skills: 11 → 12 (added goldmask)
+
 ## [1.35.0] - 2026-02-18
 
 ### Fixed

@@ -220,14 +220,6 @@ defaults:
 #       enabled: true
 #       ...
 #
-# QUAL-016 FIX: freshness block belongs under plan: key, not at top level.
-# Merge these settings under the `plan:` key above, like:
-#   plan:
-#     verification_patterns: [...]
-#     freshness:
-#       enabled: true
-#       ...
-#
 #   plan.freshness:
 #     enabled: true              # Set false to disable freshness check globally
 #     warn_threshold: 0.7        # Score below this → WARN (float, 0.01-1.0)
@@ -440,3 +432,44 @@ codex:
 #           - path: "skills/elicitation/references/phase-mapping.md"
 #             pattern: "{value} methods"
 #         phase: ["plan", "arc"]
+
+# ──────────────────────────────────────────────
+# Goldmask — Cross-layer impact analysis (v1.37.0+)
+# ──────────────────────────────────────────────
+# Three-layer investigation: Impact (dependency tracing), Wisdom (git archaeology),
+# Lore (quantitative risk scoring), plus Collateral Damage Detection.
+# goldmask:
+#   layers:
+#     impact:
+#       enabled: true                    # Enable Impact Layer (5 Haiku tracers)
+#       tracer_model: haiku              # Model for impact tracers (haiku recommended for speed)
+#       max_tracers: 5                   # Max concurrent tracers (default: 5, range: 1-8)
+#       tracer_timeout: 120000           # Per-tracer timeout in ms (default: 120000 = 2 min)
+#     wisdom:
+#       enabled: true                    # Enable Wisdom Layer (git archaeology)
+#       model: sonnet                    # Model for wisdom-sage (sonnet recommended for reasoning)
+#       max_blame_files: 50             # Max files to git-blame (default: 50, range: 10-200)
+#       max_findings_to_investigate: 20  # Max findings from Impact Layer to investigate (default: 20)
+#       intent_classification: true      # Classify commit intent (bugfix, feature, refactor, etc.)
+#       caution_threshold: 0.7          # Caution score threshold for flagging (0.0-1.0, default: 0.7)
+#     lore:
+#       enabled: true                    # Enable Lore Layer (quantitative git history)
+#       model: haiku                     # Model for lore-analyst (haiku sufficient for metrics)
+#       lookback_days: 180              # Git history lookback window in days (default: 180)
+#       churn_threshold: 10             # File changes above this = high churn (default: 10)
+#       co_change_min_support: 3        # Min co-change occurrences for clustering (default: 3)
+#       ownership_concentration_warn: 0.8  # Warn when single author owns >N% of file (default: 0.8)
+#     cdd:
+#       enabled: true                    # Enable Collateral Damage Detection
+#       noisy_or_threshold: 0.6         # Blast-radius score threshold (0.0-1.0, default: 0.6)
+#       swarm_detection: true           # Detect bugs that travel in pairs (default: true)
+#       swarm_lookback_commits: 50      # Commits to scan for swarm patterns (default: 50)
+#   coordinator_model: sonnet            # Model for goldmask-coordinator (sonnet for synthesis)
+#   double_check_top_n: 5               # Re-verify top N highest-risk findings (default: 5)
+#   priority_weights:                    # Layer weights for final risk scoring (must sum to 1.0)
+#     impact: 0.4                        # Weight for Impact Layer (default: 0.4)
+#     wisdom: 0.35                       # Weight for Wisdom Layer (default: 0.35)
+#     lore: 0.25                         # Weight for Lore Layer (default: 0.25)
+#   modes:
+#     quick: false                       # Skip Wisdom + Lore layers (Impact only)
+#     deep: false                        # Extended lookback (360 days), lower thresholds

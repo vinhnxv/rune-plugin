@@ -15,7 +15,9 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
 | **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
+| **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
 | **arc** | End-to-end orchestration pipeline (10 phases: freshness → forge → plan review → work → code review → mend → audit) |
+| **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection |
 
 ## Commands
 
@@ -44,7 +46,10 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 5. On compaction or session resume: re-read team config, task list, and inscription contract.
 6. Agent output goes to `tmp/` files (ephemeral). Echoes go to `.claude/echoes/` (persistent).
 7. `/rune:*` namespace — coexists with other plugins without conflicts.
-8. **zsh compatibility**: Never use `status` as a Bash variable name — it is read-only in zsh (macOS default shell). Use `task_status`, `tstat`, or `completion_status` instead. Also avoid: `pipestatus`, `ERRNO`, `signals`.
+8. **zsh compatibility** (macOS default shell):
+   - **Read-only variables**: Never use `status` as a Bash variable name — it is read-only in zsh. Use `task_status`, `tstat`, or `completion_status` instead. Also avoid: `pipestatus`, `ERRNO`, `signals`.
+   - **Glob NOMATCH**: In zsh, unmatched globs in `for` loops cause fatal errors (`no matches found`). Always protect globs with `(N)` qualifier: `for f in path/*.md(N); do`. Alternatively, use `setopt nullglob` or `shopt -s nullglob` before the loop.
+   - **Enforcement**: `enforce-zsh-compat.sh` PreToolUse hook (ZSH-001) blocks both `status=` assignments and unprotected `for ... in GLOB; do` patterns at runtime when zsh is detected. The `zsh-compat` skill provides background knowledge for all zsh pitfalls.
 9. **Polling loop fidelity**: When translating `waitForCompletion` pseudocode, you MUST call the `TaskList` tool on every poll cycle — not just sleep and hope. The correct sequence per cycle is: `TaskList()` → count completed → check stale/timeout → `Bash("sleep 30")` → repeat. Derive loop parameters from config — not arbitrary values: `maxIterations = ceil(timeoutMs / pollIntervalMs)` and `sleep $(pollIntervalMs / 1000)`. See monitor-utility.md per-command configuration table for exact values.
    - **NEVER** use `Bash("sleep N && echo poll check")` as a monitoring pattern. This skips TaskList entirely and provides zero visibility into task progress.
    - **ALWAYS** call `TaskList` between sleeps to check actual task status.
@@ -59,6 +64,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 |------|--------|---------|
 | `PreToolUse:Write\|Edit\|Bash\|NotebookEdit` | `scripts/enforce-readonly.sh` | SEC-001: Blocks write tools for review/audit Ashes when `.readonly-active` marker exists. |
 | `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. |
+| `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) blocks unprotected glob in `for` loops. Only active when user's shell is zsh (or macOS fallback). |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
 | `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
 | `TaskCompleted` | `scripts/on-task-completed.sh` + haiku quality gate | Writes signal files to `tmp/.rune-signals/{team}/` when Ashes complete tasks. Enables 5-second filesystem-based completion detection. Also runs a haiku-model quality gate that validates task completion legitimacy (blocks premature/generic completions). |
@@ -66,11 +72,11 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 
 All hooks require `jq` for JSON parsing. If `jq` is missing, hooks exit 0 (non-blocking) and the system falls back gracefully. Hook configuration lives in `hooks/hooks.json`.
 
-**Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-polling.sh`, `enforce-teams.sh`) emit deny/allow decisions directly. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), TaskCompleted 10s (signal I/O + haiku gate), TeammateIdle 15s (inscription parse + output validation).
+**Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-polling.sh`, `enforce-zsh-compat.sh`, `enforce-teams.sh`) emit deny/allow decisions directly. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), TaskCompleted 10s (signal I/O + haiku gate), TeammateIdle 15s (inscription parse + output validation).
 
 ## References
 
-- [Agent registry](references/agent-registry.md) — 16 review + 5 research + 2 work + 8 utility agents
+- [Agent registry](references/agent-registry.md) — 16 review + 5 research + 2 work + 8 utility + 8 investigation agents
 - [Key concepts](references/key-concepts.md) — Tarnished, Ash, TOME, Arc, Mend, Forge Gaze, Echoes
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow
