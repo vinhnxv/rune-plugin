@@ -230,26 +230,58 @@ defaults:
 #     max_commit_distance: 100   # Commits beyond this → max drift signal (clamped 1-10000)
 
 # ──────────────────────────────────────────────
-# Arc — Pipeline timeout overrides (v1.12.0+)
+# Arc — Default flag overrides (v1.40.0+)
 # ──────────────────────────────────────────────
-# Per-phase timeout overrides for /rune:arc. Values in milliseconds.
-# Hardcoded defaults — talisman-configurable timeouts are planned for a
-# future release.
-# arc:
-#   timeouts:
-#     forge: 900000           # 15 minutes (default: inner 10m + 5m setup)
-#     plan_review: 900000     # 15 minutes (default: inner 10m + 5m setup)
-#     plan_refine: 180000     # 3 minutes (default, orchestrator-only)
-#     verification: 30000     # 30 seconds (default, orchestrator-only, deterministic)
-#     work: 2100000           # 35 minutes (default: inner 30m + 5m setup)
-#     gap_analysis: 60000     # 1 minute (default, orchestrator-only, deterministic)
-#     code_review: 900000     # 15 minutes (default: inner 10m + 5m setup)
-#     mend: 1380000           # 23 minutes (default: inner 15m + 5m setup + 3m ward)
-#     verify_mend: 240000     # 4 minutes (default, orchestrator-only)
-#     audit: 1200000          # 20 minutes (default: inner 15m + 5m setup)
-#     semantic_verification: 180000  # 3 minutes (default, v1.39.0+)
-#     codex_gap_analysis: 660000     # 11 minutes (default, v1.39.0+)
-#     total: 9720000          # 162 minutes total pipeline (default, dynamic per tier)
+# 3-layer priority chain: hardcoded defaults → talisman.yml → CLI flags.
+# CLI flags always win. Talisman provides per-project defaults.
+# Hardcoded defaults (used when talisman omits the key):
+#   no_forge: false, approve: false, skip_freshness: false, confirm: false
+arc:
+  defaults:
+    no_forge: false              # Skip forge enrichment (CLI: --no-forge)
+    approve: false               # Require human approval per task (CLI: --approve)
+    skip_freshness: false        # Bypass plan freshness check (CLI: --skip-freshness)
+    confirm: false               # Pause for confirmation between phases (CLI: --confirm)
+
+  # ── Ship settings (Phase 9) ────────────────
+  # Controls PR creation after audit passes.
+  ship:
+    auto_pr: true                # Create PR automatically (CLI: --no-pr to disable)
+    auto_merge: false            # Merge PR automatically after CI (CLI: --no-merge to disable)
+    merge_strategy: "squash"     # squash | merge | rebase (default: squash)
+    wait_ci: false               # Wait for CI checks before merge (default: false)
+    draft: false                 # Create PR as draft (CLI: --draft)
+    labels: []                   # Labels to apply to PR (e.g., ["rune", "auto-merge"])
+    pr_monitoring: false         # Include post-deploy monitoring section in PR body
+    rebase_before_merge: true    # Rebase onto target branch before merge (default: true)
+
+  # ── Pre-merge checklist (Phase 9.5) ────────
+  # Deterministic checks before merge. Each boolean toggles a check.
+  pre_merge_checks:
+    migration_conflict: true     # Check for migration file conflicts
+    schema_conflict: true        # Check for schema drift
+    lock_file_conflict: true     # Check for lock file conflicts (package-lock.json, yarn.lock, etc.)
+    uncommitted_changes: true    # Check for uncommitted changes
+    migration_paths: []          # Additional paths to scan for migration conflicts (e.g., ["db/migrate/", "alembic/versions/"])
+
+  # ── Per-phase timeout overrides (v1.12.0+, activated v1.40.0) ──
+  # Values in milliseconds. Per-phase budgets feed calculateDynamicTimeout().
+  timeouts:
+    forge: 900000                # 15 minutes (default: inner 10m + 5m setup)
+    plan_review: 900000          # 15 minutes (default: inner 10m + 5m setup)
+    plan_refine: 180000          # 3 minutes (default, orchestrator-only)
+    verification: 30000          # 30 seconds (default, orchestrator-only, deterministic)
+    work: 2100000                # 35 minutes (default: inner 30m + 5m setup)
+    gap_analysis: 60000          # 1 minute (default, orchestrator-only, deterministic)
+    code_review: 900000          # 15 minutes (default: inner 10m + 5m setup)
+    mend: 1380000                # 23 minutes (default: inner 15m + 5m setup + 3m ward)
+    verify_mend: 240000          # 4 minutes (default, orchestrator-only)
+    audit: 1200000               # 20 minutes (default: inner 15m + 5m setup)
+    semantic_verification: 180000  # 3 minutes (default, v1.39.0+)
+    codex_gap_analysis: 660000   # 11 minutes (default, v1.39.0+)
+    ship: 300000                 # 5 minutes (default, v1.40.0+)
+    merge: 600000                # 10 minutes (default, v1.40.0+)
+    total: 10620000              # 177 minutes total pipeline (default, dynamic per tier)
 
 # ──────────────────────────────────────────────
 # Arc — Convergence loop settings (v1.37.0+)

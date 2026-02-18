@@ -77,4 +77,52 @@ work:
   co_authors: []                         # Co-Authored-By lines in "Name <email>" format
 ```
 
+## arc
+
+Arc pipeline configuration lives under the `arc:` key. Config resolution follows a 3-layer priority chain: **hardcoded defaults** → **talisman.yml** → **CLI flags** (CLI always wins).
+
+### `arc.defaults` — CLI flag defaults
+
+| Key | Type | Default | CLI flag |
+|-----|------|---------|----------|
+| `no_forge` | boolean | `false` | `--no-forge` |
+| `approve` | boolean | `false` | `--approve` |
+| `skip_freshness` | boolean | `false` | `--skip-freshness` |
+| `confirm` | boolean | `false` | `--confirm` |
+
+### `arc.ship` — Phase 9 (SHIP) settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `auto_pr` | boolean | `true` | Create PR automatically after audit. CLI: `--no-pr` to disable. |
+| `auto_merge` | boolean | `false` | Merge PR automatically after CI. CLI: `--no-merge` to disable. |
+| `merge_strategy` | string | `"squash"` | Merge strategy: `squash`, `merge`, or `rebase`. |
+| `wait_ci` | boolean | `false` | Wait for CI checks before merge. |
+| `draft` | boolean | `false` | Create PR as draft. CLI: `--draft`. |
+| `labels` | string[] | `[]` | Labels to apply to PR. |
+| `pr_monitoring` | boolean | `false` | Include post-deploy monitoring section in PR body. Note: distinct from `work.pr_monitoring` — `arc.ship.pr_monitoring` only applies to arc-created PRs. |
+| `rebase_before_merge` | boolean | `true` | Rebase onto target branch before merge. |
+
+### `arc.pre_merge_checks` — Phase 9.5 (MERGE) pre-merge checklist
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `migration_conflict` | boolean | `true` | Check for migration file conflicts. |
+| `schema_conflict` | boolean | `true` | Check for schema drift. |
+| `lock_file_conflict` | boolean | `true` | Check for lock file conflicts (package-lock.json, yarn.lock, etc.). |
+| `uncommitted_changes` | boolean | `true` | Check for uncommitted changes. |
+| `migration_paths` | string[] | `[]` | Additional paths to scan for migration conflicts. |
+
+### `arc.timeouts` — Per-phase timeout overrides (activated v1.40.0)
+
+Per-phase timeout values in milliseconds. Feed `calculateDynamicTimeout()`. New in v1.40.0: `ship` (300000) and `merge` (600000).
+
+See `talisman.example.yml` for the full list of timeout keys and default values.
+
+### `arc.consistency` — Cross-file consistency checks (v1.17.0+)
+
+See the consistency checks section in `talisman.example.yml` for schema and examples.
+
+---
+
 See `../skills/roundtable-circle/references/custom-ashes.md` for full schema and `talisman.example.yml` at plugin root.
