@@ -23,6 +23,7 @@ tools:
   - TaskGet
   - TaskUpdate
   - SendMessage
+maxTurns: 50
 ---
 
 # Trial Forger — Test Generation Agent

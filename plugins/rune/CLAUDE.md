@@ -58,6 +58,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
    - **ALWAYS** call `TaskList` between sleeps to check actual task status.
    - **ALWAYS** use `pollIntervalMs` from config (30s for all commands), never arbitrary values like 45s or 60s.
    - **Enforcement**: `enforce-polling.sh` PreToolUse hook (POLL-001) blocks sleep+echo anti-patterns at runtime. The `polling-guard` skill provides background knowledge for correct monitoring patterns.
+10. **Teammate non-persistence**: Teammates do not survive session boundaries (compaction, crash, exit). All teammate processes and context windows are lost. Only filesystem artifacts (tmp/ files, git commits, checkpoint.json, echoes) persist. After session loss, recover via checkpoint + `git status` + `/rune:rest --heal`.
 
 ## Versioning & Pre-Commit Checklist
 
