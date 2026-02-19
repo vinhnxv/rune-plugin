@@ -218,7 +218,7 @@ Write(`${signalDir}/inscription.json`, JSON.stringify({
 }))
 
 // 2. Create output directories
-Bash(`mkdir -p "tmp/work/${timestamp}/patches" "tmp/work/${timestamp}/proposals"`)
+Bash(`mkdir -p "tmp/work/${timestamp}/patches" "tmp/work/${timestamp}/proposals" "tmp/work/${timestamp}/todos"`)
 
 // 3. Write state file
 Write("tmp/.rune-work-{timestamp}.json", {
@@ -239,6 +239,13 @@ Write(`tmp/work/${timestamp}/inscription.json`, {
     { name: "rune-smith", role: "implementation", output_file: "patches/*.patch", required_sections: ["implementation", "ward-check"] },
     { name: "trial-forger", role: "test", output_file: "patches/*.patch", required_sections: ["tests", "ward-check"] }
   ],
+  todos: {
+    enabled: true,
+    dir: `todos/`,
+    schema: "per-worker",
+    fields: ["worker", "role", "status", "plan_path"],
+    summary_file: "_summary.md"
+  },
   verification: { enabled: false }
 })
 
@@ -349,6 +356,36 @@ for (let i = 0; i < extractedTasks.length; i++) {
 See [worker-prompts.md](work/references/worker-prompts.md) for full worker prompt templates, scaling logic, and the scaling table.
 
 **Summary**: Summon rune-smith (implementation) and trial-forger (test) workers. Workers self-organize via TaskList, claim tasks, implement with TDD, self-review, run ward checks, generate patches, and send Seal messages. Commits are handled through the Tarnished's commit broker. Do not run git add or git commit directly.
+
+### Todo File Protocol (v1.43.0+)
+
+All worker spawn prompts MUST include the following TODO FILE PROTOCOL block. Workers create per-worker todo files that persist after work completion for cross-session resume, post-mortem review, and accountability tracking.
+
+```
+TODO FILE PROTOCOL (mandatory):
+1. On first task claim: create tmp/work/{timestamp}/todos/{your-name}.md
+   with YAML frontmatter:
+   ---
+   worker: {your-name}
+   role: implementation | test
+   status: active
+   plan_path: {planPath}
+   ---
+2. Before starting each task: add a "## Task #N: {subject}" section
+   with Status: in_progress, Claimed timestamp, and initial subtask checklist
+3. As you complete each subtask: update the checkbox to [x]
+4. On task completion: add Files touched, Ward Result, Completed timestamp,
+   update Status to completed
+5. Record key decisions in "### Decisions" subsection — explain WHY, not just WHAT
+6. On failure: update Status to failed, add "### Failure reason" subsection
+7. On exit (shutdown or idle): update frontmatter status to completed/interrupted
+
+NOTE: Use simplified v1 frontmatter (4 fields only: worker, role, status, plan_path).
+All counters (tasks_completed, subtasks_total, etc.) are derived by the orchestrator
+during summary generation. Workers MUST NOT write counter fields.
+```
+
+**Error handling**: Todo file write failure is non-blocking — warn orchestrator, continue without todo tracking. Worker should not halt work execution due to todo file issues.
 
 <!-- NOTE: Work agents are spawned as general-purpose (not namespaced agent types like rune:work:rune-smith)
      because they need full tool access (including Bash for ward checks, compilation, and test execution).
@@ -505,6 +542,108 @@ function commitBroker(taskId) {
 After all tasks complete, run project-wide quality gates. See [ward-check.md](../skills/roundtable-circle/references/ward-check.md) for ward discovery protocol, gate execution, post-ward verification checklist, and bisection algorithm.
 
 **Summary**: Discover wards from Makefile/package.json/pyproject.toml, execute each with SAFE_WARD validation, run 10-point verification checklist. On ward failure, create fix task and summon worker.
+
+### Phase 4.1: Todo Summary Generation (orchestrator-only)
+
+After ward check passes and all workers have exited, the orchestrator generates `todos/_summary.md` by reading all per-worker todo files. This runs AFTER all workers exit to avoid TOCTOU race conditions.
+
+**Inputs**: All `todos/{worker-name}.md` files in `tmp/work/{timestamp}/todos/`
+**Outputs**: `tmp/work/{timestamp}/todos/_summary.md`
+**Preconditions**: Ward check passed (Phase 4), all workers completed/shutdown
+**Error handling**: Missing or unparseable todo file → skip that worker in summary (warn). Empty todos dir → skip summary generation entirely (non-blocking).
+
+```javascript
+// Phase 4.1: Generate todo summary AFTER all workers have exited
+const todoDir = `tmp/work/${timestamp}/todos`
+const todoFiles = Glob(`${todoDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
+
+if (todoFiles.length === 0) {
+  warn("No todo files found — skipping summary generation")
+} else {
+  const workers = []
+  for (const todoFile of todoFiles) {
+    try {
+      const content = Read(todoFile)
+      // Parse YAML frontmatter
+      const frontmatter = content.match(/^---\n([\s\S]*?)\n---/)
+      if (!frontmatter) { warn(`Unparseable frontmatter in ${todoFile} — skipping`); continue }
+
+      // Count checkboxes from markdown body
+      const body = content.slice(frontmatter[0].length)
+      const completed = (body.match(/- \[x\]/gi) || []).length
+      const total = completed + (body.match(/- \[ \]/g) || []).length
+
+      // Extract decisions
+      const decisions = []
+      const decisionMatches = body.matchAll(/### Decisions\n([\s\S]*?)(?=\n##|\n---|\n$)/g)
+      for (const match of decisionMatches) {
+        const items = match[1].match(/^- .+$/gm) || []
+        decisions.push(...items.map(d => d.replace(/^- /, '')))
+      }
+
+      // Count tasks by status
+      const taskSections = body.split(/^## Task /m).slice(1)
+      const taskStatuses = taskSections.map(s => {
+        const statusMatch = s.match(/\*\*Status\*\*:\s*(\w+)/)
+        return statusMatch ? statusMatch[1] : 'unknown'
+      })
+
+      // Fix any stale "active" status to "interrupted" (FLAW-008 mitigation)
+      const statusMatch = frontmatter[1].match(/status:\s*(\w+)/)
+      const workerStatus = statusMatch ? statusMatch[1] : 'unknown'
+      if (workerStatus === 'active') {
+        warn(`Todo file ${todoFile} has status: active after worker exit — fixing to interrupted`)
+        Edit(todoFile, { old_string: 'status: active', new_string: 'status: interrupted' })
+      }
+
+      workers.push({
+        name: basename(todoFile, '.md'),
+        role: frontmatter[1].match(/role:\s*(.+)/)?.[1]?.trim() || 'unknown',
+        status: workerStatus === 'active' ? 'interrupted' : workerStatus,
+        subtasks_completed: completed,
+        subtasks_total: total,
+        tasks_completed: taskStatuses.filter(s => s === 'completed').length,
+        tasks_total: taskSections.length,
+        decisions: decisions
+      })
+    } catch (e) {
+      warn(`Failed to parse todo file ${todoFile}: ${e.message} — skipping`)
+    }
+  }
+
+  if (workers.length > 0) {
+    // Generate summary markdown
+    const totalTasks = workers.reduce((s, w) => s + w.tasks_total, 0)
+    const completedTasks = workers.reduce((s, w) => s + w.tasks_completed, 0)
+    const totalSubtasks = workers.reduce((s, w) => s + w.subtasks_total, 0)
+    const completedSubtasks = workers.reduce((s, w) => s + w.subtasks_completed, 0)
+
+    const summary = `---
+generated: ${new Date().toISOString()}
+plan: ${planPath}
+workers: ${workers.length}
+total_tasks: ${totalTasks}
+completed_tasks: ${completedTasks}
+total_subtasks: ${totalSubtasks}
+completed_subtasks: ${completedSubtasks}
+---
+
+# Work Session Summary
+
+## Progress Overview
+
+| Worker | Role | Tasks | Subtasks | Status |
+|--------|------|-------|----------|--------|
+${workers.map(w => `| ${w.name} | ${w.role} | ${w.tasks_completed}/${w.tasks_total} | ${w.subtasks_completed}/${w.subtasks_total} | ${w.status} |`).join('\n')}
+
+## Key Decisions (across all workers)
+
+${workers.flatMap(w => w.decisions.map(d => `- **${w.name}**: ${d}`)).join('\n') || '- No decisions recorded'}
+`
+    Write(`${todoDir}/_summary.md`, summary)
+  }
+}
+```
 
 ### Phase 4.3: Doc-Consistency Check (orchestrator-only, non-blocking)
 
@@ -673,7 +812,21 @@ if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-work-${timestamp}/" "$CHOME/tasks/rune-work-${timestamp}/" 2>/dev/null`)
 }
 
-// 3.5 Restore stashed changes if Phase 0.5 stashed
+// 3.5 Fix stale todo file statuses (FLAW-008 mitigation)
+// Workers may be killed before updating status. Fix any "active" files to "interrupted".
+const todoDir = `tmp/work/${timestamp}/todos`
+const todoFiles = Glob(`${todoDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
+for (const todoFile of todoFiles) {
+  try {
+    const content = Read(todoFile)
+    if (content.includes('status: active')) {
+      warn(`Fixing stale todo file: ${todoFile} (active → interrupted)`)
+      Edit(todoFile, { old_string: 'status: active', new_string: 'status: interrupted' })
+    }
+  } catch (e) { /* non-blocking */ }
+}
+
+// 3.6 Restore stashed changes if Phase 0.5 stashed
 if (didStash) {
   const popResult = Bash("git stash pop 2>/dev/null")
   if (popResult.exitCode !== 0) {
@@ -696,7 +849,28 @@ Write("tmp/.rune-work-{timestamp}.json", {
 
 See [ship-phase.md](work/references/ship-phase.md) for gh CLI pre-check, ship decision flow, PR template generation, and smart next steps.
 
-**Summary**: Offer to push branch and create PR. Generates PR body from plan metadata, task list, ward results, and verification warnings. Includes smart next steps based on changeset analysis.
+**Summary**: Offer to push branch and create PR. Generates PR body from plan metadata, task list, ward results, verification warnings, and todo summary. Includes smart next steps based on changeset analysis.
+
+**Todo Summary in PR Body**: If `todos/_summary.md` exists, append a collapsible Work Session section to the PR body:
+
+```markdown
+## Work Session
+
+<details>
+<summary>{workers} workers completed {completed}/{total} tasks ({subtasks_completed}/{subtasks_total} subtasks)</summary>
+
+{contents of todos/_summary.md Progress Overview table}
+
+</details>
+
+### Key Decisions
+{3-5 decisions from todos/_summary.md that introduced new dependencies, changed architecture, or deviated from plan}
+
+### Known Issues
+{any failed tasks or incomplete subtasks from summary}
+```
+
+**Error handling**: Missing summary → fall back to existing PR body generation (non-blocking).
 
 ### Completion Report
 

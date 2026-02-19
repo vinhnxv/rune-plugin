@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.43.0] — 2026-02-19
+
+### Added
+- **Per-worker todo files** for `/rune:work` command (v1.43.0+)
+  - Each worker writes a persistent markdown file with YAML frontmatter (`worker`, `role`, `status`, `plan_path`)
+  - Checkbox-based task tracking with decisions/blockers sections
+  - Orchestrator-generated `_summary.md` with aggregated counts and status
+  - Todo files persist in `tmp/work/{timestamp}/todos/` for cross-session resume
+  - Phase 4.1 "Todo Summary Generation" algorithm with stale status fix-up
+  - Phase 6 cleanup fixes stale `active` → `interrupted` statuses
+  - PR body template includes collapsible todo summary section
+- `todos` contract in `inscription.json` schema (per-worker schema v1)
+- `todos` field in inscription-schema.md Required Fields table
+
+### Changed
+- **Plugin version**: 1.42.2 → 1.43.0
+- work.md: `mkdir -p` now creates `todos/` subdirectory
+- work.md: inscription.json generation includes `todos` contract
+- CLAUDE.md: `/rune:work` description updated with todo files mention
+
 ## [1.42.1] — 2026-02-19
 
 ### Fixed

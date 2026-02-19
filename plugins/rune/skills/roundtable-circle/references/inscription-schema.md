@@ -52,6 +52,14 @@
     "version": "integer — schema version (currently: 1)"
   },
 
+  "todos": {
+    "enabled": "boolean — whether per-worker todo files are active (default: true, v1.43.0+)",
+    "dir": "string — relative path to todos directory within output_dir (default: 'todos/')",
+    "schema": "string — 'per-worker' (one file per worker, v1 only)",
+    "fields": ["array of required frontmatter fields (v1: worker, role, status, plan_path)"],
+    "summary_file": "string — filename for orchestrator-generated summary (default: '_summary.md')"
+  },
+
   "context_engineering": {
     "read_ordering": "source_first | reference_first",
     "instruction_anchoring": "boolean — ANCHOR + RE-ANCHOR in prompts",
@@ -137,6 +145,7 @@
 | `teammates[].output_file` | Yes | — |
 | `teammates[].required_sections` | Yes | — |
 | `diff_scope` | No | `{ "enabled": false }` |
+| `todos` | No | `{ "enabled": true }` (v1.43.0+, rune-work only) |
 | `aggregator` | No | No aggregation |
 | `verification` | No | `{ "enabled": false }` |
 | `context_engineering` | No | Defaults applied |
