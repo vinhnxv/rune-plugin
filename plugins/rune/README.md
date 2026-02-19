@@ -177,7 +177,7 @@ When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 1. **Gathers input** — runs interactive brainstorm by default (auto-skips when requirements are clear)
 2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 22 built-in agents (19 review + 2 research + 1 utility) with elicitation-sage integration (max 6 sages per forge session) across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
+4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 25 built-in agents (21 review + 2 research + 2 utility) with elicitation-sage integration (max 6 sages per forge session) across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
 5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
