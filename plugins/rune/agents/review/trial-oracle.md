@@ -16,6 +16,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -41,13 +43,28 @@ Test-Driven Development and test quality specialist.
 - Test isolation (no shared mutable state)
 - Type annotations in test files
 
+## Echo Integration (Past Test Quality Patterns)
+
+Before reviewing test quality, query Rune Echoes for previously identified test quality issues:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with test-quality-focused queries
+   - Query examples: "test coverage", "missing test", "edge case", "TDD", "assertion quality", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent test quality knowledge)
+2. **Fallback (MCP unavailable)**: Skip — review all files fresh for test quality issues
+
+**How to use echo results:**
+- Past test findings reveal modules with history of missing coverage or weak assertions
+- If an echo flags a module as lacking edge case tests, prioritize boundary condition analysis
+- Historical test quality patterns inform which source files need corresponding test verification
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: trial-oracle/MEMORY.md)`
+
 ## Analysis Framework
 
 ### 1. Coverage Gaps
 
 ```python
 # For each source file, check corresponding test file exists
-# src/services/user_service.py → tests/test_user_service.py
+# src/services/user_service.py -> tests/test_user_service.py
 # BAD: Source file with no test file
 # GOOD: Every public module has corresponding tests
 ```

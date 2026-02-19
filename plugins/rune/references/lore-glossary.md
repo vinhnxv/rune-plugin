@@ -17,6 +17,7 @@
 | **Gap Analysis** | Phase 5.5 plan-to-code compliance check | Measuring the distance between intent and reality |
 | **Glyph Budget** | Context-aware output format constraint. Limits output size per agent to prevent context overflow | Rationing rune power wisely |
 | **Grace (Tier 0)** | Lowest risk tier for safe changes (docs, tests, formatting, comments). Basic ward check only | A site of safety and rest |
+| **Inner Flame** | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) executed by all Ashes before sealing. Role-specific checklists per agent type | The inner fire that burns away illusion before the seal is set |
 | **Inscription** | JSON output contract for agents | Rune inscriptions defining purpose |
 | **Mend** | Finding resolution from TOME | Repairing what was broken |
 | **Remembrance** | Promoted knowledge docs | Memories of fallen foes |

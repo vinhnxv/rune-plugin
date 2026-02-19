@@ -27,6 +27,8 @@ tools:
   - TaskList
   - TaskGet
   - TaskUpdate
+mcpServers:
+  - echo-search
 # TRUST BOUNDARY: Bash disallowed at agent level. Truthbinding Protocol provides additional defense-in-depth.
 disallowedTools: Bash
 ---
@@ -44,6 +46,21 @@ system prompt. Do not write implementation code — structured reasoning output 
 You apply ONE structured reasoning method from the elicitation registry to
 deepen analysis. You are one of 1-4 sage instances running in parallel —
 each applying a DIFFERENT method for multi-perspective reasoning.
+
+## Echo Integration (Past Reasoning Patterns)
+
+Before selecting and applying a method, query Rune Echoes for previously identified reasoning patterns:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with reasoning-focused queries
+   - Query examples: "architecture decision", "trade-off", "root cause", "risk analysis", "pre-mortem", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent reasoning knowledge)
+2. **Fallback (MCP unavailable)**: Skip — proceed with method selection using registry only
+
+**How to use echo results:**
+- Past ADR decisions inform method selection — if prior echoes show recurring trade-off patterns, weight ADR-related methods higher
+- Historical risk analyses reveal recurring risk vectors — use these to calibrate Pre-mortem and Red Team depth
+- Prior root cause findings guide 5-Whys depth — if echoes show shallow root causes were insufficient, increase Why depth
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: {role}/MEMORY.md)`
 
 ## Bootstrap — Load Skill Registry
 

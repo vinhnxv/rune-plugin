@@ -3,12 +3,12 @@ name: arc
 description: |
   Use when you want to go from plan to merged PR in one command, when running
   the full development pipeline (forge + work + review + mend + ship + merge),
-  or when resuming a previously interrupted pipeline. 14-phase automated pipeline
-  with checkpoint resume, convergence loops, and cross-model verification.
+  or when resuming a previously interrupted pipeline. 17-phase automated pipeline
+  with checkpoint resume, convergence loops, cross-model verification, and Goldmask risk analysis.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
-  assistant: "The Tarnished begins the arc — 14 phases of forge, review, mend, convergence, ship, and merge..."
+  assistant: "The Tarnished begins the arc — 17 phases of forge, review, goldmask, test, mend, convergence, ship, and merge..."
   </example>
 
   <example>
@@ -40,9 +40,9 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains fourteen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, code review, mend, verify mend (convergence controller), audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, 9, and 9.5). Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
+Chains seventeen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, code review, mend, verify mend (convergence controller), test, goldmask verification, goldmask correlation, audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, 9, and 9.5). Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`, `testing`, `agent-browser`
 
 ## CRITICAL — Agent Teams Enforcement (ATE-1)
 
@@ -61,7 +61,7 @@ Chains fourteen phases into a single automated pipeline: forge, plan review, pla
 - `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely. No shared task list, no SendMessage, no context isolation. This is the root cause of context explosion.
 - Using named `subagent_type` values (e.g., `"rune:utility:scroll-reviewer"`, `"compound-engineering:research:best-practices-researcher"`, `"rune:review:ward-sentinel"`) — these resolve to non-general-purpose agents. Always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
 
-**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 14 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
+**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 17 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
 
 **ENFORCEMENT:** The `enforce-teams.sh` PreToolUse hook blocks bare Task calls when a Rune workflow is active. If your Task call is blocked, add `team_name` to it.
 
@@ -91,6 +91,7 @@ Chains fourteen phases into a single automated pipeline: forge, plan review, pla
 | `--confirm` | Pause for user input when all plan reviewers raise CONCERN verdicts (Phase 2.5). Without this flag, auto-proceeds with warnings | Off |
 | `--no-pr` | Skip Phase 9 (PR creation). Overrides `arc.ship.auto_pr` from talisman | Off |
 | `--no-merge` | Skip Phase 9.5 (auto merge). Overrides `arc.ship.auto_merge` from talisman | Off |
+| `--no-test` | Skip Phase 7.7 (testing). Skips unit, integration, and E2E test tiers | Off |
 | `--draft` | Create PR as draft. Overrides `arc.ship.draft` from talisman | Off |
 
 ## Pipeline Overview
@@ -112,12 +113,18 @@ Phase 5.5: GAP ANALYSIS → Check plan criteria vs committed code (zero LLM)
     ↓ (gap-analysis.md) — WARN only, never halts
 Phase 5.6: CODEX GAP ANALYSIS → Cross-model plan vs implementation check (v1.39.0)
     ↓ (codex-gap-analysis.md) — WARN only, never halts
+Phase 5.7: GOLDMASK VERIFICATION → Blast-radius analysis via investigation agents (v1.47.0)
+    ↓ (goldmask-verification.md) — 5 impact tracers + wisdom sage + lore analyst
 Phase 6:   CODE REVIEW → Roundtable Circle review
     ↓ (tome.md)
+Phase 6.5: GOLDMASK CORRELATION → Synthesize investigation findings into GOLDMASK.md (v1.47.0)
+    ↓ (GOLDMASK.md) — orchestrator-only
 Phase 7:   MEND → Parallel finding resolution
     ↓ (resolution-report.md) — HALT on >3 FAILED
 Phase 7.5: VERIFY MEND → Convergence controller (adaptive review-mend loop)
     ↓ converged → proceed | retry → loop to Phase 6+7 (tier-based max cycles) | halted → warn + proceed
+Phase 7.7: TEST → 3-tier QA gate: unit → integration → E2E/browser (v1.43.0)
+    ↓ (test-report.md) — WARN only, never halts. Feeds into audit context.
 Phase 8:   AUDIT → Final quality gate (informational)
     ↓ (audit-report.md)
 Phase 9:   SHIP → Push branch + create PR (orchestrator-only)
@@ -130,7 +137,7 @@ Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 6, 7, 7.5, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 5.7, 6, 6.5, 7, 7.5, 7.7, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
 
 ## Arc Orchestrator Design (ARC-1)
 
@@ -155,7 +162,7 @@ The dispatcher reads only structured summary headers from artifacts, not full co
 ### Phase Constants
 
 ```javascript
-const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'code_review', 'mend', 'verify_mend', 'audit', 'ship', 'merge']
+const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'audit', 'ship', 'merge']
 
 // SETUP_BUDGET: time for team creation, task creation, agent spawning, report, cleanup.
 // MEND_EXTRA_BUDGET: additional time for ward check, cross-file mend, doc-consistency.
@@ -186,18 +193,23 @@ const PHASE_TIMEOUTS = {
   code_review:   talismanTimeouts.code_review ?? 900_000,    // 15 min (inner 10m + 5m setup)
   mend:          talismanTimeouts.mend ?? 1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
   verify_mend:   talismanTimeouts.verify_mend ?? 240_000,    //  4 min (orchestrator-only, no team)
+  test:          talismanTimeouts.test ?? 900_000,        // 15 min without E2E (inner 10m + 5m setup). Dynamic: 40 min with E2E (2_400_000)
+  goldmask_verification: talismanTimeouts.goldmask_verification ?? 900_000,  // 15 min (inner 10m + 5m setup)
+  goldmask_correlation:  talismanTimeouts.goldmask_correlation ?? 60_000,    //  1 min (orchestrator-only, no team)
   audit:         talismanTimeouts.audit ?? 1_200_000,    // 20 min (inner 15m + 5m setup)
   ship:          talismanTimeouts.ship ?? 300_000,      //  5 min (orchestrator-only, push + PR creation)
   merge:         talismanTimeouts.merge ?? 600_000,     // 10 min (orchestrator-only, rebase + merge + CI wait)
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// DOC-002 FIX: Base budget sum is ~118.5 min (includes v1.39.0 phases + v1.40.0 ship/merge):
+// DOC-002 FIX: Base budget sum is ~149.5 min (v1.47.0 goldmask + v1.43.0 test):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
-//   codex_gap_analysis(11) + work(35) + gap_analysis(1) + audit(20) + ship(5) + merge(10) = 118.5 min
-// LIGHT (2 cycles):    118.5 + 42 + 1×26 = 186.5 min ≈ 187 min
-// STANDARD (3 cycles): 118.5 + 42 + 2×26 = 212.5 min ≈ 213 min
-// THOROUGH (5 cycles): 118.5 + 42 + 4×26 = 264.5 min → hard cap at 240 min
+//   codex_gap_analysis(11) + goldmask_verification(15) + work(35) + gap_analysis(1) +
+//   goldmask_correlation(1) + test(15) + audit(20) + ship(5) + merge(10) = 149.5 min
+// With E2E: test grows to 40 min → 174.5 min base
+// LIGHT (2 cycles):    149.5 + 42 + 1×26 = 217.5 min ≈ 218 min
+// STANDARD (3 cycles): 149.5 + 42 + 2×26 = 243.5 min → hard cap at 240 min
+// THOROUGH (5 cycles): 149.5 + 42 + 4×26 = 295.5 min → hard cap at 240 min
 const ARC_TOTAL_TIMEOUT_DEFAULT = 9_720_000  // 162 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 14_400_000  // 240 min (4 hours) — absolute hard cap
 const STALE_THRESHOLD = 300_000      // 5 min
@@ -216,8 +228,11 @@ function calculateDynamicTimeout(tier) {
   const basePhaseBudget = PHASE_TIMEOUTS.forge + PHASE_TIMEOUTS.plan_review +
     PHASE_TIMEOUTS.plan_refine + PHASE_TIMEOUTS.verification +
     PHASE_TIMEOUTS.semantic_verification + PHASE_TIMEOUTS.codex_gap_analysis +
-    PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis + PHASE_TIMEOUTS.audit +
-    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~118.5 min (v1.40.0: +ship +merge)
+    PHASE_TIMEOUTS.goldmask_verification + PHASE_TIMEOUTS.goldmask_correlation +
+    PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis +
+    PHASE_TIMEOUTS.test +                        // v1.43.0: +test (15 min default, 40 min with E2E)
+    PHASE_TIMEOUTS.audit +
+    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~149.5 min (v1.47.0: +goldmask + v1.43.0: +test)
   const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
   const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
   const maxCycles = tier?.maxCycles ?? 3
@@ -619,8 +634,8 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 8, plan_file: planFile,
-  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm },
+  id, schema_version: 9, plan_file: planFile,
+  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
   pr_url: null,
   freshness: freshnessResult || null,
@@ -637,6 +652,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     code_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    test:         { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false },
     audit:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     ship:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     merge:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
@@ -662,8 +678,9 @@ CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs af
 // arc-* prefixes: teams created directly by arc (Phase 2 plan review)
 // rune-* prefixes: teams created by delegated sub-commands (forge, work, review, mend, audit)
 const ARC_TEAM_PREFIXES = [
-  "arc-forge-", "arc-plan-review-", "arc-verify-", "arc-gap-",  // arc-owned teams
-  "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-audit-"  // sub-command teams
+  "arc-forge-", "arc-plan-review-", "arc-verify-", "arc-gap-", "arc-test-",  // arc-owned teams
+  "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-audit-",  // sub-command teams
+  "goldmask-"  // goldmask skill teams (Phase 5.7 delegation)
 ]
 
 // SECURITY: Validate all prefixes before use in shell commands
@@ -771,7 +788,12 @@ On resume, validate checkpoint integrity before proceeding:
    b. // convergence.history entries will have p2_remaining: undefined for pre-v8 rounds.
       // No migration needed — evaluateConvergence reads p2_remaining only for the current round.
    c. Set schema_version: 8
-3h. Resume freshness re-check:
+3h. If schema_version < 9, migrate v8 → v9:
+   a. Add phases.goldmask_verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null }
+   b. Add phases.goldmask_correlation: { status: "pending", artifact: null, artifact_hash: null, team_name: null }
+   c. Add phases.test: { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false }
+   d. Set schema_version: 9
+3i. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)
@@ -1225,6 +1247,30 @@ Adaptive convergence controller that evaluates mend results and decides whether 
 See [verify-mend.md](references/verify-mend.md) for the full algorithm.
 See [review-mend-convergence.md](../roundtable-circle/references/review-mend-convergence.md) for shared tier selection and convergence evaluation logic.
 
+## Phase 7.7: TEST (diff-scoped test execution)
+
+See [arc-phase-test.md](references/arc-phase-test.md) for the full algorithm.
+
+**Team**: `arc-test-{id}` — follows ATE-1 pattern
+**Output**: `tmp/arc/{id}/test-report.md`
+**Failure**: Non-blocking WARN only. Test failures do NOT halt the pipeline — they are recorded in the test report and surfaced in the AUDIT phase. The pipeline proceeds to Phase 8.
+**Skip**: `--no-test` flag or `testing.enabled: false` in talisman.
+
+// ARC-6: Clean stale teams before delegating to sub-command
+prePhaseCleanup(checkpoint)
+
+```javascript
+// Skip gate
+if (flags.no_test || talisman?.testing?.enabled === false) {
+  checkpoint.phases.test.status = "skipped"
+  checkpoint.phases.test.artifact = null
+  // Proceed to Phase 8
+} else {
+  // Read and execute the arc-phase-test.md algorithm
+  // Update checkpoint on completion with tiers_run, pass_rate, coverage_pct, has_frontend
+}
+```
+
 ## Phase 8: AUDIT (informational)
 
 See [arc-phase-audit.md](references/arc-phase-audit.md) for the full algorithm.
@@ -1279,7 +1325,8 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | CODE REVIEW | MEND | `tome.md` | TOME with `<!-- RUNE:FINDING ... -->` markers |
 | MEND | VERIFY MEND | `resolution-report.md` | Fixed/FP/Failed finding list |
 | VERIFY MEND | MEND (retry) | `review-focus-round-{N}.json` | Phase 6+7 reset to pending, progressive focus scope |
-| VERIFY MEND | AUDIT | `resolution-report.md` + checkpoint convergence | Convergence verdict (converged/halted) |
+| VERIFY MEND | TEST | `resolution-report.md` + checkpoint convergence | Convergence verdict (converged/halted) |
+| TEST | AUDIT | `test-report.md` | Test results with pass_rate, coverage_pct, tiers_run (or skipped) |
 | AUDIT | SHIP | `audit-report.md` | Audit complete, quality gates passed |
 | SHIP | MERGE | `pr-body.md` + `checkpoint.pr_url` | PR created, URL stored |
 | MERGE | Done | `merge-report.md` | Merged or auto-merge enabled. Pipeline summary to user |
@@ -1299,6 +1346,7 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | CODE REVIEW | Does not halt | Produces findings or clean report |
 | MEND | Halt if >3 FAILED findings | User fixes, `/rune:arc --resume` |
 | VERIFY MEND | Non-blocking — retries up to tier max cycles (LIGHT: 2, STANDARD: 3, THOROUGH: 5), then proceeds | Convergence gate is advisory |
+| TEST | Non-blocking WARN only. Test failures recorded in report, surfaced in AUDIT | `--no-test` to skip entirely |
 | AUDIT | Does not halt — informational | User reviews audit report |
 | SHIP | Skip PR creation, proceed to completion report. Branch was pushed | User creates PR manually: `gh pr create` |
 | MERGE | Skip merge, PR remains open. Rebase conflicts → warn with resolution steps | User merges manually: `gh pr merge --squash` |
@@ -1336,7 +1384,7 @@ if (exists(".claude/echoes/")) {
   appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
     layer: "inscribed",
     source: `rune:arc ${id}`,
-    content: `Arc completed: ${metrics.phases_completed}/14 phases, ` +
+    content: `Arc completed: ${metrics.phases_completed}/17 phases, ` +
       `${metrics.tome_findings.p1} P1 findings, ` +
       `${metrics.convergence_cycles} mend cycle(s), ` +
       `${metrics.gap_missing} missing criteria. ` +
@@ -1493,7 +1541,7 @@ try {
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
-| Schema v1-v6 checkpoint on --resume | Auto-migrate to v7 |
+| Schema v1-v8 checkpoint on --resume | Auto-migrate to v9 (adds goldmask + test phases) |
 | Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |
 | Convergence evaluation timeout (>4 min) | Skip convergence check, proceed to audit with warning |
 | TOME missing or malformed after re-review | Default to "halted" (fail-closed) |
@@ -1505,4 +1553,8 @@ try {
 | Merge phase: Rebase conflicts | Abort rebase, warn with manual resolution steps |
 | Merge phase: Pre-merge checklist CRITICAL | Abort merge, write merge-report.md |
 | Merge phase: Merge failed | PR remains open, warn user to merge manually |
+| Test phase: No test framework detected | Skip all tiers, produce empty report with WARN |
+| Test phase: Service startup failed | Skip integration/E2E tiers, unit tests still run |
+| Test phase: E2E browser agent timeout | Record timeout per-route, produce partial report |
+| Test phase: All tiers failed | Non-blocking — report recorded, pipeline continues to AUDIT |
 | Zombie teammates after arc completion (ARC-9) | Final sweep sends shutdown_request + TeamDelete. Fallback: `/rune:cancel-arc` |

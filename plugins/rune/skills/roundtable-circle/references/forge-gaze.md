@@ -48,6 +48,8 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 | blight-seer | anti-patterns, god-service, leaky-abstraction, temporal-coupling, observability, consistency-model, failure-modes, primitive-obsession, design-smells | Design Anti-Pattern Analysis | architectural smells, design flaws, and systemic quality degradation |
 | forge-keeper | migration, schema, database, transaction, integrity, reversibility, lock, cascade, referential, privacy, pii, audit, backfill | Data Integrity Analysis | migration safety, transaction boundaries, and data integrity verification |
 | tide-watcher | async, concurrency, await, waterfall, race-condition, cancellation, semaphore, timer, cleanup, structured-concurrency, promise, goroutine, tokio, asyncio | Async & Concurrency Analysis | async correctness, concurrency patterns, and race condition detection |
+| refactor-guardian | refactor, extract, move, rename, split, migration, reorganize, restructure | Refactoring Integrity Analysis | refactoring completeness, orphaned callers, and extraction verification |
+| reference-validator | imports, references, paths, config, frontmatter, version, manifest, cross-reference, validation | Reference & Configuration Integrity | import path validation, config-to-source references, frontmatter schema, and version sync |
 | reality-arbiter | production, deployment, production-readiness, viability, realistic, monitoring, operational, live-traffic, deployment-gap | Production Viability Analysis | production readiness and integration honesty |
 | assumption-slayer | assumptions, premise, justification, rationale, why, problem-fit, cargo-cult, fashion, hype, trend | Assumption Challenge | premise validation and cargo cult detection |
 | entropy-prophet | maintenance, long-term, debt, lock-in, vendor, dependency-trajectory, evolution, future, entropy, cost, burden | Long-term Consequence Analysis | hidden costs, complexity trajectory, and lock-in risks |
@@ -64,6 +66,7 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 | Agent | Topics | Subsection | Perspective |
 |-------|--------|------------|-------------|
 | flow-seer | user-flow, ux, interaction, workflow, requirements, gaps, completeness | User Flow Analysis | user flow completeness and requirement gaps |
+| horizon-sage | strategy, sustainability, long-term, root-cause, future-risk, tech-debt, innovation, resilience, maintainability-trajectory, depth, viability, quick-fix, temporal-horizon | Strategic Depth Analysis | strategic viability, long-term sustainability, and root-cause depth |
 
 ### Elicitation Methods (Agent Budget — elicitation-sage)
 
@@ -285,7 +288,7 @@ Forge Gaze — Agent Selection
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Plan sections: 6
-Agents available: 22 built-in (19 review + 2 research + 1 utility) + custom
+Agents available: 25 built-in (21 review + 2 research + 2 utility) + custom
 Methods available: 7 (via elicitation-sage agent — MAX_FORGE_SAGES = 6 cap, keyword pre-filtered)
 
 Section: "Technical Approach"

@@ -266,15 +266,17 @@ arc:
     uncommitted_changes: true    # Check for uncommitted changes
     migration_paths: []          # Additional paths to scan for migration conflicts (e.g., ["db/migrate/", "alembic/versions/"])
 
-  # ── Batch settings (v1.42.0+) ──
-  # Defaults for /rune:arc-batch. V1 uses hardcoded defaults below.
-  # Uncomment to override when V1.1 talisman support is added.
-  # batch:
-  #   max_retries: 3             # Retry count per plan (default: 3)
-  #   max_budget: 15.0           # Max budget per arc run in USD (default: 15.0)
-  #   max_turns: 200             # Max turns per arc run (default: 200)
-  #   total_timeout: null        # Total batch timeout in ms (default: none)
-  #   stop_on_divergence: false  # Stop if main diverges between runs (default: false)
+  # ── Batch settings (v1.42.0+, talisman support v1.49.0+) ──
+  # Per-plan and batch-level limits for /rune:arc-batch.
+  # 3-layer priority: hardcoded defaults → talisman.yml → (future CLI flags).
+  batch:
+    auto_merge: true           # Auto-merge PRs after each arc run (default: true, CLI --no-merge overrides)
+    max_retries: 3             # Retry count per plan (default: 3, range: 1-10)
+    max_budget: 15.0           # Max budget per arc run in USD (default: 15.0, range: 1.0-100.0)
+    max_turns: 200             # Max turns per arc run (default: 200, range: 50-1000)
+    total_budget: null         # Total batch budget in USD (default: null = no limit, range: 1.0-500.0)
+    total_timeout: null        # Total batch timeout in ms (default: null = no limit)
+    stop_on_divergence: false  # Stop batch if main diverges between runs (default: false)
 
   # ── Per-phase timeout overrides (v1.12.0+, activated v1.40.0) ──
   # Values in milliseconds. Per-phase budgets feed calculateDynamicTimeout().
@@ -291,6 +293,9 @@ arc:
     audit: 1200000               # 20 minutes (default: inner 15m + 5m setup)
     semantic_verification: 180000  # 3 minutes (default, v1.39.0+)
     codex_gap_analysis: 660000   # 11 minutes (default, v1.39.0+)
+    test: 900000                 # 15 minutes (default, v1.43.0+; 40 min with E2E: 2_400_000)
+    goldmask_verification: 900000  # 15 minutes (default, v1.47.0+)
+    goldmask_correlation: 60000    # 1 minute (default, v1.47.0+)
     ship: 300000                 # 5 minutes (default, v1.40.0+)
     merge: 600000                # 10 minutes (default, v1.40.0+)
     # NOTE: Total pipeline timeout is computed dynamically by calculateDynamicTimeout(tier).
@@ -419,6 +424,40 @@ work:
   # Example: ["Claude <noreply@anthropic.com>", "Alice <alice@example.com>"]
   # consistency:                   # Doc-consistency checks for Phase 4.3 (v1.19.0+)
   #   checks: []                   # Same schema as arc.consistency.checks. If empty, falls back to arc checks, then defaults.
+
+# ──────────────────────────────────────────────
+# Horizon — Strategic depth assessment (v1.47.0+)
+# ──────────────────────────────────────────────
+horizon:
+  enabled: true                    # Kill switch — disables horizon-sage globally
+  intent_default: "long-term"      # Default intent when plan lacks strategic_intent field
+
+# ──────────────────────────────────────────────
+# Testing — Arc Phase 7.7 settings (v1.43.0+)
+# ──────────────────────────────────────────────
+# Diff-scoped test execution in the arc pipeline.
+# Unit → integration → E2E (browser) tiers, serial execution.
+# Test failures are non-blocking WARNs — they do NOT halt the pipeline.
+# testing:
+#   enabled: true                  # Set false to skip Phase 7.7 globally (CLI: --no-test)
+#   tiers:
+#     unit:
+#       enabled: true              # Run unit tests (default: true)
+#       timeout: 300000            # 5 minutes (default)
+#       coverage: true             # Collect coverage metrics (default: true)
+#     integration:
+#       enabled: true              # Run integration tests (default: true)
+#       timeout: 300000            # 5 minutes (default)
+#     e2e:
+#       enabled: true              # Run E2E browser tests (default: true)
+#       timeout_ms: 300000         # Per-route timeout in ms (default: 300000 = 5min/route)
+#       base_url: "http://localhost:3000"  # Base URL for E2E routes
+#       max_routes: 3              # Cap E2E routes tested per run (default: 3)
+#       headed: false              # Run browser in headed mode for debugging (default: false)
+#   service:
+#     startup_command: null         # Override auto-detection (e.g., "bin/dev", "docker compose up -d")
+#     health_endpoint: null         # Override health check endpoint (e.g., "/api/health")
+#     startup_timeout: 120000      # Max wait for service readiness in ms (default: 120000)
 
 # ──────────────────────────────────────────────
 # Codex Oracle — Cross-model verification (v1.18.0+)

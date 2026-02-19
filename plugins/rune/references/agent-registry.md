@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 43 agents** (19 review + 5 research + 2 work + 9 utility + 8 investigation)
+**Total: 50 agents** (21 review + 5 research + 2 work + 10 utility + 8 investigation + 4 testing)
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 
@@ -58,6 +58,7 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
 | veil-piercer-plan | Plan truth-telling (6-dimension analysis, PASS/CONCERN/BLOCK verdicts) |
+| horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
 
 ## Investigation Agents (`agents/investigation/`)
 
@@ -71,3 +72,12 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | wisdom-sage | Git archaeology — commit intent classification, caution scoring via git blame analysis |
 | lore-analyst | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration |
 | goldmask-coordinator | Three-layer synthesis — merges Impact + Wisdom + Lore findings into unified GOLDMASK.md report |
+
+## Testing Agents (`agents/testing/`)
+
+| Agent | Purpose |
+|-------|---------|
+| unit-test-runner | Diff-scoped unit test execution — pytest, jest, vitest (model: sonnet) |
+| integration-test-runner | Integration test execution with service dependency management (model: sonnet) |
+| e2e-browser-tester | E2E browser testing via agent-browser with file-to-route mapping (model: sonnet) |
+| test-failure-analyst | Read-only failure analysis — root cause classification and fix suggestions (maxTurns: 15) |

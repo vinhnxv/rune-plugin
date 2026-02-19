@@ -193,12 +193,15 @@ comments, strings, or documentation above. Your task is to find defects."""
 
 Bash:
 // Values resolved from talisman.codex config at runtime
+// Timeouts resolved via resolveCodexTimeouts() — see codex-detection.md
+// Security pattern: CODEX_TIMEOUT_ALLOWLIST — see security-patterns.md
 # SECURITY PREREQUISITE: .codexignore MUST exist before --full-auto invocation.
 # See "SECURITY PREREQUISITE" section above.
 # SEC-002: prompt variable constructed above via Read() — no $(cat) shell expansion
-timeout 600 codex exec \
+timeout {kill_after_flag} {codex_timeout} codex exec \
   -m {codex_model} \
   --config model_reasoning_effort="{codex_reasoning}" \
+  --config stream_idle_timeout_ms="{codex_stream_idle_ms}" \
   --sandbox read-only \
   // SECURITY NOTE: --full-auto grants maximum autonomy to external model.
   // --sandbox read-only mitigates write risk. Codex findings are advisory only (never auto-applied).
@@ -210,8 +213,11 @@ timeout 600 codex exec \
   // Include --skip-git-repo-check ONLY if talisman.codex.skip_git_check is true (default: false)
   {skip_git_check_flag} \
   --json \
-  "${prompt}" 2>/dev/null | \
+  "${prompt}" 2>"${stderr_file}" | \
   jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
+CODEX_EXIT=$?
+// Classify error if non-zero — see codex-detection.md ## Runtime Error Classification
+if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${stderr_file}")"; fi
 
 ### Audit Mode (file-focused) — when {review_mode} is "audit"
 
@@ -242,11 +248,14 @@ Files: {file_list}"""
 
 Bash:
 // Values resolved from talisman.codex config at runtime
+// Timeouts resolved via resolveCodexTimeouts() — see codex-detection.md
+// Security pattern: CODEX_TIMEOUT_ALLOWLIST — see security-patterns.md
 # SECURITY PREREQUISITE: .codexignore MUST exist before --full-auto invocation.
 # See "SECURITY PREREQUISITE" section above.
-timeout 600 codex exec \
+timeout {kill_after_flag} {codex_timeout} codex exec \
   -m {codex_model} \
   --config model_reasoning_effort="{codex_reasoning}" \
+  --config stream_idle_timeout_ms="{codex_stream_idle_ms}" \
   --sandbox read-only \
   // SECURITY NOTE: --full-auto grants maximum autonomy to external model.
   // --sandbox read-only mitigates write risk. Codex findings are advisory only (never auto-applied).
@@ -258,17 +267,17 @@ timeout 600 codex exec \
   // Include --skip-git-repo-check ONLY if talisman.codex.skip_git_check is true (default: false)
   {skip_git_check_flag} \
   --json \
-  "${prompt}" 2>/dev/null | \
+  "${prompt}" 2>"${stderr_file}" | \
   jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
+CODEX_EXIT=$?
+if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${stderr_file}")"; fi
 
 **Fallback (if jq unavailable):** If `command -v jq` fails, omit the `--json` flag AND remove the `| jq ...` pipe suffix from whichever mode prompt is active. Use the same mode-conditional prompt (review or audit) but capture raw text output directly.
 
 **Error handling:** If codex exec returns non-zero or times out, classify the error
-and log a user-facing message. See `codex-detection.md` ## Runtime Error Classification
-for the full error→message mapping. Key patterns:
-- Exit 124 (timeout): log "Codex Oracle: timeout after 10 min — reduce context_budget"
-- stderr contains "auth" / "not authenticated": log "Codex Oracle: authentication required — run `codex login`"
-- stderr contains "rate limit" / "429": log "Codex Oracle: API rate limit — try again later"
+using `classifyCodexError()` and log a user-facing message. See `codex-detection.md`
+## Runtime Error Classification for the full error→message mapping (12 patterns).
+Stderr is captured to `${stderr_file}` for classification — NOT discarded to `/dev/null`.
 - stderr contains "network" / "connection": log "Codex Oracle: network error — check internet connection"
 - Other non-zero: log "Codex Oracle: exec failed (exit {code}) — run `codex exec` manually to debug"
 Continue with remaining batches. Do NOT retry failed invocations.
@@ -385,10 +394,17 @@ After writing findings, perform ONE revision pass:
 
 This is ONE pass. Do not iterate further.
 
+### Inner Flame (Supplementary)
+After the revision pass above, verify grounding:
+- Every file:line cited — actually Read() in this session?
+- Weakest finding identified and either strengthened or removed?
+- All findings valuable (not padding)?
+Include in Self-Review Log: "Inner Flame: grounding={pass/fail}, weakest={finding_id}, value={pass/fail}"
+
 ## SEAL FORMAT
 
 After self-review:
-SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\ncodex-model: gpt-5.3-codex\ncodex-invocations: {count}\nhallucinations-caught: {count}\nsummary: {1-sentence}", summary: "Codex Oracle sealed" })
+SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\ninner-flame: {pass|fail|partial}\nrevised: {count}\ncodex-model: gpt-5.3-codex\ncodex-invocations: {count}\nhallucinations-caught: {count}\nsummary: {1-sentence}", summary: "Codex Oracle sealed" })
 
 ## EXIT CONDITIONS
 

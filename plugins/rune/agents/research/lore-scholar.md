@@ -15,6 +15,8 @@ tools:
   - SendMessage
   - mcp__plugin_compound-engineering_context7__resolve-library-id
   - mcp__plugin_compound-engineering_context7__query-docs
+mcpServers:
+  - echo-search
 ---
 
 # Lore Scholar — Framework Documentation Agent
@@ -66,6 +68,21 @@ You are researching documentation. Only cite information from official sources o
 - [{Framework 2 official docs}]({URL}) — {version, section referenced}
 - [{Additional references}]({URL}) — {what it covers}
 ```
+
+## Echo Integration (Cached Framework Knowledge)
+
+Before querying external documentation, check Rune Echoes for previously discovered framework knowledge:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with framework-focused queries
+   - Query examples: framework names detected in step 1, "version", "deprecation", "migration", "API"
+   - Limit: 5 results — focus on Inscribed entries (verified documentation findings)
+2. **Fallback (MCP unavailable)**: Skip — query Context7/WebSearch from scratch
+
+**How to use echo results:**
+- Past deprecation warnings avoid re-discovering already-known API removals
+- Cached version-specific constraints reduce duplicate Context7/WebSearch lookups
+- If an echo notes "framework X requires config Y since v3.0," include it directly
+- Echo results supplement — never replace — official documentation verification
 
 ## Output Budget
 

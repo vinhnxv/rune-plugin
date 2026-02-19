@@ -107,6 +107,98 @@ See `roundtable-circle/references/codex-detection.md` for the canonical Codex de
 
 **Note:** CLI detection is fast (no network call, <100ms). When Codex Oracle is selected, it counts toward the `max_ashes` cap. Codex Oracle findings use the `CDX` prefix and participate in standard dedup, TOME aggregation, and Truthsight verification.
 
+## Phase 0.5: Lore Layer (Risk Intelligence)
+
+Before Rune Gaze prioritizes files for audit, the Lore Layer runs a quick risk analysis using git history. This helps Ashes focus on CRITICAL files first, which is especially valuable for audits that scan the full codebase.
+
+**Skip conditions**: non-git repo, `talisman.goldmask.layers.lore.enabled === false`, `talisman.goldmask.enabled === false`, fewer than 5 commits in lookback window (G5 guard).
+
+**Note**: Unlike review (which scopes Lore to diff files), audit scopes Lore to ALL auditable files. This can be slow on large repos. Consider two-tier approach for repos with >500 files: Tier 1 (fast) analyzes only Ash-relevant file extensions; Tier 2 (full) requires `--deep-lore` flag.
+
+**Note**: Lore runs BEFORE team creation (Phase 2), so this is a bare Task call. ATE-1 exemption: same pattern as elicitation-sage in plan Phase 0 — no audit state file exists at this point.
+
+```javascript
+// Phase 0.5: Lore Layer (Risk Intelligence)
+const goldmaskEnabled = talisman?.goldmask?.enabled !== false
+const loreEnabled = talisman?.goldmask?.layers?.lore?.enabled !== false
+const isGitRepo = Bash("git rev-parse --is-inside-work-tree 2>/dev/null").exitCode === 0
+
+if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
+  // SEC-001 FIX: Numeric validation before shell interpolation
+  // QUAL-102 FIX: Added --no-lore flag support (matching review.md)
+  const rawLookbackDays = Number(talisman?.goldmask?.layers?.lore?.lookback_days)
+  const lookbackDays = (Number.isFinite(rawLookbackDays) && rawLookbackDays >= 1 && rawLookbackDays <= 730)
+    ? Math.floor(rawLookbackDays) : 180
+  const commitCount = parseInt(
+    Bash(`git rev-list --count --since="${lookbackDays} days ago" HEAD 2>/dev/null`).trim(), 10
+  )
+
+  if (Number.isNaN(commitCount) || commitCount < 5) {
+    log(`Lore Layer: skipped — only ${commitCount ?? 0} commits in ${lookbackDays}d window (minimum: 5)`)
+  } else {
+    // Summon Lore Analyst as inline Task (no team yet — team created in Phase 2)
+    // ATE-1 EXEMPTION: No audit state file exists at Phase 0.5. enforce-teams.sh passes.
+    Task({
+      name: "lore-analyst",
+      subagent_type: "general-purpose",
+      prompt: `You are lore-analyst — git history risk scoring specialist.
+
+        Read agents/investigation/lore-analyst.md for your full protocol.
+
+        Analyze git history for risk scoring of these files:
+          ${all_files.join('\n')}
+
+        Write risk-map.json to: tmp/audit/${audit_id}/risk-map.json
+        Write summary to: tmp/audit/${audit_id}/lore-analysis.md
+
+        Lookback window: ${lookbackDays} days
+        Execute all guard checks (G1-G5) before analysis.
+        When done, write files and exit.`
+    })
+
+    // Read risk-map.json and annotate all_files for prioritization
+    // All-or-nothing: either all files get risk annotations or none do
+    try {
+      const riskMapContent = Read(`tmp/audit/${audit_id}/risk-map.json`)
+      const riskMap = JSON.parse(riskMapContent)
+
+      // Tier ordering for composite sort (CRITICAL first, then HIGH, MEDIUM, LOW, STALE)
+      const TIER_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4 }
+
+      // Build file-to-risk lookup for Rune Gaze prioritization
+      const fileRiskMap = {}
+      for (const [filePath, risk] of Object.entries(riskMap.files ?? {})) {
+        fileRiskMap[filePath] = { score: risk.risk, tier: risk.tier }
+      }
+
+      // Re-sort all_files: tier-then-score composite sort
+      all_files.sort((a, b) => {
+        const riskA = fileRiskMap[a]
+        const riskB = fileRiskMap[b]
+        const tierA = TIER_ORDER[riskA?.tier ?? 'STALE'] ?? 4
+        const tierB = TIER_ORDER[riskB?.tier ?? 'STALE'] ?? 4
+        if (tierA !== tierB) return tierA - tierB
+        return (riskB?.score ?? 0) - (riskA?.score ?? 0)
+      })
+
+      // Store risk map for Ash prompt enrichment
+      auditRiskMap = fileRiskMap
+
+      const scoredCount = Object.keys(riskMap.files ?? {}).length
+      const criticalCount = Object.values(riskMap.files ?? {}).filter(f => f.tier === 'CRITICAL').length
+      log(`Lore Layer: ${scoredCount} files scored, ${criticalCount} CRITICAL`)
+    } catch (e) {
+      warn(`Lore Layer: Failed to read risk-map — falling back to static prioritization`)
+      // All-or-nothing: do not partially annotate. all_files retains original order.
+    }
+  }
+}
+```
+
+**Timeout**: If the Lore Analyst takes > 60s, the bare Task call will complete with whatever output is available. The try/catch on risk-map read handles missing or partial output gracefully.
+
+**Audit-specific note**: When Lore data is available, Rune Gaze (Phase 1) uses risk tiers to refine per-Ash file prioritization. CRITICAL files are assigned to Ashes before MEDIUM/LOW files, improving coverage quality within context budget caps.
+
 ## Phase 1: Rune Gaze (Scope Selection)
 
 Classify ALL project files by extension. Adapted from `roundtable-circle/references/rune-gaze.md` — audit uses **total file lines** instead of `lines_changed` since there is no git diff.

@@ -24,7 +24,7 @@ argument-hint: "[plans/*.md | queue-file.txt] [--resume] [--dry-run] [--no-merge
 
 # /rune:arc-batch — Sequential Batch Arc Execution
 
-Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 14-phase pipeline (forge through merge) before the next plan starts.
+Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 17-phase pipeline (forge through merge) before the next plan starts.
 
 **Core loop**: For each plan -> run arc (forge through merge) -> checkout main -> pull latest -> clean state -> next plan.
 
@@ -56,8 +56,6 @@ See [batch-algorithm.md](references/batch-algorithm.md) for full pseudocode.
 2. **No version bump coordination**: Multiple arcs bumping plugin.json will conflict.
 3. **No dependency ordering**: Plans processed in given order.
 4. **Headless security tradeoff**: `--dangerously-skip-permissions` bypasses all permission prompts and hook-based enforcement. Ensure all plans are trusted.
-5. **No aggregate budget cap**: Individual runs capped at $15 USD but no batch-level cap.
-6. **No talisman runtime config**: Defaults hardcoded (max_retries=3, max_budget=15.0, max_turns=200). V1.1 adds `arc.batch.*` talisman keys.
 
 ## Orchestration
 
@@ -199,15 +197,36 @@ Write(`tmp/.rune-batch-${batchTimestamp}.json`, JSON.stringify({
   status: "active"
 }))
 
+// Read talisman config for batch overrides (3-layer: hardcoded → talisman → future CLI)
+const talisman = readTalisman()
+const batchConfig = talisman?.arc?.batch || {}
+
+// Validate and clamp config values to safe ranges
+const maxRetries = Math.max(1, Math.min(10, batchConfig.max_retries ?? 3))
+const maxBudget = Math.max(1.0, Math.min(100.0, batchConfig.max_budget ?? 15.0))
+const maxTurns = Math.max(50, Math.min(1000, batchConfig.max_turns ?? 200))
+const totalBudget = batchConfig.total_budget != null
+  ? Math.max(1.0, Math.min(500.0, batchConfig.total_budget))
+  : null
+const totalTimeout = batchConfig.total_timeout ?? null
+const stopOnDivergence = batchConfig.stop_on_divergence ?? false
+
+// Merge resolution: CLI --no-merge (highest) → talisman auto_merge → default (true)
+// noMerge from Phase 0 is true only when --no-merge CLI flag is present
+const autoMerge = noMerge ? false : (batchConfig.auto_merge ?? true)
+
 // Write config file for bash script
 Write("tmp/arc-batch/batch-config.json", JSON.stringify({
   plans_file: planListFile,
   plugin_dir: pluginDir,
   progress_file: progressFile,
-  no_merge: noMerge,
-  max_retries: 3,
-  max_budget: 15.0,
-  max_turns: 200
+  no_merge: !autoMerge,
+  max_retries: maxRetries,
+  max_budget: maxBudget,
+  max_turns: maxTurns,
+  total_budget: totalBudget,
+  total_timeout: totalTimeout,
+  stop_on_divergence: stopOnDivergence
 }, null, 2))
 
 const result = Bash(`"${pluginDir}/scripts/arc-batch.sh" "tmp/arc-batch/batch-config.json"`)

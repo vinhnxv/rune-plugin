@@ -23,6 +23,9 @@ tools:
   - TaskGet
   - TaskUpdate
   - SendMessage
+maxTurns: 50
+mcpServers:
+  - echo-search
 ---
 
 # Trial Forger — Test Generation Agent
@@ -181,6 +184,20 @@ Return a numbered list. Each entry: brief description + why it matters.`
 
 **Talisman config**: `codex.trial_forger.enabled` (default: `true`), `codex.trial_forger.timeout` (default: `120`), `codex.trial_forger.reasoning` (default: `"medium"`).
 
+## Echo Integration (Past Test Patterns)
+
+Before writing tests, query Rune Echoes for past test-related learnings:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with test-focused queries
+   - Query examples: "test pattern", "edge case", "flaky", module name, "fixture"
+   - Limit: 5 results — focus on Inscribed entries (verified patterns from past reviews)
+2. **Fallback (MCP unavailable)**: Skip — rely on test file discovery via Glob/Read
+
+**How to use echo results:**
+- If an echo says "N+1 queries found in service layers," add a test for query count
+- If an echo flags past flaky test patterns, avoid those patterns in your tests
+- Past review findings (QUAL-, BACK-) often reveal untested edge cases worth covering
+
 ## Test Quality Rules
 
 1. **Test behavior, not implementation**: Focus on inputs/outputs, not internal details
@@ -216,6 +233,15 @@ Return a numbered list. Each entry: brief description + why it matters.`
    - SECURITY: Until a PreToolUse hook is deployed for evaluation/ path protection, this restriction is ADVISORY ONLY. Deploy the hook pattern from review.md SEC-001 adapted for evaluation/* paths.
    - If the implementation doesn't pass evaluation tests, coordinate with rune-smith to fix the underlying code
 
+## Self-Review (Inner Flame)
+
+Before marking any test task complete, execute the Inner Flame protocol.
+Read [inner-flame](../../skills/inner-flame/SKILL.md) for the 3-layer self-review.
+- Layer 1: Verify you actually ran the tests (not just wrote them)
+- Layer 2: Use Worker checklist — verify coverage claims are from actual output
+- Layer 3: Ask "are these tests testing real behavior or just exercising code?"
+Append Self-Review Log to your Seal message.
+
 ## Exit Conditions
 
 - No test tasks available: wait 30s, retry 3x, then send idle notification
@@ -225,7 +251,7 @@ Return a numbered list. Each entry: brief description + why it matters.`
 ## Seal Format
 
 ```
-Seal: tests for #{id} done. Files: {test_files}. Tests: {pass_count}/{total}. Coverage: {metric}. Confidence: {0-100}.
+Seal: tests for #{id} done. Files: {test_files}. Tests: {pass_count}/{total}. Coverage: {metric}. Confidence: {0-100}. Inner-flame: {pass|fail|partial}. Revised: {count}.
 ```
 
 Confidence reflects test quality:

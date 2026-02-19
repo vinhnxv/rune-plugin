@@ -123,6 +123,13 @@ Note: `SAFE_REGEX_PATTERN` does not include `\n` in its character class, so mult
 **Threat model**: Restricts reasoning effort parameter to known-safe values.
 **Consumers**: plan.md (Phase 1C + Phase 4C), work.md (Phase 4.5)
 
+### CODEX_TIMEOUT_ALLOWLIST
+<!-- PATTERN:CODEX_TIMEOUT_ALLOWLIST regex="/^\d{1,5}$/" version="1" -->
+**Regex**: `/^\d{1,5}$/`
+**Threat model**: Validates codex timeout values from talisman.yml before shell interpolation. Accepts only 1-5 digit integers (max 99999). Bounds checking (30–3600 for timeout, 10–timeout for stream_idle_timeout) is performed by `resolveCodexTimeouts()` after format validation.
+**ReDoS safe**: Yes (character class with bounded quantifier, no nesting)
+**Consumers**: codex-detection.md (resolveCodexTimeouts), codex-oracle.md, codex-cli/SKILL.md, work.md, forge.md, research-phase.md, plan-review.md
+
 ## Prototype Guards
 
 ### FORBIDDEN_KEYS
@@ -158,6 +165,24 @@ These patterns appear in a single file and are documented here for completeness 
 | `SAFE_CONSISTENCY_PATTERN` | mend.md | Similar to SAFE_REGEX_PATTERN_CC |
 | `SAFE_FEATURE_PATTERN` | plan.md | Feature name sanitizer |
 | `VALID_EXTRACTORS` | arc SKILL.md | Extractor type allowlist: `["glob_count", "regex_capture", "json_field", "line_count"]` |
+
+## Hook Security — Threat Models
+
+### TaskCompleted Prompt Gate (QUAL-010)
+**File**: `hooks/hooks.json` → `TaskCompleted[1]` (prompt hook)
+**Model**: haiku (fast, low-cost quality gate)
+**Defense**: ANCHOR/RE-ANCHOR truthbinding markers, task input explicitly marked UNTRUSTED
+**Threat model**: Task subjects are **teammate-generated** (not external user input). The haiku model is less robust against adversarial prompts than larger models, but the attack surface is limited:
+- Attackers must first compromise a teammate's context (requires prompt injection through reviewed source code → fixer prompt → task subject chain)
+- The gate is fail-open for legitimate work (`"When in doubt, allow"`) — bypassing it only skips a structural quality check, not a security boundary
+- The ANCHOR/RE-ANCHOR pattern provides defense-in-depth against casual injection attempts
+
+**Risk**: Low. The haiku gate is a **quality** control (catches premature task completions), not a **security** control. A bypass results in a prematurely-completed task being counted, which the orchestrator's Phase 4 monitor can detect via missing output files.
+
+### Annotate Hook stdin Cap (SEC-006)
+**File**: `scripts/echo-search/annotate-hook.sh:13`
+**Defense**: `head -c 65536` caps stdin to 64KB
+**Threat model**: PostToolUse hook receives full tool input on stdin. Without a cap, a large Write/Edit tool call could cause unbounded memory consumption in the hook script.
 
 ## Maintenance
 

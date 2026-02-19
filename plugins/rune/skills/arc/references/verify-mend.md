@@ -195,6 +195,13 @@ if (verdict === 'converged') {
   checkpoint.phases.code_review.artifact = null
   checkpoint.phases.code_review.artifact_hash = null
   checkpoint.phases.code_review.team_name = null      // BUG FIX: Clear stale team from prior round
+  // QUAL-101 FIX: Reset goldmask_correlation so it re-correlates with new TOME on next cycle
+  if (checkpoint.phases.goldmask_correlation) {
+    checkpoint.phases.goldmask_correlation.status = 'pending'
+    checkpoint.phases.goldmask_correlation.artifact = null
+    checkpoint.phases.goldmask_correlation.artifact_hash = null
+    checkpoint.phases.goldmask_correlation.team_name = null
+  }
   checkpoint.phases.mend.status = 'pending'
   checkpoint.phases.mend.artifact = null
   checkpoint.phases.mend.artifact_hash = null

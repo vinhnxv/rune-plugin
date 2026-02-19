@@ -1,13 +1,13 @@
 # Changelog
 
-## [1.43.0] — 2026-02-19
+## [1.49.0] — 2026-02-20
 
 ### Added
 - **Veil Piercer — Truth-Telling Agents**: New 7th built-in Ash with 3 embedded review agents (`reality-arbiter`, `assumption-slayer`, `entropy-prophet`) that challenge fundamental premises and expose illusions in code review
   - `reality-arbiter`: Production viability truth-teller — detects code that compiles but cannot integrate, features that pass tests but fail under load
   - `assumption-slayer`: Premise validation truth-teller — challenges whether the code solves the right problem, detects cargo cult implementations
   - `entropy-prophet`: Long-term consequence truth-teller — predicts hidden costs, maintenance burden, and lock-in risks
-- **`veil-piercer-plan`**: New utility agent for plan-level truth-telling in Phase 4C (alongside decree-arbiter and knowledge-keeper)
+- **`veil-piercer-plan`**: New utility agent for plan-level truth-telling in Phase 4C (alongside decree-arbiter, knowledge-keeper, and horizon-sage)
 - `VEIL-` finding prefix in dedup hierarchy: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`
 - Veil Piercer Ash prompt template (`ash-prompts/veil-piercer.md`) with 3 perspectives, behavioral rules, and truth-telling doctrine
 - Veil Piercer registered in circle-registry, rune-gaze (always-on), forge-gaze (truth-telling topics), and dedup-runes
@@ -18,12 +18,132 @@
 - `VEIL` and `CDX` added to reserved prefixes list in custom-ashes.md (CDX was a pre-existing omission)
 
 ### Changed
-- **Plugin version**: 1.42.2 → 1.43.0
-- Agent counts: 16 → 19 review agents, 8 → 9 utility agents, 39 → 43 total agents
+- **Plugin version**: 1.48.0 → 1.49.0
+- Agent counts: 18 → 21 review agents, 9 → 10 utility agents, 46 → 50 total agents
 - Built-in Ashes: 6 → 7 (Veil Piercer is always-on like Ward Sentinel and Pattern Weaver)
 - Default `max_ashes`: 8 → 9 (7 built-in + up to 2 custom)
 - Warning threshold in custom-ashes.md constraints: 6+ → 7+
 - Dedup hierarchy updated across all 30+ occurrences to include `VEIL` prefix
+
+## [1.48.0] — 2026-02-20
+
+### Added
+- **Centralized Team Lifecycle Guard Hooks** (TLC-001/002/003)
+  - `enforce-team-lifecycle.sh` — PreToolUse:TeamCreate hook for team name validation and stale team cleanup
+  - `verify-team-cleanup.sh` — PostToolUse:TeamDelete hook for zombie dir detection
+  - `session-team-hygiene.sh` — SessionStart:startup hook for orphaned team detection
+  - Hook registration in hooks.json for PreToolUse:TeamCreate, PostToolUse:TeamDelete, and SessionStart:startup
+
+### Changed
+- **Plugin version**: 1.47.1 → 1.48.0
+- CLAUDE.md: added 3 new hook rows to Hook Infrastructure table
+- team-lifecycle-guard.md: added "Centralized Hook Guards" reference section
+
+## [1.47.1] — 2026-02-20
+
+### Fixed
+- Echo Search MCP server: use launcher script (`start.sh`) for runtime `CLAUDE_PROJECT_DIR` resolution, since `.mcp.json` env substitution only supports `${CLAUDE_PLUGIN_ROOT}`
+
+## [1.47.0] — 2026-02-19
+
+### Added
+- **Goldmask Pipeline Integration** (Phase C-F): Connects 3-layer analysis into core workflows
+  - Phase 0.5 Lore Layer in review/audit: Risk-weighted file sorting
+  - Phase 2.3 Predictive Goldmask in plan: Wisdom advisories
+  - Phase 4.4 Quick Goldmask Check in work: CRITICAL file comparison
+  - Phase 5.7 Goldmask Verification in arc: Post-work risk validation
+  - Phase 6.5 Goldmask Correlation in arc: TOME finding correlation
+- Arc pipeline: 15 → 17 phases (goldmask_verification, goldmask_correlation)
+- Checkpoint schema v9 → v10 migration
+- ARC_TEAM_PREFIXES: added "goldmask-" for cleanup
+- **horizon-sage** strategic depth assessment agent — evaluates plans across 5 dimensions: Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability & Resilience, Maintainability Trajectory
+- Intent-aware verdict derivation — adapts thresholds based on `strategic_intent` (long-term vs quick-win)
+- Forge Gaze integration — horizon-sage matched to sections with strategy/sustainability keywords
+- 2 new elicitation methods: Horizon Scanning (#50), Root Cause Depth Analysis (#51)
+- Phase 4C plan review integration — horizon-sage spawned alongside decree-arbiter and knowledge-keeper
+- Talisman `horizon` configuration section with kill switch
+- **Echo Search MCP expansion**: Added `mcpServers: echo-search` to **all 42 agents** (100% coverage) with tailored Echo Integration sections. Enables direct FTS5 query access to past learnings across all workflow phases:
+  - **Research** (5/5): echo-reader, repo-surveyor (past project conventions), git-miner (past historical context), lore-scholar (cached framework knowledge), practice-seeker (past research findings)
+  - **Review** (18/18): pattern-seer (past convention knowledge), ward-sentinel (past security vulnerabilities), blight-seer (past design anti-patterns), depth-seer (past missing logic), ember-oracle (past performance bottlenecks), flaw-hunter (past logic bugs), forge-keeper (past migration safety), mimic-detector (past duplication), phantom-checker (past dynamic references), refactor-guardian (past refactoring breakage), reference-validator (past reference integrity), rune-architect (past architectural violations), simplicity-warden (past over-engineering), tide-watcher (past async/concurrency issues), trial-oracle (past test quality), type-warden (past type safety), void-analyzer (past incomplete implementations), wraith-finder (past dead code)
+  - **Utility** (9/9): decree-arbiter (past project knowledge), knowledge-keeper (past documentation gaps), horizon-sage (past strategic patterns), elicitation-sage (past reasoning patterns), flow-seer (past flow analysis), mend-fixer (past fix patterns), runebinder (past aggregation patterns), scroll-reviewer (past document quality), truthseer-validator (past validation patterns)
+  - **Work** (2/2): rune-smith (past coding conventions), trial-forger (past test patterns)
+  - **Investigation** (8/8): goldmask-coordinator (historical risk context), lore-analyst (cached risk baselines), wisdom-sage (past intent classifications), api-contract-tracer (past API contract patterns), business-logic-tracer (past business rule changes), config-dependency-tracer (past config drift patterns), data-layer-tracer (past data model patterns), event-message-tracer (past event schema patterns)
+
+### Changed
+- PHASE_ORDER: 15 → 17 entries
+- calculateDynamicTimeout: +16 min base budget (goldmask_verification: 15 min, goldmask_correlation: 1 min)
+- Agent count: 42 → 46 (utility: 8 → 9, review: 16 → 18, investigation: 8)
+
+## [1.46.0] — 2026-02-19
+
+### Added
+- **Inner Flame self-review skill**: Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all Rune teammate agents
+  - Core skill at `skills/inner-flame/SKILL.md` with protocol definition and integration guide
+  - 6 role-specific checklists in `skills/inner-flame/references/role-checklists.md` (Reviewer, Worker, Fixer, Researcher, Forger, Aggregator)
+  - `validate-inner-flame.sh` TaskCompleted hook — blocks task completion when Self-Review Log is missing from teammate output
+  - Inner Flame sections added to all 7 ash-prompt templates (forge-warden, ward-sentinel, pattern-weaver, glyph-scribe, knowledge-keeper, codex-oracle, runebinder)
+  - Inner Flame checklist added to review-checklist.md shared reference
+  - Spawn prompt updates in plan.md (forger), research-phase.md (7 researchers), worker-prompts.md (rune-smith, trial-forger), mend.md (fixer)
+  - Agent definition updates: rune-smith (Rule #7 + Seal), trial-forger (Self-Review + Seal), mend-fixer (Step 4.5 + Seal)
+  - Talisman config: `inner_flame.enabled`, `inner_flame.confidence_floor`, `inner_flame.block_on_fail`
+
+### Changed
+- **Plugin version**: 1.45.0 → 1.46.0
+- Skills count: 14 → 15 (plugin.json, marketplace.json descriptions)
+- marketplace.json skills array: added `./skills/inner-flame`
+
+## [1.45.0] — 2026-02-19
+
+Consolidated release from arc-batch run (PRs #58–#62).
+
+### Added
+- **Per-worker todo files** for `/rune:work`: Persistent markdown with YAML frontmatter, `_summary.md` generation, PR body integration, sanitization + path containment (PR #58)
+- **Configurable codex timeout handling**: Two-layer timeout architecture with validation, error classification, and 12 codex exec site updates. New talisman keys for timeout config (PR #59)
+- **refactor-guardian review agent**: Detects refactoring safety issues — verifies rename propagation, extract method completeness, and interface contract preservation (PR #60)
+- **reference-validator review agent**: Validates cross-file references, link integrity, and documentation consistency across the codebase (PR #60)
+- **Echo Search MCP server**: Python MCP server with SQLite FTS5 for full-text echo retrieval. Includes `indexer.py`, `server.py`, `annotate-hook.sh`, and `.mcp.json` config (PR #61)
+- **Echo Search test suite**: 200 tests (78 unit for server, 39 for indexer, 19 for annotate hook, 64 integration with on-disk SQLite). Testdata fixtures with 4 realistic MEMORY.md files across reviewer, orchestrator, planner, and workers roles
+- **Dirty signal consumption**: `server.py` now checks for `tmp/.rune-signals/.echo-dirty` (written by `annotate-hook.sh`) before each `echo_search` and `echo_details` call, triggering automatic reindex when new echoes are written. Completes the write→signal→reindex→search data flow
+- **QW-1 Code Skimming prompts**: Added token-efficient file reading strategy to `repo-surveyor.md` (matching existing `echo-reader.md` section). Skim first 100 lines, then decide on full read
+- **CLAUDE.md documentation**: Added MCP Servers section (echo-search), PostToolUse hook entry for annotate-hook.sh, and `.search-index.db` gitignore note
+- **Platform environment configuration guide**: Env var reference table, 7-layer timeout model, pre-flight checklist, cost awareness, SDK heartbeat docs (PR #62)
+- **Zombie tmux cleanup**: Step 6 in `rest.md` targeting orphaned `claude-*` tmux sessions (PR #62)
+
+### Changed
+- **Agent runtime caps**: `maxTurns: 75` for rune-smith, `maxTurns: 50` for trial-forger (PR #62)
+- **MCP schema cost documentation**: Token estimates, multiplication effect per teammate, mitigation guidelines (PR #62)
+- **Teammate non-persistence warning**: New section in session-handoff.md + Core Rule 10 in CLAUDE.md (PR #62)
+- **Review agent count**: 16 → 18 (propagated to plugin.json, marketplace.json, README, CLAUDE.md, agent-registry)
+- **Plugin version**: 1.42.2 → 1.45.0
+
+## [1.43.0] — 2026-02-19
+
+### Added
+- **Arc Phase 7.7: TEST** — Diff-scoped test execution with 3-tier testing pyramid (unit → integration → E2E browser)
+  - Serial tier execution: faster tiers run first, failures are non-blocking WARNs
+  - Diff-scoped test discovery: maps changed files to corresponding tests
+  - Service startup auto-detection (docker-compose, package.json, Makefile)
+  - E2E browser testing via `agent-browser` with file-to-route mapping (Next.js, Rails, Django, SPA)
+  - Model routing: Sonnet for all test execution, Opus only for orchestration + failure analysis
+  - `--no-test` flag to skip Phase 7.7 entirely
+  - Test report integration into Phase 8 AUDIT inputs
+- **`testing` skill**: Test orchestration pipeline knowledge (non-invocable)
+- **`agent-browser` skill**: Browser automation knowledge injection for E2E testing (non-invocable)
+- **4 testing agents**: `unit-test-runner`, `integration-test-runner`, `e2e-browser-tester`, `test-failure-analyst`
+- **5 reference files**: `arc-phase-test.md`, `test-discovery.md`, `service-startup.md`, `file-route-mapping.md`, `test-report-template.md`
+- Checkpoint schema v9 (v8→v9 migration: adds `test` phase with `tiers_run`, `pass_rate`, `coverage_pct`, `has_frontend`)
+- Talisman `testing:` section with tier-level config (enabled, timeout, coverage, base_url, max_routes)
+- Talisman `arc.timeouts.test`: 900,000ms default (15 min), 2,400,000ms with E2E
+
+### Changed
+- **Plugin version**: 1.42.2 → 1.43.0
+- Skills count: 14 → 16 (added `testing`, `agent-browser`)
+- Agent categories: added testing (4 agents)
+- Arc PHASE_ORDER: added `test` between `verify_mend` and `audit`
+- Arc pipeline: 14 → 15 phases (Phase 7.7 TEST)
+- Phase Transition Contracts: VERIFY MEND → TEST → AUDIT (was VERIFY MEND → AUDIT)
+- `calculateDynamicTimeout()`: includes test phase budget
+- Arc phase-audit inputs: now includes test report
 
 ## [1.42.1] — 2026-02-19
 

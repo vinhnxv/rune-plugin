@@ -56,6 +56,41 @@
             "statusMessage": "Checking Agent Teams compliance..."
           }
         ]
+      },
+      {
+        "matcher": "TeamCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/enforce-team-lifecycle.sh",
+            "timeout": 5,
+            "statusMessage": "Validating team lifecycle..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "TeamDelete",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/verify-team-cleanup.sh",
+            "timeout": 5,
+            "statusMessage": "Verifying team cleanup..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/echo-search/annotate-hook.sh",
+            "timeout": 5,
+            "statusMessage": "Checking echo annotation..."
+          }
+        ]
       }
     ],
     "TaskCompleted": [
@@ -66,6 +101,12 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on-task-completed.sh",
             "timeout": 10,
             "statusMessage": "Recording task completion signal..."
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/validate-inner-flame.sh",
+            "timeout": 10,
+            "statusMessage": "Validating Inner Flame self-review..."
           },
           {
             "type": "prompt",
@@ -99,6 +140,17 @@
             "timeout": 5,
             "async": false,
             "statusMessage": "Loading Rune workflow routing..."
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-team-hygiene.sh",
+            "timeout": 5,
+            "statusMessage": "Checking team hygiene..."
           }
         ]
       }

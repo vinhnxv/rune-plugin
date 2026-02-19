@@ -17,6 +17,21 @@ const forgerCount = Math.min(Math.max(1, Math.ceil(testTasks / 4)), maxWorkers)
 
 Default: 2 workers (1 rune-smith + 1 trial-forger) for small plans (<=4 tasks). Scales up to `max_workers` (default 3) per role for larger plans.
 
+## Turn Budget Awareness
+
+Agent runtime caps (`maxTurns` in agent frontmatter) limit runaway agents:
+
+| Agent | maxTurns | Rationale |
+|-------|----------|-----------|
+| rune-smith | 75 | Complex multi-file implementations typically need 30-50 tool calls. 75 provides 50% headroom. |
+| trial-forger | 50 | Test generation is more constrained — read source, write tests, verify. |
+
+**Note**: `maxTurns` in agent frontmatter caps the agent definition. When spawning workers via `Task()` with `subagent_type: "general-purpose"`, the `max_turns` parameter on the Task call is the effective enforcement mechanism. Both should be set for defense-in-depth.
+
+**Edge cases**:
+- If an agent hits its turn cap mid-operation, it may leave staged git files or partial writes. Workers claiming a task should run `git status` first and `git reset HEAD` if unexpected staged files are found.
+- Terminated agents do not write `.done` signal files. The monitoring loop's `timeoutMs` parameter is the fallback detection mechanism.
+
 ## Rune Smith (Implementation Worker)
 
 ```javascript
@@ -101,6 +116,14 @@ Task({
     EXIT: No tasks after 3 retries (30s each) -> idle notification -> exit
     SHUTDOWN: Approve immediately
 
+    SELF-REVIEW (Inner Flame):
+    Before generating your patch, execute the Inner Flame Worker checklist:
+    - Re-read every changed file (full file, not just your diff)
+    - Verify all function signatures match call sites
+    - Verify no dead code or unused imports remain
+    - Append Self-Review Log to your Seal message
+    Include: Inner-flame: {pass|fail|partial}. Revised: {count}.
+
     RE-ANCHOR -- Match existing patterns. Minimal changes. Ask lead if unclear.`,
   run_in_background: true
 })
@@ -180,6 +203,14 @@ Task({
     Track failed task IDs internally and skip them when scanning TaskList.
     EXIT: No tasks after 3 retries (30s each) -> idle notification -> exit
     SHUTDOWN: Approve immediately
+
+    SELF-REVIEW (Inner Flame):
+    Before generating your patch, execute the Inner Flame Worker checklist:
+    - Re-read every test file you wrote
+    - Verify all imports match actual export names
+    - Verify test fixtures are consistent with source types
+    - Append Self-Review Log to your Seal message
+    Include: Inner-flame: {pass|fail|partial}. Revised: {count}.
 
     RE-ANCHOR -- Match existing test patterns. No new test utilities.`,
   run_in_background: true

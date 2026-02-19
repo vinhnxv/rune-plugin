@@ -27,7 +27,7 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
-# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → work → gap analysis → code review → mend → verify mend → audit → ship → merge
+# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
@@ -95,7 +95,7 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## Arc Mode (End-to-End Pipeline)
 
-When you run `/rune:arc`, Rune chains 14 phases into one automated pipeline:
+When you run `/rune:arc`, Rune chains 17 phases into one automated pipeline:
 
 1. **FORGE** — Research agents enrich the plan with best practices, codebase patterns, and past echoes
 2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
@@ -105,9 +105,12 @@ When you run `/rune:arc`, Rune chains 14 phases into one automated pipeline:
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
 5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code + doc-consistency via talisman verification_patterns (zero LLM cost, advisory)
 5.6. **CODEX GAP ANALYSIS** — Codex cross-model plan-vs-implementation gap detection (v1.39.0+)
+5.7. **GOLDMASK VERIFICATION** — Blast-radius analysis via investigation agents: 5 impact tracers + wisdom sage + lore analyst (v1.47.0+)
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
+6.5. **GOLDMASK CORRELATION** — Synthesis of investigation findings into unified GOLDMASK.md report (orchestrator-only, v1.47.0+)
 7. **MEND** — Parallel fixers resolve findings from TOME
 7.5. **VERIFY MEND** — Adaptive convergence controller: loops Phase 6→7→7.5 until findings converge or tier max cycles reached (LIGHT: 2, STANDARD: 3, THOROUGH: 5). Proceeds to audit with warning on halt
+7.7. **TEST** — Diff-scoped test execution: unit → integration → E2E/browser (non-blocking WARN, skip with `--no-test`)
 8. **AUDIT** — Final quality gate (informational)
 9. **SHIP** — Auto PR creation via `gh pr create` with generated template (skip with `--no-pr`)
 9.5. **MERGE** — Rebase onto target branch + auto squash-merge with pre-merge checklist (skip with `--no-merge`)
@@ -121,7 +124,7 @@ Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates 
 When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan files sequentially:
 
 1. **Pre-flight** — Validate all plan files exist, no duplicates or symlinks
-2. **For each plan** — Full 14-phase arc pipeline (forge through merge)
+2. **For each plan** — Full 17-phase arc pipeline (forge through merge)
 3. **Inter-run cleanup** — Checkout main, pull latest, clean state
 4. **Retry on failure** — Up to 3 `--resume` attempts per plan, then skip
 5. **Progress tracking** — `batch-progress.json` enables `--resume` for interrupted batches
@@ -292,7 +295,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 
 ### Review Agents
 
-19 specialized agents that Ash embed as perspectives:
+21 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -312,6 +315,8 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 | blight-seer | Design anti-patterns, architectural smells |
 | forge-keeper | Data integrity, migration safety |
 | tide-watcher | Async/concurrency patterns |
+| refactor-guardian | Refactoring safety, behavioral preservation |
+| reference-validator | Cross-file reference integrity, link validation |
 | reality-arbiter | Production viability truth-telling |
 | assumption-slayer | Premise validation truth-telling |
 | entropy-prophet | Long-term consequence truth-telling |
@@ -350,22 +355,26 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
 | veil-piercer-plan | Plan-level truth-teller (Phase 4C plan review) |
+| horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
 
 ## Skills
 
 | Skill | Purpose |
 |-------|---------|
-| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 14 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend → audit → ship → merge) |
+| agent-browser | Browser automation knowledge injection for E2E testing (non-invocable) |
+| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 17 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge) |
 | ash-guide | Agent invocation reference |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | context-weaving | Context overflow/rot prevention |
 | elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers) |
+| inner-flame | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
 | polling-guard | Monitoring loop fidelity — correct waitForCompletion translation |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | rune-orchestration | Multi-agent coordination patterns |
+| testing | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | using-rune | Workflow discovery and intent routing |
 | zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
 | arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
@@ -455,7 +464,7 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **TOME** — The unified review summary after deduplication and prioritization.
 
-**Arc Pipeline** — End-to-end orchestration across 14 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, auto PR creation (ship), and auto merge with pre-merge checklist.
+**Arc Pipeline** — End-to-end orchestration across 17 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, diff-scoped testing (unit/integration/E2E), auto PR creation (ship), and auto merge with pre-merge checklist.
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers, centralized ward check, and post-ward doc-consistency scan that fixes drift between source-of-truth files and their downstream targets.
 
@@ -472,12 +481,13 @@ plugins/rune/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── agents/
-│   ├── investigation/   # 8 impact/wisdom/lore agents (Goldmask v2)
-│   ├── review/          # 19 review agents
-│   │   └── references/  # Shared review checklists
-│   ├── research/        # 5 research agents (plan pipeline)
-│   ├── work/            # 2 swarm workers (work pipeline)
-│   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan
+│   ├── investigation/       # 8 impact/wisdom/lore agents (Goldmask v2)
+│   ├── review/              # 21 review agents
+│   │   └── references/      # Shared review checklists
+│   ├── research/            # 5 research agents (plan pipeline)
+│   ├── testing/             # 4 testing agents (arc Phase 7.7)
+│   ├── work/                # 2 swarm workers (work pipeline)
+│   └── utility/             # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan, horizon-sage
 ├── commands/
 │   ├── cancel-arc.md    # /rune:cancel-arc
 │   ├── forge.md         # /rune:forge
@@ -492,9 +502,11 @@ plugins/rune/
 │   ├── echoes.md        # /rune:echoes
 │   └── rest.md          # /rune:rest
 ├── skills/
+│   ├── agent-browser/       # Browser automation knowledge (non-invocable)
 │   ├── arc/                 # /rune:arc (end-to-end pipeline)
 │   │   ├── SKILL.md
 │   │   └── references/      # Arc-specific phase refs, delegation checklist
+│   ├── arc-batch/           # /rune:arc-batch (sequential multi-plan)
 │   ├── ash-guide/           # Agent reference
 │   ├── chome-pattern/       # CLAUDE_CONFIG_DIR resolution
 │   ├── codex-cli/           # Codex CLI integration
@@ -502,13 +514,32 @@ plugins/rune/
 │   ├── elicitation/         # BMAD-derived reasoning methods
 │   │   └── references/      # methods.csv, examples.md, phase-mapping.md
 │   ├── goldmask/            # Cross-layer impact analysis
+│   ├── inner-flame/         # 3-layer self-review protocol (non-invocable)
 │   ├── polling-guard/       # Monitoring loop fidelity
 │   ├── roundtable-circle/   # Review orchestration
 │   │   └── references/      # e.g. rune-gaze.md, custom-ashes.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
 │   ├── rune-orchestration/  # Core coordination
 │   │   └── references/      # e.g. team-lifecycle-guard.md
+│   ├── testing/             # Test orchestration pipeline (non-invocable)
+│   │   └── references/      # test-discovery.md, service-startup.md, etc.
+│   ├── using-rune/          # Workflow discovery and intent routing
 │   └── zsh-compat/          # zsh shell compatibility
+├── scripts/
+│   ├── enforce-readonly.sh          # SEC-001: Read-only agent enforcement
+│   ├── enforce-polling.sh           # POLL-001: Monitoring anti-pattern block
+│   ├── enforce-zsh-compat.sh        # ZSH-001: zsh compatibility guard
+│   ├── enforce-teams.sh             # ATE-1: Bare Task call prevention
+│   ├── enforce-team-lifecycle.sh    # TLC-001: Team name validation + stale cleanup
+│   ├── validate-mend-fixer-paths.sh # SEC-MEND-001: Mend fixer file scope
+│   ├── verify-team-cleanup.sh       # TLC-002: Post-delete zombie detection
+│   ├── session-team-hygiene.sh      # TLC-003: Session startup orphan scan
+│   ├── validate-inner-flame.sh      # Inner Flame self-review gate
+│   ├── on-task-completed.sh         # Task completion signal writer
+│   ├── on-teammate-idle.sh          # Teammate idle quality gate
+│   ├── session-start.sh             # Workflow routing loader
+│   ├── arc-batch.sh                 # Arc batch executor
+│   └── echo-search/                 # Echo Search MCP server + hooks
 ├── talisman.example.yml
 ├── CLAUDE.md
 ├── LICENSE
@@ -553,6 +584,22 @@ Rune uses Elden Ring-inspired theming:
 - `.gitignore` excludes `.claude/echoes/` by default (opt-in to version control)
 - Sensitive data filter rejects API keys, passwords, tokens from echo entries
 - All findings require verified evidence from source code
+- **Hook-based enforcement**: 12 event-driven hook scripts provide deterministic guardrails (9 enforcement + 3 quality/lifecycle):
+
+| Hook | Event | Purpose |
+|------|-------|---------|
+| SEC-001 | PreToolUse:Write\|Edit\|Bash | Blocks write tools for read-only review/audit agents |
+| POLL-001 | PreToolUse:Bash | Blocks sleep+echo monitoring anti-pattern |
+| ZSH-001 | PreToolUse:Bash | Blocks zsh-incompatible patterns (read-only vars, unprotected globs) |
+| SEC-MEND-001 | PreToolUse:Write\|Edit | Blocks mend-fixers from writing outside assigned files |
+| ATE-1 | PreToolUse:Task | Blocks bare Task calls during active workflows |
+| TLC-001 | PreToolUse:TeamCreate | Validates team names (hard block) + stale team cleanup (advisory) |
+| TLC-002 | PostToolUse:TeamDelete | Zombie team dir detection after deletion |
+| TLC-003 | SessionStart:startup\|resume | Orphaned team and stale state file detection |
+| — | PostToolUse:Write\|Edit | Echo search index dirty-signal annotation |
+| — | TaskCompleted | Signal files + haiku quality gate + Inner Flame self-review validation |
+| — | TeammateIdle | Output file validation + SEAL marker checks |
+| — | SessionStart:startup\|resume\|clear\|compact | Workflow routing context loader |
 
 ## Requirements
 

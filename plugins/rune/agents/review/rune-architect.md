@@ -15,6 +15,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -38,6 +40,21 @@ Architectural compliance and design integrity specialist.
 - God object / god service detection
 - Missing abstraction layers
 
+## Echo Integration (Past Architectural Violations)
+
+Before reviewing architectural compliance, query Rune Echoes for previously identified architectural violations:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with architecture-focused queries
+   - Query examples: "layer boundary", "circular dependency", "SOLID violation", "service boundary", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent architectural knowledge)
+2. **Fallback (MCP unavailable)**: Skip — review all files fresh for architectural issues
+
+**How to use echo results:**
+- Past architectural findings reveal modules with history of boundary violations
+- If an echo flags a service as a god object, prioritize single responsibility analysis
+- Historical circular dependency patterns inform which import chains need verification
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: rune-architect/MEMORY.md)`
+
 ## Analysis Framework
 
 ### 1. Layer Boundaries
@@ -60,8 +77,8 @@ class SQLAlchemyUserRepository(UserRepository):
 ### 2. Dependency Direction
 
 ```
-ALLOWED:         api → domain ← infrastructure
-FORBIDDEN:       domain → api, domain → infrastructure
+ALLOWED:         api -> domain <- infrastructure
+FORBIDDEN:       domain -> api, domain -> infrastructure
 ```
 
 ### 3. Single Responsibility

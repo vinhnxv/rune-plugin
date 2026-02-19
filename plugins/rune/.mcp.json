@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "echo-search": {
+      "type": "stdio",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/echo-search/start.sh",
+      "args": []
+    }
+  }
+}

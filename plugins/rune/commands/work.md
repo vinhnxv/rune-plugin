@@ -64,7 +64,11 @@ Phase 3.5: Commit Broker -> Apply patches, commit (orchestrator-only)
     |
 Phase 4: Ward Check -> Quality gates + verification checklist
     |
+Phase 4.1: Todo Summary -> Generate _summary.md from per-worker todo files (orchestrator-only)
+    |
 Phase 4.3: Doc-Consistency -> Non-blocking version/count drift detection (orchestrator-only)
+    |
+Phase 4.4: Quick Goldmask -> Compare predicted CRITICAL files vs committed (orchestrator-only)
     |
 Phase 4.5: Codex Advisory -> Optional plan-vs-implementation review (non-blocking)
     |
@@ -207,6 +211,8 @@ const signalDir = `tmp/.rune-signals/rune-work-${timestamp}`
 Bash(`mkdir -p "${signalDir}" && find "${signalDir}" -mindepth 1 -delete`)
 // NOTE: .expected counts tasks (not teammates). In work, N tasks > N teammates. Review/audit have 1:1 task:teammate ratio.
 Write(`${signalDir}/.expected`, String(extractedTasks.length))
+// Signal inscription is hook-facing (task counts + teammate names only). Intentionally omits
+// todos/diff_scope/context_engineering — hooks don't need these. Full contract is in step 4.
 Write(`${signalDir}/inscription.json`, JSON.stringify({
   workflow: "rune-work",
   timestamp: timestamp,
@@ -218,7 +224,7 @@ Write(`${signalDir}/inscription.json`, JSON.stringify({
 }))
 
 // 2. Create output directories
-Bash(`mkdir -p "tmp/work/${timestamp}/patches" "tmp/work/${timestamp}/proposals"`)
+Bash(`mkdir -p "tmp/work/${timestamp}/patches" "tmp/work/${timestamp}/proposals" "tmp/work/${timestamp}/todos"`)
 
 // 3. Write state file
 Write("tmp/.rune-work-{timestamp}.json", {
@@ -239,6 +245,13 @@ Write(`tmp/work/${timestamp}/inscription.json`, {
     { name: "rune-smith", role: "implementation", output_file: "patches/*.patch", required_sections: ["implementation", "ward-check"] },
     { name: "trial-forger", role: "test", output_file: "patches/*.patch", required_sections: ["tests", "ward-check"] }
   ],
+  todos: {
+    enabled: true,
+    dir: `todos/`,
+    schema: "per-worker",
+    fields: ["worker", "role", "status", "plan_path"],
+    summary_file: "_summary.md"
+  },
   verification: { enabled: false }
 })
 
@@ -349,6 +362,36 @@ for (let i = 0; i < extractedTasks.length; i++) {
 See [worker-prompts.md](work/references/worker-prompts.md) for full worker prompt templates, scaling logic, and the scaling table.
 
 **Summary**: Summon rune-smith (implementation) and trial-forger (test) workers. Workers self-organize via TaskList, claim tasks, implement with TDD, self-review, run ward checks, generate patches, and send Seal messages. Commits are handled through the Tarnished's commit broker. Do not run git add or git commit directly.
+
+### Todo File Protocol (v1.43.0+)
+
+All worker spawn prompts MUST include the following TODO FILE PROTOCOL block. Workers create per-worker todo files that persist after work completion for cross-session resume, post-mortem review, and accountability tracking.
+
+```
+TODO FILE PROTOCOL (mandatory):
+1. On first task claim: create tmp/work/{timestamp}/todos/{your-name}.md
+   with YAML frontmatter:
+   ---
+   worker: {your-name}
+   role: implementation | test
+   status: active
+   plan_path: {planPath}
+   ---
+2. Before starting each task: add a "## Task #N: {subject}" section
+   with Status: in_progress, Claimed timestamp, and initial subtask checklist
+3. As you complete each subtask: update the checkbox to [x]
+4. On task completion: add Files touched, Ward Result, Completed timestamp,
+   update Status to completed
+5. Record key decisions in "### Decisions" subsection — explain WHY, not just WHAT
+6. On failure: update Status to failed, add "### Failure reason" subsection
+7. On exit (shutdown or idle): update frontmatter status to completed/interrupted
+
+NOTE: Use simplified v1 frontmatter (4 fields only: worker, role, status, plan_path).
+All counters (tasks_completed, subtasks_total, etc.) are derived by the orchestrator
+during summary generation. Workers MUST NOT write counter fields.
+```
+
+**Error handling**: Todo file write failure is non-blocking — warn orchestrator, continue without todo tracking. Worker should not halt work execution due to todo file issues.
 
 <!-- NOTE: Work agents are spawned as general-purpose (not namespaced agent types like rune:work:rune-smith)
      because they need full tool access (including Bash for ward checks, compilation, and test execution).
@@ -506,6 +549,119 @@ After all tasks complete, run project-wide quality gates. See [ward-check.md](..
 
 **Summary**: Discover wards from Makefile/package.json/pyproject.toml, execute each with SAFE_WARD validation, run 10-point verification checklist. On ward failure, create fix task and summon worker.
 
+### Phase 4.1: Todo Summary Generation (orchestrator-only)
+
+After ward check passes and all workers have exited, the orchestrator generates `todos/_summary.md` by reading all per-worker todo files. This runs AFTER all workers exit to avoid TOCTOU race conditions.
+
+**Inputs**: All `todos/{worker-name}.md` files in `tmp/work/{timestamp}/todos/`
+**Outputs**: `tmp/work/{timestamp}/todos/_summary.md`
+**Preconditions**: Ward check passed (Phase 4), all workers completed/shutdown
+**Error handling**: Missing or unparseable todo file → skip that worker in summary (warn). Empty todos dir → skip summary generation entirely (non-blocking).
+
+```javascript
+// Phase 4.1: Generate todo summary AFTER all workers have exited
+const todoDir = `tmp/work/${timestamp}/todos`
+const todoFiles = Glob(`${todoDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
+
+// SEC-002: Validate path containment — reject symlinks or paths outside todoDir
+const safeTodoFiles = todoFiles.filter(f => {
+  const basename = f.split('/').pop().replace('.md', '')
+  return /^[a-zA-Z0-9_-]+$/.test(basename) && f.startsWith(todoDir)
+})
+
+if (safeTodoFiles.length === 0) {
+  warn("No todo files found — skipping summary generation")
+} else {
+  const workers = []
+  // SEC-001: sanitize worker-controlled values before embedding in markdown/YAML
+  const sanitizeCell = (s) => String(s).replace(/\|/g, '\\|').replace(/\n.*/s, '').slice(0, 100)
+  for (const todoFile of safeTodoFiles) {
+    try {
+      const content = Read(todoFile)
+      // Parse YAML frontmatter
+      const frontmatter = content.match(/^---\n([\s\S]*?)\n---/)
+      if (!frontmatter) { warn(`Unparseable frontmatter in ${todoFile} — skipping`); continue }
+
+      // Count checkboxes from markdown body
+      const body = content.slice(frontmatter[0].length)
+      const completed = (body.match(/- \[x\]/gi) || []).length
+      const total = completed + (body.match(/- \[ \]/g) || []).length
+
+      // Extract decisions
+      const decisions = []
+      const decisionMatches = body.matchAll(/### Decisions\n([\s\S]*?)(?=\n##|\n---|\s*$)/g)
+      for (const match of decisionMatches) {
+        const items = match[1].match(/^- .+$/gm) || []
+        decisions.push(...items.map(d => d.replace(/^- /, '')))
+      }
+
+      // Count tasks by status
+      const taskSections = body.split(/^## Task #\d+:/m).slice(1)
+      const taskStatuses = taskSections.map(s => {
+        const statusMatch = s.match(/\*\*Status\*\*:\s*(\w+)/)
+        return statusMatch ? statusMatch[1] : 'unknown'
+      })
+
+      // Fix any stale "active" status to "interrupted" (FLAW-008 mitigation)
+      // SEC-003: Match is scoped to frontmatter[1] which only contains content between --- markers
+      const statusMatch = frontmatter[1].match(/status:\s*(\w+)/)
+      const workerStatus = statusMatch ? statusMatch[1] : 'unknown'
+      if (workerStatus === 'active') {
+        warn(`Todo file ${todoFile} has status: active after worker exit — fixing to interrupted`)
+        // Note: Edit targets first occurrence. Since frontmatter is at file start, this is safe.
+        // If Edit fails (non-unique match), the try/catch below swallows it — Phase 6 step 3.5 is the safety net.
+        Edit(todoFile, { old_string: 'status: active', new_string: 'status: interrupted' })
+      }
+
+      workers.push({
+        name: basename(todoFile, '.md'),
+        role: frontmatter[1].match(/role:\s*(.+)/)?.[1]?.trim() || 'unknown',
+        status: workerStatus === 'active' ? 'interrupted' : workerStatus,
+        subtasks_completed: completed,
+        subtasks_total: total,
+        tasks_completed: taskStatuses.filter(s => s === 'completed').length,
+        tasks_total: taskSections.length,
+        decisions: decisions
+      })
+    } catch (e) {
+      warn(`Failed to parse todo file ${todoFile}: ${e.message} — skipping`)
+    }
+  }
+
+  if (workers.length > 0) {
+    // Generate summary markdown
+    const totalTasks = workers.reduce((s, w) => s + w.tasks_total, 0)
+    const completedTasks = workers.reduce((s, w) => s + w.tasks_completed, 0)
+    const totalSubtasks = workers.reduce((s, w) => s + w.subtasks_total, 0)
+    const completedSubtasks = workers.reduce((s, w) => s + w.subtasks_completed, 0)
+
+    const summary = `---
+generated: ${new Date().toISOString()}
+plan: ${planPath}
+workers: ${workers.length}
+total_tasks: ${totalTasks}
+completed_tasks: ${completedTasks}
+total_subtasks: ${totalSubtasks}
+completed_subtasks: ${completedSubtasks}
+---
+
+# Work Session Summary
+
+## Progress Overview
+
+| Worker | Role | Tasks | Subtasks | Status |
+|--------|------|-------|----------|--------|
+${workers.map(w => `| ${sanitizeCell(w.name)} | ${sanitizeCell(w.role)} | ${w.tasks_completed}/${w.tasks_total} | ${w.subtasks_completed}/${w.subtasks_total} | ${sanitizeCell(w.status)} |`).join('\n')}
+
+## Key Decisions (across all workers)
+
+${workers.flatMap(w => w.decisions.map(d => `- **${sanitizeCell(w.name)}**: ${sanitizeCell(d)}`)).join('\n') || '- No decisions recorded'}
+`
+    Write(`${todoDir}/_summary.md`, summary)
+  }
+}
+```
+
 ### Phase 4.3: Doc-Consistency Check (orchestrator-only, non-blocking)
 
 After the ward check passes, run lightweight doc-consistency checks. See [doc-consistency.md](../skills/roundtable-circle/references/doc-consistency.md) for the full algorithm, extractor taxonomy, and security constraints.
@@ -514,6 +670,69 @@ After the ward check passes, run lightweight doc-consistency checks. See [doc-co
 **Outputs**: PASS/DRIFT/SKIP results appended to work-summary.md
 **Preconditions**: Ward check passed (Phase 4), all workers completed
 **Error handling**: DRIFT is non-blocking (warn). Extraction failure -> SKIP with reason. Talisman parse error -> fall back to defaults.
+
+### Phase 4.4: Quick Goldmask Check (orchestrator-only, non-blocking)
+
+Lightweight, agent-free check after work is done. Compares plan-time risk predictions (from Phase 2.3 Predictive Goldmask) against actually committed files. Emits WARNING for predicted-but-untouched CRITICAL files.
+
+**Inputs**: `planPath` (from Phase 0), committedFiles (from Phase 3.5 commit broker)
+**Outputs**: Log WARNINGs only (no output artifact — advisory weight)
+**Preconditions**: Ward check passed (Phase 4), all workers completed
+**Error handling**: Missing risk-map → skip silently. Corrupt JSON → skip silently. Non-blocking in all cases.
+
+```javascript
+// Phase 4.4: Quick Goldmask Check
+// No agents — orchestrator performs deterministic comparison
+// SKIP: if no plan-time risk-map exists
+
+// Derive planTimestamp from planPath (work.md stores planPath, not planTimestamp)
+// Plan path format: plans/YYYY-MM-DD-{type}-{name}-plan.md or tmp/plans/{timestamp}/...
+let planTimestamp = null
+const tmpPlanMatch = planPath.match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
+if (tmpPlanMatch) {
+  planTimestamp = tmpPlanMatch[1]
+} else {
+  // For plans/ directory, look for risk-map.json in tmp/plans/ that references this plan
+  const planTimestampFiles = Glob("tmp/plans/*/risk-map.json")
+  for (const rmFile of planTimestampFiles) {
+    const dirMatch = rmFile.match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
+    if (dirMatch) {
+      planTimestamp = dirMatch[1]
+      break
+    }
+  }
+}
+
+if (planTimestamp) {
+  const riskMapPath = `tmp/plans/${planTimestamp}/risk-map.json`
+  if (exists(riskMapPath)) {
+    try {
+      const riskMapContent = Read(riskMapPath)
+      const riskMap = JSON.parse(riskMapContent)
+
+      // Get committed files from commit broker metadata
+      // Normalize: strip leading ./ for consistent comparison
+      const normalize = (p) => p.replace(/^\.\//, '')
+      const committedNorm = committedFiles.map(normalize)
+
+      const criticalUntouched = Object.entries(riskMap.files ?? {})
+        .filter(([path, data]) =>
+          data.tier === 'CRITICAL' && !committedNorm.includes(normalize(path))
+        )
+
+      if (criticalUntouched.length > 0) {
+        log(`\nGoldmask Quick Check: ${criticalUntouched.length} CRITICAL files predicted but untouched:`)
+        for (const [path, data] of criticalUntouched) {
+          log(`  [CRITICAL] ${path} — risk: ${(data.risk ?? 0).toFixed(2)}, ${data.freq ?? 'N/A'} commits/90d`)
+        }
+        log(`Consider reviewing these files for missed changes.\n`)
+      }
+    } catch (e) {
+      // Corrupt risk-map — skip silently (absence of WARNING is acceptable)
+    }
+  }
+}
+```
 
 ### Phase 4.5: Codex Advisory (optional, non-blocking)
 
@@ -568,8 +787,12 @@ if (codexAvailable && !codexDisabled) {
         2. Check codex availability, validate execution, check authentication
         3. Gather context: Read plan, get diff (head -c ${maxDiffSize})
         4. Write prompt to tmp file (SEC-003: avoid inline shell interpolation)
-        5. Run: timeout 600 codex exec -m "${codexModel}" --config model_reasoning_effort="${codexReasoning}"
+        5. Resolve timeouts via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+           Run: timeout ${killAfterFlag} ${codexTimeout} codex exec -m "${codexModel}"
+           --config model_reasoning_effort="${codexReasoning}"
+           --config stream_idle_timeout_ms="${codexStreamIdleMs}"
            --sandbox read-only --full-auto --skip-git-repo-check --json
+           Capture stderr to tmp file for error classification (NOT 2>/dev/null)
         6. Classify errors per codex-detection.md ## Runtime Error Classification
         7. Write findings to tmp/work/${timestamp}/codex-advisory.md
            Format: [CDX-WORK-NNN] Title -- file:line -- description
@@ -580,17 +803,18 @@ if (codexAvailable && !codexDisabled) {
       run_in_background: true
     })
 
-    // Monitor: wait for codex-advisory to complete (max 11 min)
+    // Monitor: wait for codex-advisory to complete (codex timeout + 60s buffer)
     // NOTE: Uses inline polling (not waitForCompletion) because this monitors a SPECIFIC
     // task by name, not a count of completed tasks. waitForCompletion is count-based.
     const codexStart = Date.now()
-    const CODEX_TIMEOUT = 660_000
+    const { timeout: resolvedTimeout } = resolveCodexTimeouts(talisman)  // see codex-detection.md
+    const CODEX_MONITOR_TIMEOUT = (resolvedTimeout * 1000) + 60_000  // outer timeout + 60s buffer
     while (true) {
       const tasks = TaskList()
       const codexTask = tasks.find(t => t.subject?.includes("Codex Advisory"))
       if (codexTask?.status === "completed") break
-      if (Date.now() - codexStart > CODEX_TIMEOUT) {
-        warn("Codex Advisory: teammate timeout -- proceeding without advisory")
+      if (Date.now() - codexStart > CODEX_MONITOR_TIMEOUT) {
+        warn(`Codex Advisory: teammate timeout after ${Math.round(CODEX_MONITOR_TIMEOUT/60000)} min -- proceeding without advisory`)
         break
       }
       sleep(15_000)
@@ -673,7 +897,22 @@ if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-work-${timestamp}/" "$CHOME/tasks/rune-work-${timestamp}/" 2>/dev/null`)
 }
 
-// 3.5 Restore stashed changes if Phase 0.5 stashed
+// 3.5 Fix stale todo file statuses (FLAW-008 mitigation, safety net for Phase 4.1)
+// Workers may be killed before updating status. Fix any "active" files to "interrupted".
+const todoDir = `tmp/work/${timestamp}/todos`
+const todoFiles = Glob(`${todoDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
+  .filter(f => /^[a-zA-Z0-9_-]+\.md$/.test(f.split('/').pop()) && f.startsWith(todoDir)) // SEC-002: path containment
+for (const todoFile of todoFiles) {
+  try {
+    const content = Read(todoFile)
+    if (content.includes('status: active')) {
+      warn(`Fixing stale todo file: ${todoFile} (active → interrupted)`)
+      Edit(todoFile, { old_string: 'status: active', new_string: 'status: interrupted' })
+    }
+  } catch (e) { /* non-blocking */ }
+}
+
+// 3.6 Restore stashed changes if Phase 0.5 stashed
 if (didStash) {
   const popResult = Bash("git stash pop 2>/dev/null")
   if (popResult.exitCode !== 0) {
@@ -696,7 +935,28 @@ Write("tmp/.rune-work-{timestamp}.json", {
 
 See [ship-phase.md](work/references/ship-phase.md) for gh CLI pre-check, ship decision flow, PR template generation, and smart next steps.
 
-**Summary**: Offer to push branch and create PR. Generates PR body from plan metadata, task list, ward results, and verification warnings. Includes smart next steps based on changeset analysis.
+**Summary**: Offer to push branch and create PR. Generates PR body from plan metadata, task list, ward results, verification warnings, and todo summary. Includes smart next steps based on changeset analysis.
+
+**Todo Summary in PR Body**: If `todos/_summary.md` exists, append a collapsible Work Session section to the PR body:
+
+```markdown
+## Work Session
+
+<details>
+<summary>{workers} workers completed {completed_tasks}/{total_tasks} tasks ({completed_subtasks}/{total_subtasks} subtasks)</summary>
+
+{contents of todos/_summary.md Progress Overview table}
+
+</details>
+
+### Key Decisions
+{3-5 decisions from todos/_summary.md that introduced new dependencies, changed architecture, or deviated from plan}
+
+### Known Issues
+{any failed tasks or incomplete subtasks from summary}
+```
+
+**Error handling**: Missing summary → fall back to existing PR body generation (non-blocking).
 
 ### Completion Report
 

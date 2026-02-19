@@ -17,6 +17,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -238,6 +240,20 @@ Different logging patterns across services:
 # - No consistent log level policy documented
 # - Metrics: some services emit, others don't
 ```
+
+## Echo Integration (Past Convention Knowledge)
+
+Before analyzing patterns, query Rune Echoes for previously established conventions:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with convention-focused queries
+   - Query examples: "naming convention", "error handling pattern", "API design", "data model"
+   - Limit: 5 results — focus on Etched and Inscribed entries (high confidence)
+2. **Fallback (MCP unavailable)**: Skip echo lookup — rely solely on Grep-based convention discovery
+
+**How to use echo results:**
+- If an echo says "snake_case for DB columns" and new code uses camelCase → flag as P2 with echo as supporting evidence
+- If an echo contradicts what you find in code → trust the code (echoes can be stale), but note the contradiction
+- Add echo-sourced context to the **Existing pattern** field in your findings
 
 ## Review Checklist
 
