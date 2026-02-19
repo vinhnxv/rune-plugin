@@ -63,6 +63,7 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 | Agent | Topics | Subsection | Perspective |
 |-------|--------|------------|-------------|
 | flow-seer | user-flow, ux, interaction, workflow, requirements, gaps, completeness | User Flow Analysis | user flow completeness and requirement gaps |
+| horizon-sage | strategy, sustainability, long-term, root-cause, future-risk, tech-debt, innovation, resilience, maintainability-trajectory, depth, viability, quick-fix, temporal-horizon | Strategic Depth Analysis | strategic viability, long-term sustainability, and root-cause depth |
 
 ### Elicitation Methods (Agent Budget — elicitation-sage)
 

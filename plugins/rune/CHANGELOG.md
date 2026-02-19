@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.47.0] — 2026-02-19
+
+### Added
+- **horizon-sage** strategic depth assessment agent — evaluates plans across 5 dimensions: Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability & Resilience, Maintainability Trajectory
+- Intent-aware verdict derivation — adapts thresholds based on `strategic_intent` (long-term vs quick-win)
+- Forge Gaze integration — horizon-sage matched to sections with strategy/sustainability keywords
+- 2 new elicitation methods: Horizon Scanning (#50), Root Cause Depth Analysis (#51)
+- Phase 4C plan review integration — horizon-sage spawned alongside decree-arbiter and knowledge-keeper
+- Talisman `horizon` configuration section with kill switch
+
+### Changed
+- Agent count: 41 → 42 (utility: 8 → 9)
+
 ## [1.46.0] — 2026-02-19
 
 ### Added

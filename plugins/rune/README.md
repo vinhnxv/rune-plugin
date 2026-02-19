@@ -356,6 +356,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
+| horizon-sage | Strategic depth assessment, long-term viability, root-cause depth |
 
 ## Skills
 
@@ -485,7 +486,7 @@ plugins/rune/
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
 │   ├── work/                # 2 swarm workers (work pipeline)
-│   └── utility/             # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage
+│   └── utility/             # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, horizon-sage
 ├── commands/
 │   ├── cancel-arc.md        # /rune:cancel-arc
 │   ├── forge.md             # /rune:forge

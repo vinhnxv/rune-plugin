@@ -146,7 +146,7 @@ echo "Commands: $(find plugins/rune/commands -name '*.md' -not -path '*/referenc
 
 ## References
 
-- [Agent registry](references/agent-registry.md) — 18 review + 5 research + 2 work + 8 utility + 8 investigation agents
+- [Agent registry](references/agent-registry.md) — 18 review + 5 research + 2 work + 9 utility + 8 investigation agents
 - [Key concepts](references/key-concepts.md) — Tarnished, Ash, TOME, Arc, Mend, Forge Gaze, Echoes
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow

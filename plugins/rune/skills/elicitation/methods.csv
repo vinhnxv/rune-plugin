@@ -21,3 +21,5 @@ num,category,method_name,description,output_pattern,tier,phases,agents,topics,au
 27,creative,What If Scenarios,Contingency planning for alternatives,scenarios->impacts->contingencies,2,"plan:2.5","","contingency,what-if,scenarios,alternatives",false,
 38,risk,Chaos Monkey Scenarios,Deliberate failure injection analysis,failures->impacts->resilience,2,"arc:8","flaw-hunter","chaos,failure,resilience,robustness",false,
 47,philosophical,Occam's Razor Application,Simplicity check for over-engineering,complexity->simplification->minimal,2,"forge:3,review:6","simplicity-warden","simplicity,over-engineering,minimal,YAGNI",false,
+50,risk,Horizon Scanning,"Forward-looking risk and opportunity analysis — identifies trends that affect plan longevity",trends->impacts->adaptations,1,"plan:4,forge:3","horizon-sage","future,trends,evolution,sustainability,longevity,tech-debt",true,
+51,technical,Root Cause Depth Analysis,"Evaluates whether a plan addresses symptoms or root causes — traces problem to deepest contributing factor",symptom->investigation->root-cause->verification,1,"plan:4,forge:3","horizon-sage","root-cause,symptoms,depth,investigation,why,underlying",true,

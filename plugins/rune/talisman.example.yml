@@ -431,6 +431,14 @@ work:
   #   checks: []                   # Same schema as arc.consistency.checks. If empty, falls back to arc checks, then defaults.
 
 # ──────────────────────────────────────────────
+# Horizon — Strategic depth assessment (v1.47.0+)
+# ──────────────────────────────────────────────
+horizon:
+  enabled: true                    # Kill switch — disables horizon-sage globally
+  intent_default: "long-term"      # Default intent when user skips question
+  # block_on_mismatch: true        # BLOCK when intent contradicts assessment (default: true)
+
+# ──────────────────────────────────────────────
 # Codex Oracle — Cross-model verification (v1.18.0+)
 # ──────────────────────────────────────────────
 # Codex Oracle is auto-detected when the `codex` CLI is installed

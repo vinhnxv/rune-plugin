@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 41 agents** (18 review + 5 research + 2 work + 8 utility + 8 investigation)
+**Total: 42 agents** (18 review + 5 research + 2 work + 9 utility + 8 investigation)
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 
@@ -56,6 +56,7 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
+| horizon-sage | Strategic depth assessment, long-term viability, root-cause depth |
 
 ## Investigation Agents (`agents/investigation/`)
 
