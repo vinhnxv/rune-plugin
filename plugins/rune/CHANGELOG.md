@@ -1,6 +1,19 @@
 # Changelog
 
-<<<<<<< HEAD
+## [1.48.0] — 2026-02-20
+
+### Added
+- **Centralized Team Lifecycle Guard Hooks** (TLC-001/002/003)
+  - `enforce-team-lifecycle.sh` — PreToolUse:TeamCreate hook for team name validation and stale team cleanup
+  - `verify-team-cleanup.sh` — PostToolUse:TeamDelete hook for zombie dir detection
+  - `session-team-hygiene.sh` — SessionStart:startup hook for orphaned team detection
+  - Hook registration in hooks.json for PreToolUse:TeamCreate, PostToolUse:TeamDelete, and SessionStart:startup
+
+### Changed
+- **Plugin version**: 1.47.1 → 1.48.0
+- CLAUDE.md: added 3 new hook rows to Hook Infrastructure table
+- team-lifecycle-guard.md: added "Centralized Hook Guards" reference section
+
 ## [1.47.1] — 2026-02-20
 
 ### Fixed
@@ -106,21 +119,6 @@ Consolidated release from arc-batch run (PRs #58–#62).
 - Phase Transition Contracts: VERIFY MEND → TEST → AUDIT (was VERIFY MEND → AUDIT)
 - `calculateDynamicTimeout()`: includes test phase budget
 - Arc phase-audit inputs: now includes test report
-
-### Also in 1.43.0 (TLC hooks)
-- **TLC-001**: `enforce-team-lifecycle.sh` — PreToolUse:TeamCreate hook for centralized
-  team name validation (hard block on invalid names) and stale team detection with
-  auto filesystem cleanup (advisory context for SDK state). 30-minute stale threshold
-  prevents false positives during arc rapid phase transitions and concurrent sessions.
-- **TLC-002**: `verify-team-cleanup.sh` — PostToolUse:TeamDelete hook for zombie dir
-  detection after TeamDelete. Reports remaining rune-*/arc-* dirs (informational).
-- **TLC-003**: `session-team-hygiene.sh` — SessionStart:startup hook for orphaned team
-  and stale state file detection at session start. Supports both BSD and GNU stat for
-  cross-platform mtime checks.
-- Hook registration in hooks.json for PreToolUse:TeamCreate, PostToolUse:TeamDelete
-  (new top-level key), and SessionStart:startup events.
-- CLAUDE.md: added 3 new hook rows to Hook Infrastructure table, updated timeout rationale
-- team-lifecycle-guard.md: added "Centralized Hook Guards" reference section
 
 ## [1.42.1] — 2026-02-19
 
