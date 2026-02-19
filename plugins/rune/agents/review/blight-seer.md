@@ -16,6 +16,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -34,6 +36,21 @@ Design anti-pattern and architectural smell specialist. Named for the Blight sta
 
 > "A design anti-pattern is a solution that appears correct but introduces hidden costs
 > that compound over time. Detect them early — the cost of fixing grows exponentially."
+
+## Echo Integration (Past Design Anti-Pattern Findings)
+
+Before scanning for design anti-patterns, query Rune Echoes for previously identified anti-pattern findings:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with anti-pattern-focused queries
+   - Query examples: "God Service", "leaky abstraction", "temporal coupling", "consistency model", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent anti-pattern knowledge)
+2. **Fallback (MCP unavailable)**: Skip — scan all files fresh for design anti-patterns
+
+**How to use echo results:**
+- Past anti-pattern findings reveal modules with history of design smells
+- If an echo flags a service as a God Service, prioritize responsibility analysis
+- Historical coupling patterns inform which modules need temporal coupling checks
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: blight-seer/MEMORY.md)`
 
 ## Analysis Framework
 

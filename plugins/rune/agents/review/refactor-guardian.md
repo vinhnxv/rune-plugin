@@ -19,6 +19,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -42,6 +44,21 @@ Refactoring completeness, orphaned caller, and extraction integrity specialist.
 - **Tests must follow the code**: Test imports referencing deleted paths fail silently in some frameworks
 - **Partial migrations are time bombs**: Half-updated codebases are worse than un-refactored ones
 
+## Echo Integration (Past Refactoring Breakage Patterns)
+
+Before scanning for refactoring breakage, query Rune Echoes for previously identified refactoring issues:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with refactoring-focused queries
+   - Query examples: "orphaned caller", "broken import", "refactoring", "file move", "rename", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent refactoring breakage knowledge)
+2. **Fallback (MCP unavailable)**: Skip — scan all files fresh for refactoring issues
+
+**How to use echo results:**
+- Past refactoring findings reveal modules with history of incomplete migrations
+- If an echo flags a module as having orphaned callers, prioritize import path verification
+- Historical file move patterns inform which barrel files need re-export checks
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: refactor-guardian/MEMORY.md)`
+
 ---
 
 ## Analysis Framework
@@ -59,10 +76,10 @@ Use `git diff --name-status --find-renames=80` output to identify refactoring si
 | `C###` | Copy (with similarity %) | Verify original isn't now dead code |
 
 **Refactoring signals** (combinations that indicate structural change):
-- `R` entries → direct rename/move
-- `D` + `A` pair with similar names → manual move (not detected by git rename)
-- Multiple `A` entries from single `D` → file split/extraction
-- `D` without corresponding `A` → deletion (verify no orphaned callers)
+- `R` entries -> direct rename/move
+- `D` + `A` pair with similar names -> manual move (not detected by git rename)
+- Multiple `A` entries from single `D` -> file split/extraction
+- `D` without corresponding `A` -> deletion (verify no orphaned callers)
 
 ### 2. Orphaned Caller Detection
 
@@ -129,7 +146,7 @@ Grep: "from new.path import.*as old_name" for aliases
 Grep: string concatenation or template literals building the path
 ```
 
-**If the old path is re-exported from the new location** → Not broken. Skip.
+**If the old path is re-exported from the new location** -> Not broken. Skip.
 
 ### Step 2: Check Migration State
 
@@ -211,7 +228,7 @@ For EACH flagged issue, determine root cause:
 ### Analysis Todo
 1. [ ] Parse **git diff --name-status** for R/D/A/C entries
 2. [ ] For each R/D entry, grep for **orphaned callers** (old path references)
-3. [ ] For each file split (D→multiple A), verify **extraction completeness**
+3. [ ] For each file split (D->multiple A), verify **extraction completeness**
 4. [ ] Check **barrel files** (index.ts, __init__.py, mod.rs) updated with new exports
 5. [ ] Verify **test files** reference correct paths after rename
 6. [ ] Check **config files** (tsconfig paths, webpack aliases, package.json exports) updated
@@ -252,7 +269,7 @@ Before writing output file, confirm:
   - **Root Cause:** Case A — Forgotten update (file moved to new.services.auth)
   - **Evidence (Double-Check):**
     - Step 1: `old.services.auth` found in api.py, not in any barrel re-export
-    - Step 2: Old path referenced=YES, New path exists=YES → ORPHANED CALLER
+    - Step 2: Old path referenced=YES, New path exists=YES -> ORPHANED CALLER
   - **Risk:** HIGH (import will fail at runtime)
   - **Fix:** Update import to `from new.services.auth import validate`
 
@@ -283,10 +300,10 @@ Before writing output file, confirm:
 | Stale test path | 1 | Case A | Update test import |
 
 ### Verification Checklist
-- [ ] All renamed files → consumers updated to new path
-- [ ] All extracted files → dependencies included or imported
-- [ ] All test files → imports match current source paths
-- [ ] All barrel files → re-exports updated
+- [ ] All renamed files -> consumers updated to new path
+- [ ] All extracted files -> dependencies included or imported
+- [ ] All test files -> imports match current source paths
+- [ ] All barrel files -> re-exports updated
 - [ ] Double-check protocol completed for each finding
 ```
 

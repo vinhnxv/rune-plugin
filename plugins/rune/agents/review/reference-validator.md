@@ -19,6 +19,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -42,6 +44,21 @@ Import path, configuration reference, frontmatter schema, and version sync speci
 - **Frontmatter errors break tooling**: Invalid fields in YAML frontmatter cause agent/skill load failures
 - **Version drift causes confusion**: Mismatched versions across manifest files mislead users and break installs
 
+## Echo Integration (Past Reference Integrity Issues)
+
+Before checking reference integrity, query Rune Echoes for previously identified reference issues:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with reference-integrity-focused queries
+   - Query examples: "broken import", "config reference", "version mismatch", "frontmatter", "path validation", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent reference integrity knowledge)
+2. **Fallback (MCP unavailable)**: Skip — check all files fresh for reference issues
+
+**How to use echo results:**
+- Past reference findings reveal config files with history of drift or stale paths
+- If an echo flags a manifest as having version mismatch, prioritize version sync verification
+- Historical frontmatter errors inform which agent files need schema validation
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: reference-validator/MEMORY.md)`
+
 ---
 
 ## Analysis Framework
@@ -54,13 +71,13 @@ For each file in the changed set, extract import statements and verify targets e
 For each source file:
   1. Extract all import/require statements
   2. Classify each import:
-     - stdlib → SKIP
-     - third-party (node_modules, site-packages, crates.io) → SKIP
-     - MCP tools (mcp__*) → SKIP
-     - conditional/dynamic imports → SKIP (flag for manual review)
-     - namespace packages (no __init__.py) → SKIP
-     - TS path aliases (@/ etc.) → resolve via tsconfig then verify
-     - relative/absolute project import → VERIFY
+     - stdlib -> SKIP
+     - third-party (node_modules, site-packages, crates.io) -> SKIP
+     - MCP tools (mcp__*) -> SKIP
+     - conditional/dynamic imports -> SKIP (flag for manual review)
+     - namespace packages (no __init__.py) -> SKIP
+     - TS path aliases (@/ etc.) -> resolve via tsconfig then verify
+     - relative/absolute project import -> VERIFY
   3. For each project import, resolve to file path:
      - Check exact path exists
      - Check path + extension exists (.ts, .tsx, .js, .py, .rs)
@@ -98,15 +115,15 @@ Each path must be relative (starts with ./) and resolve to existing file/dir
 
 #### talisman.yml
 ```
-Check: ashes.custom[].agent references → must match an agent .md file
-Check: ashes.custom[].source: local → agent file in .claude/agents/ or agents/
-Check: hooks command paths → must be executable files
+Check: ashes.custom[].agent references -> must match an agent .md file
+Check: ashes.custom[].source: local -> agent file in .claude/agents/ or agents/
+Check: hooks command paths -> must be executable files
 ```
 
 #### hooks.json
 ```
-Check: each hook command path → must exist and be executable
-Check: hook matcher patterns → must be valid regex
+Check: each hook command path -> must exist and be executable
+Check: hook matcher patterns -> must be valid regex
 ```
 
 #### Other config files
@@ -206,7 +223,7 @@ Glob: the/referenced/path/__init__.py
 Read: tsconfig.json or equivalent for path mappings
 ```
 
-**If ANY resolution succeeds** → Reference is valid. Skip.
+**If ANY resolution succeeds** -> Reference is valid. Skip.
 
 ### Step 2: Check Reference Context
 
@@ -258,7 +275,7 @@ Read: tsconfig.json or equivalent for path mappings
 
 ### Analysis Todo
 1. [ ] Extract **import statements** from all changed files
-2. [ ] Classify each import (stdlib, third-party, MCP, project → verify)
+2. [ ] Classify each import (stdlib, third-party, MCP, project -> verify)
 3. [ ] Verify each **project import resolves** to an existing file
 4. [ ] Check **plugin.json** paths reference existing files/dirs
 5. [ ] Check **talisman.yml** agent references resolve
@@ -303,7 +320,7 @@ Before writing output file, confirm:
   - **Root Cause:** Case A — Forgotten update (validator.ts moved to auth/core/)
   - **Evidence (Double-Check):**
     - Step 1: `./auth/validator.ts` does not exist, no index.ts barrel
-    - Step 2: Reference=YES, Target=NO → BROKEN REFERENCE
+    - Step 2: Reference=YES, Target=NO -> BROKEN REFERENCE
   - **Risk:** HIGH (import will fail at build/runtime)
   - **Fix:** Update import to `import { validate } from './auth/core/validator'`
 
@@ -342,10 +359,10 @@ Before writing output file, confirm:
 | Name mismatch | 1 | Case D | Fix name |
 
 ### Verification Checklist
-- [ ] All import paths → resolve to existing files
-- [ ] All config paths → point to existing files/dirs
-- [ ] All frontmatter → valid schema with known tool names
-- [ ] All versions → match source of truth (plugin.json)
+- [ ] All import paths -> resolve to existing files
+- [ ] All config paths -> point to existing files/dirs
+- [ ] All frontmatter -> valid schema with known tool names
+- [ ] All versions -> match source of truth (plugin.json)
 - [ ] Double-check protocol completed for each finding
 ```
 

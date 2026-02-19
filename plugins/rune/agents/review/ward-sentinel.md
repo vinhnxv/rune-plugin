@@ -15,6 +15,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -36,6 +38,21 @@ Security vulnerability detection specialist. Reviews all file types.
 - Security misconfiguration
 - Agent prompt injection vectors
 - Cryptographic weaknesses
+
+## Echo Integration (Past Security Vulnerability Patterns)
+
+Before scanning for vulnerabilities, query Rune Echoes for previously identified security issues:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with security-focused queries
+   - Query examples: "SQL injection", "XSS", "authentication bypass", "hardcoded secret", "OWASP", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent security knowledge)
+2. **Fallback (MCP unavailable)**: Skip — scan all files fresh for security vulnerabilities
+
+**How to use echo results:**
+- Past injection findings reveal code paths with history of unsanitized input handling
+- If an echo flags an auth module as having bypass vulnerabilities, escalate all findings in that module to P1
+- Historical secret exposure patterns inform which config files and log statements need scrutiny
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: {role}/MEMORY.md)`
 
 ## Analysis Framework
 

@@ -15,6 +15,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -33,6 +35,21 @@ YAGNI enforcement and over-engineering detection specialist.
 
 > "The right amount of complexity is the minimum needed for the current task.
 > Three similar lines of code is better than a premature abstraction."
+
+## Echo Integration (Past Over-Engineering Patterns)
+
+Before checking for over-engineering, query Rune Echoes for previously identified complexity violations:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with simplicity-focused queries
+   - Query examples: "YAGNI", "over-engineering", "premature abstraction", "unnecessary complexity", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent over-engineering knowledge)
+2. **Fallback (MCP unavailable)**: Skip — review all files fresh for over-engineering issues
+
+**How to use echo results:**
+- Past over-engineering findings reveal modules with history of premature abstraction
+- If an echo flags a factory as unnecessary, prioritize indirection analysis
+- Historical YAGNI violations inform which abstractions need justification checks
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: simplicity-warden/MEMORY.md)`
 
 ## Analysis Framework
 
