@@ -18,12 +18,12 @@
 - 2 new elicitation methods: Horizon Scanning (#50), Root Cause Depth Analysis (#51)
 - Phase 4C plan review integration — horizon-sage spawned alongside decree-arbiter and knowledge-keeper
 - Talisman `horizon` configuration section with kill switch
-- **Echo Search MCP expansion**: Added `mcpServers: echo-search` to 12 agents with tailored Echo Integration sections. Enables direct FTS5 query access to past learnings across all workflow phases:
+- **Echo Search MCP expansion**: Added `mcpServers: echo-search` to 17 agents with tailored Echo Integration sections. Enables direct FTS5 query access to past learnings across all workflow phases:
   - **Research**: repo-surveyor (past project conventions), git-miner (past historical context), lore-scholar (cached framework knowledge), practice-seeker (past research findings)
   - **Review**: pattern-seer (past convention knowledge)
   - **Utility**: decree-arbiter (past project knowledge), knowledge-keeper (past documentation gaps)
   - **Work**: rune-smith (past coding conventions), trial-forger (past test patterns)
-  - **Investigation**: goldmask-coordinator (historical risk context), lore-analyst (cached risk baselines), wisdom-sage (past intent classifications)
+  - **Investigation**: goldmask-coordinator (historical risk context), lore-analyst (cached risk baselines), wisdom-sage (past intent classifications), api-contract-tracer (past API contract patterns), business-logic-tracer (past business rule changes), config-dependency-tracer (past config drift patterns), data-layer-tracer (past data model patterns), event-message-tracer (past event schema patterns)
 
 ### Changed
 - PHASE_ORDER: 14 → 16 entries
