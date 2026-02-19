@@ -187,7 +187,8 @@ for (const file of agentFiles) {
 }
 
 // 12. Cross-reference integrity for renamed/moved files
-const deletedFiles = Bash(`git diff --name-only --diff-filter=D "\${defaultBranch}"...HEAD 2>/dev/null`).split('\n').filter(Boolean)
+// Precondition: defaultBranch validated by /^[a-zA-Z0-9._\/-]+$/ at line 84
+const deletedFiles = Bash(`git diff --name-only --diff-filter=D "${defaultBranch}"...HEAD 2>/dev/null`).split('\n').filter(Boolean)
 for (const deleted of deletedFiles) {
   const basename = deleted.split('/').pop().replace(/\.[^.]+$/, '')
   if (basename.length < 3) continue
@@ -232,6 +233,7 @@ if (wtResult.exitCode !== 0) {
 }
 
 // POST-CREATE: Initialize submodules if present
+// Precondition: ${id} validated by /^[a-zA-Z0-9_-]+$/ in mend.md Phase 1
 Bash(`cd "tmp/mend/${id}/bisect-worktree" && \
   [ -f .gitmodules ] && git submodule update --init --recursive 2>/dev/null || true`)
 
