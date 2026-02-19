@@ -68,6 +68,8 @@ Phase 4.1: Todo Summary -> Generate _summary.md from per-worker todo files (orch
     |
 Phase 4.3: Doc-Consistency -> Non-blocking version/count drift detection (orchestrator-only)
     |
+Phase 4.4: Quick Goldmask -> Compare predicted CRITICAL files vs committed (orchestrator-only)
+    |
 Phase 4.5: Codex Advisory -> Optional plan-vs-implementation review (non-blocking)
     |
 Phase 5: Echo Persist -> Save learnings
@@ -668,6 +670,69 @@ After the ward check passes, run lightweight doc-consistency checks. See [doc-co
 **Outputs**: PASS/DRIFT/SKIP results appended to work-summary.md
 **Preconditions**: Ward check passed (Phase 4), all workers completed
 **Error handling**: DRIFT is non-blocking (warn). Extraction failure -> SKIP with reason. Talisman parse error -> fall back to defaults.
+
+### Phase 4.4: Quick Goldmask Check (orchestrator-only, non-blocking)
+
+Lightweight, agent-free check after work is done. Compares plan-time risk predictions (from Phase 2.3 Predictive Goldmask) against actually committed files. Emits WARNING for predicted-but-untouched CRITICAL files.
+
+**Inputs**: `planPath` (from Phase 0), committedFiles (from Phase 3.5 commit broker)
+**Outputs**: Log WARNINGs only (no output artifact — advisory weight)
+**Preconditions**: Ward check passed (Phase 4), all workers completed
+**Error handling**: Missing risk-map → skip silently. Corrupt JSON → skip silently. Non-blocking in all cases.
+
+```javascript
+// Phase 4.4: Quick Goldmask Check
+// No agents — orchestrator performs deterministic comparison
+// SKIP: if no plan-time risk-map exists
+
+// Derive planTimestamp from planPath (work.md stores planPath, not planTimestamp)
+// Plan path format: plans/YYYY-MM-DD-{type}-{name}-plan.md or tmp/plans/{timestamp}/...
+let planTimestamp = null
+const tmpPlanMatch = planPath.match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
+if (tmpPlanMatch) {
+  planTimestamp = tmpPlanMatch[1]
+} else {
+  // For plans/ directory, look for risk-map.json in tmp/plans/ that references this plan
+  const planTimestampFiles = Glob("tmp/plans/*/risk-map.json")
+  for (const rmFile of planTimestampFiles) {
+    const dirMatch = rmFile.match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
+    if (dirMatch) {
+      planTimestamp = dirMatch[1]
+      break
+    }
+  }
+}
+
+if (planTimestamp) {
+  const riskMapPath = `tmp/plans/${planTimestamp}/risk-map.json`
+  if (exists(riskMapPath)) {
+    try {
+      const riskMapContent = Read(riskMapPath)
+      const riskMap = JSON.parse(riskMapContent)
+
+      // Get committed files from commit broker metadata
+      // Normalize: strip leading ./ for consistent comparison
+      const normalize = (p) => p.replace(/^\.\//, '')
+      const committedNorm = committedFiles.map(normalize)
+
+      const criticalUntouched = Object.entries(riskMap.files ?? {})
+        .filter(([path, data]) =>
+          data.tier === 'CRITICAL' && !committedNorm.includes(normalize(path))
+        )
+
+      if (criticalUntouched.length > 0) {
+        log(`\nGoldmask Quick Check: ${criticalUntouched.length} CRITICAL files predicted but untouched:`)
+        for (const [path, data] of criticalUntouched) {
+          log(`  [CRITICAL] ${path} — risk: ${(data.risk ?? 0).toFixed(2)}, ${data.freq ?? 'N/A'} commits/90d`)
+        }
+        log(`Consider reviewing these files for missed changes.\n`)
+      }
+    } catch (e) {
+      // Corrupt risk-map — skip silently (absence of WARNING is acceptable)
+    }
+  }
+}
+```
 
 ### Phase 4.5: Codex Advisory (optional, non-blocking)
 

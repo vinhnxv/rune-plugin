@@ -27,7 +27,7 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
-# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → work → gap analysis → code review → mend → verify mend → audit → ship → merge
+# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → work → goldmask verification → gap analysis → goldmask correlation → code review → mend → verify mend → audit → ship → merge
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
@@ -95,7 +95,7 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## Arc Mode (End-to-End Pipeline)
 
-When you run `/rune:arc`, Rune chains 14 phases into one automated pipeline:
+When you run `/rune:arc`, Rune chains 16 phases into one automated pipeline:
 
 1. **FORGE** — Research agents enrich the plan with best practices, codebase patterns, and past echoes
 2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
@@ -105,7 +105,9 @@ When you run `/rune:arc`, Rune chains 14 phases into one automated pipeline:
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
 5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code + doc-consistency via talisman verification_patterns (zero LLM cost, advisory)
 5.6. **CODEX GAP ANALYSIS** — Codex cross-model plan-vs-implementation gap detection (v1.39.0+)
+5.7. **GOLDMASK VERIFICATION** — Post-work risk validation: compares pre-work risk-map against post-work state, flags regressions in CRITICAL files
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
+6.5. **GOLDMASK CORRELATION** — Correlates TOME findings with Goldmask risk data, enriches findings with risk context
 7. **MEND** — Parallel fixers resolve findings from TOME
 7.5. **VERIFY MEND** — Adaptive convergence controller: loops Phase 6→7→7.5 until findings converge or tier max cycles reached (LIGHT: 2, STANDARD: 3, THOROUGH: 5). Proceeds to audit with warning on halt
 8. **AUDIT** — Final quality gate (informational)
@@ -121,7 +123,7 @@ Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates 
 When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan files sequentially:
 
 1. **Pre-flight** — Validate all plan files exist, no duplicates or symlinks
-2. **For each plan** — Full 14-phase arc pipeline (forge through merge)
+2. **For each plan** — Full 16-phase arc pipeline (forge through merge)
 3. **Inter-run cleanup** — Checkout main, pull latest, clean state
 4. **Retry on failure** — Up to 3 `--resume` attempts per plan, then skip
 5. **Progress tracking** — `batch-progress.json` enables `--resume` for interrupted batches
@@ -362,7 +364,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 
 | Skill | Purpose |
 |-------|---------|
-| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 14 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend → audit → ship → merge) |
+| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 16 phases: forge → plan review → plan refinement → verification → semantic verification → work → goldmask verification → gap analysis → codex gap analysis → goldmask correlation → code review → mend → verify mend → audit → ship → merge) |
 | ash-guide | Agent invocation reference |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
@@ -463,7 +465,7 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **TOME** — The unified review summary after deduplication and prioritization.
 
-**Arc Pipeline** — End-to-end orchestration across 14 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, auto PR creation (ship), and auto merge with pre-merge checklist.
+**Arc Pipeline** — End-to-end orchestration across 16 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, auto PR creation (ship), and auto merge with pre-merge checklist.
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers, centralized ward check, and post-ward doc-consistency scan that fixes drift between source-of-truth files and their downstream targets.
 

@@ -44,6 +44,7 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 | `--no-converge` | Disable convergence loop — single review pass per chunk, report still generated | Off |
 | `--cycles <N>` | Run N standalone review passes with TOME merge (1-5, numeric only). Arc-only auto-detection is not available in standalone mode. | 1 (single pass) |
 | `--scope-file <path>` | Override `changed_files` with a JSON file containing `{ focus_files: [...] }`. Used by arc convergence controller for progressive re-review scope. | None (use git diff) |
+| `--no-lore` | Disable Phase 0.5 Lore Layer (git history risk scoring). Also configurable via `goldmask.layers.lore.enabled: false` in talisman.yml. | Off |
 | `--auto-mend` | Automatically invoke `/rune:mend` after review completes if P1/P2 findings exist. Skips the post-review AskUserQuestion. Also configurable via `review.auto_mend: true` in talisman.yml. | Off |
 
 **Partial mode** is useful for reviewing a subset of changes before committing, rather than the full branch diff against the default branch.
@@ -176,6 +177,103 @@ if (flags['--scope-file']) {
   }
 }
 ```
+
+## Phase 0.5: Lore Layer (Risk Intelligence)
+
+Before Rune Gaze sorts files for review, the Lore Layer runs a quick risk analysis using git history. This pre-sorts `changed_files` by risk tier so that CRITICAL files are reviewed first by Ashes.
+
+**Skip conditions**: non-git repo, `--no-lore` flag, `talisman.goldmask.layers.lore.enabled === false`, fewer than 5 commits in lookback window (G5 guard).
+
+**Note**: Lore runs BEFORE team creation (Phase 2), so this is a bare Task call. ATE-1 exemption: same pattern as elicitation-sage in plan Phase 0 — no plan state file exists at this point.
+
+```javascript
+// Phase 0.5: Lore Layer (Risk Intelligence)
+const loreEnabled = talisman?.goldmask?.layers?.lore?.enabled !== false
+const goldmaskEnabled = talisman?.goldmask?.enabled !== false
+const isGitRepo = Bash("git rev-parse --is-inside-work-tree 2>/dev/null").exitCode === 0
+
+if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
+  // G5 guard: require minimum commit history for meaningful risk scoring
+  const lookbackDays = talisman?.goldmask?.layers?.lore?.window_days ?? 90
+  const commitCount = parseInt(
+    Bash(`git rev-list --count --since="${lookbackDays} days ago" HEAD 2>/dev/null`).trim(), 10
+  )
+
+  if (Number.isNaN(commitCount) || commitCount < 5) {
+    log(`Lore Layer: skipped — only ${commitCount ?? 0} commits in ${lookbackDays}d window (minimum: 5)`)
+  } else {
+    // Summon Lore Analyst as inline Task (no team yet — team created in Phase 2)
+    // ATE-1 EXEMPTION: No review state file exists at Phase 0.5. enforce-teams.sh passes.
+    Task({
+      name: "lore-analyst",
+      subagent_type: "general-purpose",
+      prompt: `You are lore-analyst — git history risk scoring specialist.
+
+        Read agents/investigation/lore-analyst.md for your full protocol.
+
+        Analyze git history for risk scoring of these files:
+          ${changed_files.map(f => f.path ?? f).join('\n')}
+
+        Write risk-map.json to: tmp/reviews/${identifier}/risk-map.json
+        Write summary to: tmp/reviews/${identifier}/lore-analysis.md
+
+        Lookback window: ${lookbackDays} days
+        Execute all guard checks (G1-G5) before analysis.
+        When done, write files and exit.`
+    })
+
+    // Read risk-map.json and annotate changed_files
+    // All-or-nothing: either all files get risk annotations or none do
+    try {
+      const riskMapContent = Read(`tmp/reviews/${identifier}/risk-map.json`)
+      const riskMap = JSON.parse(riskMapContent)
+
+      // Tier ordering for composite sort (CRITICAL first, then HIGH, MEDIUM, LOW, STALE)
+      const TIER_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4 }
+
+      for (const file of changed_files) {
+        const filePath = typeof file === 'string' ? file : file.path
+        const risk = riskMap.files?.[filePath]
+        if (risk) {
+          if (typeof file === 'string') {
+            // If changed_files is string array, we can only sort — skip annotation
+          } else {
+            file.risk_score = risk.risk
+            file.risk_tier = risk.tier
+          }
+        }
+      }
+
+      // Re-sort: tier-then-score composite sort (Codex fix: pure score sort breaks tier boundaries)
+      changed_files.sort((a, b) => {
+        const tierA = TIER_ORDER[a.risk_tier ?? 'STALE'] ?? 4
+        const tierB = TIER_ORDER[b.risk_tier ?? 'STALE'] ?? 4
+        if (tierA !== tierB) return tierA - tierB
+        return (b.risk_score ?? 0) - (a.risk_score ?? 0)
+      })
+
+      const scoredCount = Object.keys(riskMap.files ?? {}).length
+      const criticalCount = Object.values(riskMap.files ?? {}).filter(f => f.tier === 'CRITICAL').length
+      log(`Lore Layer: ${scoredCount} files scored, ${criticalCount} CRITICAL`)
+    } catch (e) {
+      warn(`Lore Layer: Failed to read risk-map — falling back to static sorting`)
+      // All-or-nothing: do not partially annotate. changed_files retains original order.
+    }
+  }
+}
+```
+
+**Timeout**: If the Lore Analyst takes > 60s, the bare Task call will complete with whatever output is available. The try/catch on risk-map read handles missing or partial output gracefully.
+
+**Ash file list enrichment**: After Lore Layer, Ashes receive risk-annotated file lists:
+```
+Files to review (sorted by risk):
+  [CRITICAL] src/auth/handler.py — 18 commits/90d, 1 owner, 3 past P1s
+  [HIGH]     src/api/routes.py — 9 commits/90d, past P1
+  [MEDIUM]   src/utils/format.py — 4 commits/90d, stable
+```
+
+When Lore Layer is skipped or fails, file lists are unchanged from the original git diff order.
 
 ### Chunk Decision Routing
 

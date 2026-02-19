@@ -291,6 +291,8 @@ arc:
     codex_gap_analysis: 660000   # 11 minutes (default, v1.39.0+)
     ship: 300000                 # 5 minutes (default, v1.40.0+)
     merge: 600000                # 10 minutes (default, v1.40.0+)
+    goldmask_verification: 900000  # 15 minutes (default, v1.47.0+)
+    goldmask_correlation: 60000    # 1 minute (default, v1.47.0+)
     # NOTE: Total pipeline timeout is computed dynamically by calculateDynamicTimeout(tier).
     # It is NOT configurable via talisman. See SKILL.md for the formula.
 
@@ -606,10 +608,12 @@ codex:
 #         phase: ["plan", "arc"]
 
 # ──────────────────────────────────────────────
-# Goldmask — Cross-layer impact analysis (v1.37.0+)
+# Goldmask — Cross-layer impact analysis (v1.37.0+, pipeline integration v1.47.0)
 # ──────────────────────────────────────────────
 # Three-layer investigation: Impact (dependency tracing), Wisdom (git archaeology),
 # Lore (quantitative risk scoring), plus Collateral Damage Detection.
+# Pipeline integration (v1.47.0): Lore Layer in review/audit (Phase 0.5),
+# Goldmask Verification in arc (Phase 5.7), Goldmask Correlation in arc (Phase 6.5).
 # goldmask:
 #   layers:
 #     impact:
@@ -631,6 +635,7 @@ codex:
 #       churn_threshold: 10             # File changes above this = high churn (default: 10)
 #       co_change_min_support: 3        # Min co-change occurrences for clustering (default: 3)
 #       ownership_concentration_warn: 0.8  # Warn when single author owns >N% of file (default: 0.8)
+#       workflows: [review, audit, arc]  # Workflows that invoke Lore Layer for risk sorting (default: [review, audit, arc])
 #     cdd:
 #       enabled: true                    # Enable Collateral Damage Detection
 #       noisy_or_threshold: 0.6         # Blast-radius score threshold (0.0-1.0, default: 0.6)

@@ -3,6 +3,15 @@
 ## [1.47.0] — 2026-02-19
 
 ### Added
+- **Goldmask Pipeline Integration** (Phase C-F): Connects 3-layer analysis into core workflows
+  - Phase 0.5 Lore Layer in review/audit: Risk-weighted file sorting
+  - Phase 2.3 Predictive Goldmask in plan: Wisdom advisories
+  - Phase 4.4 Quick Goldmask Check in work: CRITICAL file comparison
+  - Phase 5.7 Goldmask Verification in arc: Post-work risk validation
+  - Phase 6.5 Goldmask Correlation in arc: TOME finding correlation
+- Arc pipeline: 14 → 16 phases (goldmask_verification, goldmask_correlation)
+- Checkpoint schema v8 → v9 migration
+- ARC_TEAM_PREFIXES: added "goldmask-" for cleanup
 - **horizon-sage** strategic depth assessment agent — evaluates plans across 5 dimensions: Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability & Resilience, Maintainability Trajectory
 - Intent-aware verdict derivation — adapts thresholds based on `strategic_intent` (long-term vs quick-win)
 - Forge Gaze integration — horizon-sage matched to sections with strategy/sustainability keywords
@@ -17,6 +26,8 @@
   - **Investigation**: goldmask-coordinator (historical risk context), lore-analyst (cached risk baselines), wisdom-sage (past intent classifications)
 
 ### Changed
+- PHASE_ORDER: 14 → 16 entries
+- calculateDynamicTimeout: +16 min base budget
 - Agent count: 41 → 42 (utility: 8 → 9)
 
 ## [1.46.0] — 2026-02-19
