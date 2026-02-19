@@ -151,6 +151,8 @@ Each of the 6 dimensions produces its own rating using these rules:
 | Timeline & Effort | Effort estimate is < 25% of realistic scope (verified by codebase analysis) | Effort estimate omits 2+ significant integration points | Effort estimate accounts for all verified integration points |
 | Resource Availability | Required resource (API, tool, team skill) confirmed unavailable | Required resource availability is unverified or assumed | All required resources verified available |
 
+**IMPORTANT:** In the output, ALWAYS use machine-parseable verdict markers (`PASS`/`CONCERN`/`BLOCK`) in `<!-- VERDICT: -->` tags. Use FANTASY/ILLUSION/GROUNDED only in prose assessment text.
+
 ## Deterministic Verdict Derivation
 
 | Condition | Overall Verdict |

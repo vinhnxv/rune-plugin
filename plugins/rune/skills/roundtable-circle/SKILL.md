@@ -164,6 +164,7 @@ See [Rune Gaze](references/rune-gaze.md) for the full file classification algori
 | Unclassified (not skip, not any group) | Forge Warden (catch-all) |
 | ALL files | Ward Sentinel (always) |
 | ALL files | Pattern Weaver (always) |
+| ALL files | Veil Piercer (always) |
 
 ## Phase 2: Forge Team
 

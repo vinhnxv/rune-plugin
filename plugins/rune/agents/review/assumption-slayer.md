@@ -18,8 +18,6 @@ tools:
   - Glob
   - Grep
 ---
-<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
-     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 
 # Assumption Slayer — Premise Validation Agent
 
@@ -93,8 +91,8 @@ Detects complexity whose premise is unjustified — focus on WHY the complexity 
 - What evidence exists that the simpler approach was insufficient?
 
 **Signals:**
-- Microservice architecture for a 2-person team with no independent deployment need
-- Event-driven system for synchronous-only business processes
+- Architecture complexity justified by projected scale with no measured evidence
+- Distributed system where the stated requirements are purely local
 - Abstraction layer justified by "future extensibility" without documented extension points
 
 ### 5. User Reality
@@ -122,7 +120,7 @@ Detects architecture choices based on trends rather than requirements.
 - Is the team staffed to maintain this level of architectural complexity?
 
 **Signals:**
-- Microservices for a team of 2-3 developers
+- Technology choice matches conference talk or blog post, not requirements analysis
 - Event sourcing for simple CRUD operations
 - GraphQL for a single consumer with stable data needs
 - Kubernetes for a single-instance application

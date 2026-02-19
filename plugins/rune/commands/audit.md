@@ -118,6 +118,7 @@ for each file in all_files:
   - *.md (>= 10 total lines in file)     → select Knowledge Keeper
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
+  - Always: Veil Piercer (truth)
 
 # Custom Ashes (from talisman.yml):
 for each custom in validated_custom_ash:
@@ -142,6 +143,7 @@ limits what they can review. Some files may not be fully covered.
 **Audit file prioritization** (differs from review — prioritize by importance, not recency):
 - Forge Warden (max 30): entry points > core modules > utils > tests
 - Ward Sentinel (max 20): auth/security files > API routes > infrastructure > other
+- Veil Piercer (max 30): reviews all files (truth-telling — premise validation, production viability, consequences)
 - Pattern Weaver (max 30): largest files first (highest complexity risk)
 - Glyph Scribe (max 25): pages/routes > components > hooks > utils
 - Knowledge Keeper (max 25): README > CLAUDE.md > docs/ > other .md files
@@ -166,6 +168,7 @@ Ash to summon: {count} ({built_in_count} built-in + {custom_count} custom)
   Built-in:
   - Forge Warden:      {file_count} files (cap: 30)
   - Ward Sentinel:     {file_count} files (cap: 20)
+  - Veil Piercer:      {file_count} files (cap: 30)
   - Pattern Weaver:    {file_count} files (cap: 30)
   - Glyph Scribe:      {file_count} files (cap: 25)  [conditional]
   - Knowledge Keeper:  {file_count} files (cap: 25)  [conditional]

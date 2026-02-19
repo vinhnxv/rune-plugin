@@ -18,8 +18,6 @@ tools:
   - Glob
   - Grep
 ---
-<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
-     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 
 # Entropy Prophet — Long-term Consequence Agent
 

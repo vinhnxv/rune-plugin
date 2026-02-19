@@ -18,8 +18,6 @@ tools:
   - Glob
   - Grep
 ---
-<!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
-     (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
 
 # Reality Arbiter — Production Viability Agent
 
@@ -181,7 +179,7 @@ After completing analysis, verify:
 - [ ] **Cross-check**: confidence >= 80 requires evidence-verified ratio >= 50%. If not, recalibrate.
 - [ ] Did I provide **evidence** for every finding? (No evidence = delete finding)
 - [ ] Am I being **brutally honest** or just pessimistic? (Pessimism without evidence = delete)
-- [ ] Did I challenge the **premise** before the implementation? (If I only found technical issues, I failed my role)
+- [ ] Did I check **production viability** beyond just code correctness? (If I only found syntax/logic issues, I missed my role — integration reality, scale honesty, and error path honesty are my domain)
 - [ ] For each P1 finding, **confidence score** is HIGH/MEDIUM/LOW. LOW-confidence P1 findings must be downgraded to P2 or deleted.
 
 ### Pre-Flight

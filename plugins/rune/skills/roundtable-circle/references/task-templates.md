@@ -54,6 +54,16 @@ TaskCreate({
 })
 ```
 
+### Veil Piercer (Truth-Telling)
+
+```
+TaskCreate({
+  subject: "Truth-telling review as Veil Piercer",
+  description: "Files: ALL changed files\nOutput: tmp/reviews/{id}/veil-piercer.md\nPerspectives: premise validation, production viability, long-term consequences\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
+  activeForm: "Truth-telling review in progress"
+})
+```
+
 ### Codex Oracle (Cross-Model)
 
 ```
@@ -121,6 +131,7 @@ Task({
 # Independent (run in parallel)
 forge-warden    ─┐
 ward-sentinel   ─┤
+veil-piercer    ─┤
 pattern-weaver  ─┤── All complete ──► runebinder ──► truthsight-verifier
 glyph-scribe    ─┤
 knowledge-keeper ─┤

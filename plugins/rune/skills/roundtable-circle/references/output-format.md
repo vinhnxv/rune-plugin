@@ -23,6 +23,7 @@ Each finding follows this template:
 |-----------|--------|---------|
 | Forge Warden | `BACK` | `BACK-001` |
 | Ward Sentinel | `SEC` | `SEC-001` |
+| Veil Piercer | `VEIL` | `VEIL-001` |
 | Pattern Weaver | `QUAL` | `QUAL-001` |
 | Glyph Scribe | `FRONT` | `FRONT-001` |
 | Knowledge Keeper | `DOC` | `DOC-001` |
