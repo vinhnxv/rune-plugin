@@ -138,6 +138,7 @@ Before running your first Agent Teams workflow, verify:
 2. Ward commands in `talisman.yml` complete within the configured bash timeout
 3. If using MCP servers beyond Context7, consider `MCP_TIMEOUT` >= 30000
 4. Ensure `BASH_DEFAULT_TIMEOUT_MS` < `autoReleaseMs` (10 min for work/mend) to prevent task release during error recovery
+5. Verify `staleWarnMs` >= 300000 (5 min) — setting lower creates false-positive stale warnings before SDK heartbeat can report (see DC-3 SDK Heartbeat Interaction)
 
 ### Cost Awareness
 

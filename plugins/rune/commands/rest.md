@@ -225,6 +225,11 @@ rm -f tmp/.rune-batch-{completed_ids}.json
 Agent Teams workflows may leave orphaned tmux sessions (especially when teammates crash or are force-killed). Clean up any `claude-` prefixed sessions:
 
 ```bash
+# Skip if tmux is not installed
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "tmux not installed — skipping zombie session cleanup."
+else
+
 # Only target claude-prefixed sessions (defense in depth — never kill user sessions)
 zombie_sessions=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^claude-' || true)
 
@@ -242,9 +247,11 @@ if [ -n "$zombie_sessions" ]; then
 else
   echo "No zombie tmux sessions found."
 fi
+
+fi  # end tmux availability check
 ```
 
-**Safety**: Only sessions matching `claude-*` prefix are targeted. If `tmux` is not installed, the `2>/dev/null || true` guard makes this a no-op.
+**Safety**: Only sessions matching `claude-*` prefix are targeted. If `tmux` is not installed, the `command -v` check skips the entire block cleanly.
 
 ### 7. Report
 
