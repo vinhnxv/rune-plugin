@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.43.0] — 2026-02-19
+
+### Added
+- **Veil Piercer — Truth-Telling Agents**: New 7th built-in Ash with 3 embedded review agents (`reality-arbiter`, `assumption-slayer`, `entropy-prophet`) that challenge fundamental premises and expose illusions in code review
+  - `reality-arbiter`: Production viability truth-teller — detects code that compiles but cannot integrate, features that pass tests but fail under load
+  - `assumption-slayer`: Premise validation truth-teller — challenges whether the code solves the right problem, detects cargo cult implementations
+  - `entropy-prophet`: Long-term consequence truth-teller — predicts hidden costs, maintenance burden, and lock-in risks
+- **`veil-piercer-plan`**: New utility agent for plan-level truth-telling in Phase 4C (alongside decree-arbiter and knowledge-keeper)
+- `VEIL-` finding prefix in dedup hierarchy: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`
+- Veil Piercer Ash prompt template (`ash-prompts/veil-piercer.md`) with 3 perspectives, behavioral rules, and truth-telling doctrine
+- Veil Piercer registered in circle-registry, rune-gaze (always-on), forge-gaze (truth-telling topics), and dedup-runes
+- `veil-piercer-plan` Task block added to plan-review.md Phase 4C with ANCHOR/RE-ANCHOR truthbinding
+- `VEIL` added to mend.md finding regex for cross-reference tracking
+- Veil Piercer added to `--max-agents` priority ordering in audit.md and review.md
+- `veil-piercer` added to `disable_ashes` valid names in custom-ashes.md
+- `VEIL` and `CDX` added to reserved prefixes list in custom-ashes.md (CDX was a pre-existing omission)
+
+### Changed
+- **Plugin version**: 1.42.2 → 1.43.0
+- Agent counts: 16 → 19 review agents, 8 → 9 utility agents, 39 → 43 total agents
+- Built-in Ashes: 6 → 7 (Veil Piercer is always-on like Ward Sentinel and Pattern Weaver)
+- Default `max_ashes`: 8 → 9 (7 built-in + up to 2 custom)
+- Warning threshold in custom-ashes.md constraints: 6+ → 7+
+- Dedup hierarchy updated across all 30+ occurrences to include `VEIL` prefix
+
 ## [1.42.1] — 2026-02-19
 
 ### Fixed

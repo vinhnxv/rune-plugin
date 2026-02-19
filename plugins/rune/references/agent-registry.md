@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 39 agents** (16 review + 5 research + 2 work + 8 utility + 8 investigation)
+**Total: 43 agents** (19 review + 5 research + 2 work + 9 utility + 8 investigation)
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 

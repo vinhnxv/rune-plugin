@@ -50,7 +50,7 @@ Define custom Ash in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `max_ashes` | int | 8 | Hard cap on total Ash (built-in + custom) |
+| `max_ashes` | int | 9 | Hard cap on total Ash (built-in + custom) |
 | `dedup_hierarchy` | list | Built-in order | Priority order for dedup. Higher position = wins on conflict |
 | `verification.layer_2_custom_agents` | bool | true | Whether Truthsight verifier checks custom outputs |
 
@@ -58,7 +58,7 @@ Define custom Ash in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `disable_ashes` | list | `[]` | Names of built-in Ashes to skip. Valid: `forge-warden`, `ward-sentinel`, `pattern-weaver`, `glyph-scribe`, `knowledge-keeper` |
+| `disable_ashes` | list | `[]` | Names of built-in Ashes to skip. Valid: `forge-warden`, `ward-sentinel`, `veil-piercer`, `pattern-weaver`, `glyph-scribe`, `knowledge-keeper`, `codex-oracle` |
 
 ## Agent Resolution
 
@@ -198,7 +198,7 @@ Run these checks at Phase 0 before summoning any agents:
 | Count cap | Total active Ash ≤ `settings.max_ashes` | "Too many Ash ({count}). Max: {max}. Reduce custom entries or increase settings.max_ashes" |
 | Agent exists | Agent file/namespace is resolvable | "Agent '{agent}' not found in {source}" |
 | Valid workflows | Each entry is `review`, `audit`, or `forge` | "Invalid workflow '{value}' in Ash '{name}'. Must be 'review', 'audit', or 'forge'" |
-| Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, QUAL, FRONT, DOC | "Prefix '{prefix}' is reserved for built-in Ash '{name}'" |
+| Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, VEIL, QUAL, FRONT, DOC, CDX | "Prefix '{prefix}' is reserved for built-in Ash '{name}'" |
 | Agent name safe | `agent` field matches `^[a-zA-Z0-9_:-]+$` (no path separators or `..`) | "Invalid agent name '{agent}': must contain only alphanumeric, hyphen, underscore, or colon characters" |
 | Forge fields | If `forge` in workflows: `trigger.topics` (≥2), `forge.subsection`, `forge.perspective`, `forge.budget` required | "Ash '{name}' has 'forge' workflow but missing required forge fields" |
 | Forge budget value | `forge.budget` must be `enrichment` or `research` | "Invalid forge budget '{value}' in Ash '{name}'. Must be 'enrichment' or 'research'" |
@@ -229,8 +229,8 @@ for each custom Ash:
 
 | Constraint | Value | Reason |
 |-----------|-------|--------|
-| Max total Ash | 8 (configurable) | Truthsight verifier context budget (~100k tokens). Each output ≈ 10k tokens |
-| Warning threshold | 6+ | "6+ Ashes active. Verification scope may be reduced." |
+| Max total Ash | 9 (configurable) | Truthsight verifier context budget (~100k tokens). Each output ≈ 10k tokens |
+| Warning threshold | 7+ | "7+ Ashes active. Verification scope may be reduced." |
 | Wrapper prompt overhead | ~800 tokens | ANCHOR + template + RE-ANCHOR per custom Ash |
 | Finding prefix length | 2-5 chars | Balance between readability and uniqueness |
 | Max custom entries | No hard limit | Constrained by `settings.max_ashes` minus active built-ins |
@@ -318,7 +318,7 @@ Ash to summon: 4 (3 built-in + 1 custom)
   Custom (from .claude/talisman.yml):
   - api-contract-reviewer [API]:  8 files (cap: 15, source: local)
 
-Dedup hierarchy: SEC > BACK > API > DOC > QUAL > FRONT
+Dedup hierarchy: SEC > BACK > VEIL > API > DOC > QUAL > FRONT
 ```
 
 ## References

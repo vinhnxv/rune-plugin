@@ -162,7 +162,7 @@ function extractCrossFileRefs(fixGuidance, evidence, allFindings) {
   }
 
   // Pattern: finding ID references (e.g., "depends on SEC-001")
-  const findingPattern = /(SEC|BACK|DOC|QUAL|FRONT|CDX)-\d{3}/g
+  const findingPattern = /(SEC|BACK|VEIL|DOC|QUAL|FRONT|CDX)-\d{3}/g
   while ((match = findingPattern.exec(safeText)) !== null) {
     const refFinding = allFindings.find(f => f.id === match[0])
     if (refFinding) {

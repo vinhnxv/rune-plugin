@@ -174,7 +174,7 @@ When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 1. **Gathers input** — runs interactive brainstorm by default (auto-skips when requirements are clear)
 2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 19 built-in agents (16 review + 2 research + 1 utility) with elicitation-sage integration (max 6 sages per forge session) across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
+4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 22 built-in agents (19 review + 2 research + 1 utility) with elicitation-sage integration (max 6 sages per forge session) across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
 5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
@@ -201,7 +201,7 @@ New talisman work keys: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `
 
 ## Codex Oracle (Cross-Model Verification)
 
-When the `codex` CLI is installed, Rune automatically detects it and adds **Codex Oracle** as a 6th built-in Ash. Codex Oracle provides cross-model verification — a second AI perspective (GPT-5.3-codex) alongside Claude Code's review agents — catching issues that single-model blind spots miss.
+When the `codex` CLI is installed, Rune automatically detects it and adds **Codex Oracle** as a built-in Ash. Codex Oracle provides cross-model verification — a second AI perspective (GPT-5.3-codex) alongside Claude Code's review agents — catching issues that single-model blind spots miss.
 
 ### How It Works
 
@@ -280,6 +280,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 |-----------|------|-------------|
 | Forge Warden | Backend review | Backend files changed |
 | Ward Sentinel | Security review | Always |
+| Veil Piercer | Truth-telling review | Always |
 | Pattern Weaver | Quality patterns | Always |
 | Glyph Scribe | Frontend review | Frontend files changed |
 | Knowledge Keeper | Docs review | Docs changed (>= 10 lines) |
@@ -291,7 +292,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 
 ### Review Agents
 
-16 specialized agents that Ash embed as perspectives:
+19 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -311,6 +312,9 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 | blight-seer | Design anti-patterns, architectural smells |
 | forge-keeper | Data integrity, migration safety |
 | tide-watcher | Async/concurrency patterns |
+| reality-arbiter | Production viability truth-telling |
+| assumption-slayer | Premise validation truth-telling |
+| entropy-prophet | Long-term consequence truth-telling |
 
 ### Research Agents
 
@@ -345,6 +349,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
+| veil-piercer-plan | Plan-level truth-teller (Phase 4C plan review) |
 
 ## Skills
 
@@ -389,7 +394,7 @@ ashes:
       finding_prefix: "MYR"
 
 settings:
-  max_ashes: 8                   # Hard cap (6 built-in + custom)
+  max_ashes: 9                   # Hard cap (7 built-in + custom)
 
 echoes:
   version_controlled: false  # Set to true to track echoes in git
@@ -468,11 +473,11 @@ plugins/rune/
 │   └── plugin.json
 ├── agents/
 │   ├── investigation/   # 8 impact/wisdom/lore agents (Goldmask v2)
-│   ├── review/          # 16 review agents
+│   ├── review/          # 19 review agents
 │   │   └── references/  # Shared review checklists
 │   ├── research/        # 5 research agents (plan pipeline)
 │   ├── work/            # 2 swarm workers (work pipeline)
-│   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage
+│   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan
 ├── commands/
 │   ├── cancel-arc.md    # /rune:cancel-arc
 │   ├── forge.md         # /rune:forge

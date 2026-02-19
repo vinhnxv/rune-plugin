@@ -28,8 +28,8 @@ ashes:
       finding_prefix: "DOM"
 
 settings:
-  max_ashes: 8                   # Hard cap (6 built-in + custom)
-  dedup_hierarchy: [SEC, BACK, DOC, QUAL, FRONT, CDX]
+  max_ashes: 9                   # Hard cap (7 built-in + custom)
+  dedup_hierarchy: [SEC, BACK, VEIL, DOC, QUAL, FRONT, CDX]
 
 forge:                                 # Forge Gaze selection overrides
   threshold: 0.30                      # Score threshold (0.0-1.0)

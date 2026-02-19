@@ -4,7 +4,7 @@
 # Resolution order:
 #   1. .claude/talisman.yml   (project, highest priority)
 #   2. ~/.claude/talisman.yml (user global)
-#   3. Plugin defaults           (6 built-in Ashes)
+#   3. Plugin defaults           (7 built-in Ashes)
 
 version: 1
 
@@ -55,7 +55,7 @@ rune-gaze:
     - ".claude/**/*.md"
 
 # ──────────────────────────────────────────────
-# Custom Ashes — Extend the built-in 6
+# Custom Ashes — Extend the built-in 7
 # ──────────────────────────────────────────────
 # Each custom Ash joins the Roundtable Circle lifecycle:
 #   - Gets a Truthbinding wrapper prompt (evidence, Seal, Glyph Budget)
@@ -136,15 +136,16 @@ ashes:
 # ──────────────────────────────────────────────
 settings:
   # Hard cap on total Ash (built-in + custom)
-  # Max recommended: 8 (verifier context budget constraint)
-  max_ashes: 8
+  # Max recommended: 9 (verifier context budget constraint)
+  max_ashes: 9
 
   # Extended dedup hierarchy — higher = wins on conflict
   # Must include ALL active prefixes (built-in + custom)
-  # Built-in prefixes: SEC, BACK, DOC, QUAL, FRONT, CDX
+  # Built-in prefixes: SEC, BACK, VEIL, DOC, QUAL, FRONT, CDX
   dedup_hierarchy:
     - SEC          # Ward Sentinel (always highest)
     - BACK         # Forge Warden
+    - VEIL         # Veil Piercer (truth-telling)
     - API          # Custom: api-contract-reviewer
     - DOM          # Custom: domain-logic-reviewer
     - PERF         # Custom: perf-deep-scan
@@ -163,7 +164,8 @@ settings:
 # Use this to turn off a built-in Ash you've replaced with a custom one
 defaults:
   disable_ashes: []
-  # Example: disable_ashes: ["knowledge-keeper"]
+  # Example: disable_ashes: ["knowledge-keeper", "veil-piercer"]
+  # Valid names: forge-warden, ward-sentinel, veil-piercer, pattern-weaver, glyph-scribe, knowledge-keeper, codex-oracle
 
 # ──────────────────────────────────────────────
 # Forge — Forge Gaze selection overrides (forge runs by default)
