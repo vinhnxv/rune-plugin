@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 42 agents** (18 review + 5 research + 2 work + 9 utility + 8 investigation)
+**Total: 46 agents** (18 review + 5 research + 2 work + 9 utility + 8 investigation + 4 testing)
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 
@@ -24,8 +24,6 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | blight-seer | Design anti-patterns, God Service, leaky abstractions, temporal coupling |
 | forge-keeper | Data integrity, migration safety, reversibility, lock analysis, transaction boundaries |
 | tide-watcher | Async/concurrency patterns, waterfall awaits, unbounded concurrency, cancellation, race conditions |
-| refactor-guardian | Refactoring completeness gaps, orphaned callers, incomplete extractions, missing dependency moves, stale test references |
-| reference-validator | Import path validation, config-to-source references, agent/skill frontmatter schema, version sync across manifests |
 
 ## Research Agents (`agents/research/`)
 
@@ -56,7 +54,6 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
-| horizon-sage | Strategic depth assessment, long-term viability, root-cause depth |
 
 ## Investigation Agents (`agents/investigation/`)
 
@@ -70,3 +67,12 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | wisdom-sage | Git archaeology — commit intent classification, caution scoring via git blame analysis |
 | lore-analyst | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration |
 | goldmask-coordinator | Three-layer synthesis — merges Impact + Wisdom + Lore findings into unified GOLDMASK.md report |
+
+## Testing Agents (`agents/testing/`)
+
+| Agent | Purpose |
+|-------|---------|
+| unit-test-runner | Diff-scoped unit test execution — pytest, jest, vitest (model: sonnet) |
+| integration-test-runner | Integration test execution with service dependency management (model: sonnet) |
+| e2e-browser-tester | E2E browser testing via agent-browser with file-to-route mapping (model: sonnet) |
+| test-failure-analyst | Read-only failure analysis — root cause classification and fix suggestions (maxTurns: 15) |

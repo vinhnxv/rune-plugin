@@ -72,6 +72,35 @@ Consolidated release from arc-batch run (PRs #58–#62).
 - **Review agent count**: 16 → 18 (propagated to plugin.json, marketplace.json, README, CLAUDE.md, agent-registry)
 - **Plugin version**: 1.42.2 → 1.45.0
 
+## [1.43.0] — 2026-02-19
+
+### Added
+- **Arc Phase 7.7: TEST** — Diff-scoped test execution with 3-tier testing pyramid (unit → integration → E2E browser)
+  - Serial tier execution: faster tiers run first, failures are non-blocking WARNs
+  - Diff-scoped test discovery: maps changed files to corresponding tests
+  - Service startup auto-detection (docker-compose, package.json, Makefile)
+  - E2E browser testing via `agent-browser` with file-to-route mapping (Next.js, Rails, Django, SPA)
+  - Model routing: Sonnet for all test execution, Opus only for orchestration + failure analysis
+  - `--no-test` flag to skip Phase 7.7 entirely
+  - Test report integration into Phase 8 AUDIT inputs
+- **`testing` skill**: Test orchestration pipeline knowledge (non-invocable)
+- **`agent-browser` skill**: Browser automation knowledge injection for E2E testing (non-invocable)
+- **4 testing agents**: `unit-test-runner`, `integration-test-runner`, `e2e-browser-tester`, `test-failure-analyst`
+- **5 reference files**: `arc-phase-test.md`, `test-discovery.md`, `service-startup.md`, `file-route-mapping.md`, `test-report-template.md`
+- Checkpoint schema v9 (v8→v9 migration: adds `test` phase with `tiers_run`, `pass_rate`, `coverage_pct`, `has_frontend`)
+- Talisman `testing:` section with tier-level config (enabled, timeout, coverage, base_url, max_routes)
+- Talisman `arc.timeouts.test`: 900,000ms default (15 min), 2,400,000ms with E2E
+
+### Changed
+- **Plugin version**: 1.42.2 → 1.43.0
+- Skills count: 14 → 16 (added `testing`, `agent-browser`)
+- Agent categories: added testing (4 agents)
+- Arc PHASE_ORDER: added `test` between `verify_mend` and `audit`
+- Arc pipeline: 14 → 15 phases (Phase 7.7 TEST)
+- Phase Transition Contracts: VERIFY MEND → TEST → AUDIT (was VERIFY MEND → AUDIT)
+- `calculateDynamicTimeout()`: includes test phase budget
+- Arc phase-audit inputs: now includes test report
+
 ## [1.42.1] — 2026-02-19
 
 ### Fixed

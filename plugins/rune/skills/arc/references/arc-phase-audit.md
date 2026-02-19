@@ -7,9 +7,10 @@ Invoke `/rune:audit` logic as a final quality gate. Informational only — does 
 **Timeout**: 20 min (PHASE_TIMEOUTS.audit = 1_200_000 — inner 15m + 5m setup)
 
 **Inputs**:
-- All prior phase artifacts (enriched plan, work summary, TOME, resolution report, gap analysis)
+- All prior phase artifacts (enriched plan, work summary, TOME, resolution report, gap analysis, test report)
 - Committed code changes on the feature branch
 - Arc identifier (`id`)
+- Test report (`tmp/arc/{id}/test-report.md`) — if Phase 7.7 ran (not skipped via `--no-test`)
 
 **Outputs**: `tmp/arc/{id}/audit-report.md`
 
