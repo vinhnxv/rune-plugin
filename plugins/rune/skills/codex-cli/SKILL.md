@@ -370,7 +370,7 @@ designated path. Even skip/error messages are written so downstream phases know 
    (see `codex-oracle.md` for the canonical prompt).
 
 6. **Codex counts toward max_ashes**: When summoned as a full review teammate (Codex Oracle in
-   review/audit), Codex counts against the `talisman.settings.max_ashes` cap (default 8).
+   review/audit), Codex counts against the `talisman.settings.max_ashes` cap (default 9).
 
    **Additive exception** (v1.39.0+): Cross-model methods that use the lightweight inline pattern
    (e.g., elicitation sage cross-model, semantic verification, trial forger edge cases) do NOT

@@ -149,7 +149,7 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 When the same finding appears from multiple Ash:
 
 ```
-SEC > BACK > DOC > QUAL > FRONT > CDX
+SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX
 ```
 
 Keep the finding from the higher-priority Ash. See [Dedup Runes](dedup-runes.md) for full algorithm.

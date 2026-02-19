@@ -46,13 +46,14 @@ Phase 6: Verify          → Truthsight validation on P1 findings
 Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 ```
 
-### Built-in Ash Roles (Max 6)
+### Built-in Ash Roles (Max 7)
 
 | Ash | Role | When Selected | Perspectives |
 |-----------|------|---------------|-------------|
 | **Forge Warden** | Backend review | Backend files changed | Architecture, performance, logic bugs, duplication |
 | **Ward Sentinel** | Security review | Every review | Vulnerabilities, auth, injection, OWASP |
 | **Pattern Weaver** | Quality patterns | Every review | Simplicity, TDD, dead code, pattern consistency |
+| **Veil Piercer** | Truth-telling review | Every review | Premise validation, production viability, long-term consequences |
 | **Glyph Scribe** | Frontend review | Frontend files changed | TypeScript safety, React performance, accessibility |
 | **Knowledge Keeper** | Docs review | Docs changed (>= 10 lines) | Accuracy, completeness, anti-injection |
 | **Codex Oracle** | Cross-model review | `codex` CLI available | Cross-model security, logic, quality (GPT-5.3-codex) |
@@ -83,6 +84,7 @@ tmp/reviews/{id}/
 ├── forge-warden.md          # Backend review findings
 ├── ward-sentinel.md         # Security review findings
 ├── pattern-weaver.md        # Quality patterns findings
+├── veil-piercer.md          # Truth-telling findings
 ├── glyph-scribe.md          # Frontend review findings (if summoned)
 ├── knowledge-keeper.md      # Docs review findings (if summoned)
 ├── codex-oracle.md          # Cross-model review findings (if codex CLI available)

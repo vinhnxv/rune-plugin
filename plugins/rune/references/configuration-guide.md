@@ -9,7 +9,7 @@ rune-gaze:
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md", ".claude/**/*.md"]
 
-# Custom Ashes — extend the built-in 6
+# Custom Ashes — extend the built-in 7
 ashes:
   custom:
     - name: "domain-logic-reviewer"

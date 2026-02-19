@@ -147,7 +147,7 @@ SEC-prefix findings require human approval for FALSE_POSITIVE marking.
 When you run `/rune:review`, Rune:
 
 1. **Detects scope** — classifies changed files by extension
-2. **Selects Ash** — picks the right reviewers (2-8 Ashes)
+2. **Selects Ash** — picks the right reviewers (3–9 Ashes)
 3. **Summons Agent Teams** — each reviewer gets its own 200k context window
 4. **Reviews in parallel** — Ash review simultaneously, writing to files
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes

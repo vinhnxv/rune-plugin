@@ -85,18 +85,17 @@ Detects copied patterns without understanding why they exist.
 
 ### 4. Complexity Justification
 
-Detects complexity without proportional value.
+Detects complexity whose premise is unjustified — focus on WHY the complexity exists, not HOW it manifests. Leave implementation-level complexity signals (factory patterns, abstraction layers) to simplicity-warden.
 
 **Key Questions:**
-- Could this be done in 1/10th the code? What does the complexity buy?
-- How many lines are infrastructure vs. actual business logic?
-- What's the simplest thing that could possibly work?
+- Does the verified scale/team/requirements justify this level of complexity?
+- Was the complexity decision driven by actual constraints or by fashion?
+- What evidence exists that the simpler approach was insufficient?
 
 **Signals:**
-- 500-line abstraction layer over a 50-line operation
-- Generic framework for a single use case
-- Multiple levels of indirection without clear benefit
-- Factory-of-factory patterns, strategy-of-strategy nesting
+- Microservice architecture for a 2-person team with no independent deployment need
+- Event-driven system for synchronous-only business processes
+- Abstraction layer justified by "future extensibility" without documented extension points
 
 ### 5. User Reality
 

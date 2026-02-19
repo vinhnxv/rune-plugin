@@ -279,6 +279,7 @@ for each file in changed_files:
   - Unclassified (not in any group or skip list)     → select Forge Warden (catch-all)
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
+  - Always: Veil Piercer (truth)
 
 # Custom Ashes (from talisman.yml):
 for each custom in validated_custom_ash:
@@ -310,6 +311,7 @@ Ash to summon: {count} ({built_in_count} built-in + {custom_count} custom)
   - Forge Warden:      {file_count} files (cap: 30)
   - Ward Sentinel:     {file_count} files (cap: 20)
   - Pattern Weaver:    {file_count} files (cap: 30)
+  - Veil Piercer:      {file_count} files (cap: 30)
   - Glyph Scribe:      {file_count} files (cap: 25)  [conditional]
   - Knowledge Keeper:  {file_count} files (cap: 25)  [conditional]
   - Codex Oracle:      {file_count} files (cap: 20)  [conditional — requires codex CLI]

@@ -97,7 +97,7 @@ In `/rune:review`, agents are grouped into 7 built-in Ashes (extensible via tali
 | **Knowledge Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
 | **Codex Oracle** | Inline perspectives (cross-model security, logic, quality via `codex exec`) | ALL files (when `codex` CLI available) |
 
-**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts (no dedicated agent files). Codex Oracle is CLI-gated and wraps the external `codex exec` command.
+**Note:** Forge Warden, Ward Sentinel, Veil Piercer, and Pattern Weaver embed dedicated review agent files. Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts (no dedicated agent files). Codex Oracle is CLI-gated and wraps the external `codex exec` command.
 
 ## Utility Agents
 
@@ -135,11 +135,11 @@ The `/rune:review` command selects Ash based on file extensions (Rune Gaze):
 
 | File Pattern | Ash Selected |
 |-------------|---------------------|
-| `**/*.py` | Forge Warden + Ward Sentinel + Pattern Weaver |
-| `**/*.{ts,tsx,js,jsx}` | Glyph Scribe + Ward Sentinel + Pattern Weaver |
+| `**/*.py` | Forge Warden + Ward Sentinel + Pattern Weaver + Veil Piercer |
+| `**/*.{ts,tsx,js,jsx}` | Glyph Scribe + Ward Sentinel + Pattern Weaver + Veil Piercer |
 | `**/*.md` (>= 10 lines changed) | Knowledge Keeper (conditional) |
 | Mixed code + docs | All applicable Ash |
 
-Ward Sentinel and Pattern Weaver are selected for every review regardless of file types.
+Ward Sentinel, Pattern Weaver, and Veil Piercer are selected for every review regardless of file types.
 
 See `roundtable-circle` skill for full Ash architecture and prompts.
