@@ -340,6 +340,7 @@ elicitation:
 # ──────────────────────────────────────────────
 echoes:
   version_controlled: false    # Set true to track .claude/echoes/ in git
+  fts_enabled: true            # Enable FTS5/MCP echo search. Set false to disable MCP server.
 
 # ──────────────────────────────────────────────
 # Review — Chunked review and convergence settings (v1.35.0+)

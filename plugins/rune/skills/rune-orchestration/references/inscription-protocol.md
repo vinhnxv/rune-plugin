@@ -6,7 +6,9 @@
 
 ### Step 1: Generate `inscription.json`
 
-Before summoning agents, create the inscription file in the output directory:
+Before summoning agents, create the inscription file in the output directory.
+
+The optional `context_injections` field tracks which echo memories were retrieved and injected into each agent's context at summon time. Each key is an agent name, and the value records the search query, retrieval method (e.g., `fts5_bm25`), result count, top entries with relevance scores, and estimated token cost. This enables post-hoc analysis of which memories influenced each agent's review and helps diagnose context budget overflows.
 
 ```json
 {
@@ -46,6 +48,18 @@ Before summoning agents, create the inscription file in the output directory:
       "security": 20,
       "frontend": 25,
       "docs": 25
+    }
+  },
+  "context_injections": {
+    "echo-reader": {
+      "query": "context management overflow prevention",
+      "method": "fts5_bm25",
+      "results_count": 5,
+      "top_entries": [
+        {"id": "planner:42", "score": 0.85, "preview": "4-layer context management..."},
+        {"id": "reviewer:15", "score": 0.72, "preview": "Glyph Budget enforcement..."}
+      ],
+      "total_tokens_estimated": 1200
     }
   }
 }

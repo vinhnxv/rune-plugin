@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.43.0] — 2026-02-19
+
+### Added
+- **MCP Echo Search Server**: New Python-based MCP server with SQLite FTS5/BM25 ranked search for `.claude/echoes/` memory files
+  - 4 tools: `echo_search`, `echo_details`, `echo_reindex`, `echo_stats`
+  - Porter stemmer + unicode61 tokenizer for natural language matching
+  - WAL mode for concurrent read/write safety
+  - Auto-reindex via PostToolUse hook on echo file writes
+- **Echo-reader Agent Upgrade**: MCP-backed primary search with Read+Grep fallback
+  - BM25-ranked results replace linear scan
+  - Code skimming prompts for token-efficient file reading
+- **Context Injection Tracking**: inscription.json extended with `context_injections` field
+- **Enhanced Seal Format**: Added confidence scoring and skimmed/deep-read file counts
+- **Annotation Hook**: PostToolUse hook detects echo writes, triggers signal-file for debounced reindex
+
+### Changed
+- **Plugin version**: 1.42.2 → 1.43.0
+
 ## [1.42.1] — 2026-02-19
 
 ### Fixed
