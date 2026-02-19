@@ -96,11 +96,13 @@ Structured anti-patterns for multi-agent orchestration. Each Standing Order uses
 
 ### Remedy Procedure
 1. **Stop** the edit before committing changes
-2. **Create** a TaskCreate with the intended change as description
-3. **Verify** a worker picks up and completes the task
+2. **Enable delegate mode** (Shift+Tab in Claude Code UI) to prevent the lead from using Write/Edit tools
+3. **Create** a TaskCreate with the intended change as description
+4. **Verify** a worker picks up and completes the task
 
 ### Cross-References
 - Related: SO-1 (Hollow Ash) — if task is atomic, single-session is fine (no team needed)
+- Related: DC-3 (Fading Ash) — if workers are stale, do not implement yourself; diagnose the stale agent first
 - Risk Tier: All tiers — coordination failure is role-independent
 
 ---

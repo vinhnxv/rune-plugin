@@ -24,15 +24,15 @@ Plans with pseudocode include contract headers (Inputs/Outputs/Preconditions/Err
 
 Each Ash is an Agent Teams teammate with its own 200k context window. An Ash embeds multiple review agent perspectives into a single teammate to reduce team size.
 
-Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents distributed across 3 Ashes — see circle-registry.md for mapping). Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts. Codex Oracle wraps `codex exec` via Bash to provide cross-model verification using GPT-5.3-codex.
+Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (18 agents distributed across 3 Ashes — see circle-registry.md for mapping). Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts. Codex Oracle wraps `codex exec` via Bash to provide cross-model verification using GPT-5.3-codex.
 
-The "Perspectives" column lists review focus areas aligned with dedicated agent files (e.g., Forge Warden's 9 perspectives map to 9 agents in `agents/review/`). Duplication detection (mimic-detector) is part of Forge Warden, not Pattern Weaver.
+The "Perspectives" column lists review focus areas aligned with dedicated agent files (e.g., Forge Warden's 8 perspectives map to 8 agents in `agents/review/`). Duplication detection (mimic-detector) is part of Forge Warden, not Pattern Weaver.
 
 | Ash | Perspectives | Agent Source | When Summoned |
 |-----------|-------------|-------------|-------------|
 | **Forge Warden** | Code quality, architecture, performance, logic, type safety, missing logic, design anti-patterns, data integrity, duplication | Dedicated agent files | Backend, infra, config, or unclassified files changed |
 | **Ward Sentinel** | All security perspectives | Dedicated agent files | Always (+ priority on `.claude/` files) |
-| **Pattern Weaver** | Simplicity, cross-cutting patterns, dead code, incomplete implementations, TDD & test quality, async & concurrency | Dedicated agent files | Always |
+| **Pattern Weaver** | Simplicity, cross-cutting patterns, dead code, incomplete implementations, TDD & test quality, async & concurrency, refactoring integrity, reference & config integrity | Dedicated agent files | Always |
 | **Glyph Scribe** | Type safety, components, performance, hooks, accessibility | Inline perspectives | Frontend files changed |
 | **Knowledge Keeper** | Accuracy, completeness, consistency, readability, security | Inline perspectives | Docs changed (>= threshold) or `.claude/` files changed |
 | **Codex Oracle** | Cross-model security, logic, quality (via GPT-5.3-codex) | Inline perspectives (codex exec) | `codex` CLI available AND `talisman.codex.disabled` is not true |

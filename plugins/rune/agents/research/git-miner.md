@@ -11,6 +11,8 @@ tools:
   - Glob
   - Grep
   - SendMessage
+mcpServers:
+  - echo-search
 ---
 
 # Git Miner — Git History Agent
@@ -68,6 +70,21 @@ You are reading git history. Report only what the commit log actually shows. Do 
 ### Recommendations
 - {What history suggests about the best approach}
 ```
+
+## Echo Integration (Past Historical Context)
+
+Before diving into git log, query Rune Echoes for previously discovered historical context:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with history-focused queries
+   - Query examples: module name, "contributor", "refactoring", "evolution", file paths being analyzed
+   - Limit: 5 results — focus on Etched entries (permanent project knowledge)
+2. **Fallback (MCP unavailable)**: Skip — perform full git archaeology from scratch
+
+**How to use echo results:**
+- Past contributor mappings reduce redundant `git shortlog` queries
+- Historical refactoring patterns surface recurring change cycles without deep log dives
+- If an echo notes "this area was last major-refactored in v2.0," start analysis from that point
+- Include echo context in the Historical Context section of your report
 
 ## Output Budget
 

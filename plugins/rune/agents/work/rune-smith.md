@@ -23,6 +23,9 @@ tools:
   - TaskGet
   - TaskUpdate
   - SendMessage
+maxTurns: 75
+mcpServers:
+  - echo-search
 ---
 
 # Rune Smith — Code Implementation Agent
@@ -93,6 +96,20 @@ If you notice yourself:
 **Tarnished monitoring**: The Tarnished should also track confidence scores across your Seal messages. If the Tarnished observes confidence < 70 for 2 consecutive Seals, it should instruct you to apply Aggressive reset — do not rely solely on self-detection.
 
 **Why**: In long `/rune:work` sessions (4+ tasks), conversation history grows until context overflow (DC-1 Glyph Flood). Adaptive reset sheds context proportionally — light early, aggressive late — instead of one-size-fits-all.
+
+## Echo Integration (Past Conventions)
+
+Before implementing, query Rune Echoes for project conventions and past learnings:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with task-relevant queries
+   - Query examples: module name, "naming convention", "pattern", framework keywords from the task
+   - Limit: 5 results — focus on Etched (permanent) and Inscribed (verified) entries
+2. **Fallback (MCP unavailable)**: Skip — rely on codebase pattern discovery via Read/Grep
+
+**How to use echo results:**
+- If an echo says "repository pattern used for data access," follow that pattern
+- If an echo says "always validate branch names with regex X," apply that validation
+- Echoes supplement — never override — what you find in the actual codebase
 
 ## Ward Check (Quality Gates)
 
@@ -170,7 +187,7 @@ If `python3` is not available in PATH, skip this quality gate with a warning: "p
 4. **Test coverage**: Every implementation must have corresponding tests
 5. **No new deps**: Do not add new dependencies without explicit task instruction
 6. **Commit safety**: Sanitize commit messages — strip newlines/control chars, limit to 72 chars, escape shell metacharacters. Use `git commit -F <message-file>` (not inline `-m`) to avoid shell injection.
-7. **Self-review before completion**: Re-read every file you changed. Check: all identifiers defined? No self-referential assignments? Function signatures match call sites? No dead code?
+7. **Self-review before completion (Inner Flame)**: Execute the full Inner Flame protocol. Read [inner-flame](../../skills/inner-flame/SKILL.md) for the 3-layer self-review. Layer 1: Grounding — verify all file/code references are real. Layer 2: Completeness — use Worker checklist from role-checklists.md. Layer 3: Self-Adversarial — play devil's advocate against your own work. Append a Self-Review Log to your Seal message. If post-review confidence drops below 60, do NOT mark task complete — report blocker.
 8. **Maximum function length: 40 lines**: Any function exceeding 40 lines of code MUST be split into smaller helper functions. Extract logical blocks into well-named helpers. This is a hard quality gate — do not mark a task complete if you have functions over 40 lines.
 9. **Plan pseudocode is guidance, not gospel**: If your task references plan pseudocode, implement from the plan's contracts (Inputs/Outputs/Preconditions). Verify all variables exist and all helpers are defined — don't copy plan code blindly.
 10. **Type annotations required**: All function signatures MUST have explicit type annotations for parameters and return types.
@@ -220,13 +237,19 @@ REMINDER: Resume your reviewer role. Report CRITICAL bugs only."""
       Write("tmp/work/{id}/codex-smith-prompt.txt", promptContent)
 
       # Security: CODEX_MODEL_ALLOWLIST validated
-      result = Bash("timeout 120 codex exec \
-        -m {codexModel} \
-        --config model_reasoning_effort='low' \
-        --sandbox read-only --full-auto --skip-git-repo-check \
-        \"$(cat tmp/work/{id}/codex-smith-prompt.txt)\" 2>/dev/null")
+      # Resolve timeouts via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+      const { codexTimeout, codexStreamIdleMs, killAfterFlag } = resolveCodexTimeouts(talisman)
+      const stderrFile = Bash("mktemp ${TMPDIR:-/tmp}/codex-stderr-XXXXXX").stdout.trim()
 
-      Bash("rm -f tmp/work/{id}/codex-smith-prompt.txt 2>/dev/null")
+      result = Bash(`timeout ${killAfterFlag} ${codexTimeout} codex exec \
+        -m ${codexModel} \
+        --config model_reasoning_effort='low' \
+        --config stream_idle_timeout_ms="${codexStreamIdleMs}" \
+        --sandbox read-only --full-auto --skip-git-repo-check \
+        "$(cat tmp/work/${id}/codex-smith-prompt.txt)" 2>"${stderrFile}"`)
+      // If exit code 124: classifyCodexError(stderrFile) — see codex-detection.md
+
+      Bash(`rm -f tmp/work/${id}/codex-smith-prompt.txt "${stderrFile}" 2>/dev/null`)
 
       if result.exitCode === 0 AND result.stdout contains "CRITICAL":
         SendMessage to Tarnished: "Codex advisory for task #{taskId}: {result (truncated to 500 chars)}"
@@ -254,7 +277,7 @@ Consider this when setting arc total timeout.
 
 When reporting completion via SendMessage:
 ```
-Seal: task #{id} done. Files: {changed_files}. Tests: {pass_count}/{total}. Confidence: {0-100}.
+Seal: task #{id} done. Files: {changed_files}. Tests: {pass_count}/{total}. Confidence: {0-100}. Inner-flame: {pass|fail|partial}. Revised: {count}.
 ```
 
 Confidence reflects implementation quality:

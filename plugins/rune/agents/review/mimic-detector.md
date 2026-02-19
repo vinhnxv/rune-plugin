@@ -16,6 +16,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -34,6 +36,21 @@ DRY principle violation detection specialist.
 
 > "Duplication is a signal, not always a problem. Three similar lines may be fine —
 > a premature abstraction is worse. Flag when logic is identical AND likely to change together."
+
+## Echo Integration (Past Duplication Patterns)
+
+Before scanning for duplication, query Rune Echoes for previously identified DRY violation patterns:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with duplication-focused queries
+   - Query examples: "copy-paste", "duplicated logic", "DRY violation", "similar pattern", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent duplication knowledge)
+2. **Fallback (MCP unavailable)**: Skip — scan all files fresh for duplication issues
+
+**How to use echo results:**
+- Past duplication findings reveal modules with history of copy-paste proliferation
+- If an echo flags a validation function as duplicated, prioritize extraction analysis
+- Historical DRY violation patterns inform which code areas need cross-file comparison
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: mimic-detector/MEMORY.md)`
 
 ## Analysis Framework
 

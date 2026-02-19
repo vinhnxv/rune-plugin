@@ -15,6 +15,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -38,6 +40,21 @@ Logic bug detection through edge case analysis specialist.
 - Silent failures (empty catch, swallowed errors)
 - Missing match/switch cases
 - TOCTOU (time-of-check-to-time-of-use) bugs
+
+## Echo Integration (Past Logic Bug Patterns)
+
+Before checking for logic bugs, query Rune Echoes for previously identified bug patterns:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with logic-bug-focused queries
+   - Query examples: "null dereference", "race condition", "off-by-one", "silent failure", "edge case", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent logic bug knowledge)
+2. **Fallback (MCP unavailable)**: Skip — check all files fresh for logic bugs
+
+**How to use echo results:**
+- Past logic bug findings reveal code paths with history of edge case failures
+- If an echo flags a function as having null dereference risk, prioritize None-guard analysis
+- Historical race condition patterns inform which async paths need TOCTOU checks
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: flaw-hunter/MEMORY.md)`
 
 ## Analysis Framework
 

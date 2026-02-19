@@ -3,12 +3,12 @@ name: arc
 description: |
   Use when you want to go from plan to merged PR in one command, when running
   the full development pipeline (forge + work + review + mend + ship + merge),
-  or when resuming a previously interrupted pipeline. 14-phase automated pipeline
-  with checkpoint resume, convergence loops, and cross-model verification.
+  or when resuming a previously interrupted pipeline. 16-phase automated pipeline
+  with checkpoint resume, convergence loops, cross-model verification, and Goldmask risk analysis.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
-  assistant: "The Tarnished begins the arc — 14 phases of forge, review, mend, convergence, ship, and merge..."
+  assistant: "The Tarnished begins the arc — 16 phases of forge, review, goldmask, mend, convergence, ship, and merge..."
   </example>
 
   <example>
@@ -40,7 +40,7 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains fourteen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, code review, mend, verify mend (convergence controller), audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, 9, and 9.5). Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
+Chains sixteen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, goldmask verification, code review, goldmask correlation, mend, verify mend (convergence controller), audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, 6.5, 9, and 9.5). Phase 5.7 delegates to `/rune:goldmask` for post-work risk validation. Phase 6.5 correlates TOME findings with Goldmask predictions. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`
 
@@ -61,7 +61,7 @@ Chains fourteen phases into a single automated pipeline: forge, plan review, pla
 - `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely. No shared task list, no SendMessage, no context isolation. This is the root cause of context explosion.
 - Using named `subagent_type` values (e.g., `"rune:utility:scroll-reviewer"`, `"compound-engineering:research:best-practices-researcher"`, `"rune:review:ward-sentinel"`) — these resolve to non-general-purpose agents. Always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
 
-**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 14 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
+**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 16 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
 
 **ENFORCEMENT:** The `enforce-teams.sh` PreToolUse hook blocks bare Task calls when a Rune workflow is active. If your Task call is blocked, add `team_name` to it.
 
@@ -112,8 +112,12 @@ Phase 5.5: GAP ANALYSIS → Check plan criteria vs committed code (zero LLM)
     ↓ (gap-analysis.md) — WARN only, never halts
 Phase 5.6: CODEX GAP ANALYSIS → Cross-model plan vs implementation check (v1.39.0)
     ↓ (codex-gap-analysis.md) — WARN only, never halts
+Phase 5.7: GOLDMASK VERIFICATION → Post-work 3-layer risk validation (v1.47.0)
+    ↓ (goldmask-verification.md + goldmask-findings.json) — non-blocking, skip if disabled
 Phase 6:   CODE REVIEW → Roundtable Circle review
     ↓ (tome.md)
+Phase 6.5: GOLDMASK CORRELATION → TOME-to-Goldmask finding correlation (v1.47.0)
+    ↓ (goldmask-correlation.md + human-review-findings.json) — non-blocking, skip if prerequisites missing
 Phase 7:   MEND → Parallel finding resolution
     ↓ (resolution-report.md) — HALT on >3 FAILED
 Phase 7.5: VERIFY MEND → Convergence controller (adaptive review-mend loop)
@@ -130,7 +134,7 @@ Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 6, 7, 7.5, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 5.7, 6, 6.5, 7, 7.5, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
 
 ## Arc Orchestrator Design (ARC-1)
 
@@ -155,7 +159,7 @@ The dispatcher reads only structured summary headers from artifacts, not full co
 ### Phase Constants
 
 ```javascript
-const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'code_review', 'mend', 'verify_mend', 'audit', 'ship', 'merge']
+const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'audit', 'ship', 'merge']
 
 // SETUP_BUDGET: time for team creation, task creation, agent spawning, report, cleanup.
 // MEND_EXTRA_BUDGET: additional time for ward check, cross-file mend, doc-consistency.
@@ -183,7 +187,9 @@ const PHASE_TIMEOUTS = {
   work:          talismanTimeouts.work ?? 2_100_000,    // 35 min (inner 30m + 5m setup)
   gap_analysis:  talismanTimeouts.gap_analysis ?? 60_000,    //  1 min (orchestrator-only, no team)
   codex_gap_analysis: talismanTimeouts.codex_gap_analysis ?? 660_000,  // 11 min (orchestrator-only, codex teammate — Architecture Rule #1 lightweight inline exception)
+  goldmask_verification: talismanTimeouts.goldmask_verification ?? 900_000,  // 15 min (delegates to /rune:goldmask skill — manages own team)
   code_review:   talismanTimeouts.code_review ?? 900_000,    // 15 min (inner 10m + 5m setup)
+  goldmask_correlation: talismanTimeouts.goldmask_correlation ?? 60_000,  //  1 min (orchestrator-only, deterministic correlation)
   mend:          talismanTimeouts.mend ?? 1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
   verify_mend:   talismanTimeouts.verify_mend ?? 240_000,    //  4 min (orchestrator-only, no team)
   audit:         talismanTimeouts.audit ?? 1_200_000,    // 20 min (inner 15m + 5m setup)
@@ -192,12 +198,13 @@ const PHASE_TIMEOUTS = {
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// DOC-002 FIX: Base budget sum is ~118.5 min (includes v1.39.0 phases + v1.40.0 ship/merge):
+// DOC-002 FIX: Base budget sum is ~134.5 min (includes v1.39.0 phases + v1.40.0 ship/merge + v1.47.0 goldmask):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
-//   codex_gap_analysis(11) + work(35) + gap_analysis(1) + audit(20) + ship(5) + merge(10) = 118.5 min
-// LIGHT (2 cycles):    118.5 + 42 + 1×26 = 186.5 min ≈ 187 min
-// STANDARD (3 cycles): 118.5 + 42 + 2×26 = 212.5 min ≈ 213 min
-// THOROUGH (5 cycles): 118.5 + 42 + 4×26 = 264.5 min → hard cap at 240 min
+//   codex_gap_analysis(11) + goldmask_verification(15) + work(35) + gap_analysis(1) +
+//   goldmask_correlation(1) + audit(20) + ship(5) + merge(10) = 134.5 min
+// LIGHT (2 cycles):    134.5 + 42 + 1×26 = 202.5 min ≈ 203 min
+// STANDARD (3 cycles): 134.5 + 42 + 2×26 = 228.5 min ≈ 229 min
+// THOROUGH (5 cycles): 134.5 + 42 + 4×26 = 280.5 min → hard cap at 240 min
 const ARC_TOTAL_TIMEOUT_DEFAULT = 9_720_000  // 162 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 14_400_000  // 240 min (4 hours) — absolute hard cap
 const STALE_THRESHOLD = 300_000      // 5 min
@@ -216,8 +223,9 @@ function calculateDynamicTimeout(tier) {
   const basePhaseBudget = PHASE_TIMEOUTS.forge + PHASE_TIMEOUTS.plan_review +
     PHASE_TIMEOUTS.plan_refine + PHASE_TIMEOUTS.verification +
     PHASE_TIMEOUTS.semantic_verification + PHASE_TIMEOUTS.codex_gap_analysis +
+    PHASE_TIMEOUTS.goldmask_verification + PHASE_TIMEOUTS.goldmask_correlation +
     PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis + PHASE_TIMEOUTS.audit +
-    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~118.5 min (v1.40.0: +ship +merge)
+    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~134.5 min (v1.47.0: +goldmask_verification +goldmask_correlation)
   const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
   const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
   const maxCycles = tier?.maxCycles ?? 3
@@ -619,7 +627,7 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 8, plan_file: planFile,
+  id, schema_version: 9, plan_file: planFile,
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm },
   arc_config: arcConfig,
   pr_url: null,
@@ -634,7 +642,9 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     work:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     codex_gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    goldmask_verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     code_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    goldmask_correlation: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     audit:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
@@ -663,7 +673,8 @@ CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs af
 // rune-* prefixes: teams created by delegated sub-commands (forge, work, review, mend, audit)
 const ARC_TEAM_PREFIXES = [
   "arc-forge-", "arc-plan-review-", "arc-verify-", "arc-gap-",  // arc-owned teams
-  "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-audit-"  // sub-command teams
+  "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-audit-",  // sub-command teams
+  "goldmask-"  // goldmask skill teams (Phase 5.7 delegation)
 ]
 
 // SECURITY: Validate all prefixes before use in shell commands
@@ -771,7 +782,11 @@ On resume, validate checkpoint integrity before proceeding:
    b. // convergence.history entries will have p2_remaining: undefined for pre-v8 rounds.
       // No migration needed — evaluateConvergence reads p2_remaining only for the current round.
    c. Set schema_version: 8
-3h. Resume freshness re-check:
+3h. If schema_version < 9, migrate v8 → v9:
+   a. Add phases.goldmask_verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null }
+   b. Add phases.goldmask_correlation: { status: "pending", artifact: null, artifact_hash: null, team_name: null }
+   c. Set schema_version: 9
+3i. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)
@@ -1187,6 +1202,133 @@ updateCheckpoint({
 })
 ```
 
+## Phase 5.7: GOLDMASK VERIFICATION (skippable via talisman)
+
+Post-work risk validation using the full 3-layer Goldmask investigation. Delegates to the standalone `/rune:goldmask` skill, which manages its own team lifecycle.
+
+**Team**: Delegated to `/rune:goldmask` — goldmask manages its own team lifecycle (`goldmask-{session}`)
+**Output**: `tmp/arc/{id}/goldmask-verification.md`, `tmp/arc/{id}/goldmask-findings.json`
+**Failure**: Non-blocking — skip and proceed to code review. Goldmask is advisory.
+
+```javascript
+// ARC-6: Clean stale teams before delegating to goldmask skill
+prePhaseCleanup(checkpoint)
+
+const goldmaskEnabled = talisman?.goldmask?.enabled !== false
+const isGitRepo = Bash("git rev-parse --is-inside-work-tree 2>/dev/null").exitCode === 0
+
+if (goldmaskEnabled && isGitRepo) {
+  updateCheckpoint({ phase: "goldmask_verification", status: "in_progress", phase_sequence: 5.7, team_name: null })
+
+  try {
+    // Resolve diff-spec from work output
+    const workBranch = checkpoint.phases.work?.branch ?? 'HEAD'
+    const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo main").trim()
+    const diffSpec = `${defaultBranch}...${workBranch}`
+
+    // Delegate to goldmask skill (it manages its own team)
+    Skill("rune:goldmask", diffSpec)
+
+    // Discover goldmask output path from state file (CRIT-1 fix: don't hardcode path)
+    const goldmaskStateFiles = Glob("tmp/.rune-goldmask-*.json")
+    let goldmaskOutputDir = "tmp/goldmask"  // fallback
+    for (const sf of goldmaskStateFiles) {
+      try {
+        const state = JSON.parse(Read(sf))
+        // SEC-003 FIX: Validate output_dir before use (defense against path traversal)
+        if (state.output_dir
+          && /^[a-zA-Z0-9._\/-]+$/.test(state.output_dir)
+          && !state.output_dir.includes('..')
+          && !state.output_dir.startsWith('/')) {
+          goldmaskOutputDir = state.output_dir; break
+        }
+      } catch (e) { /* skip unreadable state files */ }
+    }
+
+    // Read goldmask output
+    const reportPath = `${goldmaskOutputDir}/GOLDMASK.md`
+    const findingsPath = `${goldmaskOutputDir}/findings.json`
+    const goldmaskReport = exists(reportPath) ? Read(reportPath) : "Goldmask produced no report."
+    const findingsRaw = exists(findingsPath) ? Read(findingsPath) : '{"findings":[]}'
+    let findings
+    try { findings = JSON.parse(findingsRaw) } catch (e) { findings = { findings: [] } }
+
+    // Copy to arc artifacts
+    Write(`tmp/arc/${id}/goldmask-verification.md`, goldmaskReport)
+    Write(`tmp/arc/${id}/goldmask-findings.json`, JSON.stringify(findings))
+
+    // Compare plan predictions vs actual (if plan-time prediction exists)
+    // QUAL-103 FIX: Plan writes risk-map.json (not goldmask-prediction.md). Use risk-map.json.
+    // QUAL-104 FIX: Glob for any risk-map.json under plans/ (date vs epoch mismatch resolved by wildcard)
+    const predictionGlob = Glob(`tmp/plans/*/risk-map.json`)
+    if (predictionGlob.length > 0) {
+      const predictionContent = Read(predictionGlob[0])
+
+      // Inline: extract MUST-CHANGE files from prediction (parsePredictions)
+      const predictedFiles = []
+      for (const line of predictionContent.split('\n')) {
+        const match = line.match(/MUST-CHANGE.*?`([^`]+)`/)
+        if (match) predictedFiles.push(match[1])
+      }
+
+      // Inline: extract actual MUST-CHANGE from findings
+      const actualFiles = findings.findings
+        .filter(f => f.classification === 'MUST-CHANGE')
+        .map(f => f.file)
+
+      // Inline: set operations (countOverlap / countMissed / countNew)
+      const overlap = predictedFiles.filter(f => actualFiles.includes(f)).length
+      const missed = predictedFiles.filter(f => !actualFiles.includes(f)).length
+      const unexpected = actualFiles.filter(f => !predictedFiles.includes(f)).length
+
+      log(`Goldmask Verification:`)
+      log(`  Predicted MUST-CHANGE: ${predictedFiles.length}`)
+      log(`  Actual MUST-CHANGE: ${actualFiles.length}`)
+      log(`  Confirmed predictions: ${overlap}`)
+      log(`  Missed predictions: ${missed}`)
+      log(`  Unexpected findings: ${unexpected}`)
+    }
+
+    updateCheckpoint({
+      phase: "goldmask_verification",
+      status: "completed",
+      artifact: `tmp/arc/${id}/goldmask-verification.md`,
+      artifact_hash: sha256(Read(`tmp/arc/${id}/goldmask-verification.md`)),
+      phase_sequence: 5.7,
+      finding_count: findings.findings.length,
+      critical_count: findings.findings.filter(f => f.priority >= 0.80).length,
+      team_name: null
+    })
+
+  } catch (e) {
+    warn(`Phase 5.7: Goldmask verification failed (${e.message}) — proceeding without risk validation`)
+    // Ensure artifact exists for downstream phases
+    if (!exists(`tmp/arc/${id}/goldmask-verification.md`)) {
+      Write(`tmp/arc/${id}/goldmask-verification.md`, `Goldmask verification failed: ${e.message}`)
+    }
+    updateCheckpoint({
+      phase: "goldmask_verification",
+      status: "completed",
+      artifact: `tmp/arc/${id}/goldmask-verification.md`,
+      artifact_hash: sha256(Read(`tmp/arc/${id}/goldmask-verification.md`)),
+      phase_sequence: 5.7,
+      team_name: null
+    })
+  }
+} else {
+  // Skip: goldmask disabled or not a git repo
+  warn(`Phase 5.7: Goldmask verification skipped (${!goldmaskEnabled ? 'disabled via talisman' : 'non-git repo'})`)
+  Write(`tmp/arc/${id}/goldmask-verification.md`, "Goldmask verification skipped.")
+  updateCheckpoint({
+    phase: "goldmask_verification",
+    status: "skipped",
+    artifact: `tmp/arc/${id}/goldmask-verification.md`,
+    phase_sequence: 5.7,
+    team_name: null
+  })
+}
+```
+
 ## Phase 6: CODE REVIEW
 
 See [arc-phase-code-review.md](references/arc-phase-code-review.md) for the full algorithm.
@@ -1199,6 +1341,149 @@ See [arc-phase-code-review.md](references/arc-phase-code-review.md) for the full
 prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-code-review.md algorithm. Update checkpoint on completion.
+
+## Phase 6.5: GOLDMASK CORRELATION (orchestrator-only)
+
+Correlates TOME review findings with Goldmask predictions to prioritize mend findings by blast radius and flag high-caution findings for human review. Orchestrator-only — no team, no agents.
+
+**Team**: None (orchestrator-only)
+**Inputs**: `tmp/arc/{id}/goldmask-findings.json`, TOME (round-aware path)
+**Outputs**: `tmp/arc/{id}/goldmask-correlation.md`, `tmp/arc/{id}/human-review-findings.json`
+**Failure**: Non-blocking — skip and proceed to mend. Correlation is advisory.
+
+```javascript
+// No prePhaseCleanup needed — orchestrator-only phase
+
+const goldmaskCompleted = checkpoint.phases.goldmask_verification?.status === 'completed'
+
+// Round-aware TOME path: convergence round > 0 uses tome-round-{N}.md
+const convergenceRound = checkpoint.convergence?.round ?? 0
+const tomePath = convergenceRound > 0
+  ? `tmp/arc/${id}/tome-round-${convergenceRound}.md`
+  : `tmp/arc/${id}/tome.md`
+const tomeExists = exists(tomePath)
+
+if (goldmaskCompleted && tomeExists) {
+  updateCheckpoint({ phase: "goldmask_correlation", status: "in_progress", phase_sequence: 6.5, team_name: null })
+
+  try {
+    const goldmaskFindingsRaw = Read(`tmp/arc/${id}/goldmask-findings.json`)
+    let goldmaskFindings
+    try { goldmaskFindings = JSON.parse(goldmaskFindingsRaw) } catch (e) { goldmaskFindings = { findings: [] } }
+
+    const tome = Read(tomePath)
+
+    // Inline: parseTOMEFindings — extract findings from TOME markdown
+    // Matches <!-- RUNE:FINDING id="..." file="..." line="..." --> markers
+    const tomeFindings = []
+    const findingRegex = /<!-- RUNE:FINDING\s+id="([^"]+)"\s+file="([^"]+)"\s+line="(\d+)"/g
+    let match
+    while ((match = findingRegex.exec(tome)) !== null) {
+      tomeFindings.push({ id: match[1], file: match[2], line: parseInt(match[3], 10) })
+    }
+    // Fallback: try SEC-/QUAL-/DOC- prefix pattern if no RUNE:FINDING markers
+    if (tomeFindings.length === 0) {
+      const prefixRegex = /^(SEC|QUAL|DOC|BACK|FRONT)-(\d+)[:\s]+.*?`([^`]+?)(?::(\d+))?`/gm
+      while ((match = prefixRegex.exec(tome)) !== null) {
+        tomeFindings.push({
+          id: `${match[1]}-${match[2]}`,
+          file: match[3],
+          line: match[4] ? parseInt(match[4], 10) : 0
+        })
+      }
+    }
+
+    // Correlate: for each TOME finding, check if Goldmask predicted risk
+    const correlations = []
+    for (const tf of tomeFindings) {
+      const gmMatch = goldmaskFindings.findings.find(gf =>
+        gf.file === tf.file && Math.abs((gf.line ?? 0) - tf.line) <= 10
+      )
+      if (gmMatch) {
+        // Inline: computeMendPriority — weighted priority from TOME severity + Goldmask risk
+        const tomeSeverity = tf.id.startsWith('SEC') ? 1.0 : tf.id.startsWith('QUAL') ? 0.7 : 0.5
+        const goldmaskRisk = gmMatch.priority ?? 0.5
+        const caution = gmMatch.caution ?? 0
+        const mendPriority = (tomeSeverity * 0.4) + (goldmaskRisk * 0.3) + (caution * 0.3)
+
+        correlations.push({
+          tome_id: tf.id,
+          goldmask_id: gmMatch.id ?? 'unknown',
+          blast_radius: gmMatch.blast_radius ?? 'UNKNOWN',
+          caution_score: caution,
+          wisdom_intent: gmMatch.wisdom?.intent ?? 'UNKNOWN',
+          mend_priority: Math.round(mendPriority * 100) / 100
+        })
+      }
+    }
+
+    // Inline: formatCorrelationReport — build markdown correlation report
+    let report = `# Goldmask Correlation Report\n\n`
+    report += `**TOME findings**: ${tomeFindings.length}\n`
+    report += `**Goldmask findings**: ${goldmaskFindings.findings.length}\n`
+    report += `**Correlated**: ${correlations.length}\n\n`
+
+    if (correlations.length > 0) {
+      report += `## Correlations\n\n`
+      report += `| TOME ID | Goldmask ID | Blast Radius | Caution | Intent | Mend Priority |\n`
+      report += `|---------|-------------|--------------|---------|--------|---------------|\n`
+      for (const c of correlations) {
+        report += `| ${c.tome_id} | ${c.goldmask_id} | ${c.blast_radius} | ${c.caution_score} | ${c.wisdom_intent} | ${c.mend_priority} |\n`
+      }
+    } else {
+      report += `No correlations found between TOME and Goldmask findings.\n`
+    }
+
+    Write(`tmp/arc/${id}/goldmask-correlation.md`, report)
+
+    // Persist humanReviewFindings to artifact file (so mend can read them)
+    const humanReviewFindings = correlations
+      .filter(c => c.caution_score >= 0.75 || c.blast_radius === 'WIDE')
+      .map(c => c.tome_id)
+
+    if (humanReviewFindings.length > 0) {
+      Write(`tmp/arc/${id}/human-review-findings.json`, JSON.stringify(humanReviewFindings))
+      log(`Goldmask Correlation: ${humanReviewFindings.length} findings flagged for human review`)
+      log(`  (Caution >= 0.75 or WIDE blast radius)`)
+    }
+
+    updateCheckpoint({
+      phase: "goldmask_correlation",
+      status: "completed",
+      artifact: `tmp/arc/${id}/goldmask-correlation.md`,
+      artifact_hash: sha256(Read(`tmp/arc/${id}/goldmask-correlation.md`)),
+      phase_sequence: 6.5,
+      correlation_count: correlations.length,
+      human_review_count: humanReviewFindings.length,
+      team_name: null
+    })
+
+  } catch (e) {
+    warn(`Phase 6.5: Goldmask correlation failed (${e.message}) — proceeding without correlation data`)
+    Write(`tmp/arc/${id}/goldmask-correlation.md`, `Goldmask correlation failed: ${e.message}`)
+    updateCheckpoint({
+      phase: "goldmask_correlation",
+      status: "completed",
+      artifact: `tmp/arc/${id}/goldmask-correlation.md`,
+      artifact_hash: sha256(Read(`tmp/arc/${id}/goldmask-correlation.md`)),
+      phase_sequence: 6.5,
+      team_name: null
+    })
+  }
+} else {
+  // Skip: prerequisite phase was skipped or no TOME produced
+  const reason = !goldmaskCompleted ? 'goldmask verification skipped' : 'no TOME produced'
+  warn(`Phase 6.5: Goldmask correlation skipped (${reason})`)
+  Write(`tmp/arc/${id}/goldmask-correlation.md`, `Goldmask correlation skipped: ${reason}`)
+  updateCheckpoint({
+    phase: "goldmask_correlation",
+    status: "skipped",
+    artifact: `tmp/arc/${id}/goldmask-correlation.md`,
+    phase_sequence: 6.5,
+    team_name: null
+  })
+}
+```
 
 ## Phase 7: MEND
 
@@ -1275,8 +1560,10 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | SEMANTIC VERIFICATION | WORK | `codex-semantic-verification.md` | Codex contradiction findings (or skip) |
 | WORK | GAP ANALYSIS | Working tree + `work-summary.md` | Git diff of committed changes + task summary |
 | GAP ANALYSIS | CODEX GAP ANALYSIS | `gap-analysis.md` | Criteria coverage (ADDRESSED/MISSING/PARTIAL) |
-| CODEX GAP ANALYSIS | CODE REVIEW | `codex-gap-analysis.md` | Cross-model gap findings (CDX-GAP-NNN) |
-| CODE REVIEW | MEND | `tome.md` | TOME with `<!-- RUNE:FINDING ... -->` markers |
+| CODEX GAP ANALYSIS | GOLDMASK VERIFICATION | `codex-gap-analysis.md` | Cross-model gap findings (CDX-GAP-NNN) |
+| GOLDMASK VERIFICATION | CODE REVIEW | `goldmask-verification.md` | 3-layer risk validation + findings.json |
+| CODE REVIEW | GOLDMASK CORRELATION | `tome.md` | TOME with `<!-- RUNE:FINDING ... -->` markers |
+| GOLDMASK CORRELATION | MEND | `goldmask-correlation.md` | Correlated findings + human-review-findings.json |
 | MEND | VERIFY MEND | `resolution-report.md` | Fixed/FP/Failed finding list |
 | VERIFY MEND | MEND (retry) | `review-focus-round-{N}.json` | Phase 6+7 reset to pending, progressive focus scope |
 | VERIFY MEND | AUDIT | `resolution-report.md` + checkpoint convergence | Convergence verdict (converged/halted) |
@@ -1296,7 +1583,9 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | WORK | Halt if <50% tasks complete. Partial commits preserved | `/rune:arc --resume` |
 | GAP ANALYSIS | Non-blocking — WARN only | Advisory context for code review |
 | CODEX GAP ANALYSIS | Non-blocking — Codex timeout/unavailable → skip, proceed | Advisory (v1.39.0) |
+| GOLDMASK VERIFICATION | Non-blocking — skip and proceed. Goldmask is advisory | `/rune:arc --resume` (re-runs if pending) |
 | CODE REVIEW | Does not halt | Produces findings or clean report |
+| GOLDMASK CORRELATION | Non-blocking — skip if prerequisites missing | Advisory correlation |
 | MEND | Halt if >3 FAILED findings | User fixes, `/rune:arc --resume` |
 | VERIFY MEND | Non-blocking — retries up to tier max cycles (LIGHT: 2, STANDARD: 3, THOROUGH: 5), then proceeds | Convergence gate is advisory |
 | AUDIT | Does not halt — informational | User reviews audit report |
@@ -1336,7 +1625,7 @@ if (exists(".claude/echoes/")) {
   appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
     layer: "inscribed",
     source: `rune:arc ${id}`,
-    content: `Arc completed: ${metrics.phases_completed}/14 phases, ` +
+    content: `Arc completed: ${metrics.phases_completed}/16 phases, ` +
       `${metrics.tome_findings.p1} P1 findings, ` +
       `${metrics.convergence_cycles} mend cycle(s), ` +
       `${metrics.gap_missing} missing criteria. ` +
@@ -1363,7 +1652,9 @@ Phases:
   5.   WORK:            {status} — {tasks_completed}/{tasks_total} tasks
   5.5  GAP ANALYSIS:    {status} — {addressed}/{total} criteria addressed
   5.6  CODEX GAP:       {status} — codex-gap-analysis.md
+  5.7  GOLDMASK VERIFY: {status} — goldmask-verification.md ({finding_count} findings, {critical_count} critical)
   6.   CODE REVIEW:     {status} — tome.md ({finding_count} findings)
+  6.5  GOLDMASK CORR:   {status} — goldmask-correlation.md ({correlation_count} correlated, {human_review_count} flagged)
   7.   MEND:            {status} — {fixed}/{total} findings resolved
   7.5  VERIFY MEND:     {status} — {convergence_verdict} (cycle {convergence.round + 1}/{convergence.tier.maxCycles})
   8.   AUDIT:           {status} — audit-report.md
@@ -1489,11 +1780,13 @@ try {
 | >3 FAILED mend findings | Halt, resolution report available |
 | Worker crash mid-phase | Phase team cleanup, checkpoint preserved |
 | Branch conflict | Warn user, suggest manual resolution |
-| Total pipeline timeout (dynamic: 162-240 min based on tier) | Halt, preserve checkpoint, suggest `--resume` |
+| Total pipeline timeout (dynamic: 203-240 min based on tier) | Halt, preserve checkpoint, suggest `--resume` |
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
+| Phase 5.7 Goldmask skill failure | Skip, write error artifact, proceed to code review |
+| Phase 6.5 correlation parse failure | Skip, write error artifact, proceed to mend |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
-| Schema v1-v6 checkpoint on --resume | Auto-migrate to v7 |
+| Schema v1-v8 checkpoint on --resume | Auto-migrate to v9 |
 | Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |
 | Convergence evaluation timeout (>4 min) | Skip convergence check, proceed to audit with warning |
 | TOME missing or malformed after re-review | Default to "halted" (fail-closed) |

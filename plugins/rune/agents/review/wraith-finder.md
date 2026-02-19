@@ -20,6 +20,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -42,6 +44,21 @@ Dead code, orphaned code, and unwired code detection specialist.
 - **Silent failures are worst**: Unwired code doesn't crash, it just doesn't run
 - **Verify the chain**: From entry point to implementation, every link must exist
 - **Test execution, not just existence**: Code must be reachable from main()
+
+## Echo Integration (Past Dead Code Patterns)
+
+Before scanning for dead code, query Rune Echoes for previously identified orphan and unwired patterns:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with dead-code-focused queries
+   - Query examples: "dead code", "orphaned file", "unused export", "unwired handler", "AI-generated orphan", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent dead code knowledge)
+2. **Fallback (MCP unavailable)**: Skip — scan all files fresh for dead code
+
+**How to use echo results:**
+- Past dead code findings reveal modules with history of orphaned or unwired code
+- If an echo flags a service as unwired, prioritize DI registration verification
+- Historical orphan patterns inform which AI-generated files need consumer checks
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: wraith-finder/MEMORY.md)`
 
 ---
 
@@ -107,7 +124,7 @@ Grep: Name in *.yaml, *.json, *.toml, *.env
 Grep: Name in tests/ or __tests__/ or *_test.* or *.spec.*
 ```
 
-**If ANY usage found** → Code is NOT unwired. Skip to next item.
+**If ANY usage found** -> Code is NOT unwired. Skip to next item.
 
 ### Step 2: Check Registration vs Injection
 
@@ -245,7 +262,7 @@ Before writing output file, confirm:
   - **Root Cause:** Case D — Partially wired (injected in route but missing from container)
   - **Evidence (Double-Check):**
     - Step 1: `AnalyticsService` found in route type hint but NOT in container.py
-    - Step 2: Registered=NO, Injected=YES → BROKEN
+    - Step 2: Registered=NO, Injected=YES -> BROKEN
   - **Risk:** HIGH (will crash at runtime when route is called)
   - **Fix:** Register in DI container with appropriate scope
 
@@ -277,10 +294,10 @@ Before writing output file, confirm:
 | Commented code | 1 | Case B | Remove |
 
 ### Verification Checklist
-- [ ] All service classes → registered AND injected
-- [ ] All routers/controllers → included in app
-- [ ] All event handlers → subscribed to bus/emitter
-- [ ] All abstract methods → implemented in subclasses
+- [ ] All service classes -> registered AND injected
+- [ ] All routers/controllers -> included in app
+- [ ] All event handlers -> subscribed to bus/emitter
+- [ ] All abstract methods -> implemented in subclasses
 - [ ] Double-check protocol completed for each finding
 ```
 

@@ -138,7 +138,21 @@ When an agent hits context overflow, assess severity FIRST, then apply proportio
 
 **Escalation**: L0 monitor detects at 5 min → L1 auto-release → L2 shutdown agent, redistribute → L3 ask user
 **Decision**: Forward-fix (redistribute). Partial work remains in files.
-**Refs**: Monitor utility · Team lifecycle guard
+**Refs**: Monitor utility · Team lifecycle guard · configuration-guide.md § "Timeout Layer Model"
+
+### SDK Heartbeat Interaction
+
+The Agent SDK has a hardcoded ~5 minute heartbeat for teammate liveness detection. DC-3's stale detection aligns with this:
+
+| Timeout | Source | Purpose |
+|---------|--------|---------|
+| ~5 min | SDK heartbeat (hardcoded, as of Claude Code v1.x) | Platform marks teammate as inactive |
+| 5 min | `staleWarnMs` (Rune configurable) | DC-3 warning threshold |
+| 10 min | `autoReleaseMs` (Rune configurable) | DC-3 auto-release and task redistribution |
+
+**Important**: `staleWarnMs` should be >= SDK heartbeat (~5 min). Setting it lower creates false-positive stale warnings because the SDK hasn't had time to report heartbeat failure yet.
+
+**Crashed teammate timeline**: Teammate crashes → SDK detects at ~5 min → Rune warns at 5 min → Rune auto-releases at 10 min → Task returns to pool for another worker.
 
 ---
 

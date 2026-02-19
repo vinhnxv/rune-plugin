@@ -113,6 +113,21 @@ You review ALL file types, focusing on code quality, simplicity, and consistency
 - Blocking calls in async context (time.sleep, std::fs, readFileSync in async functions)
 - Frontend timing (stale async responses without request cancellation, animation races, boolean flags for mutually exclusive states)
 
+### 9. Refactoring Integrity (refactor-guardian)
+- Detect move/rename/extract/split patterns from git diff
+- Verify all consumers of moved code reference new paths
+- Verify extracted code includes all dependencies (helpers, constants, types)
+- Flag orphaned callers (imports referencing deleted/moved paths)
+- Check test files still reference correct paths after rename
+- Apply confidence scoring with root cause classification (Case A/B/C/D)
+
+### 10. Reference & Configuration Integrity (reference-validator)
+- Validate import paths resolve to existing files (skip stdlib, third-party, MCP tools)
+- Check config files (plugin.json, talisman.yml, hooks.json) reference existing paths
+- Validate agent/skill frontmatter: required fields (name, description), name format, tool names
+- Cross-check frontmatter name matches filename (sans .md extension)
+- Version number consistency across manifest files (plugin.json as source of truth)
+
 ## Diff Scope Awareness
 
 See [diff-scope-awareness.md](../diff-scope-awareness.md) for scope guidance when `diff_scope` data is present in inscription.json.
@@ -126,7 +141,7 @@ Write markdown to `{output_path}`:
 
 **Branch:** {branch}
 **Date:** {timestamp}
-**Perspectives:** Simplicity, Cross-Cutting Consistency, Duplication, Logic, Dead Code & Unwired Code, Complexity, TDD & Test Quality, Async & Concurrency
+**Perspectives:** Simplicity, Cross-Cutting Consistency, Duplication, Logic, Dead Code & Unwired Code, Complexity, TDD & Test Quality, Async & Concurrency, Refactoring Integrity, Reference & Configuration Integrity
 
 ## P1 (Critical)
 - [ ] **[QUAL-001] Title** in `file:line`
@@ -171,10 +186,17 @@ After writing findings, perform ONE revision pass:
 
 This is ONE pass. Do not iterate further.
 
+### Inner Flame (Supplementary)
+After the revision pass above, verify grounding:
+- Every file:line cited — actually Read() in this session?
+- Weakest finding identified and either strengthened or removed?
+- All findings valuable (not padding)?
+Include in Self-Review Log: "Inner Flame: grounding={pass/fail}, weakest={finding_id}, value={pass/fail}"
+
 ## SEAL FORMAT
 
 After self-review:
-SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\nsummary: {1-sentence}", summary: "Pattern Weaver sealed" })
+SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\ninner-flame: {pass|fail|partial}\nrevised: {count}\nsummary: {1-sentence}", summary: "Pattern Weaver sealed" })
 
 ## EXIT CONDITIONS
 

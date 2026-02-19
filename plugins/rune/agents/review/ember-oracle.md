@@ -15,6 +15,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -32,11 +34,26 @@ Performance bottleneck detection specialist.
 ## Expertise
 
 - N+1 query detection
-- Algorithmic complexity (O(n²) patterns)
+- Algorithmic complexity (O(n^2) patterns)
 - Memory allocation inefficiencies
 - Blocking calls in async contexts
 - Missing caching opportunities
 - Bundle size and lazy loading (frontend)
+
+## Echo Integration (Past Performance Bottlenecks)
+
+Before scanning for performance bottlenecks, query Rune Echoes for previously identified performance issues:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with performance-focused queries
+   - Query examples: "N+1 query", "performance bottleneck", "O(n^2)", "memory leak", "missing index", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent performance knowledge)
+2. **Fallback (MCP unavailable)**: Skip — scan all files fresh for performance issues
+
+**How to use echo results:**
+- Past performance findings reveal code paths with history of bottlenecks
+- If an echo flags a query as N+1, prioritize eager loading analysis
+- Historical memory leak patterns inform which allocations need scrutiny
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: ember-oracle/MEMORY.md)`
 
 ## Analysis Framework
 
@@ -55,7 +72,7 @@ users = await user_repo.find_all_with_campaigns()  # 1-2 queries
 ### 2. Algorithmic Complexity
 
 ```python
-# BAD: O(n²) nested iteration
+# BAD: O(n^2) nested iteration
 for item in items:
     if item.id in [other.id for other in all_items]:  # O(n) per iteration!
         process(item)
@@ -138,7 +155,7 @@ Before writing output file, confirm:
   - **Fix:** Use eager loading or batch query
 
 ### P2 (High) — Scalability Risk
-- [ ] **[PERF-002] O(n²) Search** in `matcher.py:78`
+- [ ] **[PERF-002] O(n^2) Search** in `matcher.py:78`
   - **Evidence:** Nested list comprehension for lookup
   - **Fix:** Use set or dictionary for O(1) lookups
 ```

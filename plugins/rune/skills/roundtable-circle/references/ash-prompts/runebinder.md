@@ -146,6 +146,24 @@ After writing TOME.md and completion.json, send a SINGLE message to the Tarnishe
 
 Do NOT include analysis or findings in the message — only the summary above.
 
+## QUALITY GATES (Self-Review Before Sending)
+
+After writing TOME.md, perform ONE verification pass:
+
+1. Re-read your TOME.md
+2. For each P1 finding: verify the Rune Trace was copied exactly from the Ash output (not rewritten)
+3. Check Coverage Gaps: are all Ash files accounted for (complete, partial, or missing)?
+4. Verify finding counts in Statistics match actual findings in the document
+
+This is ONE pass. Do not iterate further.
+
+### Inner Flame (Supplementary)
+After the verification pass above, verify grounding:
+- Every Ash output file cited — actually Read() in this session?
+- No findings fabricated (all trace back to an Ash output)?
+- No findings silently dropped during dedup?
+Include in Statistics: "Inner Flame: grounding={pass/fail}, dropped={count}, fabricated={count}"
+
 ## EXIT CONDITIONS
 
 - No Ash output files found: write empty TOME.md with "No findings" note, then exit

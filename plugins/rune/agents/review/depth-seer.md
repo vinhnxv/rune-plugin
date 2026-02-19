@@ -16,6 +16,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -48,6 +50,21 @@ Key principles:
 - **Edge cases forgotten**: Empty collections, null values, negative numbers
 - **Error paths neglected**: What happens when things go wrong?
 - **Complexity hides bugs**: Long functions and deep nesting harbor subtle issues
+
+## Echo Integration (Past Missing Logic Patterns)
+
+Before reviewing for missing logic, query Rune Echoes for previously identified logic gap patterns:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with logic-gap-focused queries
+   - Query examples: "missing error handling", "incomplete state machine", "validation gap", "complexity hotspot", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent missing-logic knowledge)
+2. **Fallback (MCP unavailable)**: Skip — review all files fresh for missing logic
+
+**How to use echo results:**
+- Past missing-logic findings reveal modules with history of incomplete error handling
+- If an echo flags a module as having validation gaps, prioritize boundary condition analysis
+- Historical complexity hotspots inform which functions need depth-of-nesting checks
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: depth-seer/MEMORY.md)`
 
 ## Analysis Framework
 

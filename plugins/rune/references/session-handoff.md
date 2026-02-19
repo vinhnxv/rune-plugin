@@ -22,3 +22,29 @@ Write to `tmp/scratch/session-state.md` before compaction or at session end.
 - Flags: {--approve, --no-forge, etc.}
 - Phase sequence position: {index in PHASE_ORDER array, e.g., 5/10}
 ```
+
+## Teammate Non-Persistence Warning
+
+Teammates spawned via Agent Teams do **not** persist across session boundaries. When a session ends (compaction, crash, user exit), all teammates are terminated.
+
+### What Persists vs What Is Lost
+
+| Artifact | Persists? | Location |
+|----------|-----------|----------|
+| Files written to `tmp/` | Yes | Filesystem |
+| Git commits | Yes | `.git/` |
+| Arc checkpoint | Yes | `.claude/arc/{id}/checkpoint.json` |
+| Rune Echoes | Yes | `.claude/echoes/` |
+| Task list state | Yes | `~/.claude/tasks/{team}/` |
+| Per-worker todo files | Yes | `tmp/work/{team}/todos/{worker}.md` |
+| Worker todo summary | Yes | `tmp/work/{team}/todos/_summary.md` |
+| **Teammate processes** | **No** | Terminated on session end |
+| **Teammate context windows** | **No** | Lost — 200k per agent, unrecoverable |
+| **In-progress work (uncommitted)** | **Partial** | May exist in working tree |
+
+### Recovery After Session Loss
+
+1. Check `git status` for uncommitted changes from terminated teammates
+2. Read arc checkpoint for last completed phase
+3. Resume with `/rune:arc --resume` (if arc workflow)
+4. For standalone workflows, use `/rune:rest --heal` to clean orphaned teams

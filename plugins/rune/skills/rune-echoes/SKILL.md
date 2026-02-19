@@ -261,12 +261,18 @@ REMINDER: Classify the learning above. Return JSON only."""
 
   Write("tmp/{workflow}/{id}/codex-echo-prompt.txt", promptContent)
 
-  result = Bash("timeout 60 codex exec \
-    -m {codexModel} --config model_reasoning_effort='low' \
-    --sandbox read-only --full-auto --skip-git-repo-check \
-    \"$(cat tmp/{workflow}/{id}/codex-echo-prompt.txt)\" 2>/dev/null")
+  // Resolve timeouts via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+  const { codexTimeout, codexStreamIdleMs, killAfterFlag } = resolveCodexTimeouts(talisman)
+  const stderrFile = Bash("mktemp ${TMPDIR:-/tmp}/codex-stderr-XXXXXX").stdout.trim()
 
-  Bash("rm -f tmp/{workflow}/{id}/codex-echo-prompt.txt 2>/dev/null")
+  result = Bash(`timeout ${killAfterFlag} ${codexTimeout} codex exec \
+    -m ${codexModel} --config model_reasoning_effort='low' \
+    --config stream_idle_timeout_ms="${codexStreamIdleMs}" \
+    --sandbox read-only --full-auto --skip-git-repo-check \
+    "$(cat tmp/${workflow}/${id}/codex-echo-prompt.txt)" 2>"${stderrFile}"`)
+  // If exit code 124: classifyCodexError(stderrFile) — see codex-detection.md
+
+  Bash(`rm -f tmp/${workflow}/${id}/codex-echo-prompt.txt "${stderrFile}" 2>/dev/null`)
 
   if result.exitCode === 0:
     // BACK-003 FIX: Guard against non-JSON Codex output

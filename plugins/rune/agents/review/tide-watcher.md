@@ -20,6 +20,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -44,6 +46,21 @@ Async and concurrency patterns specialist. Detects correctness issues in asynchr
 - Timer and resource cleanup
 - Blocking calls in async contexts
 - Frontend timing bugs (DOM lifecycle, animation races)
+
+## Echo Integration (Past Async/Concurrency Issues)
+
+Before reviewing async patterns, query Rune Echoes for previously identified concurrency issues:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with concurrency-focused queries
+   - Query examples: "race condition", "waterfall await", "unbounded concurrency", "cancellation", "TOCTOU", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent concurrency knowledge)
+2. **Fallback (MCP unavailable)**: Skip — review all files fresh for concurrency issues
+
+**How to use echo results:**
+- Past concurrency findings reveal code paths with history of race conditions or waterfall patterns
+- If an echo flags a handler as having TOCTOU risk, prioritize atomicity analysis
+- Historical cancellation patterns inform which async operations need cleanup verification
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: tide-watcher/MEMORY.md)`
 
 ## Analysis Framework
 

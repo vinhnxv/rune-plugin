@@ -16,6 +16,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -40,6 +42,21 @@ Python type safety and quality specialist.
 - Error handling (bare except, swallowed errors, Result patterns)
 - Import organization (stdlib > third-party > local)
 - Docstring presence on public functions and classes
+
+## Echo Integration (Past Type Safety Issues)
+
+Before reviewing type safety, query Rune Echoes for previously identified type-related issues:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with type-safety-focused queries
+   - Query examples: "type annotation", "mypy error", "missing type hint", "async correctness", module names under investigation
+   - Limit: 5 results — focus on Etched entries (permanent type safety knowledge)
+2. **Fallback (MCP unavailable)**: Skip — review all files fresh for type safety issues
+
+**How to use echo results:**
+- Past type findings reveal modules with history of missing annotations or mypy failures
+- If an echo flags a module as having async correctness issues, prioritize await analysis
+- Historical type safety patterns inform which functions need annotation verification
+- Include echo context in findings as: `**Echo context:** {past pattern} (source: type-warden/MEMORY.md)`
 
 ## Analysis Framework
 

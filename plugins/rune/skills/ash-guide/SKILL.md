@@ -3,7 +3,7 @@ name: ash-guide
 description: |
   Use when summoning Rune agents, when encountering "agent not found" errors, when
   selecting which review agents to use, or when checking agent capabilities and tools.
-  Quick reference for all 39 agents across 5 categories (review, research, work,
+  Quick reference for all 42 agents across 5 categories (review, research, work,
   utility, investigation). Keywords: agent list, Ash, subagent type, agent not found.
 
   <example>
@@ -59,7 +59,7 @@ Tool restriction is enforced via prompt instructions (defense-in-depth).
 
 ## Review Agents
 
-16 specialized reviewers that form Ash teams:
+18 specialized reviewers that form Ash teams:
 
 | Agent | Role | Perspective |
 |-------|------|-------------|
@@ -79,6 +79,8 @@ Tool restriction is enforced via prompt instructions (defense-in-depth).
 | `rune:review:blight-seer` | Design anti-pattern review | God Service, leaky abstractions, temporal coupling, observability |
 | `rune:review:forge-keeper` | Data integrity review | Migration safety, reversibility, lock analysis, transaction boundaries, PII |
 | `rune:review:tide-watcher` | Async/concurrency review | Waterfall awaits, unbounded concurrency, cancellation, race conditions |
+| `rune:review:refactor-guardian` | Refactoring completeness review | Orphaned callers, incomplete extractions, missing dependency moves, stale test refs |
+| `rune:review:reference-validator` | Reference integrity review | Import paths, config-to-source refs, frontmatter schema, version sync |
 
 ## Ash Roles (Consolidated Teammates)
 
@@ -88,7 +90,7 @@ In `/rune:review`, agents are grouped into 6 built-in Ashes (extensible via tali
 |-----------|-----------------|-------|
 | **Forge Warden** | rune-architect, ember-oracle, flaw-hunter, mimic-detector, type-warden, depth-seer, blight-seer, forge-keeper | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
 | **Ward Sentinel** | ward-sentinel | ALL files (security always) |
-| **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker, void-analyzer, trial-oracle, tide-watcher | ALL files (quality patterns) |
+| **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker, void-analyzer, trial-oracle, tide-watcher, refactor-guardian, reference-validator | ALL files (quality patterns) |
 | **Glyph Scribe** | Inline perspectives (TypeScript safety, React performance, accessibility) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
 | **Knowledge Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
 | **Codex Oracle** | Inline perspectives (cross-model security, logic, quality via `codex exec`) | ALL files (when `codex` CLI available) |
