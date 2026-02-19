@@ -10,7 +10,9 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 | Phase 2.7 (VERIFICATION) | Read, Glob, Grep, Write, Bash (git history) | Orchestrator-only -- deterministic checks |
 | Phase 5 (WORK) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Implementation requires all tools |
 | Phase 5.5 (GAP ANALYSIS) | Read, Glob, Grep, Bash (git diff, grep) | Orchestrator-only -- deterministic cross-reference |
+| Phase 5.7 (GOLDMASK VERIFICATION) | Delegated to `/rune:goldmask` (manages own team + tools) | Risk validation -- delegates to standalone skill |
 | Phase 6 (CODE REVIEW) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Review -- no codebase modification |
+| Phase 6.5 (GOLDMASK CORRELATION) | Read, Write, Glob, Grep | Orchestrator-only -- deterministic correlation |
 | Phase 7 (MEND) | Orchestrator: full. Fixers: restricted (see mend-fixer) | Least privilege for fixers |
 | Phase 7.5 (VERIFY MEND) | Read, Glob, Grep, Write, Bash (git diff) | Orchestrator-only — convergence controller (no team) |
 | Phase 8 (AUDIT) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Audit -- no codebase modification |
@@ -27,11 +29,13 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 | VERIFICATION | 30 sec | Deterministic checks, no LLM |
 | WORK | 35 min | Inner 30m + 5m setup budget |
 | GAP ANALYSIS | 1 min | Orchestrator-only, deterministic text checks |
+| GOLDMASK VERIFICATION | 15 min | Delegated to /rune:goldmask skill (manages own team) |
 | CODE REVIEW | 15 min | Inner 10m + 5m setup budget |
+| GOLDMASK CORRELATION | 1 min | Orchestrator-only, deterministic TOME-to-Goldmask correlation |
 | MEND | 23 min | Inner 15m + 5m setup + 3m ward/cross-file |
 | VERIFY MEND | 4 min | Convergence evaluation (orchestrator-only); re-review cycles run as separate Phase 6+7 |
 | AUDIT | 20 min | Inner 15m + 5m setup budget |
 
-**Total pipeline hard ceiling**: Dynamic (162-240 min based on tier; hard cap 240 min). See `calculateDynamicTimeout()` in SKILL.md.
+**Total pipeline hard ceiling**: Dynamic (203-240 min based on tier; hard cap 240 min). See `calculateDynamicTimeout()` in SKILL.md.
 
 Delegated phases use inner-timeout + 60s buffer so the delegated command handles its own timeout first; the arc timeout is a safety net only.
