@@ -444,7 +444,7 @@ horizon:
 #       timeout: 300000            # 5 minutes (default)
 #     e2e:
 #       enabled: true              # Run E2E browser tests (default: true)
-#       timeout: 600000            # 10 minutes (default)
+#       timeout_ms: 300000         # Per-route timeout in ms (default: 300000 = 5min/route)
 #       base_url: "http://localhost:3000"  # Base URL for E2E routes
 #       max_routes: 3              # Cap E2E routes tested per run (default: 3)
 #       headed: false              # Run browser in headed mode for debugging (default: false)

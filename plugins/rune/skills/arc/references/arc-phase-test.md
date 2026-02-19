@@ -32,6 +32,9 @@ Team lead NEVER runs `agent-browser` CLI or test commands directly.
 // STEP 0: PRE-FLIGHT GUARDS
 // ═══════════════════════════════════════════════════════
 
+// Defense-in-depth: id validated at arc init — re-assert here for phase-local safety
+if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error(`Phase 7.7: unsafe id value: "${id}"`)
+
 const noTestFlag = checkpoint.flags?.no_test === true
 if (noTestFlag) {
   Write(`tmp/arc/${id}/test-report.md`, "Phase 7.7 skipped: --no-test flag set.\n<!-- SEAL: test-report-complete -->")
@@ -76,6 +79,7 @@ const unitEnabled = testingConfig.tiers?.unit?.enabled !== false
 const integrationEnabled = testingConfig.tiers?.integration?.enabled !== false
 const e2eEnabled = testingConfig.tiers?.e2e?.enabled !== false && has_frontend
 const testTiersActive = unitEnabled || integrationEnabled || e2eEnabled
+const activeTiers = []  // populated as each tier completes
 
 if (!testTiersActive) {
   Write(`tmp/arc/${id}/test-report.md`, "Phase 7.7 skipped: No testable changes detected.\n<!-- SEAL: test-report-complete -->")
@@ -109,9 +113,10 @@ Write(`tmp/arc/${id}/test-strategy.md`, strategy)
 // ═══════════════════════════════════════════════════════
 
 // See testing/references/test-discovery.md for full algorithm
-const unitTests = discoverUnitTests(diffFiles)   // file-path heuristic
-const integrationTests = discoverIntegrationTests(diffFiles)  // directory scan
-const e2eRoutes = has_frontend ? discoverE2ERoutes(frontendFiles) : []
+const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
+const unitTests = discoverUnitTests(diffFiles).filter(p => SAFE_PATH_PATTERN.test(p))
+const integrationTests = discoverIntegrationTests(diffFiles).filter(p => SAFE_PATH_PATTERN.test(p))
+const e2eRoutes = has_frontend ? discoverE2ERoutes(frontendFiles).filter(r => SAFE_PATH_PATTERN.test(r)) : []
 
 // ═══════════════════════════════════════════════════════
 // STEP 3: SERVICE STARTUP (conditional)
@@ -119,8 +124,11 @@ const e2eRoutes = has_frontend ? discoverE2ERoutes(frontendFiles) : []
 
 // See testing/references/service-startup.md for full protocol
 let servicesHealthy = false
+let dockerStarted = false  // Track Docker startup for STEP 10 cleanup
 if (integrationEnabled || e2eEnabled) {
-  servicesHealthy = startServices(testingConfig)
+  const startResult = startServices(testingConfig)
+  servicesHealthy = startResult.healthy
+  dockerStarted = startResult.dockerStarted  // true when docker compose was used
   // If health check fails → skip integration/E2E, unit still runs
   if (!servicesHealthy) {
     warn("Services not healthy — skipping integration/E2E tiers")
@@ -161,6 +169,7 @@ if (unitEnabled && unitTests.length > 0) {
   waitForCompletion(["unit-test-runner"], {
     timeoutMs: Math.min(180_000, remainingBudget())
   })
+  activeTiers.push('unit')
 }
 
 // ═══════════════════════════════════════════════════════
@@ -179,6 +188,7 @@ if (integrationEnabled && servicesHealthy && integrationTests.length > 0) {
   waitForCompletion(["integration-test-runner"], {
     timeoutMs: Math.min(240_000, remainingBudget())
   })
+  activeTiers.push('integration')
 }
 
 // ═══════════════════════════════════════════════════════
@@ -190,12 +200,13 @@ const agentBrowserAvailable = Bash("agent-browser --version 2>/dev/null && echo 
 if (e2eEnabled && servicesHealthy && agentBrowserAvailable && e2eRoutes.length > 0) {
   const maxRoutes = testingConfig.tiers?.e2e?.max_routes ?? 3
   const routesToTest = e2eRoutes.slice(0, maxRoutes)
-  const baseUrl = testingConfig.tiers?.e2e?.base_url ?? "http://localhost:3000"
+  let baseUrl = testingConfig.tiers?.e2e?.base_url ?? "http://localhost:3000"
 
-  // URL scope restriction (T10): reject non-localhost URLs
+  // URL scope restriction (T10): hard-block non-localhost URLs (SEC-003)
   const urlHost = new URL(baseUrl).hostname
   if (urlHost !== 'localhost' && urlHost !== '127.0.0.1') {
-    warn(`E2E base_url ${baseUrl} is not localhost — restricting to prevent external navigation`)
+    warn(`E2E base_url ${baseUrl} is not localhost — overriding to localhost`)
+    baseUrl = "http://localhost:3000"
   }
 
   // BROWSER ISOLATION: ALL browser work on dedicated Sonnet teammate
@@ -213,10 +224,12 @@ if (e2eEnabled && servicesHealthy && agentBrowserAvailable && e2eRoutes.length >
       [inject agent e2e-browser-tester.md content]`
   })
 
-  const e2eTimeout = (testingConfig.tiers?.e2e?.timeout ?? 300) * routesToTest.length * 1000
+  // timeout config is in milliseconds (default 300_000ms = 5min per route)
+  const e2eTimeout = (testingConfig.tiers?.e2e?.timeout_ms ?? 300_000) * routesToTest.length
   waitForCompletion(["e2e-browser-tester"], {
     timeoutMs: Math.min(e2eTimeout + 60_000, remainingBudget())
   })
+  activeTiers.push('e2e')
 } else if (e2eEnabled && !agentBrowserAvailable) {
   warn("agent-browser not installed — skipping E2E tier. Install: npm i -g @anthropic-ai/agent-browser")
 }
@@ -279,9 +292,13 @@ Bash(`agent-browser session list 2>/dev/null | grep "arc-e2e-${id}" && agent-bro
 // 3. Stop Docker
 if (dockerStarted) {
   Bash(`docker compose down --timeout 10 --remove-orphans 2>/dev/null || true`)
-  // Fallback: kill by container IDs
+  // Fallback: kill by container IDs (SEC-005: validate hex IDs before shell interpolation)
   if (exists(`tmp/arc/${id}/docker-containers.json`)) {
-    Bash(`docker kill $(jq -r '.[].ID' tmp/arc/${id}/docker-containers.json) 2>/dev/null || true`)
+    const containerIds = JSON.parse(Read(`tmp/arc/${id}/docker-containers.json`))
+      .map(c => c.ID).filter(cid => /^[a-f0-9]{12,64}$/.test(cid))
+    if (containerIds.length > 0) {
+      Bash(`docker kill ${containerIds.join(' ')} 2>/dev/null || true`)
+    }
   }
 }
 

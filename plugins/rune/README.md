@@ -108,6 +108,7 @@ When you run `/rune:arc`, Rune chains 17 phases into one automated pipeline:
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
 7. **MEND** — Parallel fixers resolve findings from TOME
 7.5. **VERIFY MEND** — Adaptive convergence controller: loops Phase 6→7→7.5 until findings converge or tier max cycles reached (LIGHT: 2, STANDARD: 3, THOROUGH: 5). Proceeds to audit with warning on halt
+7.7. **TEST** — Diff-scoped test execution: unit → integration → E2E/browser (non-blocking WARN, skip with `--no-test`)
 8. **AUDIT** — Final quality gate (informational)
 9. **SHIP** — Auto PR creation via `gh pr create` with generated template (skip with `--no-pr`)
 9.5. **MERGE** — Rebase onto target branch + auto squash-merge with pre-merge checklist (skip with `--no-merge`)

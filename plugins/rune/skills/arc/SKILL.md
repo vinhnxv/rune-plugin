@@ -3,8 +3,8 @@ name: arc
 description: |
   Use when you want to go from plan to merged PR in one command, when running
   the full development pipeline (forge + work + review + mend + ship + merge),
-  or when resuming a previously interrupted pipeline. 14-phase automated pipeline
-  with checkpoint resume, convergence loops, and cross-model verification.
+  or when resuming a previously interrupted pipeline. 17-phase automated pipeline
+  with checkpoint resume, convergence loops, cross-model verification, and Goldmask risk analysis.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
@@ -628,8 +628,8 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 8, plan_file: planFile,
-  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm },
+  id, schema_version: 9, plan_file: planFile,
+  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
   pr_url: null,
   freshness: freshnessResult || null,

@@ -10,7 +10,9 @@ Detection order (first match wins):
    → Hard timeout: 3 minutes
 
 2. talisman.testing.service.startup_command is set
-   → Run the specified command
+   → Validate: must match SAFE_TEST_COMMAND_PATTERN (/^[a-zA-Z0-9._\-\/ ]+$/)
+   → Reject with error if validation fails (command injection prevention)
+   → Run the validated command with quoted variable: Bash(`"${startup_command}"`)
    → Example: "bin/dev", "npm run dev"
 
 3. package.json scripts contains "dev" or "start"
