@@ -75,6 +75,12 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:arc-batch plans/*.md --no-merge   # PRs created but not merged
 /rune:arc-batch --resume                # Resume interrupted batch
 
+# Inspect plan vs implementation (deep audit)
+/rune:inspect plans/my-plan.md          # Inspect a plan file
+/rune:inspect "Add JWT auth with rate limiting"  # Inspect inline description
+/rune:inspect plans/my-plan.md --dry-run         # Preview scope
+/rune:inspect plans/my-plan.md --focus security  # Focus on security dimension
+
 # Cancel active workflows
 /rune:cancel-review
 /rune:cancel-audit
@@ -144,6 +150,26 @@ When you run `/rune:mend`, Rune parses structured findings from a TOME and fixes
 6. **Produces report** — FIXED/FALSE_POSITIVE/FAILED/SKIPPED/CONSISTENCY_FIX categories
 
 SEC-prefix findings require human approval for FALSE_POSITIVE marking.
+
+## Inspect Mode (Plan-vs-Implementation Audit)
+
+When you run `/rune:inspect`, Rune measures how well the codebase matches a plan:
+
+1. **Parses plan** — extracts requirements, identifiers, and priorities from plan markdown
+2. **Classifies requirements** — assigns each to specialized Inspector Ashes by keyword matching
+3. **Identifies scope** — searches codebase for files matching plan identifiers
+4. **Summons inspectors** — 4 parallel Inspector Ashes each assess their assigned dimensions
+5. **Aggregates verdict** — Verdict Binder produces VERDICT.md with requirement matrix, dimension scores, and gap analysis
+6. **Determines verdict** — READY (>80% complete, 0 P1) / GAPS_FOUND / INCOMPLETE / CRITICAL_ISSUES
+
+| Inspector | Dimensions | Gap Categories |
+|-----------|-----------|----------------|
+| Grace Warden | Correctness, Completeness | Correctness + Coverage |
+| Ruin Prophet | Failure Modes, Security | Security + Operational |
+| Sight Oracle | Design, Performance | Architectural |
+| Vigil Keeper | Observability, Test Coverage, Maintainability | Test + Observability + Documentation |
+
+Output: `tmp/inspect/{id}/VERDICT.md`
 
 ## What It Does
 

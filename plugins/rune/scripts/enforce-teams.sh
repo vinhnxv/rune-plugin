@@ -67,7 +67,7 @@ fi
 # SEC-1 FIX: Use nullglob + flattened loop to prevent word splitting on paths with spaces
 if [[ -z "$active_workflow" ]]; then
   shopt -s nullglob
-  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json; do
+  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-inspect-*.json; do
     if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
       active_workflow=1
       break

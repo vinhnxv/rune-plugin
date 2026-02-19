@@ -61,7 +61,7 @@ stale_state_count=$(
   count=0
   # BACK-015 FIX: Capture epoch once before loop (consistency + efficiency)
   NOW=$(date +%s)
-  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-forge-*.json; do
+  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-inspect-*.json "${CWD}"/tmp/.rune-forge-*.json; do
     if [[ -f "$f" ]]; then
       # Check if status is "active" and file is older than 30 min
       # FIX-2: Use epoch 0 fallback — if stat fails, (now - 0) / 60 = huge number → triggers stale
