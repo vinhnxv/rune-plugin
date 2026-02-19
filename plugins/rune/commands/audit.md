@@ -40,6 +40,8 @@ Orchestrate a full codebase audit using the Roundtable Circle architecture. Each
 | `--focus <area>` | Limit audit to specific area: `security`, `performance`, `quality`, `frontend`, `docs`, `backend`, `full` | `full` |
 | `--max-agents <N>` | Cap maximum Ash summoned (1-8, including custom) | All selected |
 | `--dry-run` | Show scope selection and Ash plan without summoning agents | Off |
+| `--no-lore` | Disable Phase 0.5 Lore Layer (git history risk scoring). Also configurable via `goldmask.layers.lore.enabled: false` in talisman.yml. | Off |
+| `--deep-lore` | Run Lore Layer on ALL files (default: Tier 1 only — Ash-relevant extensions). Useful for comprehensive risk mapping on large repos. | Off |
 
 **Note:** Unlike `/rune:review`, there is no `--partial` flag. Audit always scans the full project.
 
@@ -113,7 +115,7 @@ Before Rune Gaze prioritizes files for audit, the Lore Layer runs a quick risk a
 
 **Skip conditions**: non-git repo, `talisman.goldmask.layers.lore.enabled === false`, `talisman.goldmask.enabled === false`, fewer than 5 commits in lookback window (G5 guard).
 
-**Note**: Unlike review (which scopes Lore to diff files), audit scopes Lore to ALL auditable files. This can be slow on large repos. Consider two-tier approach for repos with >500 files: Tier 1 (fast) analyzes only Ash-relevant file extensions; Tier 2 (full) requires `--deep-lore` flag.
+**Two-tier approach**: Audit scopes Lore to the full codebase (not just diff files). For repos with >500 files, this can be slow. By default, Lore analyzes only Ash-relevant file extensions (Tier 1). Use `--deep-lore` flag to analyze ALL files (Tier 2).
 
 **Note**: Lore runs BEFORE team creation (Phase 2), so this is a bare Task call. ATE-1 exemption: same pattern as elicitation-sage in plan Phase 0 — no audit state file exists at this point.
 
@@ -136,6 +138,29 @@ if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
   if (Number.isNaN(commitCount) || commitCount < 5) {
     log(`Lore Layer: skipped — only ${commitCount ?? 0} commits in ${lookbackDays}d window (minimum: 5)`)
   } else {
+    // Two-tier scoping: Tier 1 (default) = Ash-relevant extensions only, Tier 2 (--deep-lore) = all files
+    // Tier 1 reduces Lore Analyst workload on large repos (>500 files) by ~60-80%
+    const ASH_RELEVANT_EXTENSIONS = new Set([
+      'py', 'go', 'rs', 'rb', 'java', 'kt', 'scala',    // Backend (Forge Warden)
+      'ts', 'tsx', 'js', 'jsx', 'vue', 'svelte',          // Frontend (Glyph Scribe)
+      'md',                                                 // Docs (Knowledge Keeper)
+      'sql', 'sh', 'bash', 'zsh',                          // DB/shell
+      'yml', 'yaml', 'json', 'toml',                       // Config (Ward Sentinel)
+      'dockerfile', 'tf', 'hcl',                            // Infra (Ward Sentinel)
+    ])
+    const deepLore = flags['--deep-lore'] === true
+    const loreFiles = deepLore ? all_files : all_files.filter(f => {
+      const ext = (f ?? '').split('.').pop()?.toLowerCase() ?? ''
+      return ASH_RELEVANT_EXTENSIONS.has(ext)
+    })
+
+    if (loreFiles.length === 0) {
+      log(`Lore Layer: skipped — no Ash-relevant files found (use --deep-lore for full scan)`)
+    } else {
+      if (!deepLore && loreFiles.length < all_files.length) {
+        log(`Lore Layer: Tier 1 — analyzing ${loreFiles.length}/${all_files.length} Ash-relevant files (use --deep-lore for full scan)`)
+      }
+
     // Summon Lore Analyst as inline Task (no team yet — team created in Phase 2)
     // ATE-1 EXEMPTION: No audit state file exists at Phase 0.5. enforce-teams.sh passes.
     Task({
@@ -146,7 +171,7 @@ if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
         Read agents/investigation/lore-analyst.md for your full protocol.
 
         Analyze git history for risk scoring of these files:
-          ${all_files.join('\n')}
+          ${loreFiles.join('\n')}
 
         Write risk-map.json to: tmp/audit/${audit_id}/risk-map.json
         Write summary to: tmp/audit/${audit_id}/lore-analysis.md
@@ -191,6 +216,7 @@ if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
       warn(`Lore Layer: Failed to read risk-map — falling back to static prioritization`)
       // All-or-nothing: do not partially annotate. all_files retains original order.
     }
+    }  // end: loreFiles.length > 0
   }
 }
 ```

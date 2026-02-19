@@ -77,6 +77,38 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | Parse TOME findings | **RUN** | Mend needs to group findings by file |
 | Custom Ash for mend | **SKIP** | No custom Ash workflow for mend |
 
+## Phase 5.7: GOLDMASK VERIFICATION → `/rune:goldmask`
+
+Delegates to the standalone `/rune:goldmask` skill, which manages its own team and agents.
+
+| Step | Action | Reason |
+|------|--------|--------|
+| Team lifecycle | **SKIP** | Goldmask skill creates/deletes its own team with `goldmask-` prefix |
+| Agent summoning | **SKIP** | Goldmask skill summons its own investigation agents |
+| Output collection | **RUN** | Arc copies `tmp/goldmask/GOLDMASK.md` → `tmp/arc/{id}/goldmask-verification.md` |
+| Prediction comparison | **RUN** | If plan-time `risk-map.json` exists, compare predictions vs actuals |
+| Cleanup | **ADAPT** | `prePhaseCleanup()` handles `goldmask-` prefixed teams via ARC_TEAM_PREFIXES |
+
+### Arc context adaptations for Phase 5.7
+
+- User-facing prompt: **SKIP** — arc is automated, goldmask runs silently
+- Output path: **ADAPT** — copy goldmask output to arc artifact directory
+
+## Phase 6.5: GOLDMASK CORRELATION (orchestrator-only)
+
+Orchestrator-only phase — no delegation, no team creation. Reads Phase 5.7 + Phase 6 outputs.
+
+| Step | Action | Reason |
+|------|--------|--------|
+| prePhaseCleanup | **SKIP** | Orchestrator-only, no team to clean |
+| TOME path resolution | **ADAPT** | Use round-aware path (`tome-round-{N}.md`) for convergence cycles |
+| Correlation logic | **RUN** | Deterministic file-level matching between TOME and Goldmask findings |
+| Human review flagging | **RUN** | Caution >= 0.75 or WIDE blast radius → flag for Phase 7 mend |
+
+### Convergence cycle behavior
+
+On re-review rounds (`round > 0`), `goldmask_correlation` is reset to `pending` by verify-mend.md so it re-correlates with the new TOME. Goldmask verification is NOT re-run (blast radius doesn't change between mend cycles).
+
 ## Phase 8: AUDIT → `/rune:audit`
 
 | Step | Action | Reason |

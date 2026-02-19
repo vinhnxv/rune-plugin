@@ -488,13 +488,11 @@ if (!quickMode && goldmaskEnabled && isGitRepo) {
           }
         }
 
-        // Append risk section to plan document using Edit (not appendToFile — does not exist)
-        // Read current plan content, append at end
+        // Append risk section to plan document
+        // Use Write with full content (safer than Edit with slice(-100) which can fail on
+        // short plans or non-unique suffixes)
         const currentPlan = Read(planPath)
-        Edit(planPath, {
-          old_string: currentPlan.slice(-100),  // match last 100 chars of plan
-          new_string: currentPlan.slice(-100) + riskSection
-        })
+        Write(planPath, currentPlan + riskSection)
       }
 
       log(`Predictive Goldmask: ${Object.keys(riskMap.files ?? {}).length} files scored, ` +

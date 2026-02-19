@@ -2,6 +2,16 @@
 
 > Assigns files to Ash based on extension, priority, and context budget.
 
+## Lore Layer Pre-Sort (Phase 0.5)
+
+When the Lore Layer is active (Phase 0.5 in review/audit), `changed_files` / `all_files` are **pre-sorted by risk tier** before Rune Gaze runs. CRITICAL files appear first, then HIGH, MEDIUM, LOW, STALE. This ensures that when Rune Gaze assigns files to Ashes, CRITICAL files are prioritized within each Ash's subset.
+
+**Interaction with Rune Gaze**: Rune Gaze classifies files by extension to assign them to Ashes (each Ash gets a subset). Within each Ash's subset, the Lore Layer sort order is preserved — CRITICAL files of that extension appear before MEDIUM ones.
+
+**When Lore Layer is skipped** (non-git repo, `--no-lore` flag, `goldmask.layers.lore.enabled: false`, <5 commits), file lists retain their original git diff order. Rune Gaze operates identically regardless.
+
+See `review.md` Phase 0.5 and `audit.md` Phase 0.5 for the full Lore Layer implementation.
+
 ## File Classification
 
 ### Extension → Ash Mapping

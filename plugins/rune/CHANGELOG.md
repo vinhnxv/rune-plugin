@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.49.1] — 2026-02-20
+
+### Fixed
+- **Goldmask Pipeline Integration gaps** (9 fixes from post-implementation audit):
+  - Add missing `arc-phase-goldmask-verification.md` reference file (Phase 5.7 execution instructions)
+  - Add missing `arc-phase-goldmask-correlation.md` reference file (Phase 6.5 execution instructions)
+  - Add Phase 5.7 + 6.5 to arc completion report template (was missing from Elden Throne output)
+  - Fix CHANGELOG schema version: v9→v10 → v8→v9 (matching actual SKILL.md implementation)
+  - Add Lore Layer pre-sort documentation to `smart-selection.md` (Phase 0.5 interaction with Rune Gaze)
+  - Add Phase 5.7 + 6.5 entries to `arc-delegation-checklist.md` (RUN/SKIP/ADAPT contracts)
+  - Implement `--deep-lore` flag in audit.md (two-tier Lore: Tier 1 Ash-relevant extensions by default, Tier 2 all files)
+  - Fix fragile `Edit(planPath, slice(-100))` in plan.md Phase 2.3 → `Write(planPath, currentPlan + riskSection)`
+  - Document `general-purpose` subagent_type design choice in goldmask verification reference
+
+### Changed
+- **Plugin version**: 1.49.0 → 1.49.1
+
 ## [1.49.0] — 2026-02-20
 
 ### Added
@@ -54,7 +71,7 @@
   - Phase 5.7 Goldmask Verification in arc: Post-work risk validation
   - Phase 6.5 Goldmask Correlation in arc: TOME finding correlation
 - Arc pipeline: 15 → 17 phases (goldmask_verification, goldmask_correlation)
-- Checkpoint schema v9 → v10 migration
+- Checkpoint schema v8 → v9 migration (adds goldmask + test phases)
 - ARC_TEAM_PREFIXES: added "goldmask-" for cleanup
 - **horizon-sage** strategic depth assessment agent — evaluates plans across 5 dimensions: Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability & Resilience, Maintainability Trajectory
 - Intent-aware verdict derivation — adapts thresholds based on `strategic_intent` (long-term vs quick-win)
