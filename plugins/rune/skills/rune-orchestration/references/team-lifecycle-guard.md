@@ -99,6 +99,30 @@ Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${ne
 
 **When to use**: Before EVERY `TeamCreate` call. No exceptions.
 
+## Centralized Hook Guards (TLC-001/002/003)
+
+Three hooks provide defense-in-depth alongside the inlined teamTransition protocol:
+
+| Hook ID | Event | Script | Purpose |
+|---------|-------|--------|---------|
+| TLC-001 | PreToolUse:TeamCreate | enforce-team-lifecycle.sh | Name validation (hard block) + stale detection (advisory) + auto fs cleanup |
+| TLC-002 | PostToolUse:TeamDelete | verify-team-cleanup.sh | Zombie dir detection (informational) |
+| TLC-003 | SessionStart:startup | session-team-hygiene.sh | Orphan scan + stale state file detection |
+
+**Interaction with teamTransition**: The hooks SUPPLEMENT the inlined protocol — they do not replace it.
+TLC-001 fires at teamTransition's Step 4 (TeamCreate call). By this point, Steps 2-3 have already
+attempted cleanup. TLC-001 catches cross-workflow orphans that Steps 2-3 cannot clean (foreign teams
+from other sessions that the current session never led).
+
+**Stale threshold**: TLC-001 and TLC-003 use ORPHAN_STALE_THRESHOLD (30 min) via `find -mmin +30`.
+This prevents false positives during arc rapid phase transitions (~seconds between TeamCreate calls)
+and avoids destroying live teams from concurrent sessions.
+
+**Advisory-only posture (D-1)**: TLC-001 uses `permissionDecision: "allow"` with `additionalContext`
+for stale team detection. It NEVER uses `deny` for stale detection — doing so would deadlock the
+teamTransition Step 4 catch-and-recover block. Hard `deny` is reserved ONLY for invalid team names
+(shell injection prevention via `/^[a-zA-Z0-9_-]+$/` regex).
+
 ## Cleanup Fallback
 
 At session end, after shutting down all teammates:

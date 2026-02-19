@@ -56,6 +56,30 @@
             "statusMessage": "Checking Agent Teams compliance..."
           }
         ]
+      },
+      {
+        "matcher": "TeamCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/enforce-team-lifecycle.sh",
+            "timeout": 5,
+            "statusMessage": "Validating team lifecycle..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "TeamDelete",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/verify-team-cleanup.sh",
+            "timeout": 5,
+            "statusMessage": "Verifying team cleanup..."
+          }
+        ]
       }
     ],
     "TaskCompleted": [
@@ -118,6 +142,17 @@
             "timeout": 5,
             "async": false,
             "statusMessage": "Loading Rune workflow routing..."
+          }
+        ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-team-hygiene.sh",
+            "timeout": 5,
+            "statusMessage": "Checking team hygiene..."
           }
         ]
       }
