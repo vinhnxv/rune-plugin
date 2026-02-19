@@ -16,7 +16,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
 | **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
-| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 16 phases: forge → plan review → plan refinement → verification → semantic verification → work → goldmask verification → gap analysis → codex gap analysis → goldmask correlation → code review → mend → verify mend → audit → ship → merge) |
+| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 16 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → audit → ship → merge) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection |
 | **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
 | **arc-batch** | Sequential batch arc execution — runs /rune:arc across multiple plans with crash recovery and progress tracking |
@@ -34,7 +34,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits, per-worker todo files for cross-session resume) |
 | `/rune:mend` | Parallel finding resolution from TOME |
-| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 16 phases: forge → plan review → plan refinement → verification → semantic verification → work → goldmask verification → gap analysis → codex gap analysis → goldmask correlation → code review → mend → verify mend (convergence loop) → audit → ship → merge |
+| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 16 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend (convergence loop) → audit → ship → merge |
 | `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |

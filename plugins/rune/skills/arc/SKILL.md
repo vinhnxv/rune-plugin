@@ -8,7 +8,7 @@ description: |
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
-  assistant: "The Tarnished begins the arc — 14 phases of forge, review, mend, convergence, ship, and merge..."
+  assistant: "The Tarnished begins the arc — 16 phases of forge, review, goldmask, mend, convergence, ship, and merge..."
   </example>
 
   <example>
@@ -40,7 +40,7 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains fourteen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, code review, mend, verify mend (convergence controller), audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, 9, and 9.5). Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
+Chains sixteen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, goldmask verification, code review, goldmask correlation, mend, verify mend (convergence controller), audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, 6.5, 9, and 9.5). Phase 5.7 delegates to `/rune:goldmask` for post-work risk validation. Phase 6.5 correlates TOME findings with Goldmask predictions. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`
 
@@ -61,7 +61,7 @@ Chains fourteen phases into a single automated pipeline: forge, plan review, pla
 - `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely. No shared task list, no SendMessage, no context isolation. This is the root cause of context explosion.
 - Using named `subagent_type` values (e.g., `"rune:utility:scroll-reviewer"`, `"compound-engineering:research:best-practices-researcher"`, `"rune:review:ward-sentinel"`) — these resolve to non-general-purpose agents. Always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
 
-**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 14 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
+**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 16 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
 
 **ENFORCEMENT:** The `enforce-teams.sh` PreToolUse hook blocks bare Task calls when a Rune workflow is active. If your Task call is blocked, add `team_name` to it.
 
@@ -112,8 +112,12 @@ Phase 5.5: GAP ANALYSIS → Check plan criteria vs committed code (zero LLM)
     ↓ (gap-analysis.md) — WARN only, never halts
 Phase 5.6: CODEX GAP ANALYSIS → Cross-model plan vs implementation check (v1.39.0)
     ↓ (codex-gap-analysis.md) — WARN only, never halts
+Phase 5.7: GOLDMASK VERIFICATION → Post-work 3-layer risk validation (v1.47.0)
+    ↓ (goldmask-verification.md + goldmask-findings.json) — non-blocking, skip if disabled
 Phase 6:   CODE REVIEW → Roundtable Circle review
     ↓ (tome.md)
+Phase 6.5: GOLDMASK CORRELATION → TOME-to-Goldmask finding correlation (v1.47.0)
+    ↓ (goldmask-correlation.md + human-review-findings.json) — non-blocking, skip if prerequisites missing
 Phase 7:   MEND → Parallel finding resolution
     ↓ (resolution-report.md) — HALT on >3 FAILED
 Phase 7.5: VERIFY MEND → Convergence controller (adaptive review-mend loop)
@@ -130,7 +134,7 @@ Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 6, 7, 7.5, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 5.7, 6, 6.5, 7, 7.5, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
 
 ## Arc Orchestrator Design (ARC-1)
 
@@ -1231,7 +1235,13 @@ if (goldmaskEnabled && isGitRepo) {
     for (const sf of goldmaskStateFiles) {
       try {
         const state = JSON.parse(Read(sf))
-        if (state.output_dir) { goldmaskOutputDir = state.output_dir; break }
+        // SEC-003 FIX: Validate output_dir before use (defense against path traversal)
+        if (state.output_dir
+          && /^[a-zA-Z0-9._\/-]+$/.test(state.output_dir)
+          && !state.output_dir.includes('..')
+          && !state.output_dir.startsWith('/')) {
+          goldmaskOutputDir = state.output_dir; break
+        }
       } catch (e) { /* skip unreadable state files */ }
     }
 
@@ -1248,8 +1258,9 @@ if (goldmaskEnabled && isGitRepo) {
     Write(`tmp/arc/${id}/goldmask-findings.json`, JSON.stringify(findings))
 
     // Compare plan predictions vs actual (if plan-time prediction exists)
-    const planTimestamp = checkpoint.plan_file.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? ''
-    const predictionGlob = Glob(`tmp/plans/*${planTimestamp}*/goldmask-prediction.md`)
+    // QUAL-103 FIX: Plan writes risk-map.json (not goldmask-prediction.md). Use risk-map.json.
+    // QUAL-104 FIX: Glob for any risk-map.json under plans/ (date vs epoch mismatch resolved by wildcard)
+    const predictionGlob = Glob(`tmp/plans/*/risk-map.json`)
     if (predictionGlob.length > 0) {
       const predictionContent = Read(predictionGlob[0])
 
@@ -1614,7 +1625,7 @@ if (exists(".claude/echoes/")) {
   appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
     layer: "inscribed",
     source: `rune:arc ${id}`,
-    content: `Arc completed: ${metrics.phases_completed}/14 phases, ` +
+    content: `Arc completed: ${metrics.phases_completed}/16 phases, ` +
       `${metrics.tome_findings.p1} P1 findings, ` +
       `${metrics.convergence_cycles} mend cycle(s), ` +
       `${metrics.gap_missing} missing criteria. ` +

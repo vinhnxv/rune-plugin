@@ -389,7 +389,7 @@ if (!quickMode && goldmaskEnabled && isGitRepo) {
     // Run Lore Layer (lightweight risk scoring)
     // ATE-1: Uses team_name (plan team exists since Phase 1)
     Task({
-      team_name: "rune-plan-{timestamp}",
+      team_name: `rune-plan-${timestamp}`,
       name: "lore-analyst-prediction",
       subagent_type: "general-purpose",
       prompt: `You are lore-analyst — git history risk scoring specialist.
@@ -405,7 +405,7 @@ if (!quickMode && goldmaskEnabled && isGitRepo) {
         Write risk-map.json to: tmp/plans/${timestamp}/risk-map.json
         Write summary to: tmp/plans/${timestamp}/lore-prediction.md
 
-        Lookback window: ${talisman?.goldmask?.layers?.lore?.window_days ?? 90} days
+        Lookback window: ${talisman?.goldmask?.layers?.lore?.lookback_days ?? 180} days
         Execute all guard checks (G1-G5) before analysis.
         When done, write files and exit.`
     })
@@ -430,7 +430,7 @@ if (!quickMode && goldmaskEnabled && isGitRepo) {
     if (wisdomEnabled && criticalFiles.length > 0) {
       // ATE-1: Uses team_name (plan team exists since Phase 1)
       Task({
-        team_name: "rune-plan-{timestamp}",
+        team_name: `rune-plan-${timestamp}`,
         name: "wisdom-sage-prediction",
         subagent_type: "general-purpose",
         prompt: `You are wisdom-sage — design intent analysis specialist.
@@ -657,7 +657,7 @@ for (const [section, agents] of assignments) {
     TaskCreate({ subject: `Forge: ${section.title} (${agent.name})` })
 
     Task({
-      team_name: "rune-plan-{timestamp}",
+      team_name: `rune-plan-${timestamp}`,
       name: `forge-${agent.name}-${sectionIndex}`,
       subagent_type: "general-purpose",
       prompt: `# ANCHOR — FORGE TRUTHBINDING
@@ -738,7 +738,7 @@ for (const [sectionIndex, section] of sections.entries()) {
   TaskCreate({ subject: `Elicitation sage for ${section.title}`, description: `Structured reasoning analysis of plan section "${section.title}" using auto-selected elicitation method`, activeForm: "Sage analyzing..." })
 
   Task({
-    team_name: "rune-plan-{timestamp}",
+    team_name: `rune-plan-${timestamp}`,
     name: `elicitation-sage-forge-${sectionIndex}`,
     subagent_type: "general-purpose",
     prompt: `You are elicitation-sage — structured reasoning specialist.

@@ -27,7 +27,7 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
-# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → work → goldmask verification → gap analysis → goldmask correlation → code review → mend → verify mend → audit → ship → merge
+# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → audit → ship → merge
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
@@ -364,7 +364,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 
 | Skill | Purpose |
 |-------|---------|
-| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 16 phases: forge → plan review → plan refinement → verification → semantic verification → work → goldmask verification → gap analysis → codex gap analysis → goldmask correlation → code review → mend → verify mend → audit → ship → merge) |
+| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 16 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → audit → ship → merge) |
 | ash-guide | Agent invocation reference |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |

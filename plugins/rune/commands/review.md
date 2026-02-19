@@ -194,7 +194,10 @@ const isGitRepo = Bash("git rev-parse --is-inside-work-tree 2>/dev/null").exitCo
 
 if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
   // G5 guard: require minimum commit history for meaningful risk scoring
-  const lookbackDays = talisman?.goldmask?.layers?.lore?.window_days ?? 90
+  // SEC-001 FIX: Numeric validation before shell interpolation
+  const rawLookbackDays = Number(talisman?.goldmask?.layers?.lore?.lookback_days)
+  const lookbackDays = (Number.isFinite(rawLookbackDays) && rawLookbackDays >= 1 && rawLookbackDays <= 730)
+    ? Math.floor(rawLookbackDays) : 180
   const commitCount = parseInt(
     Bash(`git rev-list --count --since="${lookbackDays} days ago" HEAD 2>/dev/null`).trim(), 10
   )
