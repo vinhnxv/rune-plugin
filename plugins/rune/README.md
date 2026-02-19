@@ -520,6 +520,21 @@ plugins/rune/
 │   │   └── references/      # test-discovery.md, service-startup.md, etc.
 │   ├── using-rune/          # Workflow discovery and intent routing
 │   └── zsh-compat/          # zsh shell compatibility
+├── scripts/
+│   ├── enforce-readonly.sh          # SEC-001: Read-only agent enforcement
+│   ├── enforce-polling.sh           # POLL-001: Monitoring anti-pattern block
+│   ├── enforce-zsh-compat.sh        # ZSH-001: zsh compatibility guard
+│   ├── enforce-teams.sh             # ATE-1: Bare Task call prevention
+│   ├── enforce-team-lifecycle.sh    # TLC-001: Team name validation + stale cleanup
+│   ├── validate-mend-fixer-paths.sh # SEC-MEND-001: Mend fixer file scope
+│   ├── verify-team-cleanup.sh       # TLC-002: Post-delete zombie detection
+│   ├── session-team-hygiene.sh      # TLC-003: Session startup orphan scan
+│   ├── validate-inner-flame.sh      # Inner Flame self-review gate
+│   ├── on-task-completed.sh         # Task completion signal writer
+│   ├── on-teammate-idle.sh          # Teammate idle quality gate
+│   ├── session-start.sh             # Workflow routing loader
+│   ├── arc-batch.sh                 # Arc batch executor
+│   └── echo-search/                 # Echo Search MCP server + hooks
 ├── talisman.example.yml
 ├── CLAUDE.md
 ├── LICENSE
@@ -564,6 +579,19 @@ Rune uses Elden Ring-inspired theming:
 - `.gitignore` excludes `.claude/echoes/` by default (opt-in to version control)
 - Sensitive data filter rejects API keys, passwords, tokens from echo entries
 - All findings require verified evidence from source code
+- **Hook-based enforcement**: 9 event-driven hooks provide deterministic guardrails:
+
+| Hook | Event | Purpose |
+|------|-------|---------|
+| SEC-001 | PreToolUse:Write\|Edit\|Bash | Blocks write tools for read-only review/audit agents |
+| POLL-001 | PreToolUse:Bash | Blocks sleep+echo monitoring anti-pattern |
+| ZSH-001 | PreToolUse:Bash | Blocks zsh-incompatible patterns (read-only vars, unprotected globs) |
+| SEC-MEND-001 | PreToolUse:Write\|Edit | Blocks mend-fixers from writing outside assigned files |
+| ATE-1 | PreToolUse:Task | Blocks bare Task calls during active workflows |
+| TLC-001 | PreToolUse:TeamCreate | Validates team names (hard block) + stale team cleanup (advisory) |
+| TLC-002 | PostToolUse:TeamDelete | Zombie team dir detection after deletion |
+| TLC-003 | SessionStart:startup | Orphaned team and stale state file detection |
+| — | PostToolUse:Write\|Edit | Echo search index dirty-signal annotation |
 
 ## Requirements
 

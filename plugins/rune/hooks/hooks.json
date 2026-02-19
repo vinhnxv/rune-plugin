@@ -80,6 +80,17 @@
             "statusMessage": "Verifying team cleanup..."
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/echo-search/annotate-hook.sh",
+            "timeout": 5,
+            "statusMessage": "Checking echo annotation..."
+          }
+        ]
       }
     ],
     "TaskCompleted": [
@@ -115,19 +126,6 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on-teammate-idle.sh",
             "timeout": 15,
             "statusMessage": "Checking teammate work quality..."
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/echo-search/annotate-hook.sh",
-            "timeout": 5,
-            "statusMessage": "Checking echo annotation..."
           }
         ]
       }
