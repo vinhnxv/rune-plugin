@@ -134,7 +134,7 @@ Include in Self-Review Log: "Inner Flame: grounding={pass/fail}, weakest={findin
 ## SEAL FORMAT
 
 After self-review:
-SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\nsummary: {1-sentence}", summary: "Knowledge Keeper sealed" })
+SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\ninner-flame: {pass|fail|partial}\nrevised: {count}\nsummary: {1-sentence}", summary: "Knowledge Keeper sealed" })
 
 ## EXIT CONDITIONS
 

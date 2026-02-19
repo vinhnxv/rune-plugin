@@ -375,6 +375,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | using-rune | Workflow discovery and intent routing |
 | zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
 | arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
+| inner-flame | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates before sealing |
 
 ## Configuration
 
