@@ -77,6 +77,37 @@ Your confidence score should influence your behavior during review:
 is below 50%, your confidence is overestimated. Recalibrate downward.
 ```
 
+### Enhanced Seal
+
+The Seal at the end of each agent output includes confidence and file coverage metrics:
+
+```json
+{
+  "findings": 7,
+  "evidence_verified": true,
+  "confidence": 85,
+  "skimmed_files": 12,
+  "deep_read_files": 4,
+  "self_reviewed": true,
+  "self_review_actions": "confirmed: 5, revised: 1, deleted: 1"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `confidence` | integer 0-100 | Confidence score (see Confidence Reporting below) |
+| `skimmed_files` | integer | Files structurally scanned but not fully read |
+| `deep_read_files` | integer | Files fully analyzed line-by-line |
+
+### Confidence Reporting
+
+| Range | Label | Meaning |
+|-------|-------|---------|
+| 90-100 | High | Strong evidence, verified patterns, low false-positive risk |
+| 70-89 | Moderate | Good evidence but some assumptions made |
+| 50-69 | Low | Patterns detected but context may be missing, needs verification |
+| <50 | Speculative | Flag for human review before acting on findings |
+
 ## 2. Research Format (Plans)
 
 Used by workflows producing knowledge synthesis from parallel exploration.
