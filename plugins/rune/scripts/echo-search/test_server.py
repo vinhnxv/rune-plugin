@@ -1,5 +1,6 @@
 """Tests for server.py — Echo Search MCP Server database helpers."""
 
+import os
 import sqlite3
 import textwrap
 
@@ -814,3 +815,65 @@ class TestFtsIntegration:
         # Old term gone, new term searchable
         assert len(search_entries(db, "authentication")) == 0
         assert len(search_entries(db, "deployment")) == 1
+
+
+# ---------------------------------------------------------------------------
+# Dirty signal helpers
+# ---------------------------------------------------------------------------
+
+from server import _signal_path, _check_and_clear_dirty
+
+
+class TestSignalPath:
+    """Unit tests for _signal_path derivation."""
+
+    def test_standard_echo_dir(self):
+        path = _signal_path("/project/.claude/echoes")
+        assert path == os.path.join("/project", "tmp", ".rune-signals", ".echo-dirty")
+
+    def test_trailing_slash_stripped(self):
+        path = _signal_path("/project/.claude/echoes/")
+        assert path == os.path.join("/project", "tmp", ".rune-signals", ".echo-dirty")
+
+    def test_empty_echo_dir_returns_empty(self):
+        assert _signal_path("") == ""
+
+    def test_non_standard_dir_uses_fallback(self):
+        """When ECHO_DIR doesn't end with .claude/echoes, walk up two dirs."""
+        path = _signal_path("/custom/path/echoes")
+        # Fallback: dirname(dirname("/custom/path/echoes")) = "/custom"
+        assert path == os.path.join("/custom", "tmp", ".rune-signals", ".echo-dirty")
+
+
+class TestCheckAndClearDirty:
+    """Unit tests for _check_and_clear_dirty."""
+
+    def test_returns_false_when_no_signal(self, tmp_path):
+        echo_dir = str(tmp_path / ".claude" / "echoes")
+        os.makedirs(echo_dir, exist_ok=True)
+        assert _check_and_clear_dirty(echo_dir) is False
+
+    def test_returns_true_and_deletes_signal(self, tmp_path):
+        echo_dir = str(tmp_path / ".claude" / "echoes")
+        os.makedirs(echo_dir, exist_ok=True)
+        signal_dir = tmp_path / "tmp" / ".rune-signals"
+        signal_dir.mkdir(parents=True)
+        signal_file = signal_dir / ".echo-dirty"
+        signal_file.write_text("1")
+
+        assert _check_and_clear_dirty(echo_dir) is True
+        assert not signal_file.exists(), "signal file should be deleted after consumption"
+
+    def test_returns_false_after_second_call(self, tmp_path):
+        """Signal is consumed on first call — second call returns False."""
+        echo_dir = str(tmp_path / ".claude" / "echoes")
+        os.makedirs(echo_dir, exist_ok=True)
+        signal_dir = tmp_path / "tmp" / ".rune-signals"
+        signal_dir.mkdir(parents=True)
+        (signal_dir / ".echo-dirty").write_text("1")
+
+        assert _check_and_clear_dirty(echo_dir) is True
+        assert _check_and_clear_dirty(echo_dir) is False
+
+    def test_empty_echo_dir_returns_false(self):
+        assert _check_and_clear_dirty("") is False

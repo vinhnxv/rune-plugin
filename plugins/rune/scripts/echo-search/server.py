@@ -61,6 +61,51 @@ STOPWORDS = frozenset([
 ])
 
 # ---------------------------------------------------------------------------
+# Dirty signal helpers (consumed from annotate-hook.sh)
+# ---------------------------------------------------------------------------
+
+# The PostToolUse hook (annotate-hook.sh) writes a sentinel file when a
+# MEMORY.md is edited.  Before each search we check for this file and
+# trigger a reindex so new echoes appear immediately in results.
+
+_SIGNAL_SUFFIX = os.path.join(".claude", "echoes")
+
+
+def _signal_path(echo_dir):
+    # type: (str) -> str
+    """Derive the dirty-signal file path from ECHO_DIR.
+
+    ECHO_DIR is ``<project>/.claude/echoes``.  The hook writes the signal to
+    ``<project>/tmp/.rune-signals/.echo-dirty``.
+    """
+    if not echo_dir:
+        return ""
+    # Strip /.claude/echoes (or .claude/echoes) suffix to get project root
+    normalized = echo_dir.rstrip(os.sep)
+    if normalized.endswith(_SIGNAL_SUFFIX):
+        project_root = normalized[: -len(_SIGNAL_SUFFIX)].rstrip(os.sep)
+    else:
+        # Fallback: walk up two directories
+        project_root = os.path.dirname(os.path.dirname(normalized))
+    return os.path.join(project_root, "tmp", ".rune-signals", ".echo-dirty")
+
+
+def _check_and_clear_dirty(echo_dir):
+    # type: (str) -> bool
+    """Return True (and delete the file) if the dirty signal is present."""
+    path = _signal_path(echo_dir)
+    if not path:
+        return False
+    try:
+        if os.path.isfile(path):
+            os.remove(path)
+            return True
+    except OSError:
+        pass  # Race with another consumer or permission issue — safe to ignore
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Database helpers
 # ---------------------------------------------------------------------------
 
@@ -455,13 +500,14 @@ def run_mcp_server():
         try:
             ensure_schema(conn)
 
-            # Auto-reindex if DB is empty
+            # Auto-reindex when DB is empty OR dirty signal is present.
             # SEC-NEW-002: This close-reindex-reopen pattern is safe because:
             # 1. MCP stdio transport is single-threaded asyncio — no concurrent calls overlap
             # 2. If do_reindex() raises, finally calls conn.close() on the already-closed
             #    original conn. CPython's sqlite3.Connection.close() is a no-op on closed conns.
             count = conn.execute("SELECT COUNT(*) FROM echo_entries").fetchone()[0]
-            if count == 0 and ECHO_DIR:
+            is_dirty = _check_and_clear_dirty(ECHO_DIR)
+            if (count == 0 or is_dirty) and ECHO_DIR:
                 conn.close()  # QUAL-1: close before reindex opens its own conn
                 do_reindex(ECHO_DIR, DB_PATH)
                 conn = get_db(DB_PATH)
@@ -504,6 +550,13 @@ def run_mcp_server():
         conn = get_db(DB_PATH)
         try:
             ensure_schema(conn)
+
+            # Reindex on dirty signal so newly-written entries are available
+            if _check_and_clear_dirty(ECHO_DIR) and ECHO_DIR:
+                conn.close()
+                do_reindex(ECHO_DIR, DB_PATH)
+                conn = get_db(DB_PATH)
+
             results = get_details(conn, ids)
         finally:
             conn.close()
