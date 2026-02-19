@@ -460,6 +460,17 @@ horizon:
 #     startup_timeout: 120000      # Max wait for service readiness in ms (default: 120000)
 
 # ──────────────────────────────────────────────
+# Inner Flame — Self-review protocol (v1.46.0+)
+# ──────────────────────────────────────────────
+# Universal 3-layer self-review (Grounding, Completeness, Self-Adversarial)
+# for all Rune teammates. Enforced via prompt instructions + optional
+# TaskCompleted hook (validate-inner-flame.sh).
+# inner_flame:
+#   enabled: true                  # Kill switch — disables Inner Flame prompts globally (default: true)
+#   block_on_fail: false           # TaskCompleted hook exits 2 (blocking) when Self-Review Log missing (default: false = warn only)
+#   confidence_floor: 60           # Prompt-enforced: teammates with post-review confidence below this report blocker instead of completing (default: 60, not hook-enforced)
+
+# ──────────────────────────────────────────────
 # Codex Oracle — Cross-model verification (v1.18.0+)
 # ──────────────────────────────────────────────
 # Codex Oracle is auto-detected when the `codex` CLI is installed

@@ -81,6 +81,11 @@ work:
   # pr_template: default                 # Reserved for a future release (default | minimal)
   # auto_push: false                     # Reserved for a future release (auto-push without confirmation)
   co_authors: []                         # Co-Authored-By lines in "Name <email>" format
+
+inner_flame:
+  enabled: true                   # Kill switch (default: true)
+  block_on_fail: false            # Hook blocks on missing Self-Review Log (default: false = warn only)
+  confidence_floor: 60            # Prompt-enforced confidence minimum (default: 60)
 ```
 
 ## Platform Environment Configuration
