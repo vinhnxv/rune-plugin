@@ -414,10 +414,13 @@ def run_mcp_server():
                     )
                 ]
         except Exception as e:
+            # SEC-NEW-001: Cap error message to avoid leaking internal paths
+            # Python exceptions can include absolute filesystem paths in their message.
+            err_msg = str(e)[:200] if str(e) else "Internal server error"
             return [
                 types.TextContent(
                     type="text",
-                    text=json.dumps({"error": str(e)}),
+                    text=json.dumps({"error": err_msg}),
                     isError=True,
                 )
             ]
@@ -453,6 +456,10 @@ def run_mcp_server():
             ensure_schema(conn)
 
             # Auto-reindex if DB is empty
+            # SEC-NEW-002: This close-reindex-reopen pattern is safe because:
+            # 1. MCP stdio transport is single-threaded asyncio — no concurrent calls overlap
+            # 2. If do_reindex() raises, finally calls conn.close() on the already-closed
+            #    original conn. CPython's sqlite3.Connection.close() is a no-op on closed conns.
             count = conn.execute("SELECT COUNT(*) FROM echo_entries").fetchone()[0]
             if count == 0 and ECHO_DIR:
                 conn.close()  # QUAL-1: close before reindex opens its own conn

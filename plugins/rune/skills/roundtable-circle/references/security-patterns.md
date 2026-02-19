@@ -166,6 +166,24 @@ These patterns appear in a single file and are documented here for completeness 
 | `SAFE_FEATURE_PATTERN` | plan.md | Feature name sanitizer |
 | `VALID_EXTRACTORS` | arc SKILL.md | Extractor type allowlist: `["glob_count", "regex_capture", "json_field", "line_count"]` |
 
+## Hook Security — Threat Models
+
+### TaskCompleted Prompt Gate (QUAL-010)
+**File**: `hooks/hooks.json` → `TaskCompleted[1]` (prompt hook)
+**Model**: haiku (fast, low-cost quality gate)
+**Defense**: ANCHOR/RE-ANCHOR truthbinding markers, task input explicitly marked UNTRUSTED
+**Threat model**: Task subjects are **teammate-generated** (not external user input). The haiku model is less robust against adversarial prompts than larger models, but the attack surface is limited:
+- Attackers must first compromise a teammate's context (requires prompt injection through reviewed source code → fixer prompt → task subject chain)
+- The gate is fail-open for legitimate work (`"When in doubt, allow"`) — bypassing it only skips a structural quality check, not a security boundary
+- The ANCHOR/RE-ANCHOR pattern provides defense-in-depth against casual injection attempts
+
+**Risk**: Low. The haiku gate is a **quality** control (catches premature task completions), not a **security** control. A bypass results in a prematurely-completed task being counted, which the orchestrator's Phase 4 monitor can detect via missing output files.
+
+### Annotate Hook stdin Cap (SEC-006)
+**File**: `scripts/echo-search/annotate-hook.sh:13`
+**Defense**: `head -c 65536` caps stdin to 64KB
+**Threat model**: PostToolUse hook receives full tool input on stdin. Without a cap, a large Write/Edit tool call could cause unbounded memory consumption in the hook script.
+
 ## Maintenance
 
 - When adding a new security pattern to ANY command file, add it to this reference first.
