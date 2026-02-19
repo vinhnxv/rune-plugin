@@ -245,10 +245,15 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
   # Git health check before each arc run (depth-seer recommendation)
   pre_run_git_health
 
-  # Build arc command (no generic --arc-flags — SEC-BATCH-001 shell injection fix)
-  ARC_CMD="/rune:arc $plan --skip-freshness"
+  # Build arc prompt (v1.42.2 FIX: bypass slash command — use direct SKILL.md read)
+  # Root cause: `claude -p "/rune:arc ..."` does not reliably trigger skill invocation
+  # in headless prompt mode. The LLM receives the slash command as prose and responds
+  # conversationally instead of executing the pipeline. Fix: construct a natural language
+  # prompt that instructs the LLM to Read the SKILL.md file and execute its instructions.
+  ARC_SKILL_PATH="${PLUGIN_DIR}/skills/arc/SKILL.md"
+  ARC_FLAGS="--skip-freshness"
   if [[ "$NO_MERGE" == "true" ]]; then
-    ARC_CMD="$ARC_CMD --no-merge"
+    ARC_FLAGS="$ARC_FLAGS --no-merge"
   fi
 
   # Retry loop
@@ -264,7 +269,28 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
       RESUME_FLAG="--resume"
     fi
 
-    EFFECTIVE_CMD="$ARC_CMD $RESUME_FLAG"
+    # Construct the effective flags string
+    EFFECTIVE_FLAGS="$ARC_FLAGS"
+    if [[ -n "$RESUME_FLAG" ]]; then
+      EFFECTIVE_FLAGS="$EFFECTIVE_FLAGS $RESUME_FLAG"
+    fi
+
+    # Build headless prompt that bypasses skill system
+    # The LLM reads the SKILL.md via Read tool and executes the arc pipeline
+    EFFECTIVE_CMD="You are an arc pipeline executor. Your task:
+
+1. Read the arc skill file: ${ARC_SKILL_PATH}
+2. Follow ALL its instructions to execute the full 14-phase arc pipeline
+3. Plan file: ${plan}
+4. Flags: ${EFFECTIVE_FLAGS}
+
+IMPORTANT:
+- Execute autonomously — do NOT ask questions or request clarification
+- Process ONLY this single plan file, not any other plans in the directory
+- Follow the SKILL.md dispatcher loop from Phase 1 through Phase 9.5
+- Read each phase reference file as instructed by the SKILL.md
+- Create teams, spawn agents, and produce artifacts as specified
+- On completion, the pipeline should have created commits, a PR, and optionally merged"
     # Sanitize basename for log file path (SEC-BATCH-002)
     SAFE_NAME=$(basename "$plan" .md | tr -cd 'a-zA-Z0-9_-')
     LOG_FILE="tmp/arc-batch/$(printf '%02d' $((INDEX + 1)))-${SAFE_NAME}.log"
