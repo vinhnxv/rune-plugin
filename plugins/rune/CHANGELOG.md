@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.44.0] — 2026-02-19
+
+### Added
+- **Platform Environment Configuration** in configuration-guide.md: env var reference table, 7-layer timeout model, pre-flight checklist, cost awareness table, SDK heartbeat documentation
+- **Agent runtime caps**: `maxTurns: 75` for rune-smith, `maxTurns: 50` for trial-forger in agent frontmatter
+- **Turn Budget Awareness** section in worker-prompts.md: documents `max_turns` Task() parameter as primary enforcement, edge cases
+- **MCP Schema Cost Per Teammate** section in overflow-wards.md: estimated token costs, multiplication effect, mitigation guidelines
+- **Zombie tmux session cleanup** as Step 6 in rest.md: targets `claude-*` prefixed sessions with `command -v tmux` pre-check
+- **Teammate Non-Persistence Warning** in session-handoff.md: persistence table, recovery procedure
+- **Core Rule 10** in CLAUDE.md: teammate non-persistence across session boundaries
+- **DC-3 SDK Heartbeat Interaction** subsection in damage-control.md: timeout alignment table, crashed teammate timeline
+- **SO-3 delegate mode** reference in standing-orders.md: Shift+Tab enforcement, DC-3 cross-reference
+- **Pre-flight checklist item 5**: `staleWarnMs >= 300000` constraint (DC-3 alignment)
+
+### Changed
+- **Plugin version**: 1.42.2 → 1.44.0
+
 ## [1.42.1] — 2026-02-19
 
 ### Fixed
