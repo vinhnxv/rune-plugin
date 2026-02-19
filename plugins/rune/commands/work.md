@@ -64,6 +64,8 @@ Phase 3.5: Commit Broker -> Apply patches, commit (orchestrator-only)
     |
 Phase 4: Ward Check -> Quality gates + verification checklist
     |
+Phase 4.1: Todo Summary -> Generate _summary.md from per-worker todo files (orchestrator-only)
+    |
 Phase 4.3: Doc-Consistency -> Non-blocking version/count drift detection (orchestrator-only)
     |
 Phase 4.5: Codex Advisory -> Optional plan-vs-implementation review (non-blocking)
@@ -207,6 +209,8 @@ const signalDir = `tmp/.rune-signals/rune-work-${timestamp}`
 Bash(`mkdir -p "${signalDir}" && find "${signalDir}" -mindepth 1 -delete`)
 // NOTE: .expected counts tasks (not teammates). In work, N tasks > N teammates. Review/audit have 1:1 task:teammate ratio.
 Write(`${signalDir}/.expected`, String(extractedTasks.length))
+// Signal inscription is hook-facing (task counts + teammate names only). Intentionally omits
+// todos/diff_scope/context_engineering — hooks don't need these. Full contract is in step 4.
 Write(`${signalDir}/inscription.json`, JSON.stringify({
   workflow: "rune-work",
   timestamp: timestamp,
@@ -557,11 +561,19 @@ After ward check passes and all workers have exited, the orchestrator generates 
 const todoDir = `tmp/work/${timestamp}/todos`
 const todoFiles = Glob(`${todoDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
 
-if (todoFiles.length === 0) {
+// SEC-002: Validate path containment — reject symlinks or paths outside todoDir
+const safeTodoFiles = todoFiles.filter(f => {
+  const basename = f.split('/').pop().replace('.md', '')
+  return /^[a-zA-Z0-9_-]+$/.test(basename) && f.startsWith(todoDir)
+})
+
+if (safeTodoFiles.length === 0) {
   warn("No todo files found — skipping summary generation")
 } else {
   const workers = []
-  for (const todoFile of todoFiles) {
+  // SEC-001: sanitize worker-controlled values before embedding in markdown/YAML
+  const sanitizeCell = (s) => String(s).replace(/\|/g, '\\|').replace(/\n.*/s, '').slice(0, 100)
+  for (const todoFile of safeTodoFiles) {
     try {
       const content = Read(todoFile)
       // Parse YAML frontmatter
@@ -575,24 +587,27 @@ if (todoFiles.length === 0) {
 
       // Extract decisions
       const decisions = []
-      const decisionMatches = body.matchAll(/### Decisions\n([\s\S]*?)(?=\n##|\n---|\n$)/g)
+      const decisionMatches = body.matchAll(/### Decisions\n([\s\S]*?)(?=\n##|\n---|\s*$)/g)
       for (const match of decisionMatches) {
         const items = match[1].match(/^- .+$/gm) || []
         decisions.push(...items.map(d => d.replace(/^- /, '')))
       }
 
       // Count tasks by status
-      const taskSections = body.split(/^## Task /m).slice(1)
+      const taskSections = body.split(/^## Task #\d+:/m).slice(1)
       const taskStatuses = taskSections.map(s => {
         const statusMatch = s.match(/\*\*Status\*\*:\s*(\w+)/)
         return statusMatch ? statusMatch[1] : 'unknown'
       })
 
       // Fix any stale "active" status to "interrupted" (FLAW-008 mitigation)
+      // SEC-003: Match is scoped to frontmatter[1] which only contains content between --- markers
       const statusMatch = frontmatter[1].match(/status:\s*(\w+)/)
       const workerStatus = statusMatch ? statusMatch[1] : 'unknown'
       if (workerStatus === 'active') {
         warn(`Todo file ${todoFile} has status: active after worker exit — fixing to interrupted`)
+        // Note: Edit targets first occurrence. Since frontmatter is at file start, this is safe.
+        // If Edit fails (non-unique match), the try/catch below swallows it — Phase 6 step 3.5 is the safety net.
         Edit(todoFile, { old_string: 'status: active', new_string: 'status: interrupted' })
       }
 
@@ -634,11 +649,11 @@ completed_subtasks: ${completedSubtasks}
 
 | Worker | Role | Tasks | Subtasks | Status |
 |--------|------|-------|----------|--------|
-${workers.map(w => `| ${w.name} | ${w.role} | ${w.tasks_completed}/${w.tasks_total} | ${w.subtasks_completed}/${w.subtasks_total} | ${w.status} |`).join('\n')}
+${workers.map(w => `| ${sanitizeCell(w.name)} | ${sanitizeCell(w.role)} | ${w.tasks_completed}/${w.tasks_total} | ${w.subtasks_completed}/${w.subtasks_total} | ${sanitizeCell(w.status)} |`).join('\n')}
 
 ## Key Decisions (across all workers)
 
-${workers.flatMap(w => w.decisions.map(d => `- **${w.name}**: ${d}`)).join('\n') || '- No decisions recorded'}
+${workers.flatMap(w => w.decisions.map(d => `- **${sanitizeCell(w.name)}**: ${sanitizeCell(d)}`)).join('\n') || '- No decisions recorded'}
 `
     Write(`${todoDir}/_summary.md`, summary)
   }
@@ -812,10 +827,11 @@ if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-work-${timestamp}/" "$CHOME/tasks/rune-work-${timestamp}/" 2>/dev/null`)
 }
 
-// 3.5 Fix stale todo file statuses (FLAW-008 mitigation)
+// 3.5 Fix stale todo file statuses (FLAW-008 mitigation, safety net for Phase 4.1)
 // Workers may be killed before updating status. Fix any "active" files to "interrupted".
 const todoDir = `tmp/work/${timestamp}/todos`
 const todoFiles = Glob(`${todoDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
+  .filter(f => /^[a-zA-Z0-9_-]+\.md$/.test(f.split('/').pop()) && f.startsWith(todoDir)) // SEC-002: path containment
 for (const todoFile of todoFiles) {
   try {
     const content = Read(todoFile)
@@ -857,7 +873,7 @@ See [ship-phase.md](work/references/ship-phase.md) for gh CLI pre-check, ship de
 ## Work Session
 
 <details>
-<summary>{workers} workers completed {completed}/{total} tasks ({subtasks_completed}/{subtasks_total} subtasks)</summary>
+<summary>{workers} workers completed {completed_tasks}/{total_tasks} tasks ({completed_subtasks}/{total_subtasks} subtasks)</summary>
 
 {contents of todos/_summary.md Progress Overview table}
 

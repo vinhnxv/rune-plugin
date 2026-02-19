@@ -54,9 +54,9 @@
 
   "todos": {
     "enabled": "boolean — whether per-worker todo files are active (default: true, v1.43.0+)",
-    "dir": "string — relative path to todos directory within output_dir (default: 'todos/')",
+    "dir": "string — relative path to todos directory within output_dir (default: 'todos/'). Must match /^[a-zA-Z0-9_-]+\\/$/ — no path traversal",
     "schema": "string — 'per-worker' (one file per worker, v1 only)",
-    "fields": ["array of required frontmatter fields (v1: worker, role, status, plan_path)"],
+    "fields": ["array of required frontmatter fields (v1: worker, role, status [active|completed|interrupted|failed], plan_path)"],
     "summary_file": "string — filename for orchestrator-generated summary (default: '_summary.md')"
   },
 
@@ -145,7 +145,7 @@
 | `teammates[].output_file` | Yes | — |
 | `teammates[].required_sections` | Yes | — |
 | `diff_scope` | No | `{ "enabled": false }` |
-| `todos` | No | `{ "enabled": true }` (v1.43.0+, rune-work only) |
+| `todos` | No | `{ "enabled": true, "dir": "todos/", "schema": "per-worker", "summary_file": "_summary.md" }` (v1.43.0+, rune-work only) |
 | `aggregator` | No | No aggregation |
 | `verification` | No | `{ "enabled": false }` |
 | `context_engineering` | No | Defaults applied |

@@ -19,6 +19,7 @@
 - work.md: `mkdir -p` now creates `todos/` subdirectory
 - work.md: inscription.json generation includes `todos` contract
 - CLAUDE.md: `/rune:work` description updated with todo files mention
+- inscription-schema.md: added `todos` block to Complete Schema and Required Fields table
 
 ## [1.42.1] — 2026-02-19
 
