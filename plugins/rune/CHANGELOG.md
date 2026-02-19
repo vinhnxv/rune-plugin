@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.43.0] — 2026-02-19
+
+### Added
+- **Configurable codex timeout handling**: Two-layer timeout architecture with outer GNU timeout + inner stream idle timeout
+  - `codex.timeout` (default: 600s, range: 30–3600) — outer GNU timeout for codex exec
+  - `codex.stream_idle_timeout` (default: 540s, range: 10–timeout) — inner stream idle timeout
+  - `resolveCodexTimeouts()` validation function in codex-detection.md with parseInt, bounds checking
+  - `classifyCodexError()` function for structured error classification (12 patterns, up from 6)
+  - `--kill-after=30` support for GNU coreutils timeout (graceful SIGTERM → SIGKILL escalation)
+  - Detection step hardening: `timeout 5` on `codex --version` (step 4), `timeout 10` on `codex login status` (step 5)
+  - Step 3a: `--kill-after` capability detection during setup
+- **CODEX_TIMEOUT_ALLOWLIST** security pattern in security-patterns.md (`/^\d{1,5}$/`)
+- **6 new error classifications**: STREAM_IDLE, QUOTA, CONTEXT_LENGTH, SANDBOX, VERSION, KILL_TIMEOUT
+- **Stderr capture**: All codex invocation sites now capture stderr to temp file for error classification (previously discarded to `/dev/null`)
+
+### Changed
+- **All 9 codex invocation sites** updated to configurable timeouts: codex-oracle.md (2), codex-cli/SKILL.md (3), work.md (1), forge.md (1), research-phase.md (1), plan-review.md (1)
+- `CODEX_TIMEOUT` renamed to `CODEX_MONITOR_TIMEOUT` in work.md to avoid naming collision with talisman `codex.timeout`
+- Error tables expanded from 6 to 12 rows in codex-detection.md and codex-cli/SKILL.md
+- **Plugin version**: 1.42.2 → 1.43.0
+
 ## [1.42.1] — 2026-02-19
 
 ### Fixed

@@ -568,8 +568,12 @@ if (codexAvailable && !codexDisabled) {
         2. Check codex availability, validate execution, check authentication
         3. Gather context: Read plan, get diff (head -c ${maxDiffSize})
         4. Write prompt to tmp file (SEC-003: avoid inline shell interpolation)
-        5. Run: timeout 600 codex exec -m "${codexModel}" --config model_reasoning_effort="${codexReasoning}"
+        5. Resolve timeouts via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+           Run: timeout ${killAfterFlag} ${codexTimeout} codex exec -m "${codexModel}"
+           --config model_reasoning_effort="${codexReasoning}"
+           --config stream_idle_timeout_ms="${codexStreamIdleMs}"
            --sandbox read-only --full-auto --skip-git-repo-check --json
+           Capture stderr to tmp file for error classification (NOT 2>/dev/null)
         6. Classify errors per codex-detection.md ## Runtime Error Classification
         7. Write findings to tmp/work/${timestamp}/codex-advisory.md
            Format: [CDX-WORK-NNN] Title -- file:line -- description
@@ -584,13 +588,13 @@ if (codexAvailable && !codexDisabled) {
     // NOTE: Uses inline polling (not waitForCompletion) because this monitors a SPECIFIC
     // task by name, not a count of completed tasks. waitForCompletion is count-based.
     const codexStart = Date.now()
-    const CODEX_TIMEOUT = 660_000
+    const CODEX_MONITOR_TIMEOUT = 660_000  // 11 min — outer timeout + 60s buffer
     while (true) {
       const tasks = TaskList()
       const codexTask = tasks.find(t => t.subject?.includes("Codex Advisory"))
       if (codexTask?.status === "completed") break
-      if (Date.now() - codexStart > CODEX_TIMEOUT) {
-        warn("Codex Advisory: teammate timeout -- proceeding without advisory")
+      if (Date.now() - codexStart > CODEX_MONITOR_TIMEOUT) {
+        warn("Codex Advisory: teammate timeout after 11 min -- proceeding without advisory")
         break
       }
       sleep(15_000)

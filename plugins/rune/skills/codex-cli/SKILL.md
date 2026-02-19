@@ -152,25 +152,35 @@ may use `workspace-write` in the future (currently read-only).
 ### Standard Invocation (with jq)
 
 ```bash
-timeout 600 codex exec \
+# Timeouts resolved via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+# Security pattern: CODEX_TIMEOUT_ALLOWLIST — see security-patterns.md
+timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
   -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   --config model_reasoning_effort="${CODEX_REASONING:-high}" \
+  --config stream_idle_timeout_ms="${CODEX_STREAM_IDLE_MS:-540000}" \
   --sandbox read-only \
   --full-auto \
   --json \
-  "${PROMPT}" 2>/dev/null | \
+  "${PROMPT}" 2>"${STDERR_FILE}" | \
   jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
+CODEX_EXIT=$?
+# Classify error if non-zero — see codex-detection.md ## Runtime Error Classification
+if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${STDERR_FILE}")"; fi
 ```
 
 ### Fallback Invocation (no jq)
 
 ```bash
-timeout 600 codex exec \
+# Timeouts resolved via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
   -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   --config model_reasoning_effort="${CODEX_REASONING:-high}" \
+  --config stream_idle_timeout_ms="${CODEX_STREAM_IDLE_MS:-540000}" \
   --sandbox read-only \
   --full-auto \
-  "${PROMPT}" 2>/dev/null
+  "${PROMPT}" 2>"${STDERR_FILE}"
+CODEX_EXIT=$?
+if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${STDERR_FILE}")"; fi
 ```
 
 ### Key Flags
@@ -219,14 +229,18 @@ diff_content = Read("tmp/reviews/${ID}/codex-diff-batch-${N}-truncated.patch")
 nonce = random_hex(4)  # Unique boundary per invocation (SEC-004)
 
 # 4. Invoke with diff-focused prompt
-timeout 600 codex exec \
+# Timeouts resolved via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
   -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   --config model_reasoning_effort="${CODEX_REASONING:-high}" \
+  --config stream_idle_timeout_ms="${CODEX_STREAM_IDLE_MS:-540000}" \
   --sandbox read-only \
   --full-auto \
   --json \
-  "${PROMPT}" 2>/dev/null | \
+  "${PROMPT}" 2>"${STDERR_FILE}" | \
   jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
+CODEX_EXIT=$?
+if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${STDERR_FILE}")"; fi
 
 # Where PROMPT is constructed programmatically (not via shell expansion):
 #   "SYSTEM CONSTRAINT: Review CHANGES only, not entire files.
@@ -281,14 +295,20 @@ codex:
 When `codex exec` fails (non-zero exit), classify the error and log a user-facing message.
 All errors are **non-fatal** — the pipeline always continues without Codex findings.
 
-| Exit / stderr pattern | User message |
-|----------------------|-------------|
-| "not authenticated" / "auth" | "Codex Oracle: authentication required — run `codex login`" |
-| "rate limit" / "429" | "Codex Oracle: API rate limit — try again later or reduce batches" |
-| "model not found" / "invalid" | "Codex Oracle: model unavailable — check talisman.codex.model" |
-| "network" / "connection" / "ECON" | "Codex Oracle: network error — check internet connection" |
-| timeout (exit 124) | "Codex Oracle: timeout after 10 min — reduce context_budget" |
-| other non-zero exit | "Codex Oracle: exec failed (exit {code}) — run `codex exec` manually to debug" |
+| Exit / stderr pattern | Code | User message |
+|----------------------|------|-------------|
+| "not authenticated" / "auth" | AUTH | "Codex Oracle: authentication required — run `codex login`" |
+| "rate limit" / "429" | RATE_LIMIT | "Codex Oracle: API rate limit — try again later or reduce batches" |
+| "model not found" / "invalid model" | MODEL | "Codex Oracle: model unavailable — check talisman.codex.model" |
+| "network" / "connection" / "ECON" | NETWORK | "Codex Oracle: network error — check internet connection" |
+| exit 124 (GNU timeout) | OUTER_TIMEOUT | "Codex Oracle: timeout after {timeout}s — increase codex.timeout or reduce context_budget" |
+| "stream idle" / "stream_idle_timeout" | STREAM_IDLE | "Codex Oracle: no output for {stream_idle}s — increase codex.stream_idle_timeout" |
+| "quota" / "insufficient_quota" / "402" | QUOTA | "Codex Oracle: quota exceeded — check OpenAI billing" |
+| "context_length" / "too many tokens" | CONTEXT_LENGTH | "Codex Oracle: context too large — reduce context_budget or file count" |
+| "sandbox" / "permission denied" | SANDBOX | "Codex Oracle: sandbox restriction — check .codexignore and sandbox mode" |
+| "version" / "upgrade" / "deprecated" | VERSION | "Codex Oracle: CLI version issue — run `npm update -g @openai/codex`" |
+| exit 137 (SIGKILL from --kill-after) | KILL_TIMEOUT | "Codex Oracle: killed after grace period — codex hung, increase timeout" |
+| other non-zero exit | UNKNOWN | "Codex Oracle: exec failed (exit {code}) — run `codex exec` manually to debug" |
 
 **Error logging requirements:**
 - Include the specific error message (truncated to 200 chars)

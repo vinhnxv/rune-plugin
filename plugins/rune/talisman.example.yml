@@ -448,6 +448,8 @@ codex:
   sandbox: "read-only"               # Sandbox mode (always read-only for review — do NOT change)
   context_budget: 20                 # Max files to review per session (default: 20)
   confidence_threshold: 80           # Min confidence % to report a finding (default: 80)
+  timeout: 600                       # Outer GNU timeout in seconds for codex exec (default: 600, range: 30–3600)
+  stream_idle_timeout: 540           # Inner stream idle timeout in seconds — kills codex if no output for this duration (default: 540, range: 10–timeout)
   # Which workflows use Codex Oracle. Remove a workflow name to skip Codex in that pipeline.
   # "mend" added in v1.39.0 for post-fix verification.
   workflows: [review, audit, plan, forge, work, mend]
