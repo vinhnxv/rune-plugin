@@ -56,8 +56,8 @@ The optional `context_injections` field tracks which echo memories were retrieve
       "method": "fts5_bm25",
       "results_count": 5,
       "top_entries": [
-        {"id": "planner:42", "score": 0.85, "preview": "4-layer context management..."},
-        {"id": "reviewer:15", "score": 0.72, "preview": "Glyph Budget enforcement..."}
+        {"id": "a3f7c2b891d04e1f", "score": 0.85, "preview": "4-layer context management..."},
+        {"id": "e9b1d4f6c7a230ab", "score": 0.72, "preview": "Glyph Budget enforcement..."}
       ],
       "total_tokens_estimated": 1200
     }

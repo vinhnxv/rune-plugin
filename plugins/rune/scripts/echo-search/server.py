@@ -100,8 +100,9 @@ def ensure_schema(conn):
 
 def rebuild_index(conn, entries):
     # type: (sqlite3.Connection, List[Dict]) -> int
+    conn.execute("BEGIN")  # QUAL-3: explicit transaction for crash safety
     conn.execute("DELETE FROM echo_entries")
-    conn.execute("DELETE FROM echo_entries_fts")
+    conn.execute("INSERT INTO echo_entries_fts(echo_entries_fts) VALUES('delete-all')")
 
     for entry in entries:
         conn.execute(
@@ -137,14 +138,14 @@ def rebuild_index(conn, entries):
 
 def build_fts_query(raw_query):
     # type: (str) -> str
+    raw_query = raw_query[:500]  # SEC-7: cap input length
     tokens = re.findall(r"[a-zA-Z0-9_]+", raw_query.lower())
     filtered = [t for t in tokens if t not in STOPWORDS and len(t) >= 2]
     if not filtered:
-        # Fall back to original tokens if all were stopwords
         filtered = [t for t in tokens if len(t) >= 2]
     if not filtered:
-        return raw_query.strip()
-    return " OR ".join(filtered)
+        return ""  # SEC-2: never pass raw input to FTS5 MATCH
+    return " OR ".join(filtered[:20])  # SEC-7: cap token count
 
 
 def search_entries(conn, query, limit=10, layer=None, role=None):
@@ -172,7 +173,7 @@ def search_entries(conn, query, limit=10, layer=None, role=None):
         sql += " AND e.role = ?"
         params.append(role)
 
-    sql += " ORDER BY bm25(echo_entries_fts) LIMIT ?"
+    sql += " ORDER BY bm25(echo_entries_fts) ASC LIMIT ?"  # ASC: more negative = more relevant
     params.append(limit)
 
     cursor = conn.execute(sql, params)
@@ -279,6 +280,10 @@ def do_reindex(echo_dir, db_path):
 
 def run_mcp_server():
     # type: () -> None
+    if not DB_PATH:  # SEC-4: fail fast instead of silent in-memory DB
+        print("Error: DB_PATH environment variable not set", file=sys.stderr)
+        sys.exit(1)
+
     import asyncio
     import mcp.server.stdio
     import mcp.types as types
@@ -348,6 +353,7 @@ def run_mcp_server():
                 inputSchema={
                     "type": "object",
                     "properties": {},
+                    "required": [],
                 },
             ),
             types.Tool(
@@ -358,6 +364,7 @@ def run_mcp_server():
                 inputSchema={
                     "type": "object",
                     "properties": {},
+                    "required": [],
                 },
             ),
         ]
@@ -400,14 +407,19 @@ def run_mcp_server():
         layer = arguments.get("layer")
         role = arguments.get("role")
 
-        if not query:
+        # SEC-3: Type validation
+        if not isinstance(query, str) or not query:
             return [
                 types.TextContent(
                     type="text",
-                    text=json.dumps({"error": "query is required"}),
+                    text=json.dumps({"error": "query must be a non-empty string"}),
                     isError=True,
                 )
             ]
+        if layer is not None and not isinstance(layer, str):
+            layer = None
+        if role is not None and not isinstance(role, str):
+            role = None
 
         # Clamp limit
         if not isinstance(limit, int) or limit < 1:
@@ -415,16 +427,19 @@ def run_mcp_server():
         limit = min(limit, 50)
 
         conn = get_db(DB_PATH)
-        ensure_schema(conn)
+        try:
+            ensure_schema(conn)
 
-        # Auto-reindex if DB is empty
-        count = conn.execute("SELECT COUNT(*) FROM echo_entries").fetchone()[0]
-        if count == 0 and ECHO_DIR:
-            do_reindex(ECHO_DIR, DB_PATH)
-            conn = get_db(DB_PATH)
+            # Auto-reindex if DB is empty
+            count = conn.execute("SELECT COUNT(*) FROM echo_entries").fetchone()[0]
+            if count == 0 and ECHO_DIR:
+                conn.close()  # QUAL-1: close before reindex opens its own conn
+                do_reindex(ECHO_DIR, DB_PATH)
+                conn = get_db(DB_PATH)
 
-        results = search_entries(conn, query, limit, layer, role)
-        conn.close()
+            results = search_entries(conn, query, limit, layer, role)
+        finally:
+            conn.close()  # QUAL-8: always close on any path
 
         return [
             types.TextContent(
@@ -436,6 +451,16 @@ def run_mcp_server():
     async def _handle_details(arguments):
         # type: (Dict) -> List[types.TextContent]
         ids = arguments.get("ids", [])
+
+        # SEC-3: Type validation
+        if not isinstance(ids, list):
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps({"error": "ids must be a list"}),
+                    isError=True,
+                )
+            ]
         if not ids:
             return [
                 types.TextContent(
@@ -445,10 +470,14 @@ def run_mcp_server():
                 )
             ]
 
+        ids = ids[:50]  # SEC-1: cap ids to prevent DoS via large IN clause
+
         conn = get_db(DB_PATH)
-        ensure_schema(conn)
-        results = get_details(conn, ids)
-        conn.close()
+        try:
+            ensure_schema(conn)
+            results = get_details(conn, ids)
+        finally:
+            conn.close()
 
         return [
             types.TextContent(
@@ -500,7 +529,7 @@ def run_mcp_server():
                 write_stream,
                 InitializationOptions(
                     server_name="echo-search",
-                    server_version="1.0.0",
+                    server_version="1.43.0",
                     capabilities=server.get_capabilities(
                         notification_options=NotificationOptions(),
                         experimental_capabilities={},

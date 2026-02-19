@@ -15,9 +15,12 @@ Expected format:
 import hashlib
 import os
 import re
+import sys
 
 # Type aliases for Python 3.7 compat
 from typing import Dict, List, Optional
+
+VALID_ROLE_RE = re.compile(r'^[a-zA-Z0-9_-]+$')  # SEC-5: role name allowlist
 
 
 def generate_id(role, line_number, file_path):
@@ -36,9 +39,9 @@ def parse_memory_file(file_path, role):
     with open(file_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    # Pattern for entry headers: ## Inscribed - ... (YYYY-MM-DD)
+    # QUAL-008: Match all 3 echo layers (Inscribed, Etched, Traced)
     header_re = re.compile(
-        r"^##\s+Inscribed\s*[\u2014\-\u2013]+\s*(.+?)\s*\((\d{4}-\d{2}-\d{2})\)"
+        r"^##\s+(Inscribed|Etched|Traced)\s*[\u2014\-\u2013]+\s*(.+?)\s*\((\d{4}-\d{2}-\d{2})\)"
     )
     source_re = re.compile(r"^\*\*Source\*\*:\s*`?([^`\n]+)`?")
 
@@ -56,13 +59,16 @@ def parse_memory_file(file_path, role):
                 current_entry["content"] = "\n".join(content_lines).strip()
                 if current_entry["content"]:
                     entries.append(current_entry)
+                else:
+                    print("WARN: empty entry at %s:%d — skipped" % (file_path, current_entry["line_number"]), file=sys.stderr)
 
-            title = header_match.group(1).strip()
-            date = header_match.group(2)
+            layer_name = header_match.group(1).lower()
+            title = header_match.group(2).strip()
+            date = header_match.group(3)
 
             current_entry = {
                 "role": role,
-                "layer": "inscribed",
+                "layer": layer_name,
                 "date": date,
                 "source": "",
                 "content": "",
@@ -102,6 +108,8 @@ def discover_and_parse(echo_dir):
         return all_entries
 
     for role_name in sorted(os.listdir(echo_dir)):
+        if not VALID_ROLE_RE.match(role_name):  # SEC-5: skip unexpected dir names
+            continue
         role_path = os.path.join(echo_dir, role_name)
         if not os.path.isdir(role_path):
             continue
