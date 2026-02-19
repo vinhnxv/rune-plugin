@@ -48,32 +48,33 @@ fi
 # This is the ONLY deny case. Invalid names can cause shell injection.
 if [[ ! "$TEAM_NAME" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ "$TEAM_NAME" == *".."* ]]; then
   # Sanitize team name for JSON output — strip chars that break JSON
-  SAFE_NAME=$(printf '%s' "${TEAM_NAME:0:64}" | tr -cd 'a-zA-Z0-9_-. ')
-  cat << DENY_JSON
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "TLC-001: Invalid team name '${SAFE_NAME}'. Team names must match /^[a-zA-Z0-9_-]+$/ and must not contain '..'.",
-    "additionalContext": "BLOCKED by enforce-team-lifecycle.sh. Fix the team name to use only alphanumeric characters, hyphens, and underscores. Example: 'rune-review-abc123'."
-  }
-}
-DENY_JSON
+  # SEC-002 FIX: Dash at end of tr charset to avoid ambiguous range interpretation
+  SAFE_NAME=$(printf '%s' "${TEAM_NAME:0:64}" | tr -cd 'a-zA-Z0-9 ._-')
+  # BACK-004 FIX: Fallback for empty SAFE_NAME (team name was ALL special chars)
+  SAFE_NAME="${SAFE_NAME:-<invalid>}"
+  # SEC-001 FIX: Use jq --arg for JSON-safe output instead of unquoted heredoc
+  jq -n --arg name "$SAFE_NAME" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: ("TLC-001: Invalid team name \"" + $name + "\". Team names must match /^[a-zA-Z0-9_-]+$/ and must not contain \"..\"."),
+      additionalContext: "BLOCKED by enforce-team-lifecycle.sh. Fix the team name to use only alphanumeric characters, hyphens, and underscores. Example: rune-review-abc123."
+    }
+  }'
   exit 0
 fi
 
 # ── GATE 2: Team name length (max 128 chars) ──
 if [[ ${#TEAM_NAME} -gt 128 ]]; then
-  cat << DENY_JSON
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "TLC-001: Team name exceeds 128 characters (${#TEAM_NAME} chars).",
-    "additionalContext": "BLOCKED by enforce-team-lifecycle.sh. Shorten the team name to 128 characters or fewer."
-  }
-}
-DENY_JSON
+  # SEC-001 FIX: Use jq for JSON-safe output (consistency with GATE 1)
+  jq -n --argjson len "${#TEAM_NAME}" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: ("TLC-001: Team name exceeds 128 characters (" + ($len | tostring) + " chars)."),
+      additionalContext: "BLOCKED by enforce-team-lifecycle.sh. Shorten the team name to 128 characters or fewer."
+    }
+  }'
   exit 0
 fi
 
@@ -127,16 +128,16 @@ for team in "${cleaned_teams[@]}"; do
   else
     cleaned_list="${team}"
   fi
-  ((count++))
+  # BACK-006 FIX: ((0++)) returns exit code 1 under set -e, killing the script
+  count=$((count + 1))
 done
 
-cat << ALLOW_JSON
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "allow",
-    "additionalContext": "TLC-001 PRE-FLIGHT: Found and cleaned ${#cleaned_teams[@]} orphaned team dir(s) older than 30 min: [${cleaned_list}]. Filesystem dirs removed. If you encounter 'Already leading team' error, the SDK leadership state may still be stale — run TeamDelete() to clear it before retrying TeamCreate."
+# SEC-003 FIX: Use jq --arg/--argjson for JSON-safe output instead of unquoted heredoc
+jq -n --argjson count "${#cleaned_teams[@]}" --arg list "$cleaned_list" '{
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse",
+    permissionDecision: "allow",
+    additionalContext: ("TLC-001 PRE-FLIGHT: Found and cleaned " + ($count | tostring) + " orphaned team dir(s) older than 30 min: [" + $list + "]. Filesystem dirs removed. If you encounter an Already leading team error, the SDK leadership state may still be stale — run TeamDelete() to clear it before retrying TeamCreate.")
   }
-}
-ALLOW_JSON
+}'
 exit 0

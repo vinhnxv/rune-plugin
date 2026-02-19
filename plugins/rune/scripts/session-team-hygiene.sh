@@ -42,7 +42,8 @@ if [[ -d "$CHOME/teams/" ]]; then
     dirname=$(basename "$dir")
     if [[ "$dirname" =~ ^[a-zA-Z0-9_-]+$ ]] && [[ ! -L "$dir" ]]; then
       orphan_names+=("$dirname")
-      ((orphan_count++))
+      # BACK-012 FIX: ((0++)) returns exit code 1 under set -e, killing the script
+      orphan_count=$((orphan_count + 1))
     fi
   done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -mmin +30 2>/dev/null)
 fi
@@ -57,15 +58,18 @@ else
   shopt -s nullglob 2>/dev/null
 fi
 
+# BACK-015 FIX: Capture epoch once before loop (consistency + efficiency)
+NOW=$(date +%s)
 for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-forge-*.json; do
   if [[ -f "$f" ]]; then
     # Check if status is "active" and file is older than 30 min
     # FIX-2: Use epoch 0 fallback — if stat fails, (now - 0) / 60 = huge number → triggers stale
     # This is correct: stat failure means we can't determine age, so assume stale (conservative)
     file_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
-    file_age_min=$(( ($(date +%s) - file_mtime) / 60 ))
+    file_age_min=$(( (NOW - file_mtime) / 60 ))
     if [[ $file_age_min -gt 30 ]] && grep -q '"active"' "$f" 2>/dev/null; then
-      ((stale_state_count++))
+      # BACK-012 FIX: Avoid ((var++)) — returns exit code 1 when var=0 under set -e
+      stale_state_count=$((stale_state_count + 1))
     fi
   fi
 done
