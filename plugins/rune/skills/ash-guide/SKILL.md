@@ -3,7 +3,7 @@ name: ash-guide
 description: |
   Use when summoning Rune agents, when encountering "agent not found" errors, when
   selecting which review agents to use, or when checking agent capabilities and tools.
-  Quick reference for all 46 agents across 6 categories (review, research, work,
+  Quick reference for all 50 agents across 6 categories (review, research, work,
   utility, investigation, testing). Keywords: agent list, Ash, subagent type, agent not found.
 
   <example>
@@ -59,7 +59,7 @@ Tool restriction is enforced via prompt instructions (defense-in-depth).
 
 ## Review Agents
 
-18 specialized reviewers that form Ash teams:
+21 specialized reviewers that form Ash teams:
 
 | Agent | Role | Perspective |
 |-------|------|-------------|
@@ -81,21 +81,25 @@ Tool restriction is enforced via prompt instructions (defense-in-depth).
 | `rune:review:tide-watcher` | Async/concurrency review | Waterfall awaits, unbounded concurrency, cancellation, race conditions |
 | `rune:review:refactor-guardian` | Refactoring completeness review | Orphaned callers, incomplete extractions, missing dependency moves, stale test refs |
 | `rune:review:reference-validator` | Reference integrity review | Import paths, config-to-source refs, frontmatter schema, version sync |
+| `rune:review:reality-arbiter` | Production viability truth-telling | Integration honesty, production readiness, data reality, error path honesty |
+| `rune:review:assumption-slayer` | Premise validation truth-telling | Problem-solution fit, cargo cult detection, complexity justification |
+| `rune:review:entropy-prophet` | Long-term consequence truth-telling | Complexity compounding, dependency trajectory, lock-in, maintenance burden |
 
 ## Ash Roles (Consolidated Teammates)
 
-In `/rune:review`, agents are grouped into 6 built-in Ashes (extensible via talisman.yml):
+In `/rune:review`, agents are grouped into 7 built-in Ashes (extensible via talisman.yml):
 
 | Ash | Agents Embedded | Scope |
 |-----------|-----------------|-------|
 | **Forge Warden** | rune-architect, ember-oracle, flaw-hunter, mimic-detector, type-warden, depth-seer, blight-seer, forge-keeper | Backend code (`.py`, `.go`, `.rs`, `.rb`, `.java`) |
 | **Ward Sentinel** | ward-sentinel | ALL files (security always) |
+| **Veil Piercer** | reality-arbiter, assumption-slayer, entropy-prophet | ALL files (truth-telling always) |
 | **Pattern Weaver** | simplicity-warden, pattern-seer, wraith-finder, phantom-checker, void-analyzer, trial-oracle, tide-watcher, refactor-guardian, reference-validator | ALL files (quality patterns) |
 | **Glyph Scribe** | Inline perspectives (TypeScript safety, React performance, accessibility) | Frontend code (`.ts`, `.tsx`, `.js`, `.jsx`) |
 | **Knowledge Keeper** | Inline perspectives (accuracy, completeness, consistency) | Docs (`.md` files, conditional) |
 | **Codex Oracle** | Inline perspectives (cross-model security, logic, quality via `codex exec`) | ALL files (when `codex` CLI available) |
 
-**Note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files. Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts (no dedicated agent files). Codex Oracle is CLI-gated and wraps the external `codex exec` command.
+**Note:** Forge Warden, Ward Sentinel, Veil Piercer, and Pattern Weaver embed dedicated review agent files. Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts (no dedicated agent files). Codex Oracle is CLI-gated and wraps the external `codex exec` command.
 
 ## Utility Agents
 
@@ -108,6 +112,7 @@ In `/rune:review`, agents are grouped into 6 built-in Ashes (extensible via tali
 | `rune:utility:decree-arbiter` | Technical soundness review for plans |
 | `rune:utility:mend-fixer` | Parallel code fixer for /rune:mend findings |
 | `rune:utility:knowledge-keeper` | Documentation coverage reviewer for plans |
+| `rune:utility:veil-piercer-plan` | Plan-level truth-teller (Phase 4C plan review) |
 
 ## Research Agents
 
@@ -141,11 +146,11 @@ The `/rune:review` command selects Ash based on file extensions (Rune Gaze):
 
 | File Pattern | Ash Selected |
 |-------------|---------------------|
-| `**/*.py` | Forge Warden + Ward Sentinel + Pattern Weaver |
-| `**/*.{ts,tsx,js,jsx}` | Glyph Scribe + Ward Sentinel + Pattern Weaver |
+| `**/*.py` | Forge Warden + Ward Sentinel + Pattern Weaver + Veil Piercer |
+| `**/*.{ts,tsx,js,jsx}` | Glyph Scribe + Ward Sentinel + Pattern Weaver + Veil Piercer |
 | `**/*.md` (>= 10 lines changed) | Knowledge Keeper (conditional) |
 | Mixed code + docs | All applicable Ash |
 
-Ward Sentinel and Pattern Weaver are selected for every review regardless of file types.
+Ward Sentinel, Pattern Weaver, and Veil Piercer are selected for every review regardless of file types.
 
 See `roundtable-circle` skill for full Ash architecture and prompts.

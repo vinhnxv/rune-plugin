@@ -1,7 +1,7 @@
 ---
 name: rune:audit
 description: |
-  Full codebase audit using Agent Teams. Summons up to 6 built-in Ashes
+  Full codebase audit using Agent Teams. Summons up to 7 built-in Ashes
   (plus custom Ash from talisman.yml), each with their own 200k context window.
   Scans entire project (or current directory) instead of git diff changes. Uses the same
   7-phase Roundtable Circle lifecycle.
@@ -45,7 +45,7 @@ Orchestrate a full codebase audit using the Roundtable Circle architecture. Each
 
 **Focus mode** selects only the relevant Ash (see `roundtable-circle/references/circle-registry.md` for the mapping). This increases each Ash's effective context budget since fewer compete for resources.
 
-**Max agents** reduces team size when context or cost is a concern. Ash are prioritized: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. (Codex Oracle is always lowest priority — dropped first when --max-agents caps apply, consistent with its conditional/optional nature.)
+**Max agents** reduces team size when context or cost is a concern. Ash are prioritized: Ward Sentinel > Forge Warden > Veil Piercer > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. (Codex Oracle is always lowest priority — dropped first when --max-agents caps apply, consistent with its conditional/optional nature.)
 
 ## Phase 0: Pre-flight
 
@@ -210,6 +210,7 @@ for each file in all_files:
   - *.md (>= 10 total lines in file)     → select Knowledge Keeper
   - Always: Ward Sentinel (security)
   - Always: Pattern Weaver (quality)
+  - Always: Veil Piercer (truth)
 
 # Custom Ashes (from talisman.yml):
 for each custom in validated_custom_ash:
@@ -223,7 +224,7 @@ Check for project overrides in `.claude/talisman.yml`.
 
 **Apply `--focus` filter:** If `--focus <area>` is set, only summon Ash matching that area. See `roundtable-circle/references/circle-registry.md` for the focus-to-Ash mapping.
 
-**Apply `--max-agents` cap:** If `--max-agents N` is set, limit selected Ash to N. Priority order: Ward Sentinel > Forge Warden > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. (Codex Oracle is always lowest priority — dropped first when --max-agents caps apply, consistent with its conditional/optional nature.)
+**Apply `--max-agents` cap:** If `--max-agents N` is set, limit selected Ash to N. Priority order: Ward Sentinel > Forge Warden > Veil Piercer > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. (Codex Oracle is always lowest priority — dropped first when --max-agents caps apply, consistent with its conditional/optional nature.)
 
 **Large codebase warning:** If total reviewable files > 150:
 ```
@@ -234,6 +235,7 @@ limits what they can review. Some files may not be fully covered.
 **Audit file prioritization** (differs from review — prioritize by importance, not recency):
 - Forge Warden (max 30): entry points > core modules > utils > tests
 - Ward Sentinel (max 20): auth/security files > API routes > infrastructure > other
+- Veil Piercer (max 30): reviews all files (truth-telling — premise validation, production viability, consequences)
 - Pattern Weaver (max 30): largest files first (highest complexity risk)
 - Glyph Scribe (max 25): pages/routes > components > hooks > utils
 - Knowledge Keeper (max 25): README > CLAUDE.md > docs/ > other .md files
@@ -258,6 +260,7 @@ Ash to summon: {count} ({built_in_count} built-in + {custom_count} custom)
   Built-in:
   - Forge Warden:      {file_count} files (cap: 30)
   - Ward Sentinel:     {file_count} files (cap: 20)
+  - Veil Piercer:      {file_count} files (cap: 30)
   - Pattern Weaver:    {file_count} files (cap: 30)
   - Glyph Scribe:      {file_count} files (cap: 25)  [conditional]
   - Knowledge Keeper:  {file_count} files (cap: 25)  [conditional]
@@ -461,7 +464,7 @@ Task({
   name: "runebinder",
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/audit/{audit_id}/.
-    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > DOC > QUAL > FRONT > CDX).
+    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/audit/{audit_id}/TOME.md.
     Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.

@@ -9,7 +9,7 @@ rune-gaze:
   skip_patterns: ["**/migrations/**"]
   always_review: ["CLAUDE.md", ".claude/**/*.md"]
 
-# Custom Ashes — extend the built-in 6
+# Custom Ashes — extend the built-in 7
 ashes:
   custom:
     - name: "domain-logic-reviewer"
@@ -28,8 +28,8 @@ ashes:
       finding_prefix: "DOM"
 
 settings:
-  max_ashes: 8                   # Hard cap (6 built-in + custom)
-  dedup_hierarchy: [SEC, BACK, DOC, QUAL, FRONT, CDX]
+  max_ashes: 9                   # Hard cap (7 built-in + custom)
+  dedup_hierarchy: [SEC, BACK, VEIL, DOC, QUAL, FRONT, CDX]
 
 forge:                                 # Forge Gaze selection overrides
   threshold: 0.30                      # Score threshold (0.0-1.0)
@@ -81,6 +81,11 @@ work:
   # pr_template: default                 # Reserved for a future release (default | minimal)
   # auto_push: false                     # Reserved for a future release (auto-push without confirmation)
   co_authors: []                         # Co-Authored-By lines in "Name <email>" format
+
+inner_flame:
+  enabled: true                   # Kill switch (default: true)
+  block_on_fail: false            # Hook blocks on missing Self-Review Log (default: false = warn only)
+  confidence_floor: 60            # Prompt-enforced confidence minimum (default: 60)
 ```
 
 ## Platform Environment Configuration

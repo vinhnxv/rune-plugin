@@ -6,7 +6,7 @@
 
 Each review agent is embedded as a "perspective" inside an Ash. This registry defines which perspectives belong to which Ash and what file scopes they target.
 
-> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (18 agents across 3 Ashes). Glyph Scribe, Knowledge Keeper, and Codex Oracle use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
+> **Architecture note:** Forge Warden, Ward Sentinel, Pattern Weaver, and Veil Piercer embed dedicated review agent files from `agents/review/` (21 agents across 4 Ashes). Glyph Scribe, Knowledge Keeper, and Codex Oracle use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
 
 ### Forge Warden (Backend)
 
@@ -93,6 +93,17 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 **Context budget:** max 20 files (configurable via talisman)
 **Finding prefix:** `CDX`
 
+### Veil Piercer (Truth-Telling)
+
+| Agent | Perspective | Scope Priority |
+|-------|-------------|---------------|
+| reality-arbiter | Production viability, integration honesty | Entry points > services > new files |
+| assumption-slayer | Premise validation, cargo cult detection | Architecture files > config > domain logic |
+| entropy-prophet | Long-term consequences, hidden costs | Dependencies > abstractions > infrastructure |
+
+**Audit file priority:** entry points > new files > services > abstractions > infrastructure
+**Context budget:** max 30 files (all file types)
+
 ## Audit Scope Assignment
 
 During `/rune:audit`, each Ash receives a file list capped by its context budget. Files are assigned using the priority order above.
@@ -116,6 +127,7 @@ Some files may be reviewed by multiple Ash:
 | CI/CD configs | Ward Sentinel + Pattern Weaver |
 | Test files | Pattern Weaver + Forge Warden |
 | ALL files (when codex available) | Codex Oracle (cross-model perspective) |
+| ALL files | Veil Piercer (truth-telling perspective) |
 
 This is intentional — different perspectives catch different issues.
 
@@ -132,6 +144,7 @@ When `/rune:audit --focus <area>` is used, only summon the relevant Ash(s):
 | `docs` | Knowledge Keeper only |
 | `backend` | Forge Warden + Ward Sentinel |
 | `cross-model` | Codex Oracle only |
+| `truth` | Veil Piercer only |
 | `full` | All (default) |
 
 Focus mode increases context budget per Ash since fewer are competing for resources.

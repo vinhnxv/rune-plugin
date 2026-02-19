@@ -19,7 +19,7 @@
 
 2. **Cross-site scripting in template rendering**: Jinja2 `|safe` filter used on user-provided content without prior sanitization. Mark content as safe only AFTER explicit HTML escaping.
 
-3. **Dedup hierarchy works well**: SEC > BACK > DOC > QUAL hierarchy correctly promoted security findings over quality observations on the same code blocks.
+3. **Dedup hierarchy works well**: SEC > BACK > VEIL > DOC > QUAL hierarchy correctly promoted security findings over quality observations on the same code blocks.
 
 ## Inscribed — Performance Bottleneck Analysis (2026-01-20)
 

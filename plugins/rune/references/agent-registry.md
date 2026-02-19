@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 46 agents** (18 review + 5 research + 2 work + 9 utility + 8 investigation + 4 testing)
+**Total: 50 agents** (21 review + 5 research + 2 work + 10 utility + 8 investigation + 4 testing)
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 
@@ -24,6 +24,9 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | blight-seer | Design anti-patterns, God Service, leaky abstractions, temporal coupling |
 | forge-keeper | Data integrity, migration safety, reversibility, lock analysis, transaction boundaries |
 | tide-watcher | Async/concurrency patterns, waterfall awaits, unbounded concurrency, cancellation, race conditions |
+| reality-arbiter | Production viability truth-telling, deployment gaps, integration honesty |
+| assumption-slayer | Premise validation, cargo cult detection, problem-fit analysis |
+| entropy-prophet | Long-term consequence analysis, complexity trajectory, lock-in risks |
 
 ## Research Agents (`agents/research/`)
 
@@ -54,6 +57,7 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
+| veil-piercer-plan | Plan truth-telling (6-dimension analysis, PASS/CONCERN/BLOCK verdicts) |
 | horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
 
 ## Investigation Agents (`agents/investigation/`)

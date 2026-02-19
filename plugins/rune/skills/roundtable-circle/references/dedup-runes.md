@@ -22,8 +22,8 @@ If two Ash flag the same file within a 5-line range:
 **Default (built-in only):**
 
 ```
-Ward Sentinel > Forge Warden > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle
-SEC > BACK > DOC > QUAL > FRONT > CDX
+Ward Sentinel > Forge Warden > Veil Piercer > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle
+SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX
 ```
 
 When the same issue is found by multiple Ash:
@@ -44,10 +44,10 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 - If `settings.dedup_hierarchy` is defined in config, use it as-is (user controls the order)
 - If NOT defined, append custom prefixes AFTER built-in hierarchy (lowest priority):
   ```
-  SEC > BACK > DOC > QUAL > FRONT > CDX > {custom_1} > {custom_2} > ...
+  SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX > {custom_1} > {custom_2} > ...
   ```
 - Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
-- Reserved built-in prefixes: `SEC`, `BACK`, `QUAL`, `FRONT`, `DOC`, `CDX` — cannot be used by custom Ash
+- Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `QUAL`, `FRONT`, `DOC`, `CDX` — cannot be used by custom Ash
 
 ### Finding ID Prefixes
 
@@ -57,6 +57,7 @@ Each Ash uses a unique prefix for finding IDs:
 |-----------|--------|---------|------|
 | Ward Sentinel | `SEC-` | `SEC-001` | Built-in |
 | Forge Warden | `BACK-` | `BACK-001` | Built-in |
+| Veil Piercer | `VEIL-` | `VEIL-001` | Built-in |
 | Pattern Weaver | `QUAL-` | `QUAL-001` | Built-in |
 | Glyph Scribe | `FRONT-` | `FRONT-001` | Built-in |
 | Knowledge Keeper | `DOC-` | `DOC-001` | Built-in |
@@ -64,6 +65,18 @@ Each Ash uses a unique prefix for finding IDs:
 | *(custom)* | *from config* | e.g., `DOM-001` | Custom |
 
 Custom Ashes define their prefix in `talisman.yml` → `ashes.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Ashes.
+
+### Veil Piercer vs. Other Ashes
+
+Veil Piercer findings may CONTRADICT findings from other Ashes. This is intentional.
+
+| Scenario | Resolution |
+|----------|------------|
+| Forge Warden: PASS on architecture, Veil Piercer: wrong architecture | Keep BOTH — Tarnished decides |
+| Pattern Weaver: P2 YAGNI, Veil Piercer: P1 solving wrong problem | Veil Piercer wins (higher priority + higher severity) |
+| Ward Sentinel: SEC finding, Veil Piercer: security model is wrong | Keep BOTH — different scopes |
+
+Veil Piercer participates in the dedup hierarchy at position `SEC > BACK > VEIL > ...` for ordering and priority purposes. However, cross-Ash dedup (same-file, same-line suppression) rarely triggers for VEIL- findings because truth-telling operates at a different level of abstraction than technical review. A VEIL- finding about "this feature solves the wrong problem" and a BACK- finding about "this function has a null bug" on the same file are different perspectives, not duplicates. In the rare case of a genuine same-line overlap (e.g., both say "this code is unreachable"), VEIL wins over DOC/QUAL/FRONT/CDX but yields to SEC and BACK per the hierarchy.
 
 ### Dedup Algorithm
 

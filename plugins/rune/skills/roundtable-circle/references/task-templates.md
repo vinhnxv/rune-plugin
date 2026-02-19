@@ -54,6 +54,16 @@ TaskCreate({
 })
 ```
 
+### Veil Piercer (Truth-Telling)
+
+```
+TaskCreate({
+  subject: "Truth-telling review as Veil Piercer",
+  description: "Files: ALL changed files\nOutput: tmp/reviews/{id}/veil-piercer.md\nPerspectives: premise validation, production viability, long-term consequences\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
+  activeForm: "Truth-telling review in progress"
+})
+```
+
 ### Codex Oracle (Cross-Model)
 
 ```
@@ -81,7 +91,7 @@ Identical to review mode except:
 ```
 TaskCreate({
   subject: "Aggregate findings into TOME",
-  description: "Read all Ash output files from {output_dir}. Deduplicate using hierarchy (SEC > BACK > DOC > QUAL > FRONT > CDX). Write TOME.md with unified findings sorted by priority.",
+  description: "Read all Ash output files from {output_dir}. Deduplicate using hierarchy (SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX). Write TOME.md with unified findings sorted by priority.",
   activeForm: "Aggregating findings into TOME"
 })
 ```
@@ -121,6 +131,7 @@ Task({
 # Independent (run in parallel)
 forge-warden    ─┐
 ward-sentinel   ─┤
+veil-piercer    ─┤
 pattern-weaver  ─┤── All complete ──► runebinder ──► truthsight-verifier
 glyph-scribe    ─┤
 knowledge-keeper ─┤

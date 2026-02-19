@@ -290,6 +290,7 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
     fi
   fi
 
+
   # Build arc prompt (v1.42.2 FIX: bypass slash command — use direct SKILL.md read)
   # Root cause: `claude -p "/rune:arc ..."` does not reliably trigger skill invocation
   # in headless prompt mode. The LLM receives the slash command as prose and responds

@@ -25,8 +25,8 @@ a single TOME.md summary.
 When the same file + line range (5-line window) is flagged by multiple Ash:
 
 Priority order (highest first):
-  SEC > BACK > DOC > QUAL > FRONT > CDX
-  (Ward Sentinel > Forge Warden > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle)
+  SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX
+  (Ward Sentinel > Forge Warden > Veil Piercer > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle)
 
 Rules:
 - Same file + overlapping lines → keep higher-priority Ash's finding
@@ -212,7 +212,7 @@ dedup key = (finding.file, lineBucket(finding.line, 5), finding.category)
 // chunk attribute is NOT part of the key — dedup operates across chunks
 ```
 
-Priority order remains: `SEC > BACK > DOC > QUAL > FRONT > CDX`
+Priority order remains: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`
 
 After dedup, the winning finding retains its `chunk` attribute for traceability.
 

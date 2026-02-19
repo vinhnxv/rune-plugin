@@ -46,13 +46,14 @@ Phase 6: Verify          → Truthsight validation on P1 findings
 Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
 ```
 
-### Built-in Ash Roles (Max 6)
+### Built-in Ash Roles (Max 7)
 
 | Ash | Role | When Selected | Perspectives |
 |-----------|------|---------------|-------------|
 | **Forge Warden** | Backend review | Backend files changed | Architecture, performance, logic bugs, duplication |
 | **Ward Sentinel** | Security review | Every review | Vulnerabilities, auth, injection, OWASP |
 | **Pattern Weaver** | Quality patterns | Every review | Simplicity, TDD, dead code, pattern consistency |
+| **Veil Piercer** | Truth-telling review | Every review | Premise validation, production viability, long-term consequences |
 | **Glyph Scribe** | Frontend review | Frontend files changed | TypeScript safety, React performance, accessibility |
 | **Knowledge Keeper** | Docs review | Docs changed (>= 10 lines) | Accuracy, completeness, anti-injection |
 | **Codex Oracle** | Cross-model review | `codex` CLI available | Cross-model security, logic, quality (GPT-5.3-codex) |
@@ -69,7 +70,7 @@ Projects can register additional Ash from local agents, global agents, or other 
 - **Verified** by Truthsight (if `settings.verification.layer_2_custom_agents: true`)
 - **Aggregated** into TOME.md by Runebinder
 
-**Max total:** 6 built-in + up to 2 custom = 8 Ashes (configurable via `settings.max_ashes`). The cap exists because each Ash output (~10k tokens) consumes verifier context budget. Custom Ash ceiling: 2 (total max: 8 = 6 built-in + 2 custom). Increased from 5+3 in v1.17.0 to 6+2 in v1.18.0.
+**Max total:** 7 built-in + up to 2 custom = 9 Ashes (configurable via `settings.max_ashes`). The cap exists because each Ash output (~10k tokens) consumes verifier context budget. Custom Ash ceiling: 2 (total max: 9 = 7 built-in + 2 custom). Increased from 5+3 in v1.17.0 to 6+2 in v1.18.0, then to 7+2 in v1.43.0 (Veil Piercer).
 
 **Migration note (v1.18.0):** Custom Ash ceiling reduced from 3 to 2 due to Codex Oracle addition. Projects using 3 custom Ashes should reduce to 2 or disable Codex Oracle via `talisman.codex.disabled: true`.
 
@@ -83,6 +84,7 @@ tmp/reviews/{id}/
 ├── forge-warden.md          # Backend review findings
 ├── ward-sentinel.md         # Security review findings
 ├── pattern-weaver.md        # Quality patterns findings
+├── veil-piercer.md          # Truth-telling findings
 ├── glyph-scribe.md          # Frontend review findings (if summoned)
 ├── knowledge-keeper.md      # Docs review findings (if summoned)
 ├── codex-oracle.md          # Cross-model review findings (if codex CLI available)
@@ -162,6 +164,7 @@ See [Rune Gaze](references/rune-gaze.md) for the full file classification algori
 | Unclassified (not skip, not any group) | Forge Warden (catch-all) |
 | ALL files | Ward Sentinel (always) |
 | ALL files | Pattern Weaver (always) |
+| ALL files | Veil Piercer (always) |
 
 ## Phase 2: Forge Team
 

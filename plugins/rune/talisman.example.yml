@@ -4,7 +4,7 @@
 # Resolution order:
 #   1. .claude/talisman.yml   (project, highest priority)
 #   2. ~/.claude/talisman.yml (user global)
-#   3. Plugin defaults           (6 built-in Ashes)
+#   3. Plugin defaults           (7 built-in Ashes)
 
 version: 1
 
@@ -55,7 +55,7 @@ rune-gaze:
     - ".claude/**/*.md"
 
 # ──────────────────────────────────────────────
-# Custom Ashes — Extend the built-in 6
+# Custom Ashes — Extend the built-in 7
 # ──────────────────────────────────────────────
 # Each custom Ash joins the Roundtable Circle lifecycle:
 #   - Gets a Truthbinding wrapper prompt (evidence, Seal, Glyph Budget)
@@ -136,15 +136,16 @@ ashes:
 # ──────────────────────────────────────────────
 settings:
   # Hard cap on total Ash (built-in + custom)
-  # Max recommended: 8 (verifier context budget constraint)
-  max_ashes: 8
+  # Max recommended: 9 (verifier context budget constraint)
+  max_ashes: 9
 
   # Extended dedup hierarchy — higher = wins on conflict
   # Must include ALL active prefixes (built-in + custom)
-  # Built-in prefixes: SEC, BACK, DOC, QUAL, FRONT, CDX
+  # Built-in prefixes: SEC, BACK, VEIL, DOC, QUAL, FRONT, CDX
   dedup_hierarchy:
     - SEC          # Ward Sentinel (always highest)
     - BACK         # Forge Warden
+    - VEIL         # Veil Piercer (truth-telling)
     - API          # Custom: api-contract-reviewer
     - DOM          # Custom: domain-logic-reviewer
     - PERF         # Custom: perf-deep-scan
@@ -163,7 +164,8 @@ settings:
 # Use this to turn off a built-in Ash you've replaced with a custom one
 defaults:
   disable_ashes: []
-  # Example: disable_ashes: ["knowledge-keeper"]
+  # Example: disable_ashes: ["knowledge-keeper", "veil-piercer"]
+  # Valid names: forge-warden, ward-sentinel, veil-piercer, pattern-weaver, glyph-scribe, knowledge-keeper, codex-oracle
 
 # ──────────────────────────────────────────────
 # Forge — Forge Gaze selection overrides (forge runs by default)
@@ -456,6 +458,17 @@ horizon:
 #     startup_command: null         # Override auto-detection (e.g., "bin/dev", "docker compose up -d")
 #     health_endpoint: null         # Override health check endpoint (e.g., "/api/health")
 #     startup_timeout: 120000      # Max wait for service readiness in ms (default: 120000)
+
+# ──────────────────────────────────────────────
+# Inner Flame — Self-review protocol (v1.46.0+)
+# ──────────────────────────────────────────────
+# Universal 3-layer self-review (Grounding, Completeness, Self-Adversarial)
+# for all Rune teammates. Enforced via prompt instructions + optional
+# TaskCompleted hook (validate-inner-flame.sh).
+# inner_flame:
+#   enabled: true                  # Kill switch — disables Inner Flame prompts globally (default: true)
+#   block_on_fail: false           # TaskCompleted hook exits 2 (blocking) when Self-Review Log missing (default: false = warn only)
+#   confidence_floor: 60           # Prompt-enforced: teammates with post-review confidence below this report blocker instead of completing (default: 60, not hook-enforced)
 
 # ──────────────────────────────────────────────
 # Codex Oracle — Cross-model verification (v1.18.0+)

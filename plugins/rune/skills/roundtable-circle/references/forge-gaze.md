@@ -50,6 +50,9 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 | tide-watcher | async, concurrency, await, waterfall, race-condition, cancellation, semaphore, timer, cleanup, structured-concurrency, promise, goroutine, tokio, asyncio | Async & Concurrency Analysis | async correctness, concurrency patterns, and race condition detection |
 | refactor-guardian | refactor, extract, move, rename, split, migration, reorganize, restructure | Refactoring Integrity Analysis | refactoring completeness, orphaned callers, and extraction verification |
 | reference-validator | imports, references, paths, config, frontmatter, version, manifest, cross-reference, validation | Reference & Configuration Integrity | import path validation, config-to-source references, frontmatter schema, and version sync |
+| reality-arbiter | production, deployment, production-readiness, viability, realistic, monitoring, operational, live-traffic, deployment-gap | Production Viability Analysis | production readiness and integration honesty |
+| assumption-slayer | assumptions, premise, justification, rationale, why, problem-fit, cargo-cult, fashion, hype, trend | Assumption Challenge | premise validation and cargo cult detection |
+| entropy-prophet | maintenance, long-term, debt, lock-in, vendor, dependency-trajectory, evolution, future, entropy, cost, burden | Long-term Consequence Analysis | hidden costs, complexity trajectory, and lock-in risks |
 
 ### Research Agents (Research Budget)
 
@@ -285,7 +288,7 @@ Forge Gaze — Agent Selection
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Plan sections: 6
-Agents available: 22 built-in (18 review + 2 research + 2 utility) + custom
+Agents available: 25 built-in (21 review + 2 research + 2 utility) + custom
 Methods available: 7 (via elicitation-sage agent — MAX_FORGE_SAGES = 6 cap, keyword pre-filtered)
 
 Section: "Technical Approach"

@@ -99,6 +99,14 @@ work:
   co_authors: []
 
 # ──────────────────────────────────────────────
+# Inner Flame — Self-review protocol (v1.46.0+)
+# ──────────────────────────────────────────────
+inner_flame:
+  enabled: true
+  block_on_fail: false
+  confidence_floor: 60
+
+# ──────────────────────────────────────────────
 # Forge — Forge Gaze selection overrides
 # ──────────────────────────────────────────────
 # Defaults are fine for this project. Uncomment to override.

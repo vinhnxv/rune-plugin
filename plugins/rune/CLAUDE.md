@@ -28,9 +28,9 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 
 | Command | Description |
 |---------|-------------|
-| `/rune:review` | Multi-agent code review with up to 6 built-in Ashes (+ custom from talisman.yml) |
+| `/rune:review` | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
-| `/rune:audit` | Full codebase audit with up to 6 built-in Ashes (+ custom from talisman.yml) |
+| `/rune:audit` | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
 | `/rune:plan` | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
@@ -142,7 +142,7 @@ echo "Commands: $(find plugins/rune/commands -name '*.md' -not -path '*/referenc
 
 ## References
 
-- [Agent registry](references/agent-registry.md) — 18 review + 5 research + 2 work + 9 utility + 8 investigation + 4 testing agents
+- [Agent registry](references/agent-registry.md) — 21 review + 5 research + 2 work + 10 utility + 8 investigation + 4 testing agents
 - [Key concepts](references/key-concepts.md) — Tarnished, Ash, TOME, Arc, Mend, Forge Gaze, Echoes
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow
