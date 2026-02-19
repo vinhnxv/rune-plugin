@@ -152,8 +152,12 @@ may use `workspace-write` in the future (currently read-only).
 ### Standard Invocation (with jq)
 
 ```bash
-# Timeouts resolved via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+# Pre-execution setup (resolve timeouts + initialize stderr capture)
+# Timeouts: { CODEX_TIMEOUT, CODEX_STREAM_IDLE_MS, KILL_AFTER_FLAG } = resolveCodexTimeouts(talisman)
+# See codex-detection.md § "Timeout Resolution" for bounds: 30–3600s timeout, 10–(timeout-1) stream_idle
 # Security pattern: CODEX_TIMEOUT_ALLOWLIST — see security-patterns.md
+STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
+trap 'rm -f "${STDERR_FILE}"' EXIT
 timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
   -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   --config model_reasoning_effort="${CODEX_REASONING:-high}" \
@@ -171,7 +175,9 @@ if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${STDE
 ### Fallback Invocation (no jq)
 
 ```bash
-# Timeouts resolved via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+# Pre-execution setup (same as Standard Invocation above)
+STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
+trap 'rm -f "${STDERR_FILE}"' EXIT
 timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
   -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   --config model_reasoning_effort="${CODEX_REASONING:-high}" \
@@ -229,7 +235,9 @@ diff_content = Read("tmp/reviews/${ID}/codex-diff-batch-${N}-truncated.patch")
 nonce = random_hex(4)  # Unique boundary per invocation (SEC-004)
 
 # 4. Invoke with diff-focused prompt
-# Timeouts resolved via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+# Pre-execution setup (same as Standard Invocation above — STDERR_FILE via mktemp)
+# Timeouts resolved via resolveCodexTimeouts() — bounds: 30–3600s timeout, 10–(timeout-1) stream_idle
+STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
 timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
   -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   --config model_reasoning_effort="${CODEX_REASONING:-high}" \

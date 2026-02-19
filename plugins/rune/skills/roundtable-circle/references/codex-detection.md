@@ -73,9 +73,10 @@ function resolveCodexTimeouts(talisman) {
   }
 
   let streamIdleTimeout = parseInt(String(raw_stream), 10)
-  if (!Number.isFinite(streamIdleTimeout) || streamIdleTimeout < 10 || streamIdleTimeout > timeout) {
-    warn(`codex.stream_idle_timeout=${raw_stream} out of range [10,${timeout}] — using default ${timeout - 60}`)
-    streamIdleTimeout = Math.max(10, timeout - 60)
+  if (!Number.isFinite(streamIdleTimeout) || streamIdleTimeout < 10 || streamIdleTimeout >= timeout) {
+    const clamped = Math.max(10, timeout - 60)
+    warn(`codex.stream_idle_timeout=${raw_stream} out of range [10,${timeout - 1}] — using clamped default ${clamped}`)
+    streamIdleTimeout = clamped
   }
 
   // Convert to milliseconds for --config stream_idle_timeout_ms
@@ -115,7 +116,7 @@ user-facing message so the user knows how to fix it:
 // Matches patterns top-to-bottom; first match wins.
 function classifyCodexError(exitCode, stderr) {
   const stderrLower = (stderr || "").toLowerCase().slice(0, 500)
-  if (stderrLower.match(/not authenticated|auth/))           return { code: "AUTH", ... }
+  if (stderrLower.match(/not authenticated|unauthenticated|auth.*(fail|requir|error)/)) return { code: "AUTH", ... }
   if (stderrLower.match(/rate limit|429/))                   return { code: "RATE_LIMIT", ... }
   if (stderrLower.match(/model not found|invalid model/))    return { code: "MODEL", ... }
   if (stderrLower.match(/network|connection|econ/))          return { code: "NETWORK", ... }

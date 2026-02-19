@@ -584,17 +584,18 @@ if (codexAvailable && !codexDisabled) {
       run_in_background: true
     })
 
-    // Monitor: wait for codex-advisory to complete (max 11 min)
+    // Monitor: wait for codex-advisory to complete (codex timeout + 60s buffer)
     // NOTE: Uses inline polling (not waitForCompletion) because this monitors a SPECIFIC
     // task by name, not a count of completed tasks. waitForCompletion is count-based.
     const codexStart = Date.now()
-    const CODEX_MONITOR_TIMEOUT = 660_000  // 11 min — outer timeout + 60s buffer
+    const { timeout: resolvedTimeout } = resolveCodexTimeouts(talisman)  // see codex-detection.md
+    const CODEX_MONITOR_TIMEOUT = (resolvedTimeout * 1000) + 60_000  // outer timeout + 60s buffer
     while (true) {
       const tasks = TaskList()
       const codexTask = tasks.find(t => t.subject?.includes("Codex Advisory"))
       if (codexTask?.status === "completed") break
       if (Date.now() - codexStart > CODEX_MONITOR_TIMEOUT) {
-        warn("Codex Advisory: teammate timeout after 11 min -- proceeding without advisory")
+        warn(`Codex Advisory: teammate timeout after ${Math.round(CODEX_MONITOR_TIMEOUT/60000)} min -- proceeding without advisory`)
         break
       }
       sleep(15_000)
