@@ -134,6 +134,12 @@ if (integrationEnabled || e2eEnabled) {
     warn("Services not healthy — skipping integration/E2E tiers")
   }
   Bash(`mkdir -p tmp/arc/${id}/screenshots/`)
+  // T4: Verify screenshot dir is not a symlink (defense-in-depth against path traversal)
+  const screenshotDir = `tmp/arc/${id}/screenshots`
+  if (Bash(`test -L "${screenshotDir}" && echo symlink`).trim() === 'symlink') {
+    Bash(`rm -f "${screenshotDir}" && mkdir -p "${screenshotDir}"`)
+    warn("Screenshot directory was a symlink — recreated as real directory")
+  }
 }
 
 // ═══════════════════════════════════════════════════════

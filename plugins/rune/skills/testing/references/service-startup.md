@@ -6,6 +6,9 @@
 Detection order (first match wins):
 
 1. docker-compose.yml / compose.yml exists
+   → T3 path traversal guard: canonicalize path before use
+     composePath = Bash(`realpath --relative-base="$(pwd)" docker-compose.yml 2>/dev/null || realpath --relative-base="$(pwd)" compose.yml 2>/dev/null`)
+     if composePath starts with "/" or contains ".." → reject with error ("Docker Compose path traversal detected")
    → docker compose up -d --wait
    → Hard timeout: 3 minutes
 

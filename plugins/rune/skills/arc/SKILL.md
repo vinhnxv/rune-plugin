@@ -1255,7 +1255,7 @@ prePhaseCleanup(checkpoint)
 
 ```javascript
 // Skip gate
-if (flags.noTest || talisman?.testing?.enabled === false) {
+if (flags.no_test || talisman?.testing?.enabled === false) {
   checkpoint.phases.test.status = "skipped"
   checkpoint.phases.test.artifact = null
   // Proceed to Phase 8
@@ -1535,7 +1535,7 @@ try {
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
-| Schema v1-v6 checkpoint on --resume | Auto-migrate to v7 |
+| Schema v1-v8 checkpoint on --resume | Auto-migrate to v9 (adds goldmask + test phases) |
 | Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |
 | Convergence evaluation timeout (>4 min) | Skip convergence check, proceed to audit with warning |
 | TOME missing or malformed after re-review | Default to "halted" (fail-closed) |
