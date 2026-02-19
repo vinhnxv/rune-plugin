@@ -274,6 +274,15 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 /rune:echoes reset    # Clear all echoes (with backup)
 ```
 
+### Echo Search (MCP Server)
+
+An optional MCP server provides FTS5 full-text search over echo entries, enabling agents to query memories by keyword instead of reading files sequentially.
+
+- **Auto-configured** via `.mcp.json` — no manual setup required
+- **Auto-indexed** via `annotate-hook.sh` — writes to `.claude/echoes/` trigger a dirty signal for re-indexing
+- **SQLite FTS5** — BM25 ranking with stopword filtering for relevant results
+- **Toggle**: Set `echoes.fts_enabled: false` in `talisman.yml` to disable the MCP server. The `echo-reader` agent falls back to file-based reading automatically.
+
 ## Ash
 
 | Ash | Role | When Active |
@@ -468,30 +477,44 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 plugins/rune/
 ├── .claude-plugin/
 │   └── plugin.json
+├── .mcp.json                # MCP server configuration (Echo Search)
 ├── agents/
-│   ├── investigation/   # 8 impact/wisdom/lore agents (Goldmask v2)
-│   ├── review/          # 18 review agents
-│   │   └── references/  # Shared review checklists
-│   ├── research/        # 5 research agents (plan pipeline)
-│   ├── work/            # 2 swarm workers (work pipeline)
-│   └── utility/         # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage
+│   ├── investigation/       # 8 impact/wisdom/lore agents (Goldmask v2)
+│   ├── review/              # 18 review agents
+│   │   └── references/      # Shared review checklists
+│   ├── research/            # 5 research agents (plan pipeline)
+│   ├── work/                # 2 swarm workers (work pipeline)
+│   └── utility/             # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage
 ├── commands/
-│   ├── cancel-arc.md    # /rune:cancel-arc
-│   ├── forge.md         # /rune:forge
-│   ├── mend.md          # /rune:mend
-│   ├── plan.md          # /rune:plan
-│   ├── work.md          # /rune:work
-│   ├── review.md        # /rune:review
-│   ├── cancel-review.md # /rune:cancel-review
-│   ├── audit.md         # /rune:audit
-│   ├── cancel-audit.md  # /rune:cancel-audit
-│   ├── elicit.md        # /rune:elicit
-│   ├── echoes.md        # /rune:echoes
-│   └── rest.md          # /rune:rest
+│   ├── cancel-arc.md        # /rune:cancel-arc
+│   ├── forge.md             # /rune:forge
+│   ├── mend.md              # /rune:mend
+│   ├── plan.md              # /rune:plan
+│   ├── work.md              # /rune:work
+│   ├── review.md            # /rune:review
+│   ├── cancel-review.md     # /rune:cancel-review
+│   ├── audit.md             # /rune:audit
+│   ├── cancel-audit.md      # /rune:cancel-audit
+│   ├── elicit.md            # /rune:elicit
+│   ├── echoes.md            # /rune:echoes
+│   └── rest.md              # /rune:rest
+├── hooks/
+│   └── hooks.json           # Event hooks (PreToolUse, PostToolUse, SessionStart, etc.)
+├── references/              # Shared reference docs
+│   ├── agent-registry.md
+│   ├── configuration-guide.md
+│   ├── key-concepts.md
+│   └── session-handoff.md
+├── scripts/
+│   └── echo-search/         # Echo Search MCP server
+│       ├── server.py         # MCP server (FTS5 full-text search)
+│       ├── indexer.py         # Echo entry parser and indexer
+│       └── annotate-hook.sh   # PostToolUse hook for dirty signal
 ├── skills/
 │   ├── arc/                 # /rune:arc (end-to-end pipeline)
 │   │   ├── SKILL.md
 │   │   └── references/      # Arc-specific phase refs, delegation checklist
+│   ├── arc-batch/           # /rune:arc-batch (sequential batch execution)
 │   ├── ash-guide/           # Agent reference
 │   ├── chome-pattern/       # CLAUDE_CONFIG_DIR resolution
 │   ├── codex-cli/           # Codex CLI integration
@@ -505,8 +528,10 @@ plugins/rune/
 │   ├── rune-echoes/         # Smart Memory Lifecycle
 │   ├── rune-orchestration/  # Core coordination
 │   │   └── references/      # e.g. team-lifecycle-guard.md
+│   ├── using-rune/          # Workflow discovery and intent routing
 │   └── zsh-compat/          # zsh shell compatibility
 ├── talisman.example.yml
+├── CHANGELOG.md
 ├── CLAUDE.md
 ├── LICENSE
 └── README.md
