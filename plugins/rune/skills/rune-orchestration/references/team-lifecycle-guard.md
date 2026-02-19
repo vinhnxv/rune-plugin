@@ -105,9 +105,9 @@ Three hooks provide defense-in-depth alongside the inlined teamTransition protoc
 
 | Hook ID | Event | Script | Purpose |
 |---------|-------|--------|---------|
-| TLC-001 | PreToolUse:TeamCreate | enforce-team-lifecycle.sh | Name validation (hard block) + stale detection (advisory) + auto fs cleanup |
-| TLC-002 | PostToolUse:TeamDelete | verify-team-cleanup.sh | Zombie dir detection (informational) |
-| TLC-003 | SessionStart:startup | session-team-hygiene.sh | Orphan scan + stale state file detection |
+| TLC-001 | PreToolUse:TeamCreate | enforce-team-lifecycle.sh | Name validation (hard block) + stale detection (advisory) + auto fs cleanup + advisory context injection |
+| TLC-002 | PostToolUse:TeamDelete | verify-team-cleanup.sh | Zombie dir detection (informational, stdout) |
+| TLC-003 | SessionStart:startup\|resume | session-team-hygiene.sh | Orphan scan + stale state file detection |
 
 **Interaction with teamTransition**: The hooks SUPPLEMENT the inlined protocol — they do not replace it.
 TLC-001 fires at teamTransition's Step 4 (TeamCreate call). By this point, Steps 2-3 have already

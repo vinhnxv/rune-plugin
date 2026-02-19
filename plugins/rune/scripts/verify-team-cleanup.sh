@@ -29,7 +29,11 @@ if [[ "$TOOL_NAME" != "TeamDelete" ]]; then
   exit 0
 fi
 
+# SEC-2 NOTE: CWD not extracted — TLC-002 operates only on $CHOME paths.
+# If adding CWD-relative operations, add canonicalization guard (see TLC-001 lines 36-41).
+
 # Check for remaining rune-*/arc-* team dirs
+# CHOME: CLAUDE_CONFIG_DIR pattern (multi-account support)
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 # FIX-1: CHOME absoluteness guard
@@ -44,6 +48,9 @@ if [[ -d "$CHOME/teams/" ]]; then
     if [[ "$dirname" =~ ^[a-zA-Z0-9_-]+$ ]] && [[ ! -L "$dir" ]]; then
       remaining+=("$dirname")
     fi
+  # QUAL-003 NOTE: No -mmin filter — after TeamDelete, report ALL remaining dirs (informational).
+  # Unlike TLC-001/003 which use -mmin +30 threshold, TLC-002 shows everything since
+  # PostToolUse cannot block and you want to know about ANY residual dirs post-delete.
   done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) 2>/dev/null)
 fi
 

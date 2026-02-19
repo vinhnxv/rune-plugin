@@ -264,15 +264,17 @@ arc:
     uncommitted_changes: true    # Check for uncommitted changes
     migration_paths: []          # Additional paths to scan for migration conflicts (e.g., ["db/migrate/", "alembic/versions/"])
 
-  # ── Batch settings (v1.42.0+) ──
-  # Defaults for /rune:arc-batch. V1 uses hardcoded defaults below.
-  # Uncomment to override when V1.1 talisman support is added.
-  # batch:
-  #   max_retries: 3             # Retry count per plan (default: 3)
-  #   max_budget: 15.0           # Max budget per arc run in USD (default: 15.0)
-  #   max_turns: 200             # Max turns per arc run (default: 200)
-  #   total_timeout: null        # Total batch timeout in ms (default: none)
-  #   stop_on_divergence: false  # Stop if main diverges between runs (default: false)
+  # ── Batch settings (v1.42.0+, talisman support v1.49.0+) ──
+  # Per-plan and batch-level limits for /rune:arc-batch.
+  # 3-layer priority: hardcoded defaults → talisman.yml → (future CLI flags).
+  batch:
+    auto_merge: true           # Auto-merge PRs after each arc run (default: true, CLI --no-merge overrides)
+    max_retries: 3             # Retry count per plan (default: 3, range: 1-10)
+    max_budget: 15.0           # Max budget per arc run in USD (default: 15.0, range: 1.0-100.0)
+    max_turns: 200             # Max turns per arc run (default: 200, range: 50-1000)
+    total_budget: null         # Total batch budget in USD (default: null = no limit, range: 1.0-500.0)
+    total_timeout: null        # Total batch timeout in ms (default: null = no limit)
+    stop_on_divergence: false  # Stop batch if main diverges between runs (default: false)
 
   # ── Per-phase timeout overrides (v1.12.0+, activated v1.40.0) ──
   # Values in milliseconds. Per-phase budgets feed calculateDynamicTimeout().

@@ -25,6 +25,9 @@ NO_MERGE=$(jq -r '.no_merge // false' "$CONFIG_FILE")
 MAX_RETRIES=$(jq -r '.max_retries // 3' "$CONFIG_FILE")
 MAX_BUDGET=$(jq -r '.max_budget // 15.0' "$CONFIG_FILE")
 MAX_TURNS=$(jq -r '.max_turns // 200' "$CONFIG_FILE")
+TOTAL_BUDGET=$(jq -r '.total_budget // "null"' "$CONFIG_FILE")
+TOTAL_TIMEOUT=$(jq -r '.total_timeout // "null"' "$CONFIG_FILE")
+STOP_ON_DIVERGENCE=$(jq -r '.stop_on_divergence // false' "$CONFIG_FILE")
 
 # SEC-002 FIX: Validate config values before use in shell commands
 [[ "$PLANS_FILE" =~ ^[a-zA-Z0-9._/-]+$ ]] || { echo "[arc-batch] ERROR: Invalid plans_file path" >&2; exit 1; }
@@ -33,9 +36,13 @@ MAX_TURNS=$(jq -r '.max_turns // 200' "$CONFIG_FILE")
 [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || MAX_RETRIES=3
 [[ "$MAX_BUDGET" =~ ^[0-9]+\.?[0-9]*$ ]] || MAX_BUDGET=15.0
 [[ "$MAX_TURNS" =~ ^[0-9]+$ ]] || MAX_TURNS=200
+[[ "$TOTAL_BUDGET" == "null" || "$TOTAL_BUDGET" =~ ^[0-9]+\.?[0-9]*$ ]] || TOTAL_BUDGET="null"
+[[ "$TOTAL_TIMEOUT" == "null" || "$TOTAL_TIMEOUT" =~ ^[0-9]+$ ]] || TOTAL_TIMEOUT="null"
+[[ "$STOP_ON_DIVERGENCE" == "true" || "$STOP_ON_DIVERGENCE" == "false" ]] || STOP_ON_DIVERGENCE=false
 
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BATCH_START=$(date +%s)
+BATCH_SPEND=0  # Track cumulative spend across plans (for total_budget)
 CURRENT_PID=0
 CLEANING_UP=false
 
@@ -245,6 +252,44 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
   # Git health check before each arc run (depth-seer recommendation)
   pre_run_git_health
 
+  # ── Batch-level guards (v1.49.0: talisman support) ──
+
+  # Total budget guard
+  if [[ "$TOTAL_BUDGET" != "null" ]]; then
+    BUDGET_EXCEEDED=$(awk "BEGIN { print ($BATCH_SPEND >= $TOTAL_BUDGET) ? 1 : 0 }")
+    if [[ "$BUDGET_EXCEEDED" -eq 1 ]]; then
+      echo "  BUDGET LIMIT: Batch spend (\$${BATCH_SPEND}) reached total_budget (\$${TOTAL_BUDGET}). Stopping."
+      update_progress "$INDEX" "failed" "Batch total_budget exceeded"
+      FAILED=$((FAILED + 1))
+      break
+    fi
+  fi
+
+  # Total timeout guard
+  if [[ "$TOTAL_TIMEOUT" != "null" ]]; then
+    ELAPSED_MS=$(( ($(date +%s) - BATCH_START) * 1000 ))
+    if [[ "$ELAPSED_MS" -ge "$TOTAL_TIMEOUT" ]]; then
+      echo "  TIMEOUT: Batch elapsed (${ELAPSED_MS}ms) reached total_timeout (${TOTAL_TIMEOUT}ms). Stopping."
+      update_progress "$INDEX" "failed" "Batch total_timeout exceeded"
+      FAILED=$((FAILED + 1))
+      break
+    fi
+  fi
+
+  # Main divergence guard
+  if [[ "$STOP_ON_DIVERGENCE" == "true" && "$COMPLETED" -gt 0 ]]; then
+    local_head=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+    default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@') \
+      || default_branch="main"
+    remote_head=$(git ls-remote origin "refs/heads/$default_branch" 2>/dev/null | cut -f1 || echo "unknown")
+    if [[ "$local_head" != "$remote_head" && "$remote_head" != "unknown" ]]; then
+      echo "  DIVERGENCE: Local HEAD ($local_head) != remote $default_branch ($remote_head). Stopping."
+      update_progress "$INDEX" "failed" "Main branch diverged (stop_on_divergence)"
+      FAILED=$((FAILED + 1))
+      break
+    fi
+  fi
+
   # Build arc prompt (v1.42.2 FIX: bypass slash command — use direct SKILL.md read)
   # Root cause: `claude -p "/rune:arc ..."` does not reliably trigger skill invocation
   # in headless prompt mode. The LLM receives the slash command as prose and responds
@@ -356,6 +401,10 @@ IMPORTANT:
 
     COMPLETED=$((COMPLETED + 1))
     echo "  Completed in ${RUN_DURATION}s"
+
+    # Track cumulative spend (estimate from per-run max_budget as upper bound)
+    # Actual spend would require claude CLI cost reporting — use max_budget as conservative estimate
+    BATCH_SPEND=$(awk "BEGIN { printf \"%.2f\", $BATCH_SPEND + $MAX_BUDGET }")
 
     # Inter-run cleanup: checkout main, pull, clean state
     CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")

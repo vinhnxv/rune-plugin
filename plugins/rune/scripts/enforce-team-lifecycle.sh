@@ -18,8 +18,18 @@ set -euo pipefail
 umask 077
 
 # ── GUARD 1: jq dependency ──
+# SEC-3 FIX: When jq is missing, perform basic team name validation with pure bash
+# instead of silently allowing all names. SDK also validates, so this is defense-in-depth.
 if ! command -v jq &>/dev/null; then
-  echo "WARNING: jq not found — enforce-team-lifecycle.sh hook is inactive" >&2
+  echo "WARNING: jq not found — enforce-team-lifecycle.sh using fallback validation" >&2
+  # Best-effort: extract team_name from raw JSON input using grep/sed
+  RAW_INPUT=$(head -c 1048576)
+  RAW_NAME=$(echo "$RAW_INPUT" | grep -o '"team_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"team_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+  if [[ -n "$RAW_NAME" ]] && [[ ! "$RAW_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "TLC-001: BLOCKED — invalid team name (jq-free fallback validation)" >&2
+    # Output deny JSON manually (no jq available)
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"TLC-001: Invalid team name (jq-free fallback). Names must match /^[a-zA-Z0-9_-]+$/."}}\n'
+  fi
   exit 0
 fi
 
@@ -27,6 +37,8 @@ fi
 INPUT=$(head -c 1048576)
 
 # ── GUARD 3: Tool name match (fast path) ──
+# SEC-5 NOTE: Exact string match here provides defense-in-depth against any
+# SDK matcher ambiguity (hooks.json "TeamCreate" matcher is regex-based).
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 if [[ "$TOOL_NAME" != "TeamCreate" ]]; then
   exit 0
@@ -35,7 +47,10 @@ fi
 # ── GUARD 4: CWD canonicalization (QUAL-5) ──
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then exit 0; fi
-CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || {
+  [[ "${RUNE_TRACE:-}" == "1" ]] && echo "TLC-001: CWD canonicalization failed for original CWD" >> /tmp/rune-hook-trace.log
+  exit 0
+}
 if [[ -z "$CWD" || "$CWD" != /* ]]; then exit 0; fi
 
 # ── EXTRACT: team_name from tool_input (single-pass jq) ──
@@ -49,7 +64,8 @@ fi
 if [[ ! "$TEAM_NAME" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ "$TEAM_NAME" == *".."* ]]; then
   # Sanitize team name for JSON output — strip chars that break JSON
   # SEC-002 FIX: Dash at end of tr charset to avoid ambiguous range interpretation
-  SAFE_NAME=$(printf '%s' "${TEAM_NAME:0:64}" | tr -cd 'a-zA-Z0-9 ._-')
+  # QUAL-012 FIX: Exclude '.' from sanitization charset — prevents '..' in error messages
+  SAFE_NAME=$(printf '%s' "${TEAM_NAME:0:64}" | tr -cd 'a-zA-Z0-9 _-')
   # BACK-004 FIX: Fallback for empty SAFE_NAME (team name was ALL special chars)
   SAFE_NAME="${SAFE_NAME:-<invalid>}"
   # SEC-001 FIX: Use jq --arg for JSON-safe output instead of unquoted heredoc
@@ -87,6 +103,9 @@ if [[ -z "$CHOME" ]] || [[ "$CHOME" != /* ]]; then
 fi
 
 # Find stale rune-*/arc-* team dirs older than 30 min (ORPHAN_STALE_THRESHOLD)
+# BACK-004 NOTE: -mmin +30 checks directory mtime (updated on any file write inside),
+# not creation time. An active team with FS activity stays fresh. A team idle >30 min
+# (e.g., waiting on long LLM call) may be flagged — increase to -mmin +60 if observed.
 # Using -mmin +30 for age check (fast, no jq needed per dir)
 stale_teams=()
 if [[ -d "$CHOME/teams/" ]]; then
@@ -105,10 +124,14 @@ if [[ ${#stale_teams[@]} -eq 0 ]]; then
 fi
 
 # ── AUTO-CLEANUP: Remove stale filesystem dirs (D-3) ──
+# BACK-005 NOTE: rm-rf removes dirs without SDK TeamDelete. This clears filesystem
+# state but not SDK leadership. Advisory message tells Claude to run TeamDelete()
+# if "Already leading" errors occur. SDK TeamDelete can't be called from a hook script.
 cleaned_teams=()
 for team in "${stale_teams[@]}"; do
   # Double-validate before rm-rf (defense-in-depth)
-  if [[ "$team" =~ ^[a-zA-Z0-9_-]+$ ]] && [[ "$team" != *".."* ]]; then
+  # SEC-1 FIX: Re-check symlink immediately before rm-rf (collapses TOCTOU window from scan loop)
+  if [[ "$team" =~ ^[a-zA-Z0-9_-]+$ ]] && [[ "$team" != *".."* ]] && [[ ! -L "$CHOME/teams/${team}" ]]; then
     rm -rf "$CHOME/teams/${team}/" "$CHOME/tasks/${team}/" 2>/dev/null
     cleaned_teams+=("$team")
   fi

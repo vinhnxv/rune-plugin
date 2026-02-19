@@ -103,8 +103,8 @@ Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${ne
 
 ## Centralized Hook Guards (TLC-001/002/003)
 
-See canonical version at `rune-orchestration/references/team-lifecycle-guard.md` for full details.
-Three hooks supplement the inlined teamTransition protocol: TLC-001 (PreToolUse:TeamCreate name validation + stale detection), TLC-002 (PostToolUse:TeamDelete zombie check), TLC-003 (SessionStart orphan scan). Advisory-only for stale detection; hard block only for invalid team names.
+See canonical version at [team-lifecycle-guard.md](../../../rune-orchestration/references/team-lifecycle-guard.md) for full details.
+Three hooks supplement the inlined teamTransition protocol: TLC-001 (PreToolUse:TeamCreate name validation + stale detection + advisory context injection), TLC-002 (PostToolUse:TeamDelete zombie check), TLC-003 (SessionStart:startup|resume orphan scan). Advisory-only for stale detection; hard block only for invalid team names.
 
 ## Cleanup Fallback
 

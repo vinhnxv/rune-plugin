@@ -72,6 +72,8 @@ Signal handling: `kill -TERM $PID` kills `claude` directly. Child processes may 
 
 ## Config File Schema
 
+Config values are resolved via **3-layer priority**: hardcoded defaults → `talisman.yml` (`arc.batch.*`) → future CLI flags.
+
 ```json
 {
   "plans_file": "tmp/arc-batch/plan-list.txt",
@@ -80,7 +82,10 @@ Signal handling: `kill -TERM $PID` kills `claude` directly. Child processes may 
   "no_merge": false,
   "max_retries": 3,
   "max_budget": 15.0,
-  "max_turns": 200
+  "max_turns": 200,
+  "total_budget": null,
+  "total_timeout": null,
+  "stop_on_divergence": false
 }
 ```
 
@@ -101,3 +106,6 @@ Signal handling: `kill -TERM $PID` kills `claude` directly. Child processes may 
 | Stuck rebase from prior arc | pre_run_git_health() aborts | arc-batch.sh |
 | Stale .git/index.lock | pre_run_git_health() removes | arc-batch.sh |
 | `setsid` unavailable (macOS) | Falls back to direct execution | arc-batch.sh HAS_SETSID |
+| Batch total_budget exceeded | Break loop, mark remaining as failed | arc-batch.sh budget guard |
+| Batch total_timeout exceeded | Break loop, mark remaining as failed | arc-batch.sh timeout guard |
+| Main branch divergence | Break loop when stop_on_divergence=true | arc-batch.sh divergence guard |

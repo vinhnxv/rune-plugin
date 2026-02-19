@@ -8,7 +8,7 @@
 # Output on stdout is shown to Claude as context.
 #
 # Hook events: SessionStart
-# Matcher: startup (only on fresh session start, not resume/clear/compact)
+# Matcher: startup|resume (fires on fresh start and post-crash resume — primary orphan scenarios)
 # Timeout: 5s
 
 set -euo pipefail
@@ -51,38 +51,43 @@ fi
 # Count stale state files
 stale_state_count=0
 
-# FIX-3: Handle both bash (nullglob) and zsh (NOMATCH) shell environments
-if [[ -n "${ZSH_VERSION:-}" ]]; then
-  setopt nullglob 2>/dev/null
-else
+# QUAL-005 FIX: Run glob loop in subshell to scope nullglob (prevents leak on early exit)
+# BACK-001 FIX: Simplified — script uses #!/bin/bash, so ZSH_VERSION is never set.
+# Using subshell instead of setopt/unsetopt pair eliminates scope leak entirely.
+# QUAL-002 NOTE: Uses stat for file age (not find -mmin) because we need BOTH age AND
+# content check (status == "active"). find alone can't check JSON content.
+stale_state_count=$(
   shopt -s nullglob 2>/dev/null
-fi
-
-# BACK-015 FIX: Capture epoch once before loop (consistency + efficiency)
-NOW=$(date +%s)
-for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-forge-*.json; do
-  if [[ -f "$f" ]]; then
-    # Check if status is "active" and file is older than 30 min
-    # FIX-2: Use epoch 0 fallback — if stat fails, (now - 0) / 60 = huge number → triggers stale
-    # This is correct: stat failure means we can't determine age, so assume stale (conservative)
-    file_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
-    file_age_min=$(( (NOW - file_mtime) / 60 ))
-    if [[ $file_age_min -gt 30 ]] && grep -q '"active"' "$f" 2>/dev/null; then
-      # BACK-012 FIX: Avoid ((var++)) — returns exit code 1 when var=0 under set -e
-      stale_state_count=$((stale_state_count + 1))
+  count=0
+  # BACK-015 FIX: Capture epoch once before loop (consistency + efficiency)
+  NOW=$(date +%s)
+  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-forge-*.json; do
+    if [[ -f "$f" ]]; then
+      # Check if status is "active" and file is older than 30 min
+      # FIX-2: Use epoch 0 fallback — if stat fails, (now - 0) / 60 = huge number → triggers stale
+      # BACK-002 NOTE: macOS stat -f first, then Linux stat -c, then epoch-0 (assume stale)
+      file_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+      file_age_min=$(( (NOW - file_mtime) / 60 ))
+      if [[ $file_age_min -gt 30 ]]; then
+        # SEC-4 FIX: Use jq for precise status extraction instead of grep string match
+        file_status=$(jq -r '.status // empty' "$f" 2>/dev/null || true)
+        if [[ "$file_status" == "active" ]]; then
+          count=$((count + 1))
+        fi
+      fi
     fi
-  fi
-done
-
-if [[ -n "${ZSH_VERSION:-}" ]]; then
-  unsetopt nullglob 2>/dev/null
-else
-  shopt -u nullglob 2>/dev/null
-fi
+  done
+  echo "$count"
+)
 
 # Report if anything found
+# BACK-007 FIX: Conditionally append orphan list to avoid trailing "Orphans: " with no names
 if [[ $orphan_count -gt 0 ]] || [[ $stale_state_count -gt 0 ]]; then
-  echo "TLC-003 SESSION HYGIENE: Found ${orphan_count} orphaned team dir(s) and ${stale_state_count} stale state file(s) from prior sessions. Run /rune:rest --heal to clean up. Orphans: ${orphan_names[*]:0:5}"
+  msg="TLC-003 SESSION HYGIENE: Found ${orphan_count} orphaned team dir(s) and ${stale_state_count} stale state file(s) from prior sessions. Run /rune:rest --heal to clean up."
+  if [[ ${#orphan_names[@]} -gt 0 ]]; then
+    msg+=" Orphans: ${orphan_names[*]:0:5}"
+  fi
+  echo "$msg"
 fi
 
 exit 0
