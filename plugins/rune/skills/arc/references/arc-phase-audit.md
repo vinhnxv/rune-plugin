@@ -96,7 +96,7 @@ if (postAuditStateFiles.length > 0) {
 ```javascript
 updateCheckpoint({
   phase: "audit", status: "completed",
-  artifact: `tmp/arc/${id}/audit-report.md`, artifact_hash: sha256(auditReport), phase_sequence: 9
+  artifact: `tmp/arc/${id}/audit-report.md`, artifact_hash: sha256(auditReport), phase_sequence: 15
 })
 ```
 

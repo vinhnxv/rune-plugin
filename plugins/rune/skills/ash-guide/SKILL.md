@@ -3,8 +3,8 @@ name: ash-guide
 description: |
   Use when summoning Rune agents, when encountering "agent not found" errors, when
   selecting which review agents to use, or when checking agent capabilities and tools.
-  Quick reference for all 46 agents across 5 categories (review, research, work,
-  utility, investigation). Keywords: agent list, Ash, subagent type, agent not found.
+  Quick reference for all 46 agents across 6 categories (review, research, work,
+  utility, investigation, testing). Keywords: agent list, Ash, subagent type, agent not found.
 
   <example>
   Context: User wants to know which agents are available
@@ -125,6 +125,15 @@ In `/rune:review`, agents are grouped into 6 built-in Ashes (extensible via tali
 |-------|------|
 | `rune:work:rune-smith` | Code implementation (TDD-aware) |
 | `rune:work:trial-forger` | Test generation |
+
+## Testing Agents
+
+| Agent | Role |
+|-------|------|
+| `rune:testing:unit-test-runner` | Diff-scoped unit test execution (Sonnet) |
+| `rune:testing:integration-test-runner` | Integration test execution with service management (Sonnet) |
+| `rune:testing:e2e-browser-tester` | E2E browser testing via agent-browser (Sonnet) |
+| `rune:testing:test-failure-analyst` | Read-only failure analysis and fix suggestions (Opus inherit) |
 
 ## Ash Selection Logic
 

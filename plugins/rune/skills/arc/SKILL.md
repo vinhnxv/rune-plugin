@@ -113,8 +113,12 @@ Phase 5.5: GAP ANALYSIS → Check plan criteria vs committed code (zero LLM)
     ↓ (gap-analysis.md) — WARN only, never halts
 Phase 5.6: CODEX GAP ANALYSIS → Cross-model plan vs implementation check (v1.39.0)
     ↓ (codex-gap-analysis.md) — WARN only, never halts
+Phase 5.7: GOLDMASK VERIFICATION → Blast-radius analysis via investigation agents (v1.47.0)
+    ↓ (goldmask-verification.md) — 5 impact tracers + wisdom sage + lore analyst
 Phase 6:   CODE REVIEW → Roundtable Circle review
     ↓ (tome.md)
+Phase 6.5: GOLDMASK CORRELATION → Synthesize investigation findings into GOLDMASK.md (v1.47.0)
+    ↓ (GOLDMASK.md) — orchestrator-only
 Phase 7:   MEND → Parallel finding resolution
     ↓ (resolution-report.md) — HALT on >3 FAILED
 Phase 7.5: VERIFY MEND → Convergence controller (adaptive review-mend loop)

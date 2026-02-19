@@ -27,7 +27,7 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
-# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend → test → goldmask verification → goldmask correlation → audit → ship → merge
+# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
@@ -105,12 +105,12 @@ When you run `/rune:arc`, Rune chains 17 phases into one automated pipeline:
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
 5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code + doc-consistency via talisman verification_patterns (zero LLM cost, advisory)
 5.6. **CODEX GAP ANALYSIS** — Codex cross-model plan-vs-implementation gap detection (v1.39.0+)
+5.7. **GOLDMASK VERIFICATION** — Blast-radius analysis via investigation agents: 5 impact tracers + wisdom sage + lore analyst (v1.47.0+)
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
+6.5. **GOLDMASK CORRELATION** — Synthesis of investigation findings into unified GOLDMASK.md report (orchestrator-only, v1.47.0+)
 7. **MEND** — Parallel fixers resolve findings from TOME
 7.5. **VERIFY MEND** — Adaptive convergence controller: loops Phase 6→7→7.5 until findings converge or tier max cycles reached (LIGHT: 2, STANDARD: 3, THOROUGH: 5). Proceeds to audit with warning on halt
 7.7. **TEST** — Diff-scoped test execution: unit → integration → E2E/browser (non-blocking WARN, skip with `--no-test`)
-7.8. **GOLDMASK VERIFICATION** — Blast-radius analysis via investigation agents: 5 impact tracers + wisdom sage + lore analyst (v1.47.0+)
-7.9. **GOLDMASK CORRELATION** — Synthesis of investigation findings into unified GOLDMASK.md report (orchestrator-only, v1.47.0+)
 8. **AUDIT** — Final quality gate (informational)
 9. **SHIP** — Auto PR creation via `gh pr create` with generated template (skip with `--no-pr`)
 9.5. **MERGE** — Rebase onto target branch + auto squash-merge with pre-merge checklist (skip with `--no-merge`)
@@ -364,6 +364,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | context-weaving | Context overflow/rot prevention |
 | elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers) |
+| inner-flame | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
 | polling-guard | Monitoring loop fidelity — correct waitForCompletion translation |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
@@ -496,9 +497,11 @@ plugins/rune/
 │   ├── echoes.md        # /rune:echoes
 │   └── rest.md          # /rune:rest
 ├── skills/
+│   ├── agent-browser/       # Browser automation knowledge (non-invocable)
 │   ├── arc/                 # /rune:arc (end-to-end pipeline)
 │   │   ├── SKILL.md
 │   │   └── references/      # Arc-specific phase refs, delegation checklist
+│   ├── arc-batch/           # /rune:arc-batch (sequential multi-plan)
 │   ├── ash-guide/           # Agent reference
 │   ├── chome-pattern/       # CLAUDE_CONFIG_DIR resolution
 │   ├── codex-cli/           # Codex CLI integration
@@ -506,12 +509,16 @@ plugins/rune/
 │   ├── elicitation/         # BMAD-derived reasoning methods
 │   │   └── references/      # methods.csv, examples.md, phase-mapping.md
 │   ├── goldmask/            # Cross-layer impact analysis
+│   ├── inner-flame/         # 3-layer self-review protocol (non-invocable)
 │   ├── polling-guard/       # Monitoring loop fidelity
 │   ├── roundtable-circle/   # Review orchestration
 │   │   └── references/      # e.g. rune-gaze.md, custom-ashes.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
 │   ├── rune-orchestration/  # Core coordination
 │   │   └── references/      # e.g. team-lifecycle-guard.md
+│   ├── testing/             # Test orchestration pipeline (non-invocable)
+│   │   └── references/      # test-discovery.md, service-startup.md, etc.
+│   ├── using-rune/          # Workflow discovery and intent routing
 │   └── zsh-compat/          # zsh shell compatibility
 ├── talisman.example.yml
 ├── CLAUDE.md
