@@ -72,7 +72,7 @@ review:
   chunk_target_size: 15
   max_chunks: 5
   cross_cutting_pass: true
-  chunk_strategy: "directory"  # RESERVED — not yet consumed
+  chunk_strategy: "directory" # RESERVED — not yet consumed
   convergence_enabled: true
   convergence_tier_override: null
   convergence_density_threshold: 0.3
@@ -113,14 +113,14 @@ work:
 plan:
   verification_patterns:
     # Catch stale codex auth references (the bug we just fixed in v1.18.1)
-    - regex: 'codex auth (status|login)'
+    - regex: "codex auth (status|login)"
       paths: "plugins/rune/"
       expect_zero: true
       description: "No stale codex auth references (correct: codex login / codex login status)"
       phase: ["plan", "post-work"]
 
     # Catch stale --skip-forge flag (renamed to --no-forge in v1.13.0)
-    - regex: '--skip-forge'
+    - regex: "--skip-forge"
       paths: "plugins/rune/"
       exclusions: "--glob '!plugins/rune/CHANGELOG.md'"
       expect_zero: true
@@ -178,6 +178,16 @@ arc:
     lock_file_conflict: true
     uncommitted_changes: true
     migration_paths: []
+
+  # ── Batch settings (v1.49.0+) ──
+  batch:
+    auto_merge: true
+    max_retries: 3
+    max_budget: 200
+    max_turns: 1000
+    total_budget: null
+    total_timeout: null
+    stop_on_divergence: false
 
   # ── Cross-file consistency checks (v1.17.0+) ──
   consistency:

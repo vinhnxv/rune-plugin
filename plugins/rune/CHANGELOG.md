@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.48.0] — 2026-02-20
+
+### Added
+- **Centralized Team Lifecycle Guard Hooks** (TLC-001/002/003)
+  - `enforce-team-lifecycle.sh` — PreToolUse:TeamCreate hook for team name validation and stale team cleanup
+  - `verify-team-cleanup.sh` — PostToolUse:TeamDelete hook for zombie dir detection
+  - `session-team-hygiene.sh` — SessionStart:startup hook for orphaned team detection
+  - Hook registration in hooks.json for PreToolUse:TeamCreate, PostToolUse:TeamDelete, and SessionStart:startup
+
+### Changed
+- **Plugin version**: 1.47.1 → 1.48.0
+- CLAUDE.md: added 3 new hook rows to Hook Infrastructure table
+- team-lifecycle-guard.md: added "Centralized Hook Guards" reference section
+
 ## [1.47.1] — 2026-02-20
 
 ### Fixed
