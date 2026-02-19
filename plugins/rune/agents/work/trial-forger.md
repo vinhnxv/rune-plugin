@@ -217,6 +217,15 @@ Return a numbered list. Each entry: brief description + why it matters.`
    - SECURITY: Until a PreToolUse hook is deployed for evaluation/ path protection, this restriction is ADVISORY ONLY. Deploy the hook pattern from review.md SEC-001 adapted for evaluation/* paths.
    - If the implementation doesn't pass evaluation tests, coordinate with rune-smith to fix the underlying code
 
+## Self-Review (Inner Flame)
+
+Before marking any test task complete, execute the Inner Flame protocol.
+Read [inner-flame](../../skills/inner-flame/SKILL.md) for the 3-layer self-review.
+- Layer 1: Verify you actually ran the tests (not just wrote them)
+- Layer 2: Use Worker checklist — verify coverage claims are from actual output
+- Layer 3: Ask "are these tests testing real behavior or just exercising code?"
+Append Self-Review Log to your Seal message.
+
 ## Exit Conditions
 
 - No test tasks available: wait 30s, retry 3x, then send idle notification
@@ -226,7 +235,7 @@ Return a numbered list. Each entry: brief description + why it matters.`
 ## Seal Format
 
 ```
-Seal: tests for #{id} done. Files: {test_files}. Tests: {pass_count}/{total}. Coverage: {metric}. Confidence: {0-100}.
+Seal: tests for #{id} done. Files: {test_files}. Tests: {pass_count}/{total}. Coverage: {metric}. Confidence: {0-100}. Inner-flame: {pass|fail|partial}. Revised: {count}.
 ```
 
 Confidence reflects test quality:

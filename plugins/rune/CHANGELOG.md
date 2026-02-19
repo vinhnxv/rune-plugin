@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.46.0] — 2026-02-19
+
+### Added
+- **Inner Flame self-review skill**: Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all Rune teammate agents
+  - Core skill at `skills/inner-flame/SKILL.md` with protocol definition and integration guide
+  - 6 role-specific checklists in `skills/inner-flame/references/role-checklists.md` (Reviewer, Worker, Fixer, Researcher, Forger, Aggregator)
+  - `validate-inner-flame.sh` TaskCompleted hook — blocks task completion when Self-Review Log is missing from teammate output
+  - Inner Flame sections added to all 6 ash-prompt templates (forge-warden, ward-sentinel, pattern-weaver, glyph-scribe, knowledge-keeper, codex-oracle)
+  - Inner Flame checklist added to review-checklist.md shared reference
+  - Spawn prompt updates in plan.md (forger), research-phase.md (7 researchers), worker-prompts.md (rune-smith, trial-forger), mend.md (fixer)
+  - Agent definition updates: rune-smith (Rule #7 + Seal), trial-forger (Self-Review + Seal), mend-fixer (Step 4.5 + Seal)
+  - Talisman config: `inner_flame.enabled`, `inner_flame.confidence_floor`, `inner_flame.block_on_fail`
+
+### Changed
+- **Plugin version**: 1.45.0 → 1.46.0
+- Skills count: 14 → 15 (plugin.json, marketplace.json descriptions)
+- marketplace.json skills array: added `./skills/inner-flame`
+
 ## [1.45.0] — 2026-02-19
 
 Consolidated release from arc-batch run (PRs #58–#62).

@@ -171,7 +171,7 @@ If `python3` is not available in PATH, skip this quality gate with a warning: "p
 4. **Test coverage**: Every implementation must have corresponding tests
 5. **No new deps**: Do not add new dependencies without explicit task instruction
 6. **Commit safety**: Sanitize commit messages — strip newlines/control chars, limit to 72 chars, escape shell metacharacters. Use `git commit -F <message-file>` (not inline `-m`) to avoid shell injection.
-7. **Self-review before completion**: Re-read every file you changed. Check: all identifiers defined? No self-referential assignments? Function signatures match call sites? No dead code?
+7. **Self-review before completion (Inner Flame)**: Execute the full Inner Flame protocol. Read [inner-flame](../../skills/inner-flame/SKILL.md) for the 3-layer self-review. Layer 1: Grounding — verify all file/code references are real. Layer 2: Completeness — use Worker checklist from role-checklists.md. Layer 3: Self-Adversarial — play devil's advocate against your own work. Append a Self-Review Log to your Seal message. If post-review confidence drops below 60, do NOT mark task complete — report blocker.
 8. **Maximum function length: 40 lines**: Any function exceeding 40 lines of code MUST be split into smaller helper functions. Extract logical blocks into well-named helpers. This is a hard quality gate — do not mark a task complete if you have functions over 40 lines.
 9. **Plan pseudocode is guidance, not gospel**: If your task references plan pseudocode, implement from the plan's contracts (Inputs/Outputs/Preconditions). Verify all variables exist and all helpers are defined — don't copy plan code blindly.
 10. **Type annotations required**: All function signatures MUST have explicit type annotations for parameters and return types.
@@ -261,7 +261,7 @@ Consider this when setting arc total timeout.
 
 When reporting completion via SendMessage:
 ```
-Seal: task #{id} done. Files: {changed_files}. Tests: {pass_count}/{total}. Confidence: {0-100}.
+Seal: task #{id} done. Files: {changed_files}. Tests: {pass_count}/{total}. Confidence: {0-100}. Inner-flame: {pass|fail|partial}. Revised: {count}.
 ```
 
 Confidence reflects implementation quality:

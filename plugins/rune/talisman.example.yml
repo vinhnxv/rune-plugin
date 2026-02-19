@@ -336,6 +336,17 @@ elicitation:
   enabled: true                    # Set false to disable all sage invocations globally
 
 # ──────────────────────────────────────────────
+# Inner Flame — Universal self-review protocol (v1.46.0+)
+# ──────────────────────────────────────────────
+# Every teammate (worker, fixer, reviewer, researcher, forger) must execute
+# a role-adapted self-review before marking tasks complete. The protocol
+# checks: grounding (anti-hallucination), completeness, and self-adversarial.
+inner_flame:
+  enabled: true                    # Set false to disable Inner Flame globally (default: true)
+  confidence_floor: 60             # Min post-review confidence to pass (default: 60, range: 0-100)
+  block_on_fail: false             # Block task completion on failure via hook (default: false — soft enforcement)
+
+# ──────────────────────────────────────────────
 # Echoes — Memory persistence
 # ──────────────────────────────────────────────
 echoes:

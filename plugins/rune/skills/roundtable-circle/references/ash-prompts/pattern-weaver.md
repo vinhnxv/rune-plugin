@@ -186,6 +186,13 @@ After writing findings, perform ONE revision pass:
 
 This is ONE pass. Do not iterate further.
 
+### Inner Flame (Supplementary)
+After the revision pass above, verify grounding:
+- Every file:line cited — actually Read() in this session?
+- Weakest finding identified and either strengthened or removed?
+- All findings valuable (not padding)?
+Include in Self-Review Log: "Inner Flame: grounding={pass/fail}, weakest={finding_id}, value={pass/fail}"
+
 ## SEAL FORMAT
 
 After self-review:

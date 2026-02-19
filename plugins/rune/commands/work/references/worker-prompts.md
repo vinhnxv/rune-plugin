@@ -116,6 +116,14 @@ Task({
     EXIT: No tasks after 3 retries (30s each) -> idle notification -> exit
     SHUTDOWN: Approve immediately
 
+    SELF-REVIEW (Inner Flame):
+    Before generating your patch, execute the Inner Flame Worker checklist:
+    - Re-read every changed file (full file, not just your diff)
+    - Verify all function signatures match call sites
+    - Verify no dead code or unused imports remain
+    - Append Self-Review Log to your Seal message
+    Include: Inner-flame: {pass|fail|partial}. Revised: {count}.
+
     RE-ANCHOR -- Match existing patterns. Minimal changes. Ask lead if unclear.`,
   run_in_background: true
 })
@@ -195,6 +203,14 @@ Task({
     Track failed task IDs internally and skip them when scanning TaskList.
     EXIT: No tasks after 3 retries (30s each) -> idle notification -> exit
     SHUTDOWN: Approve immediately
+
+    SELF-REVIEW (Inner Flame):
+    Before generating your patch, execute the Inner Flame Worker checklist:
+    - Re-read every test file you wrote
+    - Verify all imports match actual export names
+    - Verify test fixtures are consistent with source types
+    - Append Self-Review Log to your Seal message
+    Include: Inner-flame: {pass|fail|partial}. Revised: {count}.
 
     RE-ANCHOR -- Match existing test patterns. No new test utilities.`,
   run_in_background: true

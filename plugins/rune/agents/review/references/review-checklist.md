@@ -19,3 +19,13 @@ Before writing output file, confirm:
 - [ ] Priority levels (**P1/P2/P3**) assigned to every finding
 - [ ] **Evidence** section included for each finding
 - [ ] **Fix** suggestion included for each finding
+
+### Inner Flame (Supplementary)
+After completing the standard Self-Review and Pre-Flight above, also verify:
+- [ ] **Grounding**: Every file:line I cited — I actually Read() that file in this session
+- [ ] **No phantom findings**: I'm not flagging issues in code I inferred rather than saw
+- [ ] **Adversarial**: What's my weakest finding? Should I remove it or strengthen it?
+- [ ] **Value**: Would a developer change their code based on each finding?
+
+Append these results to the existing Self-Review Log section.
+Include in Seal: `Inner-flame: {pass|fail|partial}. Revised: {count}.`
