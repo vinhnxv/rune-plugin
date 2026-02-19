@@ -220,7 +220,33 @@ rm -f tmp/.rune-batch-{completed_ids}.json
 
 **Note:** `tmp/plans/` and `tmp/scratch/` are removed unconditionally (no active-state check). `tmp/work/` is conditionally removed — it checks for active work teams first (work proposals in `tmp/work/{timestamp}/proposals/` are needed during `--approve` mode). `tmp/mend/` directories follow the same active-state check as reviews and audits. `tmp/arc/` directories are checked via `.claude/arc/*/checkpoint.json` — if any phase has `in_progress` status, the associated `tmp/arc/{id}/` directory is preserved. Arc checkpoint state at `.claude/arc/` is not cleaned — it lives outside `tmp/` and is needed for `--resume`.
 
-### 6. Report
+### 6. Cleanup Zombie tmux Sessions
+
+Agent Teams workflows may leave orphaned tmux sessions (especially when teammates crash or are force-killed). Clean up any `claude-` prefixed sessions:
+
+```bash
+# Only target claude-prefixed sessions (defense in depth — never kill user sessions)
+zombie_sessions=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^claude-' || true)
+
+if [ -n "$zombie_sessions" ]; then
+  echo "Found zombie tmux sessions:"
+  echo "$zombie_sessions" | while read -r sess; do
+    echo "  - $sess"
+  done
+
+  # User already confirmed cleanup in Step 3 — proceed
+  echo "$zombie_sessions" | while read -r sess; do
+    tmux kill-session -t "$sess" 2>/dev/null || true
+  done
+  echo "Killed $(echo "$zombie_sessions" | wc -l | tr -d ' ') zombie tmux sessions."
+else
+  echo "No zombie tmux sessions found."
+fi
+```
+
+**Safety**: Only sessions matching `claude-*` prefix are targeted. If `tmux` is not installed, the `2>/dev/null || true` guard makes this a no-op.
+
+### 7. Report
 
 ```
 Cleanup complete.

@@ -17,6 +17,21 @@ const forgerCount = Math.min(Math.max(1, Math.ceil(testTasks / 4)), maxWorkers)
 
 Default: 2 workers (1 rune-smith + 1 trial-forger) for small plans (<=4 tasks). Scales up to `max_workers` (default 3) per role for larger plans.
 
+## Turn Budget Awareness
+
+Agent runtime caps (`maxTurns` in agent frontmatter) limit runaway agents:
+
+| Agent | maxTurns | Rationale |
+|-------|----------|-----------|
+| rune-smith | 75 | Complex multi-file implementations typically need 30-50 tool calls. 75 provides 50% headroom. |
+| trial-forger | 50 | Test generation is more constrained — read source, write tests, verify. |
+
+**Note**: `maxTurns` in agent frontmatter caps the agent definition. When spawning workers via `Task()` with `subagent_type: "general-purpose"`, the `max_turns` parameter on the Task call is the effective enforcement mechanism. Both should be set for defense-in-depth.
+
+**Edge cases**:
+- If an agent hits its turn cap mid-operation, it may leave staged git files or partial writes. Workers claiming a task should run `git status` first and `git reset HEAD` if unexpected staged files are found.
+- Terminated agents do not write `.done` signal files. The monitoring loop's `timeoutMs` parameter is the fallback detection mechanism.
+
 ## Rune Smith (Implementation Worker)
 
 ```javascript

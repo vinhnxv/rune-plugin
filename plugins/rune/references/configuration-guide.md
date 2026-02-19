@@ -80,6 +80,94 @@ work:
   co_authors: []                         # Co-Authored-By lines in "Name <email>" format
 ```
 
+## Platform Environment Configuration
+
+Agent Teams workflows operate under platform-level timeouts that are configured
+via environment variables in `~/.claude/settings.json`, NOT in `talisman.yml`.
+These affect ALL teammates.
+
+### Recommended Settings
+
+Add to `~/.claude/settings.json` (or `.claude/settings.local.json` for project-specific overrides):
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "BASH_DEFAULT_TIMEOUT_MS": "600000",
+    "BASH_MAX_TIMEOUT_MS": "3600000"
+  }
+}
+```
+
+### Environment Variable Reference
+
+| Variable | Default | Recommended | Purpose |
+|----------|---------|-------------|---------|
+| `BASH_DEFAULT_TIMEOUT_MS` | 120,000 (2 min) | 600,000 (10 min) | Bash command timeout. Ward checks often exceed 2 min. |
+| `BASH_MAX_TIMEOUT_MS` | 120,000 (2 min) | 3,600,000 (60 min) | Max allowed Bash timeout. Caps per-call timeout parameter. |
+| `MCP_TIMEOUT` | ~10,000 (10 sec) | 30,000 (30 sec) | MCP server connection timeout. Increase for slow-starting servers. |
+| `MCP_TOOL_TIMEOUT` | ~60,000 (60 sec) | 60,000 (60 sec) | Single MCP tool invocation timeout. Default is usually sufficient. |
+| `MAX_MCP_OUTPUT_TOKENS` | 25,000 | 50,000 | Max tokens from a single MCP tool response. |
+
+> **Note**: These values are approximate as of Claude Code v1.x. Platform defaults may change between versions. Periodically verify against official Claude Code documentation.
+
+### Timeout Layer Model
+
+Agent Teams workflows have concurrent timeout layers. The shortest applicable
+timeout wins. Rune controls layers 5-7 (application level). Layers 1-4 are platform-level:
+
+| Layer | Mechanism | Default | Config | Rune Interaction |
+|-------|-----------|---------|--------|------------------|
+| 1 | Bash tool timeout | 2 min | `BASH_DEFAULT_TIMEOUT_MS` | Ward checks, test suites, build commands |
+| 2a | MCP connection | 10 sec | `MCP_TIMEOUT` | Context7 queries, Codex detection |
+| 2b | MCP tool invocation | 60 sec | `MCP_TOOL_TIMEOUT` | Per-tool call timeout |
+| 3 | Teammate heartbeat | 5 min | Not configurable (SDK hardcoded) | DC-3 Fading Ash detection aligns at 5 min |
+| 4 | SSE/API connection | ~5 min | Not configurable | Empty responses on long MCP calls |
+| 5 | Polling stale detection | 5 min | `staleWarnMs` in monitor-utility | DC-3 auto-release at 10 min (work/mend/forge) |
+| 6 | Phase timeout | 15-35 min | `PHASE_TIMEOUTS` in arc.md, talisman.yml | Circuit breaker per phase |
+| 7 | Arc total timeout | 162-240 min | Dynamic per tier | Pipeline ceiling |
+
+> **Important**: `staleWarnMs` (configurable) should be >= SDK heartbeat (5 min, hardcoded). Setting `staleWarnMs` below 5 min creates false-positive stale warnings because the SDK hasn't had time to report heartbeat failure yet.
+
+### Pre-flight Checklist
+
+Before running your first Agent Teams workflow, verify:
+
+1. `BASH_DEFAULT_TIMEOUT_MS` >= 600000 (10 min) — prevents ward check timeout kills
+2. Ward commands in `talisman.yml` complete within the configured bash timeout
+3. If using MCP servers beyond Context7, consider `MCP_TIMEOUT` >= 30000
+4. Ensure `BASH_DEFAULT_TIMEOUT_MS` < `autoReleaseMs` (10 min for work/mend) to prevent task release during error recovery
+
+### Cost Awareness
+
+Team workflows consume more tokens than single-session execution:
+
+| Team Size | Approximate Multiplier | Typical Workflows |
+|-----------|----------------------|-------------------|
+| 1 teammate | ~1.2x (overhead only) | Quick review, single-worker mend |
+| 3 teammates | ~3-4x | Standard review (5 Ashes), work (3 workers) |
+| 6+ teammates | ~5-8x | Exhaustive forge, full audit |
+
+**Cost mitigation**: Use `--quick` for plan, skip `--exhaustive` unless needed,
+prefer review over audit for incremental changes. Use `.claude/settings.local.json`
+for project-specific overrides to avoid affecting other Claude Code sessions.
+
+### SDK Heartbeat
+
+The Agent SDK has a hardcoded 5-minute teammate heartbeat. If a teammate
+crashes or stops responding, it is marked inactive after 5 minutes and its
+tasks are released to the pool. This aligns with Rune's DC-3 (Fading Ash)
+stale detection threshold.
+
+Key behaviors:
+- Heartbeat is not configurable — fixed at ~5 minutes (approximate, may vary between SDK versions)
+- Crashed teammates waste up to 5 minutes before detection
+- Tasks from crashed teammates become claimable by other workers
+- Rune's `autoReleaseMs` (10 min for work/mend) provides a second safety net
+
+---
+
 ## arc
 
 Arc pipeline configuration lives under the `arc:` key. Config resolution follows a 3-layer priority chain: **hardcoded defaults** → **talisman.yml** → **CLI flags** (CLI always wins).

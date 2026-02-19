@@ -23,6 +23,7 @@ tools:
   - TaskGet
   - TaskUpdate
   - SendMessage
+maxTurns: 75
 ---
 
 # Rune Smith — Code Implementation Agent

@@ -71,6 +71,38 @@ Read ONLY the TOME.md file. Do NOT also read raw files (that defeats the purpose
 
 **Fallback**: If the Runebinder fails, read raw files ONE AT A TIME, not all at once.
 
+## MCP Schema Cost Per Teammate
+
+Every MCP server connected to a teammate injects its tool schemas into that teammate's context window at spawn time. This cost is **per teammate** — 5 teammates with Playwright connected = 5x the schema overhead.
+
+### Estimated Schema Costs
+
+| MCP Server | Approx. Tokens | Notes |
+|------------|---------------|-------|
+| Context7 | ~500 | 2 tools, lightweight schemas |
+| Playwright | ~3,000 | 20+ tools, complex parameter schemas |
+| Memory | ~1,500 | CRUD operations with metadata |
+| Slack | ~2,000 | Message, channel, user operations |
+| Custom (typical) | ~500-2,000 | Varies by tool count |
+
+### Multiplication Effect
+
+```
+Base teammate context cost:  ~30,000 tokens (system prompt + instructions)
++ 1 MCP server (Context7):  +500 tokens  → 30,500 total
++ 3 MCP servers:            +5,000 tokens → 35,000 total
+× 5 teammates:              = 175,000 tokens (just overhead, before any work)
+```
+
+With a 200k context window, heavy MCP usage can consume 85%+ of available context before agents start working.
+
+### Mitigation Guidelines
+
+1. **Disconnect unused MCP servers** before spawning teams — each costs tokens on every teammate
+2. **Prefer CLI over MCP** where equivalent: `gh` CLI for GitHub vs GitHub MCP server
+3. **Exception: Context7** — always keep connected. Its 500-token cost is negligible vs the documentation value it provides
+4. **Future**: `mcp.teammate_servers` talisman key (roadmap) will allow per-workflow MCP selection
+
 ## Decision Tree Summary
 
 ```
