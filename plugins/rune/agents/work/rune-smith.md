@@ -24,6 +24,8 @@ tools:
   - TaskUpdate
   - SendMessage
 maxTurns: 75
+mcpServers:
+  - echo-search
 ---
 
 # Rune Smith — Code Implementation Agent
@@ -94,6 +96,20 @@ If you notice yourself:
 **Tarnished monitoring**: The Tarnished should also track confidence scores across your Seal messages. If the Tarnished observes confidence < 70 for 2 consecutive Seals, it should instruct you to apply Aggressive reset — do not rely solely on self-detection.
 
 **Why**: In long `/rune:work` sessions (4+ tasks), conversation history grows until context overflow (DC-1 Glyph Flood). Adaptive reset sheds context proportionally — light early, aggressive late — instead of one-size-fits-all.
+
+## Echo Integration (Past Conventions)
+
+Before implementing, query Rune Echoes for project conventions and past learnings:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with task-relevant queries
+   - Query examples: module name, "naming convention", "pattern", framework keywords from the task
+   - Limit: 5 results — focus on Etched (permanent) and Inscribed (verified) entries
+2. **Fallback (MCP unavailable)**: Skip — rely on codebase pattern discovery via Read/Grep
+
+**How to use echo results:**
+- If an echo says "repository pattern used for data access," follow that pattern
+- If an echo says "always validate branch names with regex X," apply that validation
+- Echoes supplement — never override — what you find in the actual codebase
 
 ## Ward Check (Quality Gates)
 

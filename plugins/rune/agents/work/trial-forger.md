@@ -24,6 +24,8 @@ tools:
   - TaskUpdate
   - SendMessage
 maxTurns: 50
+mcpServers:
+  - echo-search
 ---
 
 # Trial Forger — Test Generation Agent
@@ -181,6 +183,20 @@ Return a numbered list. Each entry: brief description + why it matters.`
 ```
 
 **Talisman config**: `codex.trial_forger.enabled` (default: `true`), `codex.trial_forger.timeout` (default: `120`), `codex.trial_forger.reasoning` (default: `"medium"`).
+
+## Echo Integration (Past Test Patterns)
+
+Before writing tests, query Rune Echoes for past test-related learnings:
+
+1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with test-focused queries
+   - Query examples: "test pattern", "edge case", "flaky", module name, "fixture"
+   - Limit: 5 results — focus on Inscribed entries (verified patterns from past reviews)
+2. **Fallback (MCP unavailable)**: Skip — rely on test file discovery via Glob/Read
+
+**How to use echo results:**
+- If an echo says "N+1 queries found in service layers," add a test for query count
+- If an echo flags past flaky test patterns, avoid those patterns in your tests
+- Past review findings (QUAL-, BACK-) often reveal untested edge cases worth covering
 
 ## Test Quality Rules
 
