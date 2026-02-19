@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.47.1] — 2026-02-20
+
+### Fixed
+- Echo Search MCP server: use launcher script (`start.sh`) for runtime `CLAUDE_PROJECT_DIR` resolution, since `.mcp.json` env substitution only supports `${CLAUDE_PLUGIN_ROOT}`
+
 ## [1.47.0] — 2026-02-19
 
 ### Added
