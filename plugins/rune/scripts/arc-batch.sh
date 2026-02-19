@@ -280,7 +280,7 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
     EFFECTIVE_CMD="You are an arc pipeline executor. Your task:
 
 1. Read the arc skill file: ${ARC_SKILL_PATH}
-2. Follow ALL its instructions to execute the full 14-phase arc pipeline
+2. Follow ALL its instructions to execute the full 17-phase arc pipeline
 3. Plan file: ${plan}
 4. Flags: ${EFFECTIVE_FLAGS}
 

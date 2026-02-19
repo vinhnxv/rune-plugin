@@ -7,9 +7,10 @@ Invoke `/rune:audit` logic as a final quality gate. Informational only — does 
 **Timeout**: 20 min (PHASE_TIMEOUTS.audit = 1_200_000 — inner 15m + 5m setup)
 
 **Inputs**:
-- All prior phase artifacts (enriched plan, work summary, TOME, resolution report, gap analysis)
+- All prior phase artifacts (enriched plan, work summary, TOME, resolution report, gap analysis, test report)
 - Committed code changes on the feature branch
 - Arc identifier (`id`)
+- Test report (`tmp/arc/{id}/test-report.md`) — if Phase 7.7 ran (not skipped via `--no-test`)
 
 **Outputs**: `tmp/arc/{id}/audit-report.md`
 
@@ -57,7 +58,7 @@ Delegated to `/rune:audit` — typically summons rune-architect + ward-sentinel 
 ```javascript
 // PRE-DELEGATION: Record phase as in_progress with null team name.
 // Actual team name will be discovered post-delegation from state file.
-updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 9, team_name: null })
+updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 15, team_name: null })
 ```
 
 ## Post-Delegation Team Name Discovery
@@ -95,7 +96,7 @@ if (postAuditStateFiles.length > 0) {
 ```javascript
 updateCheckpoint({
   phase: "audit", status: "completed",
-  artifact: `tmp/arc/${id}/audit-report.md`, artifact_hash: sha256(auditReport), phase_sequence: 9
+  artifact: `tmp/arc/${id}/audit-report.md`, artifact_hash: sha256(auditReport), phase_sequence: 15
 })
 ```
 

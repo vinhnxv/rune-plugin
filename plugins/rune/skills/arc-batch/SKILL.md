@@ -24,7 +24,7 @@ argument-hint: "[plans/*.md | queue-file.txt] [--resume] [--dry-run] [--no-merge
 
 # /rune:arc-batch — Sequential Batch Arc Execution
 
-Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 14-phase pipeline (forge through merge) before the next plan starts.
+Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 17-phase pipeline (forge through merge) before the next plan starts.
 
 **Core loop**: For each plan -> run arc (forge through merge) -> checkout main -> pull latest -> clean state -> next plan.
 

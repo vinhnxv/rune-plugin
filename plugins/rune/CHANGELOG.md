@@ -9,8 +9,8 @@
   - Phase 4.4 Quick Goldmask Check in work: CRITICAL file comparison
   - Phase 5.7 Goldmask Verification in arc: Post-work risk validation
   - Phase 6.5 Goldmask Correlation in arc: TOME finding correlation
-- Arc pipeline: 14 → 16 phases (goldmask_verification, goldmask_correlation)
-- Checkpoint schema v8 → v9 migration
+- Arc pipeline: 15 → 17 phases (goldmask_verification, goldmask_correlation)
+- Checkpoint schema v9 → v10 migration
 - ARC_TEAM_PREFIXES: added "goldmask-" for cleanup
 - **horizon-sage** strategic depth assessment agent — evaluates plans across 5 dimensions: Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability & Resilience, Maintainability Trajectory
 - Intent-aware verdict derivation — adapts thresholds based on `strategic_intent` (long-term vs quick-win)
@@ -26,9 +26,9 @@
   - **Investigation** (8/8): goldmask-coordinator (historical risk context), lore-analyst (cached risk baselines), wisdom-sage (past intent classifications), api-contract-tracer (past API contract patterns), business-logic-tracer (past business rule changes), config-dependency-tracer (past config drift patterns), data-layer-tracer (past data model patterns), event-message-tracer (past event schema patterns)
 
 ### Changed
-- PHASE_ORDER: 14 → 16 entries
-- calculateDynamicTimeout: +16 min base budget
-- Agent count: 41 → 42 (utility: 8 → 9)
+- PHASE_ORDER: 15 → 17 entries
+- calculateDynamicTimeout: +16 min base budget (goldmask_verification: 15 min, goldmask_correlation: 1 min)
+- Agent count: 42 → 46 (utility: 8 → 9, review: 16 → 18, investigation: 8)
 
 ## [1.46.0] — 2026-02-19
 
@@ -71,6 +71,35 @@ Consolidated release from arc-batch run (PRs #58–#62).
 - **Teammate non-persistence warning**: New section in session-handoff.md + Core Rule 10 in CLAUDE.md (PR #62)
 - **Review agent count**: 16 → 18 (propagated to plugin.json, marketplace.json, README, CLAUDE.md, agent-registry)
 - **Plugin version**: 1.42.2 → 1.45.0
+
+## [1.43.0] — 2026-02-19
+
+### Added
+- **Arc Phase 7.7: TEST** — Diff-scoped test execution with 3-tier testing pyramid (unit → integration → E2E browser)
+  - Serial tier execution: faster tiers run first, failures are non-blocking WARNs
+  - Diff-scoped test discovery: maps changed files to corresponding tests
+  - Service startup auto-detection (docker-compose, package.json, Makefile)
+  - E2E browser testing via `agent-browser` with file-to-route mapping (Next.js, Rails, Django, SPA)
+  - Model routing: Sonnet for all test execution, Opus only for orchestration + failure analysis
+  - `--no-test` flag to skip Phase 7.7 entirely
+  - Test report integration into Phase 8 AUDIT inputs
+- **`testing` skill**: Test orchestration pipeline knowledge (non-invocable)
+- **`agent-browser` skill**: Browser automation knowledge injection for E2E testing (non-invocable)
+- **4 testing agents**: `unit-test-runner`, `integration-test-runner`, `e2e-browser-tester`, `test-failure-analyst`
+- **5 reference files**: `arc-phase-test.md`, `test-discovery.md`, `service-startup.md`, `file-route-mapping.md`, `test-report-template.md`
+- Checkpoint schema v9 (v8→v9 migration: adds `test` phase with `tiers_run`, `pass_rate`, `coverage_pct`, `has_frontend`)
+- Talisman `testing:` section with tier-level config (enabled, timeout, coverage, base_url, max_routes)
+- Talisman `arc.timeouts.test`: 900,000ms default (15 min), 2,400,000ms with E2E
+
+### Changed
+- **Plugin version**: 1.42.2 → 1.43.0
+- Skills count: 14 → 16 (added `testing`, `agent-browser`)
+- Agent categories: added testing (4 agents)
+- Arc PHASE_ORDER: added `test` between `verify_mend` and `audit`
+- Arc pipeline: 14 → 15 phases (Phase 7.7 TEST)
+- Phase Transition Contracts: VERIFY MEND → TEST → AUDIT (was VERIFY MEND → AUDIT)
+- `calculateDynamicTimeout()`: includes test phase budget
+- Arc phase-audit inputs: now includes test report
 
 ## [1.42.1] — 2026-02-19
 

@@ -27,7 +27,7 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
-# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → audit → ship → merge
+# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
@@ -95,7 +95,7 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## Arc Mode (End-to-End Pipeline)
 
-When you run `/rune:arc`, Rune chains 16 phases into one automated pipeline:
+When you run `/rune:arc`, Rune chains 17 phases into one automated pipeline:
 
 1. **FORGE** — Research agents enrich the plan with best practices, codebase patterns, and past echoes
 2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
@@ -105,11 +105,12 @@ When you run `/rune:arc`, Rune chains 16 phases into one automated pipeline:
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
 5.5. **GAP ANALYSIS** — Deterministic check: plan acceptance criteria vs committed code + doc-consistency via talisman verification_patterns (zero LLM cost, advisory)
 5.6. **CODEX GAP ANALYSIS** — Codex cross-model plan-vs-implementation gap detection (v1.39.0+)
-5.7. **GOLDMASK VERIFICATION** — Post-work risk validation: compares pre-work risk-map against post-work state, flags regressions in CRITICAL files
+5.7. **GOLDMASK VERIFICATION** — Blast-radius analysis via investigation agents: 5 impact tracers + wisdom sage + lore analyst (v1.47.0+)
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
-6.5. **GOLDMASK CORRELATION** — Correlates TOME findings with Goldmask risk data, enriches findings with risk context
+6.5. **GOLDMASK CORRELATION** — Synthesis of investigation findings into unified GOLDMASK.md report (orchestrator-only, v1.47.0+)
 7. **MEND** — Parallel fixers resolve findings from TOME
 7.5. **VERIFY MEND** — Adaptive convergence controller: loops Phase 6→7→7.5 until findings converge or tier max cycles reached (LIGHT: 2, STANDARD: 3, THOROUGH: 5). Proceeds to audit with warning on halt
+7.7. **TEST** — Diff-scoped test execution: unit → integration → E2E/browser (non-blocking WARN, skip with `--no-test`)
 8. **AUDIT** — Final quality gate (informational)
 9. **SHIP** — Auto PR creation via `gh pr create` with generated template (skip with `--no-pr`)
 9.5. **MERGE** — Rebase onto target branch + auto squash-merge with pre-merge checklist (skip with `--no-merge`)
@@ -123,7 +124,7 @@ Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates 
 When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan files sequentially:
 
 1. **Pre-flight** — Validate all plan files exist, no duplicates or symlinks
-2. **For each plan** — Full 16-phase arc pipeline (forge through merge)
+2. **For each plan** — Full 17-phase arc pipeline (forge through merge)
 3. **Inter-run cleanup** — Checkout main, pull latest, clean state
 4. **Retry on failure** — Up to 3 `--resume` attempts per plan, then skip
 5. **Progress tracking** — `batch-progress.json` enables `--resume` for interrupted batches
@@ -176,7 +177,7 @@ When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 1. **Gathers input** — runs interactive brainstorm by default (auto-skips when requirements are clear)
 2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 22 built-in agents (18 review + 2 research + 2 utility) with elicitation-sage integration (max 6 sages per forge session) across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
+4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 19 built-in agents (16 review + 2 research + 1 utility) with elicitation-sage integration (max 6 sages per forge session) across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
 5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
@@ -276,15 +277,6 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 /rune:echoes reset    # Clear all echoes (with backup)
 ```
 
-### Echo Search (MCP Server)
-
-An optional MCP server provides FTS5 full-text search over echo entries, enabling agents to query memories by keyword instead of reading files sequentially.
-
-- **Auto-configured** via `.mcp.json` — no manual setup required
-- **Auto-indexed** via `annotate-hook.sh` — writes to `.claude/echoes/` trigger a dirty signal for re-indexing
-- **SQLite FTS5** — BM25 ranking with stopword filtering for relevant results
-- **Toggle**: Set `echoes.fts_enabled: false` in `talisman.yml` to disable the MCP server. The `echo-reader` agent falls back to file-based reading automatically.
-
 ## Ash
 
 | Ash | Role | When Active |
@@ -322,8 +314,8 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 | blight-seer | Design anti-patterns, architectural smells |
 | forge-keeper | Data integrity, migration safety |
 | tide-watcher | Async/concurrency patterns |
-| refactor-guardian | Refactoring completeness gaps, orphaned callers, stale test refs |
-| reference-validator | Import paths, config-to-source refs, frontmatter schema, version sync |
+| refactor-guardian | Refactoring safety, behavioral preservation |
+| reference-validator | Cross-file reference integrity, link validation |
 
 ### Research Agents
 
@@ -358,27 +350,29 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
-| horizon-sage | Strategic depth assessment, long-term viability, root-cause depth |
+| horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
 
 ## Skills
 
 | Skill | Purpose |
 |-------|---------|
-| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 16 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → audit → ship → merge) |
+| agent-browser | Browser automation knowledge injection for E2E testing (non-invocable) |
+| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 17 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge) |
 | ash-guide | Agent invocation reference |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | context-weaving | Context overflow/rot prevention |
 | elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers) |
+| inner-flame | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
 | polling-guard | Monitoring loop fidelity — correct waitForCompletion translation |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | rune-orchestration | Multi-agent coordination patterns |
+| testing | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | using-rune | Workflow discovery and intent routing |
 | zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
 | arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
-| inner-flame | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates before sealing |
 
 ## Configuration
 
@@ -465,7 +459,7 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **TOME** — The unified review summary after deduplication and prioritization.
 
-**Arc Pipeline** — End-to-end orchestration across 16 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, auto PR creation (ship), and auto merge with pre-merge checklist.
+**Arc Pipeline** — End-to-end orchestration across 17 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, diff-scoped testing (unit/integration/E2E), auto PR creation (ship), and auto merge with pre-merge checklist.
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers, centralized ward check, and post-ward doc-consistency scan that fixes drift between source-of-truth files and their downstream targets.
 
@@ -481,44 +475,33 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 plugins/rune/
 ├── .claude-plugin/
 │   └── plugin.json
-├── .mcp.json                # MCP server configuration (Echo Search)
 ├── agents/
 │   ├── investigation/       # 8 impact/wisdom/lore agents (Goldmask v2)
 │   ├── review/              # 18 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
+│   ├── testing/             # 4 testing agents (arc Phase 7.7)
 │   ├── work/                # 2 swarm workers (work pipeline)
 │   └── utility/             # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, horizon-sage
 ├── commands/
-│   ├── cancel-arc.md        # /rune:cancel-arc
-│   ├── forge.md             # /rune:forge
-│   ├── mend.md              # /rune:mend
-│   ├── plan.md              # /rune:plan
-│   ├── work.md              # /rune:work
-│   ├── review.md            # /rune:review
-│   ├── cancel-review.md     # /rune:cancel-review
-│   ├── audit.md             # /rune:audit
-│   ├── cancel-audit.md      # /rune:cancel-audit
-│   ├── elicit.md            # /rune:elicit
-│   ├── echoes.md            # /rune:echoes
-│   └── rest.md              # /rune:rest
-├── hooks/
-│   └── hooks.json           # Event hooks (PreToolUse, PostToolUse, SessionStart, etc.)
-├── references/              # Shared reference docs
-│   ├── agent-registry.md
-│   ├── configuration-guide.md
-│   ├── key-concepts.md
-│   └── session-handoff.md
-├── scripts/
-│   └── echo-search/         # Echo Search MCP server
-│       ├── server.py         # MCP server (FTS5 full-text search)
-│       ├── indexer.py         # Echo entry parser and indexer
-│       └── annotate-hook.sh   # PostToolUse hook for dirty signal
+│   ├── cancel-arc.md    # /rune:cancel-arc
+│   ├── forge.md         # /rune:forge
+│   ├── mend.md          # /rune:mend
+│   ├── plan.md          # /rune:plan
+│   ├── work.md          # /rune:work
+│   ├── review.md        # /rune:review
+│   ├── cancel-review.md # /rune:cancel-review
+│   ├── audit.md         # /rune:audit
+│   ├── cancel-audit.md  # /rune:cancel-audit
+│   ├── elicit.md        # /rune:elicit
+│   ├── echoes.md        # /rune:echoes
+│   └── rest.md          # /rune:rest
 ├── skills/
+│   ├── agent-browser/       # Browser automation knowledge (non-invocable)
 │   ├── arc/                 # /rune:arc (end-to-end pipeline)
 │   │   ├── SKILL.md
 │   │   └── references/      # Arc-specific phase refs, delegation checklist
-│   ├── arc-batch/           # /rune:arc-batch (sequential batch execution)
+│   ├── arc-batch/           # /rune:arc-batch (sequential multi-plan)
 │   ├── ash-guide/           # Agent reference
 │   ├── chome-pattern/       # CLAUDE_CONFIG_DIR resolution
 │   ├── codex-cli/           # Codex CLI integration
@@ -526,16 +509,18 @@ plugins/rune/
 │   ├── elicitation/         # BMAD-derived reasoning methods
 │   │   └── references/      # methods.csv, examples.md, phase-mapping.md
 │   ├── goldmask/            # Cross-layer impact analysis
+│   ├── inner-flame/         # 3-layer self-review protocol (non-invocable)
 │   ├── polling-guard/       # Monitoring loop fidelity
 │   ├── roundtable-circle/   # Review orchestration
 │   │   └── references/      # e.g. rune-gaze.md, custom-ashes.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
 │   ├── rune-orchestration/  # Core coordination
 │   │   └── references/      # e.g. team-lifecycle-guard.md
+│   ├── testing/             # Test orchestration pipeline (non-invocable)
+│   │   └── references/      # test-discovery.md, service-startup.md, etc.
 │   ├── using-rune/          # Workflow discovery and intent routing
 │   └── zsh-compat/          # zsh shell compatibility
 ├── talisman.example.yml
-├── CHANGELOG.md
 ├── CLAUDE.md
 ├── LICENSE
 └── README.md
