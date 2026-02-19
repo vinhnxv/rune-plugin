@@ -391,12 +391,18 @@ REMINDER: Return complexity score JSON only."""
 
   Write("tmp/plans/{timestamp}/codex-shatter-prompt.txt", promptContent)
 
-  result = Bash("timeout 120 codex exec \
-    -m {codexModel} --config model_reasoning_effort='medium' \
-    --sandbox read-only --full-auto --skip-git-repo-check \
-    \"$(cat tmp/plans/{timestamp}/codex-shatter-prompt.txt)\" 2>/dev/null")
+  // Resolve timeouts via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+  const { codexTimeout, codexStreamIdleMs, killAfterFlag } = resolveCodexTimeouts(talisman)
+  const stderrFile = Bash("mktemp ${TMPDIR:-/tmp}/codex-stderr-XXXXXX").stdout.trim()
 
-  Bash("rm -f tmp/plans/{timestamp}/codex-shatter-prompt.txt 2>/dev/null")
+  result = Bash(`timeout ${killAfterFlag} ${codexTimeout} codex exec \
+    -m ${codexModel} --config model_reasoning_effort='medium' \
+    --config stream_idle_timeout_ms="${codexStreamIdleMs}" \
+    --sandbox read-only --full-auto --skip-git-repo-check \
+    "$(cat tmp/plans/${timestamp}/codex-shatter-prompt.txt)" 2>"${stderrFile}"`)
+
+  Bash(`rm -f tmp/plans/${timestamp}/codex-shatter-prompt.txt "${stderrFile}" 2>/dev/null`)
+  // If exit code 124: classifyCodexError(stderrFile) — see codex-detection.md
 
   if result.exitCode === 0:
     codexScore = parseJSON(result.stdout)?.score

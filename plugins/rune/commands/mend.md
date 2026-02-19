@@ -752,11 +752,14 @@ Confidence >= 80% only. Omit findings you cannot verify.`
         1. TaskList() -> claim the "Codex Mend Verification" task
         2. Check codex availability: Bash("command -v codex >/dev/null 2>&1 && echo yes || echo no")
         3. If codex unavailable: write skip message to output file, complete task, exit
-        4. Run codex exec with the prompt from temp file (SEC-003):
-           Bash(\`timeout 300 codex exec -m "${codexModel}" \\
+        4. Resolve timeouts via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+        5. Run codex exec with the prompt from temp file (SEC-003):
+           Bash(\`timeout --kill-after=30 \${codexTimeout} codex exec -m "${codexModel}" \\
              --config model_reasoning_effort="${codexReasoning}" \\
+             --config stream_idle_timeout_ms="\${codexStreamIdleMs}" \\
              --sandbox read-only --full-auto --skip-git-repo-check \\
-             "$(cat tmp/mend/${id}/codex-verify-prompt.txt)" 2>/dev/null\`)
+             "$(cat tmp/mend/${id}/codex-verify-prompt.txt)" 2>"\${stderrFile}"\`)
+           // If exit code 124: classifyCodexError(stderrFile) — see codex-detection.md
         5. Write results to tmp/mend/${id}/codex-mend-verification.md
            Format: [CDX-MEND-NNN] {finding_id}: {verdict} — {reason}
         6. Cleanup: Bash(\`rm -f tmp/mend/${id}/codex-verify-prompt.txt 2>/dev/null\`)

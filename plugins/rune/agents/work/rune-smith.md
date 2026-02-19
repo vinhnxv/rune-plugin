@@ -221,13 +221,19 @@ REMINDER: Resume your reviewer role. Report CRITICAL bugs only."""
       Write("tmp/work/{id}/codex-smith-prompt.txt", promptContent)
 
       # Security: CODEX_MODEL_ALLOWLIST validated
-      result = Bash("timeout 120 codex exec \
-        -m {codexModel} \
-        --config model_reasoning_effort='low' \
-        --sandbox read-only --full-auto --skip-git-repo-check \
-        \"$(cat tmp/work/{id}/codex-smith-prompt.txt)\" 2>/dev/null")
+      # Resolve timeouts via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
+      const { codexTimeout, codexStreamIdleMs, killAfterFlag } = resolveCodexTimeouts(talisman)
+      const stderrFile = Bash("mktemp ${TMPDIR:-/tmp}/codex-stderr-XXXXXX").stdout.trim()
 
-      Bash("rm -f tmp/work/{id}/codex-smith-prompt.txt 2>/dev/null")
+      result = Bash(`timeout ${killAfterFlag} ${codexTimeout} codex exec \
+        -m ${codexModel} \
+        --config model_reasoning_effort='low' \
+        --config stream_idle_timeout_ms="${codexStreamIdleMs}" \
+        --sandbox read-only --full-auto --skip-git-repo-check \
+        "$(cat tmp/work/${id}/codex-smith-prompt.txt)" 2>"${stderrFile}"`)
+      // If exit code 124: classifyCodexError(stderrFile) — see codex-detection.md
+
+      Bash(`rm -f tmp/work/${id}/codex-smith-prompt.txt "${stderrFile}" 2>/dev/null`)
 
       if result.exitCode === 0 AND result.stdout contains "CRITICAL":
         SendMessage to Tarnished: "Codex advisory for task #{taskId}: {result (truncated to 500 chars)}"
