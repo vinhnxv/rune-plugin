@@ -31,7 +31,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
 | `/rune:plan` | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
-| `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
+| `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits, per-worker todo files for cross-session resume) |
 | `/rune:mend` | Parallel finding resolution from TOME |
 | `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 14 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → code review → mend → verify mend (convergence loop) → audit → ship → merge |
 | `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
