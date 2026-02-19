@@ -435,8 +435,7 @@ work:
 # ──────────────────────────────────────────────
 horizon:
   enabled: true                    # Kill switch — disables horizon-sage globally
-  intent_default: "long-term"      # Default intent when user skips question
-  # block_on_mismatch: true        # BLOCK when intent contradicts assessment (default: true)
+  intent_default: "long-term"      # Default intent when plan lacks strategic_intent field
 
 # ──────────────────────────────────────────────
 # Codex Oracle — Cross-model verification (v1.18.0+)

@@ -140,10 +140,11 @@ if (horizonEnabled) {
   // Read strategic intent from plan frontmatter — validate against allowlist
   const planFrontmatter = extractYamlFrontmatter(Read(planPath))
   const VALID_INTENTS = ["long-term", "quick-win", "auto"]
+  const intentDefault = readTalisman()?.horizon?.intent_default ?? "long-term"
   const strategicIntent = VALID_INTENTS.includes(planFrontmatter?.strategic_intent)
-    ? planFrontmatter.strategic_intent : "long-term"
+    ? planFrontmatter.strategic_intent : intentDefault
   if (!VALID_INTENTS.includes(planFrontmatter?.strategic_intent)) {
-    warn("Invalid strategic_intent in plan frontmatter, defaulting to 'long-term'")
+    warn(`Invalid strategic_intent in plan frontmatter, defaulting to '${intentDefault}'`)
   }
 
   TaskCreate({

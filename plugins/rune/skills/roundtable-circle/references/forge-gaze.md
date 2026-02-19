@@ -285,7 +285,7 @@ Forge Gaze — Agent Selection
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Plan sections: 6
-Agents available: 21 built-in (18 review + 2 research + 1 utility) + custom
+Agents available: 22 built-in (18 review + 2 research + 2 utility) + custom
 Methods available: 7 (via elicitation-sage agent — MAX_FORGE_SAGES = 6 cap, keyword pre-filtered)
 
 Section: "Technical Approach"

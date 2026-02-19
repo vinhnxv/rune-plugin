@@ -1,6 +1,6 @@
 # Phase 2: PLAN REVIEW — Full Algorithm
 
-Three parallel reviewers evaluate the enriched plan. Any BLOCK verdict halts the pipeline.
+Three to four parallel reviewers evaluate the enriched plan. Any BLOCK verdict halts the pipeline.
 
 **Team**: `arc-plan-review-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
@@ -95,7 +95,23 @@ const reviewers = [
   { name: "knowledge-keeper", agent: "agents/utility/knowledge-keeper.md", focus: "Documentation coverage" }
 ]
 
-// Codex Plan Reviewer (optional 4th reviewer — see arc-delegation-checklist.md Phase 2)
+// Horizon Sage — strategic depth assessment (v1.47.0+)
+// Skipped if talisman horizon.enabled === false
+const horizonEnabled = readTalisman()?.horizon?.enabled !== false
+if (horizonEnabled) {
+  const planFrontmatter = extractYamlFrontmatter(Read(`tmp/arc/${id}/enriched-plan.md`))
+  const VALID_INTENTS = ["long-term", "quick-win", "auto"]
+  const intentDefault = readTalisman()?.horizon?.intent_default ?? "long-term"
+  const strategicIntent = VALID_INTENTS.includes(planFrontmatter?.strategic_intent)
+    ? planFrontmatter.strategic_intent : intentDefault
+  reviewers.push({
+    name: "horizon-sage",
+    agent: "agents/utility/horizon-sage.md",
+    focus: `Strategic depth assessment (intent: ${strategicIntent})`
+  })
+}
+
+// Codex Plan Reviewer (optional 5th reviewer — see arc-delegation-checklist.md Phase 2)
 // Detection: canonical codex-detection.md algorithm (9 steps, NOT inline simplified check)
 // Arc-mode adaptation: if .codexignore is missing, skip Codex silently (no AskUserQuestion)
 // — AskUserQuestion would block the automated arc pipeline indefinitely.
@@ -215,8 +231,8 @@ try {
   // SEC-4 FIX: Validate member names against safe pattern before use in SendMessage
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
-  // FALLBACK: Phase 2 plan review — these are the 3 reviewers summoned in this specific phase
-  allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper"]
+  // FALLBACK: Phase 2 plan review — core reviewers summoned in this phase (horizon-sage is conditional)
+  allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper", "horizon-sage"]
 }
 
 // Shutdown all discovered members
