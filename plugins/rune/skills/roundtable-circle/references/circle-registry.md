@@ -6,7 +6,7 @@
 
 Each review agent is embedded as a "perspective" inside an Ash. This registry defines which perspectives belong to which Ash and what file scopes they target.
 
-> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (16 agents across 3 Ashes). Glyph Scribe, Knowledge Keeper, and Codex Oracle use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
+> **Architecture note:** Forge Warden, Ward Sentinel, and Pattern Weaver embed dedicated review agent files from `agents/review/` (18 agents across 3 Ashes). Glyph Scribe, Knowledge Keeper, and Codex Oracle use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
 
 ### Forge Warden (Backend)
 
@@ -44,6 +44,8 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 | void-analyzer | Incomplete implementations | All files (look for TODOs, stubs) |
 | trial-oracle | TDD compliance, test quality | Test files > source files |
 | tide-watcher | Async/concurrency patterns, race conditions | Async code > event handlers > frontend |
+| refactor-guardian | Refactoring completeness, orphaned callers, extraction verification | Changed files with R/D/A git status |
+| reference-validator | Import paths, config refs, frontmatter, version sync | All changed files + config files |
 
 **Audit file priority:** largest files first (highest complexity risk)
 **Context budget:** max 30 files (all file types)

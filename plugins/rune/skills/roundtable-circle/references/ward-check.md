@@ -136,6 +136,67 @@ for (const pattern of customPatterns) {
   }
 }
 
+// 11. Agent frontmatter validation
+const agentFiles = Glob("agents/**/*.md").concat(Glob(".claude/agents/**/*.md"))
+for (const file of agentFiles) {
+  const content = Read(file)
+  const frontmatter = extractYamlFrontmatter(content)
+
+  if (!frontmatter) {
+    checks.push(`WARN: ${file}: No YAML frontmatter found`)
+    continue
+  }
+
+  // Required fields
+  if (!frontmatter.name) checks.push(`WARN: ${file}: Missing required 'name' field`)
+  if (!frontmatter.description) checks.push(`WARN: ${file}: Missing required 'description' field`)
+
+  // Name format validation
+  if (frontmatter.name && !/^[a-z][a-z0-9-]*$/.test(frontmatter.name)) {
+    checks.push(`WARN: ${file}: name '${frontmatter.name}' must be lowercase-with-hyphens`)
+  }
+
+  // Name-filename consistency
+  const expectedName = file.split('/').pop().replace('.md', '')
+  if (frontmatter.name && frontmatter.name !== expectedName) {
+    checks.push(`WARN: ${file}: frontmatter name '${frontmatter.name}' != filename '${expectedName}'`)
+  }
+
+  // Tools validation (field name is 'tools' in Rune agents)
+  const toolsList = frontmatter.tools || frontmatter['allowed-tools']
+  if (toolsList) {
+    if (!Array.isArray(toolsList)) {
+      checks.push(`WARN: ${file}: 'tools' field must be an array, got ${typeof toolsList}`)
+      continue
+    }
+    const KNOWN_TOOLS = new Set([
+      'Read', 'Write', 'Edit', 'MultiEdit', 'Glob', 'Grep', 'Bash',
+      'Task', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet',
+      'SendMessage', 'TeamCreate', 'TeamDelete', 'AskUserQuestion',
+      'EnterPlanMode', 'ExitPlanMode', 'WebFetch', 'WebSearch',
+      'NotebookEdit', 'Skill', 'TodoWrite'
+    ])
+    for (const tool of toolsList) {
+      // Skip MCP tools (dynamically registered)
+      if (typeof tool === 'string' && tool.startsWith('mcp__')) continue
+      if (!KNOWN_TOOLS.has(tool)) {
+        checks.push(`WARN: ${file}: unknown tool '${tool}' in tools list`)
+      }
+    }
+  }
+}
+
+// 12. Cross-reference integrity for renamed/moved files
+const deletedFiles = Bash(`git diff --name-only --diff-filter=D "\${defaultBranch}"...HEAD 2>/dev/null`).split('\n').filter(Boolean)
+for (const deleted of deletedFiles) {
+  const basename = deleted.split('/').pop().replace(/\.[^.]+$/, '')
+  if (basename.length < 3) continue
+  const refs = Grep(basename, { path: ".", glob: "*.{py,ts,js,rs,go,rb,md,yml,yaml,json}" })
+  if (refs.length > 0) {
+    checks.push(`WARN: Deleted file '${deleted}' still referenced in: ${refs.slice(0, 5).join(', ')}`)
+  }
+}
+
 // Report -- non-blocking, report to user but do not halt
 if (checks.length > 0) {
   warn("Verification warnings:\n" + checks.join("\n"))

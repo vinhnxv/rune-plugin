@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 39 agents** (16 review + 5 research + 2 work + 8 utility + 8 investigation)
+**Total: 41 agents** (18 review + 5 research + 2 work + 8 utility + 8 investigation)
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 
@@ -24,6 +24,8 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | blight-seer | Design anti-patterns, God Service, leaky abstractions, temporal coupling |
 | forge-keeper | Data integrity, migration safety, reversibility, lock analysis, transaction boundaries |
 | tide-watcher | Async/concurrency patterns, waterfall awaits, unbounded concurrency, cancellation, race conditions |
+| refactor-guardian | Refactoring completeness gaps, orphaned callers, incomplete extractions, missing dependency moves, stale test references |
+| reference-validator | Import path validation, config-to-source references, agent/skill frontmatter schema, version sync across manifests |
 
 ## Research Agents (`agents/research/`)
 

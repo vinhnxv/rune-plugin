@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.43.0] — 2026-02-19
+
+### Added
+- **refactor-guardian** review agent: Detects refactoring completeness gaps — orphaned callers, incomplete extractions, missing dependency moves, and stale test references after rename/move/extract/split operations. Adapted confidence scoring from wraith-finder with refactoring-specific factors.
+- **reference-validator** review agent: Validates import paths, config-to-source references, agent/skill frontmatter schema, and version sync across manifest files. Handles language-specific import patterns (Python, TypeScript, Rust) with smart skip rules for stdlib, third-party, and MCP tools.
+- Ward-check enhancements: deterministic frontmatter validation (zero LLM cost) and cross-reference integrity checks for deleted files
+- Pattern Weaver perspectives #9 (refactor-guardian) and #10 (reference-validator)
+
+### Changed
+- Review agent count: 16 → 18
+- Total agent count: updated across all documentation files
+- Plugin version: 1.42.2 → 1.43.0
+
 ## [1.42.1] — 2026-02-19
 
 ### Fixed

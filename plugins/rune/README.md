@@ -174,7 +174,7 @@ When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
 1. **Gathers input** — runs interactive brainstorm by default (auto-skips when requirements are clear)
 2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
 3. **Synthesizes findings** — lead consolidates research into a structured plan
-4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 19 built-in agents (16 review + 2 research + 1 utility) with elicitation-sage integration (max 6 sages per forge session) across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
+4. **Forge Gaze enrichment** — topic-aware agent selection matches plan sections to specialized agents by default using keyword overlap scoring. 21 built-in agents (18 review + 2 research + 1 utility) with elicitation-sage integration (max 6 sages per forge session) across enrichment (~5k tokens) and research (~15k tokens) budget tiers. Use `--exhaustive` for deeper research with lower thresholds. Use `--quick` to skip forge.
 5. **Reviews document** — Scroll Reviewer checks plan quality, with optional iterative refinement and technical review (decree-arbiter + knowledge-keeper)
 6. **Persists learnings** — saves planning insights to Rune Echoes
 
@@ -291,7 +291,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 
 ### Review Agents
 
-16 specialized agents that Ash embed as perspectives:
+18 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -311,6 +311,8 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 | blight-seer | Design anti-patterns, architectural smells |
 | forge-keeper | Data integrity, migration safety |
 | tide-watcher | Async/concurrency patterns |
+| refactor-guardian | Refactoring completeness gaps, orphaned callers, stale test refs |
+| reference-validator | Import paths, config-to-source refs, frontmatter schema, version sync |
 
 ### Research Agents
 
@@ -468,7 +470,7 @@ plugins/rune/
 │   └── plugin.json
 ├── agents/
 │   ├── investigation/   # 8 impact/wisdom/lore agents (Goldmask v2)
-│   ├── review/          # 16 review agents
+│   ├── review/          # 18 review agents
 │   │   └── references/  # Shared review checklists
 │   ├── research/        # 5 research agents (plan pipeline)
 │   ├── work/            # 2 swarm workers (work pipeline)
