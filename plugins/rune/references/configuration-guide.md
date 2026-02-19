@@ -40,6 +40,8 @@ codex:                                 # Codex CLI integration (see codex-cli sk
   disabled: false                      # Kill switch — skip Codex entirely
   model: "gpt-5.3-codex"              # Model for codex exec
   reasoning: "high"                    # Reasoning effort (high | medium | low)
+  timeout: 600                         # Outer GNU timeout in seconds for codex exec (default: 600, range: 30-3600)
+  stream_idle_timeout: 540             # Inner stream idle timeout — kills codex if no output for this duration (default: 540, range: 10-timeout)
   workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex — "mend" added in v1.39.0 for post-fix verification
   work_advisory:
     enabled: true                      # Codex advisory in /rune:work
@@ -51,6 +53,7 @@ solution_arena:
 
 echoes:
   version_controlled: false
+  fts_enabled: true                    # Enable FTS5/MCP echo search. Set false to disable MCP server.
 
 review:
   # Diff-scope tagging (v1.38.0+) — generates line-level diff ranges for scope-aware review

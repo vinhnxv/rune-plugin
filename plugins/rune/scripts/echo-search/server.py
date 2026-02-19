@@ -39,6 +39,18 @@ from typing import Any, Dict, List, Optional
 ECHO_DIR = os.environ.get("ECHO_DIR", "")
 DB_PATH = os.environ.get("DB_PATH", "")
 
+# SEC-003: Validate env vars don't point to system directories
+_FORBIDDEN_PREFIXES = ("/etc", "/usr", "/bin", "/sbin", "/var/run", "/proc", "/sys")
+for _env_name, _env_val in [("ECHO_DIR", ECHO_DIR), ("DB_PATH", DB_PATH)]:
+    if _env_val:
+        _resolved = os.path.realpath(_env_val)
+        if any(_resolved.startswith(p) for p in _FORBIDDEN_PREFIXES):
+            print(
+                "Error: %s points to system directory: %s" % (_env_name, _resolved),
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
 STOPWORDS = frozenset([
     "a", "an", "and", "are", "as", "at", "be", "but", "by", "for",
     "from", "had", "has", "have", "he", "her", "his", "i", "in",
@@ -101,38 +113,42 @@ def ensure_schema(conn):
 def rebuild_index(conn, entries):
     # type: (sqlite3.Connection, List[Dict]) -> int
     conn.execute("BEGIN")  # QUAL-3: explicit transaction for crash safety
-    conn.execute("DELETE FROM echo_entries")
-    conn.execute("INSERT INTO echo_entries_fts(echo_entries_fts) VALUES('delete-all')")
+    try:
+        conn.execute("DELETE FROM echo_entries")
+        conn.execute("INSERT INTO echo_entries_fts(echo_entries_fts) VALUES('delete-all')")
 
-    for entry in entries:
+        for entry in entries:
+            conn.execute(
+                """INSERT OR REPLACE INTO echo_entries
+                   (id, role, layer, date, source, content, tags, line_number, file_path)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    entry["id"],
+                    entry["role"],
+                    entry["layer"],
+                    entry.get("date", ""),
+                    entry.get("source", ""),
+                    entry["content"],
+                    entry.get("tags", ""),
+                    entry.get("line_number", 0),
+                    entry["file_path"],
+                ),
+            )
+
+        # Rebuild the FTS index from the content table
         conn.execute(
-            """INSERT OR REPLACE INTO echo_entries
-               (id, role, layer, date, source, content, tags, line_number, file_path)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                entry["id"],
-                entry["role"],
-                entry["layer"],
-                entry.get("date", ""),
-                entry.get("source", ""),
-                entry["content"],
-                entry.get("tags", ""),
-                entry.get("line_number", 0),
-                entry["file_path"],
-            ),
+            "INSERT INTO echo_entries_fts(echo_entries_fts) VALUES('rebuild')"
         )
 
-    # Rebuild the FTS index from the content table
-    conn.execute(
-        "INSERT INTO echo_entries_fts(echo_entries_fts) VALUES('rebuild')"
-    )
-
-    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    conn.execute(
-        "INSERT OR REPLACE INTO echo_meta (key, value) VALUES ('last_indexed', ?)",
-        (now,),
-    )
-    conn.commit()
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        conn.execute(
+            "INSERT OR REPLACE INTO echo_meta (key, value) VALUES ('last_indexed', ?)",
+            (now,),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return len(entries)
 
 
@@ -193,6 +209,10 @@ def search_entries(conn, query, limit=10, layer=None, role=None):
 
 def get_details(conn, ids):
     # type: (sqlite3.Connection, List[str]) -> List[Dict]
+    if not ids:
+        return []
+    # SEC-002: Defense-in-depth cap + type validation
+    ids = [str(i) for i in ids if isinstance(i, str)][:100]
     if not ids:
         return []
     placeholders = ",".join(["?"] * len(ids))
@@ -260,12 +280,14 @@ def do_reindex(echo_dir, db_path):
     start_ms = int(time.time() * 1000)
     entries = discover_and_parse(echo_dir)
     conn = get_db(db_path)
-    ensure_schema(conn)
-    count = rebuild_index(conn, entries)
+    try:
+        ensure_schema(conn)
+        count = rebuild_index(conn, entries)
+    finally:
+        conn.close()
     elapsed_ms = int(time.time() * 1000) - start_ms
 
     roles = sorted(set(e["role"] for e in entries))
-    conn.close()
 
     return {
         "entries_indexed": count,
@@ -508,9 +530,11 @@ def run_mcp_server():
     async def _handle_stats():
         # type: () -> List[types.TextContent]
         conn = get_db(DB_PATH)
-        ensure_schema(conn)
-        stats = get_stats(conn)
-        conn.close()
+        try:
+            ensure_schema(conn)
+            stats = get_stats(conn)
+        finally:
+            conn.close()
 
         return [
             types.TextContent(
@@ -529,7 +553,7 @@ def run_mcp_server():
                 write_stream,
                 InitializationOptions(
                     server_name="echo-search",
-                    server_version="1.43.0",
+                    server_version="1.45.0",
                     capabilities=server.get_capabilities(
                         notification_options=NotificationOptions(),
                         experimental_capabilities={},

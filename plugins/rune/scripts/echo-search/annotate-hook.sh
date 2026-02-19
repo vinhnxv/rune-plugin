@@ -9,7 +9,8 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-TOOL_INPUT=$(cat)
+# SEC-006: Cap stdin to 64KB (only need file_path, not full content)
+TOOL_INPUT=$(head -c 65536)
 
 FILE_PATH=$(printf '%s' "$TOOL_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 
