@@ -290,6 +290,8 @@ arc:
     semantic_verification: 180000  # 3 minutes (default, v1.39.0+)
     codex_gap_analysis: 660000   # 11 minutes (default, v1.39.0+)
     test: 900000                 # 15 minutes (default, v1.43.0+; 40 min with E2E: 2_400_000)
+    goldmask_verification: 900000  # 15 minutes (default, v1.47.0+)
+    goldmask_correlation: 60000    # 1 minute (default, v1.47.0+)
     ship: 300000                 # 5 minutes (default, v1.40.0+)
     merge: 600000                # 10 minutes (default, v1.40.0+)
     # NOTE: Total pipeline timeout is computed dynamically by calculateDynamicTimeout(tier).

@@ -58,7 +58,7 @@ Delegated to `/rune:audit` — typically summons rune-architect + ward-sentinel 
 ```javascript
 // PRE-DELEGATION: Record phase as in_progress with null team name.
 // Actual team name will be discovered post-delegation from state file.
-updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 9, team_name: null })
+updateCheckpoint({ phase: "audit", status: "in_progress", phase_sequence: 15, team_name: null })
 ```
 
 ## Post-Delegation Team Name Discovery

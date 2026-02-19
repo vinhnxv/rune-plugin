@@ -133,12 +133,16 @@ if (integrationEnabled || e2eEnabled) {
   if (!servicesHealthy) {
     warn("Services not healthy — skipping integration/E2E tiers")
   }
-  Bash(`mkdir -p tmp/arc/${id}/screenshots/`)
-  // T4: Verify screenshot dir is not a symlink (defense-in-depth against path traversal)
+  // T4: Verify screenshot dir is not a symlink BEFORE creating (SEC-004: prevent TOCTOU race)
   const screenshotDir = `tmp/arc/${id}/screenshots`
   if (Bash(`test -L "${screenshotDir}" && echo symlink`).trim() === 'symlink') {
-    Bash(`rm -f "${screenshotDir}" && mkdir -p "${screenshotDir}"`)
-    warn("Screenshot directory was a symlink — recreated as real directory")
+    Bash(`rm -f "${screenshotDir}"`)
+    warn("Screenshot directory was a symlink — removed before creation")
+  }
+  Bash(`mkdir -p "${screenshotDir}"`)
+  // Post-create verify: ensure it's still a real directory (defense-in-depth)
+  if (Bash(`test -L "${screenshotDir}" && echo symlink`).trim() === 'symlink') {
+    throw new Error(`Screenshot directory is a symlink after creation — aborting (possible race condition)`)
   }
 }
 
@@ -293,7 +297,8 @@ SendMessage({ type: "shutdown_request", recipient: "test-failure-analyst" })
 sleep(30_000)  // Wait for shutdown acknowledgment
 
 // 2. Close browser sessions (teammates already closed)
-Bash(`agent-browser session list 2>/dev/null | grep "arc-e2e-${id}" && agent-browser close --session arc-e2e-${id} 2>/dev/null || true`)
+// SEC-001 FIX: Use grep -F for literal matching and quote --session argument
+Bash(`agent-browser session list 2>/dev/null | grep -F "arc-e2e-${id}" && agent-browser close --session "arc-e2e-${id}" 2>/dev/null || true`)
 
 // 3. Stop Docker
 if (dockerStarted) {
@@ -336,8 +341,8 @@ If this phase crashes before cleanup:
 
 | Resource | Location |
 |----------|----------|
-| Team config | `~/.claude/teams/arc-test-{id}/` |
-| Task list | `~/.claude/tasks/arc-test-{id}/` |
+| Team config | `$CHOME/teams/arc-test-{id}/` (where `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`) |
+| Task list | `$CHOME/tasks/arc-test-{id}/` (where `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`) |
 | Browser sessions | `arc-e2e-{id}` (check `agent-browser session list`) |
 | Docker containers | `tmp/arc/{id}/docker-containers.json` |
 | Screenshots | `tmp/arc/{id}/screenshots/` |

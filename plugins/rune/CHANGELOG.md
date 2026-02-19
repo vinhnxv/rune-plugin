@@ -9,8 +9,8 @@
   - Phase 4.4 Quick Goldmask Check in work: CRITICAL file comparison
   - Phase 5.7 Goldmask Verification in arc: Post-work risk validation
   - Phase 6.5 Goldmask Correlation in arc: TOME finding correlation
-- Arc pipeline: 14 → 16 phases (goldmask_verification, goldmask_correlation)
-- Checkpoint schema v8 → v9 migration
+- Arc pipeline: 15 → 17 phases (goldmask_verification, goldmask_correlation)
+- Checkpoint schema v9 → v10 migration
 - ARC_TEAM_PREFIXES: added "goldmask-" for cleanup
 - **horizon-sage** strategic depth assessment agent — evaluates plans across 5 dimensions: Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability & Resilience, Maintainability Trajectory
 - Intent-aware verdict derivation — adapts thresholds based on `strategic_intent` (long-term vs quick-win)
@@ -26,9 +26,9 @@
   - **Investigation** (8/8): goldmask-coordinator (historical risk context), lore-analyst (cached risk baselines), wisdom-sage (past intent classifications), api-contract-tracer (past API contract patterns), business-logic-tracer (past business rule changes), config-dependency-tracer (past config drift patterns), data-layer-tracer (past data model patterns), event-message-tracer (past event schema patterns)
 
 ### Changed
-- PHASE_ORDER: 14 → 16 entries
-- calculateDynamicTimeout: +16 min base budget
-- Agent count: 41 → 42 (utility: 8 → 9)
+- PHASE_ORDER: 15 → 17 entries
+- calculateDynamicTimeout: +16 min base budget (goldmask_verification: 15 min, goldmask_correlation: 1 min)
+- Agent count: 42 → 46 (utility: 8 → 9, review: 16 → 18, investigation: 8)
 
 ## [1.46.0] — 2026-02-19
 

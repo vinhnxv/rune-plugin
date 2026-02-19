@@ -28,7 +28,7 @@ It is auto-loaded by the arc orchestrator and injected into test runner agents.
 ```
 
 **Execution order**: Unit → Integration → E2E (serial by tier, parallel within tier)
-**Failure cascade**: Each tier runs independently based on scope detection and service health. Tier failures are non-blocking — all enabled tiers execute regardless of prior tier results.
+**Failure cascade**: Tiers execute serially (unit → integration → E2E). Tier failures are non-blocking — all enabled tiers execute regardless of prior tier results, based on scope detection and service health.
 
 ## Model Routing Rules
 
@@ -110,4 +110,4 @@ External URLs are rejected to prevent agent-browser from navigating to untrusted
 - 500-line ceiling for AI agent context
 - Full output written to artifact file
 - Summary (last 20-50 lines) extracted for agent context
-- Secret scrubbing: `AWS_*`, `*_KEY`, `*_SECRET`, `*_TOKEN`, `Bearer `, `sk-*`, `ghp_*`, JWT tokens, emails redacted before agent ingestion
+- Secret scrubbing: `AWS_*`, `*_KEY`, `*_SECRET`, `*_TOKEN`, `Bearer `, `sk-*`, `ghp_*`, JWT tokens, emails redacted before agent ingestion. See `testing/references/secret-scrubbing.md` for regex patterns and `scrubSecrets()` implementation (TODO: create reference file)
