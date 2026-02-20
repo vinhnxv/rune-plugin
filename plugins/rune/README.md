@@ -160,7 +160,7 @@ When you run `/rune:inspect`, Rune measures how well the codebase matches a plan
 3. **Identifies scope** — searches codebase for files matching plan identifiers
 4. **Summons inspectors** — 4 parallel Inspector Ashes each assess their assigned dimensions
 5. **Aggregates verdict** — Verdict Binder produces VERDICT.md with requirement matrix, dimension scores, and gap analysis
-6. **Determines verdict** — READY (>80% complete, 0 P1) / GAPS_FOUND / INCOMPLETE / CRITICAL_ISSUES
+6. **Determines verdict** — READY (>=threshold% complete, 0 P1; default 80%, configurable via `inspect.completion_threshold` in talisman.yml or `--threshold` flag) / GAPS_FOUND / INCOMPLETE / CRITICAL_ISSUES
 
 | Inspector | Dimensions | Gap Categories |
 |-----------|-----------|----------------|
@@ -507,7 +507,7 @@ plugins/rune/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── agents/
-│   ├── investigation/       # 8 impact/wisdom/lore agents (Goldmask v2)
+│   ├── investigation/       # 12 investigation agents (Goldmask + Inspect)
 │   ├── review/              # 21 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
@@ -526,6 +526,7 @@ plugins/rune/
 │   ├── cancel-audit.md  # /rune:cancel-audit
 │   ├── elicit.md        # /rune:elicit
 │   ├── echoes.md        # /rune:echoes
+│   ├── inspect.md       # /rune:inspect
 │   └── rest.md          # /rune:rest
 ├── skills/
 │   ├── agent-browser/       # Browser automation knowledge (non-invocable)

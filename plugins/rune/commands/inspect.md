@@ -42,7 +42,7 @@ Orchestrate a multi-agent inspection that measures implementation completeness a
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--focus <dimension>` | Focus on a specific dimension (correctness, security, performance, design, observability, tests, maintainability) | All dimensions |
+| `--focus <dimension>` | Focus on a specific dimension (correctness, completeness, security, failure-modes, performance, design, observability, tests, maintainability) | All dimensions |
 | `--max-agents <N>` | Limit total Inspector Ashes (1-4) | 4 |
 | `--dry-run` | Show scope, requirements, and inspector assignments without summoning agents | Off |
 | `--threshold <N>` | Override completion threshold for READY verdict (0-100) | 80 (from talisman) |
@@ -63,7 +63,13 @@ No teams, tasks, state files, or agents are created.
 input = $ARGUMENTS
 
 // Determine if input is a file path or inline text
-if (input matches /\.(md|txt)$/ AND fileExists(input)):
+if (input matches /\.(md|txt)$/):
+  // SEC-003: Validate plan path BEFORE filesystem access (same pattern as forge.md + arc.md)
+  // SEC-001 FIX: Regex guard must run before fileExists() to prevent information oracle
+  if (!/^[a-zA-Z0-9._\/-]+$/.test(input) || input.includes('..')):
+    error("Invalid plan path: contains unsafe characters or path traversal")
+  if (!fileExists(input)):
+    error("Plan file not found: " + input)
   planPath = input
   planContent = Read(planPath)
   mode = "file"
@@ -141,7 +147,9 @@ if (flag("--focus")):
   focusDimension = flag("--focus")
   inspectorMap = {
     "correctness": "grace-warden",
+    "completeness": "grace-warden",        // QUAL-002 FIX: was missing from 9-dimension system
     "security": "ruin-prophet",
+    "failure-modes": "ruin-prophet",        // QUAL-002 FIX: was missing from 9-dimension system
     "performance": "sight-oracle",
     "design": "sight-oracle",
     "observability": "vigil-keeper",
@@ -149,7 +157,8 @@ if (flag("--focus")):
     "maintainability": "vigil-keeper"
   }
   if (!(focusDimension in inspectorMap)):
-    error(`Unknown dimension: ${focusDimension}. Valid: ${Object.keys(inspectorMap).join(", ")}`)
+    // SEC-006 FIX: Use fixed error message — do not echo unvalidated user input
+    error("Unknown --focus dimension. Valid: correctness, completeness, security, failure-modes, performance, design, observability, tests, maintainability")
 
   // Keep only the focused inspector
   focusedInspector = inspectorMap[focusDimension]
@@ -312,15 +321,29 @@ const teamName = `rune-inspect-${identifier}`
 if (!/^[a-zA-Z0-9_-]+$/.test(teamName)):
   error("Invalid team name")
 
-// Step A: Try TeamDelete in case of leftover
-try { TeamDelete() } catch {}
+// Step A: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+let teamDeleteSucceeded = false
+const RETRY_DELAYS = [0, 3000, 8000]
+for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++):
+  if (attempt > 0):
+    warn(`teamTransition: TeamDelete attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
+    Bash(`sleep ${RETRY_DELAYS[attempt] / 1000}`)
+  try:
+    TeamDelete()
+    teamDeleteSucceeded = true
+    break
+  catch (e):
+    if (attempt === RETRY_DELAYS.length - 1):
+      warn(`teamTransition: TeamDelete failed after ${RETRY_DELAYS.length} attempts. Using filesystem fallback.`)
 
-// Step B: Filesystem cleanup
-const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
-Bash(`rm -rf "${CHOME}/teams/${teamName}/" "${CHOME}/tasks/${teamName}/" 2>/dev/null`)
-
-// Step C: Cross-workflow scan
-Bash(`find "${CHOME}/teams/" -maxdepth 1 -type d -name "rune-inspect-*" -mmin +30 -exec rm -rf {} + 2>/dev/null`)
+// Step B: Filesystem fallback (only when Step A failed — avoids blast radius on happy path)
+// CDX-003 FIX: Gate behind !teamDeleteSucceeded to prevent cross-workflow scan from
+// wiping concurrent workflows when TeamDelete already succeeded cleanly.
+if (!teamDeleteSucceeded):
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+  // Step C: Cross-workflow scan (stale inspect teams only)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d -name "rune-inspect-*" -mmin +30 -exec rm -rf {} + 2>/dev/null`)
+  try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 ```
 
 ### Step 2.5 — Create Team
@@ -330,6 +353,17 @@ TeamCreate({
   team_name: teamName,
   description: `Inspect: ${planPath || "inline plan"} (${requirements.length} requirements)`
 })
+
+// SEC-003 FIX: .readonly-active REMOVED for inspect workflow.
+// Inspector Ashes need Write to produce output files (tmp/inspect/{id}/{inspector}.md).
+// enforce-readonly.sh blocks Write for ALL subagents when .readonly-active exists,
+// which would prevent inspectors from writing findings — a functional conflict.
+// Primary defense: Truthbinding protocol (prompt-level restriction).
+// Secondary defense: Agent tools frontmatter limits tool surface.
+// Signal dir still created for team lifecycle tracking (without .readonly-active marker).
+const signalDir = `tmp/.rune-signals/${teamName}`
+Bash(`mkdir -p "${signalDir}"`)
+Write(`${signalDir}/.expected`, String(selectedInspectors.length))
 ```
 
 ### Step 2.6 — Create Tasks
@@ -386,13 +420,21 @@ for (const { inspector, taskId, reqIds } of tasks):
     timestamp: new Date().toISOString()
   })
 
-  // If inline mode, append plan content to prompt
+  // If inline mode, append plan content to prompt with sanitization delimiter
+  // SEC-004: Wrap inline content with data boundary to prevent prompt structure interference
   if (mode === "inline"):
-    prompt += `\n\n## INLINE PLAN CONTENT\n\n${planContent}`
+    const sanitizedPlan = planContent
+      .replace(/<!--[\s\S]*?-->/g, '')           // Strip HTML comments (prompt injection vector)
+      .replace(/^#{1,6}\s+/gm, '')               // Strip markdown headings (prompt override vector)
+      .replace(/<\/plan-data>/gi, '')             // SEC-002 FIX: Strip closing delimiter to prevent boundary escape
+      .replace(/<[^>]+>/g, '')                    // SEC-002 FIX: Strip all XML-style tags (defense-in-depth)
+      .slice(0, 10000)                            // Cap at 10KB
+    prompt += `\n\n## INLINE PLAN CONTENT\n\n<plan-data>\n${sanitizedPlan}\n</plan-data>`
 
+  // ATE-1: All multi-agent commands MUST use subagent_type: "general-purpose" with identity via prompt
   Task({
     prompt: prompt,
-    subagent_type: inspector,
+    subagent_type: "general-purpose",
     team_name: teamName,
     name: inspector,
     model: "sonnet",
@@ -488,28 +530,33 @@ const verdictPrompt = loadTemplate("verdict-binder.md", {
   timestamp: new Date().toISOString()
 })
 
+// ATE-1: Uses general-purpose with runebinder-style aggregation prompt (same as review.md Runebinder)
 Task({
   prompt: verdictPrompt,
-  subagent_type: "rune:utility:runebinder",
+  subagent_type: "general-purpose",
   team_name: teamName,
   name: "verdict-binder",
-  model: "sonnet"
+  model: "sonnet",
+  run_in_background: true
 })
 ```
 
 ### Step 5.3 — Wait for Verdict
 
 ```
-// Poll for VERDICT.md creation (short timeout — aggregation is fast)
-const verdictTimeout = 120000  // 2 minutes
-const verdictPollMs = 10000    // 10 seconds
-const verdictMaxIter = Math.ceil(verdictTimeout / verdictPollMs)
+// BACK-004 FIX: Use TaskList-based polling instead of fileExists (Core Rule 9 compliance)
+// SEC-007 FIX: Eliminates symlink-based TOCTOU race on VERDICT.md
+const verdictResult = waitForCompletion(teamName, 1, {
+  timeoutMs: 120_000,        // 2 minutes (aggregation is fast)
+  staleWarnMs: 60_000,       // 1 minute
+  pollIntervalMs: 10_000,    // 10 seconds
+  label: "Verdict Binder"
+})
 
-for (let i = 0; i < verdictMaxIter; i++):
-  if (fileExists(`${outputDir}/VERDICT.md`)):
-    log("VERDICT.md created successfully.")
-    break
-  Bash(`sleep ${verdictPollMs / 1000}`)
+if (verdictResult.timedOut):
+  warn("Verdict Binder timed out — checking for partial output")
+if (!fileExists(`${outputDir}/VERDICT.md`) || Bash(`test -L "${outputDir}/VERDICT.md" && echo symlink`).trim() === 'symlink'):
+  error("VERDICT.md not produced. Check Verdict Binder output for errors.")
 ```
 
 ## Phase 6: Verify
@@ -616,7 +663,10 @@ if (p1Count > 0):
     + `P1 findings: ${p1Count}\n\n`
     + `Key gaps identified — see ${outputDir}/VERDICT.md`
 
-  Write(`.claude/echoes/orchestrator/MEMORY.md`, echoContent, { append: true })
+  // BACK-002: Write() does not support { append: true }. Read existing content first, concatenate, then Write.
+  const existingEchoes = exists(`.claude/echoes/orchestrator/MEMORY.md`)
+    ? Read(`.claude/echoes/orchestrator/MEMORY.md`) : ""
+  Write(`.claude/echoes/orchestrator/MEMORY.md`, existingEchoes + "\n" + echoContent)
 ```
 
 ### Step 7.5 — Post-Inspection Actions

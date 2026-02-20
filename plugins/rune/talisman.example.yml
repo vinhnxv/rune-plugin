@@ -240,7 +240,7 @@ defaults:
 #   max_inspectors: 4          # 1-4 Inspector Ashes (default: 4)
 #   timeout: 720000             # 12 min default (ms)
 #   completion_threshold: 80    # % completion for READY verdict (default: 80)
-#   gap_threshold: 20           # % below which verdict is INCOMPLETE (default: 20)
+#   gap_threshold: 20           # % below which verdict is CRITICAL_ISSUES (default: 20)
 
 # ──────────────────────────────────────────────
 # Arc — Default flag overrides (v1.40.0+)

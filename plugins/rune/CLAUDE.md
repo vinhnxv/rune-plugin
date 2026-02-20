@@ -1,6 +1,6 @@
 # Rune Plugin — Claude Code Guide
 
-Multi-agent engineering orchestration for Claude Code. Plan, work, review, and audit with Agent Teams.
+Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspect, and audit with Agent Teams.
 
 ## Skills
 

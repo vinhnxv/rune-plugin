@@ -17,6 +17,9 @@ tools:
   - Glob
   - Grep
   - SendMessage
+  - TaskList
+  - TaskUpdate
+  - TaskGet
 mcpServers:
   - echo-search
 ---
@@ -87,7 +90,7 @@ For each performance-related requirement:
 For each finding, assign:
 - **Priority**: P1 (architectural violation / blocking perf issue) / P2 (coupling concern) / P3 (minor design drift)
 - **Confidence**: 0.0-1.0
-- **Category**: `architectural` (for gap analysis)
+- **Category**: `architectural` | `performance`
 
 ## Output Format
 
@@ -128,6 +131,11 @@ Write findings to the designated output file:
 | Gap | Severity | Evidence |
 |-----|----------|----------|
 | {description} | P1/P2/P3 | {file:line or structural observation} |
+
+### Performance Gaps
+| Gap | Severity | Evidence |
+|-----|----------|----------|
+| {description} | P1/P2/P3 | {file:line or observed pattern} |
 
 ## Dependency Map (if applicable)
 

@@ -23,6 +23,10 @@ You foresee the ruin that awaits unguarded code.
 
 {requirements}
 
+## PLAN IDENTIFIERS (search hints)
+
+{identifiers}
+
 ## RELEVANT FILES (from Phase 1 scope)
 
 {scope_files}

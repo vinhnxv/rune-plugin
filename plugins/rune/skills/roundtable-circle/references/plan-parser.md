@@ -127,7 +127,7 @@ identifiers.push(...filePaths.map(p => ({ type: "file", value: p })))
 
 // Function/class/variable names (camelCase, PascalCase, snake_case)
 codeNames = planContent.match(/\b[a-z][a-zA-Z0-9]*(?:[A-Z][a-zA-Z0-9]*)+\b/g)  // camelCase
-codeNames.push(...planContent.match(/\b[A-Z][a-zA-Z0-9]+\b/g) || [])            // PascalCase
+codeNames.push(...planContent.match(/\b[A-Z][a-z]+(?:[A-Z][a-zA-Z0-9]*)+\b/g) || [])  // PascalCase (requires 2+ uppercase transitions to avoid matching common words like "The", "Plan")
 codeNames.push(...planContent.match(/\b[a-z]+(?:_[a-z]+)+\b/g) || [])           // snake_case
 identifiers.push(...codeNames.map(n => ({ type: "code", value: n })))
 

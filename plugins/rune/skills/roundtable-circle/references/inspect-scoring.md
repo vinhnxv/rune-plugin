@@ -37,7 +37,7 @@ Each Inspector Ash scores their assigned dimensions. Scores are computed from fi
 
 | Dimension | Inspector | Score Formula |
 |-----------|-----------|---------------|
-| Correctness | Grace Warden | `10 - (P1 * 3 + P2 * 1.5 + P3 * 0.5)`, floor 0 |
+| Correctness | Grace Warden | `10 - (P1 * 3 + P2 * 1.5 + P3 * 0.5)`, floor 0, saturated* |
 | Completeness | Grace Warden | `overallCompletion / 10` (maps 0-100% to 0-10) |
 | Failure Modes | Ruin Prophet | `10 - (missing_handlers * 2 + weak_handlers * 1)`, floor 0 |
 | Security | Ruin Prophet | `10 - (P1_sec * 4 + P2_sec * 2 + P3_sec * 0.5)`, floor 0 |
@@ -46,6 +46,8 @@ Each Inspector Ash scores their assigned dimensions. Scores are computed from fi
 | Observability | Vigil Keeper | `10 - (missing_logging * 1 + missing_metrics * 2 + missing_traces * 1.5)`, floor 0 |
 | Test Coverage | Vigil Keeper | `testCoverageRatio * 10` (estimated from test file presence) |
 | Maintainability | Vigil Keeper | `10 - (complexity_issues * 1.5 + naming_issues * 0.5 + doc_gaps * 1)`, floor 0 |
+
+*\*Saturation note: When a score floors at 0, the raw (unclamped) negative value is preserved in the VERDICT.md as `raw_score` to indicate severity beyond saturation. Example: a Correctness raw score of -5 (floored to 0) indicates more severe issues than a raw score of -1 (also floored to 0). Verdict Binder includes raw scores when `score === 0`.*
 
 ### Priority-Weighted Dimension Aggregate
 
@@ -82,6 +84,7 @@ Findings from all Inspectors are classified into gap categories:
 | Security | Ruin Prophet | Auth gaps, injection risks, secret exposure |
 | Operational | Ruin Prophet | Missing rollback, config gaps, deployment risks |
 | Architectural | Sight Oracle | Layer violations, coupling, design drift |
+| Performance | Sight Oracle | N+1 queries, missing indexes, blocking I/O, caching gaps |
 | Documentation | Vigil Keeper | Missing docs, stale docs, undocumented APIs |
 
 ### Gap Priority
@@ -204,7 +207,7 @@ function determineVerdict(completion, gaps, dimensionScores):
 
 | Case | Handling |
 |------|----------|
-| 0 requirements extracted | Verdict = INCOMPLETE, warn user about plan format |
+| 0 requirements extracted | Hard error in Phase 0.5 — no verdict produced (plan must contain actionable items) |
 | All requirements COMPLETE | Verify at least 1 dimension score < 8 before READY (sanity check) |
 | Inspector produced no findings | Score that dimension 10/10, note "no issues found" |
 | Inspector timeout/crash | Mark dimension as "unscored", exclude from aggregate |

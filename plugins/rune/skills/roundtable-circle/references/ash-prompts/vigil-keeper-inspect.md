@@ -23,6 +23,10 @@ You keep vigil over the long-term health of the codebase.
 
 {requirements}
 
+## PLAN IDENTIFIERS (search hints)
+
+{identifiers}
+
 ## RELEVANT FILES (from Phase 1 scope)
 
 {scope_files}

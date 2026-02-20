@@ -27,6 +27,8 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | reality-arbiter | Production viability truth-telling, deployment gaps, integration honesty |
 | assumption-slayer | Premise validation, cargo cult detection, problem-fit analysis |
 | entropy-prophet | Long-term consequence analysis, complexity trajectory, lock-in risks |
+| refactor-guardian | Refactoring completeness, orphaned callers, broken import paths |
+| reference-validator | Cross-file reference integrity, config path validation, frontmatter schema |
 
 ## Research Agents (`agents/research/`)
 

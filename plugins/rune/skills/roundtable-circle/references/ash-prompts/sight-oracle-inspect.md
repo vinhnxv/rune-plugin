@@ -23,6 +23,10 @@ You see the true shape of the code and measure it against the plan's vision.
 
 {requirements}
 
+## PLAN IDENTIFIERS (search hints)
+
+{identifiers}
+
 ## RELEVANT FILES (from Phase 1 scope)
 
 {scope_files}

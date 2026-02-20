@@ -17,6 +17,9 @@ tools:
   - Glob
   - Grep
   - SendMessage
+  - TaskList
+  - TaskUpdate
+  - TaskGet
 mcpServers:
   - echo-search
 ---
