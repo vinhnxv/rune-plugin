@@ -46,6 +46,8 @@ Orchestrate a multi-agent inspection that measures implementation completeness a
 | `--max-agents <N>` | Limit total Inspector Ashes (1-4) | 4 |
 | `--dry-run` | Show scope, requirements, and inspector assignments without summoning agents | Off |
 | `--threshold <N>` | Override completion threshold for READY verdict (0-100) | 80 (from talisman) |
+| `--fix` | After VERDICT, spawn gap-fixer to auto-fix FIXABLE findings | Off |
+| `--max-fixes <N>` | Cap on fixable gaps per run | 20 |
 
 **Dry-run mode** executes Phase 0 + Phase 0.5 + Phase 1 only, then displays:
 - Extracted requirements with IDs and priorities
@@ -669,7 +671,129 @@ if (p1Count > 0):
   Write(`.claude/echoes/orchestrator/MEMORY.md`, existingEchoes + "\n" + echoContent)
 ```
 
-### Step 7.5 — Post-Inspection Actions
+## Phase 7.5: Remediation
+
+> Activated only when `--fix` flag is set. Spawns the gap-fixer Ash to auto-remediate FIXABLE findings from VERDICT.md.
+
+### Step 7.5.1 — Gate Check
+
+```
+if (!flag("--fix")):
+  // Proceed to Step 7.6 (Post-Inspection Actions)
+  goto step_7_6
+```
+
+### Step 7.5.2 — Parse Fixable Gaps
+
+```
+const fixableGaps = parseFixableGaps(`${outputDir}/VERDICT.md`)
+const maxFixes = flag("--max-fixes") ?? inspectConfig.max_fixes ?? 20
+const cappedGaps = fixableGaps.slice(0, maxFixes)
+
+log(`Remediation: ${fixableGaps.length} FIXABLE gaps found, capping at ${cappedGaps.length}`)
+
+if (cappedGaps.length === 0):
+  log("No FIXABLE gaps found — skipping remediation phase.")
+  goto step_7_6
+```
+
+### Step 7.5.3 — Group by File and Create Tasks
+
+```
+// Group gaps by target file for batching
+const gapsByFile = cappedGaps.reduce((acc, gap) => {
+  const file = gap.file || "unknown"
+  if (!acc[file]) acc[file] = []
+  acc[file].push(gap)
+  return acc
+}, {})
+
+const fixerTasks = []
+for (const [file, gaps] of Object.entries(gapsByFile)):
+  const taskId = TaskCreate({
+    subject: `gap-fixer: fix ${gaps.length} gap(s) in ${file}`,
+    description: `Fix FIXABLE gaps in ${file}: ${gaps.map(g => g.id).join(", ")}`,
+    activeForm: `Fixing gaps in ${file}`
+  })
+  fixerTasks.push({ file, gaps, taskId })
+```
+
+### Step 7.5.4 — Spawn Gap-Fixer Agent
+
+```
+// Create a new team for remediation phase
+const fixerTeamName = `rune-inspect-fixer-${identifier}`
+TeamCreate({
+  team_name: fixerTeamName,
+  description: `Gap remediation for inspect run ${identifier}`
+})
+
+// Load gap-fixer prompt template
+const fixerPrompt = loadTemplate("gap-fixer.md", {
+  verdict_path: `${outputDir}/VERDICT.md`,
+  output_dir: outputDir,
+  identifier: identifier,
+  gaps: cappedGaps.map(g =>
+    `- [ ] **[${g.id}]** ${g.description} — \`${g.file}:${g.line}\``
+  ).join("\n"),
+  timestamp: new Date().toISOString()
+})
+
+Task({
+  prompt: fixerPrompt,
+  subagent_type: "general-purpose",
+  team_name: fixerTeamName,
+  name: "gap-fixer",
+  model: "sonnet",
+  run_in_background: true
+})
+```
+
+### Step 7.5.5 — Monitor and Shutdown Fixer
+
+```
+// Wait for gap-fixer to complete (2 min timeout)
+const fixerResult = waitForCompletion(fixerTeamName, fixerTasks.length, {
+  timeoutMs: 120_000,
+  staleWarnMs: 60_000,
+  pollIntervalMs: 10_000,
+  label: "Gap Fixer"
+})
+
+// Shutdown fixer
+try:
+  SendMessage({
+    type: "shutdown_request",
+    recipient: "gap-fixer",
+    content: "Remediation complete. Shutting down."
+  })
+catch: pass
+
+Bash("sleep 3")
+
+try:
+  TeamDelete()
+catch (e):
+  const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+  if (/^[a-zA-Z0-9_-]+$/.test(fixerTeamName)):
+    Bash(`rm -rf "${CHOME}/teams/${fixerTeamName}/" "${CHOME}/tasks/${fixerTeamName}/" 2>/dev/null`)
+```
+
+### Step 7.5.6 — Append Remediation Results to VERDICT.md
+
+```
+// Read the remediation report written by gap-fixer
+const remediationReportPath = `${outputDir}/remediation-report.md`
+if (fileExists(remediationReportPath)):
+  const remediationReport = Read(remediationReportPath)
+  const existingVerdict = Read(`${outputDir}/VERDICT.md`)
+  Write(`${outputDir}/VERDICT.md`, existingVerdict + "\n\n" + remediationReport)
+  log("Remediation results appended to VERDICT.md")
+else:
+  log("WARNING: Remediation report not produced at " + remediationReportPath)
+```
+
+### Step 7.6 — Post-Inspection Actions
 
 ```
 AskUserQuestion({
@@ -723,6 +847,41 @@ const perspectives = {
   "vigil-keeper": ["test-coverage", "observability", "maintainability", "documentation"]
 }
 return perspectives[name]
+```
+
+### parseFixableGaps(verdictContent)
+
+Parses FIXABLE gap entries from VERDICT.md. Entries must match the pattern:
+`- [ ] **[PREFIX-NUM]** description — \`file:line\``
+
+```
+function parseFixableGaps(verdictPath) {
+  const content = Read(verdictPath)
+  const gaps = []
+
+  // Match checkbox gap entries with file:line references (SEC-GAP-003: bounded capture groups)
+  const GAP_PATTERN = /^- \[ \] \*\*\[([A-Z0-9_-]{1,20})\]\*\* (.{1,200}) — `([^`:\n]{1,200}):(\d{1,6})`/gm
+
+  let match
+  while ((match = GAP_PATTERN.exec(content)) !== null):
+    const [, id, description, file, line] = match
+
+    // Classify fixability
+    // MANUAL gaps: architectural, design-level, or explicitly marked MANUAL
+    const isManual = /\b(MANUAL|architectural|redesign|breaking change|schema migration)\b/i.test(description)
+    const classification = isManual ? "MANUAL" : "FIXABLE"
+
+    if (classification === "FIXABLE"):
+      gaps.push({
+        id: id,           // e.g., "GRACE-001", "VEIL-003" — capped at 20 chars (SEC-GAP-003)
+        description: description,  // capped at 200 chars (SEC-GAP-003)
+        file: file,
+        line: parseInt(line, 10),
+        classification: "FIXABLE"
+      })
+
+  return gaps
+}
 ```
 
 ### extractVerdict(verdictContent)
