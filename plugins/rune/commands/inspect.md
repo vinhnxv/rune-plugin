@@ -48,6 +48,7 @@ Orchestrate a multi-agent inspection that measures implementation completeness a
 | `--threshold <N>` | Override completion threshold for READY verdict (0-100) | 80 (from talisman) |
 | `--fix` | After VERDICT, spawn gap-fixer to auto-fix FIXABLE findings | Off |
 | `--max-fixes <N>` | Cap on fixable gaps per run | 20 |
+| `--mode <mode>` | Inspection mode: "implementation" (default) or "plan" | implementation |
 
 **Dry-run mode** executes Phase 0 + Phase 0.5 + Phase 1 only, then displays:
 - Extracted requirements with IDs and priorities
@@ -84,6 +85,12 @@ else:
 // Validate plan content
 if (!planContent || planContent.trim().length < 10):
   error("Plan is empty or too short. Provide a plan file path or describe requirements inline.")
+
+// Parse inspect mode flag (implementation vs plan)
+const inspectMode = flag("--mode") ?? "implementation"
+const VALID_INSPECT_MODES = ["implementation", "plan"]
+if (!VALID_INSPECT_MODES.includes(inspectMode)):
+  error("Unknown --mode value. Valid: implementation, plan")
 ```
 
 ### Step 0.2 — Read Talisman Config
@@ -133,6 +140,24 @@ identifiers = parsedPlan.identifiers
 
 if (requirements.length === 0):
   error("No requirements could be extracted from the plan. Ensure the plan contains actionable items (lists, tasks, or sentences with action verbs).")
+
+// Plan mode: additionally extract code blocks as reviewable artifacts
+let codeBlocks = []
+if (inspectMode === "plan"):
+  const codeBlockRegex = /```(bash|javascript|python|ruby|typescript|sh|go|rust|yaml|json|toml)\b\n([\s\S]*?)```/gm
+  let match
+  let blockIndex = 0
+  while ((match = codeBlockRegex.exec(planContent)) !== null && blockIndex < 20):
+    const lang = match[1]
+    const code = match[2].trim()
+    if (code.length > 0):
+      codeBlocks.push({
+        index: blockIndex,
+        language: lang,
+        code: code.slice(0, 1500),  // Cap per block
+        lineStart: planContent.slice(0, match.index).split('\n').length
+      })
+      blockIndex++
 ```
 
 ### Step 0.5.2 — Assign Requirements to Inspectors
@@ -212,6 +237,15 @@ for (const id of identifiers):
 // Deduplicate
 scopeFiles = [...new Set(scopeFiles)]
 
+// Plan mode: plan file itself is primary scope
+if (inspectMode === "plan" && planPath):
+  // Ensure plan file is in scope
+  if (!scopeFiles.includes(planPath)):
+    scopeFiles.unshift(planPath)
+  // In plan mode, referenced files that DON'T exist are expected (plan proposes new files)
+  // Only keep files that exist on disk
+  scopeFiles = scopeFiles.filter(f => f === planPath || exists(f))
+
 // Cap at reasonable context budget
 const MAX_SCOPE_FILES = 120  // 30 per inspector max
 if (scopeFiles.length > MAX_SCOPE_FILES):
@@ -226,7 +260,7 @@ if (flag("--dry-run")):
   log("=== /rune:inspect Dry Run ===")
   log("")
   log(`Plan: ${planPath || "(inline)"}`)
-  log(`Mode: ${mode}`)
+  log(`Mode: ${mode} (inspect mode: ${inspectMode})`)
   log(`Requirements: ${requirements.length}`)
   log("")
   log("--- Requirements ---")
@@ -260,6 +294,7 @@ const stateFile = `tmp/.rune-inspect-${identifier}.json`
 Write(stateFile, JSON.stringify({
   status: "active",
   identifier: identifier,
+  mode: inspectMode,
   plan_path: planPath,
   output_dir: outputDir,
   started: new Date().toISOString(),
@@ -414,14 +449,27 @@ for (const { inspector, taskId, reqIds } of tasks):
 
   const fileList = scopeFiles.join("\n")
 
-  // Load prompt template and substitute variables
-  const prompt = loadTemplate(`${inspector}-inspect.md`, {
+  // Load prompt template — mode-aware selection
+  const templateSuffix = inspectMode === "plan" ? "plan-review" : "inspect"
+  let templatePath = `skills/roundtable-circle/references/ash-prompts/${inspector}-${templateSuffix}.md`
+
+  // CONCERN 3: fileExists guard before loadTemplate
+  if (!exists(templatePath)):
+    warn(`Template not found: ${templatePath} — falling back to default inspect template`)
+    templatePath = `skills/roundtable-circle/references/ash-prompts/${inspector}-inspect.md`
+    if (!exists(templatePath)):
+      error(`Default template also missing: ${templatePath}`)
+
+  const prompt = loadTemplate(templatePath, {
     plan_path: planPath || "(inline plan embedded below)",
     output_path: `${outputDir}/${inspector}.md`,
     task_id: taskId,
     requirements: reqList,
     identifiers: identifiers.map(i => `${i.type}: ${i.value}`).join("\n"),
     scope_files: fileList,
+    code_blocks: inspectMode === "plan" ? codeBlocks.map(b =>
+      `### Block ${b.index} (${b.language}, line ${b.lineStart})\n\`\`\`${b.language}\n${b.code}\n\`\`\``
+    ).join("\n\n") : "",
     timestamp: new Date().toISOString()
   })
 
