@@ -204,6 +204,7 @@ After approach selection, summon 1-3 elicitation-sage teammates for multi-perspe
 
 ```javascript
 // Talisman kill switch — early exit if elicitation disabled
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
 const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
 if (elicitEnabled) {
 // ── BEGIN elicitation gate ──

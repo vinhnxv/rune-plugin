@@ -47,7 +47,7 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
   const clamp = (v, min, max) => !Number.isFinite(v) ? min : Math.min(Math.max(v, min), max)
 
   // Read talisman thresholds (G8: with validation and defaults)
-  // readTalisman: reads .claude/talisman.yml. Returns parsed YAML or {} on error.
+  // readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
   const talisman = readTalisman()
   const config = {
     // BACK-008: warn min=0.01 (can't be 0 — use enabled:false to disable warnings)

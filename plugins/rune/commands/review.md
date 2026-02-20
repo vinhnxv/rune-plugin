@@ -99,6 +99,7 @@ Generate line-level diff ranges for downstream TOME tagging (Phase 5.3) and scop
 
 ```javascript
 // Read talisman config for diff scope settings
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
 const talisman = readTalisman()
 const diffScopeEnabled = talisman?.review?.diff_scope?.enabled !== false  // Default: true
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.54.1] - 2026-02-21
+
+### Fixed
+- Canonical `readTalisman()` definition using SDK `Read()` to prevent ZSH tilde expansion bug (`~ not found` in eval context)
+- Added `references/read-talisman.md` with implementation, fallback order, anti-patterns, and cross-references
+- Added "Core Pseudo-Functions" section to CLAUDE.md documenting the `readTalisman()` contract
+- Updated 8 entry-point files with canonical inline reference comments
+- Updated `freshness-gate.md` talisman comment to match canonical pattern
+
 ## [1.54.0] - 2026-02-21
 
 ### Added

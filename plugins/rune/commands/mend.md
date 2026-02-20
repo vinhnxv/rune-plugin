@@ -664,6 +664,7 @@ After all fixes are applied and wards pass, optionally run Codex as a cross-mode
 ```javascript
 // Codex detection + talisman gate
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
 const talisman = readTalisman()
 const codexDisabled = talisman?.codex?.disabled === true
 const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]

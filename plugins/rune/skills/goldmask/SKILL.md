@@ -248,6 +248,7 @@ Use correct polling pattern (POLL-001 compliant):
 
 ```
 // Read from talisman goldmask section (with defaults)
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
 const talisman = readTalisman()
 pollIntervalMs = talisman?.goldmask?.poll_interval_ms ?? 30000
 timeoutMs = talisman?.goldmask?.timeout_ms ?? 300000  // 5 minutes default

@@ -114,6 +114,7 @@ planPaths = validated.stdout.trim().split('\n')
 
 // Check auto-merge setting (unless --no-merge)
 if (!noMerge) {
+  // readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
   const talisman = readTalisman()
   if (talisman?.arc?.ship?.auto_merge === false) {
     warn("talisman.yml has arc.ship.auto_merge: false")

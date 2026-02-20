@@ -2,9 +2,18 @@
 
 ## 4A: Scroll Review (always)
 
-Summon a document quality reviewer:
+Create a task and summon a document quality reviewer, then wait for completion
+using `waitForCompletion` (see [monitor-utility.md](../../skills/roundtable-circle/references/monitor-utility.md)):
 
 ```javascript
+// 1. Create task for scroll-reviewer (enables TaskList-based monitoring)
+TaskCreate({
+  subject: "Scroll review of plan document quality",
+  description: `Review ${planPath} for document quality, clarity, and actionability`,
+  activeForm: "Reviewing plan document quality..."
+})
+
+// 2. Spawn scroll-reviewer as teammate
 Task({
   team_name: "rune-plan-{timestamp}",
   name: "scroll-reviewer",
@@ -12,8 +21,24 @@ Task({
   prompt: `You are Scroll Reviewer -- a RESEARCH agent. Do not write implementation code.
     Review the plan at plans/YYYY-MM-DD-{type}-{name}-plan.md.
     Write review to tmp/plans/{timestamp}/scroll-review.md.
-    See agents/utility/scroll-reviewer.md for quality criteria.`,
+    See agents/utility/scroll-reviewer.md for quality criteria.
+
+    ## Lifecycle
+    1. TaskList() to find your assigned task
+    2. TaskUpdate({ taskId, status: "in_progress" }) before starting
+    3. Do your review work (write output file)
+    4. TaskUpdate({ taskId, status: "completed" }) when done
+    5. SendMessage to team-lead: "Seal: scroll review done."`,
   run_in_background: true
+})
+
+// 3. Wait for scroll-reviewer to complete using parameterized polling
+// NOTE: Do NOT use TaskOutput with teammate name — TaskOutput is for background
+// shell tasks, not Agent Team teammates. Use waitForCompletion (TaskList-based).
+const scrollResult = waitForCompletion("rune-plan-{timestamp}", 1, {
+  staleWarnMs: 300_000,
+  pollIntervalMs: 30_000,
+  label: "Plan Scroll Review"
 })
 ```
 
@@ -108,9 +133,28 @@ This gate is extensible via talisman.yml `plan.verification_patterns`. See `tali
 
 ## 4C: Technical Review (optional)
 
-If user requested or plan is Comprehensive detail level, summon in parallel:
+If user requested or plan is Comprehensive detail level, create tasks and summon in parallel,
+then wait using `waitForCompletion`:
 
 ```javascript
+// Create tasks for each reviewer (enables TaskList-based monitoring)
+const reviewerCount = 3  // decree-arbiter, knowledge-keeper, veil-piercer-plan (+ optional horizon-sage, elicitation-sages)
+TaskCreate({
+  subject: "Technical soundness review (decree-arbiter)",
+  description: `Review ${planPath} for architecture fit, feasibility, security/performance risks`,
+  activeForm: "Reviewing technical soundness..."
+})
+TaskCreate({
+  subject: "Documentation coverage review (knowledge-keeper)",
+  description: `Review ${planPath} for documentation coverage needs`,
+  activeForm: "Reviewing documentation coverage..."
+})
+TaskCreate({
+  subject: "Reality grounding review (veil-piercer-plan)",
+  description: `Challenge whether ${planPath} is grounded in codebase reality`,
+  activeForm: "Challenging plan assumptions..."
+})
+
 Task({
   team_name: "rune-plan-{timestamp}",
   name: "decree-arbiter",
@@ -118,7 +162,14 @@ Task({
   prompt: `You are Decree Arbiter -- a RESEARCH agent. Do not write implementation code.
     Review the plan for technical soundness.
     Write review to tmp/plans/{timestamp}/decree-review.md.
-    See agents/utility/decree-arbiter.md for 9-dimension evaluation.`,
+    See agents/utility/decree-arbiter.md for 9-dimension evaluation.
+
+    ## Lifecycle
+    1. TaskList() to find your assigned task
+    2. TaskUpdate({ taskId, status: "in_progress" }) before starting
+    3. Do your review work (write output file)
+    4. TaskUpdate({ taskId, status: "completed" }) when done
+    5. SendMessage to team-lead: "Seal: decree review done."`,
   run_in_background: true
 })
 
@@ -129,7 +180,14 @@ Task({
   prompt: `You are Knowledge Keeper -- a RESEARCH agent. Do not write implementation code.
     Review plan for documentation coverage.
     Write review to tmp/plans/{timestamp}/knowledge-review.md.
-    See agents/utility/knowledge-keeper.md for evaluation criteria.`,
+    See agents/utility/knowledge-keeper.md for evaluation criteria.
+
+    ## Lifecycle
+    1. TaskList() to find your assigned task
+    2. TaskUpdate({ taskId, status: "in_progress" }) before starting
+    3. Do your review work (write output file)
+    4. TaskUpdate({ taskId, status: "completed" }) when done
+    5. SendMessage to team-lead: "Seal: knowledge review done."`,
   run_in_background: true
 })
 
@@ -330,6 +388,15 @@ if (codexAvailable && !codexDisabled) {
     })
   }
 }
+
+// Wait for ALL Phase 4C reviewers to complete
+// reviewerCount = base 3 (decree + knowledge + veil-piercer) + optional horizon-sage + elicitation-sages
+// NOTE: Do NOT use TaskOutput with teammate names — use waitForCompletion (TaskList-based).
+const techReviewResult = waitForCompletion("rune-plan-{timestamp}", reviewerCount, {
+  staleWarnMs: 300_000,
+  pollIntervalMs: 30_000,
+  label: "Plan Technical Review"
+})
 ```
 
 If any reviewer returns BLOCK verdict: address before presenting to user.

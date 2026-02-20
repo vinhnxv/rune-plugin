@@ -546,6 +546,7 @@ const sessionNonce = rawNonce
 // SEC-011 FIX: Null guard — parseDiffStats may return null on empty/malformed git output
 const diffStats = parseDiffStats(Bash(`git diff --stat ${defaultBranch}...HEAD`)) ?? { insertions: 0, deletions: 0, files: [] }
 const planMeta = extractYamlFrontmatter(Read(planFile))
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
 const talisman = readTalisman()
 
 // 3-layer config resolution: hardcoded defaults → talisman → inline CLI flags (v1.40.0+)

@@ -96,7 +96,7 @@ if (!VALID_INSPECT_MODES.includes(inspectMode)):
 ### Step 0.2 — Read Talisman Config
 
 ```
-// readTalisman() — same pattern as review.md, plan.md, work.md
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
 config = readTalisman()
 inspectConfig = config?.inspect ?? {}
 

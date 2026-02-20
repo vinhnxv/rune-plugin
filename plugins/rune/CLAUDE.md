@@ -66,6 +66,18 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
    - **Enforcement**: `enforce-polling.sh` PreToolUse hook (POLL-001) blocks sleep+echo anti-patterns at runtime. The `polling-guard` skill provides background knowledge for correct monitoring patterns.
 10. **Teammate non-persistence**: Teammates do NOT survive session resume. After `/resume`, assume all teammates are dead. Clean up stale teams before starting new workflows.
 
+## Core Pseudo-Functions
+
+### readTalisman()
+
+Reads `.claude/talisman.yml` (project) → `$CHOME/talisman.yml` (global) → `{}`.
+Where `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`.
+
+**Rule**: Use SDK `Read()` — NEVER `Bash("cat ...")` or `Bash("test -f ...")`.
+`Read()` auto-resolves `CLAUDE_CONFIG_DIR` and tilde. Bash does not (ZSH `~ not found` bug).
+
+See [references/read-talisman.md](references/read-talisman.md).
+
 ## Versioning & Pre-Commit Checklist
 
 Every change to this plugin MUST include updates to all four files:
