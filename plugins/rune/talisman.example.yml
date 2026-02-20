@@ -236,11 +236,12 @@ defaults:
 # ──────────────────────────────────────────────
 # /rune:inspect compares a plan against the codebase to measure
 # implementation completeness, quality, and gaps.
-# inspect:
-#   max_inspectors: 4          # 1-4 Inspector Ashes (default: 4)
-#   timeout: 720000             # 12 min default (ms)
-#   completion_threshold: 80    # % completion for READY verdict (default: 80)
-#   gap_threshold: 20           # % below which verdict is CRITICAL_ISSUES (default: 20)
+inspect:
+  max_inspectors: 4            # Default inspector count for standalone
+  completion_threshold: 80     # READY verdict threshold
+  gap_threshold: 20            # CRITICAL_ISSUES threshold
+  max_fixes: 20                # --fix cap (standalone)
+  fix_timeout: 600000          # --fix timeout (standalone)
 
 # ──────────────────────────────────────────────
 # Arc — Default flag overrides (v1.40.0+)
@@ -289,6 +290,16 @@ arc:
     total_timeout: null        # Total batch timeout in ms (default: null = no limit)
     stop_on_divergence: false  # Stop batch if main diverges between runs (default: false)
 
+  # ── Gap Analysis settings (v1.51.0+) ──
+  gap_analysis:
+    inspectors: 2              # Number (1-4): spawn first N from priority list (grace-warden > ruin-prophet > sight-oracle > vigil-keeper). Or array of names: ["grace-warden", "ruin-prophet", "sight-oracle", "vigil-keeper"]
+    halt_threshold: 50         # Score below this → halt or remediate (0-100)
+    # halt_on_critical: false   # Halt pipeline on critical gap failures (default: false)
+    remediation:
+      enabled: true            # Enable auto-fix of FIXABLE gaps
+      max_fixes: 20            # Cap on fixable gaps per run
+      timeout: 600000          # 10 min inner timeout
+
   # ── Per-phase timeout overrides (v1.12.0+, activated v1.40.0) ──
   # Values in milliseconds. Per-phase budgets feed calculateDynamicTimeout().
   timeouts:
@@ -297,7 +308,8 @@ arc:
     plan_refine: 180000          # 3 minutes (default, orchestrator-only)
     verification: 30000          # 30 seconds (default, orchestrator-only, deterministic)
     work: 2100000                # 35 minutes (default: inner 30m + 5m setup)
-    gap_analysis: 60000          # 1 minute (default, orchestrator-only, deterministic)
+    gap_analysis: 720000         # 12 minutes (default, enhanced with Inspector Ashes)
+    gap_remediation: 900000      # 15 minutes (new phase — gap auto-fix team)
     code_review: 900000          # 15 minutes (default: inner 10m + 5m setup)
     mend: 1380000                # 23 minutes (default: inner 15m + 5m setup + 3m ward)
     verify_mend: 240000          # 4 minutes (default, orchestrator-only)

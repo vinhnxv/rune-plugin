@@ -16,7 +16,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
 | **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
-| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 17 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge) |
+| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 18 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge) |
 | **testing** | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | **agent-browser** | Browser automation knowledge injection for E2E testing (non-invocable) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection |
@@ -36,7 +36,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
 | `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | `/rune:mend` | Parallel finding resolution from TOME |
-| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 17 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend (convergence loop) → test → audit → ship → merge |
+| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 18 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend (convergence loop) → test → audit → ship → merge |
 | `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
 | `/rune:inspect` | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
@@ -97,6 +97,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. |
 | `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) blocks unprotected glob in `for` loops. Only active when user's shell is zsh (or macOS fallback). |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
+| `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-gap-fixer-paths.sh` | SEC-GAP-001: Blocks gap-fixer Ashes from writing to `.claude/`, `.github/`, `node_modules/`, CI YAML, and `.env` files. Only active during gap-fix workflows. |
 | `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
 | `PreToolUse:TeamCreate` | `scripts/enforce-team-lifecycle.sh` | TLC-001: Validates team name (hard block on invalid), detects stale teams (30-min threshold), auto-cleans filesystem orphans, injects advisory context. |
 | `PostToolUse:TeamDelete` | `scripts/verify-team-cleanup.sh` | TLC-002: Verifies team dir removal after TeamDelete, reports zombie dirs. |
@@ -143,7 +144,7 @@ echo "Commands: $(find plugins/rune/commands -name '*.md' -not -path '*/referenc
 
 ## References
 
-- [Agent registry](references/agent-registry.md) — 21 review + 5 research + 2 work + 10 utility + 12 investigation + 4 testing agents
+- [Agent registry](references/agent-registry.md) — 21 review + 5 research + 2 work + 11 utility + 12 investigation + 4 testing agents
 - [Key concepts](references/key-concepts.md) — Tarnished, Ash, TOME, Arc, Mend, Forge Gaze, Echoes
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow

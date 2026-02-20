@@ -89,6 +89,34 @@ if (exists(`tmp/arc/${id}/gap-analysis.md`)) {
   }
 }
 
+// STEP 1.5: Inject low-scoring dimensions from VERDICT.md as reviewer focus areas
+// If Phase 5.5 produced a VERDICT.md (via Inspector Ashes), extract dimension scores.
+// Dimensions with score < 7 are flagged as focus areas for code reviewers.
+const verdictPath = `tmp/arc/${id}/gap-analysis-verdict.md`
+if (exists(verdictPath)) {
+  try {
+    const verdictContent = Read(verdictPath)
+    // Parse dimension score table rows: | Dimension Name | score/10 | ... |
+    const dimensionRows = verdictContent.match(/\|\s*([A-Za-z &]+?)\s*\|\s*(\d+(?:\.\d+)?)\/10\s*\|/g) || []
+    const lowScoringDimensions = []
+    for (const row of dimensionRows) {
+      const match = row.match(/\|\s*([A-Za-z &]+?)\s*\|\s*(\d+(?:\.\d+)?)\/10\s*\|/)
+      if (match) {
+        const dimName = match[1].trim()
+        const score = parseFloat(match[2])
+        if (!Number.isNaN(score) && score < 7) {
+          lowScoringDimensions.push(`${dimName} (${score}/10)`)
+        }
+      }
+    }
+    if (lowScoringDimensions.length > 0) {
+      reviewContext += `\n\nFocus areas from gap analysis: ${lowScoringDimensions.join(', ')}.\nThese dimensions scored below 7/10 in the inspection report — pay extra attention to these areas.`
+    }
+  } catch (e) {
+    warn(`Failed to parse VERDICT.md for dimension scores: ${e.message}`)
+  }
+}
+
 // STEP 2: Codex Oracle conditional inclusion
 // Run Codex detection per roundtable-circle/references/codex-detection.md.
 // If detected and "review" is in talisman.codex.workflows, include Codex Oracle.

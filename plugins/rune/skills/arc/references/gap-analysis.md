@@ -1,12 +1,17 @@
 # Phase 5.5: Implementation Gap Analysis — Full Algorithm
 
-Deterministic, orchestrator-only check that cross-references the plan's acceptance criteria against committed code changes. Zero LLM cost.
+Hybrid analysis: deterministic orchestrator-only checks (STEP A) + 9-dimension LLM analysis via Inspector Ashes (STEP B) + merged unified report (STEP C) + configurable halt decision (STEP D).
 
-**Team**: None (orchestrator-only)
-**Tools**: Read, Glob, Grep, Bash (git diff, grep)
-**Timeout**: 60 seconds
+**Team**: `arc-inspect-{id}` (STEP B only — follows ATE-1 pattern)
+**Tools**: Read, Glob, Grep, Bash (git diff, grep), Task, TaskCreate, TaskUpdate, TaskList, TeamCreate, TeamDelete, SendMessage
+**Timeout**: 720_000ms (12 min: inner 8m + 2m setup + 2m aggregate)
+**Talisman key**: `arc.gap_analysis`
 
-## STEP 1: Extract Acceptance Criteria
+## STEP A: Deterministic Checks
+
+_(Formerly STEP 1–5. All logic unchanged — orchestrator-only, zero LLM cost.)_
+
+## STEP A.1: Extract Acceptance Criteria
 
 ```javascript
 const enrichedPlan = Read(`tmp/arc/${id}/enriched-plan.md`)
@@ -34,7 +39,7 @@ if (criteria.length === 0) {
 }
 ```
 
-## STEP 2: Get Committed Files from Work Phase
+## STEP A.2: Get Committed Files from Work Phase
 
 ```javascript
 const workSummary = Read(`tmp/arc/${id}/work-summary.md`)
@@ -44,7 +49,7 @@ const diffResult = Bash(`git diff --name-only "${defaultBranch}...HEAD"`)
 const diffFiles = diffResult.stdout.trim().split('\n').filter(f => f.length > 0)
 ```
 
-## STEP 3: Cross-Reference Criteria Against Changes
+## STEP A.3: Cross-Reference Criteria Against Changes
 
 ```javascript
 const gaps = []
@@ -71,13 +76,13 @@ for (const criterion of criteria) {
 }
 ```
 
-## STEP 4: Check Task Completion Rate
+## STEP A.4: Check Task Completion Rate
 
 ```javascript
 const taskStats = extractTaskStats(workSummary)
 ```
 
-## STEP 4.5: Doc-Consistency Cross-Checks
+## STEP A.4.5: Doc-Consistency Cross-Checks
 
 Non-blocking sub-step: validates that key values (version, agent count, etc.) are consistent across documentation and config files. Reports PASS/DRIFT/SKIP per check. Uses PASS/DRIFT/SKIP (not ADDRESSED/MISSING) to avoid collision with gap-analysis regex counts.
 
@@ -286,7 +291,7 @@ if (consistencyGuardPass) {
 }
 ```
 
-## STEP 4.7: Plan Section Coverage
+## STEP A.4.7: Plan Section Coverage
 
 Cross-reference plan H2 headings against committed code changes.
 
@@ -382,7 +387,7 @@ if (diffFiles.length === 0) {
 }
 ```
 
-## STEP 4.8: Check Evaluator Quality Metrics
+## STEP A.4.8: Check Evaluator Quality Metrics
 
 Non-blocking sub-step: runs lightweight, evaluator-equivalent quality checks on committed code. Zero LLM cost — uses shell commands and AST analysis only. Score calculations are approximations and may differ from the E2E evaluator's exact algorithm.
 
@@ -493,7 +498,7 @@ for fn in long_fns[:10]: print(fn)
 }
 ```
 
-## STEP 5: Write Gap Analysis Report
+## STEP A.5: Write Deterministic Gap Analysis Report
 
 ```javascript
 const addressed = gaps.filter(g => g.status === "ADDRESSED").length
@@ -714,3 +719,360 @@ updateCheckpoint({
 ```
 
 **Failure policy**: Non-blocking (WARN). Codex gap analysis is advisory — findings are logged but do not halt the pipeline. The report supplements Phase 5.5 as additional context for Phase 6 (CODE REVIEW).
+
+---
+
+## STEP B: 9-Dimension LLM Analysis (Inspector Ashes)
+
+Spawns Inspector Ashes from `/rune:inspect` using its ash-prompt templates to perform a 9-dimension gap analysis on the committed implementation against the plan. Runs AFTER STEP A (deterministic) completes.
+
+**Team**: `arc-inspect-{id}` — follows ATE-1 pattern
+**Inspectors**: Default 2 (configurable via `talisman.arc.gap_analysis.inspectors`): `grace-warden` + `ruin-prophet`
+**Timeout**: 480_000ms (8 min inner polling)
+
+```javascript
+// STEP B.1: Gate check
+const inspectEnabled = talisman?.arc?.gap_analysis?.inspect_enabled !== false
+if (!inspectEnabled) {
+  Write(`tmp/arc/${id}/gap-analysis-verdict.md`, "Inspector Ashes analysis disabled via talisman.")
+  // Proceed to STEP C with empty VERDICT
+}
+
+// STEP B.2: Parse plan requirements using plan-parser.md algorithm
+// Follow the algorithm from roundtable-circle/references/plan-parser.md:
+//   1. Parse YAML frontmatter (if present)
+//   2. Extract requirements from Requirements/Deliverables/Tasks sections
+//   3. Extract requirements from implementation sections (Files to Create/Modify)
+//   4. Fallback: extract action sentences from full text
+//   5. Extract plan identifiers (file paths, code names, config keys)
+const planContent = Read(checkpoint.plan_file)
+const parsedPlan = parsePlan(planContent)
+const requirements = parsedPlan.requirements
+const identifiers = parsedPlan.identifiers
+
+// STEP B.3: Classify requirements to inspectors
+// 2 inspectors by default (vs 4 in standalone /rune:inspect) for arc efficiency
+const configuredInspectors = talisman?.arc?.gap_analysis?.inspectors ?? ["grace-warden", "ruin-prophet"]
+const allowedInspectors = ["grace-warden", "ruin-prophet", "sight-oracle", "vigil-keeper"]
+const inspectorList = configuredInspectors.filter(i => allowedInspectors.includes(i))
+const inspectorAssignments = classifyRequirements(requirements, inspectorList)
+
+// STEP B.4: Identify scope files
+// Use plan identifiers + diffFiles from STEP A.2
+const scopeFiles = [...new Set([
+  ...identifiers.filter(i => i.type === "file").map(i => i.value),
+  ...diffFiles
+])].filter(f => /^[a-zA-Z0-9._\-\/]+$/.test(f) && !f.includes('..'))
+  .slice(0, 80)  // Cap at 80 files for arc context budget
+
+// STEP B.5: Pre-create guard (team-lifecycle-guard.md 3-step protocol)
+const inspectTeamName = `arc-inspect-${id}`
+// SEC-003: Validate team name
+if (!/^[a-zA-Z0-9_-]+$/.test(inspectTeamName)) {
+  warn("STEP B: invalid inspect team name — skipping LLM analysis")
+  Write(`tmp/arc/${id}/gap-analysis-verdict.md`, "Inspector Ashes analysis skipped (invalid team name).")
+} else {
+  // Step A: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+  const B_RETRY_DELAYS = [0, 3000, 8000]
+  let bDeleteSucceeded = false
+  for (let attempt = 0; attempt < B_RETRY_DELAYS.length; attempt++) {
+    if (attempt > 0) Bash(`sleep ${B_RETRY_DELAYS[attempt] / 1000}`)
+    try { TeamDelete(); bDeleteSucceeded = true; break } catch (e) { /* retry */ }
+  }
+  if (!bDeleteSucceeded) {
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${inspectTeamName}/" "$CHOME/tasks/${inspectTeamName}/" 2>/dev/null`)
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d -name "arc-inspect-*" -mmin +30 -exec rm -rf {} + 2>/dev/null`)
+    try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
+  }
+
+  // STEP B.6: TeamCreate + TaskCreate + spawn inspectors
+  TeamCreate({ team_name: inspectTeamName })
+
+  const inspectorTasks = []
+  for (const [inspector, reqIds] of Object.entries(inspectorAssignments)) {
+    const reqList = reqIds.map(id => {
+      const req = requirements.find(r => r.id === id)
+      return `- ${id} [${req?.priority ?? 'P2'}]: ${req?.text ?? id}`
+    }).join("\n")
+
+    const taskId = TaskCreate({
+      subject: `${inspector}: Inspect ${reqIds.length} requirements`,
+      description: `Inspector ${inspector} assesses requirements: ${reqIds.join(", ")}. Write findings to tmp/arc/${id}/${inspector}-gap.md`,
+      activeForm: `${inspector} inspecting gap`
+    })
+    inspectorTasks.push({ inspector, taskId, reqIds, reqList })
+  }
+
+  // Verdict Binder task (blocked by all inspectors)
+  const verdictTaskId = TaskCreate({
+    subject: "Verdict Binder: Aggregate inspector findings",
+    description: `Aggregate inspector findings into tmp/arc/${id}/gap-analysis-verdict.md`,
+    activeForm: "Aggregating gap verdict"
+  })
+  for (const t of inspectorTasks) {
+    TaskUpdate({ taskId: verdictTaskId, addBlockedBy: [t.taskId] })
+  }
+
+  // STEP B.7: Spawn inspectors using ash-prompt templates
+  // Reference: roundtable-circle/references/ash-prompts/{inspector}-inspect.md
+  for (const { inspector, taskId, reqIds, reqList } of inspectorTasks) {
+    const outputPath = `tmp/arc/${id}/${inspector}-gap.md`
+    const fileList = scopeFiles.join("\n")
+    const inspectorPrompt = loadTemplate(`${inspector}-inspect.md`, {
+      plan_path: checkpoint.plan_file,
+      output_path: outputPath,
+      task_id: taskId,
+      requirements: reqList,
+      identifiers: identifiers.map(i => `${i.type}: ${i.value}`).join("\n"),
+      scope_files: fileList,
+      timestamp: new Date().toISOString()
+    })
+
+    Task({
+      prompt: inspectorPrompt,
+      subagent_type: "general-purpose",
+      team_name: inspectTeamName,
+      name: inspector,
+      model: "sonnet",
+      run_in_background: true
+    })
+  }
+
+  // STEP B.8: Monitor inspectors + Verdict Binder
+  const bPollIntervalMs = 30_000  // 30s per polling-guard.md
+  const bMaxIterations = Math.ceil(480_000 / bPollIntervalMs)  // 16 iterations for 8 min
+  let bPreviousCompleted = 0
+  let bStaleCount = 0
+
+  for (let i = 0; i < bMaxIterations; i++) {
+    const taskListResult = TaskList()
+    const bCompleted = taskListResult.filter(t => t.status === "completed").length
+    const bTotal = taskListResult.length
+
+    if (bCompleted >= bTotal) break
+
+    if (i > 0 && bCompleted === bPreviousCompleted) {
+      bStaleCount++
+      if (bStaleCount >= 6) {  // 3 minutes of no progress
+        warn("STEP B: Inspector Ashes stalled — proceeding with available results.")
+        break
+      }
+    } else {
+      bStaleCount = 0
+      bPreviousCompleted = bCompleted
+    }
+
+    Bash(`sleep ${bPollIntervalMs / 1000}`)
+  }
+
+  // STEP B.9: Summon Verdict Binder to aggregate inspector outputs
+  // SO-P2-002: Naming deviation from standalone /rune:inspect.
+  // Standalone inspect writes VERDICT.md directly. Arc uses "gap-analysis-verdict.md" to avoid
+  // collisions when multiple arc phases write to the same tmp/arc/{id}/ directory.
+  // The "-gap" suffix also helps identify which pipeline stage produced the verdict.
+  const inspectorFiles = inspectorTasks
+    .map(t => `${t.inspector}-gap.md`)
+    .filter(f => exists(`tmp/arc/${id}/${f}`))
+    .join(", ")
+
+  if (inspectorFiles.length > 0) {
+    const verdictPrompt = loadTemplate("verdict-binder.md", {
+      output_dir: `tmp/arc/${id}`,
+      inspector_files: inspectorFiles,
+      plan_path: checkpoint.plan_file,
+      requirement_count: requirements.length,
+      inspector_count: inspectorTasks.length,
+      timestamp: new Date().toISOString()
+    })
+
+    Task({
+      prompt: verdictPrompt,
+      subagent_type: "general-purpose",
+      team_name: inspectTeamName,
+      name: "verdict-binder",
+      model: "sonnet",
+      run_in_background: true
+    })
+
+    // Wait for Verdict Binder (2 min)
+    const vbMaxIterations = Math.ceil(120_000 / 10_000)
+    for (let i = 0; i < vbMaxIterations; i++) {
+      const tl = TaskList()
+      if (tl.filter(t => t.status === "completed").length >= tl.length) break
+      Bash("sleep 10")
+    }
+  } else {
+    Write(`tmp/arc/${id}/gap-analysis-verdict.md`, "No inspector outputs found — gap analysis VERDICT unavailable.")
+  }
+
+  // STEP B.10: Cleanup — shutdown inspectors + TeamDelete with fallback
+  for (const { inspector } of inspectorTasks) {
+    try { SendMessage({ type: "shutdown_request", recipient: inspector }) } catch (e) { /* already exited */ }
+  }
+  try { SendMessage({ type: "shutdown_request", recipient: "verdict-binder" }) } catch (e) { /* already exited */ }
+  Bash("sleep 5")
+
+  try { TeamDelete() } catch (e) {
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${inspectTeamName}/" "$CHOME/tasks/${inspectTeamName}/" 2>/dev/null`)
+    try { TeamDelete() } catch (e2) { /* done */ }
+  }
+
+  // Ensure VERDICT file always exists
+  if (!exists(`tmp/arc/${id}/gap-analysis-verdict.md`)) {
+    Write(`tmp/arc/${id}/gap-analysis-verdict.md`, "Inspector Ashes analysis timed out or produced no output.")
+  }
+}
+```
+
+---
+
+## STEP C: Merge Deterministic + VERDICT (Orchestrator-Only)
+
+Merges STEP A results (deterministic gap-analysis.md) with STEP B VERDICT.md into a unified report.
+
+**Author**: Orchestrator only — no team, no agents.
+**Output**: `tmp/arc/{id}/gap-analysis-unified.md`
+
+```javascript
+// STEP C.1: Extract scores from VERDICT.md
+const verdictContent = Read(`tmp/arc/${id}/gap-analysis-verdict.md`)
+
+// Parse dimension scores from VERDICT — match lines like: "| Correctness | 7.5/10 |"
+const dimensionScorePattern = /\|\s*([A-Za-z ]+)\s*\|\s*(\d+(?:\.\d+)?)\/10\s*\|/g
+const verdictScores = {}
+let match
+while ((match = dimensionScorePattern.exec(verdictContent)) !== null) {
+  const dimension = match[1].trim().toLowerCase().replace(/ /g, '_')
+  verdictScores[dimension] = parseFloat(match[2])
+}
+
+// Parse overall completion % from VERDICT — match "Overall completion: N%" or "Completion: N%"
+const completionMatch = verdictContent.match(/(?:Overall\s+)?[Cc]ompletion[:\s]+(\d+(?:\.\d+)?)%/)
+const verdictCompletionPct = completionMatch ? parseFloat(completionMatch[1]) : null
+
+// STEP C.2: Compute weighted aggregate using inspect-scoring.md dimension weights
+// Weights from roundtable-circle/references/inspect-scoring.md
+// Normalize VERDICT scores (0-10) to 0-100 scale, then apply weights:
+//
+// P2-001 (GW): Weight divergence note — these are PROPORTIONAL weights (sum ≈ 1.0)
+// used for normalization in arc's gap analysis. They differ from inspect-scoring.md's
+// RELATIVE weights (which are descriptive priorities, not arithmetic). The proportional
+// form is needed here because we compute a single weighted aggregate score.
+// If inspect-scoring.md updates its priority order, update these proportions to match.
+const dimensionWeights = {
+  correctness:    0.20,
+  completeness:   0.20,
+  failure_modes:  0.15,
+  security:       0.15,
+  design:         0.10,
+  performance:    0.08,
+  observability:  0.05,
+  test_coverage:  0.04,
+  maintainability: 0.03
+}
+
+let weightedScore = 0
+let totalWeight = 0
+for (const [dim, weight] of Object.entries(dimensionWeights)) {
+  if (verdictScores[dim] !== undefined) {
+    weightedScore += (verdictScores[dim] / 10) * 100 * weight
+    totalWeight += weight
+  }
+}
+const normalizedScore = totalWeight > 0 ? Math.round(weightedScore / totalWeight) : null
+
+// STEP C.3: Count fixable vs manual gaps
+const deterministicMissing = gaps.filter(g => g.status === "MISSING").length
+const deterministicPartial = gaps.filter(g => g.status === "PARTIAL").length
+const verdictP1Count = (verdictContent.match(/## P1 \(Critical\)/g) || []).length > 0
+  ? (verdictContent.match(/^- \[ \].*P1/gm) || []).length : 0
+const verdictP2Count = (verdictContent.match(/^- \[ \].*P2/gm) || []).length
+
+// Fixable = P2/P3 findings without security or architecture tags; Manual = P1 or security
+const fixableCount = verdictP2Count + deterministicPartial
+const manualCount = verdictP1Count + deterministicMissing
+
+// STEP C.4: Write unified report
+const unifiedReport = `# Gap Analysis — Unified Report (Phase 5.5)\n\n` +
+  `**Plan**: ${checkpoint.plan_file}\n` +
+  `**Date**: ${new Date().toISOString()}\n` +
+  `**Unified Score**: ${normalizedScore !== null ? normalizedScore + '/100' : 'N/A (VERDICT unavailable)'}\n\n` +
+  `## Deterministic Summary (STEP A)\n\n` +
+  Read(`tmp/arc/${id}/gap-analysis.md`).slice(0, 3000) + '\n\n' +
+  `## LLM Inspector Analysis (STEP B)\n\n` +
+  verdictContent.slice(0, 5000) + '\n\n' +
+  `## Aggregate\n\n` +
+  `| Metric | Value |\n|--------|-------|\n` +
+  `| Deterministic: MISSING | ${deterministicMissing} |\n` +
+  `| Deterministic: PARTIAL | ${deterministicPartial} |\n` +
+  `| Inspector P1 findings | ${verdictP1Count} |\n` +
+  `| Inspector P2 findings | ${verdictP2Count} |\n` +
+  `| Fixable gaps | ${fixableCount} |\n` +
+  `| Manual-review required | ${manualCount} |\n` +
+  `| Weighted score (0-100) | ${normalizedScore ?? 'N/A'} |\n\n` +
+  `**Verdict completion**: ${verdictCompletionPct !== null ? verdictCompletionPct + '%' : 'N/A'}\n`
+
+Write(`tmp/arc/${id}/gap-analysis-unified.md`, unifiedReport)
+```
+
+---
+
+## STEP D: Halt Decision
+
+Configurable threshold gate. By default non-blocking (mirrors STEP A's advisory policy), but can be configured to halt the pipeline when the implementation quality is critically low.
+
+```javascript
+// STEP D.1: Read config
+// RUIN-001 FIX: Runtime clamping prevents misconfiguration-based bypass (halt_threshold: -1 or 999)
+const haltThreshold = Math.max(0, Math.min(100, talisman?.arc?.gap_analysis?.halt_threshold ?? 50))  // Default: 50/100
+const haltEnabled   = talisman?.arc?.gap_analysis?.halt_on_critical ?? false  // Default: non-blocking
+
+// STEP D.2: Map VERDICT to halt decision
+// CRITICAL_ISSUES = any P1 finding → always halt if halt_enabled
+const hasCriticalIssues = verdictP1Count > 0
+const scoreBelowThreshold = normalizedScore !== null && normalizedScore < haltThreshold
+
+const needsRemediation =
+  (haltEnabled && hasCriticalIssues) ||
+  (haltEnabled && scoreBelowThreshold)
+
+// STEP D.3: Headless mode — auto-proceed (CI/batch mode ignores halt)
+const headlessMode = Bash(`echo "\${ARC_BATCH_MODE:-no}"`).trim() === "yes"
+  || Bash(`echo "\${CI:-no}"`).trim() === "yes"
+  || Bash(`echo "\${CONTINUOUS_INTEGRATION:-no}"`).trim() === "yes"
+
+if (needsRemediation && headlessMode) {
+  warn(`STEP D: Halt threshold triggered (score: ${normalizedScore}, threshold: ${haltThreshold}) but headless mode — auto-proceeding.`)
+}
+
+// STEP D.4: Write needs_remediation flag to checkpoint
+updateCheckpoint({
+  phase: "gap_analysis",
+  status: needsRemediation && !headlessMode ? "failed" : "completed",
+  artifact: `tmp/arc/${id}/gap-analysis-unified.md`,
+  artifact_hash: sha256(unifiedReport),
+  phase_sequence: 5.5,
+  team_name: inspectTeamName ?? null,
+  // Extra fields for gap-remediation phase gate
+  needs_remediation: needsRemediation && !headlessMode,
+  unified_score: normalizedScore,
+  fixable_count: fixableCount,
+  manual_count: manualCount
+})
+
+// STEP D.5: Halt if needed (and not headless)
+if (needsRemediation && !headlessMode) {
+  const haltReason = hasCriticalIssues
+    ? `CRITICAL_ISSUES: ${verdictP1Count} P1 findings found`
+    : `Score ${normalizedScore}/100 is below halt_threshold ${haltThreshold}`
+
+  error(`Phase 5.5 GAP ANALYSIS halted: ${haltReason}.\n` +
+    `Unified report: tmp/arc/${id}/gap-analysis-unified.md\n` +
+    `To proceed despite gaps: set arc.gap_analysis.halt_on_critical: false in talisman.yml\n` +
+    `Or resume after manual fixes: /rune:arc --resume`)
+}
+```
+
+**Output**: `tmp/arc/{id}/gap-analysis-unified.md`, `tmp/arc/{id}/gap-analysis-verdict.md`, individual inspector files.
+
+**Failure policy**: Non-blocking by default (WARN). Configurable halt via `arc.gap_analysis.halt_on_critical: true` + `arc.gap_analysis.halt_threshold: 50`. CRITICAL_ISSUES (P1 findings) always trigger halt when `halt_on_critical` is true. Headless/CI mode auto-proceeds regardless of threshold. Phase 5.8 (GAP REMEDIATION) reads `needs_remediation` from checkpoint to decide whether to run.

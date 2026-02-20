@@ -47,6 +47,18 @@
         ]
       },
       {
+        "matcher": "Write|Edit|NotebookEdit",
+        "_security_note": "SEC-006 accepted risk: Bash tool not covered by this hook. Gap-fixer Bash access is constrained by prompt-level Truthbinding protocol (primary defense) and agent tools frontmatter (secondary defense).",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/validate-gap-fixer-paths.sh",
+            "timeout": 5,
+            "statusMessage": "Checking gap-fixer file scope..."
+          }
+        ]
+      },
+      {
         "matcher": "Task",
         "hooks": [
           {
