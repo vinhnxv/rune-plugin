@@ -153,7 +153,7 @@ if [[ -n "$has_for_glob" ]]; then
         # The original COMMAND (not NORMALIZED) preserves newlines/formatting.
         FIXED_COMMAND="setopt nullglob; ${COMMAND}"
         # SEC: Escape special JSON characters in the command
-        ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.')
+        ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.' || { exit 0; })
         cat << AUTOFIX_JSON
 {
   "hookSpecificOutput": {

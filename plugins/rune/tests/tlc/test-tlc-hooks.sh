@@ -10,9 +10,6 @@
 
 set -euo pipefail
 
-TEST_DIR=$(mktemp -d /tmp/tlc-test-XXXXXX)
-trap 'rm -rf "$TEST_DIR"' EXIT
-
 PASS_COUNT=0
 FAIL_COUNT=0
 TOTAL=10
@@ -64,8 +61,8 @@ rc=0
 output=$(echo '{"tool_name":"TeamCreate","tool_input":{"team_name":"rune; rm -rf /"},"cwd":"/tmp"}' \
   | bash plugins/rune/scripts/enforce-team-lifecycle.sh 2>/dev/null) || rc=$?
 
-if [[ $rc -eq 0 ]] && echo "$output" | grep -qi "deny"; then
-  pass "T-2: Shell injection name denied"
+if [[ $rc -eq 0 ]] && echo "$output" | jq -e '.hookSpecificOutput.permissionDecision == "deny"' &>/dev/null; then
+  pass "T-2: Shell injection name denied (JSON validated)"
 else
   fail "T-2: Shell injection name" "exit=$rc, output=$output"
 fi
@@ -77,8 +74,8 @@ rc=0
 output=$(echo '{"tool_name":"TeamCreate","tool_input":{"team_name":"rune-..test"},"cwd":"/tmp"}' \
   | bash plugins/rune/scripts/enforce-team-lifecycle.sh 2>/dev/null) || rc=$?
 
-if [[ $rc -eq 0 ]] && echo "$output" | grep -qi "deny"; then
-  pass "T-3: Path traversal name (..) denied"
+if [[ $rc -eq 0 ]] && echo "$output" | jq -e '.hookSpecificOutput.permissionDecision == "deny"' &>/dev/null; then
+  pass "T-3: Path traversal name (..) denied (JSON validated)"
 else
   fail "T-3: Path traversal name (..)" "exit=$rc, output=$output"
 fi
@@ -91,8 +88,8 @@ rc=0
 output=$(echo "{\"tool_name\":\"TeamCreate\",\"tool_input\":{\"team_name\":\"$LONG_NAME\"},\"cwd\":\"/tmp\"}" \
   | bash plugins/rune/scripts/enforce-team-lifecycle.sh 2>/dev/null) || rc=$?
 
-if [[ $rc -eq 0 ]] && echo "$output" | grep -qi "deny"; then
-  pass "T-4: Overlong team name (129 chars) denied"
+if [[ $rc -eq 0 ]] && echo "$output" | jq -e '.hookSpecificOutput.permissionDecision == "deny"' &>/dev/null; then
+  pass "T-4: Overlong team name (129 chars) denied (JSON validated)"
 else
   fail "T-4: Overlong team name" "exit=$rc, output=$output"
 fi
