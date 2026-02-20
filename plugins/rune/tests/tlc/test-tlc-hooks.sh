@@ -12,7 +12,7 @@ set -euo pipefail
 
 PASS_COUNT=0
 FAIL_COUNT=0
-TOTAL=10
+TOTAL=13
 
 pass() {
   PASS_COUNT=$((PASS_COUNT + 1))
@@ -171,6 +171,107 @@ if [[ $rc -eq 0 ]]; then
 else
   fail "T-10: Empty string input" "exit=$rc, output=$output"
 fi
+
+# ────────────────────────────────────────────────────────────────
+# T-11: Stale team detection + auto-cleanup (regression for "Already leading" scenario)
+# This tests the motivating scenario: a crashed session leaves an orphaned team dir
+# and TLC-001 detects it, cleans the filesystem, and injects advisory context.
+# ────────────────────────────────────────────────────────────────
+CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+STALE_TEAM="rune-stale-regression-test"
+STALE_DIR="$CHOME/teams/$STALE_TEAM"
+
+# Create stale team dir with old mtime (>30 min)
+mkdir -p "$STALE_DIR" 2>/dev/null
+# Set mtime to Jan 1 2026 (guaranteed >30 min old)
+touch -t 202601010000 "$STALE_DIR" 2>/dev/null
+
+rc=0
+output=$(echo '{"tool_name":"TeamCreate","tool_input":{"team_name":"rune-new-workflow"},"cwd":"/tmp"}' \
+  | bash plugins/rune/scripts/enforce-team-lifecycle.sh 2>/dev/null) || rc=$?
+
+# Verify: hook detected the stale team and output advisory context (not deny)
+stale_detected=false
+if [[ $rc -eq 0 ]] && echo "$output" | jq -e '.hookSpecificOutput.permissionDecision == "allow"' &>/dev/null; then
+  if echo "$output" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null | grep -q "$STALE_TEAM"; then
+    stale_detected=true
+  fi
+fi
+
+# Verify: stale dir was auto-cleaned
+stale_cleaned=false
+if [[ ! -d "$STALE_DIR" ]]; then
+  stale_cleaned=true
+fi
+
+if $stale_detected && $stale_cleaned; then
+  pass "T-11: Stale team detected, advisory issued, dir auto-cleaned"
+else
+  fail "T-11: Stale team regression" "detected=$stale_detected, cleaned=$stale_cleaned, exit=$rc"
+  # Cleanup on failure
+  rm -rf "$STALE_DIR" 2>/dev/null
+fi
+
+# Also clean tasks dir if it was created
+rm -rf "$CHOME/tasks/$STALE_TEAM" 2>/dev/null
+
+# ────────────────────────────────────────────────────────────────
+# T-12: Symlinked team directory → skipped (not cleaned)
+# TLC-001 must NOT follow or delete symlinks (SEC-TLC-2 mitigation).
+# ────────────────────────────────────────────────────────────────
+SYMLINK_TARGET=$(mktemp -d)
+SYMLINK_TEAM="rune-symlink-test"
+SYMLINK_DIR="$CHOME/teams/$SYMLINK_TEAM"
+
+# Create a symlink that looks like a stale team dir
+mkdir -p "$CHOME/teams" 2>/dev/null
+ln -sf "$SYMLINK_TARGET" "$SYMLINK_DIR" 2>/dev/null
+# Set mtime on target to old (>30 min) — but the symlink itself should be skipped
+touch -t 202601010000 "$SYMLINK_TARGET" 2>/dev/null
+
+rc=0
+output=$(echo '{"tool_name":"TeamCreate","tool_input":{"team_name":"rune-new-team"},"cwd":"/tmp"}' \
+  | bash plugins/rune/scripts/enforce-team-lifecycle.sh 2>/dev/null) || rc=$?
+
+# Verify: symlink still exists (was NOT deleted) and target is intact
+if [[ $rc -eq 0 ]] && [[ -L "$SYMLINK_DIR" ]] && [[ -d "$SYMLINK_TARGET" ]]; then
+  pass "T-12: Symlinked team dir skipped (symlink + target intact)"
+else
+  fail "T-12: Symlinked team dir" "exit=$rc, symlink_exists=$(test -L "$SYMLINK_DIR" && echo true || echo false)"
+fi
+
+# Cleanup
+rm -f "$SYMLINK_DIR" 2>/dev/null
+rm -rf "$SYMLINK_TARGET" 2>/dev/null
+
+# ────────────────────────────────────────────────────────────────
+# T-13: Fresh team dir (<30 min) → NOT flagged as stale
+# Ensures arc rapid transitions don't trigger false-positive advisories (EC-2).
+# ────────────────────────────────────────────────────────────────
+FRESH_TEAM="rune-fresh-test"
+FRESH_DIR="$CHOME/teams/$FRESH_TEAM"
+
+# Create team dir with current mtime (just created = <30 min old)
+mkdir -p "$FRESH_DIR" 2>/dev/null
+
+rc=0
+output=$(echo '{"tool_name":"TeamCreate","tool_input":{"team_name":"rune-another-team"},"cwd":"/tmp"}' \
+  | bash plugins/rune/scripts/enforce-team-lifecycle.sh 2>/dev/null) || rc=$?
+
+# Verify: no advisory context about the fresh team (should be silent)
+fresh_mentioned=false
+if echo "$output" | grep -q "$FRESH_TEAM" 2>/dev/null; then
+  fresh_mentioned=true
+fi
+
+if [[ $rc -eq 0 ]] && ! $fresh_mentioned; then
+  pass "T-13: Fresh team dir (<30 min) not flagged as stale"
+else
+  fail "T-13: Fresh team dir" "exit=$rc, mentioned=$fresh_mentioned"
+fi
+
+# Cleanup
+rm -rf "$FRESH_DIR" 2>/dev/null
 
 # ── Summary ──
 echo ""
