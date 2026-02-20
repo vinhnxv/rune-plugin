@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.53.7] — 2026-02-21
+
+### Fixed
+- **secret-scrubbing.md**: Create missing reference file with `scrubSecrets()` regex patterns — resolves dangling TODO in testing/SKILL.md (RUIN-002, VIGIL-001)
+- **talisman.example.yml**: Standardize all tier timeout keys to `timeout_ms` (milliseconds) — fixes `timeout` vs `timeout_ms` naming discrepancy (SIGHT-001, VIGIL-004)
+- **talisman.example.yml**: Uncomment testing section to match active-section convention (GRACE-003)
+- **talisman.example.yml**: Fix `startup_timeout` from 120000 (2 min) to 180000 (3 min) to match plan's EC-3.3 Docker hard timeout (SIGHT-007)
+- **arc-phase-test.md**: Add explicit `model: "opus"` to test-failure-analyst Task spawn — prevents implicit model inheritance ambiguity (SIGHT-002)
+- **arc-phase-test.md**: Pass `remainingBudget()` to E2E teammate prompt for per-route self-throttling (RUIN-003)
+- **arc-phase-audit.md**: Add explicit TEST-NNN feed-through instructions for audit inscription (VIGIL-003, GRACE-004)
+- **test-report-template.md**: Add Acceptance Criteria Traceability section to report format (VIGIL-002)
+- **e2e-browser-tester.md**: Add `log_source` field with all 6 categories to per-route output (RUIN-007)
+- **e2e-browser-tester.md**: Add aggregate output section with `<!-- SEAL: e2e-test-complete -->` marker (VIGIL-005)
+- **integration-test-runner.md**: Expand `log_source` from 3 to 6 categories (RUIN-007)
+- **service-startup.md**: Fix unquoted variable in Docker kill cleanup example (VIGIL-008)
+- **testing/SKILL.md**: Remove dangling TODO, fix reference link syntax for secret-scrubbing.md (RUIN-002)
+
+### Changed
+- **Plugin version**: 1.53.6 → 1.53.7
+
+## [1.53.6] — 2026-02-21
+
+### Fixed
+- **CLAUDE.md**: Add Core Rule 10 — teammate non-persistence warning for session resume (GRACE-P1-001)
+- **worker-prompts.md**: Add `max_turns: 75` to rune-smith Task() spawn call and `max_turns: 50` to trial-forger Task() spawn call — defense-in-depth enforcement for runaway agent prevention (SIGHT-CRIT-001)
+
+### Changed
+- **Plugin version**: 1.53.5 → 1.53.6
+
 ## [1.53.5] — 2026-02-21
 
 ### Fixed

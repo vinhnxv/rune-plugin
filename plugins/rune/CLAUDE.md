@@ -64,6 +64,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
    - **ALWAYS** call `TaskList` between sleeps to check actual task status.
    - **ALWAYS** use `pollIntervalMs` from config (30s for all commands), never arbitrary values like 45s or 60s.
    - **Enforcement**: `enforce-polling.sh` PreToolUse hook (POLL-001) blocks sleep+echo anti-patterns at runtime. The `polling-guard` skill provides background knowledge for correct monitoring patterns.
+10. **Teammate non-persistence**: Teammates do NOT survive session resume. After `/resume`, assume all teammates are dead. Clean up stale teams before starting new workflows.
 
 ## Versioning & Pre-Commit Checklist
 

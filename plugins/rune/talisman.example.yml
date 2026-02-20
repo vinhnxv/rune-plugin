@@ -461,26 +461,26 @@ horizon:
 # Diff-scoped test execution in the arc pipeline.
 # Unit → integration → E2E (browser) tiers, serial execution.
 # Test failures are non-blocking WARNs — they do NOT halt the pipeline.
-# testing:
-#   enabled: true                  # Set false to skip Phase 7.7 globally (CLI: --no-test)
-#   tiers:
-#     unit:
-#       enabled: true              # Run unit tests (default: true)
-#       timeout: 300000            # 5 minutes (default)
-#       coverage: true             # Collect coverage metrics (default: true)
-#     integration:
-#       enabled: true              # Run integration tests (default: true)
-#       timeout: 300000            # 5 minutes (default)
-#     e2e:
-#       enabled: true              # Run E2E browser tests (default: true)
-#       timeout_ms: 300000         # Per-route timeout in ms (default: 300000 = 5min/route)
-#       base_url: "http://localhost:3000"  # Base URL for E2E routes
-#       max_routes: 3              # Cap E2E routes tested per run (default: 3)
-#       headed: false              # Run browser in headed mode for debugging (default: false)
-#   service:
-#     startup_command: null         # Override auto-detection (e.g., "bin/dev", "docker compose up -d")
-#     health_endpoint: null         # Override health check endpoint (e.g., "/api/health")
-#     startup_timeout: 120000      # Max wait for service readiness in ms (default: 120000)
+testing:
+  enabled: true                    # Set false to skip Phase 7.7 globally (CLI: --no-test)
+  tiers:
+    unit:
+      enabled: true                # Run unit tests (default: true)
+      timeout_ms: 300000           # Per-suite timeout in ms (default: 300000 = 5min)
+      coverage: true               # Collect coverage metrics (default: true)
+    integration:
+      enabled: true                # Run integration tests (default: true)
+      timeout_ms: 300000           # Per-suite timeout in ms (default: 300000 = 5min)
+    e2e:
+      enabled: true                # Run E2E browser tests (default: true)
+      timeout_ms: 300000           # Per-route timeout in ms (default: 300000 = 5min/route)
+      base_url: "http://localhost:3000"  # Base URL for E2E routes
+      max_routes: 3                # Cap E2E routes tested per run (default: 3)
+      headed: false                # Run browser in headed mode for debugging (default: false)
+  service:
+    startup_command: null           # Override auto-detection (e.g., "bin/dev", "docker compose up -d")
+    health_endpoint: null           # Override health check endpoint (e.g., "/api/health")
+    startup_timeout: 180000         # Max wait for service readiness in ms (default: 180000 = 3min)
 
 # ──────────────────────────────────────────────
 # Inner Flame — Self-review protocol (v1.46.0+)

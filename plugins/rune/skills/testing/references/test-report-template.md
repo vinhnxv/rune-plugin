@@ -54,6 +54,12 @@ tmp/arc/{id}/
 
 ## [Tier Details - per tier sections]
 
+## Acceptance Criteria Traceability
+| Plan AC | Test(s) Covering | Status |
+|---------|------------------|--------|
+| AC-001: {description} | test_name_1, test_name_2 | COVERED |
+| AC-002: {description} | — | NOT COVERED |
+
 ## [Failure Analysis - if failures detected]
 
 ## [Screenshots - if E2E ran]

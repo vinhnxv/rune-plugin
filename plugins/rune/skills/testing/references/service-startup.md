@@ -101,7 +101,7 @@ docker compose ps --format json > tmp/arc/{id}/docker-containers.json
 docker compose down --timeout 10 --remove-orphans
 
 # Fallback: kill by container IDs
-docker kill $(jq -r '.[].ID' tmp/arc/{id}/docker-containers.json) 2>/dev/null
+docker kill $(jq -r '.[].ID' "tmp/arc/${id}/docker-containers.json") 2>/dev/null
 
 # Nuclear: remove volumes too
 docker compose down -v --timeout 10 --remove-orphans

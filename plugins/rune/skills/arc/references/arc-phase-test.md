@@ -229,6 +229,7 @@ if (e2eEnabled && servicesHealthy && agentBrowserAvailable && e2eRoutes.length >
       Output per route to: tmp/arc/${id}/e2e-route-{N}-result.md
       Aggregate to: tmp/arc/${id}/test-results-e2e.md
       Screenshots to: tmp/arc/${id}/screenshots/
+      Remaining budget: ${remainingBudget()}ms. Skip routes if cumulative time exceeds this budget.
       Strategy: ${Read(`tmp/arc/${id}/test-strategy.md`)}
       [inject agent-browser skill content]
       [inject agent e2e-browser-tester.md content]`
@@ -252,7 +253,7 @@ const hasFailures = checkForFailures(`tmp/arc/${id}/test-results-*.md`)
 
 if (hasFailures && remainingBudget() > 180_000) {
   Task({
-    subagent_type: "general-purpose",  // inherits Opus from team lead
+    subagent_type: "general-purpose", model: "opus",  // Explicit Opus for failure analysis
     name: "test-failure-analyst", team_name: `arc-test-${id}`,
     prompt: `You are test-failure-analyst. Analyze failures in:
       - tmp/arc/${id}/test-results-unit.md

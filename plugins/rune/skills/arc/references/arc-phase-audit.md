@@ -11,6 +11,9 @@ Invoke `/rune:audit` logic as a final quality gate. Informational only — does 
 - Committed code changes on the feature branch
 - Arc identifier (`id`)
 - Test report (`tmp/arc/{id}/test-report.md`) — if Phase 7.7 ran (not skipped via `--no-test`)
+  - TEST-NNN findings are advisory WARNs — auditors should consider them alongside code quality findings
+  - Test coverage metrics (`coverage_pct`, `uncovered_implementations`) inform audit depth: low diff coverage = more scrutiny on untested code paths
+  - Pass `test-report.md` content to auditors via inscription `additional_context` field when the file exists and contains `<!-- SEAL: test-report-complete -->`
 
 **Outputs**: `tmp/arc/{id}/audit-report.md`
 

@@ -110,4 +110,4 @@ External URLs are rejected to prevent agent-browser from navigating to untrusted
 - 500-line ceiling for AI agent context
 - Full output written to artifact file
 - Summary (last 20-50 lines) extracted for agent context
-- Secret scrubbing: `AWS_*`, `*_KEY`, `*_SECRET`, `*_TOKEN`, `Bearer `, `sk-*`, `ghp_*`, JWT tokens, emails redacted before agent ingestion. See `testing/references/secret-scrubbing.md` for regex patterns and `scrubSecrets()` implementation (TODO: create reference file)
+- Secret scrubbing: `AWS_*`, `*_KEY`, `*_SECRET`, `*_TOKEN`, `Bearer `, `sk-*`, `ghp_*`, JWT tokens, emails redacted before agent ingestion. See [secret-scrubbing.md](references/secret-scrubbing.md) for regex patterns and `scrubSecrets()` implementation

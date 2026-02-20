@@ -62,7 +62,7 @@ Write results to `tmp/arc/{id}/test-results-integration.md`.
 - Step failed: {API call, DB query, assertion}
 - Expected: {what was expected}
 - Actual: {what happened}
-- Log source: {BACKEND|TEST_FRAMEWORK|INFRASTRUCTURE}
+- Log source: {BACKEND|FRONTEND|BACKEND_VIA_FRONTEND|TEST_FRAMEWORK|INFRASTRUCTURE|UNKNOWN}
 - File: {file:line}
 
 <!-- SEAL: integration-test-complete -->
