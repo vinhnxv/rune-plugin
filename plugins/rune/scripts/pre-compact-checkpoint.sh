@@ -100,10 +100,10 @@ fi
 
 # 2. Task list — collect from tasks directory
 tasks_json="[]"
+task_files=()  # Initialize before conditional (set -u safe for _trace on line 175)
 tasks_dir="$CHOME/tasks/${active_team}"
 if [[ -d "$tasks_dir" ]] && [[ ! -L "$tasks_dir" ]]; then
   # Read all task JSON files, merge into array
-  task_files=()
   while IFS= read -r tf; do
     if [[ -f "$tf" ]] && [[ ! -L "$tf" ]]; then
       task_files+=("$tf")
@@ -172,7 +172,7 @@ fi
 # SEC-003: Atomic rename
 # FW-002 FIX: Use mv -f (force) instead of mv -n (no-clobber). A stale checkpoint
 # with an old team name is worse than a fresh one — always write latest state.
-_trace "Writing checkpoint: team=${active_team} tasks=${#task_files[@]:-0}"
+_trace "Writing checkpoint: team=${active_team} tasks=${#task_files[@]}"
 mv -f "$CHECKPOINT_TMP" "$CHECKPOINT_FILE" 2>/dev/null || {
   rm -f "$CHECKPOINT_TMP" 2>/dev/null
   exit 0
