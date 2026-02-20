@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Echo Search MCP Server launcher
 #
 # Claude Code launches MCP servers with cwd = project root.

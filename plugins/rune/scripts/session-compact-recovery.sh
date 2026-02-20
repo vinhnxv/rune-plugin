@@ -18,8 +18,15 @@
 set -euo pipefail
 umask 077
 
+# ── PW-002 FIX: Opt-in trace logging (consistent with on-task-completed.sh) ──
+_trace() {
+  [[ "${RUNE_TRACE:-}" == "1" ]] && echo "[compact-recovery] $*" >> /tmp/rune-hook-trace.log 2>/dev/null
+  return 0
+}
+
 # ── GUARD 1: jq dependency ──
 if ! command -v jq &>/dev/null; then
+  echo "WARN: jq not found — compact recovery skipped" >&2
   exit 0
 fi
 
@@ -90,6 +97,8 @@ if [[ ! -d "$TEAM_DIR" ]] || [[ -L "$TEAM_DIR" ]]; then
   exit 0
 fi
 
+_trace "Recovery: team=${TEAM_NAME} checkpoint=$CHECKPOINT_FILE"
+
 # ── BUILD COMPACT SUMMARY ──
 # Extract key fields for the summary (keep it concise for context injection)
 SAVED_AT=$(echo "$CHECKPOINT_DATA" | jq -r '.saved_at // "unknown"' 2>/dev/null || echo "unknown")
@@ -109,6 +118,14 @@ TASK_SUMMARY="${TASK_SUMMARY//$'\n'/ }"
 WORKFLOW_TYPE=$(echo "$CHECKPOINT_DATA" | jq -r '.workflow_state.workflow // .workflow_state.type // "unknown"' 2>/dev/null || echo "unknown")
 WORKFLOW_STATUS=$(echo "$CHECKPOINT_DATA" | jq -r '.workflow_state.status // "unknown"' 2>/dev/null || echo "unknown")
 
+# WS-004 FIX: Validate WORKFLOW_TYPE and WORKFLOW_STATUS (consistent with ARC_PHASE validation)
+if [[ ! "$WORKFLOW_TYPE" =~ ^[a-zA-Z0-9_:\ -]+$ ]] || [[ ${#WORKFLOW_TYPE} -gt 64 ]]; then
+  WORKFLOW_TYPE="unknown"
+fi
+if [[ ! "$WORKFLOW_STATUS" =~ ^[a-zA-Z0-9_:\ -]+$ ]] || [[ ${#WORKFLOW_STATUS} -gt 64 ]]; then
+  WORKFLOW_STATUS="unknown"
+fi
+
 # Arc phase if present
 ARC_PHASE=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_checkpoint.current_phase // empty' 2>/dev/null || true)
 # WS-002 FIX: Validate ARC_PHASE against character allowlist (closes prompt injection surface)
@@ -121,7 +138,7 @@ fi
 MEMBER_COUNT=$(echo "$CHECKPOINT_DATA" | jq -r '.team_config.members // [] | length' 2>/dev/null || echo "0")
 
 # Build the context message — point to full file for detailed Read
-CONTEXT_MSG="RUNE COMPACT RECOVERY: Team '${TEAM_NAME}' state restored (saved at ${SAVED_AT}). Members: ${MEMBER_COUNT}. Tasks: ${TASK_SUMMARY}. Workflow: ${WORKFLOW_TYPE} (${WORKFLOW_STATUS}).${ARC_INFO} Full checkpoint at tmp/.rune-compact-checkpoint.json — use Read tool for complete state. Re-read team config and task list to resume coordination."
+CONTEXT_MSG="RUNE COMPACT RECOVERY: Team '${TEAM_NAME}' state restored (saved at ${SAVED_AT}). Members: ${MEMBER_COUNT}. Tasks: ${TASK_SUMMARY}. Workflow: ${WORKFLOW_TYPE} (${WORKFLOW_STATUS}).${ARC_INFO} Re-read team config and task list to resume coordination."
 
 # ── OUTPUT: hookSpecificOutput with hookEventName ──
 # PW-008 FIX: Output JSON first, THEN delete checkpoint. If jq fails, checkpoint is preserved.

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # session-start.sh — Loads using-rune skill content at session start
 # Ensures Rune workflow routing is available from the very first message.
 # Runs synchronously (async: false) so content is present before user's first prompt.

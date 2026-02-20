@@ -11,11 +11,27 @@
 #
 # Hook events: PreCompact
 # Matcher: manual|auto
-# Timeout: 5s
+# Timeout: 10s
 # Exit 0: Always (non-blocking)
 
 set -euo pipefail
 umask 077
+
+# ── PW-002 FIX: Opt-in trace logging (consistent with on-task-completed.sh) ──
+_trace() {
+  [[ "${RUNE_TRACE:-}" == "1" ]] && echo "[pre-compact] $*" >> /tmp/rune-hook-trace.log 2>/dev/null
+  return 0
+}
+
+# ── PW-005 FIX: Cross-platform mtime sort helper (DRY — used for team and workflow discovery) ──
+# Reads paths from stdin, emits them sorted by mtime descending
+_sort_by_mtime() {
+  while IFS= read -r p; do
+    [[ -z "$p" ]] && continue
+    mtime=$(stat -f %m "$p" 2>/dev/null || stat -c %Y "$p" 2>/dev/null || echo 0)
+    printf '%s\t%s\n' "$mtime" "$p"
+  done | sort -rn | cut -f2
+}
 
 # ── GUARD 1: jq dependency ──
 if ! command -v jq &>/dev/null; then
@@ -24,7 +40,8 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # ── GUARD 2: Input size cap (SEC-2: 1MB DoS prevention) ──
-INPUT=$(head -c 1048576)
+# FW-003 FIX: timeout guard prevents blocking on disconnected stdin
+INPUT=$(timeout 2 head -c 1048576 || true)
 
 # ── GUARD 3: CWD extraction and canonicalization ──
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
@@ -54,14 +71,12 @@ if [[ -d "$CHOME/teams/" ]]; then
     dirname=$(basename "$dir")
     if [[ "$dirname" =~ ^[a-zA-Z0-9_-]+$ ]] && [[ ! -L "$dir" ]]; then
       active_team="$dirname"
-      break  # find -printf sorts by mtime desc via sort below
+      break  # stat-based mtime sort below picks most recent
     fi
-  done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -not -name "goldmask-*" 2>/dev/null | while read -r d; do
-    # macOS stat: -f %m for mtime epoch
-    mtime=$(stat -f %m "$d" 2>/dev/null || stat -c %Y "$d" 2>/dev/null || echo 0)
-    printf '%s\t%s\n' "$mtime" "$d"
-  done | sort -rn | cut -f2)
+  done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -not -name "goldmask-*" 2>/dev/null | _sort_by_mtime)
 fi
+
+_trace "Team discovery: active_team=${active_team:-<none>}"
 
 # If no active team, nothing to checkpoint
 if [[ -z "$active_team" ]]; then
@@ -95,6 +110,12 @@ if [[ -d "$tasks_dir" ]] && [[ ! -L "$tasks_dir" ]]; then
     fi
   done < <(find "$tasks_dir" -maxdepth 1 -type f -name "*.json" 2>/dev/null)
 
+  # FW-004 FIX: Cap task file count to prevent ARG_MAX overflow
+  if [[ ${#task_files[@]} -gt 200 ]]; then
+    echo "WARN: ${#task_files[@]} task files exceeds cap of 200 — truncating" >&2
+    task_files=("${task_files[@]:0:200}")
+  fi
+
   if [[ ${#task_files[@]} -gt 0 ]]; then
     tasks_json=$(jq -s '.' "${task_files[@]}" 2>/dev/null || echo '[]')
   fi
@@ -110,9 +131,8 @@ workflow_file=$(find "${CWD}/tmp/" -maxdepth 1 -type f \
      -o -name ".rune-inspect-*.json" -o -name ".rune-forge-*.json" \
      -o -name ".rune-arc-*.json" \) 2>/dev/null | while read -r f; do
     [[ -L "$f" ]] && continue
-    mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
-    printf '%s\t%s\n' "$mtime" "$f"
-  done | sort -rn | head -1 | cut -f2)
+    echo "$f"
+  done | _sort_by_mtime | head -1)
 if [[ -n "$workflow_file" ]] && [[ -f "$workflow_file" ]]; then
   workflow_state=$(jq -c '.' "$workflow_file" 2>/dev/null || echo '{}')
 fi
@@ -152,6 +172,7 @@ fi
 # SEC-003: Atomic rename
 # FW-002 FIX: Use mv -f (force) instead of mv -n (no-clobber). A stale checkpoint
 # with an old team name is worse than a fresh one — always write latest state.
+_trace "Writing checkpoint: team=${active_team} tasks=${#task_files[@]:-0}"
 mv -f "$CHECKPOINT_TMP" "$CHECKPOINT_FILE" 2>/dev/null || {
   rm -f "$CHECKPOINT_TMP" 2>/dev/null
   exit 0

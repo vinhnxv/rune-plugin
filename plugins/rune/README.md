@@ -575,6 +575,7 @@ plugins/rune/
 │   ├── pre-compact-checkpoint.sh    # Team state checkpoint before compaction
 │   ├── session-compact-recovery.sh  # Team state re-injection after compaction
 │   ├── arc-batch.sh                 # Arc batch executor
+│   ├── arc-batch-preflight.sh       # Arc batch pre-flight validation
 │   └── echo-search/                 # Echo Search MCP server + hooks
 ├── talisman.example.yml
 ├── CLAUDE.md
