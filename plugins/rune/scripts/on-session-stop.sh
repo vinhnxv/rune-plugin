@@ -16,6 +16,8 @@
 # Timeout: 5s
 # Exit 0 with no output: Allow stop
 # Exit 0 with hookSpecificOutput decision=block: Block stop with guidance
+# NOTE: Stop hooks use `decision: "block"` in hookSpecificOutput (NOT `permissionDecision`
+# which is for PreToolUse). Verified correct per Claude Code hook contract. (BACK-006 FP)
 
 set -euo pipefail
 trap 'exit 0' ERR
@@ -27,7 +29,7 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # ── GUARD 2: Input size cap (SEC-2: 1MB DoS prevention) ──
-INPUT=$(head -c 1048576)
+INPUT=$(head -c 1048576 2>/dev/null || true)
 
 # ── GUARD 3: Loop prevention ──
 # If stop_hook_active is true, we are being called recursively — allow stop immediately
@@ -56,6 +58,9 @@ fi
 active_workflows=()
 
 # 1. Scan for active Rune/Arc teams in CHOME/teams/
+# NOTE: Team scan is global (not CWD-scoped). Teams don't inherently have project
+# association, so stopping any session lists all rune-*/arc-* teams. State file scan
+# (section 2) and arc checkpoint scan (section 3) ARE CWD-scoped. (BACK-005)
 if [[ -d "$CHOME/teams/" ]]; then
   for dir in "$CHOME/teams/"*/; do
     [[ ! -d "$dir" ]] && continue
@@ -63,6 +68,8 @@ if [[ -d "$CHOME/teams/" ]]; then
     dirname="${dir%/}"
     dirname="${dirname##*/}"
     # Only rune-* and arc-* teams (not goldmask-*)
+    # goldmask-* filter is redundant (goldmask teams don't match rune-*/arc-* prefixes)
+    # but retained as defense-in-depth in case naming conventions change
     if [[ "$dirname" == rune-* || "$dirname" == arc-* ]] && [[ "$dirname" != goldmask-* ]]; then
       # Validate safe characters
       [[ "$dirname" =~ ^[a-zA-Z0-9_-]+$ ]] || continue
@@ -85,7 +92,7 @@ if [[ -d "${CWD}/tmp/" ]]; then
     [[ ! -f "$f" ]] && continue
     [[ -L "$f" ]] && continue
     # Only consider files with "active" status
-    if grep -q '"active"' "$f" 2>/dev/null; then
+    if jq -e '.status == "active"' "$f" >/dev/null 2>&1; then
       fname="${f##*/}"
       active_workflows+=("state:${fname}")
     fi
