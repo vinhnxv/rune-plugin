@@ -249,6 +249,10 @@ class TestFindingPriority:
 
     def test_front_lowest_known_priority(self) -> None:
         f = Finding(nonce="x", id="FRONT-001", file="f.py", line=1, severity="P3", prefix="FRONT")
+        assert f.priority == 4
+
+    def test_cdx_lowest_known_priority(self) -> None:
+        f = Finding(nonce="x", id="CDX-001", file="f.py", line=1, severity="P2", prefix="CDX")
         assert f.priority == 5
 
     def test_unknown_prefix_gets_99(self) -> None:
@@ -260,6 +264,7 @@ class TestFindingPriority:
         assert DEDUP_PRIORITY["BACK"] < DEDUP_PRIORITY["DOC"]
         assert DEDUP_PRIORITY["DOC"] < DEDUP_PRIORITY["QUAL"]
         assert DEDUP_PRIORITY["QUAL"] < DEDUP_PRIORITY["FRONT"]
+        assert DEDUP_PRIORITY["FRONT"] < DEDUP_PRIORITY["CDX"]
 
 
 # ---------------------------------------------------------------------------
