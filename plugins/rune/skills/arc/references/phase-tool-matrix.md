@@ -9,7 +9,8 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 | Phase 2.5 (PLAN REFINEMENT) | Read, Write, Glob, Grep | Orchestrator-only -- extraction, no team |
 | Phase 2.7 (VERIFICATION) | Read, Glob, Grep, Write, Bash (git history) | Orchestrator-only -- deterministic checks |
 | Phase 5 (WORK) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Implementation requires all tools |
-| Phase 5.5 (GAP ANALYSIS) | Read, Glob, Grep, Bash (git diff, grep) | Orchestrator-only -- deterministic cross-reference |
+| Phase 5.5 (GAP ANALYSIS) | Read, Glob, Grep, Write (VERDICT.md only) | Team: `arc-inspect-{id}` — Inspector Ashes (enhanced with 9-dimension scoring) |
+| Phase 5.8 (GAP REMEDIATION) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Team: `arc-gap-fix-{id}` — fix FIXABLE gaps before code review |
 | Phase 5.7 (GOLDMASK VERIFICATION) | Delegated to `/rune:goldmask` (manages own team + tools) | Risk validation -- delegates to standalone skill |
 | Phase 6 (CODE REVIEW) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Review -- no codebase modification |
 | Phase 6.5 (GOLDMASK CORRELATION) | Read, Write, Glob, Grep | Orchestrator-only -- deterministic correlation |
@@ -28,7 +29,8 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 | PLAN REFINEMENT | 3 min | Orchestrator-only, no agents |
 | VERIFICATION | 30 sec | Deterministic checks, no LLM |
 | WORK | 35 min | Inner 30m + 5m setup budget |
-| GAP ANALYSIS | 1 min | Orchestrator-only, deterministic text checks |
+| GAP ANALYSIS | 12 min | Enhanced with Inspector Ashes (arc-inspect-{id} team) |
+| GAP REMEDIATION | 15 min | New phase — gap auto-fix team (arc-gap-fix-{id}) |
 | GOLDMASK VERIFICATION | 15 min | Delegated to /rune:goldmask skill (manages own team) |
 | CODE REVIEW | 15 min | Inner 10m + 5m setup budget |
 | GOLDMASK CORRELATION | 1 min | Orchestrator-only, deterministic TOME-to-Goldmask correlation |
