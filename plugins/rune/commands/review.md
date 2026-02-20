@@ -38,7 +38,7 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 |------|-------------|---------|
 | `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off (reviews all branch changes) |
 | `--dry-run` | Show scope selection, Ash plan, and chunk plan (if chunking) without summoning agents | Off |
-| `--max-agents <N>` | Limit total Ash summoned (built-in + custom). Range: 1-8 | All selected |
+| `--max-agents <N>` | Limit total Ash summoned (built-in + custom). Range: 1-8. Ash are prioritized: Ward Sentinel > Forge Warden > Veil Piercer > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. | All selected |
 | `--no-chunk` | Force single-pass review (disable chunking regardless of file count) | Off |
 | `--chunk-size <N>` | Override chunk threshold — file count that triggers chunking (default: 20) | 20 |
 | `--no-converge` | Disable convergence loop — single review pass per chunk, report still generated | Off |

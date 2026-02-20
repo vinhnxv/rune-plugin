@@ -115,6 +115,7 @@ Task({
 
     SELF-REVIEW (Inner Flame):
     Before writing your output file, execute the Inner Flame Researcher checklist:
+    (Inline abbreviation of inner-flame/references/role-checklists.md — keep in sync)
     - Verify all cited file paths exist (Glob)
     - Re-read source files to confirm patterns you described
     - Remove tangential findings that don't serve the research question
@@ -134,6 +135,7 @@ Task({
 
     SELF-REVIEW (Inner Flame):
     Before writing your output file, execute the Inner Flame Researcher checklist:
+    (Inline abbreviation of inner-flame/references/role-checklists.md — keep in sync)
     - Verify all cited file paths exist (Glob)
     - Re-read source files to confirm patterns you described
     - Remove tangential findings that don't serve the research question
@@ -155,6 +157,7 @@ Task({
 
     SELF-REVIEW (Inner Flame):
     Before writing your output file, execute the Inner Flame Researcher checklist:
+    (Inline abbreviation of inner-flame/references/role-checklists.md — keep in sync)
     - Verify all cited file paths exist (Glob)
     - Re-read source files to confirm patterns you described
     - Remove tangential findings that don't serve the research question
@@ -220,6 +223,7 @@ Task({
 
     SELF-REVIEW (Inner Flame):
     Before writing your output file, execute the Inner Flame Researcher checklist:
+    (Inline abbreviation of inner-flame/references/role-checklists.md — keep in sync)
     - Verify all cited file paths exist (Glob)
     - Re-read source files to confirm patterns you described
     - Remove tangential findings that don't serve the research question
@@ -239,6 +243,7 @@ Task({
 
     SELF-REVIEW (Inner Flame):
     Before writing your output file, execute the Inner Flame Researcher checklist:
+    (Inline abbreviation of inner-flame/references/role-checklists.md — keep in sync)
     - Verify all cited file paths exist (Glob)
     - Re-read source files to confirm patterns you described
     - Remove tangential findings that don't serve the research question
@@ -368,6 +373,7 @@ Task({
 
     SELF-REVIEW (Inner Flame):
     Before writing your output file, execute the Inner Flame Researcher checklist:
+    (Inline abbreviation of inner-flame/references/role-checklists.md — keep in sync)
     - Verify all cited file paths exist (Glob)
     - Re-read source files to confirm patterns you described
     - Remove tangential findings that don't serve the research question

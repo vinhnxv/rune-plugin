@@ -92,7 +92,8 @@ Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/arc-
 const reviewers = [
   { name: "scroll-reviewer", agent: "agents/utility/scroll-reviewer.md", focus: "Document quality" },
   { name: "decree-arbiter", agent: "agents/utility/decree-arbiter.md", focus: "Technical soundness" },
-  { name: "knowledge-keeper", agent: "agents/utility/knowledge-keeper.md", focus: "Documentation coverage" }
+  { name: "knowledge-keeper", agent: "agents/utility/knowledge-keeper.md", focus: "Documentation coverage" },
+  { name: "veil-piercer-plan", agent: "agents/utility/veil-piercer-plan.md", focus: "Plan truth-telling (reality vs fiction)" }
 ]
 
 // Horizon Sage — strategic depth assessment (v1.47.0+)

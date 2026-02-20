@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-# Read hook input
+# Read hook input (64KB cap — sufficient for TaskCompleted JSON payloads)
 INPUT=$(head -c 65536)
 
 # Pre-flight: jq required
@@ -49,7 +49,9 @@ for TALISMAN_PATH in "${CWD}/.claude/talisman.yml" "${HOME}/.claude/talisman.yml
   if [[ -f "$TALISMAN_PATH" ]]; then
     if command -v yq &>/dev/null; then
       INNER_FLAME_ENABLED=$(yq -r '.inner_flame.enabled // true' "$TALISMAN_PATH" 2>/dev/null || echo "true")
-      BLOCK_ON_FAIL=$(yq -r '.inner_flame.block_on_fail // false' "$TALISMAN_PATH" 2>/dev/null || echo "false")
+      BLOCK_ON_FAIL=$(yq -r '.inner_flame.block_on_fail // true' "$TALISMAN_PATH" 2>/dev/null || echo "true")
+    else
+      echo "Inner Flame: yq not found — cannot read talisman config, defaulting to soft enforcement" >&2
     fi
     break
   fi
@@ -81,6 +83,10 @@ elif [[ "$TEAM_NAME" == rune-work-* || "$TEAM_NAME" == arc-work-* ]]; then
 elif [[ "$TEAM_NAME" == rune-mend-* || "$TEAM_NAME" == arc-mend-* ]]; then
   # Mend fixers — check is via Seal message
   exit 0
+elif [[ "$TEAM_NAME" == rune-inspect-* || "$TEAM_NAME" == arc-inspect-* ]]; then
+  INSPECT_ID="${TEAM_NAME#rune-inspect-}"
+  [[ "$TEAM_NAME" == arc-inspect-* ]] && INSPECT_ID="${TEAM_NAME#arc-inspect-}"
+  OUTPUT_DIR="${CWD}/tmp/inspect/${INSPECT_ID}"
 fi
 
 # If no output dir, skip
@@ -102,8 +108,8 @@ if [[ ! -f "$TEAMMATE_FILE" ]]; then
   exit 0
 fi
 
-# Check for Inner Flame content specifically (SEC-007/QUAL-010: strengthened from plain "Self-Review Log")
-if ! grep -qE "Inner Flame:|Inner-flame:" "$TEAMMATE_FILE" 2>/dev/null; then
+# Check for Inner Flame content (SEC-007/QUAL-010: matches canonical SKILL.md format + Seal variants)
+if ! grep -qE "Self-Review Log.*Inner Flame|Inner Flame:|Inner-flame:" "$TEAMMATE_FILE" 2>/dev/null; then
   if [[ "$BLOCK_ON_FAIL" == "true" ]]; then
     echo "Inner Flame: Self-Review Log with Inner Flame content missing from ${TEAMMATE_NAME}'s output. Re-read your work and add Inner Flame self-review before sealing." >&2
     exit 2  # BLOCK — task completion denied

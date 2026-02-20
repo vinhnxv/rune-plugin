@@ -174,3 +174,11 @@ Skip findings previously marked FALSE_POSITIVE in earlier mend runs, **except**:
   Confirm skip? (Only a human can dismiss security findings)
   [Skip] [Re-fix]
   ```
+- **VEIL-prefix P1 findings**: Require explicit human confirmation before skipping — premise-level findings ("solving wrong problem", "architectural fantasy") cannot be machine-dismissed.
+  ```
+  VEIL-001 was marked FALSE_POSITIVE in a previous mend run.
+  Evidence: "Feature is intended for internal use only"
+
+  Confirm skip? (Only a human can dismiss truth-telling findings)
+  [Skip] [Re-fix]
+  ```

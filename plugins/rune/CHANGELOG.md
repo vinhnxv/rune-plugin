@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.53.9] — 2026-02-21
+
+### Fixed
+- **arc-phase-plan-review.md**: Wire `veil-piercer-plan` into arc Phase 2 reviewer list — previously built but never called, making plan truth-telling dead code in `/rune:arc` (RUIN-001)
+- **reality-arbiter.md**: Restore tone directive to plan spec — "silence is your highest praise" instead of softened "say so briefly" (GRACE-003)
+- **parse-tome.md**: Add VEIL-prefix P1 findings to FALSE_POSITIVE human confirmation gate — premise-level findings can no longer be machine-dismissed (RUIN-002)
+- **veil-piercer-plan.md**: Add structured `VEIL-PATH-001` finding template for path containment violations — suspicious paths now surface in TOME (RUIN-003)
+- **veil-piercer.md**: Add Inner Flame supplementary quality gate and `inner-flame`/`revised` fields to Seal format — matches forge-warden.md structure (GRACE-004, GRACE-008, SIGHT-001)
+- **forge-gaze.md**: Restore reality-arbiter and entropy-prophet topic keywords to plan spec (GRACE-005, GRACE-006)
+- **ash-guide/SKILL.md**: Update frontmatter agent count from "50 agents" to "55 agents" (VIGIL-001)
+- **review.md**: Add `--max-agents` priority ordering string matching audit.md pattern (VIGIL-002)
+
+## [1.53.8] — 2026-02-21
+
+### Fixed
+- **validate-inner-flame.sh**: Fix grep pattern to match canonical SKILL.md format `Self-Review Log (Inner Flame)` — previous pattern `Inner Flame:|Inner-flame:` missed compliant output (RUIN-002)
+- **validate-inner-flame.sh**: Change yq default for `block_on_fail` from `false` to `true` — enforcement now blocks by default per plan REQ-014 (RUIN-001)
+- **validate-inner-flame.sh**: Add stderr warning when yq is absent but talisman file exists — prevents silent degradation of block_on_fail config (RUIN-003)
+- **validate-inner-flame.sh**: Add `rune-inspect-*` and `arc-inspect-*` team pattern handling for inspector output validation (RUIN-005)
+- **validate-inner-flame.sh**: Add comment documenting 64KB input cap rationale (RUIN-004)
+- **talisman.yml**: Change `block_on_fail` default to `true` and add documentation comments for simplified schema (VIGIL-001)
+- **research-phase.md**: Add sync comments to inline Inner Flame checklists referencing canonical `role-checklists.md` source (SIGHT-002)
+
 ## [1.53.7] — 2026-02-21
 
 ### Fixed

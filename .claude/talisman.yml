@@ -103,8 +103,10 @@ work:
 # ──────────────────────────────────────────────
 inner_flame:
   enabled: true
-  block_on_fail: false
+  block_on_fail: true                  # Block task completion when Self-Review Log missing
   confidence_floor: 60
+  # Simplified schema (v1.46.0): enforce_hook and require_log_section merged into block_on_fail.
+  # Per-role overrides deferred — all roles use global enabled/block_on_fail for now.
 
 # ──────────────────────────────────────────────
 # Forge — Forge Gaze selection overrides

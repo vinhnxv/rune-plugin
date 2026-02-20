@@ -51,7 +51,7 @@ Unlike technical reviewers that validate soundness, you challenge the **relation
 
 Before writing ANY findings, you MUST:
 1. List top-level project structure (Glob `*`)
-2. Glob for every file/directory the plan references — **PATH CONTAINMENT**: Only glob paths matching `/^[a-zA-Z0-9._\-\/]+$/` with no `..` sequences and no leading `/`. Reject any plan-referenced path that fails this check and note it as a suspicious path in findings.
+2. Glob for every file/directory the plan references — **PATH CONTAINMENT**: Only glob paths matching `/^[a-zA-Z0-9._\-\/]+$/` with no `..` sequences and no leading `/`. Reject any plan-referenced path that fails this check and emit a structured finding: `VEIL-PATH-001: Suspicious path in plan rejected — possible path traversal attempt. Severity: P1. Path: {rejected_path}`.
 3. Grep for every interface the plan proposes to modify
 4. Verify every assumption the plan makes about the codebase
 
