@@ -3,8 +3,8 @@ name: arc
 description: |
   Use when you want to go from plan to merged PR in one command, when running
   the full development pipeline (forge + work + review + mend + ship + merge),
-  or when resuming a previously interrupted pipeline. 17-phase automated pipeline
-  with checkpoint resume, convergence loops, cross-model verification, and Goldmask risk analysis.
+  or when resuming a previously interrupted pipeline. 18-phase automated pipeline
+  with checkpoint resume, convergence loops, cross-model verification, Goldmask risk analysis, and auto gap remediation.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
@@ -40,7 +40,7 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains seventeen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, code review, mend, verify mend (convergence controller), test, goldmask verification, goldmask correlation, audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 5.5, 9, and 9.5). Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
+Chains eighteen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, gap remediation, goldmask verification, code review, goldmask correlation, mend, verify mend (convergence controller), test, audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 9, and 9.5). Phase 5.5 is hybrid: deterministic STEP A + Inspector Ashes STEP B. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`, `testing`, `agent-browser`
 
@@ -113,6 +113,8 @@ Phase 5.5: GAP ANALYSIS → Check plan criteria vs committed code (zero LLM)
     ↓ (gap-analysis.md) — WARN only, never halts
 Phase 5.6: CODEX GAP ANALYSIS → Cross-model plan vs implementation check (v1.39.0)
     ↓ (codex-gap-analysis.md) — WARN only, never halts
+Phase 5.8: GAP REMEDIATION → Auto-fix FIXABLE findings from Inspector Ashes VERDICT (v1.51.0)
+    ↓ (gap-remediation-report.md) — conditional (needs_remediation flag); WARN only, never halts
 Phase 5.7: GOLDMASK VERIFICATION → Blast-radius analysis via investigation agents (v1.47.0)
     ↓ (goldmask-verification.md) — 5 impact tracers + wisdom sage + lore analyst
 Phase 6:   CODE REVIEW → Roundtable Circle review
@@ -137,7 +139,7 @@ Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 5.7, 6, 6.5, 7, 7.5, 7.7, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. Phase 5.8 (GAP REMEDIATION) runs between 5.6 (Codex Gap) and 5.7 (Goldmask) — the non-sequential numbering preserves backward compatibility with older checkpoints. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
 
 ## Arc Orchestrator Design (ARC-1)
 
@@ -162,7 +164,7 @@ The dispatcher reads only structured summary headers from artifacts, not full co
 ### Phase Constants
 
 ```javascript
-const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'audit', 'ship', 'merge']
+const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'gap_remediation', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'audit', 'ship', 'merge']
 
 // SETUP_BUDGET: time for team creation, task creation, agent spawning, report, cleanup.
 // MEND_EXTRA_BUDGET: additional time for ward check, cross-file mend, doc-consistency.
@@ -188,8 +190,9 @@ const PHASE_TIMEOUTS = {
   verification:  talismanTimeouts.verification ?? 30_000,    // 30 sec (orchestrator-only, no team)
   semantic_verification: talismanTimeouts.semantic_verification ?? 180_000,  //  3 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
   work:          talismanTimeouts.work ?? 2_100_000,    // 35 min (inner 30m + 5m setup)
-  gap_analysis:  talismanTimeouts.gap_analysis ?? 60_000,    //  1 min (orchestrator-only, no team)
+  gap_analysis:  talismanTimeouts.gap_analysis ?? 720_000,   // 12 min (inner 8m + 2m setup + 2m aggregate — hybrid: deterministic + Inspector Ashes)
   codex_gap_analysis: talismanTimeouts.codex_gap_analysis ?? 660_000,  // 11 min (orchestrator-only, codex teammate — Architecture Rule #1 lightweight inline exception)
+  gap_remediation: talismanTimeouts.gap_remediation ?? 900_000,  // 15 min (inner 10m + 5m setup — spawns gap-fixer Ash)
   code_review:   talismanTimeouts.code_review ?? 900_000,    // 15 min (inner 10m + 5m setup)
   mend:          talismanTimeouts.mend ?? 1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
   verify_mend:   talismanTimeouts.verify_mend ?? 240_000,    //  4 min (orchestrator-only, no team)
@@ -202,14 +205,14 @@ const PHASE_TIMEOUTS = {
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// DOC-002 FIX: Base budget sum is ~149.5 min (v1.47.0 goldmask + v1.43.0 test):
+// DOC-002 FIX: Base budget sum is ~164.5 min (v1.50.0 gap_remediation + v1.47.0 goldmask + v1.43.0 test):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
-//   codex_gap_analysis(11) + goldmask_verification(15) + work(35) + gap_analysis(1) +
-//   goldmask_correlation(1) + test(15) + audit(20) + ship(5) + merge(10) = 149.5 min
-// With E2E: test grows to 40 min → 174.5 min base
-// LIGHT (2 cycles):    149.5 + 42 + 1×26 = 217.5 min ≈ 218 min
-// STANDARD (3 cycles): 149.5 + 42 + 2×26 = 243.5 min → hard cap at 240 min
-// THOROUGH (5 cycles): 149.5 + 42 + 4×26 = 295.5 min → hard cap at 240 min
+//   codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) + work(35) + gap_analysis(12) +
+//   goldmask_correlation(1) + test(15) + audit(20) + ship(5) + merge(10) = 175.5 min
+// With E2E: test grows to 40 min → 200.5 min base
+// LIGHT (2 cycles):    175.5 + 42 + 1×26 = 243.5 min → hard cap at 240 min
+// STANDARD (3 cycles): 175.5 + 42 + 2×26 = 269.5 min → hard cap at 240 min
+// THOROUGH (5 cycles): 175.5 + 42 + 4×26 = 321.5 min → hard cap at 240 min
 const ARC_TOTAL_TIMEOUT_DEFAULT = 9_720_000  // 162 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 14_400_000  // 240 min (4 hours) — absolute hard cap
 const STALE_THRESHOLD = 300_000      // 5 min
@@ -228,11 +231,12 @@ function calculateDynamicTimeout(tier) {
   const basePhaseBudget = PHASE_TIMEOUTS.forge + PHASE_TIMEOUTS.plan_review +
     PHASE_TIMEOUTS.plan_refine + PHASE_TIMEOUTS.verification +
     PHASE_TIMEOUTS.semantic_verification + PHASE_TIMEOUTS.codex_gap_analysis +
+    PHASE_TIMEOUTS.gap_remediation +             // v1.51.0: +gap_remediation (15 min)
     PHASE_TIMEOUTS.goldmask_verification + PHASE_TIMEOUTS.goldmask_correlation +
     PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis +
     PHASE_TIMEOUTS.test +                        // v1.43.0: +test (15 min default, 40 min with E2E)
     PHASE_TIMEOUTS.audit +
-    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~149.5 min (v1.47.0: +goldmask + v1.43.0: +test)
+    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~175.5 min (v1.51.0: +gap_remediation + v1.47.0: +goldmask + v1.43.0: +test)
   const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
   const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
   const maxCycles = tier?.maxCycles ?? 3
@@ -634,7 +638,7 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 9, plan_file: planFile,
+  id, schema_version: 10, plan_file: planFile,
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
   pr_url: null,
@@ -649,6 +653,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     work:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     codex_gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    gap_remediation: { status: "pending", artifact: null, artifact_hash: null, team_name: null, fixed_count: null, deferred_count: null },
     code_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
@@ -678,7 +683,7 @@ CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs af
 // arc-* prefixes: teams created directly by arc (Phase 2 plan review)
 // rune-* prefixes: teams created by delegated sub-commands (forge, work, review, mend, audit)
 const ARC_TEAM_PREFIXES = [
-  "arc-forge-", "arc-plan-review-", "arc-verify-", "arc-gap-", "arc-test-",  // arc-owned teams
+  "arc-forge-", "arc-plan-review-", "arc-verify-", "arc-gap-", "arc-gap-fix-", "arc-inspect-", "arc-test-",  // arc-owned teams
   "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-audit-",  // sub-command teams
   "goldmask-"  // goldmask skill teams (Phase 5.7 delegation)
 ]
@@ -793,7 +798,11 @@ On resume, validate checkpoint integrity before proceeding:
    b. Add phases.goldmask_correlation: { status: "pending", artifact: null, artifact_hash: null, team_name: null }
    c. Add phases.test: { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false }
    d. Set schema_version: 9
-3i. Resume freshness re-check:
+3i. If schema_version < 10, migrate v9 → v10:
+   a. Add phases.gap_remediation: { status: "skipped", artifact: null, artifact_hash: null, team_name: null, fixed_count: null, deferred_count: null }
+      // Default "skipped" — pre-v10 arcs did not run gap_remediation; safe to proceed without it.
+   b. Set schema_version: 10
+3j. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)
@@ -856,9 +865,9 @@ On resume, validate checkpoint integrity before proceeding:
      phaseInfo.status = "pending"
    }
 
-   // Clean stale state files from crashed sub-commands (CC-4: includes forge)
+   // Clean stale state files from crashed sub-commands (CC-4: includes forge, gap-fix)
    // See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
-   for (const type of ["work", "review", "mend", "audit", "forge"]) {
+   for (const type of ["work", "review", "mend", "audit", "forge", "gap-fix", "inspect"]) {
      const stateFiles = Glob(`tmp/.rune-${type}-*.json`)
      for (const f of stateFiles) {
        try {
@@ -1209,6 +1218,24 @@ updateCheckpoint({
 })
 ```
 
+## Phase 5.8: GAP REMEDIATION (conditional, v1.51.0)
+
+Auto-fixes FIXABLE findings from the Phase 5.5 Inspector Ashes VERDICT before proceeding to Goldmask Verification. Only runs when Phase 5.5 STEP D sets `needs_remediation: true` in checkpoint AND `arc.remediation.enabled` is not false in talisman.
+
+**Team**: `arc-gap-fix-{id}` — follows ATE-1 pattern
+**Inputs**: `tmp/arc/{id}/gap-analysis-verdict.md` (from Phase 5.5 STEP B), checkpoint `needs_remediation` flag
+**Output**: `tmp/arc/{id}/gap-remediation-report.md`
+**Failure**: Non-blocking. Skips cleanly if gate fails. Times out → proceeds with partial fixes.
+
+```javascript
+// ARC-6: Clean stale teams before creating gap-fix team
+prePhaseCleanup(checkpoint)
+
+updateCheckpoint({ phase: "gap_remediation", status: "in_progress", phase_sequence: 5.8, team_name: null })
+```
+
+See [gap-remediation.md](references/gap-remediation.md) for the full algorithm. Update checkpoint on completion.
+
 ## Phase 6: CODE REVIEW
 
 See [arc-phase-code-review.md](references/arc-phase-code-review.md) for the full algorithm.
@@ -1321,7 +1348,8 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | SEMANTIC VERIFICATION | WORK | `codex-semantic-verification.md` | Codex contradiction findings (or skip) |
 | WORK | GAP ANALYSIS | Working tree + `work-summary.md` | Git diff of committed changes + task summary |
 | GAP ANALYSIS | CODEX GAP ANALYSIS | `gap-analysis.md` | Criteria coverage (ADDRESSED/MISSING/PARTIAL) |
-| CODEX GAP ANALYSIS | CODE REVIEW | `codex-gap-analysis.md` | Cross-model gap findings (CDX-GAP-NNN) |
+| CODEX GAP ANALYSIS | GAP REMEDIATION | `codex-gap-analysis.md` | Cross-model gap findings + `needs_remediation` checkpoint flag from Phase 5.5 STEP D |
+| GAP REMEDIATION | GOLDMASK VERIFICATION | `gap-remediation-report.md` | Fixed findings list + deferred list. Skips cleanly if gate fails |
 | CODE REVIEW | MEND | `tome.md` | TOME with `<!-- RUNE:FINDING ... -->` markers |
 | MEND | VERIFY MEND | `resolution-report.md` | Fixed/FP/Failed finding list |
 | VERIFY MEND | MEND (retry) | `review-focus-round-{N}.json` | Phase 6+7 reset to pending, progressive focus scope |
@@ -1343,6 +1371,7 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | WORK | Halt if <50% tasks complete. Partial commits preserved | `/rune:arc --resume` |
 | GAP ANALYSIS | Non-blocking — WARN only | Advisory context for code review |
 | CODEX GAP ANALYSIS | Non-blocking — Codex timeout/unavailable → skip, proceed | Advisory (v1.39.0) |
+| GAP REMEDIATION | Non-blocking — gate miss (needs_remediation=false or talisman disabled) → skip cleanly. Fixer timeout → partial fixes, proceed | Advisory (v1.51.0) |
 | CODE REVIEW | Does not halt | Produces findings or clean report |
 | MEND | Halt if >3 FAILED findings | User fixes, `/rune:arc --resume` |
 | VERIFY MEND | Non-blocking — retries up to tier max cycles (LIGHT: 2, STANDARD: 3, THOROUGH: 5), then proceeds | Convergence gate is advisory |
@@ -1384,7 +1413,7 @@ if (exists(".claude/echoes/")) {
   appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
     layer: "inscribed",
     source: `rune:arc ${id}`,
-    content: `Arc completed: ${metrics.phases_completed}/17 phases, ` +
+    content: `Arc completed: ${metrics.phases_completed}/18 phases, ` +
       `${metrics.tome_findings.p1} P1 findings, ` +
       `${metrics.convergence_cycles} mend cycle(s), ` +
       `${metrics.gap_missing} missing criteria. ` +
@@ -1411,6 +1440,7 @@ Phases:
   5.   WORK:            {status} — {tasks_completed}/{tasks_total} tasks
   5.5  GAP ANALYSIS:    {status} — {addressed}/{total} criteria addressed
   5.6  CODEX GAP:       {status} — codex-gap-analysis.md
+  5.8  GAP REMEDIATION: {status} — gap-remediation-report.md ({fixed_count} fixed, {deferred_count} deferred)
   5.7  GOLDMASK VERIFY: {status} — goldmask-verification.md ({finding_count} findings, {critical_count} critical)
   6.   CODE REVIEW:     {status} — tome.md ({finding_count} findings)
   6.5  GOLDMASK CORR:   {status} — goldmask-correlation.md ({correlation_count} correlations, {human_review_count} human review)
