@@ -101,24 +101,18 @@ if [[ -d "$tasks_dir" ]] && [[ ! -L "$tasks_dir" ]]; then
 fi
 
 # 3. Active workflow state file (tmp/.rune-*.json)
+# FW-001 FIX: Use find-based approach instead of glob loop (zsh compat — shopt unavailable on zsh)
 workflow_state="{}"
 workflow_file=""
-# Use subshell for nullglob scoping
-workflow_file=$(
-  shopt -s nullglob 2>/dev/null
-  newest=""
-  newest_mtime=0
-  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-inspect-*.json "${CWD}"/tmp/.rune-forge-*.json "${CWD}"/tmp/.rune-arc-*.json; do
-    if [[ -f "$f" ]] && [[ ! -L "$f" ]]; then
-      mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
-      if [[ $mtime -gt $newest_mtime ]]; then
-        newest_mtime=$mtime
-        newest="$f"
-      fi
-    fi
-  done
-  echo "$newest"
-)
+workflow_file=$(find "${CWD}/tmp/" -maxdepth 1 -type f \
+  \( -name ".rune-review-*.json" -o -name ".rune-audit-*.json" \
+     -o -name ".rune-work-*.json" -o -name ".rune-mend-*.json" \
+     -o -name ".rune-inspect-*.json" -o -name ".rune-forge-*.json" \
+     -o -name ".rune-arc-*.json" \) 2>/dev/null | while read -r f; do
+    [[ -L "$f" ]] && continue
+    mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+    printf '%s\t%s\n' "$mtime" "$f"
+  done | sort -rn | head -1 | cut -f2)
 if [[ -n "$workflow_file" ]] && [[ -f "$workflow_file" ]]; then
   workflow_state=$(jq -c '.' "$workflow_file" 2>/dev/null || echo '{}')
 fi
@@ -156,7 +150,9 @@ if ! jq -n \
 fi
 
 # SEC-003: Atomic rename
-mv -n "$CHECKPOINT_TMP" "$CHECKPOINT_FILE" 2>/dev/null || {
+# FW-002 FIX: Use mv -f (force) instead of mv -n (no-clobber). A stale checkpoint
+# with an old team name is worse than a fresh one — always write latest state.
+mv -f "$CHECKPOINT_TMP" "$CHECKPOINT_FILE" 2>/dev/null || {
   rm -f "$CHECKPOINT_TMP" 2>/dev/null
   exit 0
 }
