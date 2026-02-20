@@ -44,7 +44,7 @@ version_target: "{estimated version}"
 complexity: "{Low|Medium|High}"
 estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
-strategic_intent: "long-term"
+strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -80,7 +80,7 @@ scope: "{description of files affected}"
 risk: "{Low|Medium|High} — {brief explanation}"
 estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
-strategic_intent: "long-term"
+strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -175,7 +175,7 @@ scope: "{description of files affected}"
 risk: "{Low|Medium|High} — {brief explanation}"
 estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
-strategic_intent: "long-term"
+strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -367,6 +367,8 @@ During Phase 2 Synthesize, after consolidating research:
 5. **estimated_effort**: Size from scope + complexity. Format: "{S|M|L|XL} — ~{N} LOC, {N} files". Use the size guide table above.
 
 6. **impact**: Score 1-10. Anchor points: 1 = cosmetic, 5 = useful improvement, 10 = critical blocker.
+
+7. **strategic_intent**: Declare the plan's strategic intent. Options: `"long-term"` (default — build correctly, minimize future debt), `"quick-win"` (ship fast, accept trade-offs), `"auto"` (let horizon-sage infer from type + complexity + scope). When in doubt, leave as `"long-term"`.
 
 ## Formatting Best Practices
 
