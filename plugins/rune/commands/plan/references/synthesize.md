@@ -44,6 +44,7 @@ version_target: "{estimated version}"
 complexity: "{Low|Medium|High}"
 estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
+strategic_intent: "long-term"
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -79,6 +80,7 @@ scope: "{description of files affected}"
 risk: "{Low|Medium|High} — {brief explanation}"
 estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
+strategic_intent: "long-term"
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -173,6 +175,7 @@ scope: "{description of files affected}"
 risk: "{Low|Medium|High} — {brief explanation}"
 estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
+strategic_intent: "long-term"
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
