@@ -324,6 +324,20 @@ Exit code 2 = block (teammate keeps working / task stays open). stderr = feedbac
 
 Regex-based. `"Edit|Write"` matches either. `"mcp__memory__.*"` matches all memory MCP tools. Omit or `"*"` = match all.
 
+### Hook JSON Output — Required `hookEventName`
+
+When a hook script outputs JSON with `hookSpecificOutput`, it **MUST** include `hookEventName` matching the event type. Without it, Claude Code logs "hook error" even if the script exits 0.
+
+```json
+// CORRECT — includes hookEventName
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"..."}}
+
+// WRONG — missing hookEventName, causes "SessionStart:startup hook error"
+{"hookSpecificOutput":{"additionalContext":"..."}}
+```
+
+This applies to ALL hook events (SessionStart, PreToolUse, PostToolUse, etc.).
+
 ### PreToolUse Decision Control
 
 ```json

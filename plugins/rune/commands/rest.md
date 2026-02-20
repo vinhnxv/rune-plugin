@@ -1,7 +1,7 @@
 ---
 name: rune:rest
 description: |
-  Remove tmp/ output directories from completed Rune workflows (reviews, audits, plans, work, mend, arc).
+  Remove tmp/ output directories from completed Rune workflows (reviews, audits, plans, work, mend, inspect, arc).
   Preserves Rune Echoes (.claude/echoes/) and active workflow state files.
   Renamed from /rune:cleanup in v1.5.0 — "rest" as in a resting place for completed artifacts.
 
@@ -32,6 +32,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/work/` | Work agent status files | Yes (if no active work team) |
 | `tmp/scratch/` | Session scratch pads | Yes |
 | `tmp/mend/{id}/` | Mend resolution reports, fixer outputs | Yes (if completed) |
+| `tmp/inspect/{id}/` | Inspection outputs, VERDICT.md | Yes (if completed) |
 | `tmp/arc/{id}/` | Arc pipeline artifacts (enriched plans, TOME, reports) | Yes (if completed) |
 | `tmp/arc-batch/` | Batch progress, logs, config | Yes (if no active batch) |
 | `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional, symlink-guarded) |
@@ -48,6 +49,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/.rune-audit-*.json` (active) | Active workflow state |
 | `tmp/.rune-mend-*.json` (active) | Mend concurrency detection |
 | `tmp/.rune-work-*.json` (active) | Active work workflow state |
+| `tmp/.rune-inspect-*.json` (active) | Active inspect workflow state |
 | `tmp/.rune-forge-*.json` (active) | Active forge workflow state |
 | `tmp/.rune-batch-*.json` (active) | Active batch workflow state |
 | `~/.claude/teams/{name}/` (active, < 30 min) | Teams referenced by active state files (`--heal` preserves these) |
@@ -58,7 +60,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 
 ```bash
 # Look for active state files (status != completed, cancelled)
-ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json tmp/.rune-work-*.json tmp/.rune-forge-*.json tmp/.rune-batch-*.json 2>/dev/null
+ls tmp/.rune-review-*.json tmp/.rune-audit-*.json tmp/.rune-mend-*.json tmp/.rune-work-*.json tmp/.rune-inspect-*.json tmp/.rune-forge-*.json tmp/.rune-batch-*.json 2>/dev/null
 
 # Check for active arc sessions via checkpoint.json
 # Arc uses .claude/arc/*/checkpoint.json instead of tmp/.rune-arc-*.json state files
@@ -81,7 +83,7 @@ For each state file found, read and check status:
 
 ```bash
 # List all tmp/ directories with sizes
-du -sh tmp/reviews/*/  tmp/audit/*/  tmp/plans/*/  tmp/work/  tmp/scratch/  tmp/mend/*/  tmp/arc/*/ 2>/dev/null
+du -sh tmp/reviews/*/  tmp/audit/*/  tmp/plans/*/  tmp/work/  tmp/scratch/  tmp/mend/*/  tmp/inspect/*/  tmp/arc/*/ 2>/dev/null
 ```
 
 ### 3. Confirm with User
@@ -161,6 +163,17 @@ else
   echo "SKIP: tmp/work/ — active work team detected"
 fi
 
+# Remove inspect artifacts — conditional on no active inspect sessions
+active_inspect=""
+for f in tmp/.rune-inspect-*.json(N); do
+  [ -f "$f" ] && grep -q '"status"[[:space:]]*:[[:space:]]*"active"' "$f" && active_inspect="$f"
+done
+if [ -z "$active_inspect" ]; then
+  rm -rf tmp/inspect/
+else
+  echo "SKIP: tmp/inspect/ — active inspect session detected"
+fi
+
 # Remove arc artifacts — conditional on no active arc sessions
 # Arc uses .claude/arc/*/checkpoint.json (not tmp/.rune-arc-*.json state files)
 active_arc=""
@@ -215,6 +228,7 @@ rm -f tmp/.rune-review-{completed_ids}.json
 rm -f tmp/.rune-audit-{completed_ids}.json
 rm -f tmp/.rune-mend-{completed_ids}.json
 rm -f tmp/.rune-work-{completed_ids}.json
+rm -f tmp/.rune-inspect-{completed_ids}.json
 rm -f tmp/.rune-batch-{completed_ids}.json
 ```
 
@@ -301,7 +315,7 @@ const staleStateFiles = []
 const activeStateFiles = []  // CC-1 FIX: separate list for safety check
 
 // See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
-for (const type of ["work", "review", "mend", "audit", "forge", "batch"]) {  // CC-4: include forge, QUAL-003: include batch
+for (const type of ["work", "review", "mend", "audit", "forge", "inspect", "batch"]) {  // CC-4: include forge, QUAL-003: include batch, v1.50.0: include inspect
   const files = Glob(`tmp/.rune-${type}-*.json`)
   for (const f of files) {
     try {
@@ -323,7 +337,7 @@ for (const type of ["work", "review", "mend", "audit", "forge", "batch"]) {  // 
 // STEP 2: Scan teams dir for orphaned rune-prefixed team dirs
 // CHOME pattern: resolve CLAUDE_CONFIG_DIR for multi-account support
 const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
-const RUNE_TEAM_PATTERN = /^(rune-work|rune-review|rune-mend|rune-audit|rune-plan|rune-forge|arc-forge|arc-plan-review|arc-verify)-/
+const RUNE_TEAM_PATTERN = /^(rune-work|rune-review|rune-mend|rune-audit|rune-plan|rune-forge|rune-inspect|arc-forge|arc-plan-review|arc-verify)-/
 const teamDirsRaw = Bash(`find "${CHOME}/teams" -mindepth 1 -maxdepth 1 -type d 2>/dev/null`)  // CC-3: find not ls; -mindepth 1 excludes base dir
 const teamDirs = teamDirsRaw.split('\n').filter(Boolean)
 // BACK-003 FIX: Warn when teams directory is missing (matches error handling table promise)

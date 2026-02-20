@@ -1,6 +1,6 @@
 # Rune Plugin — Claude Code Guide
 
-Multi-agent engineering orchestration for Claude Code. Plan, work, review, and audit with Agent Teams.
+Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspect, and audit with Agent Teams.
 
 ## Skills
 
@@ -38,6 +38,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, and a
 | `/rune:mend` | Parallel finding resolution from TOME |
 | `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 17 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend (convergence loop) → test → audit → ship → merge |
 | `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
+| `/rune:inspect` | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:elicit` | Interactive elicitation method selection |
@@ -92,7 +93,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 
 | Hook | Script | Purpose |
 |------|--------|---------|
-| `PreToolUse:Write\|Edit\|Bash\|NotebookEdit` | `scripts/enforce-readonly.sh` | SEC-001: Blocks write tools for review/audit Ashes when `.readonly-active` marker exists. |
+| `PreToolUse:Write\|Edit\|Bash\|NotebookEdit` | `scripts/enforce-readonly.sh` | SEC-001: Blocks write tools for review/audit/inspect Ashes when `.readonly-active` marker exists. |
 | `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. |
 | `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) blocks unprotected glob in `for` loops. Only active when user's shell is zsh (or macOS fallback). |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
@@ -142,7 +143,7 @@ echo "Commands: $(find plugins/rune/commands -name '*.md' -not -path '*/referenc
 
 ## References
 
-- [Agent registry](references/agent-registry.md) — 21 review + 5 research + 2 work + 10 utility + 8 investigation + 4 testing agents
+- [Agent registry](references/agent-registry.md) — 21 review + 5 research + 2 work + 10 utility + 12 investigation + 4 testing agents
 - [Key concepts](references/key-concepts.md) — Tarnished, Ash, TOME, Arc, Mend, Forge Gaze, Echoes
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow

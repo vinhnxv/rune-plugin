@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.50.0] — 2026-02-20
+
+### Added
+- **`/rune:inspect` — Plan-vs-Implementation Deep Audit**: New command with 4 Inspector Ashes that measure implementation completeness, quality across 9 dimensions, and gaps across 8 categories
+  - `grace-warden`: Correctness & completeness inspector — requirement traceability and implementation status (COMPLETE/PARTIAL/MISSING/DEVIATED)
+  - `ruin-prophet`: Failure modes, security posture, and operational readiness inspector
+  - `sight-oracle`: Design alignment, coupling analysis, and performance profiling inspector
+  - `vigil-keeper`: Test coverage, observability, maintainability, and documentation inspector
+- **VERDICT.md output**: Unified inspection report with requirement matrix, 9 dimension scores (0-10), gap analysis across 8 categories, and verdict determination (READY/GAPS_FOUND/INCOMPLETE/CRITICAL_ISSUES)
+- **Verdict Binder**: New aggregation prompt for merging inspector outputs into VERDICT.md
+- **Plan Parser reference**: Algorithm for extracting requirements from freeform plan markdown (keyword-based inspector assignment)
+- **Inspect Scoring reference**: Completion percentage, dimension scoring, and verdict determination algorithms
+- **4 Inspector Ash prompt templates**: Grace Warden, Ruin Prophet, Sight Oracle, Vigil Keeper (with Truthbinding, Inner Flame, Seal format)
+- **Inspect flags**: `--focus <dimension>`, `--max-agents <N>`, `--dry-run`, `--threshold <N>`
+- **Talisman config**: `inspect:` section with `max_inspectors`, `timeout`, `completion_threshold`, `gap_threshold`
+- **Inline mode**: `/rune:inspect "Add JWT auth"` — describe requirements without a plan file
+- Inspect cleanup in `/rune:rest` (`tmp/inspect/{id}/`, `tmp/.rune-inspect-*.json`)
+- `rune-inspect` workflow in inscription-schema.md
+- `rune-inspect-*` recognized by enforce-readonly, enforce-teams, session-team-hygiene hooks
+
+### Changed
+- **Plugin version**: 1.49.1 → 1.50.0
+- Agent counts: 8 → 12 investigation agents, 50 → 54 total agents
+- Command count: 12 → 13
+
 ## [1.49.1] — 2026-02-20
 
 ### Fixed

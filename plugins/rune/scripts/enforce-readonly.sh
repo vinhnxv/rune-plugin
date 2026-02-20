@@ -61,9 +61,10 @@ fi
 # SEC-4 FIX: nullglob prevents literal glob strings when no directories match
 shopt -s nullglob
 for dir in "$SIGNAL_BASE"/rune-review-* "$SIGNAL_BASE"/arc-review-* \
-           "$SIGNAL_BASE"/rune-audit-* "$SIGNAL_BASE"/arc-audit-*; do
+           "$SIGNAL_BASE"/rune-audit-* "$SIGNAL_BASE"/arc-audit-* \
+           "$SIGNAL_BASE"/rune-inspect-*; do
   # Validate directory name contains only safe characters
-  [[ "$(basename "$dir")" =~ ^(rune|arc)-(review|audit)-[a-zA-Z0-9_-]+$ ]] || continue
+  [[ "$(basename "$dir")" =~ ^(rune|arc)-(review|audit|inspect)-[a-zA-Z0-9_-]+$ ]] || continue
   if [[ -f "${dir}/.readonly-active" ]]; then
     # Active review/audit team found + caller is a subagent → deny
     echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"SEC-001: review/audit Ashes are read-only. Use Read, Glob, Grep only."}}'

@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 50 agents** (21 review + 5 research + 2 work + 10 utility + 8 investigation + 4 testing)
+**Total: 54 agents** (21 review + 5 research + 2 work + 10 utility + 12 investigation + 4 testing)
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 
@@ -27,6 +27,8 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | reality-arbiter | Production viability truth-telling, deployment gaps, integration honesty |
 | assumption-slayer | Premise validation, cargo cult detection, problem-fit analysis |
 | entropy-prophet | Long-term consequence analysis, complexity trajectory, lock-in risks |
+| refactor-guardian | Refactoring completeness, orphaned callers, broken import paths |
+| reference-validator | Cross-file reference integrity, config path validation, frontmatter schema |
 
 ## Research Agents (`agents/research/`)
 
@@ -72,6 +74,10 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | wisdom-sage | Git archaeology — commit intent classification, caution scoring via git blame analysis |
 | lore-analyst | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration |
 | goldmask-coordinator | Three-layer synthesis — merges Impact + Wisdom + Lore findings into unified GOLDMASK.md report |
+| grace-warden | Correctness & completeness inspector — plan requirement traceability and implementation status |
+| ruin-prophet | Failure modes, security posture, and operational readiness inspector |
+| sight-oracle | Design alignment, coupling analysis, and performance profiling inspector |
+| vigil-keeper | Test coverage, observability, maintainability, and documentation inspector |
 
 ## Testing Agents (`agents/testing/`)
 
