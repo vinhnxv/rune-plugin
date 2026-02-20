@@ -37,6 +37,9 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 | MEND | 23 min | Inner 15m + 5m setup + 3m ward/cross-file |
 | VERIFY MEND | 4 min | Convergence evaluation (orchestrator-only); re-review cycles run as separate Phase 6+7 |
 | AUDIT | 20 min | Inner 15m + 5m setup budget |
+| TEST | 15 min | Inner 10m + 5m setup; dynamic 40 min with E2E (arc-test-{id} team) |
+| SHIP | 5 min | Orchestrator-only, push + PR creation |
+| MERGE | 10 min | Orchestrator-only, rebase + merge + CI wait |
 
 **Total pipeline hard ceiling**: Dynamic (203-240 min based on tier; hard cap 240 min). See `calculateDynamicTimeout()` in SKILL.md.
 

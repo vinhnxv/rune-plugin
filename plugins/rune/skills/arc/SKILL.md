@@ -1220,7 +1220,7 @@ updateCheckpoint({
 
 ## Phase 5.8: GAP REMEDIATION (conditional, v1.51.0)
 
-Auto-fixes FIXABLE findings from the Phase 5.5 Inspector Ashes VERDICT before proceeding to Goldmask Verification. Only runs when Phase 5.5 STEP D sets `needs_remediation: true` in checkpoint AND `arc.remediation.enabled` is not false in talisman.
+Auto-fixes FIXABLE findings from the Phase 5.5 Inspector Ashes VERDICT before proceeding to Goldmask Verification. Only runs when Phase 5.5 STEP D sets `needs_remediation: true` in checkpoint AND `arc.gap_analysis.remediation.enabled` is not false in talisman.
 
 **Team**: `arc-gap-fix-{id}` — follows ATE-1 pattern
 **Inputs**: `tmp/arc/{id}/gap-analysis-verdict.md` (from Phase 5.5 STEP B), checkpoint `needs_remediation` flag

@@ -1,6 +1,8 @@
 # Agent Registry
 
-**Total: 55 agents** (21 review + 5 research + 2 work + 11 utility + 12 investigation + 4 testing)
+**Total: 55 agents** (21 review + 5 research + 2 work + 11 utility* + 12 investigation + 4 testing)
+
+\* 11 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 

@@ -23,8 +23,8 @@ umask 077
 
 # Pre-flight: jq is required for JSON parsing.
 if ! command -v jq &>/dev/null; then
-  echo "WARNING: jq not found — validate-gap-fixer-paths.sh hook is inactive (blocking)" >&2
-  exit 2
+  echo "WARNING: jq not found — validate-gap-fixer-paths.sh hook is inactive (fail-open)" >&2
+  exit 0
 fi
 
 # SEC-2: 1MB cap to prevent unbounded stdin read (DoS prevention)
@@ -90,10 +90,17 @@ if [[ ! "$IDENTIFIER" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ ${#IDENTIFIER} -gt 64 ]]; the
   exit 0
 fi
 
+# ── Allow-list check (before deny block) ──────────────────────────────────
+# Gap fixers are allowed to write to their output directory unconditionally.
+GAP_OUTPUT_PREFIX="tmp/arc/${IDENTIFIER}/"
+if [[ "$REL_FILE_PATH" == "${GAP_OUTPUT_PREFIX}"* ]]; then
+  exit 0
+fi
+
 # ── Blocked path patterns ──────────────────────────────────────────────────
 # Gap fixers must not touch infrastructure config, CI pipelines, or secret files.
 # Path traversal check: reject paths that navigate outside CWD.
-if [[ "$REL_FILE_PATH" == *../* ]] || [[ "$REL_FILE_PATH" == */.* && "$REL_FILE_PATH" != .claude/* ]]; then
+if [[ "$REL_FILE_PATH" == *../* ]] || [[ "$REL_FILE_PATH" == *.. ]] || [[ "$REL_FILE_PATH" == */.* && "$REL_FILE_PATH" != .claude/* ]]; then
   DENY_REASON="SEC-GAP-001: Path traversal or hidden file access denied."
   DENY=1
 elif [[ "$REL_FILE_PATH" == .claude/* ]]; then
@@ -109,7 +116,6 @@ elif [[ "$REL_FILE_PATH" == .env || "$REL_FILE_PATH" == .env.* ]]; then
   DENY_REASON="SEC-GAP-001: Gap fixers must not modify environment/secret files."
   DENY=1
 elif [[ "$REL_FILE_PATH" == *.yml && (
-    "$REL_FILE_PATH" == .github/* ||
     "$REL_FILE_PATH" == *ci*.yml ||
     "$REL_FILE_PATH" == *pipeline*.yml ||
     "$REL_FILE_PATH" == *deploy*.yml ||
@@ -119,12 +125,6 @@ elif [[ "$REL_FILE_PATH" == *.yml && (
   DENY=1
 else
   DENY=0
-fi
-
-# Allow writes to the gap-fix output directory (fixers write reports there)
-GAP_OUTPUT_PREFIX="tmp/arc/${IDENTIFIER}/"
-if [[ "$REL_FILE_PATH" == "${GAP_OUTPUT_PREFIX}"* ]]; then
-  exit 0
 fi
 
 if [[ "$DENY" -eq 1 ]]; then

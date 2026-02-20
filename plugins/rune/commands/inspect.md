@@ -365,7 +365,7 @@ TeamCreate({
 // Signal dir still created for team lifecycle tracking (without .readonly-active marker).
 const signalDir = `tmp/.rune-signals/${teamName}`
 Bash(`mkdir -p "${signalDir}"`)
-Write(`${signalDir}/.expected`, String(selectedInspectors.length))
+Write(`${signalDir}/.expected`, String(Object.keys(inspectorAssignments).length))
 ```
 
 ### Step 2.6 — Create Tasks
@@ -721,6 +721,16 @@ for (const [file, gaps] of Object.entries(gapsByFile)):
 ### Step 7.5.4 — Spawn Gap-Fixer Agent
 
 ```
+// Write gap-fix state file so validate-gap-fixer-paths.sh hook activates (SEC-GAP-001)
+const gapFixStateFile = `tmp/.rune-gap-fix-${identifier}.json`
+Write(gapFixStateFile, JSON.stringify({
+  status: "active",
+  identifier: identifier,
+  source: "inspect-fix",
+  started: new Date().toISOString(),
+  gaps: cappedGaps.map(g => g.id)
+}))
+
 // Create a new team for remediation phase
 const fixerTeamName = `rune-inspect-fixer-${identifier}`
 TeamCreate({
@@ -777,6 +787,12 @@ catch (e):
   const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
   if (/^[a-zA-Z0-9_-]+$/.test(fixerTeamName)):
     Bash(`rm -rf "${CHOME}/teams/${fixerTeamName}/" "${CHOME}/tasks/${fixerTeamName}/" 2>/dev/null`)
+
+// Clean up gap-fix state file
+const gapFixState = JSON.parse(Read(gapFixStateFile))
+gapFixState.status = "completed"
+gapFixState.completed = new Date().toISOString()
+Write(gapFixStateFile, JSON.stringify(gapFixState))
 ```
 
 ### Step 7.5.6 — Append Remediation Results to VERDICT.md

@@ -80,6 +80,7 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:inspect "Add JWT auth with rate limiting"  # Inspect inline description
 /rune:inspect plans/my-plan.md --dry-run         # Preview scope
 /rune:inspect plans/my-plan.md --focus security  # Focus on security dimension
+/rune:inspect plans/my-plan.md --fix             # Auto-fix FIXABLE gaps
 
 # Cancel active workflows
 /rune:cancel-review
@@ -169,6 +170,8 @@ When you run `/rune:inspect`, Rune measures how well the codebase matches a plan
 | Ruin Prophet | Failure Modes, Security | Security + Operational |
 | Sight Oracle | Design, Performance | Architectural |
 | Vigil Keeper | Observability, Test Coverage, Maintainability | Test + Observability + Documentation |
+
+Use `--fix` to auto-remediate FIXABLE gaps identified in the verdict (v1.51.0+). This spawns gap-fixer agents restricted by `SEC-GAP-001` hook enforcement.
 
 Output: `tmp/inspect/{id}/VERDICT.md`
 

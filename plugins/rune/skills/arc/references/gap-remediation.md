@@ -6,7 +6,7 @@ New phase between Codex Gap Analysis (5.6) and Goldmask Verification (5.7). Auto
 **Timeout**: 900_000ms (15 min: inner 10m + 5m setup)
 **Inputs**: `tmp/arc/{id}/gap-analysis-verdict.md` (from Phase 5.5 STEP B), checkpoint `needs_remediation` flag
 **Outputs**: `tmp/arc/{id}/gap-remediation-report.md`, committed code fixes
-**Talisman key**: `arc.remediation`
+**Talisman key**: `arc.gap_analysis.remediation`
 
 ---
 
@@ -22,7 +22,7 @@ const remediationEnabled = talisman?.arc?.gap_analysis?.remediation?.enabled !==
 if (!needsRemediation || !remediationEnabled) {
   const reason = !needsRemediation
     ? "Phase 5.5 did not flag needs_remediation (no critical gaps or halt threshold not triggered)"
-    : "arc.remediation.enabled: false in talisman"
+    : "arc.gap_analysis.remediation.enabled: false in talisman"
 
   Write(`tmp/arc/${id}/gap-remediation-report.md`,
     `# Gap Remediation — Skipped\n\n**Reason**: ${reason}\n**Date**: ${new Date().toISOString()}\n`)
@@ -83,7 +83,12 @@ for (let i = 0; i < verdictLines.length; i++) {
   const findingText = findingMatch[2].trim()
 
   // Look ahead up to 6 lines for fixable tag, file ref, and description
-  const context = verdictLines.slice(i + 1, i + 8).join('\n')
+  // BACK-005: Stop lookahead at next finding boundary to avoid crossing into adjacent findings
+  let lookaheadEnd = Math.min(i + 8, verdictLines.length)
+  for (let j = i + 1; j < lookaheadEnd; j++) {
+    if (/^- \[ \]|^- \[x\]/.test(verdictLines[j])) { lookaheadEnd = j; break }
+  }
+  const context = verdictLines.slice(i + 1, lookaheadEnd).join('\n')
   const isFixable = FIXABLE_TAG.test(line) || FIXABLE_TAG.test(context)
   const fileMatch = (line + '\n' + context).match(/`([a-zA-Z0-9._\-\/]+):(\d+)`/)
 
@@ -161,6 +166,11 @@ if (!/^[a-zA-Z0-9_-]+$/.test(fixTeamName)) {
   warn("Phase 5.8: Invalid gap-fix team name — skipping remediation")
   Write(`tmp/arc/${id}/gap-remediation-report.md`,
     `# Gap Remediation — Skipped\n\n**Reason**: Invalid team name generated.\n`)
+  // BACK-006: Clean up state file on early exit (written in STEP 4)
+  const earlyStateData = JSON.parse(Read(stateFile))
+  earlyStateData.status = "skipped"
+  earlyStateData.completed = new Date().toISOString()
+  Write(stateFile, JSON.stringify(earlyStateData))
   updateCheckpoint({ phase: "gap_remediation", status: "skipped", phase_sequence: 5.8, team_name: null })
   return
 }
@@ -287,10 +297,14 @@ for (let i = 0; i < fixMaxIterations; i++) {
 
 // Post-fix verification: get fresh diff to see what was actually changed
 const postSha = Bash("git rev-parse HEAD 2>/dev/null").stdout.trim()
-const fixCommits = preSha && postSha && preSha !== postSha
+// SEC-007: Validate postSha before shell interpolation
+if (!/^[0-9a-f]{40}$/.test(postSha)) {
+  warn("Phase 5.8: Invalid postSha — skipping commit log")
+}
+const fixCommits = preSha && postSha && /^[0-9a-f]{40}$/.test(postSha) && preSha !== postSha
   ? Bash(`git log --oneline "${preSha}..${postSha}" 2>/dev/null`).stdout.trim()
   : ""
-const fixedFiles = preSha && postSha && preSha !== postSha
+const fixedFiles = preSha && postSha && /^[0-9a-f]{40}$/.test(postSha) && preSha !== postSha
   ? Bash(`git diff --name-only "${preSha}..${postSha}" 2>/dev/null`).stdout.trim().split('\n').filter(Boolean)
   : []
 
@@ -320,14 +334,18 @@ try { TeamDelete() } catch (e) {
 ```javascript
 // Findings not fixed (manual-review required) are surfaced as inscribed echoes
 // so future arc sessions benefit from the gap pattern awareness
-const deferredFindings = allFindings.slice(cappedFindings.length)
-const allDeferredIds = deferredFindings.map(f => f.id)
+// BACK-007: Include both overflow findings (beyond max_fixes cap) AND unfixed-within-cap findings
+const overflowFindings = allFindings.slice(cappedFindings.length)
+const overflowIds = overflowFindings.map(f => f.id)
+// unfixedWithinCap will be populated in STEP 11 after fixedFiles is known;
+// at echo-write time we include overflow IDs (within-cap deferred are written in the report)
+const allDeferredIds = overflowIds
 
 if (allDeferredIds.length > 0 && exists(".claude/echoes/")) {
   const deferredEcho = `## Arc Gap Remediation Deferred Findings — ${new Date().toISOString()}\n\n` +
     `Plan: ${checkpoint.plan_file}\n` +
-    `Deferred (manual-review): ${allDeferredIds.join(", ")}\n` +
-    `These ${allDeferredIds.length} findings exceeded max_fixes cap or are architectural — require human review.\n`
+    `Overflow deferred (exceeded max_fixes cap): ${overflowIds.join(", ")}\n` +
+    `These ${overflowIds.length} findings exceeded max_fixes cap or are architectural — require human review.\n`
 
   const existingEchoes = exists(".claude/echoes/orchestrator/MEMORY.md")
     ? Read(".claude/echoes/orchestrator/MEMORY.md") : ""

@@ -1,6 +1,6 @@
 # Gap Fixer — Automated Remediation Ash Prompt
 
-> Template for summoning the Gap Fixer Ash in `/rune:inspect --fix`. Substitute `{variables}` at runtime.
+> Template for summoning the Gap Fixer Ash in `/rune:inspect --fix` and arc Phase 5.8 (Gap Remediation). Substitute `{variables}` at runtime.
 
 ```
 # ANCHOR — TRUTHBINDING PROTOCOL
@@ -44,33 +44,33 @@ Apply the minimal targeted change that resolves the gap. Do NOT refactor surroun
 - Read the function at `file:line`
 - Fix the specific logic error (wrong condition, off-by-one, null dereference)
 - Verify the fix does not break the function signature
-- Example commit: `fix(inspect): [GRACE-001] correct null check in parseRequirements`
+- Example commit: `fix({context}): [GRACE-001] correct null check in parseRequirements`
 
 ### Coverage / Completeness
 - Identify the missing code path described in the gap
 - Add the missing branch, handler, or export — minimal addition only
-- Example commit: `fix(inspect): [GRACE-002] add missing error path in classifyRequirements`
+- Example commit: `fix({context}): [GRACE-002] add missing error path in classifyRequirements`
 
 ### Test
 - Add or fix the specific test case referenced in the gap
 - Use existing test patterns in the same file
 - Do not rewrite or restructure existing tests
-- Example commit: `fix(inspect): [VIGIL-001] add missing edge case test for empty requirements`
+- Example commit: `fix({context}): [VIGIL-001] add missing edge case test for empty requirements`
 
 ### Observability
 - Add the missing log statement, metric emission, or trace annotation at `file:line`
 - Match existing logging style (same logger instance, same field pattern)
-- Example commit: `fix(inspect): [VIGIL-002] add structured log on inspector timeout`
+- Example commit: `fix({context}): [VIGIL-002] add structured log on inspector timeout`
 
 ### Security
 - Fix the specific vulnerability: input validation, path traversal guard, injection escape
 - Do NOT add broad sanitization — fix only the referenced gap location
-- Example commit: `fix(inspect): [RUIN-001] add regex guard before shell interpolation`
+- Example commit: `fix({context}): [RUIN-001] add regex guard before shell interpolation`
 
 ### Operational / Failure Modes
 - Add the missing error handler, retry logic, or graceful degradation at `file:line`
 - Match existing error handling patterns in the file
-- Example commit: `fix(inspect): [RUIN-002] handle TeamDelete failure with filesystem fallback`
+- Example commit: `fix({context}): [RUIN-002] handle TeamDelete failure with filesystem fallback`
 
 ### Design / Architectural
 - **SKIP** — design gaps require human judgment. Mark as MANUAL in the report.
@@ -80,30 +80,30 @@ Apply the minimal targeted change that resolves the gap. Do NOT refactor surroun
 ### Performance
 - Apply the specific optimization referenced (e.g., add deduplication, reduce N+1 loop)
 - Do not restructure data flows or change algorithmic complexity without explicit instruction
-- Example commit: `fix(inspect): [SIGHT-001] deduplicate scopeFiles before loop`
+- Example commit: `fix({context}): [SIGHT-001] deduplicate scopeFiles before loop`
 
 ### Maintainability / Documentation
 - Add or fix the missing docstring, type annotation, or inline comment at `file:line`
 - Match existing documentation style in the file
-- Example commit: `fix(inspect): [VIGIL-003] add docstring to parseFixableGaps helper`
+- Example commit: `fix({context}): [VIGIL-003] add docstring to parseFixableGaps helper`
 
 ## COMMIT FORMAT
 
 Each fix gets its own atomic commit:
 
 ```
-fix(inspect): [{GAP-ID}] {description}
+fix({context}): [{GAP-ID}] {description}
 ```
 
 Examples:
-- `fix(inspect): [GRACE-001] correct null check in parseRequirements`
-- `fix(inspect): [RUIN-002] add retry on TeamCreate failure`
-- `fix(inspect): [VIGIL-001] add edge case test for empty plan input`
+- `fix({context}): [GRACE-001] correct null check in parseRequirements`
+- `fix({context}): [RUIN-002] add retry on TeamCreate failure`
+- `fix({context}): [VIGIL-001] add edge case test for empty plan input`
 
 Commands:
 ```bash
 git add <file>
-git commit -m "fix(inspect): [{GAP-ID}] {description}"
+git commit -m "fix({context}): [{GAP-ID}] {description}"
 ```
 
 ## FIX RULES
@@ -150,7 +150,7 @@ Write markdown to `{output_dir}/remediation-report.md`:
 
 - Each fix read its target file before applying: yes/no
 - No speculative changes introduced: yes/no
-- All commits follow fix(inspect): [{GAP-ID}] format: yes/no
+- All commits follow fix({context}): [{GAP-ID}] format: yes/no
 ```
 
 ## QUALITY GATES (Self-Review Before Seal)
@@ -187,5 +187,6 @@ You are the sole git writer in this phase. Report what was actually changed.
 | `{verdict_path}` | From inspect Phase 7.5.2 | `tmp/inspect/lz5k8m2/VERDICT.md` |
 | `{output_dir}` | From inspect Phase 0.3 | `tmp/inspect/lz5k8m2` |
 | `{identifier}` | From inspect Phase 0.3 | `lz5k8m2` |
+| `{context}` | From caller | `inspect` or `arc-gap-remediation` |
 | `{gaps}` | From parseFixableGaps() | List of `- [ ] **[ID]** desc — \`file:line\`` |
 | `{timestamp}` | ISO-8601 current time | `2026-02-20T10:00:00Z` |

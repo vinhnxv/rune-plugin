@@ -292,8 +292,9 @@ arc:
 
   # ── Gap Analysis settings (v1.51.0+) ──
   gap_analysis:
-    inspectors: 2              # Inspector Ashes to spawn (1-4, default 2)
+    inspectors: 2              # Number (1-4): spawn first N from priority list. Or array: ["grace-warden", "ruin-prophet"]
     halt_threshold: 50         # Score below this → halt or remediate (0-100)
+    # halt_on_critical: false   # Halt pipeline on critical gap failures (default: false)
     remediation:
       enabled: true            # Enable auto-fix of FIXABLE gaps
       max_fixes: 20            # Cap on fixable gaps per run
