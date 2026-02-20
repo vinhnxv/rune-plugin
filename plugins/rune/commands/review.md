@@ -26,6 +26,10 @@ allowed-tools:
   - Grep
 ---
 
+**Runtime context** (preprocessor snapshot):
+- Active workflows: !`ls tmp/.rune-*-*.json 2>/dev/null | grep -c '"active"' || echo 0`
+- Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
+
 # /rune:review — Multi-Agent Code Review
 
 Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams.

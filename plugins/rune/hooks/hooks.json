@@ -192,6 +192,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on-session-stop.sh",
+            "timeout": 5,
+            "statusMessage": "Checking for active Rune workflows..."
+          }
+        ]
+      }
     ]
   }
 }

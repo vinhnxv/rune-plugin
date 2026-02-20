@@ -33,6 +33,10 @@ allowed-tools:
   - AskUserQuestion
 ---
 
+**Runtime context** (preprocessor snapshot):
+- Active workflows: !`ls tmp/.rune-*-*.json 2>/dev/null | grep -c '"active"' || echo 0`
+- Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
+
 # /rune:work -- Multi-Agent Work Execution
 
 Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.54.0] - 2026-02-21
+
+### Added
+- Stop hook (`on-session-stop.sh`) for automatic workflow cleanup when session ends (Track A)
+- Seal convention (`<seal>TAG</seal>`) for deterministic completion detection (Track C)
+- Preprocessor injections for runtime context in review.md and work.md (Track D)
+
+### Changed
+- Updated transcript_path comments from "undocumented/internal" to "documented common field" in 3 hook scripts (Track B)
+
 ## [1.53.9] — 2026-02-21
 
 ### Fixed
