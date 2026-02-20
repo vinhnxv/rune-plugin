@@ -191,7 +191,7 @@ for (const file of agentFiles) {
 const deletedFiles = Bash(`git diff --name-only --diff-filter=D "${defaultBranch}"...HEAD 2>/dev/null`).split('\n').filter(Boolean)
 for (const deleted of deletedFiles) {
   const basename = deleted.split('/').pop().replace(/\.[^.]+$/, '')
-  if (basename.length < 3) continue
+  if (basename.length < 5) continue  // Skip short names (api, app, lib, cmd) to avoid false positives
   const refs = Grep(basename, { path: ".", glob: "*.{py,ts,js,rs,go,rb,md,yml,yaml,json}" })
   if (refs.length > 0) {
     checks.push(`WARN: Deleted file '${deleted}' still referenced in: ${refs.slice(0, 5).join(', ')}`)

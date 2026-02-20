@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.53.3] — 2026-02-21
+
+### Fixed
+- **key-concepts.md**: Fix stale agent count — "18 agents across 3 Ashes" → "21 agents across 4 Ashes" (includes Veil Piercer) (P2-004)
+- **refactor-guardian.md**: Add explicit tool denial prose to ANCHOR block — defense-in-depth for general-purpose subagent mode (P2-001)
+- **refactor-guardian.md**: Add edge case handling — empty git diff, shallow clone, branch name validation, no R/D/A entries (P2-002)
+- **refactor-guardian.md**: Add cross-agent confidence coordination note with wraith-finder overlap detection (P3-003)
+- **reference-validator.md**: Add explicit tool denial prose to ANCHOR block (P2-001)
+- **reference-validator.md**: Add skip guards to config-to-source and version sync sections — prevents false positives for non-plugin projects (P2-003)
+- **reference-validator.md**: Accept both `tools` and `allowed-tools` field names in frontmatter validation (P3-002)
+- **reference-validator.md**: Fix "doc-consistency agent" label → "Knowledge Keeper Ash (doc-consistency perspective)" in dedup section (P3-007)
+- **ward-check.md**: Increase basename threshold from 3 to 5 in cross-reference integrity check — reduces false positives for short names like "api", "app" (P3-004)
+
+### Changed
+- **Plugin version**: 1.53.2 → 1.53.3
+
 ## [1.53.2] — 2026-02-21
 
 ### Fixed
