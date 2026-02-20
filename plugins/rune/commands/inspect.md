@@ -93,10 +93,12 @@ if (!planContent || planContent.trim().length < 10):
 config = readTalisman()
 inspectConfig = config?.inspect ?? {}
 
-maxInspectors = flag("--max-agents") ?? inspectConfig.max_inspectors ?? 4
-timeout = inspectConfig.timeout ?? 720000  // 12 min
-completionThreshold = flag("--threshold") ?? inspectConfig.completion_threshold ?? 80
-gapThreshold = inspectConfig.gap_threshold ?? 20
+// RUIN-001 FIX: Runtime clamping prevents misconfiguration-based DoS/bypass
+// Pattern from arc-batch/SKILL.md:204-209 (Math.max/Math.min bounds)
+maxInspectors = Math.max(1, Math.min(4, flag("--max-agents") ?? inspectConfig.max_inspectors ?? 4))
+timeout = Math.max(60_000, Math.min(inspectConfig.timeout ?? 720_000, 3_600_000))  // Clamp: 1 min to 1 hour
+completionThreshold = Math.max(0, Math.min(100, flag("--threshold") ?? inspectConfig.completion_threshold ?? 80))
+gapThreshold = Math.max(0, Math.min(100, inspectConfig.gap_threshold ?? 20))
 ```
 
 ### Step 0.3 — Generate Identifier
@@ -324,6 +326,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(teamName)):
   error("Invalid team name")
 
 // Step A: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+// NOTE: TeamDelete() takes no arguments — SDK convention deletes the current team context.
 let teamDeleteSucceeded = false
 const RETRY_DELAYS = [0, 3000, 8000]
 for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++):
@@ -426,6 +429,7 @@ for (const { inspector, taskId, reqIds } of tasks):
   // SEC-004: Wrap inline content with data boundary to prevent prompt structure interference
   if (mode === "inline"):
     const sanitizedPlan = planContent
+      .replace(/^---\n[\s\S]*?\n---\n/m, '')     // Strip YAML frontmatter (may contain directives)
       .replace(/<!--[\s\S]*?-->/g, '')           // Strip HTML comments (prompt injection vector)
       .replace(/^#{1,6}\s+/gm, '')               // Strip markdown headings (prompt override vector)
       .replace(/<\/plan-data>/gi, '')             // SEC-002 FIX: Strip closing delimiter to prevent boundary escape
@@ -464,6 +468,8 @@ if (flag("--focus")):
 // waitForCompletion — correct TaskList-based polling
 const pollIntervalMs = 30000  // 30 seconds
 const maxIterations = Math.ceil(timeout / pollIntervalMs)  // 24 iterations for 12 min
+let previousCompleted = -1
+let staleCount = 0
 
 for (let i = 0; i < maxIterations; i++):
   const taskList = TaskList()
@@ -504,7 +510,7 @@ if (completedTasks.length < totalTasks):
 const inspectorOutputs = []
 for (const inspector of Object.keys(inspectorAssignments)):
   const outputPath = `${outputDir}/${inspector}.md`
-  if (fileExists(outputPath)):
+  if (exists(outputPath)):
     inspectorOutputs.push({ inspector, path: outputPath, status: "complete" })
   else:
     inspectorOutputs.push({ inspector, path: outputPath, status: "missing" })
@@ -557,7 +563,7 @@ const verdictResult = waitForCompletion(teamName, 1, {
 
 if (verdictResult.timedOut):
   warn("Verdict Binder timed out — checking for partial output")
-if (!fileExists(`${outputDir}/VERDICT.md`) || Bash(`test -L "${outputDir}/VERDICT.md" && echo symlink`).trim() === 'symlink'):
+if (!exists(`${outputDir}/VERDICT.md`) || Bash(`test -L "${outputDir}/VERDICT.md" && echo symlink`).trim() === 'symlink'):
   error("VERDICT.md not produced. Check Verdict Binder output for errors.")
 ```
 
@@ -665,10 +671,13 @@ if (p1Count > 0):
     + `P1 findings: ${p1Count}\n\n`
     + `Key gaps identified — see ${outputDir}/VERDICT.md`
 
-  // BACK-002: Write() does not support { append: true }. Read existing content first, concatenate, then Write.
-  const existingEchoes = exists(`.claude/echoes/orchestrator/MEMORY.md`)
-    ? Read(`.claude/echoes/orchestrator/MEMORY.md`) : ""
-  Write(`.claude/echoes/orchestrator/MEMORY.md`, existingEchoes + "\n" + echoContent)
+  // PW-001 FIX: Use appendEchoEntry() for structured echo persistence (matches review.md, plan.md, mend.md pattern)
+  if (exists(".claude/echoes/orchestrator/")) {
+    appendEchoEntry(".claude/echoes/orchestrator/MEMORY.md", {
+      layer: "traced", source: `rune:inspect ${identifier}`, confidence: 0.3,
+      session_id: identifier, content: echoContent
+    })
+  }
 ```
 
 ## Phase 7.5: Remediation
@@ -679,8 +688,8 @@ if (p1Count > 0):
 
 ```
 if (!flag("--fix")):
-  // Proceed to Step 7.6 (Post-Inspection Actions)
-  goto step_7_6
+  // Skip remediation — fall through to Step 7.6 (Post-Inspection Actions)
+  return
 ```
 
 ### Step 7.5.2 — Parse Fixable Gaps
@@ -694,7 +703,7 @@ log(`Remediation: ${fixableGaps.length} FIXABLE gaps found, capping at ${cappedG
 
 if (cappedGaps.length === 0):
   log("No FIXABLE gaps found — skipping remediation phase.")
-  goto step_7_6
+  return  // Skip to Step 7.6 (Post-Inspection Actions)
 ```
 
 ### Step 7.5.3 — Group by File and Create Tasks

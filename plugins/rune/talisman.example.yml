@@ -292,7 +292,7 @@ arc:
 
   # ── Gap Analysis settings (v1.51.0+) ──
   gap_analysis:
-    inspectors: 2              # Number (1-4): spawn first N from priority list. Or array: ["grace-warden", "ruin-prophet"]
+    inspectors: 2              # Number (1-4): spawn first N from priority list (grace-warden > ruin-prophet > sight-oracle > vigil-keeper). Or array of names: ["grace-warden", "ruin-prophet", "sight-oracle", "vigil-keeper"]
     halt_threshold: 50         # Score below this → halt or remediate (0-100)
     # halt_on_critical: false   # Halt pipeline on critical gap failures (default: false)
     remediation:

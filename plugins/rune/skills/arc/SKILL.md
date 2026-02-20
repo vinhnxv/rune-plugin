@@ -1220,6 +1220,11 @@ updateCheckpoint({
 
 ## Phase 5.8: GAP REMEDIATION (conditional, v1.51.0)
 
+<!-- SO-P2-001: Cross-phase checkpoint contract.
+     Gate: reads `needs_remediation` from gap_analysis phase checkpoint (written by Phase 5.5 STEP D).
+     Phase 5.5 STEP D writes: updateCheckpoint({ needs_remediation: true/false, fixable_count, ... })
+     Phase 5.8 reads: checkpoint.needs_remediation === true → proceed, else skip. -->
+
 Auto-fixes FIXABLE findings from the Phase 5.5 Inspector Ashes VERDICT before proceeding to Goldmask Verification. Only runs when Phase 5.5 STEP D sets `needs_remediation: true` in checkpoint AND `arc.gap_analysis.remediation.enabled` is not false in talisman.
 
 **Team**: `arc-gap-fix-{id}` — follows ATE-1 pattern

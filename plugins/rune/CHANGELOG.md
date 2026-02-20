@@ -12,16 +12,16 @@
   - Controlled by `--fix` flag on `/rune:inspect` for standalone use
   - SEC-GAP-001: `validate-gap-fixer-paths.sh` hook blocks writes to `.claude/`, `.github/`, `node_modules/`, CI YAML, and `.env` files
 - **`--fix` flag for `/rune:inspect`**: Standalone auto-remediation of FIXABLE gaps (capped by `inspect.max_fixes`, timeout via `inspect.fix_timeout`)
-- **Gap-fixer prompt template**: `skills/roundtable-circle/references/ash-prompts/gap-fixer.md` with Truthbinding, Inner Flame, and SEAL format
+- **Gap-fixer prompt template**: `skills/roundtable-circle/references/ash-prompts/gap-fixer.md` with Truthbinding and SEAL format
 - **Checkpoint schema v9 → v10**: Adds `gap_remediation` phase tracking alongside existing `gap_analysis` phase
 - **Talisman `arc.gap_analysis` subsection**: `inspectors` (1-4), `halt_threshold` (0-100), `remediation.enabled`, `remediation.max_fixes`, `remediation.timeout`
-- **Talisman `arc.timeouts` additions**: `gap_analysis` (12 min, updated from 1 min), `gap_remediation` (15 min, new)
+- **Talisman `arc.timeouts` additions**: `gap_analysis` (12 min, enhanced with Inspector Ashes team), `gap_remediation` (15 min, new)
 - **Talisman `inspect:` section** (now active, was commented): `max_inspectors`, `completion_threshold`, `gap_threshold`, `max_fixes`, `fix_timeout`
 
 ### Changed
 - **Plugin version**: 1.50.0 → 1.51.0
 - **Phase 5.5 (GAP ANALYSIS)**: Upgraded from deterministic text-check (orchestrator-only, 1 min) to Inspector Ash team (12 min, 9-dimension scoring, VERDICT.md output)
-- **Arc pipeline**: 17 phases → 18 phases (Phase 5.8 GAP REMEDIATION added between WORK and CODE REVIEW)
+- **Arc pipeline**: 17 phases → 18 phases (Phase 5.8 GAP REMEDIATION added between Codex Gap Analysis (5.6) and Goldmask Verification (5.7))
 - Phase tool matrix updated: Phase 5.5 now uses `arc-inspect-{id}` team; Phase 5.8 uses full tool access
 
 ## [1.50.0] — 2026-02-20

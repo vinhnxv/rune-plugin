@@ -33,7 +33,7 @@ INPUT=$(head -c 1048576 2>/dev/null || true)
 
 # Fast-path 1: Extract tool name, file path, and transcript path in one jq call
 IFS=$'\t' read -r TOOL_NAME FILE_PATH TRANSCRIPT_PATH <<< \
-  "$(echo "$INPUT" | jq -r '[.tool_name // "", .tool_input.file_path // "", .transcript_path // ""] | @tsv' 2>/dev/null)" || true
+  "$(printf '%s' "$INPUT" | jq -r '[.tool_name // "", .tool_input.file_path // "", .transcript_path // ""] | @tsv' 2>/dev/null)" || true
 
 # Only validate file-writing tools
 case "$TOOL_NAME" in
@@ -47,6 +47,9 @@ esac
 # Fast-path 3: Only enforce for subagents (team-lead is the orchestrator — exempt)
 # SEC-5 NOTE: transcript_path detection is best-effort (undocumented/internal).
 # If transcript_path is missing or doesn't contain /subagents/, allow the operation.
+# ACCEPTED-RISK: Fail-open by design — if transcript_path is unavailable (SDK internal
+# change), the hook allows the operation rather than blocking legitimate orchestrator writes.
+# Defense-in-depth: gap-fixer prompt restrictions + Truthbinding protocol provide secondary guard.
 if [[ -z "$TRANSCRIPT_PATH" ]] || [[ "$TRANSCRIPT_PATH" != */subagents/* ]]; then
   exit 0
 fi
@@ -61,7 +64,7 @@ CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
 shopt -s nullglob
 GAP_FIX_STATE_FILE=""
 for f in "${CWD}"/tmp/.rune-gap-fix-*.json; do
-  if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
+  if [[ -f "$f" ]] && jq -e '.status == "active"' "$f" >/dev/null 2>&1; then
     GAP_FIX_STATE_FILE="$f"
     break
   fi

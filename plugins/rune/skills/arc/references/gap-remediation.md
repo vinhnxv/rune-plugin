@@ -62,7 +62,7 @@ if (!/^[0-9a-f]{40}$/.test(preSha)) {
 // Read the VERDICT from Phase 5.5 STEP B
 const verdictContent = Read(`tmp/arc/${id}/gap-analysis-verdict.md`)
 
-// Parse FIXABLE gaps from VERDICT.md
+// Parse FIXABLE gaps from gap-analysis-verdict.md (arc context — distinct from standalone VERDICT.md)
 // FIXABLE = findings tagged with "FIXABLE" label or P2/P3 findings without "architecture" or "design" category
 // Format expected from Inspector Ashes:
 //   - [ ] **[GRACE-001] {Title}** in `{file}:{line}`
@@ -301,10 +301,12 @@ const postSha = Bash("git rev-parse HEAD 2>/dev/null").stdout.trim()
 if (!/^[0-9a-f]{40}$/.test(postSha)) {
   warn("Phase 5.8: Invalid postSha — skipping commit log")
 }
-const fixCommits = preSha && postSha && /^[0-9a-f]{40}$/.test(postSha) && preSha !== postSha
+// SEC-005 FIX: Validate preSha with same hex regex as postSha (defense-in-depth)
+const validShas = /^[0-9a-f]{40}$/.test(preSha) && /^[0-9a-f]{40}$/.test(postSha) && preSha !== postSha
+const fixCommits = validShas
   ? Bash(`git log --oneline "${preSha}..${postSha}" 2>/dev/null`).stdout.trim()
   : ""
-const fixedFiles = preSha && postSha && /^[0-9a-f]{40}$/.test(postSha) && preSha !== postSha
+const fixedFiles = validShas
   ? Bash(`git diff --name-only "${preSha}..${postSha}" 2>/dev/null`).stdout.trim().split('\n').filter(Boolean)
   : []
 
@@ -337,20 +339,15 @@ try { TeamDelete() } catch (e) {
 // BACK-007: Include both overflow findings (beyond max_fixes cap) AND unfixed-within-cap findings
 const overflowFindings = allFindings.slice(cappedFindings.length)
 const overflowIds = overflowFindings.map(f => f.id)
-// unfixedWithinCap will be populated in STEP 11 after fixedFiles is known;
-// at echo-write time we include overflow IDs (within-cap deferred are written in the report)
-const allDeferredIds = overflowIds
+// VK-002 FIX: Persist BOTH overflow IDs (beyond max_fixes cap) AND within-cap deferred
+// findings (attempted but unfixable by the agent). Within-cap deferred are identified
+// in STEP 11 via fixedFiles comparison — we defer the echo write until after STEP 11.
+// See echo write block below (after STEP 11) for the combined persistence.
+const allDeferredIds = overflowIds  // Will be extended with within-cap deferred after STEP 11
 
-if (allDeferredIds.length > 0 && exists(".claude/echoes/")) {
-  const deferredEcho = `## Arc Gap Remediation Deferred Findings — ${new Date().toISOString()}\n\n` +
-    `Plan: ${checkpoint.plan_file}\n` +
-    `Overflow deferred (exceeded max_fixes cap): ${overflowIds.join(", ")}\n` +
-    `These ${overflowIds.length} findings exceeded max_fixes cap or are architectural — require human review.\n`
-
-  const existingEchoes = exists(".claude/echoes/orchestrator/MEMORY.md")
-    ? Read(".claude/echoes/orchestrator/MEMORY.md") : ""
-  Write(".claude/echoes/orchestrator/MEMORY.md", existingEchoes + "\n" + deferredEcho)
-}
+// PW-006 FIX: Removed STEP 10 partial echo write — the combined write in STEP 11
+// includes both overflow IDs and within-cap deferred IDs, making this write redundant.
+// See STEP 11 below for the unified echo persistence.
 ```
 
 ---
@@ -365,6 +362,20 @@ const fixedFindingIds = cappedFindings
 const deferredFindingIds = cappedFindings
   .filter(f => !fixedFiles.includes(f.file))
   .map(f => f.id)
+
+// VK-002 FIX: Extend allDeferredIds with within-cap deferred findings (now known)
+// and persist combined set to echoes. Covers both overflow (cap-exceeded) and
+// within-cap (attempted but unfixable) deferred findings.
+allDeferredIds.push(...deferredFindingIds)
+if (allDeferredIds.length > 0 && exists(".claude/echoes/workers/")) {
+  const combinedEcho = `## Arc Gap Remediation — All Deferred Findings (${new Date().toISOString()})\n\n` +
+    `Plan: ${checkpoint.plan_file}\n` +
+    `Overflow deferred (cap-exceeded): ${overflowIds.join(", ") || "none"}\n` +
+    `Within-cap deferred (unfixable): ${deferredFindingIds.join(", ") || "none"}\n`
+  const existingWorkerEchoes = exists(".claude/echoes/workers/MEMORY.md")
+    ? Read(".claude/echoes/workers/MEMORY.md") : ""
+  Write(".claude/echoes/workers/MEMORY.md", existingWorkerEchoes + "\n" + combinedEcho)
+}
 
 // Write remediation report
 const remediationReport = `# Gap Remediation Report\n\n` +

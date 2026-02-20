@@ -103,7 +103,15 @@ Examples:
 Commands:
 ```bash
 git add <file>
-git commit -m "fix({context}): [{GAP-ID}] {description}"
+# RUIN-002 FIX: Use heredoc pattern to prevent shell injection from manipulated
+# inspector descriptions containing $(), backtick, or ; characters.
+# NOTE: {context}, {GAP-ID}, {description} are pre-substituted by the orchestrator
+# BEFORE the gap-fixer agent receives this prompt. The single-quoted 'EOF' delimiter
+# prevents shell expansion of the SUBSTITUTED values (defense-in-depth).
+git commit -m "$(cat <<'EOF'
+fix({context}): [{GAP-ID}] {description}
+EOF
+)"
 ```
 
 ## FIX RULES

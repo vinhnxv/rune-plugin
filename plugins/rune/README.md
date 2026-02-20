@@ -27,7 +27,7 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
-# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → gap remediation → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge
+# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
@@ -111,9 +111,11 @@ When you run `/rune:arc`, Rune chains 18 phases into one automated pipeline:
 2.8. **SEMANTIC VERIFICATION** — Codex cross-model contradiction detection on the enriched plan (v1.39.0+)
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
 5.5. **GAP ANALYSIS** — Inspector Ashes score 9 quality dimensions and produce VERDICT.md (arc-inspect-{id} team). Low-scoring dimensions propagated as focus areas to Phase 6 reviewers.
-5.8. **GAP REMEDIATION** — Auto-fix FIXABLE gaps before code review (arc-gap-fix-{id} team, configurable via `arc.gap_analysis.remediation` talisman settings)
 5.6. **CODEX GAP ANALYSIS** — Codex cross-model plan-vs-implementation gap detection (v1.39.0+)
+5.8. **GAP REMEDIATION** — Auto-fix FIXABLE gaps before code review (arc-gap-fix-{id} team, configurable via `arc.gap_analysis.remediation` talisman settings)
 5.7. **GOLDMASK VERIFICATION** — Blast-radius analysis via investigation agents: 5 impact tracers + wisdom sage + lore analyst (v1.47.0+)
+
+Note: Phase numbers are non-sequential (5.5 → 5.6 → 5.8 → 5.7) for backward compatibility — execution follows the order listed above.
 6. **CODE REVIEW** — Roundtable Circle review produces TOME with structured findings
 6.5. **GOLDMASK CORRELATION** — Synthesis of investigation findings into unified GOLDMASK.md report (orchestrator-only, v1.47.0+)
 7. **MEND** — Parallel fixers resolve findings from TOME
@@ -386,13 +388,14 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
 | veil-piercer-plan | Plan-level truth-teller (Phase 4C plan review) |
 | horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
+| gap-fixer | Gap remediation fixer for Phase 5.8 — prompt-template-based (no dedicated .md file) |
 
 ## Skills
 
 | Skill | Purpose |
 |-------|---------|
 | agent-browser | Browser automation knowledge injection for E2E testing (non-invocable) |
-| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 18 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → gap remediation → codex gap analysis → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge) |
+| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 18 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge) |
 | ash-guide | Agent invocation reference |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |

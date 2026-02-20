@@ -866,6 +866,10 @@ if (!/^[a-zA-Z0-9_-]+$/.test(inspectTeamName)) {
   }
 
   // STEP B.9: Summon Verdict Binder to aggregate inspector outputs
+  // SO-P2-002: Naming deviation from standalone /rune:inspect.
+  // Standalone inspect writes VERDICT.md directly. Arc uses "gap-analysis-verdict.md" to avoid
+  // collisions when multiple arc phases write to the same tmp/arc/{id}/ directory.
+  // The "-gap" suffix also helps identify which pipeline stage produced the verdict.
   const inspectorFiles = inspectorTasks
     .map(t => `${t.inspector}-gap.md`)
     .filter(f => exists(`tmp/arc/${id}/${f}`))
@@ -949,6 +953,12 @@ const verdictCompletionPct = completionMatch ? parseFloat(completionMatch[1]) : 
 // STEP C.2: Compute weighted aggregate using inspect-scoring.md dimension weights
 // Weights from roundtable-circle/references/inspect-scoring.md
 // Normalize VERDICT scores (0-10) to 0-100 scale, then apply weights:
+//
+// P2-001 (GW): Weight divergence note — these are PROPORTIONAL weights (sum ≈ 1.0)
+// used for normalization in arc's gap analysis. They differ from inspect-scoring.md's
+// RELATIVE weights (which are descriptive priorities, not arithmetic). The proportional
+// form is needed here because we compute a single weighted aggregate score.
+// If inspect-scoring.md updates its priority order, update these proportions to match.
 const dimensionWeights = {
   correctness:    0.20,
   completeness:   0.20,
@@ -1013,7 +1023,8 @@ Configurable threshold gate. By default non-blocking (mirrors STEP A's advisory 
 
 ```javascript
 // STEP D.1: Read config
-const haltThreshold = talisman?.arc?.gap_analysis?.halt_threshold ?? 50  // Default: 50/100
+// RUIN-001 FIX: Runtime clamping prevents misconfiguration-based bypass (halt_threshold: -1 or 999)
+const haltThreshold = Math.max(0, Math.min(100, talisman?.arc?.gap_analysis?.halt_threshold ?? 50))  // Default: 50/100
 const haltEnabled   = talisman?.arc?.gap_analysis?.halt_on_critical ?? false  // Default: non-blocking
 
 // STEP D.2: Map VERDICT to halt decision
