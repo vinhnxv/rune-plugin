@@ -107,6 +107,8 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
 | `SessionStart:startup\|resume\|clear\|compact` | `scripts/session-start.sh` | Loads using-rune workflow routing into context. Runs synchronously to ensure routing is available from first message. |
 | `SessionStart:startup\|resume` | `scripts/session-team-hygiene.sh` | TLC-003: Scans for orphaned team dirs and stale state files at session start and resume. |
+| `PreCompact:manual\|auto` | `scripts/pre-compact-checkpoint.sh` | Saves team state (config.json, tasks, workflow phase, arc checkpoint) to `tmp/.rune-compact-checkpoint.json` before compaction. Non-blocking (exit 0). |
+| `SessionStart:compact` | `scripts/session-compact-recovery.sh` | Re-injects team checkpoint as `additionalContext` after compaction. Correlation guard verifies team still exists. One-time injection (deletes checkpoint after use). |
 
 All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL hooks (`enforce-readonly.sh`, `validate-mend-fixer-paths.sh`) exit 2 (blocking). Non-security hooks exit 0 (non-blocking). A `SessionStart` hook validates `jq` availability and warns if missing. Hook configuration lives in `hooks/hooks.json`.
 

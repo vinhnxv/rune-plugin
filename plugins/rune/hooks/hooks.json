@@ -142,6 +142,19 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact-checkpoint.sh",
+            "timeout": 10,
+            "statusMessage": "Saving team state before compaction..."
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup|resume|clear|compact",
@@ -163,6 +176,18 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-team-hygiene.sh",
             "timeout": 5,
             "statusMessage": "Checking team hygiene..."
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-compact-recovery.sh",
+            "timeout": 5,
+            "async": false,
+            "statusMessage": "Recovering team state after compaction..."
           }
         ]
       }
