@@ -66,7 +66,7 @@ function resolveCodexTimeouts(talisman) {
   const raw_stream = talisman?.codex?.stream_idle_timeout ?? 540
 
   // Validate: must be integer within bounds
-  const timeout = parseInt(String(raw_timeout), 10)
+  let timeout = parseInt(String(raw_timeout), 10)
   if (!Number.isFinite(timeout) || timeout < 30 || timeout > 3600) {
     warn(`codex.timeout=${raw_timeout} out of range [30,3600] — using default 600`)
     timeout = 600
@@ -115,18 +115,20 @@ user-facing message so the user knows how to fix it:
 // classifyCodexError(exitCode, stderr) — returns { code, message }
 // Matches patterns top-to-bottom; first match wins.
 function classifyCodexError(exitCode, stderr) {
+  // Exit code checks FIRST — authoritative signals that should not be overridden by noisy stderr
+  if (exitCode === 124)                                      return { code: "OUTER_TIMEOUT", ... }
+  if (exitCode === 137)                                      return { code: "KILL_TIMEOUT", ... }
+
   const stderrLower = (stderr || "").toLowerCase().slice(0, 500)
   if (stderrLower.match(/not authenticated|unauthenticated|auth.*(fail|requir|error)/)) return { code: "AUTH", ... }
   if (stderrLower.match(/rate limit|429/))                   return { code: "RATE_LIMIT", ... }
   if (stderrLower.match(/model not found|invalid model/))    return { code: "MODEL", ... }
   if (stderrLower.match(/network|connection|econ/))          return { code: "NETWORK", ... }
-  if (exitCode === 124)                                      return { code: "OUTER_TIMEOUT", ... }
   if (stderrLower.match(/stream idle|stream_idle_timeout/))  return { code: "STREAM_IDLE", ... }
   if (stderrLower.match(/quota|insufficient_quota|402/))     return { code: "QUOTA", ... }
   if (stderrLower.match(/context_length|too many tokens/))   return { code: "CONTEXT_LENGTH", ... }
   if (stderrLower.match(/sandbox|permission denied/))        return { code: "SANDBOX", ... }
   if (stderrLower.match(/version|upgrade|deprecated/))       return { code: "VERSION", ... }
-  if (exitCode === 137)                                      return { code: "KILL_TIMEOUT", ... }
   return { code: "UNKNOWN", ... }
 }
 ```

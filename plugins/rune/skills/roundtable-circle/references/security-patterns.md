@@ -128,7 +128,7 @@ Note: `SAFE_REGEX_PATTERN` does not include `\n` in its character class, so mult
 **Regex**: `/^\d{1,5}$/`
 **Threat model**: Validates codex timeout values from talisman.yml before shell interpolation. Accepts only 1-5 digit integers (max 99999). Bounds checking (30–3600 for timeout, 10–timeout for stream_idle_timeout) is performed by `resolveCodexTimeouts()` after format validation.
 **ReDoS safe**: Yes (character class with bounded quantifier, no nesting)
-**Consumers**: codex-detection.md (resolveCodexTimeouts), codex-oracle.md, codex-cli/SKILL.md, work.md, forge.md, research-phase.md, plan-review.md
+**Consumers**: codex-detection.md (resolveCodexTimeouts), codex-oracle.md, codex-cli/SKILL.md, work.md, forge.md, research-phase.md, plan-review.md, mend.md, gap-analysis.md, solution-arena.md, rune-smith.md, rune-echoes/SKILL.md
 
 ## Prototype Guards
 
