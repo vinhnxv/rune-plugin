@@ -42,5 +42,5 @@ ESCAPED_CONTENT=$(json_escape "$CONTENT")
 # Output as hookSpecificOutput with additionalContext
 # This injects the skill routing table into Claude's context
 cat <<EOF
-{"hookSpecificOutput":{"additionalContext":"[Rune Plugin Active] ${ESCAPED_CONTENT}"}}
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"[Rune Plugin Active] ${ESCAPED_CONTENT}"}}
 EOF
