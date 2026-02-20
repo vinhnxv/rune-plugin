@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.53.5] — 2026-02-21
+
+### Fixed
+- **worker-prompts.md**: Add TODO FILE PROTOCOL to both rune-smith and trial-forger spawn templates — workers spawned from reference file now receive todo instructions (GRACE-007, SIGHT-003, VIGIL-W01)
+- **worker-prompts.md**: Update SHUTDOWN instruction to require todo file status update before approving shutdown (RUIN-004)
+- **ship-phase.md**: Add Work Session collapsible section to PR body template — reads `_summary.md` and includes Progress Overview + Key Decisions (GRACE-002)
+- **CLAUDE.md**: Add todo file capability reference to Core Rules section (GRACE-005)
+
+### Changed
+- **Plugin version**: 1.53.4 → 1.53.5
+
 ## [1.53.4] — 2026-02-21
 
 ### Fixed

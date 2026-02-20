@@ -120,6 +120,32 @@ ${blockedTasks.length > 0 ? `\n### Blocked Tasks\n${blockedTasks.map(t => `- [ ]
 ## Quality
 - All plan checkboxes checked
 - ${verificationWarnings.length === 0 ? "No verification warnings" : `${verificationWarnings.length} warnings`}
+${(() => {
+  // Read todo summary if it exists
+  const todoSummaryPath = `tmp/work/${timestamp}/todos/_summary.md`
+  const hasSummary = Bash(`test -f "${todoSummaryPath}" && echo "yes"`).trim() === "yes"
+  if (hasSummary) {
+    const summaryContent = Read(todoSummaryPath)
+    // Extract Progress Overview and Key Decisions sections
+    const progressMatch = summaryContent.match(/## Progress Overview[\s\S]*?(?=##|$)/)
+    const decisionsMatch = summaryContent.match(/## Key Decisions[\s\S]*?(?=##|$)/)
+    const progress = progressMatch ? progressMatch[0].trim() : ""
+    const decisions = decisionsMatch ? decisionsMatch[0].trim() : ""
+    return `
+## Work Session
+
+<details>
+<summary>Per-worker todo tracking</summary>
+
+${progress}
+
+${decisions ? decisions : ""}
+
+</details>
+`
+  }
+  return ""
+})()}
 ${Bash(`test -f "tmp/work/${timestamp}/codex-advisory.md" && echo "yes"`).trim() === "yes" ? `
 ## Codex Advisory
 See [codex-advisory.md](tmp/work/${timestamp}/codex-advisory.md) for cross-model implementation review.` : ""}
