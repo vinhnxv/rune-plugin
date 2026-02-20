@@ -81,6 +81,10 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:inspect plans/my-plan.md --dry-run         # Preview scope
 /rune:inspect plans/my-plan.md --focus security  # Focus on security dimension
 /rune:inspect plans/my-plan.md --fix             # Auto-fix FIXABLE gaps
+/rune:inspect plans/my-plan.md --mode plan       # Review plan code samples only
+
+# Review plan code samples for correctness
+/rune:plan-review plans/my-plan.md               # Thin wrapper for /rune:inspect --mode plan
 
 # Cancel active workflows
 /rune:cancel-review
@@ -174,6 +178,8 @@ When you run `/rune:inspect`, Rune measures how well the codebase matches a plan
 | Vigil Keeper | Observability, Test Coverage, Maintainability | Test + Observability + Documentation |
 
 Use `--fix` to auto-remediate FIXABLE gaps identified in the verdict (v1.51.0+). This spawns gap-fixer agents restricted by `SEC-GAP-001` hook enforcement.
+
+Use `--mode plan` to review plan code samples for implementation correctness instead of auditing the full codebase (v1.53.0+). This extracts fenced code blocks from the plan, compares them against codebase patterns, and produces a plan-specific VERDICT.md. The `/rune:plan-review` command is a thin wrapper for this mode.
 
 Output: `tmp/inspect/{id}/VERDICT.md`
 
@@ -534,6 +540,7 @@ plugins/rune/
 │   ├── elicit.md        # /rune:elicit
 │   ├── echoes.md        # /rune:echoes
 │   ├── inspect.md       # /rune:inspect
+│   ├── plan-review.md   # /rune:plan-review
 │   └── rest.md          # /rune:rest
 ├── skills/
 │   ├── agent-browser/       # Browser automation knowledge (non-invocable)
