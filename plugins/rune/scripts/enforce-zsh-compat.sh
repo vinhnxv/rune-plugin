@@ -17,12 +17,14 @@
 #   2. Fast-path: skip if command doesn't contain any target patterns
 #   3. Check A: bare `status=` assignment (not `task_status=`, etc.)
 #   4. Check B: `for VAR in GLOB; do` without nullglob protection
-#   5. Block with actionable fix suggestion
+#   5. Check A: block with actionable fix suggestion
+#      Check B: AUTO-FIX by prepending `setopt nullglob;` (no wasted round-trip)
 #
 # Only active when user's shell is zsh — these are valid patterns in bash.
 #
 # Exit 0 with hookSpecificOutput.permissionDecision="deny" JSON = tool call blocked.
-# Exit 0 without JSON = tool call allowed.
+# Exit 0 with hookSpecificOutput.permissionDecision="allow" + updatedInput = auto-fix.
+# Exit 0 without JSON = tool call allowed as-is.
 
 set -euo pipefail
 umask 077
@@ -115,6 +117,12 @@ fi
 #   - `setopt nullglob` or `setopt NULL_GLOB` before the for-loop
 #   - `shopt -s nullglob` (bash compat, also works in zsh with emulation)
 #
+# Strategy: AUTO-FIX by prepending `setopt nullglob;` to the command.
+# This is safer than deny+retry because:
+#   - No wasted round-trip (deny forces Claude to regenerate)
+#   - `setopt nullglob` handles ALL globs in the command (not just one)
+#   - Scoped to this single Bash invocation (no persistent shell state)
+#
 # Skips: globs inside quotes, globs in non-for contexts (find, ls, etc.)
 if [[ -n "$has_for_glob" ]]; then
   # Extract the glob portion: `for VAR in GLOB; do`
@@ -140,16 +148,22 @@ if [[ -n "$has_for_glob" ]]; then
       fi
 
       if [[ -z "$has_protection" ]]; then
-        cat << 'DENY_JSON'
+        # Auto-fix: prepend `setopt nullglob;` and allow the command to proceed.
+        # Uses updatedInput to rewrite the command transparently.
+        # The original COMMAND (not NORMALIZED) preserves newlines/formatting.
+        FIXED_COMMAND="setopt nullglob; ${COMMAND}"
+        # SEC: Escape special JSON characters in the command
+        ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.' || { exit 0; })
+        cat << AUTOFIX_JSON
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "ZSH-001: Blocked unprotected glob in for-loop — zsh's NOMATCH option (on by default) will abort with 'no matches found' if the glob matches no files.",
-    "additionalContext": "FIX: Add nullglob protection. Three options:\n  1. (N) qualifier: for f in path/*.md(N); do ...\n  2. setopt nullglob before the loop: setopt nullglob; for f in path/*.md; do ...\n  3. Existence check: if compgen -G 'path/*.md' >/dev/null 2>&1; then for f in path/*.md; do ...\nThe (N) qualifier is preferred — it's zsh-native and scoped to one glob."
+    "permissionDecision": "allow",
+    "updatedInput": { "command": ${ESCAPED_COMMAND} },
+    "additionalContext": "ZSH-001 auto-fix: prepended 'setopt nullglob;' to protect unguarded glob(s) from zsh NOMATCH. The original command was not modified otherwise."
   }
 }
-DENY_JSON
+AUTOFIX_JSON
         exit 0
       fi
     fi

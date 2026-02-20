@@ -48,6 +48,8 @@ if [[ -d "$CHOME/teams/" ]]; then
   done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -mmin +30 2>/dev/null)
 fi
 
+[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: orphan team dirs found: ${orphan_count}" >> /tmp/rune-hook-trace.log
+
 # Count stale state files
 stale_state_count=0
 
@@ -64,7 +66,9 @@ stale_state_count=$(
   for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-inspect-*.json "${CWD}"/tmp/.rune-forge-*.json; do
     if [[ -f "$f" ]]; then
       # Check if status is "active" and file is older than 30 min
-      # FIX-2: Use epoch 0 fallback — if stat fails, (now - 0) / 60 = huge number → triggers stale
+      # FIX-2: Fallback to epoch 0 (Jan 1 1970) if stat fails. Math: (NOW - 0) / 60 = ~29M minutes
+      # = always triggers stale (>30 min). Forge suggested 999999999 but that's wrong: (NOW - 999999999)
+      # could be small for timestamps near 2001. Epoch 0 is the safe default.
       # BACK-002 NOTE: macOS stat -f first, then Linux stat -c, then epoch-0 (assume stale)
       file_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
       file_age_min=$(( (NOW - file_mtime) / 60 ))
@@ -79,6 +83,8 @@ stale_state_count=$(
   done
   echo "$count"
 )
+
+[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: stale state files found: ${stale_state_count}" >> /tmp/rune-hook-trace.log
 
 # Report if anything found
 # BACK-007 FIX: Conditionally append orphan list to avoid trailing "Orphans: " with no names

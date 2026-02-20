@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.55.1] - 2026-02-21
+
+### Added
+- TLC hook test suite (`plugins/rune/tests/tlc/test-tlc-hooks.sh`) — 10 tests covering name validation, injection prevention, path traversal, length limits, non-target tools, TLC-002/003 hooks, and malformed input handling
+- RUNE_TRACE debug logging to TLC-002 (`verify-team-cleanup.sh`) and TLC-003 (`session-team-hygiene.sh`) — consistent with TLC-001 pattern
+- SessionStart matcher deviation rationale (`_rationale` field) in hooks.json for TLC-003 `startup|resume` vs plan-specified `startup` only
+
+### Changed
+- ZSH-001 hook (`enforce-zsh-compat.sh`) now auto-fixes unprotected globs by prepending `setopt nullglob;` instead of denying the command — eliminates wasted round-trips
+
+### Fixed
+- FIX-2 comment in `session-team-hygiene.sh` expanded with mathematical proof: epoch 0 fallback produces ~29M minutes (always stale), while 999999999 produces small values near year 2001 (false negative)
+
+## [1.55.0] - 2026-02-21
+
+### Added
+- Plan review hardening with veil-piercer-plan integration in arc Phase 2
+- `readTalisman()` canonical reference documentation
+- Freshness gate fix for plan staleness detection
+
 ## [1.54.1] - 2026-02-21
 
 ### Fixed
