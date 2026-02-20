@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.53.0] — 2026-02-21
+
+### Added
+- **`/rune:plan-review` command**: Thin wrapper for `/rune:inspect --mode plan` — reviews plan code samples for implementation correctness using inspect agents (grace-warden, ruin-prophet, sight-oracle, vigil-keeper)
+- **`--mode plan` flag for `/rune:inspect`**: Mode-aware inspection that reviews plan code samples instead of codebase implementation. Extracts fenced code blocks, compares against codebase patterns, and produces VERDICT.md with plan-specific assessments
+- **4 plan-review ash-prompt templates**: `grace-warden-plan-review.md`, `ruin-prophet-plan-review.md`, `sight-oracle-plan-review.md`, `vigil-keeper-plan-review.md` — specialized for reviewing proposed code in plans
+- **Arc Phase 2 Layer 2**: Plan review now runs inspect agents alongside utility agents when code blocks detected. Layer 2 runs in parallel, results merged into circuit breaker
+- **`/rune:plan` Phase 4C.5**: Optional implementation correctness review with inspect agents during planning workflow
+- **Expanded `hasCodeBlocks` regex**: Now catches go, rust, yaml, json, toml in addition to existing languages
+- **Template `fileExists` guard**: Graceful fallback when plan-review template is missing
+
+### Changed
+- **Plugin version**: 1.52.0 → 1.53.0
+- **Command count**: 13 → 14 (added /rune:plan-review)
+
 ## [1.52.0] — 2026-02-20
 
 ### Added

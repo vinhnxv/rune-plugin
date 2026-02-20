@@ -334,3 +334,44 @@ if (codexAvailable && !codexDisabled) {
 
 If any reviewer returns BLOCK verdict: address before presenting to user.
 If CONCERN verdicts: include as warnings in the plan presentation.
+
+## 4C.5: Implementation Correctness Review (conditional)
+
+When the plan contains fenced code blocks (bash, javascript, python, ruby, typescript, sh, go, rust, yaml, json, toml), offer to run the inspect agents for implementation correctness review. This delegates to `/rune:inspect --mode plan`.
+
+**Inputs**: planPath (string, from Phase 0)
+**Outputs**: `tmp/inspect/{identifier}/VERDICT.md` (copied to plan workflow output location)
+**Preconditions**: Phase 4C technical review complete (or skipped)
+**Error handling**: If user skips, proceed without code sample review. If inspect fails, log warning and proceed.
+
+```javascript
+// ═════════════════════════════════════════════════════════
+// Phase 4C.5: Implementation Correctness Review (conditional)
+// Runs /rune:inspect --mode plan when code blocks detected
+// ═════════════════════════════════════════════════════════
+
+const planContent = Read(planPath)
+const hasCodeBlocks = /```(bash|javascript|python|ruby|typescript|sh|go|rust|yaml|json|toml)\b/m.test(planContent)
+
+if (hasCodeBlocks) {
+  AskUserQuestion({
+    questions: [{
+      question: "Plan contains code samples. Run implementation correctness review with inspect agents?",
+      header: "Code Review",
+      options: [
+        { label: "Yes (Recommended)", description: "Review code samples with grace-warden, ruin-prophet, sight-oracle, vigil-keeper" },
+        { label: "Skip", description: "Proceed without code sample review" }
+      ],
+      multiSelect: false
+    }]
+  })
+
+  if (userChoseYes) {
+    // Delegate to /rune:inspect --mode plan
+    Skill("rune:inspect", `--mode plan ${planPath}`)
+    // Results written to tmp/inspect/{identifier}/VERDICT.md
+    // Copy verdict to plan workflow output location
+    // If P1 findings found, flag as HIGH severity for plan review output
+  }
+}
+```

@@ -217,6 +217,154 @@ updateCheckpoint({
 
 If blocked: user fixes plan, then `/rune:arc --resume`.
 
+## Layer 2: Implementation Correctness (inspect agents)
+
+Conditional: only when the enriched plan contains fenced code blocks. Runs in PARALLEL with Layer 1 utility reviewers, sharing the same outer Phase 2 timeout.
+
+**Team**: `arc-plan-inspect-{id}`
+**Inspectors**: grace-warden, ruin-prophet, sight-oracle, vigil-keeper (plan-review mode templates)
+**Inputs**: enriched plan path (`tmp/arc/{id}/enriched-plan.md`), requirements, identifiers, scope files
+**Outputs**: `tmp/arc/{id}/plan-inspect-{inspector}.md` per inspector, `tmp/arc/{id}/plan-inspect-verdict.md` (merged)
+**Trigger**: `hasCodeBlocks` regex matches fenced code blocks in the enriched plan
+
+```javascript
+// ═════════════════════════════════════════════════════════
+// LAYER 2: Implementation Correctness (inspect agents)
+// Conditional: only when plan contains code blocks
+// Runs in PARALLEL with Layer 1 reviewers
+// ═════════════════════════════════════════════════════════
+
+const planContent = Read(enrichedPlanPath)
+const hasCodeBlocks = /```(bash|javascript|python|ruby|typescript|sh|go|rust|yaml|json|toml)\b/m.test(planContent)
+
+let layer2Active = false
+let layer2TeamName = null
+
+if (hasCodeBlocks) {
+  layer2Active = true
+  layer2TeamName = `arc-plan-inspect-${id}`
+
+  // Pre-create guard for Layer 2 team
+  // teamName validated: arc-plan-inspect-{id} where id is validated at arc init
+  try { TeamDelete() } catch (e) { /* may not exist */ }
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${layer2TeamName}/" "$CHOME/tasks/${layer2TeamName}/" 2>/dev/null`)
+
+  TeamCreate({ team_name: layer2TeamName, description: `Plan inspect: code sample review for arc ${id}` })
+
+  // Create inspect tasks (4 inspectors)
+  const inspectors = ["grace-warden", "ruin-prophet", "sight-oracle", "vigil-keeper"]
+  for (const inspector of inspectors) {
+    TaskCreate({
+      subject: `${inspector}: Plan code sample review`,
+      description: `Review code blocks in enriched plan for correctness and pattern compliance`,
+      activeForm: `${inspector} reviewing plan code`
+    })
+  }
+
+  // Extract code blocks for template variable
+  const codeBlockRegex = /```(bash|javascript|python|ruby|typescript|sh|go|rust|yaml|json|toml)\b\n([\s\S]*?)```/gm
+  const codeBlocks = []
+  let match
+  let blockIndex = 0
+  while ((match = codeBlockRegex.exec(planContent)) !== null && blockIndex < 20) {
+    const lang = match[1]
+    const code = match[2].trim()
+    if (code.length > 0) {
+      codeBlocks.push({ index: blockIndex, language: lang, code: code.slice(0, 1500), lineStart: planContent.slice(0, match.index).split('\n').length })
+      blockIndex++
+    }
+  }
+
+  const codeBlocksText = codeBlocks.map(b =>
+    `### Block ${b.index} (${b.language}, line ${b.lineStart})\n\`\`\`${b.language}\n${b.code}\n\`\`\``
+  ).join("\n\n")
+
+  // Spawn 4 inspect agents (plan-review mode templates)
+  for (const inspector of inspectors) {
+    const templatePath = `skills/roundtable-circle/references/ash-prompts/${inspector}-plan-review.md`
+    // CONCERN 3: fileExists guard
+    if (!exists(templatePath)) {
+      warn(`Plan-review template missing for ${inspector}: ${templatePath} — skipping`)
+      continue
+    }
+
+    Task({
+      team_name: layer2TeamName,
+      name: inspector,
+      subagent_type: "general-purpose",
+      model: "sonnet",
+      prompt: loadTemplate(templatePath, {
+        plan_path: enrichedPlanPath,
+        output_path: `tmp/arc/${id}/plan-inspect-${inspector}.md`,
+        task_id: "auto",
+        requirements: requirements.map(r => `- ${r.id}: ${r.text}`).join("\n"),
+        identifiers: identifiers.map(i => `${i.type}: ${i.value}`).join("\n"),
+        scope_files: scopeFiles.join("\n"),
+        code_blocks: codeBlocksText,
+        timestamp: new Date().toISOString()
+      }),
+      run_in_background: true
+    })
+  }
+}
+```
+
+### Layer 2 Monitoring
+
+Layer 2 runs in parallel with Layer 1 — both share the Phase 2 outer timeout.
+
+```javascript
+// Monitor both Layer 1 and Layer 2 in parallel
+// Layer 1: existing monitoring logic (already there)
+// Layer 2: additional polling for inspect team
+if (layer2Active) {
+  // Wait for Layer 2 completion (shares the same outer timeout)
+  // ... polling loop for layer2TeamName tasks
+}
+```
+
+### Layer 2 Circuit Breaker Integration
+
+After Layer 1 verdicts are collected, merge Layer 2 findings into the circuit breaker decision.
+
+```javascript
+// Circuit breaker: merge Layer 2 verdict with Layer 1
+if (layer2Active) {
+  // Read Layer 2 inspector outputs
+  const inspectorOutputs = inspectors
+    .map(i => `tmp/arc/${id}/plan-inspect-${i}.md`)
+    .filter(f => exists(f))
+
+  // Aggregate Layer 2 findings
+  let layer2P1Count = 0
+  for (const f of inspectorOutputs) {
+    const content = Read(f)
+    const p1Match = content.match(/P1:\s*(\d+)/i)
+    if (p1Match) layer2P1Count += parseInt(p1Match[1])
+  }
+
+  // Map Layer 2 → Layer 1 verdicts
+  if (layer2P1Count > 0) {
+    // NOT READY with P1 → BLOCK
+    verdicts.push({ reviewer: "inspect-layer-2", verdict: "BLOCK", details: `${layer2P1Count} P1 findings in plan code samples` })
+  } else if (inspectorOutputs.length > 0) {
+    verdicts.push({ reviewer: "inspect-layer-2", verdict: "PASS", details: "Plan code samples pass inspection" })
+  }
+
+  // Write Layer 2 verdict to dedicated file
+  Write(`tmp/arc/${id}/plan-inspect-verdict.md`, verdictContent)
+
+  // Cleanup Layer 2 team
+  for (const inspector of inspectors) {
+    try { SendMessage({ type: "shutdown_request", recipient: inspector, content: "Plan review complete" }) } catch(e) {}
+  }
+  Bash("sleep 5")
+  try { TeamDelete() } catch(e) {
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${layer2TeamName}/" "$CHOME/tasks/${layer2TeamName}/" 2>/dev/null`)
+  }
+}
+```
+
 ## Cleanup
 
 Dynamic member discovery reads the team config to find ALL teammates (catches teammates summoned in any phase, not just the initial batch):
