@@ -27,9 +27,9 @@ INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
 # Fast path: if not a subagent, allow immediately.
 # Team leads and direct user sessions have transcript paths at root level,
 # not in the /subagents/ subdirectory.
-# SEC-5 NOTE: transcript_path is an undocumented/internal SDK field. Detection is
-# best-effort — if the field is absent or its format changes, this check fails open
-# (allows the operation). The .readonly-active marker provides the primary enforcement;
+# transcript_path: documented common field (all hook events). Subagent detection
+# via /subagents/ path segment. If absent or format changes, check fails open.
+# The .readonly-active marker provides the primary enforcement;
 # this check determines WHO is subject to it (subagents only, not team leads).
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 if [[ -z "$TRANSCRIPT_PATH" ]] || [[ "$TRANSCRIPT_PATH" != */subagents/* ]]; then

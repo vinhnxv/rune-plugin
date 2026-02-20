@@ -581,6 +581,7 @@ plugins/rune/
 │   ├── session-start.sh             # Workflow routing loader
 │   ├── pre-compact-checkpoint.sh    # Team state checkpoint before compaction
 │   ├── session-compact-recovery.sh  # Team state re-injection after compaction
+│   ├── on-session-stop.sh           # STOP-001: Active workflow detection on session end
 │   ├── arc-batch.sh                 # Arc batch executor
 │   ├── arc-batch-preflight.sh       # Arc batch pre-flight validation
 │   └── echo-search/                 # Echo Search MCP server + hooks
@@ -645,7 +646,7 @@ Rune uses Elden Ring-inspired theming:
 - `.gitignore` excludes `.claude/echoes/` by default (opt-in to version control)
 - Sensitive data filter rejects API keys, passwords, tokens from echo entries
 - All findings require verified evidence from source code
-- **Hook-based enforcement**: 14 event-driven hook scripts provide deterministic guardrails (9 enforcement + 3 quality/lifecycle + 2 compaction resilience):
+- **Hook-based enforcement**: 15 event-driven hook scripts provide deterministic guardrails (9 enforcement + 3 quality/lifecycle + 2 compaction resilience + 1 session stop):
 
 | Hook | Event | Purpose |
 |------|-------|---------|
@@ -663,6 +664,7 @@ Rune uses Elden Ring-inspired theming:
 | — | SessionStart:startup\|resume\|clear\|compact | Workflow routing context loader |
 | — | PreCompact:manual\|auto | Team state checkpoint before compaction |
 | — | SessionStart:compact | Team state re-injection after compaction |
+| STOP-001 | Stop | Detects active workflows on session end, blocks exit with cleanup instructions |
 
 ## Requirements
 

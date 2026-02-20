@@ -466,6 +466,31 @@ Signal directories are cleaned:
 
 Phase 2 was activated in v1.23.0. Stability is tracked across releases (assessed manually via CHANGELOG.md regression entries at release time) — 3+ consecutive releases with zero hook-related regressions confirms production readiness.
 
+## Seal Convention
+
+Every Ash MUST emit a `<seal>TASK_NAME_COMPLETE</seal>` tag as the **last line** of its output. This enables deterministic completion detection by `on-teammate-idle.sh` and the monitor utility.
+
+### Canonical Seal Tags
+
+| Agent Type | Seal Tag |
+|------------|----------|
+| Forge agents (enrichment) | `<seal>ENRICHMENT_COMPLETE</seal>` |
+| Review agents (Ashes) | `<seal>REVIEW_COMPLETE</seal>` |
+
+### Detection
+
+The `on-teammate-idle.sh` hook checks for seals using:
+
+```bash
+grep -qE "^SEAL:|<seal>[A-Z_]+</seal>"
+```
+
+Only the **last** seal tag in the output is authoritative — earlier tags from intermediate steps are ignored.
+
+### Backward Compatibility
+
+The bare `<seal>TAG</seal>` format is the canonical form. The legacy `SEAL:` prefix format is still recognized for backward compatibility. New agents should always use the `<seal>` tag form.
+
 ## References
 
 - [Inscription Schema](inscription-schema.md) — Output contract for monitored tasks

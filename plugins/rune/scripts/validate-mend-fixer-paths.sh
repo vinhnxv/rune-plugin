@@ -46,7 +46,7 @@ esac
 [[ -z "$FILE_PATH" ]] && exit 0
 
 # Fast-path 3: Only enforce for subagents (team-lead is the orchestrator — exempt)
-# SEC-5 NOTE: transcript_path detection is best-effort (undocumented/internal).
+# transcript_path: documented common field (all hook events). Detection is best-effort.
 # If transcript_path is missing or doesn't contain /subagents/, allow the operation.
 if [[ -z "$TRANSCRIPT_PATH" ]] || [[ "$TRANSCRIPT_PATH" != */subagents/* ]]; then
   exit 0
