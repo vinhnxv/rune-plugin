@@ -590,6 +590,23 @@ plugins/rune/
 └── README.md
 ```
 
+## Echo Search MCP Server
+
+Rune includes an MCP server (`echo-search`) for full-text search over Rune Echoes using SQLite FTS5 with BM25 ranking.
+
+**Requirements:** Python 3.7+ (uses stdlib `sqlite3` with FTS5 support)
+
+**Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `echo_search` | BM25-ranked search with optional `layer`/`role` filters. Returns content previews. |
+| `echo_details` | Fetch full content for specific echo entries by ID. |
+| `echo_reindex` | Rebuild the FTS5 index from `.claude/echoes/*/MEMORY.md` source files. |
+| `echo_stats` | Index statistics: entry count, layer/role breakdown, last indexed timestamp. |
+
+The `annotate-hook.sh` PostToolUse hook marks the index as dirty when echo files are modified. On next search, the server auto-reindexes before returning results. Configuration lives in `.mcp.json`.
+
 ## Lore
 
 Rune uses Elden Ring-inspired theming:

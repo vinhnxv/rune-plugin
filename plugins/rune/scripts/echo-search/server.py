@@ -256,8 +256,8 @@ def get_details(conn, ids):
     # type: (sqlite3.Connection, List[str]) -> List[Dict]
     if not ids:
         return []
-    # SEC-002: Defense-in-depth cap + type validation
-    ids = [str(i) for i in ids if isinstance(i, str)][:100]
+    # SEC-002: Defense-in-depth cap + type validation (coerce non-strings, filter None)
+    ids = [str(i) for i in ids if i is not None][:100]
     if not ids:
         return []
     placeholders = ",".join(["?"] * len(ids))
@@ -349,6 +349,11 @@ def run_mcp_server():
     # type: () -> None
     if not DB_PATH:  # SEC-4: fail fast instead of silent in-memory DB
         print("Error: DB_PATH environment variable not set", file=sys.stderr)
+        sys.exit(1)
+    db_parent = os.path.dirname(DB_PATH) or "."
+    if not os.access(db_parent, os.W_OK):
+        print("Error: DB_PATH parent directory is not writable: %s" % db_parent,
+              file=sys.stderr)
         sys.exit(1)
 
     import asyncio
@@ -613,7 +618,7 @@ def run_mcp_server():
                 write_stream,
                 InitializationOptions(
                     server_name="echo-search",
-                    server_version="1.45.0",
+                    server_version="1.53.4",
                     capabilities=server.get_capabilities(
                         notification_options=NotificationOptions(),
                         experimental_capabilities={},

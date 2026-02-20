@@ -168,11 +168,10 @@ class TestNoSignal:
         run_hook(stdin, env_override={"CLAUDE_PROJECT_DIR": project_dir})
         assert not os.path.exists(signal_path(project_dir))
 
-    def test_no_signal_for_memory_md_at_echoes_root(self, project_dir):
-        """MEMORY.md directly in .claude/echoes/ (no role subdir) doesn't match
-        the glob *".claude/echoes/"*"MEMORY.md" — but actually it does since the
-        pattern is: *".claude/echoes/"*"MEMORY.md" which matches any chars between.
-        This test documents the actual behavior."""
+    def test_signal_for_memory_md_at_echoes_root(self, project_dir):
+        """MEMORY.md directly in .claude/echoes/ (no role subdir) DOES match
+        the glob *".claude/echoes/"*"MEMORY.md" because * matches zero or more
+        chars between echoes/ and MEMORY.md."""
         stdin = json.dumps({
             "tool_input": {
                 "file_path": "/project/.claude/echoes/MEMORY.md"

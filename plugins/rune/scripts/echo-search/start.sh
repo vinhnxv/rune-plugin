@@ -1,10 +1,12 @@
 #!/bin/bash
 # Echo Search MCP Server launcher
 #
-# Claude Code launches MCP servers with cwd = project root.
-# We use this to resolve ECHO_DIR and DB_PATH at runtime,
-# since ${CLAUDE_PROJECT_DIR} is not available for .mcp.json
-# env substitution (only ${CLAUDE_PLUGIN_ROOT} is supported).
+# WHY THIS WRAPPER EXISTS:
+# .mcp.json only supports ${CLAUDE_PLUGIN_ROOT} for env substitution.
+# ECHO_DIR and DB_PATH need ${CLAUDE_PROJECT_DIR} which is NOT available
+# in .mcp.json env blocks. This wrapper resolves them at runtime.
+# Do NOT replace this with a direct python3 call in .mcp.json — it will
+# fail silently because ECHO_DIR/DB_PATH would be unset.
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 export ECHO_DIR="$PROJECT_DIR/.claude/echoes"

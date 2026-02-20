@@ -115,6 +115,20 @@ All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL h
 
 **Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-polling.sh`, `enforce-zsh-compat.sh`, `enforce-teams.sh`, `enforce-team-lifecycle.sh`) emit deny/allow decisions directly. Informational hooks (`verify-team-cleanup.sh`, `session-team-hygiene.sh`) emit messages directly to stdout; their output appears in the session transcript. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), PostToolUse 5s (fast-path verify), SessionStart 5s (startup scan), TaskCompleted 10s (signal I/O + haiku gate), TeammateIdle 15s (inscription parse + output validation), PreCompact 10s (team state checkpoint with filesystem discovery), SessionStart:compact 5s (JSON parse + context injection).
 
+## MCP Servers
+
+| Server | Tools | Purpose |
+|--------|-------|---------|
+| `echo-search` | `echo_search`, `echo_details`, `echo_reindex`, `echo_stats` | Full-text search over Rune Echoes (`.claude/echoes/*/MEMORY.md`) using SQLite FTS5 with BM25 ranking. Requires Python 3.7+. Launched via `scripts/echo-search/start.sh`. |
+
+**echo-search tools:**
+- `echo_search(query, limit?, layer?, role?)` — BM25-ranked search with optional layer/role filters. Returns content previews (200 chars).
+- `echo_details(ids)` — Fetch full content for specific echo entries by ID.
+- `echo_reindex()` — Rebuild FTS5 index from MEMORY.md source files.
+- `echo_stats()` — Index statistics (entry count, layer/role breakdown, last indexed timestamp).
+
+**Dirty-signal auto-reindex:** The `annotate-hook.sh` PostToolUse hook writes `tmp/.rune-signals/.echo-dirty` when echo files are modified. On next `echo_search` call, the server detects the signal and auto-reindexes before returning results.
+
 ## Skill Compliance
 
 When adding or modifying skills, verify:

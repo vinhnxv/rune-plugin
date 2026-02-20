@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.53.4] — 2026-02-21
+
+### Fixed
+- **server.py**: Update MCP server version from 1.45.0 to 1.53.4 to match plugin version (P2-003)
+- **server.py**: Add DB_PATH parent directory writability check at startup for clearer error messages (P3-013)
+- **server.py**: Fix `get_details()` ids type filter no-op — now coerces non-string IDs instead of silently dropping them (P3-014)
+- **inscription-protocol.md**: Standardize Seal confidence scale to integer 0-100, matching output-formats.md (P2-002)
+- **inscription-protocol.md**: Add `skimmed_files` and `deep_read_files` fields to Seal spec (P3-003)
+- **annotate-hook.sh**: Fix header comment — "exit 0 always" → accurately reflects non-zero exit on malformed JSON (P2-004)
+- **CLAUDE.md**: Add dedicated MCP Servers section documenting echo-search tools and dirty-signal pattern (P2-006)
+- **README.md**: Add Echo Search MCP Server section with tool descriptions and Python 3.7+ requirement (P3-005, P3-006)
+- **test_annotate_hook.py**: Fix misleading docstring on `test_no_signal_for_memory_md_at_echoes_root` — renamed and clarified (P3-007)
+- **start.sh**: Document why the wrapper exists and warn against replacing it with direct python3 call (P3-010)
+
+### Changed
+- **Plugin version**: 1.53.3 → 1.53.4
+
 ## [1.53.3] — 2026-02-21
 
 ### Fixed

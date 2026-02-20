@@ -110,7 +110,9 @@ Each Ash writes a Seal at the end of their output file:
 SEAL: {
   findings: 7,
   evidence_verified: true,
-  confidence: 0.85,
+  confidence: 85,
+  skimmed_files: 12,
+  deep_read_files: 4,
   self_reviewed: true,
   self_review_actions: "confirmed: 5, revised: 1, deleted: 1"
 }
@@ -121,7 +123,9 @@ SEAL: {
 |-------|------|-------------|
 | `findings` | integer | Total number of P1+P2+P3 findings |
 | `evidence_verified` | boolean | Whether all findings have Rune Traces |
-| `confidence` | float 0-1 | Self-assessed confidence in findings |
+| `confidence` | integer 0-100 | Self-assessed confidence in findings (0-100 scale, matches output-formats.md) |
+| `skimmed_files` | integer | Number of files skimmed (header/structure only) |
+| `deep_read_files` | integer | Number of files read in full |
 | `self_reviewed` | boolean | Whether self-review pass was performed |
 | `self_review_actions` | string | Summary of confirmed/revised/deleted findings |
 
