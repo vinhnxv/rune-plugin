@@ -18,6 +18,7 @@
 # Exit 0 with hookSpecificOutput decision=block: Block stop with guidance
 
 set -euo pipefail
+trap 'exit 0' ERR
 umask 077
 
 # ── GUARD 1: jq dependency (fail-open) ──

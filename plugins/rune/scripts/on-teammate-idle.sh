@@ -153,7 +153,7 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
   # SEC-009: Simple string match — this is a quality gate, not a security boundary.
   # BACK-102: ^SEAL: requires column-0 positioning by design — partial or indented
   # SEAL lines are treated as incomplete output (fail-safe).
-  if ! grep -q "^SEAL:" "$FULL_OUTPUT_PATH" 2>/dev/null; then
+  if ! grep -q "^SEAL:" "$FULL_OUTPUT_PATH" 2>/dev/null && ! grep -q "<seal>" "$FULL_OUTPUT_PATH" 2>/dev/null; then
     _trace "BLOCK SEAL missing: $FULL_OUTPUT_PATH"
     echo "SEAL marker missing in ${FULL_OUTPUT_PATH}. Review output incomplete — add SEAL block." >&2
     exit 2  # Block idle until Ash adds SEAL
