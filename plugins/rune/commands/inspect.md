@@ -516,7 +516,7 @@ if (flag("--focus")):
 // waitForCompletion — correct TaskList-based polling
 const pollIntervalMs = 30000  // 30 seconds
 const maxIterations = Math.ceil(timeout / pollIntervalMs)  // 24 iterations for 12 min
-let previousCompleted = -1
+let previousCompleted = 0
 let staleCount = 0
 
 for (let i = 0; i < maxIterations; i++):

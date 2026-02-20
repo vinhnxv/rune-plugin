@@ -246,10 +246,23 @@ if (hasCodeBlocks) {
 
   // Pre-create guard for Layer 2 team
   // teamName validated: arc-plan-inspect-{id} where id is validated at arc init
+  // Pre-create guard with "Already leading" recovery (matching Layer 1 pattern)
   try { TeamDelete() } catch (e) { /* may not exist */ }
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${layer2TeamName}/" "$CHOME/tasks/${layer2TeamName}/" 2>/dev/null`)
 
-  TeamCreate({ team_name: layer2TeamName, description: `Plan inspect: code sample review for arc ${id}` })
+  try {
+    TeamCreate({ team_name: layer2TeamName, description: `Plan inspect: code sample review for arc ${id}` })
+  } catch (e) {
+    if (e.message && e.message.includes("Already leading")) {
+      // SDK still thinks we're leading another team — clear and retry
+      try { TeamDelete() } catch (e2) { /* ignore */ }
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${layer2TeamName}/" "$CHOME/tasks/${layer2TeamName}/" 2>/dev/null`)
+      Bash(`sleep 3`)
+      TeamCreate({ team_name: layer2TeamName, description: `Plan inspect: code sample review for arc ${id}` })
+    } else {
+      throw e  // Unknown error — propagate
+    }
+  }
 
   // Create inspect tasks (4 inspectors)
   const inspectors = ["grace-warden", "ruin-prophet", "sight-oracle", "vigil-keeper"]
@@ -319,7 +332,36 @@ Layer 2 runs in parallel with Layer 1 — both share the Phase 2 outer timeout.
 // Layer 2: additional polling for inspect team
 if (layer2Active) {
   // Wait for Layer 2 completion (shares the same outer timeout)
-  // ... polling loop for layer2TeamName tasks
+  const layer2PollInterval = 30_000  // 30 seconds
+  const layer2Timeout = Math.max(60_000, PHASE_TIMEOUTS.plan_review - (Date.now() - phaseStartMs))
+  const layer2MaxIterations = Math.ceil(layer2Timeout / layer2PollInterval)
+  let layer2PrevCompleted = 0
+  let layer2StaleCount = 0
+
+  for (let i = 0; i < layer2MaxIterations; i++) {
+    const tasks = TaskList()
+    const completed = tasks.filter(t => t.status === "completed").length
+    const total = tasks.length
+
+    if (completed >= total) {
+      log(`Layer 2: All ${total} inspector tasks completed.`)
+      break
+    }
+
+    if (i > 0 && completed === layer2PrevCompleted) {
+      layer2StaleCount++
+      if (layer2StaleCount >= 6) {
+        warn("Layer 2: Inspection stalled after 3 minutes — proceeding with available results.")
+        break
+      }
+    } else {
+      layer2StaleCount = 0
+      layer2PrevCompleted = completed
+    }
+
+    log(`Layer 2: [${i+1}/${layer2MaxIterations}] ${completed}/${total} tasks completed`)
+    Bash(`sleep ${layer2PollInterval / 1000}`)
+  }
 }
 ```
 
@@ -339,7 +381,7 @@ if (layer2Active) {
   let layer2P1Count = 0
   for (const f of inspectorOutputs) {
     const content = Read(f)
-    const p1Match = content.match(/P1:\s*(\d+)/i)
+    const p1Match = content.match(/P1:\s*(\d+)/)
     if (p1Match) layer2P1Count += parseInt(p1Match[1])
   }
 
@@ -351,6 +393,13 @@ if (layer2Active) {
     verdicts.push({ reviewer: "inspect-layer-2", verdict: "PASS", details: "Plan code samples pass inspection" })
   }
 
+  // Construct verdict content from aggregated inspector findings
+  const verdictContent = `# Plan Inspect Verdict\n\nLayer 2 P1 findings: ${layer2P1Count}\nInspector outputs: ${inspectorOutputs.length}/${inspectors.length}\n\n` +
+    inspectorOutputs.map(f => {
+      const name = f.split('/').pop().replace('.md', '')
+      return `## ${name}\n\n${Read(f)}`
+    }).join("\n\n")
+
   // Write Layer 2 verdict to dedicated file
   Write(`tmp/arc/${id}/plan-inspect-verdict.md`, verdictContent)
 
@@ -359,9 +408,9 @@ if (layer2Active) {
     try { SendMessage({ type: "shutdown_request", recipient: inspector, content: "Plan review complete" }) } catch(e) {}
   }
   Bash("sleep 5")
-  try { TeamDelete() } catch(e) {
-    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${layer2TeamName}/" "$CHOME/tasks/${layer2TeamName}/" 2>/dev/null`)
-  }
+  // Layer 2 cleanup: always use filesystem fallback
+  // (SDK tracks Layer 1 as "current team" — TeamDelete() would delete Layer 1, not Layer 2)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${layer2TeamName}/" "$CHOME/tasks/${layer2TeamName}/" 2>/dev/null`)
 }
 ```
 
@@ -374,7 +423,8 @@ Dynamic member discovery reads the team config to find ALL teammates (catches te
 // This catches teammates summoned in any phase, not just the initial batch
 let allMembers = []
 try {
-  const teamConfig = Read(`~/.claude/teams/arc-plan-review-${id}/config.json`)
+  const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+  const teamConfig = Read(`${CHOME}/teams/arc-plan-review-${id}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   // SEC-4 FIX: Validate member names against safe pattern before use in SendMessage
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))

@@ -50,5 +50,5 @@ proposed code samples in a plan document for bugs, pattern violations, and secur
 
 ## Execution
 
-Read and execute the /rune:inspect skill with `--mode plan` prepended to $ARGUMENTS.
+Read and execute the /rune:inspect command with `--mode plan` prepended to $ARGUMENTS.
 All /rune:inspect flags are supported: `--focus`, `--max-agents`, `--dry-run`, `--threshold`, `--fix`, `--max-fixes`.
