@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.53.2] — 2026-02-21
+
+### Fixed
+- **codex-detection.md**: Fix `const` → `let` in `resolveCodexTimeouts()` — validation fallback for out-of-range timeout values was blocked by TypeError on reassignment (RUIN-001)
+- **codex-detection.md**: Move exit-124/137 checks to top of `classifyCodexError()` — prevents stderr noise from masking authoritative timeout signals (RUIN-009)
+- **mend.md**: Replace hardcoded `--kill-after=30` with `${killAfterFlag}` — respects macOS compatibility detection from codex-detection.md Step 3a (RUIN-004)
+- **security-patterns.md**: Add 5 missing consumers to `CODEX_TIMEOUT_ALLOWLIST` — mend.md, gap-analysis.md, solution-arena.md, rune-smith.md, rune-echoes/SKILL.md (RUIN-010)
+- **talisman.yml**: Add `timeout: 600` and `stream_idle_timeout: 540` under `codex:` section — Phase 1 deliverable for user-configurable timeouts (GRACE-001)
+- **talisman.example.yml**: Add documented timeout configuration fields with inline comments (VIGIL-001)
+
+### Changed
+- **Plugin version**: 1.53.1 → 1.53.2
+
 ## [1.53.1] — 2026-02-21
 
 ### Added
