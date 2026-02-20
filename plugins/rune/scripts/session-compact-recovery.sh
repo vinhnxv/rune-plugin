@@ -31,7 +31,8 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # ── GUARD 2: Input size cap (SEC-2: 1MB DoS prevention) ──
-INPUT=$(head -c 1048576)
+# FIX: Add timeout guard (consistent with pre-compact-checkpoint.sh line 44)
+INPUT=$(timeout 2 head -c 1048576 || true)
 
 # ── GUARD 3: Trigger must be "compact" ──
 TRIGGER=$(echo "$INPUT" | jq -r '.trigger // empty' 2>/dev/null || true)

@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.53.1] — 2026-02-21
+
+### Added
+- **Compaction hook tests** (`tests/test_pre_compact_checkpoint.py`): 43 subprocess-based tests covering pre-compact-checkpoint.sh and session-compact-recovery.sh — guard clauses, checkpoint write, atomic write, team name validation, CHOME guard, compact recovery, stale checkpoint handling, edge/boundary cases (AC-9)
+
+### Fixed
+- **pre-compact-checkpoint.sh**: Fix `${#task_files[@]:-0}` bad substitution crash — `${#...}` (length operator) cannot combine with `:-` (default value). Script crashed with `set -u` when tasks directory was missing. Initialize `task_files=()` before conditional block
+- **session-compact-recovery.sh**: Add `timeout 2` to stdin read for consistency with pre-compact-checkpoint.sh (prevents potential hang on disconnected stdin)
+- **test_hooks.py**: Fix 3 pre-existing test failures — `on-teammate-idle.sh` correctly blocks (exit 2) on path traversal and out-of-scope output dirs, updated test expectations to match improved security posture
+
+### Changed
+- **Plugin version**: 1.53.0 → 1.53.1
+
 ## [1.53.0] — 2026-02-21
 
 ### Added

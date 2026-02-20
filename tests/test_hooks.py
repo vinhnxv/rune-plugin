@@ -479,7 +479,7 @@ class TestTeammateIdle:
     def test_path_traversal_in_output_file_rejected(
         self, inscription_dir: Path
     ) -> None:
-        """Output files with path traversal should be rejected (SEC-003)."""
+        """Output files with path traversal should be blocked (SEC-003)."""
         signals = inscription_dir / "tmp" / ".rune-signals" / "rune-review-test"
         inscription = {
             "teammates": [
@@ -494,14 +494,14 @@ class TestTeammateIdle:
             "teammate_name": "evil-ash",
             "cwd": str(inscription_dir),
         })
-        assert result.returncode == 0  # Rejected silently (exit 0, not exit 2)
+        assert result.returncode == 2  # Blocked — exit 2 for security violations
         assert "path traversal" in result.stderr.lower()
 
     @requires_jq
     def test_path_traversal_in_output_dir_rejected(
         self, inscription_dir: Path
     ) -> None:
-        """Output dirs with path traversal should be rejected (SEC-003)."""
+        """Output dirs with path traversal should be blocked (SEC-003)."""
         signals = inscription_dir / "tmp" / ".rune-signals" / "rune-review-test"
         inscription = {
             "teammates": [
@@ -516,14 +516,14 @@ class TestTeammateIdle:
             "teammate_name": "test-ash",
             "cwd": str(inscription_dir),
         })
-        assert result.returncode == 0
+        assert result.returncode == 2  # Blocked — exit 2 for security violations
         assert "path traversal" in result.stderr.lower()
 
     @requires_jq
     def test_output_dir_outside_tmp_rejected(
         self, inscription_dir: Path
     ) -> None:
-        """Output dirs not under tmp/ should be rejected."""
+        """Output dirs not under tmp/ should be blocked."""
         signals = inscription_dir / "tmp" / ".rune-signals" / "rune-review-test"
         inscription = {
             "teammates": [
@@ -538,7 +538,7 @@ class TestTeammateIdle:
             "teammate_name": "test-ash",
             "cwd": str(inscription_dir),
         })
-        assert result.returncode == 0
+        assert result.returncode == 2  # Blocked — exit 2 for security violations
         assert "outside tmp/" in result.stderr
 
     @requires_jq
