@@ -761,7 +761,7 @@ Confidence >= 80% only. Omit findings you cannot verify.`
         3. If codex unavailable: write skip message to output file, complete task, exit
         4. Resolve timeouts via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
         5. Run codex exec with the prompt from temp file (SEC-003):
-           Bash(\`timeout --kill-after=30 \${codexTimeout} codex exec -m "${codexModel}" \\
+           Bash(\`timeout \${killAfterFlag} \${codexTimeout} codex exec -m "${codexModel}" \\
              --config model_reasoning_effort="${codexReasoning}" \\
              --config stream_idle_timeout_ms="\${codexStreamIdleMs}" \\
              --sandbox read-only --full-auto --skip-git-repo-check \\

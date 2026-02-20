@@ -525,6 +525,13 @@ codex:
   confidence_threshold: 80           # Min confidence % to report a finding (default: 80)
   # Which workflows use Codex Oracle. Remove a workflow name to skip Codex in that pipeline.
   # "mend" added in v1.39.0 for post-fix verification.
+  # ── Timeout Configuration (v1.45.0+) ──
+  # Outer GNU timeout for codex exec invocations (seconds).
+  # Range: 30-3600. Default: 600.
+  timeout: 600
+  # Inner stream idle timeout — fires when model stops streaming (seconds).
+  # Default: timeout - 60s. Must be < timeout.
+  stream_idle_timeout: 540
   workflows: [review, audit, plan, forge, work, mend]
   # Work advisory settings (Phase 4.5 of /rune:work — non-blocking plan-vs-implementation check)
   work_advisory:
