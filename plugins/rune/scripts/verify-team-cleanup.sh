@@ -58,4 +58,6 @@ if [[ ${#remaining[@]} -gt 0 ]]; then
   echo "TLC-002 POST-DELETE: ${#remaining[@]} rune/arc team dir(s) still exist after TeamDelete: ${remaining[*]:0:5}. These may be from other workflows or zombie state. Run /rune:rest --heal if unexpected."
 fi
 
+[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-002: remaining team dirs after TeamDelete: ${#remaining[@]}" >> /tmp/rune-hook-trace.log
+
 exit 0

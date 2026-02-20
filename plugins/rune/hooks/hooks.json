@@ -171,6 +171,7 @@
       },
       {
         "matcher": "startup|resume",
+        "_rationale": "Plan specified startup only, but resume is a prime orphan scenario (session crash leaves teams behind). Extended to startup|resume for better coverage. clear excluded (resets state, no orphans). compact excluded (has dedicated recovery hook).",
         "hooks": [
           {
             "type": "command",
