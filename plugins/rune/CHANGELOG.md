@@ -12,7 +12,7 @@
   - Controlled by `--fix` flag on `/rune:inspect` for standalone use
   - SEC-GAP-001: `validate-gap-fixer-paths.sh` hook blocks writes to `.claude/`, `.github/`, `node_modules/`, CI YAML, and `.env` files
 - **`--fix` flag for `/rune:inspect`**: Standalone auto-remediation of FIXABLE gaps (capped by `inspect.max_fixes`, timeout via `inspect.fix_timeout`)
-- **Gap-fixer prompt template**: `skills/inspect/references/gap-fixer-prompt.md` with Truthbinding, Inner Flame, and SEAL format
+- **Gap-fixer prompt template**: `skills/roundtable-circle/references/ash-prompts/gap-fixer.md` with Truthbinding, Inner Flame, and SEAL format
 - **Checkpoint schema v9 → v10**: Adds `gap_remediation` phase tracking alongside existing `gap_analysis` phase
 - **Talisman `arc.gap_analysis` subsection**: `inspectors` (1-4), `halt_threshold` (0-100), `remediation.enabled`, `remediation.max_fixes`, `remediation.timeout`
 - **Talisman `arc.timeouts` additions**: `gap_analysis` (12 min, updated from 1 min), `gap_remediation` (15 min, new)

@@ -17,7 +17,7 @@ New phase between Codex Gap Analysis (5.6) and Goldmask Verification (5.7). Auto
 const needsRemediation = checkpoint.phases?.gap_analysis?.needs_remediation === true
 
 // Gate B: remediation enabled in talisman
-const remediationEnabled = talisman?.arc?.remediation?.enabled !== false  // Default: true
+const remediationEnabled = talisman?.arc?.gap_analysis?.remediation?.enabled !== false  // Default: true
 
 if (!needsRemediation || !remediationEnabled) {
   const reason = !needsRemediation
@@ -104,7 +104,7 @@ for (let i = 0; i < verdictLines.length; i++) {
 }
 
 // Cap at max_fixes from talisman
-const maxFixes = talisman?.arc?.remediation?.max_fixes ?? 15
+const maxFixes = talisman?.arc?.gap_analysis?.remediation?.max_fixes ?? 20
 const cappedFindings = allFindings.slice(0, maxFixes)
 
 log(`Phase 5.8: ${allFindings.length} FIXABLE findings, capping at ${cappedFindings.length}`)

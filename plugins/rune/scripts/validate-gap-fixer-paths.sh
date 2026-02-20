@@ -23,8 +23,8 @@ umask 077
 
 # Pre-flight: jq is required for JSON parsing.
 if ! command -v jq &>/dev/null; then
-  echo "WARNING: jq not found — validate-gap-fixer-paths.sh hook is inactive" >&2
-  exit 0
+  echo "WARNING: jq not found — validate-gap-fixer-paths.sh hook is inactive (blocking)" >&2
+  exit 2
 fi
 
 # SEC-2: 1MB cap to prevent unbounded stdin read (DoS prevention)

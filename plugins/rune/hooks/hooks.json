@@ -47,6 +47,17 @@
         ]
       },
       {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/validate-gap-fixer-paths.sh",
+            "timeout": 5,
+            "statusMessage": "Checking gap-fixer file scope..."
+          }
+        ]
+      },
+      {
         "matcher": "Task",
         "hooks": [
           {

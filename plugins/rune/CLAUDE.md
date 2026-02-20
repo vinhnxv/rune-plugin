@@ -97,6 +97,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. |
 | `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) blocks unprotected glob in `for` loops. Only active when user's shell is zsh (or macOS fallback). |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
+| `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-gap-fixer-paths.sh` | SEC-GAP-001: Blocks gap-fixer Ashes from writing to `.claude/`, `.github/`, `node_modules/`, CI YAML, and `.env` files. Only active during gap-fix workflows. |
 | `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
 | `PreToolUse:TeamCreate` | `scripts/enforce-team-lifecycle.sh` | TLC-001: Validates team name (hard block on invalid), detects stale teams (30-min threshold), auto-cleans filesystem orphans, injects advisory context. |
 | `PostToolUse:TeamDelete` | `scripts/verify-team-cleanup.sh` | TLC-002: Verifies team dir removal after TeamDelete, reports zombie dirs. |

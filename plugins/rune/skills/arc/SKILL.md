@@ -8,7 +8,7 @@ description: |
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
-  assistant: "The Tarnished begins the arc — 17 phases of forge, review, goldmask, test, mend, convergence, ship, and merge..."
+  assistant: "The Tarnished begins the arc — 18 phases of forge, review, goldmask, test, mend, convergence, ship, and merge..."
   </example>
 
   <example>
@@ -61,7 +61,7 @@ Chains eighteen phases into a single automated pipeline: forge, plan review, pla
 - `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely. No shared task list, no SendMessage, no context isolation. This is the root cause of context explosion.
 - Using named `subagent_type` values (e.g., `"rune:utility:scroll-reviewer"`, `"compound-engineering:research:best-practices-researcher"`, `"rune:review:ward-sentinel"`) — these resolve to non-general-purpose agents. Always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
 
-**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 17 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
+**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 18 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
 
 **ENFORCEMENT:** The `enforce-teams.sh` PreToolUse hook blocks bare Task calls when a Rune workflow is active. If your Task call is blocked, add `team_name` to it.
 
@@ -109,7 +109,7 @@ Phase 2.8: SEMANTIC VERIFICATION → Codex cross-model contradiction detection (
     ↓ (codex-semantic-verification.md)
 Phase 5:   WORK → Swarm implementation + incremental commits
     ↓ (work-summary.md + committed code)
-Phase 5.5: GAP ANALYSIS → Check plan criteria vs committed code (zero LLM)
+Phase 5.5: GAP ANALYSIS → Check plan criteria vs committed code (deterministic + LLM)
     ↓ (gap-analysis.md) — WARN only, never halts
 Phase 5.6: CODEX GAP ANALYSIS → Cross-model plan vs implementation check (v1.39.0)
     ↓ (codex-gap-analysis.md) — WARN only, never halts
@@ -205,7 +205,7 @@ const PHASE_TIMEOUTS = {
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// DOC-002 FIX: Base budget sum is ~164.5 min (v1.50.0 gap_remediation + v1.47.0 goldmask + v1.43.0 test):
+// DOC-002 FIX: Base budget sum is ~175.5 min (v1.51.0 gap_remediation + v1.47.0 goldmask + v1.43.0 test):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
 //   codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) + work(35) + gap_analysis(12) +
 //   goldmask_correlation(1) + test(15) + audit(20) + ship(5) + merge(10) = 175.5 min

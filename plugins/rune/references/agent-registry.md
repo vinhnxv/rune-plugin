@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 54 agents** (21 review + 5 research + 2 work + 10 utility + 12 investigation + 4 testing)
+**Total: 55 agents** (21 review + 5 research + 2 work + 11 utility + 12 investigation + 4 testing)
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 
@@ -57,6 +57,7 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | flow-seer | Spec flow analysis and gap detection |
 | scroll-reviewer | Document quality review |
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
+| gap-fixer | Gap remediation fixer for Phase 5.8 — prompt-template-based (no dedicated .md file, uses `skills/roundtable-circle/references/ash-prompts/gap-fixer.md`) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
 | veil-piercer-plan | Plan truth-telling (6-dimension analysis, PASS/CONCERN/BLOCK verdicts) |

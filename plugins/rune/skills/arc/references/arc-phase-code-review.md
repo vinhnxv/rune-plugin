@@ -92,7 +92,7 @@ if (exists(`tmp/arc/${id}/gap-analysis.md`)) {
 // STEP 1.5: Inject low-scoring dimensions from VERDICT.md as reviewer focus areas
 // If Phase 5.5 produced a VERDICT.md (via Inspector Ashes), extract dimension scores.
 // Dimensions with score < 7 are flagged as focus areas for code reviewers.
-const verdictPath = `tmp/arc/${id}/VERDICT.md`
+const verdictPath = `tmp/arc/${id}/gap-analysis-verdict.md`
 if (exists(verdictPath)) {
   try {
     const verdictContent = Read(verdictPath)
