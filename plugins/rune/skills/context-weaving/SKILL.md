@@ -299,6 +299,39 @@ Tool outputs consume up to 83.9% of context. Offload large outputs to files.
 3. Read file only when needed for next step
 ```
 
+## Layer 5: Compaction Recovery
+
+### The Problem
+
+Claude's auto-compaction fires during long sessions (especially `/rune:arc` with 18 phases), truncating earlier context. This can cause the Tarnished to lose awareness of active teams, task state, workflow phase, and arc checkpoint — leading to orphaned teams, duplicated work, or pipeline restarts.
+
+### How It Works
+
+Two hooks form a checkpoint/recovery pair:
+
+1. **PreCompact** (`scripts/pre-compact-checkpoint.sh`) — Fires before compaction (manual or auto). Captures a snapshot of:
+   - Team config.json (active team name, members, creation time)
+   - Task list state (pending/in_progress/completed counts)
+   - Current workflow phase (from arc checkpoint if available)
+   - Arc checkpoint path and metadata
+   - Writes to `tmp/.rune-compact-checkpoint.json`
+
+2. **SessionStart:compact** (`scripts/session-compact-recovery.sh`) — Fires when session resumes after compaction. Re-injects the saved checkpoint as `additionalContext` so the Tarnished can resume seamlessly. Includes a correlation guard that verifies the team still exists before injection. One-time use — deletes the checkpoint file after injection to prevent stale state.
+
+### Three Ground Truth Sources
+
+After compaction recovery, the Tarnished reconciles three sources:
+
+| Source | Contains | Priority |
+|--------|----------|----------|
+| Team config.json | Team name, members, creation time | Authoritative for team existence |
+| Task list | Task status, assignments, dependencies | Authoritative for work state |
+| Arc checkpoint | Phase, artifacts, SHA-256 hashes | Authoritative for pipeline progress |
+
+### Relationship to Rule #5
+
+This layer automates what Rule #5 ("On compaction or session resume: re-read team config, task list, and inscription contract") previously required manually. The PreCompact hook captures state proactively, and the SessionStart:compact hook re-injects it — ensuring Rule #5 compliance even when compaction truncates the original context.
+
 ## References
 
 - [Overflow Wards](references/overflow-wards.md) — Detailed pre-summon protocol

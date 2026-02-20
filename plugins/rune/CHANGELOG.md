@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.52.0] — 2026-02-20
+
+### Added
+- **PreCompact hook** (`scripts/pre-compact-checkpoint.sh`): Saves team state (config.json, tasks, workflow phase, arc checkpoint) to `tmp/.rune-compact-checkpoint.json` before compaction. Non-blocking (exit 0).
+- **SessionStart:compact recovery hook** (`scripts/session-compact-recovery.sh`): Re-injects team checkpoint as `additionalContext` after compaction. Correlation guard verifies team still exists. One-time injection (deletes checkpoint after use).
+- **Context-weaving Layer 5: Compaction Recovery**: New protocol documenting the PreCompact → SessionStart:compact checkpoint/recovery pair, three ground truth sources (config.json, tasks, arc checkpoint), and relationship to CLAUDE.md Rule #5.
+- Inspired by checkpoint/recovery patterns from Cozempic (MIT-licensed)
+
+### Changed
+- **Plugin version**: 1.51.0 → 1.52.0
+- Hook count: 12 → 14 event-driven hook scripts
+
 ## [1.51.0] — 2026-02-20
 
 ### Added

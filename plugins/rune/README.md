@@ -572,7 +572,10 @@ plugins/rune/
 │   ├── on-task-completed.sh         # Task completion signal writer
 │   ├── on-teammate-idle.sh          # Teammate idle quality gate
 │   ├── session-start.sh             # Workflow routing loader
+│   ├── pre-compact-checkpoint.sh    # Team state checkpoint before compaction
+│   ├── session-compact-recovery.sh  # Team state re-injection after compaction
 │   ├── arc-batch.sh                 # Arc batch executor
+│   ├── arc-batch-preflight.sh       # Arc batch pre-flight validation
 │   └── echo-search/                 # Echo Search MCP server + hooks
 ├── talisman.example.yml
 ├── CLAUDE.md
@@ -618,7 +621,7 @@ Rune uses Elden Ring-inspired theming:
 - `.gitignore` excludes `.claude/echoes/` by default (opt-in to version control)
 - Sensitive data filter rejects API keys, passwords, tokens from echo entries
 - All findings require verified evidence from source code
-- **Hook-based enforcement**: 12 event-driven hook scripts provide deterministic guardrails (9 enforcement + 3 quality/lifecycle):
+- **Hook-based enforcement**: 14 event-driven hook scripts provide deterministic guardrails (9 enforcement + 3 quality/lifecycle + 2 compaction resilience):
 
 | Hook | Event | Purpose |
 |------|-------|---------|
@@ -634,6 +637,8 @@ Rune uses Elden Ring-inspired theming:
 | — | TaskCompleted | Signal files + haiku quality gate + Inner Flame self-review validation |
 | — | TeammateIdle | Output file validation + SEAL marker checks |
 | — | SessionStart:startup\|resume\|clear\|compact | Workflow routing context loader |
+| — | PreCompact:manual\|auto | Team state checkpoint before compaction |
+| — | SessionStart:compact | Team state re-injection after compaction |
 
 ## Requirements
 
