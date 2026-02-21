@@ -100,7 +100,7 @@ Context budget: **30 files maximum**. Prioritize integration points, HTTP client
 
 For each finding, assign:
 - **Priority**: P1 (active failure risk — missing error handling, resource leak, no timeout) | P2 (degraded resilience — weak circuit breaker, incomplete recovery, suboptimal retry) | P3 (resilience debt — missing graceful degradation, hardcoded timeouts, no chaos testing)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `FAIL-NNN` prefix
 
 ## Output Format
@@ -112,19 +112,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[FAIL-001]** `src/integrations/payment_client.py:78` — No timeout on payment gateway HTTP call
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: `requests.post(url, json=payload)` at line 78 — no `timeout` parameter
   - **Impact**: Thread hangs indefinitely if payment gateway is unresponsive
 
 ### P2 — Significant
 - [ ] **[FAIL-002]** `src/services/order_service.py:134` — Retry without backoff on 503 responses
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: `for i in range(3): response = client.post(...)` at line 134 — immediate retry
   - **Impact**: Thundering herd — 503 indicates overload, immediate retries worsen it
 
 ### P3 — Minor
 - [ ] **[FAIL-003]** `src/config/database.py:22` — Connection pool max size hardcoded to 10
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: `max_connections=10` at line 22 — not configurable via environment
   - **Impact**: Cannot scale pool size without code change
 ```
@@ -148,7 +148,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 30 files read)

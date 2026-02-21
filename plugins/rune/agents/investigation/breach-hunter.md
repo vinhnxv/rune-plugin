@@ -99,7 +99,7 @@ Context budget: **25 files maximum**. Prioritize authentication/authorization mo
 
 For each finding, assign:
 - **Priority**: P1 (exploitable breach — auth bypass, injection, data exposure in production) | P2 (hardening gap — weak crypto, missing rate limiting, verbose errors) | P3 (security debt — missing headers, outdated patterns, defense-in-depth gaps)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `DSEC-NNN` prefix
 
 ## Output Format
@@ -111,19 +111,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[DSEC-001]** `src/api/users.py:56` — IDOR: user profile endpoint uses sequential ID without ownership check
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: `GET /api/users/{id}/profile` at line 56 — fetches any user's profile, no `request.user.id == id` check
   - **Impact**: Any authenticated user can access any other user's profile data
 
 ### P2 — Significant
 - [ ] **[DSEC-002]** `src/auth/token_service.py:89` — JWT signature validation skips audience claim
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: `jwt.decode(token, key, algorithms=['HS256'])` at line 89 — no `audience` parameter
   - **Impact**: Tokens issued for one service accepted by another (confused deputy)
 
 ### P3 — Minor
 - [ ] **[DSEC-003]** `src/middleware/cors.py:12` — CORS allows wildcard origin in non-development config
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: `Access-Control-Allow-Origin: *` at line 12 — no environment check
   - **Impact**: Browser-based cross-origin attacks possible against API
 ```
@@ -147,7 +147,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 25 files read)

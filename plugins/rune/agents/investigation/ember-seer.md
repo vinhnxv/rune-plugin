@@ -99,7 +99,7 @@ Context budget: **25 files maximum**. Prioritize data access layers, cache imple
 
 For each finding, assign:
 - **Priority**: P1 (active degradation — memory leak, pool exhaustion, N+1 at scale) | P2 (latent degradation — unbounded cache, missing backpressure, suboptimal algorithm) | P3 (performance debt — hardcoded pool size, missing metrics, untuned thresholds)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `RSRC-NNN` prefix
 
 ## Output Format
@@ -111,19 +111,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[RSRC-001]** `src/data/report_generator.py:45` — N+1 query in report loop fetching user details
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: `for order in orders: user = db.query(User).get(order.user_id)` at line 45 — one query per order
   - **Impact**: 1000 orders = 1001 queries — report takes minutes instead of seconds
 
 ### P2 — Significant
 - [ ] **[RSRC-002]** `src/cache/session_cache.py:23` — Session cache grows without size limit or TTL
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: `self.sessions[session_id] = data` at line 23 — no `maxsize`, no eviction
   - **Impact**: Memory grows linearly with unique sessions — eventual OOM under sustained traffic
 
 ### P3 — Minor
 - [ ] **[RSRC-003]** `src/services/analytics.py:78` — String concatenation in loop instead of join
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: `result += row.to_csv()` in loop at line 78 — O(n^2) string building
   - **Impact**: Slow for large datasets — quadratic time for string assembly
 ```
@@ -147,7 +147,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 25 files read)

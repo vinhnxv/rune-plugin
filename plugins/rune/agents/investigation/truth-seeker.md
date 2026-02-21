@@ -100,7 +100,7 @@ Context budget: **30 files maximum**. Prioritize domain logic, test files, and s
 
 For each finding, assign:
 - **Priority**: P1 (incorrect behavior — logic error, wrong output, violated contract) | P2 (questionable correctness — weak tests, undocumented behavior, implicit contracts) | P3 (correctness debt — missing tests, stale requirements, naming confusion)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `CORR-NNN` prefix
 
 ## Output Format
@@ -112,19 +112,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[CORR-001]** `src/billing/invoice.py:89` — Discount applied after tax instead of before
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: Line 89 computes `total = (subtotal + tax) * (1 - discount)` but spec requires `total = (subtotal * (1 - discount)) + tax`
   - **Impact**: Customers overcharged — discount reduces tax amount it should not affect
 
 ### P2 — Significant
 - [ ] **[CORR-002]** `tests/billing/test_invoice.py:45` — Test asserts `True` instead of checking value
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: `assert result is not None` at line 45 — does not verify the computed amount
   - **Impact**: Test passes even if invoice amount is wrong
 
 ### P3 — Minor
 - [ ] **[CORR-003]** `src/users/permissions.py:112` — Function name `is_admin` but checks moderator role
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: `return user.role == 'moderator'` at line 112 — name implies admin check
   - **Impact**: Misleading — callers may assume this checks admin, not moderator
 ```
@@ -148,7 +148,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 30 files read)

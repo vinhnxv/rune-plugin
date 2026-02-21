@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 62 agents** (21 review + 5 research + 2 work + 11 utility* + 19 investigation + 4 testing)
+**Total: 66 agents** (21 review + 5 research + 2 work + 11 utility* + 23 investigation + 4 testing)
 
 \* 11 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 
@@ -88,6 +88,10 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | truth-seeker | Correctness truth — logic vs requirements, behavior validation, test quality, state machine correctness |
 | ruin-watcher | Failure modes — network failures, crash recovery, circuit breakers, timeout chains, resource lifecycle |
 | breach-hunter | Security breaches — threat modeling, auth boundary gaps, data exposure vectors, CVE patterns, input sanitization |
+| order-auditor | Design order — responsibility separation, dependency direction, coupling metrics, abstraction fitness, layer boundaries |
+| ember-seer | Performance embers — resource lifecycle degradation, memory patterns, pool management, async correctness, algorithmic complexity |
+| signal-watcher | Signal propagation — logging adequacy, metrics coverage, distributed tracing, error classification, incident reproducibility |
+| decay-tracer | Progressive decay — naming quality erosion, comment staleness, complexity creep, convention drift, tech debt trajectories |
 
 ## Testing Agents (`agents/testing/`)
 

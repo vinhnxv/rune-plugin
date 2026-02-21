@@ -100,7 +100,7 @@ Context budget: **25 files maximum**. Prioritize service entry points, error han
 
 For each finding, assign:
 - **Priority**: P1 (blind spot — silent failure, missing error logging, broken tracing) | P2 (degraded observability — weak metrics, unstructured logging, poor error taxonomy) | P3 (observability debt — missing dashboards, unused metrics, noisy logging)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `OBSV-NNN` prefix
 
 ## Output Format
@@ -112,19 +112,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[OBSV-001]** `src/services/payment_service.py:134` — Payment failure caught with no logging
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: `except PaymentError: return None` at line 134 — no log statement in catch block
   - **Impact**: Payment failures are invisible — no alert, no audit trail
 
 ### P2 — Significant
 - [ ] **[OBSV-002]** `src/middleware/tracing.py:45` — Trace context not propagated to background jobs
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: `queue.enqueue(job)` at line 45 — no trace headers injected into job payload
   - **Impact**: Background job failures cannot be correlated to originating request
 
 ### P3 — Minor
 - [ ] **[OBSV-003]** `src/api/handlers/orders.py:23` — Log message uses string formatting instead of structured fields
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: `logger.info(f"Order {order_id} created by {user}")` at line 23 — not queryable
   - **Impact**: Difficult to search/filter logs by order_id or user in log aggregator
 ```
@@ -148,7 +148,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 25 files read)

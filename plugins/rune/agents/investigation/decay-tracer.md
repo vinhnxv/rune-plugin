@@ -99,7 +99,7 @@ Context budget: **25 files maximum**. Prioritize core business modules, frequent
 
 For each finding, assign:
 - **Priority**: P1 (active decay — misleading names causing bugs, stale comments causing wrong fixes, complexity blocking changes) | P2 (progressive decay — growing complexity, spreading inconsistency, aging workarounds) | P3 (maintenance friction — minor naming issues, missing comments, style inconsistencies)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `MTNB-NNN` prefix
 
 ## Output Format
@@ -111,19 +111,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[MTNB-001]** `src/billing/calculator.py:45` — Function `calculate_total` silently applies discount but name doesn't indicate it
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: `calculate_total()` at line 45 also applies loyalty discount and tax exemption — callers expect raw total
   - **Impact**: Callers apply discount again — double-discount bug traced to naming
 
 ### P2 — Significant
 - [ ] **[MTNB-002]** `src/services/user_service.py:1` — Three different error handling patterns in same module
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: Lines 23-30 use try/catch, lines 45-52 use Result type, lines 78-85 use error callbacks
   - **Impact**: Inconsistency increases cognitive load — new contributors make wrong pattern choice
 
 ### P3 — Minor
 - [ ] **[MTNB-003]** `src/utils/validators.py:67` — Comment says "validate email" but function validates phone
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: `# Validate email format` above `def validate_phone(number)` at line 67
   - **Impact**: Misleading — developer trusting comments gets confused during debugging
 ```
@@ -147,7 +147,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 25 files read)

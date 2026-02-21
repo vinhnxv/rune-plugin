@@ -99,7 +99,7 @@ Context budget: **30 files maximum**. Prioritize module entry points, dependency
 
 For each finding, assign:
 - **Priority**: P1 (structural violation — broken layer boundary, circular dependency, god class >500 lines) | P2 (design erosion — mixed concerns, wrong dependency direction, leaky abstraction) | P3 (design debt — premature generalization, minor coupling, missing interface)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `DSGN-NNN` prefix
 
 ## Output Format
@@ -111,19 +111,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[DSGN-001]** `src/services/order_service.py:1` — God class with 15 public methods spanning 600 lines
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: OrderService handles order creation, payment, shipping, notifications, and reporting
   - **Impact**: Any change risks breaking unrelated functionality — untestable in isolation
 
 ### P2 — Significant
 - [ ] **[DSGN-002]** `src/domain/user.py:34` — Domain model imports HTTP library for validation
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: `from requests import Response` at line 34 — infrastructure dependency in domain layer
   - **Impact**: Domain layer cannot be tested without HTTP infrastructure
 
 ### P3 — Minor
 - [ ] **[DSGN-003]** `src/utils/helpers.py:1` — Utility module with unrelated functions
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: Contains `format_date()`, `hash_password()`, `parse_csv()` — no cohesion
   - **Impact**: Utility module grows without bound — becomes a dumping ground
 ```
@@ -147,7 +147,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 30 files read)
