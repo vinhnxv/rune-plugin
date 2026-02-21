@@ -102,6 +102,26 @@ Every change to this plugin MUST include updates to all four files:
 - [ ] README.md Skills table includes all skills
 - [ ] plugin.json description counts match actual files
 
+## CLI-Backed Ashes (v1.57.0+)
+
+External models can participate in the Roundtable Circle as CLI-backed Ashes. Unlike agent-backed custom Ashes, CLI-backed Ashes invoke an external CLI binary (e.g., `gemini`, `llama`) instead of resolving a Claude Code agent file.
+
+**Key concepts:**
+- Define in `talisman.yml` → `ashes.custom[]` with `cli:` field (discriminated union)
+- When `cli:` is present, `agent` and `source` become optional
+- Detection via `detectExternalModel()` (generalized from Codex detection)
+- Subject to `max_cli_ashes` sub-cap (default: 2) within `max_ashes`
+- Codex Oracle has its own dedicated gate and is NOT counted toward `max_cli_ashes`
+- Prompt generated from `external-model-template.md` with ANCHOR/RE-ANCHOR Truthbinding
+- Includes 4-step Hallucination Guard (Step 0: diff relevance, Steps 1-3: verification)
+- Nonce-bounded content injection for diffs/file content
+
+**Security patterns:** `CLI_BINARY_PATTERN`, `MODEL_NAME_PATTERN`, `OUTPUT_FORMAT_ALLOWLIST`, `CLI_PATH_VALIDATION`, `CLI_TIMEOUT_PATTERN` — all defined in `security-patterns.md`.
+
+**Dedup:** External model prefixes are positioned below CDX in the default hierarchy. Built-in prefixes always precede external model prefixes.
+
+**References:** [custom-ashes.md](skills/roundtable-circle/references/custom-ashes.md), [codex-detection.md](skills/roundtable-circle/references/codex-detection.md), [external-model-template.md](skills/roundtable-circle/references/ash-prompts/external-model-template.md)
+
 ## Hook Infrastructure
 
 Rune uses Claude Code hooks for event-driven agent synchronization, quality gates, and security enforcement:
