@@ -528,8 +528,9 @@ plugins/rune/
 │   ├── work/                # 2 swarm workers (work pipeline)
 │   └── utility/             # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan, horizon-sage
 ├── commands/
-│   ├── cancel-arc.md    # /rune:cancel-arc
-│   ├── forge.md         # /rune:forge
+│   ├── cancel-arc.md        # /rune:cancel-arc
+│   ├── cancel-arc-batch.md  # /rune:cancel-arc-batch
+│   ├── forge.md             # /rune:forge
 │   ├── mend.md          # /rune:mend
 │   ├── plan.md          # /rune:plan
 │   ├── work.md          # /rune:work
@@ -582,7 +583,8 @@ plugins/rune/
 │   ├── pre-compact-checkpoint.sh    # Team state checkpoint before compaction
 │   ├── session-compact-recovery.sh  # Team state re-injection after compaction
 │   ├── on-session-stop.sh           # STOP-001: Active workflow detection on session end
-│   ├── arc-batch.sh                 # Arc batch executor
+│   ├── arc-batch-stop-hook.sh       # ARC-BATCH-STOP: Stop hook loop driver for arc-batch
+│   ├── arc-batch.sh                 # Arc batch executor (DEPRECATED — V1 subprocess pattern)
 │   ├── arc-batch-preflight.sh       # Arc batch pre-flight validation
 │   └── echo-search/                 # Echo Search MCP server + hooks
 ├── talisman.example.yml
@@ -646,7 +648,7 @@ Rune uses Elden Ring-inspired theming:
 - `.gitignore` excludes `.claude/echoes/` by default (opt-in to version control)
 - Sensitive data filter rejects API keys, passwords, tokens from echo entries
 - All findings require verified evidence from source code
-- **Hook-based enforcement**: 15 event-driven hook scripts provide deterministic guardrails (9 enforcement + 3 quality/lifecycle + 2 compaction resilience + 1 session stop):
+- **Hook-based enforcement**: 16 event-driven hook scripts provide deterministic guardrails (9 enforcement + 3 quality/lifecycle + 2 compaction resilience + 2 session stop):
 
 | Hook | Event | Purpose |
 |------|-------|---------|
@@ -664,6 +666,7 @@ Rune uses Elden Ring-inspired theming:
 | — | SessionStart:startup\|resume\|clear\|compact | Workflow routing context loader |
 | — | PreCompact:manual\|auto | Team state checkpoint before compaction |
 | — | SessionStart:compact | Team state re-injection after compaction |
+| ARC-BATCH-STOP | Stop | Drives arc-batch loop via Stop hook pattern — reads state file, marks plan completed, re-injects next arc prompt |
 | STOP-001 | Stop | Detects active workflows on session end, blocks exit with cleanup instructions |
 
 ## Requirements

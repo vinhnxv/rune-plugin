@@ -51,6 +51,11 @@ if [[ -L "$STATE_FILE" ]]; then
   exit 0
 fi
 
+# NOTE: This hook deliberately does NOT check stop_hook_active (unlike on-session-stop.sh).
+# The arc-batch loop re-injects prompts via decision=block, which triggers new Claude turns.
+# Each turn ends → Stop hook fires again → this is the intended loop mechanism.
+# Checking stop_hook_active would break the loop by exiting early on re-entry.
+
 # ── Parse YAML frontmatter from state file ──
 # Format: --- ... --- with key: value pairs
 FRONTMATTER=$(sed -n '/^---$/,/^---$/p' "$STATE_FILE" 2>/dev/null | sed '1d;$d')
@@ -71,10 +76,23 @@ ITERATION=$(get_field "iteration")
 MAX_ITERATIONS=$(get_field "max_iterations")
 TOTAL_PLANS=$(get_field "total_plans")
 NO_MERGE=$(get_field "no_merge")
-PLUGIN_DIR=$(get_field "plugin_dir")
-PLANS_FILE=$(get_field "plans_file")
 PROGRESS_FILE=$(get_field "progress_file")
-STARTED_AT=$(get_field "started_at")
+
+# ── GUARD 5.5: Validate PROGRESS_FILE path (SEC-001: path traversal prevention) ──
+if [[ -z "$PROGRESS_FILE" ]] || [[ "$PROGRESS_FILE" == *".."* ]] || [[ "$PROGRESS_FILE" == /* ]]; then
+  rm -f "$STATE_FILE" 2>/dev/null
+  exit 0
+fi
+# Reject shell metacharacters (only allow alphanumeric, dot, slash, hyphen, underscore)
+if [[ "$PROGRESS_FILE" =~ [^a-zA-Z0-9._/-] ]]; then
+  rm -f "$STATE_FILE" 2>/dev/null
+  exit 0
+fi
+# Reject symlinks on progress file
+if [[ -L "${CWD}/${PROGRESS_FILE}" ]]; then
+  rm -f "$STATE_FILE" 2>/dev/null
+  exit 0
+fi
 
 # ── GUARD 6: Validate active flag ──
 if [[ "$ACTIVE" != "true" ]]; then
@@ -123,8 +141,9 @@ if [[ -z "$UPDATED_PROGRESS" ]]; then
   exit 0
 fi
 
-# Write updated progress
-echo "$UPDATED_PROGRESS" > "${CWD}/${PROGRESS_FILE}"
+# Write updated progress (atomic: temp+mv on same filesystem)
+TMPFILE=$(mktemp "${CWD}/${PROGRESS_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }
+echo "$UPDATED_PROGRESS" > "$TMPFILE" && mv -f "$TMPFILE" "${CWD}/${PROGRESS_FILE}" || { rm -f "$TMPFILE" "$STATE_FILE" 2>/dev/null; exit 0; }
 
 # ── Find next pending plan ──
 NEXT_PLAN=$(echo "$UPDATED_PROGRESS" | jq -r '
@@ -146,7 +165,10 @@ if [[ -z "$NEXT_PLAN" ]]; then
   ' 2>/dev/null || true)
 
   if [[ -n "$FINAL_PROGRESS" ]]; then
-    echo "$FINAL_PROGRESS" > "${CWD}/${PROGRESS_FILE}"
+    TMPFILE=$(mktemp "${CWD}/${PROGRESS_FILE}.XXXXXX" 2>/dev/null)
+    if [[ -n "$TMPFILE" ]]; then
+      echo "$FINAL_PROGRESS" > "$TMPFILE" && mv -f "$TMPFILE" "${CWD}/${PROGRESS_FILE}" || rm -f "$TMPFILE" 2>/dev/null
+    fi
   fi
 
   # Remove state file — next Stop event will allow session end
@@ -178,12 +200,23 @@ Present the summary clearly and concisely."
 fi
 
 # ── MORE PLANS TO PROCESS ──
+# ── GUARD 9: Validate NEXT_PLAN path (SEC-002: prompt injection prevention) ──
+if [[ "$NEXT_PLAN" == *".."* ]] || [[ "$NEXT_PLAN" == /* ]] || [[ "$NEXT_PLAN" =~ [^a-zA-Z0-9._/-] ]]; then
+  rm -f "$STATE_FILE" 2>/dev/null
+  exit 0
+fi
+
 # Increment iteration in state file (portable sed)
 NEW_ITERATION=$((ITERATION + 1))
 if [[ "$(uname)" == "Darwin" ]]; then
   sed -i '' "s/^iteration: ${ITERATION}$/iteration: ${NEW_ITERATION}/" "$STATE_FILE"
 else
   sed -i "s/^iteration: ${ITERATION}$/iteration: ${NEW_ITERATION}/" "$STATE_FILE"
+fi
+# Verify sed updated the iteration (silent failure → infinite loop risk)
+if ! grep -q "^iteration: ${NEW_ITERATION}$" "$STATE_FILE" 2>/dev/null; then
+  rm -f "$STATE_FILE" 2>/dev/null
+  exit 0
 fi
 
 # Mark next plan as in_progress
@@ -196,7 +229,10 @@ NEXT_PROGRESS=$(echo "$UPDATED_PROGRESS" | jq --arg plan "$NEXT_PLAN" --arg ts "
 ' 2>/dev/null || true)
 
 if [[ -n "$NEXT_PROGRESS" ]]; then
-  echo "$NEXT_PROGRESS" > "${CWD}/${PROGRESS_FILE}"
+  TMPFILE=$(mktemp "${CWD}/${PROGRESS_FILE}.XXXXXX" 2>/dev/null)
+  if [[ -n "$TMPFILE" ]]; then
+    echo "$NEXT_PROGRESS" > "$TMPFILE" && mv -f "$TMPFILE" "${CWD}/${PROGRESS_FILE}" || rm -f "$TMPFILE" 2>/dev/null
+  fi
 fi
 
 # ── Build merge flag ──

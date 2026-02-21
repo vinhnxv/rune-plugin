@@ -17,7 +17,7 @@ SKILL.md (orchestration layer)
 
 scripts/arc-batch-stop-hook.sh (Stop hook — loop driver)
   ├── Guard: jq available?
-  ├── Guard: stdin cap (64KB)
+  ├── Guard: stdin cap (1MB)
   ├── Guard: CWD extraction from hook input
   ├── Guard: .claude/arc-batch-loop.local.md exists?
   ├── Guard: symlink check
@@ -125,7 +125,7 @@ Final iteration:
 | State file is symlink | Stop hook exits 0 (security guard) | arc-batch-stop-hook.sh |
 | State file corrupt/non-YAML | Stop hook removes state file, exits 0 | arc-batch-stop-hook.sh |
 | jq unavailable | Stop hook exits 0 (cannot parse progress) | arc-batch-stop-hook.sh |
-| stdin exceeds 64KB | Stop hook exits 0 (safety cap) | arc-batch-stop-hook.sh |
+| stdin exceeds 1MB | Stop hook exits 0 (safety cap) | arc-batch-stop-hook.sh |
 | max_iterations reached | Stop hook removes state file, exits 0 | arc-batch-stop-hook.sh |
 | Progress file missing | Stop hook removes state file, exits 0 | arc-batch-stop-hook.sh |
 | No more pending plans | Stop hook removes state file, blocks with summary prompt | arc-batch-stop-hook.sh |
