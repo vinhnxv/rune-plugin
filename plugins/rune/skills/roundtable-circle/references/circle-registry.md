@@ -149,6 +149,37 @@ When `/rune:audit --focus <area>` is used, only summon the relevant Ash(s):
 
 Focus mode increases context budget per Ash since fewer are competing for resources.
 
+### CLI-Backed Ashes (External Model, v1.57.0+)
+
+> **External CLI** — CLI-backed Ashes invoke external model CLIs (e.g., `gemini`, `llama`) via Bash,
+> similar to Codex Oracle. Defined in `ashes.custom[]` with `cli:` field. Auto-detected via
+> `detectExternalModel()`, conditionally summoned. Uses the parameterized
+> [external-model-template.md](ash-prompts/external-model-template.md) prompt.
+
+| Aspect | Description |
+|--------|-------------|
+| **Activation** | `detectExternalModel()` succeeds AND workflow matches config |
+| **Sub-cap** | `max_cli_ashes` (default: 2) — separate from Codex Oracle gate |
+| **Context budget** | From `ashes.custom[].context_budget` (configurable per entry) |
+| **Finding prefix** | From `ashes.custom[].finding_prefix` (2-5 uppercase chars) |
+| **Dedup position** | Below CDX in default hierarchy; built-in prefixes always precede |
+| **Prompt template** | `ash-prompts/external-model-template.md` (parameterized) |
+
+**Example entry (from talisman.yml):**
+```yaml
+- name: "gemini-oracle"
+  cli: "gemini"
+  model: "gemini-2.5-pro"
+  output_format: "json"
+  finding_prefix: "GEM"
+  timeout: 300
+  workflows: [review, audit]
+  trigger: { always: true }
+  context_budget: 20
+```
+
+**Registry pattern:** Each CLI-backed Ash appears in the Circle as a named Ash with its own finding prefix, prompt wrapper, and Seal. It participates in standard dedup, TOME aggregation, and Truthsight verification — identical lifecycle to agent-backed custom Ashes.
+
 ### Deep Investigation Ashes (Audit --deep only)
 
 > **Separate lifecycle** — Deep Ashes run in Pass 2 of a two-pass deep audit.

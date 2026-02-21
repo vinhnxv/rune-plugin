@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.57.0] - 2026-02-21
+
+### Added
+- **Multi-Model Adversarial Review Framework**: CLI-backed Ashes via `cli:` discriminated union in `ashes.custom[]`. Register external model CLIs (e.g., Gemini, Llama) as review agents alongside Claude-based Ashes
+- **Crystallized Brief**: Mandatory Non-Goals, Constraint Classification, Success Criteria, and Scope Boundary sections in brainstorm output. Non-goals propagated to synthesize templates and worker prompts as nonce-bounded data blocks
+- **Semantic Drift Detection**: STEP A.9 claim extraction with multi-keyword grep matching + batched Codex claim verification producing `[CDX-DRIFT-NNN]` findings
+- **External model prompt template**: Parameterized `external-model-template.md` with ANCHOR/RE-ANCHOR Truthbinding format, 4-step Hallucination Guard, and nonce-bounded content injection
+- **5 new security patterns**: `CLI_BINARY_PATTERN`, `OUTPUT_FORMAT_ALLOWLIST`, `MODEL_NAME_PATTERN`, `CLI_PATH_VALIDATION`, `CLI_TIMEOUT_PATTERN` in security-patterns.md
+- **`detectExternalModel()` and `detectAllCLIAshes()`**: Generalized CLI detection algorithm in codex-detection.md
+- **`max_cli_ashes` setting**: Sub-partition within `max_ashes` for CLI-backed Ashes (default: 2)
+- **Rune Gaze CLI gate loop**: Multi-model selection for CLI-backed Ashes with `trigger.always` support
+- **Built-in dedup precedence enforcement**: External model prefixes must follow built-in prefixes in hierarchy
+
+### Changed
+- Custom Ashes wrapper prompt migrated from `CRITICAL RULES/REMINDER` to `ANCHOR/RE-ANCHOR` format
+- `sanitizePlanContent()` extended with Truthbinding marker, YAML frontmatter, and inline HTML stripping
+- Synthesize templates (Standard + Comprehensive) now include `non_goals:` frontmatter, `## Non-Goals`, and `## Success Criteria` sections
+
 ## [1.56.0] - 2026-02-21
 
 ### Added

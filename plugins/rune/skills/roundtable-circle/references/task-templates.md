@@ -74,6 +74,22 @@ TaskCreate({
 })
 ```
 
+### CLI-Backed Ash (External Model, v1.57.0+)
+
+```
+TaskCreate({
+  subject: "Review code as {name} (external model via {cli_binary})",
+  description: "CLI: {cli_binary} --model {model_name}\nFiles: {matched_files}\nOutput: tmp/reviews/{id}/{name}.md\nPerspectives: cross-model security, logic, quality ({model_name})\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary\nNote: Requires {cli_binary} CLI. Conditional — skipped if CLI unavailable.",
+  activeForm: "Running cross-model review via {name} ({cli_binary})"
+})
+```
+
+**Key differences from agent-backed Ash:**
+- Uses `external-model-template.md` prompt instead of agent-specific prompt
+- CLI execution via `timeout {timeout} {cli_binary} -- "{model_name}" ...`
+- Subject to `max_cli_ashes` sub-cap (default: 2, separate from Codex Oracle)
+- Detection via `detectExternalModel()` instead of agent file resolution
+
 ## Audit Mode Templates
 
 Identical to review mode except:
