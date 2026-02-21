@@ -176,7 +176,7 @@ arc:
 
   ship:
     auto_pr: true
-    auto_merge: false
+    auto_merge: true
     merge_strategy: "squash"
     wait_ci: false
     draft: false
