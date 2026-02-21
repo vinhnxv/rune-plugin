@@ -21,6 +21,7 @@ scripts/arc-batch-stop-hook.sh (Stop hook — loop driver)
   ├── Guard: CWD extraction from hook input
   ├── Guard: .claude/arc-batch-loop.local.md exists?
   ├── Guard: symlink check
+  ├── Guard: session isolation (config_dir + owner_pid)
   ├── Guard: active flag = true?
   ├── Guard: numeric field validation
   ├── Guard: max_iterations reached?
@@ -58,6 +59,9 @@ max_iterations: 0
 total_plans: 4
 no_merge: false
 plugin_dir: /path/to/rune/plugin
+config_dir: /Users/user/.claude
+owner_pid: 12345
+session_id: abc-123-def-456
 plans_file: tmp/arc-batch/plan-list.txt
 progress_file: tmp/arc-batch/batch-progress.json
 started_at: "2026-02-21T00:00:00Z"
@@ -134,6 +138,10 @@ Final iteration:
 | Cancel mid-batch | `/rune:cancel-arc-batch` removes state file | commands/cancel-arc-batch.md |
 | Cancel arc also cancels batch | `/rune:cancel-arc` Step 0 removes batch state file | commands/cancel-arc.md |
 | on-session-stop.sh conflict | GUARD 5 defers when batch state file present | scripts/on-session-stop.sh |
+| Cross-session interference | Two-layer isolation: config_dir (installation) + owner_pid (process). Dead owner = orphaned batch cleanup | arc-batch-stop-hook.sh |
+| Concurrent batch creation | Pre-creation guard checks if state file exists with a live owner. Blocks with error if another session owns it | SKILL.md Phase 5 |
+| Cancel from wrong session | Ownership warning on cancel commands (still allows cancellation) | cancel-arc-batch.md, cancel-arc.md |
+| on-session-stop.sh deferral | Only defers to arc-batch hook if this session owns the batch | on-session-stop.sh |
 | Stale teams between plans | Stop hook cleans teams/tasks dirs | arc-batch-stop-hook.sh |
 
 ## V1 Edge Cases (REMOVED — v1.59.0)

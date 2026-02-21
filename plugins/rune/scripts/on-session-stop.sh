@@ -49,11 +49,41 @@ if [[ -z "$CWD" || "$CWD" != /* ]]; then
   exit 0
 fi
 
-# ── GUARD 5: Defer to arc-batch stop hook ──
-# When arc-batch loop is active, arc-batch-stop-hook.sh handles the Stop event.
-# This prevents conflicting cleanup.
-if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
-  exit 0
+# ── Session identity for cross-session ownership filtering ──
+# Sourced early (before GUARD 5) so all ownership checks use the same RUNE_CURRENT_CFG.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=resolve-session-identity.sh
+source "${SCRIPT_DIR}/resolve-session-identity.sh"
+
+# ── GUARD 5: Defer to arc-batch stop hook (with ownership check) ──
+# When arc-batch loop is active AND belongs to THIS session, arc-batch-stop-hook.sh
+# handles the Stop event. Only defer if we're the owning session.
+# If the batch belongs to another session, proceed with normal cleanup for THIS session.
+if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
+  # QUAL-6: Intentional duplication of YAML field extraction (vs arc-batch-stop-hook.sh get_field).
+  # This script only needs 2 fields from one specific file. Adding a sourced helper dependency
+  # for 3 lines would increase complexity in a time-sensitive Stop hook (5s timeout).
+  _BATCH_FM=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null | sed '1d;$d')
+  _BATCH_CFG=$(echo "$_BATCH_FM" | grep "^config_dir:" | sed 's/^config_dir:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+  _BATCH_PID=$(echo "$_BATCH_FM" | grep "^owner_pid:" | sed 's/^owner_pid:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+
+  _is_owner=true
+  # Check config_dir (uses RUNE_CURRENT_CFG from resolve-session-identity.sh)
+  if [[ -n "$_BATCH_CFG" && "$_BATCH_CFG" != "$RUNE_CURRENT_CFG" ]]; then
+    _is_owner=false
+  fi
+  # Check PID
+  if [[ "$_is_owner" == "true" && -n "$_BATCH_PID" && "$_BATCH_PID" =~ ^[0-9]+$ && "$_BATCH_PID" != "$PPID" ]]; then
+    if kill -0 "$_BATCH_PID" 2>/dev/null; then
+      _is_owner=false
+    fi
+  fi
+
+  if [[ "$_is_owner" == "true" ]]; then
+    # This session owns the batch — defer to arc-batch-stop-hook.sh
+    exit 0
+  fi
+  # Not our batch — proceed with normal cleanup for THIS session
 fi
 
 # ── CHOME resolution ──
@@ -76,6 +106,13 @@ if [[ -d "${CWD}/tmp/" ]]; then
     # This prevents matching old state files from previous workflows
     tname=$(jq -r 'select(.status == "active") | .team_name // empty' "$sf" 2>/dev/null || true)
     if [[ -n "$tname" ]] && [[ "$tname" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+      # ── Ownership filter: only collect teams from THIS session ──
+      sf_cfg=$(jq -r '.config_dir // empty' "$sf" 2>/dev/null || true)
+      sf_pid=$(jq -r '.owner_pid // empty' "$sf" 2>/dev/null || true)
+      if [[ -n "$sf_cfg" && "$sf_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+      if [[ -n "$sf_pid" && "$sf_pid" =~ ^[0-9]+$ && "$sf_pid" != "$PPID" ]]; then
+        kill -0 "$sf_pid" 2>/dev/null && continue  # alive = different session
+      fi
       state_team_names+=("$tname")
     fi
   done
@@ -145,6 +182,13 @@ if [[ -d "${CWD}/tmp/" ]]; then
     [[ ! -f "$f" ]] && continue
     [[ -L "$f" ]] && continue
     if jq -e '.status == "active"' "$f" >/dev/null 2>&1; then
+      # ── Ownership filter: only mark THIS session's state files as stopped ──
+      f_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+      f_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+      if [[ -n "$f_cfg" && "$f_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+      if [[ -n "$f_pid" && "$f_pid" =~ ^[0-9]+$ && "$f_pid" != "$PPID" ]]; then
+        kill -0 "$f_pid" 2>/dev/null && continue  # alive = different session
+      fi
       # Update status to "stopped" (not "completed" — distinguishes clean exit from crash)
       jq '.status = "stopped" | .stopped_by = "STOP-001"' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null
       fname="${f##*/}"
@@ -172,6 +216,13 @@ if [[ -d "${CWD}/.claude/arc/" ]]; then
       continue
     fi
     if jq -e '.phases | to_entries | map(.value.status) | any(. == "in_progress")' "$f" >/dev/null 2>&1; then
+      # ── Ownership filter: only cancel THIS session's arc checkpoints ──
+      f_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+      f_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+      if [[ -n "$f_cfg" && "$f_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+      if [[ -n "$f_pid" && "$f_pid" =~ ^[0-9]+$ && "$f_pid" != "$PPID" ]]; then
+        kill -0 "$f_pid" 2>/dev/null && continue  # alive = different session
+      fi
       # Cancel all in_progress phases
       jq '.phases |= with_entries(if .value.status == "in_progress" then .value.status = "cancelled" else . end)' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null
       arc_id="${f%/*}"

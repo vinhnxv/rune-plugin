@@ -34,6 +34,11 @@ if [[ -z "$CHOME" ]] || [[ "$CHOME" != /* ]]; then
   exit 0
 fi
 
+# ── Session identity for cross-session ownership filtering ──
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=resolve-session-identity.sh
+source "${SCRIPT_DIR}/resolve-session-identity.sh"
+
 # Count orphaned team dirs (older than 30 min)
 orphan_count=0
 orphan_names=()
@@ -76,6 +81,13 @@ stale_state_count=$(
         # SEC-4 FIX: Use jq for precise status extraction instead of grep string match
         file_status=$(jq -r '.status // empty' "$f" 2>/dev/null || true)
         if [[ "$file_status" == "active" ]]; then
+          # ── Ownership filter: only count THIS session's stale state files ──
+          sf_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+          sf_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+          if [[ -n "$sf_cfg" && "$sf_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+          if [[ -n "$sf_pid" && "$sf_pid" =~ ^[0-9]+$ && "$sf_pid" != "$PPID" ]]; then
+            kill -0 "$sf_pid" 2>/dev/null && continue  # alive = different session
+          fi
           count=$((count + 1))
         fi
       fi

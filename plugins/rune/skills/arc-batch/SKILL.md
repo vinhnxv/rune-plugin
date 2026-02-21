@@ -204,6 +204,41 @@ const talisman = readTalisman()
 const batchConfig = talisman?.arc?.batch || {}
 const autoMerge = noMerge ? false : (batchConfig.auto_merge ?? true)
 
+// ── Resolve session identity for cross-session isolation ──
+// Two isolation layers prevent cross-session interference:
+//   Layer 1: config_dir — isolates different Claude Code installations
+//   Layer 2: owner_pid — isolates different sessions with same config dir
+// $PPID in Bash = Claude Code process PID (Bash runs as child of Claude Code)
+const configDir = Bash(`cd "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
+// ── Pre-creation guard: check for existing batch from another session ──
+const existingState = Read(".claude/arc-batch-loop.local.md") // returns null/error if not found
+if (existingState && existingState.includes("active: true")) {
+  const existingPid = existingState.match(/owner_pid:\s*(\d+)/)?.[1]
+  const existingCfg = existingState.match(/config_dir:\s*(.+)/)?.[1]?.trim()
+
+  let ownedByOther = false
+  if (existingCfg && existingCfg !== configDir) {
+    ownedByOther = true
+  }
+  if (!ownedByOther && existingPid && /^\d+$/.test(existingPid) && existingPid !== ownerPid) {
+    // Check if other session is alive (SEC-1: numeric guard before shell interpolation)
+    const alive = Bash(`kill -0 ${existingPid} 2>/dev/null && echo "alive" || echo "dead"`).trim()
+    if (alive === "alive") {
+      ownedByOther = true
+    }
+  }
+
+  if (ownedByOther) {
+    error("Another session is already running arc-batch on this repo.")
+    error("Cancel it first with /rune:cancel-arc-batch, or wait for it to finish.")
+    return
+  }
+  // Owner is dead → orphaned state file. Safe to overwrite.
+  warn("Found orphaned batch state file (previous session crashed). Overwriting.")
+}
+
 // ── Write state file for Stop hook ──
 // Format matches ralph-wiggum's .local.md convention (YAML frontmatter)
 Write(".claude/arc-batch-loop.local.md", `---
@@ -213,6 +248,9 @@ max_iterations: 0
 total_plans: ${planPaths.length}
 no_merge: ${!autoMerge}
 plugin_dir: ${pluginDir}
+config_dir: ${configDir}
+owner_pid: ${ownerPid}
+session_id: ${CLAUDE_SESSION_ID}
 plans_file: ${planListFile}
 progress_file: ${progressFile}
 started_at: "${new Date().toISOString()}"

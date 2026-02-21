@@ -323,10 +323,17 @@ Write(`${signalDir}/inscription.json`, JSON.stringify({
 Bash(`mkdir -p "tmp/work/${timestamp}/patches" "tmp/work/${timestamp}/proposals" "tmp/work/${timestamp}/todos"`)
 
 // 3. Write state file (includes worktree_mode when active)
+// ── Resolve session identity for cross-session isolation ──
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
 Write("tmp/.rune-work-{timestamp}.json", {
   team_name: "rune-work-{timestamp}",
   started: new Date().toISOString(),
   status: "active",
+  config_dir: configDir,
+  owner_pid: ownerPid,
+  session_id: "${CLAUDE_SESSION_ID}",
   plan: planPath,
   expected_workers: workerCount,
   ...(worktreeMode && {
@@ -1422,12 +1429,15 @@ if (didStash) {
   }
 }
 
-// 4. Update state file to completed
+// 4. Update state file to completed (preserve session identity from active write)
 Write("tmp/.rune-work-{timestamp}.json", {
   team_name: "rune-work-{timestamp}",
   started: startTimestamp,
   status: "completed",
   completed: new Date().toISOString(),
+  config_dir: configDir,
+  owner_pid: ownerPid,
+  session_id: "${CLAUDE_SESSION_ID}",
   plan: planPath,
   expected_workers: workerCount
 })

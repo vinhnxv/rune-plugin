@@ -304,9 +304,13 @@ If already on a feature branch, use the current branch.
 #   4. Lock file cleanup in each command's Phase 6/7 cleanup step
 const MAX_CHECKPOINT_AGE = 604_800_000  // 7 days in ms — abandoned checkpoints ignored
 
+# ZSH-COMPAT: Resolve CHOME for CLAUDE_CONFIG_DIR support (avoids ~ expansion issues in zsh)
+CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
 if command -v jq >/dev/null 2>&1; then
   # SEC-5 FIX: Place -maxdepth before -name for POSIX portability (BSD find on macOS)
-  active=$(find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
+  # FIX: Search CWD-scoped .claude/arc/ (where checkpoints live), not $CHOME/arc/ (wrong directory)
+  active=$(find "${CWD}/.claude/arc" -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
     # Skip checkpoints older than 7 days (abandoned)
     started_at=$(jq -r '.started_at // empty' "$f" 2>/dev/null)
     if [ -n "$started_at" ]; then
@@ -314,7 +318,8 @@ if command -v jq >/dev/null 2>&1; then
       # Parse failure → epoch=0 → age=now-0=currentTimestamp → exceeds 7-day threshold → skipped as stale.
       epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${started_at%%.*}" +%s 2>/dev/null || date -d "${started_at}" +%s 2>/dev/null || echo 0)
       # SEC-002 FIX: Validate epoch is numeric before arithmetic (defense against malformed started_at)
-      if ! [[ "$epoch" =~ ^[0-9]+$ ]]; then continue; fi
+      # ZSH-COMPAT: `! [[ ]]` → `[[ ! ]]` to avoid zsh history expansion of `!`
+      if [[ ! "$epoch" =~ ^[0-9]+$ ]]; then continue; fi
       [ "$epoch" -eq 0 ] && echo "WARNING: Failed to parse started_at: $started_at" >&2
       age_s=$(( $(date +%s) - epoch ))
       # Skip if age is negative (future timestamp = suspicious) or > 7 days (abandoned)
@@ -329,7 +334,7 @@ if command -v jq >/dev/null 2>&1; then
 else
   # NOTE: grep fallback is imprecise — matches "in_progress" anywhere in file, not field-specific.
   # Acceptable as degraded-mode check when jq is unavailable. The jq path above is the robust check.
-  active=$(find .claude/arc -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
+  active=$(find "${CWD}/.claude/arc" -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
     if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then basename "$(dirname "$f")"; fi
   done)
 fi
@@ -647,8 +652,13 @@ const changedFiles = diffStats.files || []
 // Calculate dynamic total timeout based on tier
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 
+// ── Resolve session identity for cross-session isolation ──
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
 Write(`.claude/arc/${id}/checkpoint.json`, {
   id, schema_version: 11, plan_file: planFile,
+  config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
   pr_url: null,
@@ -752,8 +762,8 @@ for (const prefix of ARC_TEAM_PREFIXES) {
 On resume, validate checkpoint integrity before proceeding:
 
 ```
-1. Find most recent checkpoint: find .claude/arc -maxdepth 2 -name checkpoint.json -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1
-2. Read .claude/arc/{id}/checkpoint.json — extract plan_file for downstream phases
+1. Find most recent checkpoint: find "${CWD}/.claude/arc" -maxdepth 2 -name checkpoint.json -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1
+2. Read "${CWD}/.claude/arc/{id}/checkpoint.json" — extract plan_file for downstream phases
 2b. Validate session_nonce from checkpoint (prevents tampering):
    ```javascript
    if (!/^[0-9a-f]{12}$/.test(checkpoint.session_nonce)) {

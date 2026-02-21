@@ -891,10 +891,17 @@ if (cycleCount > 1) {
 Bash("mkdir -p tmp/reviews/{identifier}")
 
 // 3. Write state file
+// ── Resolve session identity for cross-session isolation ──
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
 Write("tmp/.rune-review-{identifier}.json", {
   team_name: "rune-review-{identifier}",
   started: timestamp,
   status: "active",
+  config_dir: configDir,
+  owner_pid: ownerPid,
+  session_id: "${CLAUDE_SESSION_ID}",
   expected_files: selectedAsh.map(r => `tmp/reviews/${identifier}/${r}.md`)
 })
 
@@ -1443,12 +1450,15 @@ if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-review-${identifier}/" "$CHOME/tasks/rune-review-${identifier}/" 2>/dev/null`)
 }
 
-// 4. Update state file to completed
+// 4. Update state file to completed (preserve session identity from active write)
 Write("tmp/.rune-review-{identifier}.json", {
   team_name: "rune-review-{identifier}",
   started: timestamp,
   status: "completed",
   completed: new Date().toISOString(),
+  config_dir: configDir,
+  owner_pid: ownerPid,
+  session_id: "${CLAUDE_SESSION_ID}",
   expected_files: selectedAsh.map(r => `tmp/reviews/${identifier}/${r}.md`)
 })
 
