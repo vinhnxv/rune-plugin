@@ -333,7 +333,7 @@ This replaces the patch-based `meta.files` collection from commitBroker. The out
 ## Integration Points
 
 - **Phase 0**: `worktreeMode` flag determines which broker is active
-- **Phase 1**: Wave computation runs after file ownership serialization (step 5.3)
+- **Phase 1 (Forge Team)**: Wave computation runs after dependency linking (sub-step 5.3 of TaskCreate loop in work.md)
 - **Phase 2**: Workers spawned with `isolation: "worktree"` per wave
 - **Phase 3**: Wave-aware monitoring loop (monitor current wave, merge, spawn next)
 - **Phase 3.5**: `mergeBroker()` replaces `commitBroker()` when `worktreeMode === true`

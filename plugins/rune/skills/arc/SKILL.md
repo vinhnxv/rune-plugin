@@ -94,6 +94,8 @@ Chains twenty phases into a single automated pipeline: forge, plan review, plan 
 | `--no-test` | Skip Phase 7.7 (testing). Skips unit, integration, and E2E test tiers | Off |
 | `--draft` | Create PR as draft. Overrides `arc.ship.draft` from talisman | Off |
 
+> **Note**: Worktree mode for `/rune:work` (Phase 5) is activated via `work.worktree.enabled: true` in talisman.yml, not via a `--worktree` flag on arc. Arc delegates Phase 5 to `/rune:work`, which reads the talisman setting directly.
+
 ## Pipeline Overview
 
 ```
@@ -1632,6 +1634,9 @@ Next steps:
 // prePhaseCleanup only runs BEFORE each phase — nothing cleans up AFTER the last phase.
 // Without this, teammates survive and the lead spins on idle notifications indefinitely.
 
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+
 try {
   // Strategy A: Discover remaining teammates from checkpoint and shutdown
   // Iterate ALL phases with recorded team_name (not just the last one —
@@ -1645,8 +1650,7 @@ try {
 
     // Try to read team config to discover live members
     try {
-      // Read() resolves CLAUDE_CONFIG_DIR automatically (SDK call)
-      const teamConfig = Read(`~/.claude/teams/${teamName}/config.json`)
+      const teamConfig = Read(`${CHOME}/teams/${teamName}/config.json`)
       const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
       const memberNames = members.map(m => m.name).filter(Boolean)
 

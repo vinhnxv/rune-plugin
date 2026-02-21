@@ -19,6 +19,7 @@ description: |
   assistant: "Conflict detected in src/api.ts during Wave 1 merge. Escalating to user."
   </example>
 user-invocable: false
+disable-model-invocation: false  # Intentional: model loads this skill when worktree mode detected
 allowed-tools:
   - Read
   - Glob
@@ -60,7 +61,8 @@ Each worker's worktree follows this lifecycle:
 
 3. COMMIT — Worker commits directly (replaces patch generation)
    - git add <specific-files>
-   - git commit -m "rune: {subject} [ward-checked]"
+   - Write commit message to a temp file
+   - git commit -F <commit-msg-file>  # SEC-011: no inline -m
    - Exactly ONE commit per task (enforced by prompt)
    - Worker MUST NOT push or merge
 

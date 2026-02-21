@@ -32,6 +32,8 @@ settings:
   dedup_hierarchy:
     - SEC
     - BACK
+    - VEIL
+    - DOUBT
     - DOC
     - QUAL
     - FRONT
@@ -89,7 +91,7 @@ work:
   # SEC: ward_commands are executed as raw shell. Changes to this file should be reviewed for command injection.
   ward_commands:
     # NOTE: This command uses Bash process substitution (<(...)). Ensure shell is Bash.
-    - "echo 'ward: checking plugin.json sync' && diff <(jq -r .version plugins/rune/.claude-plugin/plugin.json) <(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)"
+    - "echo 'ward: checking plugin.json sync' && [ \"$(jq -r .version plugins/rune/.claude-plugin/plugin.json)\" = \"$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)\" ]"
   max_workers: 3
   approve_timeout: 180
   commit_format: "rune: {subject} [ward-checked]"

@@ -152,10 +152,10 @@ Return a numbered list. Each entry: brief description + why it matters.`
   const promptPath = `tmp/.rune-trial-forger-codex-${Date.now()}.txt`
   Write(promptPath, edgeCasePrompt)
 
-  const edgeCaseResult = Bash(`timeout ${codexTimeout} codex exec \
+  const edgeCaseResult = Bash(`cat "${promptPath}" | timeout ${codexTimeout} codex exec \
     -m "${codexModel}" --config model_reasoning_effort="${codexReasoning}" \
     --sandbox read-only --full-auto --skip-git-repo-check \
-    "$(cat "${promptPath}")" 2>/dev/null`)
+    - 2>/dev/null`)
 
   // Cleanup temp prompt file
   Bash(`rm -f "${promptPath}" 2>/dev/null`)
