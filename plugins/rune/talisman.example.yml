@@ -197,7 +197,23 @@ audit:
       - fringe-watcher
     max_deep_ashes: 4
     timeout_multiplier: 1.5
+    dimensions:                      # Select which dimensions to run (default: all 7)
+      - truth-seeker                 # Correctness (CORR)
+      - ruin-watcher                 # Failure Modes (FAIL)
+      - breach-hunter                # Security-deep (DSEC)
+      - order-auditor                # Design (DSGN)
+      - ember-seer                   # Performance (RSRC)
+      - signal-watcher               # Observability (OBSV)
+      - decay-tracer                 # Maintainability (MTNB)
+    max_dimension_agents: 7          # Cap on dimension agents per pass (1-8)
   always_deep: false              # When true, all audits run deep pass without --deep flag
+  # Audit-mend convergence (arc only, v1.58.0+)
+  audit_mend:
+    enabled: true                    # Enable audit-mend loop in arc
+    scope: "p1p2"                    # "p1" = P1 only, "p1p2" = P1+P2, "all" = all
+    max_cycles: 2                    # Max audit-mend cycles (1-3)
+    known_issues_cap: 10             # Max findings in PR "Known Issues"
+    p1_hard_gate: true               # P1 must be 0 before ship
 
 # ──────────────────────────────────────────────
 # Defaults — Disable built-in Ash

@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.58.0] - 2026-02-21
+
+### Added
+- **7 new deep dimension investigation agents** for `/rune:audit --deep`:
+  - `truth-seeker` — Correctness: logic vs requirements, behavior validation, test quality (CORR prefix)
+  - `ruin-watcher` — Failure modes: resilience, retry, crash recovery, circuit breakers (FAIL prefix)
+  - `breach-hunter` — Security-deep: threat modeling, auth boundaries, data exposure (DSEC prefix)
+  - `order-auditor` — Design: responsibility separation, dependency direction, coupling (DSGN prefix)
+  - `ember-seer` — Performance-deep: resource lifecycle, memory, blocking, pool management (RSRC prefix)
+  - `signal-watcher` — Observability: logging context, metrics, traces, error classification (OBSV prefix)
+  - `decay-tracer` — Maintainability: naming intent, complexity hotspots, convention drift (MTNB prefix)
+- **7 deep dimension ash prompt templates** for deep investigation Pass 2
+- **Extended dedup hierarchy** with 7 new dimension prefixes: CORR, FAIL, DSEC, DSGN, RSRC, OBSV, MTNB
+- **Combined deep hierarchy**: CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > DSGN > RSRC > OBSV > MTNB
+- **Circle registry update**: Deep Dimension Ashes section with 7 new entries alongside existing 4 investigation agents
+- **Talisman config**: `audit.deep.dimensions` for selecting which dimension agents to run
+
+### Changed
+- Deep investigation Ashes capacity increased from 4 to 11 (4 investigation + 7 dimension)
+- Investigation agent count: 16 → 23
+
 ## [1.57.1] - 2026-02-21
 
 ### Added

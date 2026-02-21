@@ -54,7 +54,7 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 - Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
 - Prefix format: 2-5 uppercase alphanumeric characters (A-Z, 0-9)
 - Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `QUAL`, `FRONT`, `DOC`, `CDX` — cannot be used by custom Ash
-- Reserved deep-audit prefixes (active only when `/rune:audit --deep`): `DEBT`, `INTG`, `BIZL`, `EDGE`
+- Reserved deep-audit prefixes (active only when `/rune:audit --deep`): `DEBT`, `INTG`, `BIZL`, `EDGE`, `CORR`, `FAIL`, `DSEC`, `DSGN`, `RSRC`, `OBSV`, `MTNB`
 - **Note:** `CDX-DRIFT` is an internal Phase 5.6 finding ID used by the Codex gap analysis — it is NOT a custom Ash prefix
 
 ### Deep Audit Extended Hierarchy (v1.56.0+)
@@ -62,12 +62,19 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 When `--deep` flag is active, the dedup hierarchy extends to include deep investigation prefixes:
 
 **Standard hierarchy**: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`
-**Deep hierarchy (full)**: `SEC > BACK > DEBT > INTG > BIZL > EDGE > DOC > QUAL > FRONT > CDX`
+**Deep hierarchy (full)**: `SEC > BACK > CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > DSGN > RSRC > DOC > OBSV > MTNB > QUAL > FRONT > CDX`
 
 **Which hierarchy is used where:**
 - **Pass 1 Runebinder** (TOME-standard.md): Standard hierarchy
-- **Pass 2 Runebinder** (TOME-deep.md): Deep-only hierarchy `DEBT > INTG > BIZL > EDGE`
+- **Pass 2 Runebinder** (TOME-deep.md): Deep sub-hierarchies (see below)
 - **Merge Runebinder** (final TOME.md): Full extended hierarchy
+
+**Merge hierarchy (cross-pass dedup):** `SEC > CORR > FAIL > DSEC > BACK > DSGN > RSRC > VEIL > OBSV > MTNB > DOC > QUAL > FRONT > CDX`
+
+**Pass 2 sub-hierarchies:**
+- Deep investigation sub-hierarchy: `DEBT > INTG > BIZL > EDGE`
+- Deep dimension sub-hierarchy: `CORR > FAIL > DSEC > DSGN > RSRC > OBSV > MTNB`
+- Combined deep hierarchy: `CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > DSGN > RSRC > OBSV > MTNB`
 
 **Cross-pass dedup rules:**
 - Same file:line, same issue → Deep finding SUPERSEDES standard (deeper analysis wins)
@@ -92,6 +99,13 @@ Each Ash uses a unique prefix for finding IDs:
 | strand-tracer | `INTG-` | `INTG-001` | Deep-audit |
 | decree-auditor | `BIZL-` | `BIZL-001` | Deep-audit |
 | fringe-watcher | `EDGE-` | `EDGE-001` | Deep-audit |
+| truth-seeker | `CORR-` | `CORR-001` | Deep-dimension |
+| ruin-watcher | `FAIL-` | `FAIL-001` | Deep-dimension |
+| breach-hunter | `DSEC-` | `DSEC-001` | Deep-dimension |
+| order-auditor | `DSGN-` | `DSGN-001` | Deep-dimension |
+| ember-seer | `RSRC-` | `RSRC-001` | Deep-dimension |
+| signal-watcher | `OBSV-` | `OBSV-001` | Deep-dimension |
+| decay-tracer | `MTNB-` | `MTNB-001` | Deep-dimension |
 | *(custom)* | *from config* | e.g., `DOM-001` | Custom |
 
 Custom Ashes define their prefix in `talisman.yml` → `ashes.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Ashes.

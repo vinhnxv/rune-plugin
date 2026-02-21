@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 55 agents** (21 review + 5 research + 2 work + 11 utility* + 12 investigation + 4 testing)
+**Total: 62 agents** (21 review + 5 research + 2 work + 11 utility* + 19 investigation + 4 testing)
 
 \* 11 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 
@@ -81,6 +81,13 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | ruin-prophet | Failure modes, security posture, and operational readiness inspector |
 | sight-oracle | Design alignment, coupling analysis, and performance profiling inspector |
 | vigil-keeper | Test coverage, observability, maintainability, and documentation inspector |
+| decree-auditor | Business logic decrees — domain rules, state machine gaps, validation inconsistencies, invariant violations |
+| fringe-watcher | Edge cases — missing boundary checks, unhandled null/empty inputs, race conditions, overflow risks |
+| rot-seeker | Tech debt rot — TODOs, deprecated patterns, complexity hotspots, unmaintained code, dependency debt |
+| strand-tracer | Integration strands — unconnected modules, broken imports, unused exports, dead routes, unwired DI |
+| truth-seeker | Correctness truth — logic vs requirements, behavior validation, test quality, state machine correctness |
+| ruin-watcher | Failure modes — network failures, crash recovery, circuit breakers, timeout chains, resource lifecycle |
+| breach-hunter | Security breaches — threat modeling, auth boundary gaps, data exposure vectors, CVE patterns, input sanitization |
 
 ## Testing Agents (`agents/testing/`)
 

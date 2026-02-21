@@ -139,7 +139,7 @@ Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 8, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. Phase 5.8 (GAP REMEDIATION) runs between 5.6 (Codex Gap) and 5.7 (Goldmask) — the non-sequential numbering preserves backward compatibility with older checkpoints. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 8, 8.5, 8.7, 9, 9.5) match the legacy pipeline phases from plan.md and review.md for cross-command consistency. Phases 3 and 4 are reserved. Phase 5.8 (GAP REMEDIATION) runs between 5.6 (Codex Gap) and 5.7 (Goldmask) — the non-sequential numbering preserves backward compatibility with older checkpoints. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
 
 ## Arc Orchestrator Design (ARC-1)
 
@@ -164,7 +164,7 @@ The dispatcher reads only structured summary headers from artifacts, not full co
 ### Phase Constants
 
 ```javascript
-const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'gap_remediation', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'audit', 'ship', 'merge']
+const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'gap_remediation', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'audit', 'audit_mend', 'audit_verify', 'ship', 'merge']
 
 // SETUP_BUDGET: time for team creation, task creation, agent spawning, report, cleanup.
 // MEND_EXTRA_BUDGET: additional time for ward check, cross-file mend, doc-consistency.
@@ -200,19 +200,21 @@ const PHASE_TIMEOUTS = {
   goldmask_verification: talismanTimeouts.goldmask_verification ?? 900_000,  // 15 min (inner 10m + 5m setup)
   goldmask_correlation:  talismanTimeouts.goldmask_correlation ?? 60_000,    //  1 min (orchestrator-only, no team)
   audit:         talismanTimeouts.audit ?? 1_200_000,    // 20 min (inner 15m + 5m setup)
+  audit_mend:    talismanTimeouts.audit_mend ?? 1_380_000,  // 23 min (inner 15m + 8m setup)
+  audit_verify:  talismanTimeouts.audit_verify ?? 240_000,  //  4 min (orchestrator-only)
   ship:          talismanTimeouts.ship ?? 300_000,      //  5 min (orchestrator-only, push + PR creation)
   merge:         talismanTimeouts.merge ?? 600_000,     // 10 min (orchestrator-only, rebase + merge + CI wait)
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// DOC-002 FIX: Base budget sum is ~175.5 min (v1.51.0 gap_remediation + v1.47.0 goldmask + v1.43.0 test):
+// DOC-002 FIX: Base budget sum is ~202.5 min (v1.58.0 audit_mend/verify + v1.51.0 gap_remediation + v1.47.0 goldmask + v1.43.0 test):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
 //   codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) + work(35) + gap_analysis(12) +
-//   goldmask_correlation(1) + test(15) + audit(20) + ship(5) + merge(10) = 175.5 min
-// With E2E: test grows to 40 min → 200.5 min base
-// LIGHT (2 cycles):    175.5 + 42 + 1×26 = 243.5 min → hard cap at 240 min
-// STANDARD (3 cycles): 175.5 + 42 + 2×26 = 269.5 min → hard cap at 240 min
-// THOROUGH (5 cycles): 175.5 + 42 + 4×26 = 321.5 min → hard cap at 240 min
+//   goldmask_correlation(1) + test(15) + audit(20) + audit_mend(23) + audit_verify(4) + ship(5) + merge(10) = 202.5 min
+// With E2E: test grows to 40 min → 227.5 min base
+// LIGHT (2 cycles):    202.5 + 42 + 1×26 = 270.5 min → hard cap at 240 min
+// STANDARD (3 cycles): 202.5 + 42 + 2×26 = 296.5 min → hard cap at 240 min
+// THOROUGH (5 cycles): 202.5 + 42 + 4×26 = 348.5 min → hard cap at 240 min
 const ARC_TOTAL_TIMEOUT_DEFAULT = 9_720_000  // 162 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 14_400_000  // 240 min (4 hours) — absolute hard cap
 const STALE_THRESHOLD = 300_000      // 5 min
@@ -236,7 +238,8 @@ function calculateDynamicTimeout(tier) {
     PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis +
     PHASE_TIMEOUTS.test +                        // v1.43.0: +test (15 min default, 40 min with E2E)
     PHASE_TIMEOUTS.audit +
-    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~175.5 min (v1.51.0: +gap_remediation + v1.47.0: +goldmask + v1.43.0: +test)
+    PHASE_TIMEOUTS.audit_mend + PHASE_TIMEOUTS.audit_verify +  // v1.58.0: +audit_mend (23 min) + audit_verify (4 min)
+    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~202.5 min (v1.58.0: +audit_mend/verify + v1.51.0: +gap_remediation + v1.47.0: +goldmask + v1.43.0: +test)
   const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
   const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
   const maxCycles = tier?.maxCycles ?? 3
@@ -639,7 +642,7 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 10, plan_file: planFile,
+  id, schema_version: 11, plan_file: planFile,
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
   pr_url: null,
@@ -660,10 +663,13 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     test:         { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false },
     audit:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    audit_mend:   { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    audit_verify: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     ship:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     merge:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
   },
   convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [], original_changed_files: changedFiles },
+  audit_convergence: { round: 0, max_rounds: 2, tier: { name: "LIGHT", maxCycles: 2, minCycles: 1 }, history: [] },
   commits: [],
   started_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
@@ -685,7 +691,7 @@ CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs af
 // rune-* prefixes: teams created by delegated sub-commands (forge, work, review, mend, audit)
 const ARC_TEAM_PREFIXES = [
   "arc-forge-", "arc-plan-review-", "arc-verify-", "arc-gap-", "arc-gap-fix-", "arc-inspect-", "arc-test-",  // arc-owned teams
-  "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-audit-",  // sub-command teams
+  "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-mend-deep-", "rune-audit-",  // sub-command teams
   "goldmask-"  // goldmask skill teams (Phase 5.7 delegation)
 ]
 
@@ -803,7 +809,12 @@ On resume, validate checkpoint integrity before proceeding:
    a. Add phases.gap_remediation: { status: "skipped", artifact: null, artifact_hash: null, team_name: null, fixed_count: null, deferred_count: null }
       // Default "skipped" — pre-v10 arcs did not run gap_remediation; safe to proceed without it.
    b. Set schema_version: 10
-3j. Resume freshness re-check:
+3j. If schema_version < 11, migrate v10 → v11:
+   a. Add phases.audit_mend: { status: "skipped", artifact: null, artifact_hash: null, team_name: null }
+   b. Add phases.audit_verify: { status: "skipped", artifact: null, artifact_hash: null, team_name: null }
+   c. Add audit_convergence: { round: 0, max_rounds: 2, tier: { name: "LIGHT", maxCycles: 2, minCycles: 1 }, history: [] }
+   d. Set schema_version: 11
+3k. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)
