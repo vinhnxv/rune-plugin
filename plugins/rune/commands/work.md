@@ -1330,12 +1330,14 @@ const allTasks = TaskList()
 const completedTasks = allTasks.filter(t => t.status === "completed")
 const blockedTasks = allTasks.filter(t => t.status === "pending" && t.blockedBy?.length > 0)
 
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+
 // 1. Dynamic member discovery — reads team config to find ALL teammates
 // This catches workers + utility teammates (e.g., codex-advisory) summoned in any phase
 let allMembers = []
 try {
-  // CHOME-SAFE: SDK Read() resolves CLAUDE_CONFIG_DIR automatically
-  const teamConfig = Read(`~/.claude/teams/rune-work-${timestamp}/config.json`)
+  const teamConfig = Read(`${CHOME}/teams/rune-work-${timestamp}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
   // Defense-in-depth: SDK already excludes team-lead from config.members

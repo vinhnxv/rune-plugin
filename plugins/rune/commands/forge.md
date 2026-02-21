@@ -605,11 +605,14 @@ for (const [section, agents] of assignments) {
 ## Phase 6: Cleanup & Present
 
 ```javascript
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+
 // 1. Dynamic member discovery — reads team config to find ALL teammates
 // This catches teammates summoned in any phase, not just the initial batch
 let allMembers = []
 try {
-  const teamConfig = Read(`~/.claude/teams/rune-forge-${timestamp}/config.json`)
+  const teamConfig = Read(`${CHOME}/teams/rune-forge-${timestamp}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
   // Defense-in-depth: SDK already excludes team-lead from config.members

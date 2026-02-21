@@ -384,12 +384,14 @@ Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/t
 ## Phase 7: Cleanup
 
 ```javascript
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+
 // 0. Dynamic member discovery — reads team config to find ALL teammates
 // This catches Ashes summoned in any phase, not just the initial batch
 let allMembers = []
 try {
-  // Read() resolves CLAUDE_CONFIG_DIR automatically (SDK call)
-  const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
+  const teamConfig = Read(`${CHOME}/teams/${team_name}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(Boolean)
   // Defense-in-depth: SDK already excludes team-lead from config.members

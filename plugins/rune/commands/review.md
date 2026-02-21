@@ -1405,15 +1405,14 @@ If inscription.json has `verification.enabled: true`:
 ## Phase 7: Cleanup & Echo Persist
 
 ```javascript
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+
 // 1. Shutdown all teammates (dynamic discovery from team config)
 const teamName = "rune-review-{identifier}"
 let allMembers = []
 try {
-  // SEC-003 FIX: SDK Read() resolves CLAUDE_CONFIG_DIR automatically — no hardcoded ~/.claude/.
-  // Read() is SDK-safe: it uses the runtime config dir, not a shell-interpolated path.
-  // Previously documented with bare ~/.claude/ which was misleading for CHOME-aware users.
-  const teamConfigPath = `~/.claude/teams/${teamName}/config.json`  // CHOME-SAFE: SDK Read() resolves CLAUDE_CONFIG_DIR automatically
-  const teamConfig = Read(teamConfigPath)
+  const teamConfig = Read(`${CHOME}/teams/${teamName}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {

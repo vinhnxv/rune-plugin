@@ -97,10 +97,13 @@ SendMessage({
 ### 4. Shutdown All Teammates
 
 ```javascript
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+
 // Read team config to get member list — with fallback if config is missing/corrupt
 let allMembers = []
 try {
-  const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
+  const teamConfig = Read(`${CHOME}/teams/${team_name}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {

@@ -48,28 +48,30 @@ When code hardcodes `~/.claude/`, it breaks on custom setups — rm-rf deletes t
 
 ## The Rule: SDK vs Bash
 
-### SDK calls — SAFE, no CHOME needed
+### Specialized SDK calls — SAFE, auto-resolve internally
 
-These tools auto-resolve `CLAUDE_CONFIG_DIR` internally:
+These tools manage config dirs internally and always resolve `CLAUDE_CONFIG_DIR`:
 
 | Tool | Example | Safe? |
 |------|---------|-------|
-| `Read()` | `Read(\`~/.claude/teams/${name}/config.json\`)` | Yes |
-| `Write()` | `Write(\`~/.claude/settings.json\`, data)` | Yes |
 | `TeamCreate()` | `TeamCreate({ team_name: "my-team" })` | Yes |
 | `TeamDelete()` | `TeamDelete()` | Yes |
-| `Glob()` | `Glob("~/.claude/agents/*.md")` | Yes |
+| `TaskList()` | `TaskList()` | Yes |
+| `SendMessage()` | `SendMessage({ type: "message", ... })` | Yes |
 
-### Bash calls — MUST use CHOME
+### Generic file tools + Bash — MUST use CHOME
 
-Shell commands execute literally. `~/.claude/` won't expand to the custom config dir:
+`Read()`, `Write()`, `Glob()` are generic file tools — they read/write the exact path you give them.
+`Bash()` executes shell commands literally. Neither auto-resolves `CLAUDE_CONFIG_DIR`:
 
 | Tool | Example | Safe? |
 |------|---------|-------|
-| `Bash("rm -rf ...")` | Deletes from wrong dir | **NO** |
+| `Read(\`~/.claude/...\`)` | Reads wrong dir if CLAUDE_CONFIG_DIR set | **NO** |
+| `Write(\`~/.claude/...\`)` | Writes wrong dir | **NO** |
+| `Glob("~/.claude/...")` | Scans wrong dir | **NO** |
+| `Bash("rm -rf ...")` | Deletes wrong dir | **NO** |
 | `Bash("find ...")` | Scans wrong dir | **NO** |
 | `Bash("test -d ...")` | Checks wrong dir | **NO** |
-| `Bash("ls ...")` | Lists wrong dir | **NO** |
 
 ## Canonical Patterns
 
@@ -124,11 +126,11 @@ When auditing a file for hardcoded `~/.claude/`, classify each reference:
 | Context | Action |
 |---------|--------|
 | Inside `Bash(...)` | **FIX** — use CHOME pattern |
-| Inside `Read(...)` | **SAFE** — SDK auto-resolves |
-| Inside `Write(...)` | **SAFE** — SDK auto-resolves |
-| Inside `Glob(...)` | **SAFE** — SDK auto-resolves |
-| In `TeamCreate/TeamDelete` | **SAFE** — SDK auto-resolves |
-| In markdown table | **OPTIONAL** — add CHOME note if in pseudocode doc |
+| Inside `Read(...)` | **FIX** — resolve CHOME first, pass `${CHOME}/teams/...` |
+| Inside `Write(...)` | **FIX** — resolve CHOME first, pass `${CHOME}/...` |
+| Inside `Glob(...)` | **FIX** — resolve CHOME first, pass `${CHOME}/...` |
+| In `TeamCreate/TeamDelete/TaskList` | **SAFE** — specialized SDK, auto-resolves |
+| In markdown table | **OPTIONAL** — add `(or $CLAUDE_CONFIG_DIR if set)` note |
 | In YAML comment | **SAFE** — user docs, no code execution |
 | In CHANGELOG | **SAFE** — historical record |
 
@@ -157,17 +159,19 @@ const result = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -d "$C
 if (result.trim() === "exists") { ... }
 ```
 
-### Mixing SDK Read with Bash rm-rf
+### Read/Bash with bare ~/.claude/ path
 
 ```javascript
-// SAFE — Read auto-resolves
+// WRONG — Read is a generic file tool, does NOT auto-resolve CLAUDE_CONFIG_DIR
 const config = Read(`~/.claude/teams/${name}/config.json`)
 
-// UNSAFE — Bash does NOT auto-resolve
+// WRONG — Bash does NOT auto-resolve either
 Bash(`rm -rf ~/.claude/teams/${name}/`)  // BUG: wrong dir on custom setups
 
-// CORRECT
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${name}/"`)
+// CORRECT — resolve CHOME once, use for both Read and Bash
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+const config = Read(`${CHOME}/teams/${name}/config.json`)
+Bash(`rm -rf "${CHOME}/teams/${name}/"`)
 ```
 
 ## Grep Audit Commands

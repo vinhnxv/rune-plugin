@@ -141,7 +141,7 @@ done
 # Build comma-separated list for JSON (truncate to first 5)
 cleaned_list=""
 count=0
-for team in "${cleaned_teams[@]}"; do
+for team in "${cleaned_teams[@]+"${cleaned_teams[@]}"}"; do
   if [[ $count -ge 5 ]]; then
     cleaned_list="${cleaned_list}, ... and $((${#cleaned_teams[@]} - 5)) more"
     break

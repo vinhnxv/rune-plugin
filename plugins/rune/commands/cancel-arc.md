@@ -162,10 +162,13 @@ for (const task of tasks) {
   }
 }
 
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+
 // Read team config to discover active teammates — with fallback if config is missing/corrupt
 let allMembers = []
 try {
-  const teamConfig = Read(`~/.claude/teams/${phase_team}/config.json`)
+  const teamConfig = Read(`${CHOME}/teams/${phase_team}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
