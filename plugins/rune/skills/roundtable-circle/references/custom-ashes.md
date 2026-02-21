@@ -238,7 +238,7 @@ Run these checks at Phase 0 before summoning any agents:
 | CLI path safe | When `cli:` present: resolved binary path must NOT be within project directory | "CLI binary '{cli}' resolves to project directory — rejected for safety" |
 | CLI count cap | Total CLI-backed Ashes ≤ `settings.max_cli_ashes` (default: 2) | "Too many CLI-backed Ashes ({count}). Max: {max}" |
 | Valid workflows | Each entry is `review`, `audit`, or `forge` | "Invalid workflow '{value}' in Ash '{name}'. Must be 'review', 'audit', or 'forge'" |
-| Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, VEIL, QUAL, FRONT, DOC, CDX. Also reserved in deep-audit mode (`/rune:audit --deep`): DEBT, INTG, BIZL, EDGE | "Prefix '{prefix}' is reserved for built-in/deep-audit Ash '{name}'" |
+| Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, VEIL, QUAL, FRONT, DOC, CDX, DOUBT. Also reserved in deep-audit mode (`/rune:audit --deep`): DEBT, INTG, BIZL, EDGE | "Prefix '{prefix}' is reserved for built-in/deep-audit Ash '{name}'" |
 | Agent name safe | `agent` field matches `^[a-zA-Z0-9_:-]+$` (no path separators or `..`) | "Invalid agent name '{agent}': must contain only alphanumeric, hyphen, underscore, or colon characters" |
 | Forge fields | If `forge` in workflows: `trigger.topics` (≥2), `forge.subsection`, `forge.perspective`, `forge.budget` required | "Ash '{name}' has 'forge' workflow but missing required forge fields" |
 | Forge budget value | `forge.budget` must be `enrichment` or `research` | "Invalid forge budget '{value}' in Ash '{name}'. Must be 'enrichment' or 'research'" |
@@ -358,7 +358,7 @@ Ash to summon: 4 (3 built-in + 1 custom)
   Custom (from .claude/talisman.yml):
   - api-contract-reviewer [API]:  8 files (cap: 15, source: local)
 
-Dedup hierarchy: SEC > BACK > VEIL > API > DOC > QUAL > FRONT
+Dedup hierarchy: SEC > BACK > VEIL > DOUBT > API > DOC > QUAL > FRONT
 ```
 
 ## References

@@ -84,7 +84,7 @@ Include Rune Traces (code evidence) for ALL findings.
 ## SEAL FORMAT
 When complete, end your output file with:
 ---
-SEAL: { findings: N, evidence_verified: true/false, confidence: 0.X, self_reviewed: true }
+SEAL: { findings: N, evidence_verified: true/false, confidence: 0.X, self_reviewed: true, evidence_coverage: "N/M findings have structured evidence", unproven_claims: N }
 ---
 
 Then send to the Tarnished: "Seal: {role} complete. Path: {output_file}. Findings: N P1, N P2, N P3."
@@ -114,7 +114,9 @@ SEAL: {
   skimmed_files: 12,
   deep_read_files: 4,
   self_reviewed: true,
-  self_review_actions: "confirmed: 5, revised: 1, deleted: 1"
+  self_review_actions: "confirmed: 5, revised: 1, deleted: 1",
+  evidence_coverage: "6/7 findings have structured evidence",
+  unproven_claims: 1
 }
 ---
 ```
@@ -128,6 +130,10 @@ SEAL: {
 | `deep_read_files` | integer | Number of files read in full |
 | `self_reviewed` | boolean | Whether self-review pass was performed |
 | `self_review_actions` | string | Summary of confirmed/revised/deleted findings |
+| `evidence_coverage` | string | "N/M findings have structured evidence" — ratio of findings with Rune Traces (absent when doubt-seer disabled) |
+| `unproven_claims` | integer | Count of findings lacking structured evidence (absent when doubt-seer disabled) |
+
+> **Note:** When doubt-seer is disabled (`doubt_seer.enabled: false` in talisman), the `evidence_coverage` and `unproven_claims` fields should be absent entirely — not null, not sentinel values, not 0. This ensures backward compatibility: parsers that don't know about doubt-seer see no new fields.
 
 ## Validation Rules
 
@@ -233,7 +239,8 @@ Append a `## Self-Review Log` table with columns: #, Finding, Action, Notes.
 When complete, end your output file with:
 ---
 SEAL: { findings: N, evidence_verified: true/false, confidence: 0.X,
-        self_reviewed: true, self_review_actions: "confirmed: N, revised: N, deleted: N" }
+        self_reviewed: true, self_review_actions: "confirmed: N, revised: N, deleted: N",
+        evidence_coverage: "N/M findings have structured evidence", unproven_claims: N }
 ---
 
 Then send to the Tarnished (max 50 words — Glyph Budget enforced):

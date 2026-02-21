@@ -51,24 +51,30 @@ if [[ -z "$CWD" || "$CWD" != /* ]]; then exit 0; fi
 # NOTE: File-based state detection has inherent TOCTOU window (SEC-3). A workflow
 # could start between this check and the Task executing. Claude Code processes tool
 # calls sequentially within a session, making the race window effectively zero.
+#
+# STALENESS GUARD (v1.61.0): Skip files older than 30 minutes (mtime-based).
+# Stale checkpoints from crashed/interrupted sessions should not block new work.
+# Mirrors the 30-min threshold from enforce-team-lifecycle.sh (TLC-001).
+STALE_THRESHOLD_MIN=30
 active_workflow=""
 
-# Check arc checkpoints
+# Check arc checkpoints (skip stale files older than STALE_THRESHOLD_MIN)
 if [[ -d "${CWD}/.claude/arc" ]]; then
   while IFS= read -r f; do
     if grep -q '"in_progress"' "$f" 2>/dev/null; then
       active_workflow=1
       break
     fi
-  done < <(find "${CWD}/.claude/arc" -name checkpoint.json -maxdepth 2 -type f 2>/dev/null)
+  done < <(find "${CWD}/.claude/arc" -name checkpoint.json -maxdepth 2 -type f -mmin -${STALE_THRESHOLD_MIN} 2>/dev/null)
 fi
 
-# Check review/audit/work state files
+# Check review/audit/work state files (skip stale files)
 # SEC-1 FIX: Use nullglob + flattened loop to prevent word splitting on paths with spaces
 if [[ -z "$active_workflow" ]]; then
   shopt -s nullglob
   for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-inspect-*.json; do
-    if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
+    # Skip files older than STALE_THRESHOLD_MIN minutes
+    if [[ -f "$f" ]] && find "$f" -maxdepth 0 -mmin -${STALE_THRESHOLD_MIN} -print -quit 2>/dev/null | grep -q . && grep -q '"active"' "$f" 2>/dev/null; then
       active_workflow=1
       break
     fi

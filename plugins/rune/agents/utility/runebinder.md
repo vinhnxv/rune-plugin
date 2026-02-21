@@ -49,7 +49,7 @@ Before beginning aggregation, query Rune Echoes for previously identified aggreg
 ## Task
 
 1. Read all Ash output files from `{output_dir}/`
-2. Deduplicate findings using the hierarchy: SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX
+2. Deduplicate findings using the hierarchy: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX
 3. Prioritize: P1 first, then P2, then P3
 4. Report gaps from any crashed or stalled Ash
 5. Write unified summary to `{output_dir}/TOME.md`
@@ -61,7 +61,7 @@ When two Ash flag the same file within a 5-line range:
 | Condition | Action |
 |-----------|--------|
 | Same file + same 5-line window | Keep higher-priority Ash's finding |
-| Same severity | Keep by hierarchy: SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX |
+| Same severity | Keep by hierarchy: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX |
 | Different severity | Keep highest severity (P1 > P2 > P3) |
 | Different perspectives | Keep both (different value) |
 

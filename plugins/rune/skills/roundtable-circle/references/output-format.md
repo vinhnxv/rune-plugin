@@ -15,6 +15,11 @@ Each finding follows this template:
     ```
   - **Issue:** {description of what's wrong and why it matters}
   - **Fix:** {specific recommendation with code example if applicable}
+  - **Evidence:**                          _(optional)_
+    - type: grep_match | file_read | negative_grep | agent_output | reasoning_chain
+    - source: {file:line or grep command or agent reference}
+    - confidence: PROVEN | LIKELY | UNCERTAIN
+    - counter_argument: {why this might be wrong, or "None"}
 ```
 
 ### Finding Prefixes
@@ -28,6 +33,7 @@ Each finding follows this template:
 | Glyph Scribe | `FRONT` | `FRONT-001` |
 | Knowledge Keeper | `DOC` | `DOC-001` |
 | Codex Oracle | `CDX` | `CDX-001` |
+| Doubt Seer | `DOUBT` | `DOUBT-001` |
 
 ### Rune Trace Requirements
 
@@ -161,10 +167,10 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 When the same finding appears from multiple Ash:
 
 ```
-SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX
+SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX
 ```
 
-Keep the finding from the higher-priority Ash. See [Dedup Runes](dedup-runes.md) for full algorithm.
+Keep the finding from the higher-priority Ash. DOUBT- prefix is non-deduplicable — DOUBT findings target meta-review claims about other agents' findings and should never be merged with findings from other prefixes during deduplication. See [Dedup Runes](dedup-runes.md) for full algorithm.
 
 ## References
 

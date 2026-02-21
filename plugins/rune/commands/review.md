@@ -833,7 +833,7 @@ if (cycleCount > 1) {
     Bash(`cp -- "${cycleTomes[0]}" "tmp/reviews/${identifier}/TOME.md"`)
   } else {
     // Multi-TOME merge: deduplicate by finding ID, keep highest severity
-    // Merge follows the same dedup hierarchy as Runebinder (SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX)
+    // Merge follows the same dedup hierarchy as Runebinder (SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX)
     log(`Merging ${cycleTomes.length} cycle TOMEs...`)
     const mergedFindings = []
     const seenFindings = new Set()  // Track by file:line:prefix to dedup
@@ -1191,6 +1191,84 @@ if (result.timedOut) {
 **Stale detection**: If a task is `in_progress` for > 5 minutes, a warning is logged. No auto-release — review Ash findings are non-fungible (compare with `work.md`/`mend.md` which auto-release stuck tasks after 10 min).
 **Total timeout**: Hard limit of 10 minutes. After timeout, a final sweep collects any results that completed during the last poll interval.
 
+## Phase 4.5: Doubt Seer (Conditional)
+
+After Phase 4 Monitor completes, optionally spawn the Doubt Seer to cross-examine Ash findings. See `roundtable-circle` SKILL.md Phase 4.5 for the full specification.
+
+```javascript
+// Phase 4.5: Doubt Seer — conditional cross-examination of Ash findings
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
+const doubtConfig = readTalisman()?.doubt_seer
+const doubtEnabled = doubtConfig?.enabled === true  // strict opt-in (default: false)
+const doubtWorkflows = doubtConfig?.workflows ?? ["review", "audit"]
+
+if (doubtEnabled && doubtWorkflows.includes("review")) {
+  // Count P1+P2 findings across Ash output files
+  let totalFindings = 0
+  for (const ash of selectedAsh) {
+    const ashPath = `tmp/reviews/${identifier}/${ash}.md`
+    if (exists(ashPath)) {
+      const content = Read(ashPath)
+      totalFindings += (content.match(/severity="P1"/g) || []).length
+      totalFindings += (content.match(/severity="P2"/g) || []).length
+    }
+  }
+
+  if (totalFindings > 0) {
+    // Increment .expected signal count for doubt-seer
+    const signalDir = `tmp/.rune-signals/rune-review-${identifier}`
+    if (exists(`${signalDir}/.expected`)) {
+      const expected = parseInt(Read(`${signalDir}/.expected`), 10)
+      Write(`${signalDir}/.expected`, String(expected + 1))
+    }
+
+    // Create task and spawn doubt-seer
+    TaskCreate({
+      subject: "Cross-examine findings as doubt-seer",
+      description: `Challenge P1/P2 findings. Output: tmp/reviews/${identifier}/doubt-seer.md`,
+      activeForm: "Doubt seer cross-examining..."
+    })
+
+    Task({
+      team_name: `rune-review-${identifier}`,
+      name: "doubt-seer",
+      subagent_type: "general-purpose",
+      prompt: /* Load from agents/review/doubt-seer.md
+                 Substitute: {output_dir}, {inscription_path}, {timestamp} */,
+      run_in_background: true
+    })
+
+    // Poll for doubt-seer completion (5-min timeout)
+    const DOUBT_TIMEOUT = 300_000  // 5 minutes
+    const DOUBT_POLL = 30_000      // 30 seconds
+    const maxPoll = Math.ceil(DOUBT_TIMEOUT / DOUBT_POLL)
+    for (let i = 0; i < maxPoll; i++) {
+      const tasks = TaskList()
+      const doubtTask = tasks.find(t => t.subject.includes("doubt-seer"))
+      if (doubtTask?.status === "completed") break
+      if (i < maxPoll - 1) Bash("sleep 30")
+    }
+
+    // Check if doubt-seer completed or timed out
+    const doubtOutput = `tmp/reviews/${identifier}/doubt-seer.md`
+    if (!exists(doubtOutput)) {
+      Write(doubtOutput, "[DOUBT SEER: TIMEOUT — partial results preserved]\n")
+      warn("Doubt seer timed out — proceeding with partial results")
+    }
+
+    // Parse verdict if output exists
+    const doubtContent = Read(doubtOutput)
+    if (/VERDICT:\s*BLOCK/i.test(doubtContent) && doubtConfig?.block_on_unproven === true) {
+      warn("Doubt seer VERDICT: BLOCK — unproven P1 findings detected")
+      // Set workflow_blocked flag for downstream handling
+    }
+  } else {
+    log("[DOUBT SEER: No findings to challenge - skipped]")
+  }
+}
+// Proceed to Phase 5 (Aggregate)
+```
+
 ## Phase 5: Aggregate (Runebinder)
 
 After all tasks complete (or timeout):
@@ -1201,7 +1279,7 @@ Task({
   name: "runebinder",
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/reviews/{identifier}/.
-    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX).
+    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/reviews/{identifier}/TOME.md.
     Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.

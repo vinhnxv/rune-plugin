@@ -160,6 +160,13 @@
       "role": "Quality and patterns review",
       "perspectives": ["simplicity", "tdd", "dead-code", "patterns"],
       "file_scope": ["**/*"]
+    },
+    {
+      "name": "doubt-seer",
+      "output_file": "doubt-seer.md",
+      "required_sections": ["Doubt Seer Challenges", "Challenge Summary"],
+      "role": "Cross-agent claim verification",
+      "perspectives": ["claim-validity", "evidence-quality"]
     }
   ],
   "aggregator": {

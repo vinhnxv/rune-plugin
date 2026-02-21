@@ -36,14 +36,15 @@ Orchestrates multi-agent code reviews using Claude Code Agent Teams. Each Ash te
 ### 7-Phase Lifecycle
 
 ```
-Phase 0: Pre-flight     → Validate git status, check for changes
-Phase 1: Rune Gaze      → git diff → classify files → select Ash
-Phase 2: Forge Team      → TeamCreate + TaskCreate + inscription.json
-Phase 3: Summon           → Fan-out Ash with self-organizing prompts
-Phase 4: Monitor         → TaskList polling, 5-min stale detection
-Phase 5: Aggregate       → Summon Runebinder → writes TOME.md
-Phase 6: Verify          → Truthsight validation on P1 findings
-Phase 7: Cleanup         → Shutdown requests → approvals → TeamDelete
+Phase 0:   Pre-flight     → Validate git status, check for changes
+Phase 1:   Rune Gaze      → git diff → classify files → select Ash
+Phase 2:   Forge Team      → TeamCreate + TaskCreate + inscription.json
+Phase 3:   Summon           → Fan-out Ash with self-organizing prompts
+Phase 4:   Monitor         → TaskList polling, 5-min stale detection
+Phase 4.5: Doubt Seer     → Cross-examine Ash findings (conditional)
+Phase 5:   Aggregate       → Summon Runebinder → writes TOME.md
+Phase 6:   Verify          → Truthsight validation on P1 findings
+Phase 7:   Cleanup         → Shutdown requests → approvals → TeamDelete
 ```
 
 ### Built-in Ash Roles (Max 7)
@@ -262,6 +263,47 @@ const result = waitForCompletion(teamName, ashCount, {
 - Check teammate status
 - Default: proceed with partial results
 - Gap will be reported in TOME.md
+
+## Phase 4.5: Doubt Seer (Conditional)
+
+After Phase 4 Monitor completes, optionally spawn the Doubt Seer to cross-examine Ash findings for unsubstantiated claims.
+
+**Trigger condition** — ALL must be true:
+1. `doubt_seer.enabled !== false` in talisman (default: `false` — opt-in)
+2. `doubt_seer.workflows` includes current workflow type (`"review"` or `"audit"`)
+3. Total P1+P2 finding count across Ash outputs > 0
+
+**Registration vs Activation:** Doubt-seer is registered in `inscription.json` `teammates[]` at Phase 2 (unconditionally, when enabled) so hooks and Runebinder discover it. However, it is only **spawned** at Phase 4.5 (conditionally, when P1+P2 findings > 0). If not spawned, the inscription entry exists but no output file is written — Runebinder handles this as "missing" in Coverage Gaps.
+
+**Signal count:** The `.expected` signal count is set to `ashCount` at Phase 2 (Ashes only, NOT including doubt-seer). At Phase 4.5, AFTER Phase 4 Monitor confirms all Ashes complete, the orchestrator increments `.expected` by 1 before spawning doubt-seer. Doubt-seer gets its own separate 5-minute polling loop.
+
+**Spawn pattern (follows ATE-1):**
+
+```
+1. After Phase 4 Monitor completes (all Ashes done)
+2. Count P1+P2 findings across Ash output files
+3. If count > 0 AND doubt-seer enabled:
+   a. TaskCreate for doubt-seer challenge task
+   b. Task(team_name, name="doubt-seer", subagent_type="general-purpose",
+      prompt=doubt-seer system prompt + inscription.json path + output_dir)
+   c. Orchestrator polls until doubt-seer completes or 5-min timeout
+   d. On timeout: write `[DOUBT SEER: TIMEOUT — partial results preserved]` to the doubt-seer output slot. Proceed to Phase 5 (Aggregate) with whatever partial results exist. Do not block the pipeline.
+   e. Read doubt-seer.md output
+   f. If VERDICT:BLOCK AND block_on_unproven:true → set workflow_blocked flag
+4. If count == 0: Skip doubt-seer, write marker:
+   "[DOUBT SEER: No findings to challenge - skipped]"
+5. Proceed to Phase 5 (Runebinder)
+```
+
+**VERDICT parsing:**
+
+| Condition | Verdict | Action |
+|-----------|---------|--------|
+| `unproven_p1_count > 0` AND `block_on_unproven: true` | BLOCK | Halt workflow, report to user |
+| Any unproven claims (P1 or P2) | CONCERN | Continue, flag in TOME |
+| All findings have evidence | PASS | Continue normally |
+
+**Runebinder integration:** Runebinder reads all teammate output files including `doubt-seer.md` (discovered via `inscription.json`). Doubt-seer challenges appear in a `## Doubt Seer Challenges` section in the TOME after the main findings.
 
 ## Phase 5: Aggregate
 

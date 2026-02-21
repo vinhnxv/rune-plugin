@@ -25,7 +25,7 @@ a single TOME.md summary.
 When the same file + line range (5-line window) is flagged by multiple Ash:
 
 Priority order (highest first):
-  SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX
+  SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX
   (Ward Sentinel > Forge Warden > Veil Piercer > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle)
 
 Rules:
@@ -94,6 +94,21 @@ Write exactly this structure:
   - **Nit:** {nit description from Ash's output}
   - **Author's call:** {rationale from Ash's output}
 <!-- /RUNE:FINDING id="{PREFIX}-{NUM}" -->
+
+## Doubt Seer Challenges
+
+If doubt-seer output exists, create a `## Doubt Seer Challenges` section containing the doubt-seer's challenge findings. DOUBT-prefixed findings are NOT merged into P1/P2/P3 sections — they appear only in this dedicated section.
+
+{If doubt-seer.md exists in output_dir:}
+<!-- RUNE:FINDING nonce="{session_nonce}" id="DOUBT-{NUM}" file="{file}" line="{line}" severity="{severity}" -->
+- [ ] **[DOUBT-{NUM}] {Title}** in `{file}:{line}`
+  - **Challenge:** {challenge description from doubt-seer output}
+  - **Original finding:** {ID of the finding being challenged}
+  - **Verdict:** {PASS|CONCERN|BLOCK}
+<!-- /RUNE:FINDING id="DOUBT-{NUM}" -->
+
+{If doubt-seer.md is missing: omit this section entirely}
+{If doubt-seer timed out: include `[DOUBT SEER: TIMEOUT — partial results preserved]` marker}
 
 ## Coverage Gaps
 
@@ -237,7 +252,7 @@ dedup key = (finding.file, lineBucket(finding.line, 5), finding.category)
 // chunk attribute is NOT part of the key — dedup operates across chunks
 ```
 
-Priority order remains: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`
+Priority order remains: `SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX`
 
 After dedup, the winning finding retains its `chunk` attribute for traceability.
 

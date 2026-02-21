@@ -333,7 +333,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 
 ### Review Agents
 
-22 specialized agents that Ash embed as perspectives:
+23 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -359,6 +359,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 | assumption-slayer | Premise validation truth-telling |
 | entropy-prophet | Long-term consequence truth-telling |
 | naming-intent-analyzer | Naming intent quality, name-behavior mismatch |
+| doubt-seer | Evidence quality challenger, unproven claim detection |
 
 ### Research Agents
 
@@ -522,7 +523,7 @@ plugins/rune/
 │   └── plugin.json
 ├── agents/
 │   ├── investigation/       # 23 investigation agents (Goldmask + Inspect)
-│   ├── review/              # 22 review agents
+│   ├── review/              # 23 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
 │   ├── testing/             # 4 testing agents (arc Phase 7.7)
