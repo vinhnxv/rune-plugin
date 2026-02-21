@@ -74,9 +74,18 @@ if (!currentTome || (!currentTome.includes('RUNE:FINDING') && !currentTome.inclu
   return
 }
 
-const currentFindingCount = countTomeFindings(currentTome)
-const p1Count = countP1Findings(currentTome)
-const p2Count = countP2Findings(currentTome)  // v1.41.0: Count P2 findings for convergence awareness
+// v1.60.0: Exclude Q/N interaction findings from convergence counting
+// Q/N findings are human-facing only and should not influence convergence decisions
+const allFindingMarkers = currentTome.match(/<!-- RUNE:FINDING[^>]*-->/g) || []
+const assertionMarkers = allFindingMarkers.filter(m => !/interaction="(question|nit)"/.test(m))
+const currentFindingCount = assertionMarkers.length
+const p1Count = assertionMarkers.filter(m => /severity="P1"/i.test(m)).length
+const p2Count = assertionMarkers.filter(m => /severity="P2"/i.test(m)).length
+const qCount = allFindingMarkers.filter(m => /interaction="question"/.test(m)).length
+const nCount = allFindingMarkers.filter(m => /interaction="nit"/.test(m)).length
+if (qCount + nCount > 0) {
+  log(`Verify-mend: ${qCount} Q + ${nCount} N findings excluded from convergence (human-triage only)`)
+}
 
 // v1.38.0: Extract scope stats for smart convergence scoring
 // Scope stats are available when diff-scope tagging was applied (review.md Phase 5.3).

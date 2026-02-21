@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.60.0] - 2026-02-21
+
+### Added
+- **Phase 0.3: Context Intelligence** — New review pipeline phase that gathers PR metadata via `gh pr view`, classifies PR intent (bugfix/feature/refactor/docs/test/chore), assesses context quality (good/fair/poor), detects scope warnings for large PRs, and fetches linked issue context. Injects `## PR Context` section into ash-prompt templates with Truthbinding-extended untrusted-content warning
+- **Phase 0.4: Linter Detection** — New review pipeline phase that discovers project linters from config files (17 linter signatures: ESLint, Prettier, Biome, TypeScript, Ruff, Black, Flake8, mypy, pyright, isort, RuboCop, Standard, golangci-lint, Clippy, rustfmt, EditorConfig). Injects `## Linter Awareness` section into ash-prompts to suppress findings in linter-covered categories. SEC-\* and VEIL-\* findings are never suppressed
+- **Finding Taxonomy Expansion (Q/N)** — Extended P1/P2/P3 severity taxonomy with orthogonal interaction types: Question (Q) for clarification-needed findings and Nit (N) for cosmetic/author-discretion findings. Added to all 7 ash-prompt templates with behavioral rules and output format sections
+- **Perspective 11: Naming Intent Quality** — New Pattern Weaver perspective that evaluates whether names accurately reflect code behavior. Detects name-behavior mismatch, vague names hiding complexity, boolean inversion, side-effect hiding, abbreviation ambiguity. Language-aware conventions (Rust, Go, React) reduce false positives. Architecture escalation when 3+ naming findings cluster
+- **`naming-intent-analyzer` agent** — Standalone naming intent analysis agent for `/rune:audit` deep analysis. Read-only tools, inner-flame self-review skill, echo-search integration
+- **`context-intelligence.md` reference** — Full contract, schema, security model, and talisman configuration for Phase 0.3
+- **`sanitizeUntrustedText()` canonical pattern** — Centralized 8-step sanitization function for user-authored content (PR body, issue body). Includes CVE-2021-42574 (Trojan Source) defense and HTML entity stripping. Registered in security-patterns.md
+- **`SAFE_ISSUE_NUMBER` security pattern** — `/^\d{1,7}$/` validator for GitHub issue numbers before shell interpolation. Registered in security-patterns.md
+- **Q/N sections in TOME format** — Runebinder TOME now includes `## Questions` and `## Nits` sections with dedicated finding formats
+- **Q/N dedup rules** — Extended dedup algorithm: assertion supersedes Q/N at same location; Q and N coexist at same location; multiple Q at same location merged
+- **Q/N mend skip logic** — Questions and Nits excluded from auto-mend with descriptive skip messages
+- **`taxonomy_version` field** — New inscription.json field signaling Q/N support to downstream consumers (version 2)
+- **`context_intelligence` inscription.json field** — PR metadata, scope warning, and intent summary for downstream Ash consumption
+- **`linter_context` inscription.json field** — Detected linters, rule categories, and suppression list
+
+### Changed
+- Review agent count: 21 → 22 (added naming-intent-analyzer)
+- Pattern Seer description extended with naming intent quality analysis
+- Pattern Weaver output header includes Naming Intent Quality in Perspectives list
+- Seal format extended: `findings: {N} ({P1} P1, {P2} P2, {P3} P3, {Q} Q, {Nit} N)`
+- JSON output schema: summary object includes `q` and `n` count fields, root includes `taxonomy_version`
+
 ## [1.59.0] - 2026-02-21
 
 ### Fixed

@@ -69,12 +69,15 @@ In addition to Markdown, Ash MAY write a companion JSON file for tooling integra
       "status": "confirmed"
     }
   ],
+  "taxonomy_version": 2,
   "summary": {
     "p1": 2,
     "p2": 3,
     "p3": 1,
-    "total": 6,
-    "evidence_verified": 6,
+    "q": 1,
+    "n": 2,
+    "total": 9,
+    "evidence_verified": 9,
     "confidence": 0.85
   }
 }
@@ -137,10 +140,18 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 |-----------|-----------|-------------|--------|
 | {name} | {0.X} | {N findings} | {all confirmed/N hallucinated} |
 
+## Questions — {count} items
+
+{Findings with interaction="question" — clarification needed before concluding}
+
+## Nits — {count} items
+
+{Findings with interaction="nit" — cosmetic, author's discretion}
+
 ## Summary
 
 - Total findings: {count}
-- P1: {count}, P2: {count}, P3: {count}
+- P1: {count}, P2: {count}, P3: {count}, Q: {count}, N: {count}
 - Ash: {completed}/{summoned}
 - Evidence coverage: {verified}/{total}
 ```

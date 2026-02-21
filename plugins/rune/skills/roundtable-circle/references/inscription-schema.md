@@ -65,6 +65,54 @@
     "summary_file": "string — filename for orchestrator-generated summary (default: '_summary.md')"
   },
 
+  "context_intelligence": {
+    "available": "boolean — whether PR context was gathered (Phase 0.3)",
+    "pr": {
+      "number": "integer",
+      "title": "string (max 200 chars)",
+      "url": "string",
+      "body": "string (sanitized, max configurable via max_pr_body_chars)",
+      "labels": ["array of label strings (max 10, each max 50 chars)"],
+      "additions": "integer",
+      "deletions": "integer",
+      "changed_files_count": "integer",
+      "linked_issues": ["array of linked issue objects"]
+    },
+    "scope_warning": {
+      "total_changes": "integer",
+      "threshold": "integer",
+      "severity": "string — medium | high",
+      "message": "string"
+    },
+    "intent_summary": {
+      "pr_type": "string — bugfix | feature | refactor | docs | test | chore | unknown",
+      "context_quality": "string — good | fair | poor",
+      "context_warnings": ["array of warning strings"],
+      "has_linked_issue": "boolean",
+      "has_why_explanation": "boolean"
+    },
+    "linked_issue": {
+      "number": "integer",
+      "title": "string (max 200 chars)",
+      "body": "string (sanitized, max 2000 chars)",
+      "labels": ["array of label strings"]
+    }
+  },
+
+  "linter_context": {
+    "detected": [
+      {
+        "name": "string — linter name (e.g., eslint, prettier, ruff)",
+        "config": "string — config file path",
+        "categories": ["array of category strings"]
+      }
+    ],
+    "rule_categories": ["array of all detected categories"],
+    "suppress_categories": ["array of categories Ashes should skip"]
+  },
+
+  "taxonomy_version": "integer — 1 (P1/P2/P3 only) or 2 (P1/P2/P3 + Q/N interaction types)",
+
   "context_engineering": {
     "read_ordering": "source_first | reference_first",
     "instruction_anchoring": "boolean — ANCHOR + RE-ANCHOR in prompts",
@@ -150,6 +198,9 @@
 | `teammates[].output_file` | Yes | — |
 | `teammates[].required_sections` | Yes | — |
 | `diff_scope` | No | `{ "enabled": false }` |
+| `context_intelligence` | No | `{ "available": false }` (v1.60.0+) |
+| `linter_context` | No | `{ "detected": [], "rule_categories": [], "suppress_categories": [] }` (v1.60.0+) |
+| `taxonomy_version` | No | `1` (v1.60.0+: set to `2` when Q/N interaction types are active) |
 | `todos` | No | `{ "enabled": true, "dir": "todos/", "schema": "per-worker", "summary_file": "_summary.md" }` (v1.43.0+, rune-work only) |
 | `aggregator` | No | No aggregation |
 | `verification` | No | `{ "enabled": false }` |

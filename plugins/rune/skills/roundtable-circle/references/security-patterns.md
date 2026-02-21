@@ -173,6 +173,35 @@ function sanitizePlanContent(content, maxLength = 50000) {
 
 **Consumers**: external-model-template.md (diff/file content injection), codex-oracle.md (existing Codex flow)
 
+## Content Sanitization
+
+### sanitizeUntrustedText()
+
+Canonical sanitizer for user-authored content (PR descriptions, issue bodies) before injection into agent prompts. Prevents prompt injection via untrusted metadata.
+
+```javascript
+function sanitizeUntrustedText(text, maxChars) {
+  return (text || '')
+    .replace(/<!--[\s\S]*?-->/g, '')              // Strip HTML comments
+    .replace(/```[\s\S]*?```/g, '[code-block]')    // Neutralize code fences
+    .replace(/!\[.*?\]\(.*?\)/g, '')               // Strip image/link injection
+    .replace(/^#{1,6}\s+/gm, '')                   // Strip heading overrides
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')         // Strip zero-width chars
+    .replace(/[\u202A-\u202E\u2066-\u2069]/g, '')  // Strip Unicode directional overrides (CVE-2021-42574)
+    .replace(/&[a-zA-Z0-9#]+;/g, '')               // Strip HTML entities
+    .slice(0, maxChars)
+}
+```
+
+**Consumers**: review.md (Phase 0.3 — PR body, issue body), plan.md (plan content sanitization)
+
+### SAFE_ISSUE_NUMBER
+<!-- PATTERN:SAFE_ISSUE_NUMBER regex="/^\d{1,7}$/" version="1" -->
+**Regex**: `/^\d{1,7}$/`
+**Threat model**: Validates GitHub issue numbers before shell interpolation in `gh issue view`. Blocks injection via crafted issue references in PR linked issues. Range 1-9999999 covers all realistic issue numbers.
+**ReDoS safe**: Yes (character class with bounded quantifier)
+**Consumers**: review.md (Phase 0.3 — linked issue fetch)
+
 ## Codex Allowlists
 
 ### CODEX_MODEL_ALLOWLIST
