@@ -78,6 +78,7 @@ try {
 } catch (err) {
   warn(`Failed to write completion stamp to ${planPath}: ${err.message}`)
 }
+
 ```
 
 ## buildCompletionRecord()
