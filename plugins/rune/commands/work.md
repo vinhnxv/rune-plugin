@@ -691,16 +691,19 @@ if (worktreeMode) {
     COMMIT PROTOCOL (replaces patch generation):
     8. IF ward passes:
        a. Stage your changes: git add <specific-files>
-       b. Make exactly ONE commit: git commit -m "rune: {subject} [ward-checked]"
-       c. Record your branch: Bash("git branch --show-current")
-       d. Store branch in task metadata: TaskUpdate({ taskId, metadata: { branch: branchName } })
-       e. TaskUpdate({ taskId, status: "completed" })
-       f. SendMessage to the Tarnished: "Seal: task #{id} done. Branch: {branch}. Files: {list}"
-       g. Do NOT push. Do NOT merge. The Tarnished handles merging after the wave completes.
+       b. Write commit message to a temp file (SEC-011: no inline -m):
+          Write commit-msg.txt with: "rune: {subject} [ward-checked]"
+       c. Make exactly ONE commit: git commit -F commit-msg.txt
+       d. Record your branch: Bash("git branch --show-current")
+       e. Store branch in task metadata: TaskUpdate({ taskId, metadata: { branch: branchName } })
+       f. TaskUpdate({ taskId, status: "completed" })
+       g. SendMessage to the Tarnished: "Seal: task #{id} done. Branch: {branch}. Files: {list}"
+       h. Do NOT push. Do NOT merge. The Tarnished handles merging after the wave completes.
 
     CRITICAL RULES:
     - Make exactly ONE commit per task (not multiple commits)
     - Do NOT push your branch
+    - Do NOT run git merge
     - Do NOT merge into any other branch
     - Do NOT run git add -A or git add . (only add specific files)
     - Include your branch name in BOTH the Seal message AND task metadata

@@ -90,7 +90,7 @@ review:
 work:
   # SEC: ward_commands are executed as raw shell. Changes to this file should be reviewed for command injection.
   ward_commands:
-    # NOTE: This command uses Bash process substitution (<(...)). Ensure shell is Bash.
+    # NOTE: This command uses Bash command substitution ($(...)). Ensure jq is available.
     - "echo 'ward: checking plugin.json sync' && [ \"$(jq -r .version plugins/rune/.claude-plugin/plugin.json)\" = \"$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)\" ]"
   max_workers: 3
   approve_timeout: 180

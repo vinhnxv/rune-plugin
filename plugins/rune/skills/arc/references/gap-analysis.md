@@ -806,10 +806,11 @@ Confidence thresholds:
     ? talisman.codex.model : "gpt-5.3-codex"
 
   const claimTimeout = Math.min(talisman?.codex?.gap_analysis?.claim_timeout ?? 300, 600)
-  const claimResult = Bash(`timeout ${claimTimeout} codex exec \
+  // SEC-R1-001 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion on prompt content
+  const claimResult = Bash(`cat "${claimPromptPath}" | timeout ${claimTimeout} codex exec \
     -m "${claimCodexModel}" --config model_reasoning_effort="medium" \
     --sandbox read-only --full-auto --skip-git-repo-check \
-    "$(cat ${claimPromptPath})" 2>/dev/null; echo "EXIT:$?"`)
+    - 2>/dev/null; echo "EXIT:$?"`)
 
   Bash(`rm -f "${claimPromptPath}" 2>/dev/null`)
 
