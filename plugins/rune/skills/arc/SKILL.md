@@ -314,7 +314,8 @@ if command -v jq >/dev/null 2>&1; then
       # Parse failure → epoch=0 → age=now-0=currentTimestamp → exceeds 7-day threshold → skipped as stale.
       epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${started_at%%.*}" +%s 2>/dev/null || date -d "${started_at}" +%s 2>/dev/null || echo 0)
       # SEC-002 FIX: Validate epoch is numeric before arithmetic (defense against malformed started_at)
-      if ! [[ "$epoch" =~ ^[0-9]+$ ]]; then continue; fi
+      # ZSH-FIX: Use case instead of negated [[ =~ ]] — zsh errors on `! [[ ... =~ ... ]]`
+      case "$epoch" in *[!0-9]*|'') continue ;; esac
       [ "$epoch" -eq 0 ] && echo "WARNING: Failed to parse started_at: $started_at" >&2
       age_s=$(( $(date +%s) - epoch ))
       # Skip if age is negative (future timestamp = suspicious) or > 7 days (abandoned)
