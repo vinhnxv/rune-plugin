@@ -43,9 +43,11 @@ fi
 CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || exit 0
 
 # Check talisman config for inner_flame settings (QUAL-001/SEC-002)
+# CHOME: CLAUDE_CONFIG_DIR pattern for multi-account support (user-level talisman)
+CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BLOCK_ON_FAIL=false
 INNER_FLAME_ENABLED=true
-for TALISMAN_PATH in "${CWD}/.claude/talisman.yml" "${HOME}/.claude/talisman.yml"; do
+for TALISMAN_PATH in "${CWD}/.claude/talisman.yml" "${CHOME}/talisman.yml"; do
   if [[ -f "$TALISMAN_PATH" ]]; then
     if command -v yq &>/dev/null; then
       INNER_FLAME_ENABLED=$(yq -r '.inner_flame.enabled // true' "$TALISMAN_PATH" 2>/dev/null || echo "true")

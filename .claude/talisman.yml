@@ -32,6 +32,8 @@ settings:
   dedup_hierarchy:
     - SEC
     - BACK
+    - VEIL
+    - DOUBT
     - DOC
     - QUAL
     - FRONT
@@ -88,8 +90,8 @@ review:
 work:
   # SEC: ward_commands are executed as raw shell. Changes to this file should be reviewed for command injection.
   ward_commands:
-    # NOTE: This command uses Bash process substitution (<(...)). Ensure shell is Bash.
-    - "echo 'ward: checking plugin.json sync' && diff <(jq -r .version plugins/rune/.claude-plugin/plugin.json) <(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)"
+    # NOTE: This command uses Bash command substitution ($(...)). Ensure jq is available.
+    - "echo 'ward: checking plugin.json sync' && [ \"$(jq -r .version plugins/rune/.claude-plugin/plugin.json)\" = \"$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)\" ]"
   max_workers: 3
   approve_timeout: 180
   commit_format: "rune: {subject} [ward-checked]"
@@ -162,12 +164,24 @@ codex:
     enabled: true
     fuzzy_match_threshold: 0.7
     cross_model_bonus: 0.15
+  semantic_verification:
+    enabled: true
+    reasoning: "medium"
+    timeout: 420                    # Phase 2.8 codex exec timeout in seconds (default: 120, increased to 7 min)
+  gap_analysis:
+    timeout: 900                    # Phase 5.6 codex exec timeout in seconds (default: 600, increased to 15 min)
 
 # ──────────────────────────────────────────────
 # Arc — Default flag overrides + ship/merge (v1.40.0+)
 # ──────────────────────────────────────────────
 # 3-layer priority: hardcoded defaults → talisman.yml → CLI flags
 arc:
+  # ── Phase-level timeouts in milliseconds (v1.40.0+) ──
+  # Override hardcoded defaults. Clamped to 10s-1hr by arc orchestrator.
+  timeouts:
+    semantic_verification: 480000   # 8 min (room for 7 min codex exec + 1 min setup/cleanup)
+    codex_gap_analysis: 960000      # 16 min (room for 15 min codex exec + 1 min setup/cleanup)
+
   defaults:
     no_forge: false
     approve: false

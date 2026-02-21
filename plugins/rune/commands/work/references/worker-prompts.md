@@ -269,6 +269,113 @@ Task({
 })
 ```
 
+## Worktree Mode — Worker Prompt Overrides
+
+When `worktreeMode === true`, workers commit directly instead of generating patches. The orchestrator injects the following conditional section into worker prompts, replacing the patch generation steps.
+
+### Rune Smith — Worktree Mode Step 8
+
+Replace the standard Step 8 (patch generation) with:
+
+```javascript
+// Injected into rune-smith prompt when worktreeMode === true
+`    8. IF ward passes (WORKTREE MODE):
+       a. Stage your changes: git add <specific files>
+       b. Make exactly ONE commit with your final changes:
+          git commit -F <message-file>
+          Message format: "rune: {subject} [ward-checked]"
+          Write the message to a temp file first (SEC-011: no inline -m)
+       c. Determine your branch name:
+          BRANCH=$(git branch --show-current)
+       d. Record branch in task metadata (backup channel for compaction recovery):
+          TaskUpdate({ taskId, metadata: { branch: BRANCH } })
+       e. TaskUpdate({ taskId, status: "completed" })
+       f. SendMessage to the Tarnished:
+          "Seal: task #{id} done. Branch: {BRANCH}. Files: {list}"
+       g. Do NOT push your branch. The Tarnished handles all merges.
+       h. Do NOT run git merge. Stay on your worktree branch.
+
+       IMPORTANT — ABSOLUTE PATHS:
+       Your working directory is a git worktree (NOT the main project directory).
+       Use absolute paths for:
+       - Todo files: {absolute_project_root}/tmp/work/{timestamp}/todos/{your-name}.md
+       - Signal files: {absolute_project_root}/tmp/.rune-signals/...
+       - Proposal files: {absolute_project_root}/tmp/work/{timestamp}/proposals/...
+       Do NOT write these files relative to your CWD — they will end up in the worktree.`
+```
+
+### Trial Forger — Worktree Mode Step 8
+
+Replace the standard Step 8 (patch generation) with:
+
+```javascript
+// Injected into trial-forger prompt when worktreeMode === true
+`    8. IF tests pass (WORKTREE MODE):
+       a. Stage your test files: git add <specific test files>
+       b. Make exactly ONE commit with your final changes:
+          git commit -F <message-file>
+          Message format: "rune: {subject} [ward-checked]"
+          Write the message to a temp file first (SEC-011: no inline -m)
+       c. Determine your branch name:
+          BRANCH=$(git branch --show-current)
+       d. Record branch in task metadata (backup channel for compaction recovery):
+          TaskUpdate({ taskId, metadata: { branch: BRANCH } })
+       e. TaskUpdate({ taskId, status: "completed" })
+       f. SendMessage to the Tarnished:
+          "Seal: tests for #{id}. Branch: {BRANCH}. Pass: {count}/{total}"
+       g. Do NOT push your branch. The Tarnished handles all merges.
+
+       IMPORTANT — ABSOLUTE PATHS:
+       Your working directory is a git worktree (NOT the main project directory).
+       Use absolute paths for:
+       - Todo files: {absolute_project_root}/tmp/work/{timestamp}/todos/{your-name}.md
+       - Signal files: {absolute_project_root}/tmp/.rune-signals/...
+       Do NOT write these files relative to your CWD — they will end up in the worktree.`
+```
+
+### Worktree Mode Step 9 (Ward Failure — Both Worker Types)
+
+```javascript
+// Replaces standard Step 9 in worktree mode
+`    9. IF ward/tests fail (WORKTREE MODE):
+       a. Do NOT commit
+       b. Revert your changes: git checkout -- .
+       c. TaskUpdate({ taskId, status: "pending", owner: "" })
+       d. SendMessage to the Tarnished: "Ward failed on task #{id}: {failure summary}"
+       NOTE: In worktree mode, uncommitted changes are isolated to your worktree
+       and cannot affect other workers or the main branch.`
+```
+
+### Integration: How to Inject Worktree Mode
+
+The orchestrator conditionally adds the worktree-mode sections based on the `worktreeMode` flag:
+
+```javascript
+// In Phase 2, when building worker prompts:
+const completionStep = worktreeMode
+  ? worktreeCompletionStep  // Step 8 from above (commit directly)
+  : patchCompletionStep     // Standard Step 8 (generate patch)
+
+const failureStep = worktreeMode
+  ? worktreeFailureStep     // Step 9 from above (checkout --)
+  : patchFailureStep        // Standard Step 9 (no patch)
+
+// Absolute project root for worktree path resolution (GAP-5)
+const absoluteProjectRoot = Bash("pwd").trim()
+// Replace {absolute_project_root} in worktree prompts
+```
+
+### Seal Format — Backward Compatible (C7)
+
+Both modes use the same Seal prefix for hook compatibility:
+
+```
+Patch mode:     "Seal: task #{id} done. Files: {list}"
+Worktree mode:  "Seal: task #{id} done. Branch: {branch}. Files: {list}"
+```
+
+The `Branch:` field is appended (not replacing). Existing hooks that parse `"Seal: task #"` prefix continue to work. The orchestrator extracts `Branch:` when present for merge broker input.
+
 ## Scaling Table
 
 | Task Count | Rune Smiths | Trial Forgers |

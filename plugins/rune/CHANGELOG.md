@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.62.0] - 2026-02-21
+
+### Added
+- **Git worktree isolation for `/rune:work`** — Experimental `--worktree` flag enables isolated git worktree execution. Workers operate in separate worktrees with direct commits instead of patch generation
+- **`git-worktree` skill** (`skills/git-worktree/SKILL.md`) — Background knowledge for worktree merge strategies, conflict resolution, and cleanup procedures
+- **Wave-based execution** — Tasks grouped by dependency depth into waves for parallel worktree execution. DFS-based wave computation with cycle detection
+- **Merge broker** — Replaces commit broker in worktree mode. Merges worker branches into feature branch between waves with `--no-ff`, conflict escalation to user (never auto-resolves)
+- **`worktree-merge.md` reference** — Complete merge broker algorithm, `collectWaveBranches()`, `cleanupWorktree()`, and conflict resolution flow
+- **Wave-aware monitoring** — Per-wave monitoring loop with independent timeouts, merge broker dispatch between waves
+- **SDK canary test** — Validates `isolation: "worktree"` parameter is supported before enabling worktree mode. Graceful fallback to patch mode on failure
+- **Worktree garbage collection** — Phase 6 cleanup prunes orphaned worktrees and branches matching `rune-work-*` pattern
+- **Worktree worker prompts** — Updated `worker-prompts.md`, `rune-smith.md`, and `trial-forger.md` with worktree-specific commit protocol and branch metadata reporting
+
+### Changed
+- work.md Phase 0: Added `--worktree` flag parsing with talisman fallback (`work.worktree.enabled`)
+- work.md Phase 0.5: Added worktree validation (git version check, worktree command availability, SDK canary)
+- work.md Phase 1: Added wave computation (step 5.3) after dependency linking
+- work.md Phase 2: Added wave-based worker spawning with `isolation: "worktree"` as separate code path
+- work.md Phase 3: Added wave-aware monitoring loop for sequential wave execution
+- work.md Phase 3.5: Added merge broker as worktree-mode alternative to commit broker
+- work.md Phase 6: Added worktree garbage collection (step 3.6)
+- Skill count: 17 → 18 (added git-worktree)
+
 ## [1.61.0] - 2026-02-21
 
 ### Added

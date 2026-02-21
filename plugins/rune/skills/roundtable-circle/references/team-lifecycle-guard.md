@@ -131,11 +131,11 @@ for (const task of tasks) {
 }
 
 // 3. Dynamic member discovery + shutdown (see Dynamic Cleanup pattern below)
-// CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
 let allMembers = []
 try {
-  // Read() resolves CLAUDE_CONFIG_DIR automatically (SDK call)
-  const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
+  const teamConfig = Read(`${CHOME}/teams/${team_name}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
@@ -191,10 +191,11 @@ Key properties:
 
 ```javascript
 // 1. Read team config to discover ALL active teammates
-// Read() resolves CLAUDE_CONFIG_DIR automatically (SDK call)
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
 let allMembers = []
 try {
-  const teamConfig = Read(`~/.claude/teams/${team_name}/config.json`)
+  const teamConfig = Read(`${CHOME}/teams/${team_name}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
   // Defense-in-depth: SDK already excludes team-lead from config.members

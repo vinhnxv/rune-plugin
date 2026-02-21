@@ -152,10 +152,10 @@ Return a numbered list. Each entry: brief description + why it matters.`
   const promptPath = `tmp/.rune-trial-forger-codex-${Date.now()}.txt`
   Write(promptPath, edgeCasePrompt)
 
-  const edgeCaseResult = Bash(`timeout ${codexTimeout} codex exec \
+  const edgeCaseResult = Bash(`cat "${promptPath}" | timeout ${codexTimeout} codex exec \
     -m "${codexModel}" --config model_reasoning_effort="${codexReasoning}" \
     --sandbox read-only --full-auto --skip-git-repo-check \
-    "$(cat "${promptPath}")" 2>/dev/null`)
+    - 2>/dev/null`)
 
   // Cleanup temp prompt file
   Bash(`rm -f "${promptPath}" 2>/dev/null`)
@@ -241,6 +241,38 @@ Read [inner-flame](../../skills/inner-flame/SKILL.md) for the 3-layer self-revie
 - Layer 2: Use Worker checklist — verify coverage claims are from actual output
 - Layer 3: Ask "are these tests testing real behavior or just exercising code?"
 Append Self-Review Log to your Seal message.
+
+## Worktree Mode Lifecycle
+
+If you are running in a git worktree (your working directory is NOT the main project — check if `git worktree list` shows your CWD as a linked worktree), follow this modified lifecycle for Steps 6-8:
+
+**Detection**: The orchestrator includes `WORKTREE MODE ACTIVE` in your spawn prompt when worktree isolation is enabled. If you see this marker, follow the worktree lifecycle below instead of the standard patch generation.
+
+```
+Worktree Mode Steps 6-8 (replaces standard patch generation):
+6. Run tests to verify they pass (same as standard mode)
+7. Commit directly in your worktree:
+   a. Stage ONLY your test files: git add <test-files>
+   b. Write commit message to a temp file (SEC-011: no inline -m):
+      Write commit-msg.txt with: "rune: {subject} [ward-checked]"
+   c. Make exactly ONE commit: git commit -F commit-msg.txt
+   d. Record your branch: BRANCH=$(git branch --show-current)
+   e. Save branch in task metadata: TaskUpdate({ taskId, metadata: { branch: BRANCH } })
+8. Mark complete and Seal:
+   a. TaskUpdate({ taskId, status: "completed" })
+   b. SendMessage: "Seal: tests for #{id}. Branch: {BRANCH}. Pass: {count}/{total}"
+
+RULES:
+- Make exactly ONE commit per task (not multiple)
+- Do NOT push your branch (orchestrator handles all merges)
+- Do NOT run git merge
+- Use absolute paths for files outside your worktree:
+  - Todo files: {PROJECT_ROOT}/tmp/work/{timestamp}/todos/{name}.md
+  - Signal files: {PROJECT_ROOT}/tmp/.rune-signals/...
+  The PROJECT_ROOT is your MAIN project directory, not your worktree CWD.
+```
+
+**Test failure in worktree mode**: Do NOT commit. Revert (`git checkout -- .`), release the task, and report failure. Your uncommitted changes are isolated to your worktree and cannot affect other workers.
 
 ## Exit Conditions
 

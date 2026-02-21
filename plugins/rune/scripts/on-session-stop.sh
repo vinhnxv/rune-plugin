@@ -100,7 +100,7 @@ if [[ -d "$CHOME/teams/" ]]; then
 
       # Check if this team has a corresponding state file in CWD
       has_state_file=false
-      for stn in "${state_team_names[@]}"; do
+      for stn in "${state_team_names[@]+"${state_team_names[@]}"}"; do
         if [[ "$stn" == "$dirname" ]]; then
           has_state_file=true
           break

@@ -724,11 +724,14 @@ If inscription.json (or inscription-deep.json for deep pass) has `verification.e
 ## Phase 7: Cleanup & Echo Persist
 
 ```javascript
+// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
+const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+
 // 1. Shutdown all teammates (dynamic discovery from team config)
 const teamName = "rune-audit-{audit_id}"
 let allMembers = []
 try {
-  const teamConfig = Read(`~/.claude/teams/${teamName}/config.json`)
+  const teamConfig = Read(`${CHOME}/teams/${teamName}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
