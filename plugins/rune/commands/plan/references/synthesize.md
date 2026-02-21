@@ -45,6 +45,7 @@ complexity: "{Low|Medium|High}"
 estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
 strategic_intent: "long-term"  # Options: long-term | quick-win | auto
+non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -81,6 +82,7 @@ risk: "{Low|Medium|High} — {brief explanation}"
 estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
 strategic_intent: "long-term"  # Options: long-term | quick-win | auto
+non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -118,6 +120,20 @@ branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 - [ ] Functional requirement 1
 - [ ] Functional requirement 2
 - [ ] Testing requirement
+
+## Non-Goals
+
+{Explicitly out-of-scope items from brainstorm. Populate from `non_goals` frontmatter field.}
+{(No brainstorm -- add manually if needed)}
+
+- {item 1 -- why excluded}
+
+## Success Criteria
+
+{Measurable outcomes that determine whether this feature is successful. Distinct from Acceptance Criteria -- these measure business/user impact, not implementation completeness.}
+{(No brainstorm -- add manually if needed)}
+
+- {criterion 1 -- metric and target}
 
 ## Success Metrics
 
@@ -176,6 +192,7 @@ risk: "{Low|Medium|High} — {brief explanation}"
 estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
 strategic_intent: "long-term"  # Options: long-term | quick-win | auto
+non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
 ---
@@ -256,6 +273,22 @@ erDiagram
 
 - [ ] Test coverage requirements
 - [ ] Documentation completeness
+
+## Non-Goals
+
+{Explicitly out-of-scope items from brainstorm. Populate from `non_goals` frontmatter field.}
+{(No brainstorm -- add manually if needed)}
+
+- {item 1 -- why excluded}
+- {item 2 -- why excluded}
+
+## Success Criteria
+
+{Measurable outcomes that determine whether this feature is successful. Distinct from Acceptance Criteria -- these measure business/user impact, not implementation completeness.}
+{(No brainstorm -- add manually if needed)}
+
+- {criterion 1 -- metric and target}
+- {criterion 2 -- metric and target}
 
 ## Success Metrics
 

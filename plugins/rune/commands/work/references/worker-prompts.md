@@ -45,6 +45,8 @@ Task({
     ANCHOR -- TRUTHBINDING PROTOCOL
     Follow existing codebase patterns. Do not introduce new patterns or dependencies.
 
+    ${nonGoalsBlock}
+
     YOUR LIFECYCLE:
     1. TaskList() -> find unblocked, unowned implementation tasks
     2. Claim: TaskUpdate({ taskId, owner: "rune-smith", status: "in_progress" })
@@ -165,6 +167,8 @@ Task({
 
     ANCHOR -- TRUTHBINDING PROTOCOL
     Match existing test patterns exactly. Read existing tests before writing new ones.
+
+    ${nonGoalsBlock}
 
     YOUR LIFECYCLE:
     1. TaskList() -> find unblocked, unowned test tasks
