@@ -96,7 +96,7 @@ Context budget: **25 files maximum**. Prioritize input handlers, data processing
 
 For each finding, assign:
 - **Priority**: P1 (exploitable edge case — crashes, data corruption, security bypass) | P2 (latent edge case — fails under specific conditions) | P3 (defensive gap — missing guard, unlikely but possible)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `EDGE-NNN` prefix
 
 ## Output Format
@@ -108,19 +108,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[EDGE-001]** `src/api/handlers/upload.py:67` — No size check before reading file into memory
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: `request.files['data'].read()` at line 67 reads entire file without `content_length` check
   - **Impact**: OOM crash — attacker can upload arbitrarily large file
 
 ### P2 — Significant
 - [ ] **[EDGE-002]** `src/billing/calculator.js:112` — Off-by-one in monthly billing cycle
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: `endDate < billingStart` at line 112 should be `<=` — last day of cycle is excluded
   - **Impact**: Users billed for one extra day each cycle
 
 ### P3 — Minor
 - [ ] **[EDGE-003]** `src/utils/config_loader.py:34` — No fallback for missing config key
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: `config['feature_flags']['new_ui']` at line 34 — KeyError if section missing
   - **Impact**: Startup crash if config file is incomplete
 ```
@@ -144,7 +144,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 25 files read)

@@ -184,7 +184,7 @@ Focus mode increases context budget per Ash since fewer are competing for resour
 
 > **Separate lifecycle** — Deep Ashes run in Pass 2 of a two-pass deep audit.
 > They are NOT part of the standard Roundtable Circle. Each has its own
-> Roundtable Circle lifecycle with 4 Ashes maximum.
+> Roundtable Circle lifecycle with 11 Ashes maximum (4 investigation + 7 dimension).
 
 | Ash | Agent | Prefix | Focus | Context Budget |
 |-----|-------|--------|-------|---------------|
@@ -195,3 +195,21 @@ Focus mode increases context budget per Ash since fewer are competing for resour
 
 **Audit file priority:** Investigation-specific (see Deep Gaze section)
 **Activation:** `/rune:audit --deep` flag or `audit.always_deep: true` in talisman.yml
+
+### Deep Dimension Ashes (Audit --deep v1.58.0+)
+
+> **7-dimension deep investigation** — These agents analyze code through specialized
+> dimension lenses. They run alongside the existing 4 deep investigation agents
+> in Pass 2 of the deep audit. Each dimension targets specific quality attributes.
+>
+> **Status**: Agent definitions complete. Orchestration wiring pending — not yet invoked by audit.md.
+
+| Ash | Agent | Prefix | Focus | Context Budget |
+|-----|-------|--------|-------|---------------|
+| truth-seeker | truth-seeker | CORR | Correctness: logic vs requirements, behavior validation, test quality | 30 files |
+| ruin-watcher | ruin-watcher | FAIL | Failure modes: resilience, retry, crash recovery, circuit breakers | 30 files |
+| breach-hunter | breach-hunter | DSEC | Security-deep: threat modeling, auth boundaries, data exposure | 25 files |
+| order-auditor | order-auditor | DSGN | Design: responsibility separation, dependency direction, coupling | 30 files |
+| ember-seer | ember-seer | RSRC | Performance-deep: resource lifecycle, memory, blocking, pool management | 25 files |
+| signal-watcher | signal-watcher | OBSV | Observability: logging context, metrics, traces, error classification | 25 files |
+| decay-tracer | decay-tracer | MTNB | Maintainability: naming intent, complexity hotspots, convention drift | 25 files |

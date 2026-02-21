@@ -100,7 +100,7 @@ const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`)
 const rawAuditSummary = exists(`tmp/arc/${id}/audit-report.md`)
   ? Read(`tmp/arc/${id}/audit-report.md`).split('\n').slice(0, 20).join('\n')
   : "Audit report not available"
-const auditSummary = '```\n' + rawAuditSummary + '\n```'
+const auditSummary = '```\n' + rawAuditSummary.replace(/```/g, "'''") + '\n```'
 
 // Read talisman PR settings
 const monitoringRequired = arcConfig.ship.pr_monitoring
@@ -146,6 +146,24 @@ ${monitoringRequired ? `## Post-Deploy Monitoring
 ---
 Generated with [Claude Code](https://claude.ai/code) via Rune Plugin (/rune:arc)
 ${coAuthorLines}`
+
+// Known Issues from audit (v1.58.0+)
+const knownIssuesPath = `tmp/arc/${id}/audit-known-issues.md`
+const knownIssuesP3Path = `tmp/arc/${id}/audit-known-issues-p3.md`
+let knownIssuesSection = ''
+
+if (exists(knownIssuesPath)) {
+  knownIssuesSection += '\n\n## Known Issues (from deep audit)\n\n'
+  knownIssuesSection += Read(knownIssuesPath)
+}
+if (exists(knownIssuesP3Path)) {
+  knownIssuesSection += '\n\n<details>\n<summary>P3 findings (informational)</summary>\n\n'
+  knownIssuesSection += Read(knownIssuesP3Path)
+  knownIssuesSection += '\n</details>'
+}
+
+// Append to PR body
+prBody += knownIssuesSection
 
 Write(`tmp/arc/${id}/pr-body.md`, prBody)
 

@@ -94,7 +94,7 @@ Context budget: **30 files maximum**. Prioritize entry points, route registratio
 
 For each finding, assign:
 - **Priority**: P1 (broken at runtime — import failures, missing DI, dead routes) | P2 (integration debt — unused exports, orphan modules) | P3 (drift risk — contract mismatches, stale re-exports)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `INTG-NNN` prefix
 
 ## Output Format
@@ -106,19 +106,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[INTG-001]** `src/api/routes/orders.ts:45` — Route `/api/v2/orders/cancel` points to removed handler
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: Route at line 45 references `OrderController.cancel` but method was removed in commit abc123
   - **Impact**: Runtime 404 — endpoint registered but handler missing
 
 ### P2 — Significant
 - [ ] **[INTG-002]** `src/services/index.ts:12` — Barrel re-exports `PaymentValidator` but module was deleted
-  - **Confidence**: 90
+  - **Confidence**: PROVEN
   - **Evidence**: `export { PaymentValidator } from './payment-validator'` — file does not exist
   - **Impact**: Import fails at build time if any consumer references this export
 
 ### P3 — Minor
 - [ ] **[INTG-003]** `src/utils/formatters.ts:88` — `formatCurrency()` exported but unused across codebase
-  - **Confidence**: 75
+  - **Confidence**: UNCERTAIN
   - **Evidence**: Grep for `formatCurrency` returns only the definition — zero import sites
   - **Impact**: Dead code — safe to remove or reduce visibility
 ```
@@ -142,7 +142,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 30 files read)
