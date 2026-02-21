@@ -304,8 +304,8 @@ Before analyzing patterns, query Rune Echoes for previously established conventi
 6. [ ] Check **state management** (single source of truth, enum consistency, transitions)
 7. [ ] Verify **logging/observability** format (structured vs plain, correlation IDs, levels)
 8. [ ] Evaluate **naming intent** quality (name-behavior mismatch, vague names, side-effect hiding)
-8. [ ] Check **import ordering** and grouping follows convention
-9. [ ] Verify **configuration pattern** matches existing approach (env vars, config files, etc.)
+9. [ ] Check **import ordering** and grouping follows convention
+10. [ ] Verify **configuration pattern** matches existing approach (env vars, config files, etc.)
 
 ### Cross-Reference Strategy
 

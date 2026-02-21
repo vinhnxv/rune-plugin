@@ -333,7 +333,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 
 ### Review Agents
 
-21 specialized agents that Ash embed as perspectives:
+22 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -358,6 +358,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 | reality-arbiter | Production viability truth-telling |
 | assumption-slayer | Premise validation truth-telling |
 | entropy-prophet | Long-term consequence truth-telling |
+| naming-intent-analyzer | Naming intent quality, name-behavior mismatch |
 
 ### Research Agents
 
@@ -520,13 +521,13 @@ plugins/rune/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── agents/
-│   ├── investigation/       # 12 investigation agents (Goldmask + Inspect)
+│   ├── investigation/       # 23 investigation agents (Goldmask + Inspect)
 │   ├── review/              # 22 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
 │   ├── testing/             # 4 testing agents (arc Phase 7.7)
 │   ├── work/                # 2 swarm workers (work pipeline)
-│   └── utility/             # Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan, horizon-sage
+│   └── utility/             # 11 utility agents: Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan, horizon-sage, gap-fixer (prompt-template)
 ├── commands/
 │   ├── cancel-arc.md        # /rune:cancel-arc
 │   ├── cancel-arc-batch.md  # /rune:cancel-arc-batch
