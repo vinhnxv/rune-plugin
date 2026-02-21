@@ -14,7 +14,7 @@
 # Hook event: Stop
 # Timeout: 15s
 # Exit 0 with no output: No active batch — allow stop
-# Exit 0 with hookSpecificOutput decision=block: Re-inject next arc prompt
+# Exit 0 with top-level decision=block: Re-inject next arc prompt
 
 set -euo pipefail
 trap 'exit 0' ERR
@@ -170,12 +170,9 @@ Present the summary clearly and concisely."
     --arg prompt "$SUMMARY_PROMPT" \
     --arg msg "$SYSTEM_MSG" \
     '{
-      hookSpecificOutput: {
-        hookEventName: "Stop",
-        decision: "block",
-        reason: $prompt,
-        systemMessage: $msg
-      }
+      decision: "block",
+      reason: $prompt,
+      systemMessage: $msg
     }'
   exit 0
 fi
@@ -227,16 +224,13 @@ Plan: ${NEXT_PLAN}"
 
 SYSTEM_MSG="Arc batch loop — iteration ${NEW_ITERATION} of ${TOTAL_PLANS}. Processing: ${NEXT_PLAN}"
 
-# ── Output blocking JSON ──
+# ── Output blocking JSON — Stop hooks use top-level decision/reason ──
 jq -n \
   --arg prompt "$ARC_PROMPT" \
   --arg msg "$SYSTEM_MSG" \
   '{
-    hookSpecificOutput: {
-      hookEventName: "Stop",
-      decision: "block",
-      reason: $prompt,
-      systemMessage: $msg
-    }
+    decision: "block",
+    reason: $prompt,
+    systemMessage: $msg
   }'
 exit 0
