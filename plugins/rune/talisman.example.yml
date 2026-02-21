@@ -429,9 +429,27 @@ echoes:
   version_controlled: false    # Set true to track .claude/echoes/ in git
 
 # ──────────────────────────────────────────────
-# Review — Chunked review and convergence settings (v1.35.0+)
+# Review — Context Intelligence, Linter Awareness, and convergence (v1.35.0+)
 # ──────────────────────────────────────────────
 # review:                                # Uncomment this line AND the desired child keys below to enable review settings.
+  #
+  # Context Intelligence (Phase 0.3, v1.60.0+)
+  # Gathers PR metadata and linked issue context for ash-prompt injection.
+  # Requires `gh` CLI installed and authenticated.
+  # context_intelligence:
+  #   enabled: true                    # Default: true. Set false to skip Phase 0.3.
+  #   scope_warning_threshold: 1000    # Lines changed. Warn above this. Range: 50-10000. Default: 1000.
+  #   fetch_linked_issues: true        # Fetch linked issue body. Default: true.
+  #   max_pr_body_chars: 3000          # Sanitized PR body cap. Range: 500-5000. Default: 3000.
+  #
+  # Linter Awareness (Phase 0.4, v1.60.0+)
+  # Detects project linters from config files and suppresses duplicate findings.
+  # No linter execution — only config file presence detection.
+  # linter_awareness:
+  #   enabled: true                    # Default: true. Set false to skip Phase 0.4.
+  #   always_review:                   # Categories to review even if linter covers them
+  #     - type-checking                # Example: still review types even with mypy
+  #
   # Auto-mend: invoke /rune:mend automatically after review completes (v1.38.0+)
   # When enabled, skips the post-review AskUserQuestion and pipes the TOME
   # directly into the mend pipeline. Only triggers when P1/P2 findings exist.

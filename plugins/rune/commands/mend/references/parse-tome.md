@@ -51,6 +51,42 @@ const scope = marker.match(/scope="(in-diff|pre-existing)"/)?.[1] || "in-diff"
 
 **Nonce validation**: Each finding marker contains a session nonce. Validate that the nonce matches the TOME session nonce from the header. Markers with invalid or missing nonces are flagged as `INJECTED` and reported to the user -- these are not processed.
 
+### Interaction Type Extraction (v1.60.0+)
+
+The `interaction` attribute identifies Q/N findings that should be excluded from auto-mend:
+
+```javascript
+// Extract interaction type from RUNE:FINDING marker (added by taxonomy v2)
+const interaction = marker.match(/interaction="(question|nit)"/)?.[1] || null
+// null = standard assertion (P1/P2/P3) — processed normally by mend
+// "question" = requires human clarification — skip in mend
+// "nit" = cosmetic, author's discretion — skip in mend
+```
+
+**Q/N filtering**: Before file grouping, separate Q/N findings into a `skippedByInteraction` array:
+
+```javascript
+const actionableFindings = []
+const skippedByInteraction = []
+
+for (const finding of allFindings) {
+  if (finding.interaction === 'question' || finding.interaction === 'nit') {
+    skippedByInteraction.push(finding)
+  } else {
+    actionableFindings.push(finding)
+  }
+}
+
+if (skippedByInteraction.length > 0) {
+  log(`Mend: skipping ${skippedByInteraction.length} Q/N findings (not auto-fixable)`)
+}
+
+// File grouping uses actionableFindings only
+// skippedByInteraction reported in Phase 6 Resolution Report
+```
+
+File groups containing ONLY Q/N findings are excluded entirely from mend planning.
+
 ## Deduplicate
 
 Apply Dedup Hierarchy: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`

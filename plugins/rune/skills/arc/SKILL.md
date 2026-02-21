@@ -1001,7 +1001,11 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan")) {
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
       ? talisman.codex.model : "gpt-5.3-codex"
 
-    const planContent = Read(enrichedPlanPath).slice(0, 10000)
+    // Slice to ~10KB but snap to last newline to avoid mid-word truncation
+    // (prevents garbled END PLAN boundary like "tit--- END PLAN")
+    const rawSlice = Read(enrichedPlanPath).slice(0, 10000)
+    const lastNewline = rawSlice.lastIndexOf('\n')
+    const planContent = lastNewline > 0 ? rawSlice.slice(0, lastNewline) : rawSlice
 
     // SEC-002 FIX: .codexignore pre-flight check before --full-auto
     // CDX-001 FIX: Use if/else to prevent fall-through when .codexignore is missing
@@ -1016,8 +1020,9 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan")) {
       ? talisman.codex.semantic_verification.reasoning : "medium"
 
     // SEC-004 FIX: Validate and clamp timeout before shell interpolation
+    // Clamp range: 30s min, 600s max (phase budget allows talisman override up to 10 min)
     const rawSemanticTimeout = Number(talisman?.codex?.semantic_verification?.timeout)
-    const semanticTimeoutValidated = Math.max(30, Math.min(300, Number.isFinite(rawSemanticTimeout) ? rawSemanticTimeout : 120))
+    const semanticTimeoutValidated = Math.max(30, Math.min(600, Number.isFinite(rawSemanticTimeout) ? rawSemanticTimeout : 120))
 
     // SEC-003: Write prompt to temp file (CC-4) — NEVER inline interpolation
     // SEC-003 FIX: Use crypto.randomBytes for nonce (not ambiguous random_hex)
@@ -1133,9 +1138,11 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("work")) {
   const gapEnabled = talisman?.codex?.gap_analysis?.enabled !== false
 
   if (gapEnabled) {
-    // Gather context: plan summary + diff stats
-    const planSummary = Read(checkpoint.plan_file).slice(0, 5000)
-    const workDiff = Bash(`git diff ${checkpoint.freshness?.git_sha ?? 'HEAD~5'}..HEAD --stat 2>/dev/null`).stdout.slice(0, 3000)
+    // Gather context: plan summary + diff stats (snap to line boundary to avoid mid-word truncation)
+    const rawPlanSlice = Read(checkpoint.plan_file).slice(0, 5000)
+    const planSummary = rawPlanSlice.slice(0, Math.max(rawPlanSlice.lastIndexOf('\n'), 1))
+    const rawDiffSlice = Bash(`git diff ${checkpoint.freshness?.git_sha ?? 'HEAD~5'}..HEAD --stat 2>/dev/null`).stdout.slice(0, 3000)
+    const workDiff = rawDiffSlice.slice(0, Math.max(rawDiffSlice.lastIndexOf('\n'), 1))
 
     // SEC-003: Write prompt to temp file (CC-4) — NEVER inline interpolation
     // SEC-010 FIX: Use crypto.randomBytes instead of undefined random_hex

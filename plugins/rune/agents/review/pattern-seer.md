@@ -6,7 +6,9 @@ description: |
   logging/observability across the codebase. Covers: cross-layer naming consistency,
   error handling uniformity, API design consistency, data modeling conventions,
   auth/authz pattern consistency, state management uniformity, logging/observability
-  format consistency, convention deviation flagging. The silent killer of system health.
+  format consistency, convention deviation flagging, naming intent quality analysis
+  (name-behavior mismatch, vague names hiding complexity, side-effect hiding,
+  boolean inversion). The silent killer of system health.
   Triggers: New files, new services, pattern-sensitive areas, cross-module changes.
 
   <example>
@@ -241,6 +243,42 @@ Different logging patterns across services:
 # - Metrics: some services emit, others don't
 ```
 
+### 8. Naming Intent Quality
+
+Go beyond consistency — evaluate whether names accurately reflect code behavior:
+
+```python
+# BAD: Name-behavior mismatch
+def validateUser(user_data):
+    # Actually validates AND creates a session AND sends email
+    # Name suggests only validation
+
+# BAD: Vague name hiding complexity
+def processData(data):
+    # Does validation, transformation, persistence, and notification
+    # Name covers none of these actions
+
+# BAD: Side-effect hiding
+def calculateTotal(order):
+    total = sum(item.price for item in order.items)
+    order.total = total  # Side effect! Updates DB
+    return total
+
+# BAD: Boolean inversion
+@property
+def isEnabled(self):
+    return self.status == 'disabled'  # Returns true when OFF
+```
+
+**Naming Anti-Patterns:**
+- `handle*` / `process*` / `manage*` / `do*` — hiding complexity (note: `handle*` is idiomatic in React)
+- `get*` with side effects (should be `fetch*` / `load*`)
+- `is*` / `has*` / `should*` returning non-boolean
+- `data` / `info` / `result` / `item` / `temp` — vague when specific names exist
+- `util*` / `helper*` / `misc*` — usually indicates missing abstraction
+
+**Cluster Escalation:** When 3+ naming findings cluster in the same module, escalate to architecture-level investigation (connects to cross-cutting consistency analysis).
+
 ## Echo Integration (Past Convention Knowledge)
 
 Before analyzing patterns, query Rune Echoes for previously established conventions:
@@ -265,8 +303,9 @@ Before analyzing patterns, query Rune Echoes for previously established conventi
 5. [ ] Audit **auth/authz patterns** (where checks happen, what strategy is used)
 6. [ ] Check **state management** (single source of truth, enum consistency, transitions)
 7. [ ] Verify **logging/observability** format (structured vs plain, correlation IDs, levels)
-8. [ ] Check **import ordering** and grouping follows convention
-9. [ ] Verify **configuration pattern** matches existing approach (env vars, config files, etc.)
+8. [ ] Evaluate **naming intent** quality (name-behavior mismatch, vague names, side-effect hiding)
+9. [ ] Check **import ordering** and grouping follows convention
+10. [ ] Verify **configuration pattern** matches existing approach (env vars, config files, etc.)
 
 ### Cross-Reference Strategy
 

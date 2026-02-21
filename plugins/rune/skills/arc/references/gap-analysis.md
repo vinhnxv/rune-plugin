@@ -710,8 +710,11 @@ if (!codexAvailable || codexDisabled || !codexWorkflows.includes("work") || !gap
 ### STEP 2: Gather Context
 
 ```javascript
-const planSummary = Read(checkpoint.plan_file).slice(0, 5000)
-const workDiff = Bash(`git diff ${checkpoint.freshness?.git_sha ?? 'HEAD~5'}..HEAD --stat 2>/dev/null`).stdout.slice(0, 3000)
+// Snap to line boundary to avoid mid-word truncation at nonce-bounded markers
+const rawPlanSlice = Read(checkpoint.plan_file).slice(0, 5000)
+const planSummary = rawPlanSlice.slice(0, Math.max(rawPlanSlice.lastIndexOf('\n'), 1))
+const rawDiffSlice = Bash(`git diff ${checkpoint.freshness?.git_sha ?? 'HEAD~5'}..HEAD --stat 2>/dev/null`).stdout.slice(0, 3000)
+const workDiff = rawDiffSlice.slice(0, Math.max(rawDiffSlice.lastIndexOf('\n'), 1))
 ```
 
 ### STEP 3: Build Prompt (SEC-003)
