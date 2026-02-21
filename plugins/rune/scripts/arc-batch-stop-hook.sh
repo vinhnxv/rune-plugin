@@ -94,6 +94,40 @@ if [[ -L "${CWD}/${PROGRESS_FILE}" ]]; then
   exit 0
 fi
 
+# ── GUARD 5.7: Session isolation (cross-session safety) ──
+# The state file is project-scoped (.claude/arc-batch-loop.local.md).
+# Multiple Claude Code sessions may share the same CWD.
+# Only the session that created the batch should process it.
+# Two-layer isolation:
+#   Layer 1: config_dir — isolates different Claude Code installations
+#   Layer 2: owner_pid — isolates different sessions with the same config dir
+STORED_CONFIG_DIR=$(get_field "config_dir")
+STORED_PID=$(get_field "owner_pid")
+CURRENT_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+# Resolve symlinks for reliable comparison
+CURRENT_CONFIG_DIR=$(cd "$CURRENT_CONFIG_DIR" 2>/dev/null && pwd -P || echo "$CURRENT_CONFIG_DIR")
+
+# Layer 1: Config-dir isolation
+if [[ -n "$STORED_CONFIG_DIR" && "$STORED_CONFIG_DIR" != "$CURRENT_CONFIG_DIR" ]]; then
+  # Not our batch — another Claude Code installation owns it.
+  exit 0
+fi
+
+# Layer 2: PID isolation (same config dir, different session)
+# $PPID = Claude Code process PID (hook runs as child of Claude Code)
+if [[ -n "$STORED_PID" && "$STORED_PID" =~ ^[0-9]+$ ]]; then
+  if [[ "$STORED_PID" != "$PPID" ]]; then
+    # Different process — check if owner is still alive
+    if kill -0 "$STORED_PID" 2>/dev/null; then
+      # Owner is alive and it's a different session → not our batch
+      exit 0
+    fi
+    # Owner died → orphaned batch. Clean up state file and allow stop.
+    rm -f "$STATE_FILE" 2>/dev/null
+    exit 0
+  fi
+fi
+
 # ── GUARD 6: Validate active flag ──
 if [[ "$ACTIVE" != "true" ]]; then
   rm -f "$STATE_FILE" 2>/dev/null

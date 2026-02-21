@@ -49,11 +49,34 @@ if [[ -z "$CWD" || "$CWD" != /* ]]; then
   exit 0
 fi
 
-# ── GUARD 5: Defer to arc-batch stop hook ──
-# When arc-batch loop is active, arc-batch-stop-hook.sh handles the Stop event.
-# This prevents conflicting cleanup.
-if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
-  exit 0
+# ── GUARD 5: Defer to arc-batch stop hook (with ownership check) ──
+# When arc-batch loop is active AND belongs to THIS session, arc-batch-stop-hook.sh
+# handles the Stop event. Only defer if we're the owning session.
+# If the batch belongs to another session, proceed with normal cleanup for THIS session.
+if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
+  _BATCH_FM=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null | sed '1d;$d')
+  _BATCH_CFG=$(echo "$_BATCH_FM" | grep "^config_dir:" | sed 's/^config_dir:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+  _BATCH_PID=$(echo "$_BATCH_FM" | grep "^owner_pid:" | sed 's/^owner_pid:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+  _CURRENT_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  _CURRENT_CFG=$(cd "$_CURRENT_CFG" 2>/dev/null && pwd -P || echo "$_CURRENT_CFG")
+
+  _is_owner=true
+  # Check config_dir
+  if [[ -n "$_BATCH_CFG" && "$_BATCH_CFG" != "$_CURRENT_CFG" ]]; then
+    _is_owner=false
+  fi
+  # Check PID
+  if [[ "$_is_owner" == "true" && -n "$_BATCH_PID" && "$_BATCH_PID" =~ ^[0-9]+$ && "$_BATCH_PID" != "$PPID" ]]; then
+    if kill -0 "$_BATCH_PID" 2>/dev/null; then
+      _is_owner=false
+    fi
+  fi
+
+  if [[ "$_is_owner" == "true" ]]; then
+    # This session owns the batch — defer to arc-batch-stop-hook.sh
+    exit 0
+  fi
+  # Not our batch — proceed with normal cleanup for THIS session
 fi
 
 # ── CHOME resolution ──

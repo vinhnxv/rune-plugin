@@ -27,7 +27,7 @@ Cancel an active arc pipeline and gracefully shutdown all phase teammates. Compl
 
 ## Steps
 
-### 0. Cancel Arc-Batch Loop (if active)
+### 0. Cancel Arc-Batch Loop (if active and owned by this session)
 
 ```javascript
 // Check for active arc-batch loop state file
@@ -35,16 +35,36 @@ const batchStateFile = ".claude/arc-batch-loop.local.md"
 const batchExists = Bash(`test -f "${batchStateFile}" && echo "yes" || echo "no"`).trim()
 
 if (batchExists === "yes") {
-  // Read iteration info before removing
+  // Read iteration info and ownership before removing
   const batchContent = Read(batchStateFile)
   const iterMatch = batchContent.match(/iteration:\s*(\d+)/)
   const totalMatch = batchContent.match(/total_plans:\s*(\d+)/)
   const iteration = iterMatch ? iterMatch[1] : "?"
   const total = totalMatch ? totalMatch[1] : "?"
 
-  // Remove state file to stop the batch loop
-  Bash('rm -f .claude/arc-batch-loop.local.md')
-  log(`Arc-batch loop also cancelled (was at iteration ${iteration}/${total})`)
+  // Check ownership — don't cancel another session's batch silently
+  const ownerPidMatch = batchContent.match(/owner_pid:\s*(\d+)/)
+  const configDirMatch = batchContent.match(/config_dir:\s*(.+)/)
+  const ownerPid = ownerPidMatch ? ownerPidMatch[1].trim() : null
+  const storedCfg = configDirMatch ? configDirMatch[1].trim() : null
+  const currentCfg = Bash(`cd "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+  const currentPid = Bash(`echo $PPID`).trim()
+
+  let isOwner = true
+  if (storedCfg && storedCfg !== currentCfg) isOwner = false
+  if (isOwner && ownerPid && ownerPid !== currentPid) {
+    const alive = Bash(`kill -0 ${ownerPid} 2>/dev/null && echo "alive" || echo "dead"`).trim()
+    if (alive === "alive") isOwner = false
+  }
+
+  if (isOwner) {
+    // Remove state file to stop the batch loop
+    Bash('rm -f .claude/arc-batch-loop.local.md')
+    log(`Arc-batch loop also cancelled (was at iteration ${iteration}/${total})`)
+  } else {
+    warn(`Arc-batch loop belongs to another session (PID: ${ownerPid}). Skipping batch cancellation.`)
+    warn("Use /rune:cancel-arc-batch from the owning session to cancel it.")
+  }
 }
 ```
 

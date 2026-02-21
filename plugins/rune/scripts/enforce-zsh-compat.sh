@@ -12,13 +12,20 @@
 #     In zsh, it throws: no matches found: *.nothing (NOMATCH option, on by default).
 #     Fix: use `(N)` qualifier or `setopt nullglob` before the glob.
 #
+# (C) History expansion of `!` before `[[`:
+#     In zsh, `! [[ ... ]]` can trigger history expansion (`!` prefix).
+#     Causes: (eval):N: command not found: !
+#     Fix: move negation inside: `[[ ! ... ]]`
+#
 # Detection strategy:
 #   1. Shell detection: skip if user's shell is not zsh
 #   2. Fast-path: skip if command doesn't contain any target patterns
 #   3. Check A: bare `status=` assignment (not `task_status=`, etc.)
 #   4. Check B: `for VAR in GLOB; do` without nullglob protection
-#   5. Check A: block with actionable fix suggestion
+#   5. Check C: `! [[ ... ]]` history expansion
+#   6. Check A: block with actionable fix suggestion
 #      Check B: AUTO-FIX by prepending `setopt nullglob;` (no wasted round-trip)
+#      Check C: AUTO-FIX by rewriting `! [[` → `[[ !`
 #
 # Only active when user's shell is zsh — these are valid patterns in bash.
 #
@@ -71,11 +78,14 @@ NORMALIZED=$(printf '%s\n' "$COMMAND" | tr '\n' ' ')
 # Fast-path: skip if none of the target patterns appear (operates on normalized input)
 has_status_assign=""
 has_for_glob=""
+has_bang_bracket=""
 case "$NORMALIZED" in *status=*) has_status_assign=1 ;; esac
 # BACK-005: Also detect `?` glob character (zsh NOMATCH-triggering)
 case "$NORMALIZED" in *for*in*[*?]*do*) has_for_glob=1 ;; esac
+# ZSH-001C: Detect `! [[` pattern (history expansion trigger in zsh)
+case "$NORMALIZED" in *'! [['*) has_bang_bracket=1 ;; esac
 
-if [[ -z "$has_status_assign" && -z "$has_for_glob" ]]; then
+if [[ -z "$has_status_assign" && -z "$has_for_glob" && -z "$has_bang_bracket" ]]; then
   exit 0
 fi
 
@@ -167,6 +177,40 @@ AUTOFIX_JSON
         exit 0
       fi
     fi
+  fi
+fi
+
+# ─── Check C: `! [[` history expansion ────────────────────────────────────────
+# In zsh, `! [[ ... ]]` triggers history expansion — the `!` is interpreted as
+# `!command` (re-run last command starting with...) rather than logical negation.
+# Result: (eval):N: command not found: !
+#
+# Detection: `! [[` preceded by a shell boundary (start of string, semicolon,
+# pipe, ampersand, or keyword like `if`, `elif`, `while`, `until`).
+#
+# Strategy: AUTO-FIX by rewriting `! [[` → `[[ !` in the command.
+# For single-expression `[[ ]]` blocks (the overwhelmingly common case),
+# `! [[ expr ]]` and `[[ ! expr ]]` are semantically equivalent.
+# This handles patterns like: `if ! [[ "$x" =~ ^[0-9]+$ ]]; then`
+# → rewrites to:            `if [[ ! "$x" =~ ^[0-9]+$ ]]; then`
+if [[ -n "$has_bang_bracket" ]]; then
+  # Verify the pattern exists in the actual command (not just fast-path noise)
+  if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&])!\s*\[\['; then
+    # Auto-fix: replace `! [[` with `[[ !` throughout the command
+    FIXED_COMMAND=$(printf '%s' "$COMMAND" | sed 's/! \[\[/[[ !/g')
+    # SEC: Escape special JSON characters in the command
+    ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.' || { exit 0; })
+    cat << AUTOFIX_JSON
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "updatedInput": { "command": ${ESCAPED_COMMAND} },
+    "additionalContext": "ZSH-001 auto-fix: rewrote '! [[' to '[[ !' to avoid zsh history expansion. Semantically equivalent for single-expression [[ ]] blocks."
+  }
+}
+AUTOFIX_JSON
+    exit 0
   fi
 fi
 

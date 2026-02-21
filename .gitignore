@@ -36,3 +36,4 @@ __pycache__/
 # Test outputs
 tests/reports/
 plugins/rune/ROADMAP.md
+.claude/arc-batch-loop.local.md
