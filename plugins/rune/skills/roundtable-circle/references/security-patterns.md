@@ -107,6 +107,72 @@ Note: `SAFE_REGEX_PATTERN` does not include `\n` in its character class, so mult
 **ReDoS safe**: Yes
 **Consumers**: work.md, mend.md
 
+## CLI-Backed Ash Validators
+
+### CLI_BINARY_PATTERN
+<!-- PATTERN:CLI_BINARY_PATTERN regex="/^[a-zA-Z0-9_-]+$/" version="1" -->
+**Regex**: `/^[a-zA-Z0-9_-]+$/`
+**Alias**: SAFE_IDENTIFIER_PATTERN (identical regex, shared threat model)
+**Threat model**: Validates CLI binary names for external model Ashes. Blocks path separators (`/`, `\`), dots (`.` — prevents `../`), spaces, and shell metacharacters. The binary is resolved via `command -v` after validation, and the resolved path must NOT be within the project directory (see `CLI_PATH_VALIDATION`).
+**ReDoS safe**: Yes (character class only, no quantifier nesting)
+**Consumers**: custom-ashes.md (CLI-backed Ash validation), codex-detection.md (detectExternalModel)
+
+### OUTPUT_FORMAT_ALLOWLIST
+<!-- PATTERN:OUTPUT_FORMAT_ALLOWLIST values='["jsonl","text","json"]' version="1" -->
+**Values**: `["jsonl", "text", "json"]`
+**Threat model**: Restricts CLI output format parameter to known-safe values. Prevents arbitrary format strings from reaching shell interpolation.
+**Consumers**: custom-ashes.md (CLI-backed Ash validation), external-model-template.md
+
+### MODEL_NAME_PATTERN
+<!-- PATTERN:MODEL_NAME_PATTERN regex="/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/" version="1" -->
+**Regex**: `/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/`
+**Threat model**: Validates external model names. Requires alphanumeric first character to prevent injection via leading hyphens (`-` could be misinterpreted as CLI flags). Allows dots and hyphens for model version identifiers (e.g., `gemini-2.5-pro`, `llama3.1`). Does NOT allow spaces, slashes, or shell metacharacters.
+**ReDoS safe**: Yes (character class only)
+**Consumers**: custom-ashes.md (CLI-backed Ash validation, default `model_pattern`), codex-detection.md (detectExternalModel)
+
+### CLI_PATH_VALIDATION
+**Rule**: Resolved CLI binary path (from `command -v {cli}`) must NOT be within the project directory.
+**Threat model**: Prevents a malicious repository from shipping a fake CLI binary (e.g., `./gemini`) that gets executed with trust. The resolved absolute path is compared against `$PWD` — if it starts with the project root, validation fails.
+**Implementation**:
+```bash
+cli_path=$(command -v "{cli}" 2>/dev/null)
+if [[ "$cli_path" == "$PWD"* ]]; then
+  error "CLI binary '{cli}' resolves to project directory — rejected for safety"
+fi
+```
+**Consumers**: codex-detection.md (detectExternalModel step 3)
+
+### CLI_TIMEOUT_PATTERN
+<!-- PATTERN:CLI_TIMEOUT_PATTERN regex="/^\d{1,5}$/" version="1" -->
+**Regex**: `/^\d{1,5}$/`
+**Threat model**: Validates CLI timeout values from talisman.yml before shell interpolation. Identical format to CODEX_TIMEOUT_ALLOWLIST. Accepts only 1-5 digit integers (max 99999). Bounds checking (30-3600) is performed after format validation.
+**ReDoS safe**: Yes (character class with bounded quantifier, no nesting)
+**Consumers**: custom-ashes.md (CLI-backed Ash validation), codex-detection.md (detectExternalModel)
+
+### sanitizePlanContent()
+
+Canonical sanitizer for plan/diff content before injection into external CLI prompts. Prevents prompt injection via reviewed code.
+
+```javascript
+function sanitizePlanContent(content, maxLength = 50000) {
+  // 1. Truncate to maxLength to prevent token overflow
+  let sanitized = content.slice(0, maxLength)
+
+  // 2. Strip nonce markers that could confuse Truthbinding boundaries
+  sanitized = sanitized.replace(/<<<NONCE:[A-Za-z0-9]+>>>/g, '[NONCE-STRIPPED]')
+
+  // 3. Escape markdown code fence terminators that could break prompt template
+  sanitized = sanitized.replace(/```/g, '` ` `')
+
+  // 4. Strip null bytes and other control characters (except newline, tab)
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+
+  return sanitized
+}
+```
+
+**Consumers**: external-model-template.md (diff/file content injection), codex-oracle.md (existing Codex flow)
+
 ## Codex Allowlists
 
 ### CODEX_MODEL_ALLOWLIST

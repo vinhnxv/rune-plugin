@@ -31,6 +31,11 @@ Plan → Work → Review → Mend → Audit                        (standalone c
 
 Each Ash teammate gets its own 200k context window, eliminating single-context bottlenecks.
 
+**v1.57.0 highlights:**
+- **Multi-model adversarial review** — CLI-backed Ashes bring external models (Gemini, Llama, etc.) into the Roundtable Circle alongside Claude and Codex Oracle
+- **Crystallized brief** — structured plan summaries for cross-phase handoff
+- **Semantic drift detection** — cross-model gap analysis with CDX-DRIFT finding IDs
+
 > [!WARNING]
 > **Rune is a token-grinding machine.** Each workflow summons multiple agents with their own 200k context windows, consuming tokens rapidly. A single `/rune:arc` or `/rune:audit` run can burn through a significant portion of your weekly usage limit.
 >
@@ -45,7 +50,7 @@ Each Ash teammate gets its own 200k context window, eliminating single-context b
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.56.0 |
+| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.57.0 |
 
 ## Structure
 

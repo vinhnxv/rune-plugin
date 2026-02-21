@@ -312,6 +312,58 @@ Record brainstorm output for research phase:
 - Key constraints
 - Open questions to resolve during research
 
+The following structured sections are **mandatory** in every brainstorm output. Include them after the core decision capture above:
+
+#### 4a. Non-Goals
+
+```markdown
+## Non-Goals
+
+Explicitly out-of-scope items for this feature. List anything that a reasonable person might assume is included but is NOT.
+
+- {item 1 — why it is excluded}
+- {item 2 — why it is excluded}
+```
+
+**Validation**: If Non-Goals section is empty after brainstorm, warn: "Non-Goals section is empty — consider adding at least one exclusion to prevent scope creep."
+
+#### 4b. Constraint Classification
+
+```markdown
+## Constraint Classification
+
+| Constraint | Priority | Rationale |
+|------------|----------|-----------|
+| {constraint 1} | MUST | {why non-negotiable} |
+| {constraint 2} | SHOULD | {why important but flexible} |
+| {constraint 3} | NICE-TO-HAVE | {why desirable but deferrable} |
+```
+
+#### 4c. Success Criteria
+
+```markdown
+## Success Criteria
+
+Measurable outcomes that determine whether this feature is successful (distinct from Acceptance Criteria — these measure business/user impact, not implementation completeness).
+
+- {criterion 1 — metric and target}
+- {criterion 2 — metric and target}
+```
+
+#### 4d. Scope Boundary
+
+```markdown
+## Scope Boundary
+
+### In-Scope
+- {item 1}
+- {item 2}
+
+### Out-of-Scope
+- {item 1} (see Non-Goals)
+- {item 2}
+```
+
 Persist brainstorm decisions to: `tmp/plans/{timestamp}/brainstorm-decisions.md`
 
 ## Phase 1: Research (Conditional, up to 7 agents)

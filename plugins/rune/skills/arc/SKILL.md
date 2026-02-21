@@ -1082,9 +1082,19 @@ Deterministic, orchestrator-only check that cross-references plan acceptance cri
 
 See [gap-analysis.md](references/gap-analysis.md) for the full algorithm.
 
+<!-- v1.57.0: Phase 5.5 STEP A.9 enhancement planned — CLI-backed Ashes can contribute
+     to gap analysis by running detectAllCLIAshes() and including their findings
+     in the gap-analysis-verdict.md. This extends the existing Inspector Ashes STEP B
+     to include external model perspectives alongside the deterministic STEP A checks. -->
+
 ## Phase 5.6: CODEX GAP ANALYSIS (Codex cross-model, v1.39.0)
 
 Codex-powered cross-model gap detection that compares the plan against the actual implementation. Runs AFTER the deterministic Phase 5.5 as a separate phase. Phase 5.5 has a 60-second timeout — Codex exec takes 60-600s and cannot fit within it.
+
+<!-- v1.57.0: Phase 5.6 batched claim enhancement planned — when CLI-backed Ashes
+     are configured, their gap findings can be batched with Codex gap findings
+     into a unified cross-model gap report. CDX-DRIFT is an internal finding ID
+     for semantic drift detection, not a custom Ash prefix. -->
 
 **Team**: `arc-gap-{id}` — follows ATE-1 pattern (spawns dedicated codex-gap-analyzer teammate)
 **Inputs**: Plan file, git diff of work output, ward check results

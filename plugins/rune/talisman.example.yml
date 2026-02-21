@@ -131,6 +131,25 @@ ashes:
     #   context_budget: 15
     #   finding_prefix: "COMP"
 
+    # Example 5: CLI-backed Ash — external model via CLI (v1.57.0+)
+    # When `cli:` is present, the Ash invokes an external model via CLI
+    # instead of a Claude Code agent. Detected via detectExternalModel().
+    # `agent` and `source` become optional (ignored when cli: is set).
+    # Subject to max_cli_ashes sub-cap (default: 2).
+    # - name: "gemini-oracle"
+    #   cli: "gemini"                      # CLI binary name (must match CLI_BINARY_PATTERN)
+    #   model: "gemini-2.5-pro"            # Model name (must match model_pattern)
+    #   output_format: "json"              # jsonl | text | json
+    #   finding_prefix: "GEM"              # Unique 2-5 uppercase prefix
+    #   timeout: 300                       # CLI timeout in seconds (30-3600, default: 300)
+    #   ignore_file: ".geminiignore"       # Optional ignore file
+    #   detection_steps: ["version_check"] # Optional: version_check, auth_check, jq_check, ignore_file_check
+    #   model_pattern: "^gemini-"          # Optional regex to validate model name (default: MODEL_NAME_PATTERN)
+    #   workflows: [review, audit]
+    #   trigger:
+    #     always: true                     # Always summon (skip file matching)
+    #   context_budget: 20
+
 # ──────────────────────────────────────────────
 # Settings — Global behavior adjustments
 # ──────────────────────────────────────────────
@@ -138,6 +157,12 @@ settings:
   # Hard cap on total Ash (built-in + custom)
   # Max recommended: 9 (verifier context budget constraint)
   max_ashes: 9
+
+  # Sub-cap on CLI-backed Ashes (v1.57.0+)
+  # Must be <= max_ashes. Codex Oracle is NOT counted toward this limit.
+  # CLI-backed Ashes are external models invoked via CLI (e.g., gemini, llama).
+  # Set to 0 to disable all CLI-backed Ashes.
+  max_cli_ashes: 2
 
   # Extended dedup hierarchy — higher = wins on conflict
   # Must include ALL active prefixes (built-in + custom)

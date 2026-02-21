@@ -153,6 +153,93 @@ When logging errors, always include:
 
 3. **Non-fatal**: All codex errors are non-fatal. The pipeline always continues without Codex Oracle findings.
 
+## External Model Detection (CLI-Backed Ashes)
+
+Generalized detection algorithm for CLI-backed Ashes defined in `ashes.custom[]` with a `cli:` field (discriminated union — see custom-ashes.md for schema). Follows the same safety principles as Codex detection but supports arbitrary CLI binaries.
+
+### detectExternalModel(config)
+
+Detects and validates a single CLI-backed Ash entry. Called for each `ashes.custom[]` entry where `cli:` is present.
+
+```
+Input: config — a single ashes.custom[] entry with cli: field
+Output: { available: bool, cli_path: string, model: string } or skip
+
+1. Validate cli against CLI_BINARY_PATTERN (/^[a-zA-Z0-9_-]+$/):
+   // Security pattern: CLI_BINARY_PATTERN — see security-patterns.md
+   - If invalid → error: "Invalid CLI binary '{cli}': must match CLI_BINARY_PATTERN"
+   - Skip this Ash entirely
+
+2. Check CLI availability:
+   Bash: command -v {cli} >/dev/null 2>&1 && echo "available" || echo "unavailable"
+   - If "unavailable":
+     a. Log: "{name}: CLI '{cli}' not found, skipping"
+     b. Skip this Ash entirely
+
+3. Validate CLI path is NOT within project directory (CLI_PATH_VALIDATION):
+   Bash: cli_path=$(command -v {cli} 2>/dev/null) && echo "$cli_path"
+   - If cli_path starts with $PWD:
+     a. Log: "{name}: CLI '{cli}' resolves to project directory — rejected for safety"
+     b. Skip this Ash entirely
+
+4. Check current workflow is in config.workflows:
+   - If the current workflow is NOT in the workflows list → skip this Ash
+
+5. Run optional detection_steps (if defined):
+   for each step in config.detection_steps:
+     - "version_check":
+       Bash: timeout 5 {cli} --version 2>&1
+       - If exit code != 0 → Log warning, skip this Ash
+     - "auth_check":
+       Bash: timeout 10 {cli} auth status 2>&1 || timeout 10 {cli} login status 2>&1
+       - If exit code != 0 → Log warning, skip this Ash
+     - "jq_check":
+       Bash: command -v jq >/dev/null 2>&1 && echo "available" || echo "unavailable"
+       - If "unavailable" AND config.output_format == "jsonl" → Log warning, set fallback to text
+     - "ignore_file_check":
+       If config.ignore_file is set:
+         Bash: [ -f {config.ignore_file} ] && echo "present" || echo "missing"
+         - If "missing" → Log warning (non-fatal, continue without ignore file)
+
+6. If all checks pass:
+   a. Return { available: true, cli_path, model: config.model }
+   b. Log: "{name}: CLI '{cli}' detected, adding external model reviewer"
+```
+
+### detectAllCLIAshes()
+
+Iterates all `ashes.custom[]` entries with `cli:` field and applies `max_cli_ashes` limit.
+
+```
+Input: talisman config, current workflow
+Output: list of validated CLI-backed Ash configs
+
+1. Read talisman.yml
+2. max_cli = settings.max_cli_ashes ?? 2
+3. cli_entries = ashes.custom[].filter(entry => entry.cli is defined)
+
+4. Apply max_cli_ashes limit BEFORE detection (not after):
+   // Rationale: avoids wasting detection time on entries that would be dropped.
+   // First N entries by config order are candidates; remainder skipped with warning.
+   if cli_entries.length > max_cli:
+     Log: "Warning: {cli_entries.length} CLI-backed Ashes defined but max_cli_ashes={max_cli}. Keeping first {max_cli} by config order."
+     cli_entries = cli_entries.slice(0, max_cli)
+
+5. validated = []
+   for each entry in cli_entries:
+     result = detectExternalModel(entry)
+     if result.available:
+       validated.push(entry)
+
+6. Return validated
+```
+
+**Key differences from Codex detection:**
+- Codex Oracle has a dedicated detection flow (steps 1-9 above) and is NOT counted toward `max_cli_ashes`
+- CLI-backed Ashes use the generalized `detectExternalModel()` pattern
+- CLI-backed Ashes are subject to the `max_cli_ashes` sub-partition within `max_ashes`
+- Both detection flows produce Ashes that participate in the standard Roundtable Circle lifecycle
+
 ## Notes
 
 - Steps 3-5 are fast (no network call for step 3, step 4 has 5s timeout, step 5 has 10s timeout)
@@ -160,3 +247,4 @@ When logging errors, always include:
 - Codex Oracle findings use the `CDX` prefix
 - Findings participate in standard dedup, TOME aggregation, and Truthsight verification
 - Disable entirely via `codex.disabled: true` in talisman.yml (runtime kill switch)
+- CLI-backed Ashes are detected separately via `detectAllCLIAshes()` and count toward both `max_ashes` and `max_cli_ashes`
