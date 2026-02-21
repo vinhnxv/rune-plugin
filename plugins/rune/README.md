@@ -584,7 +584,6 @@ plugins/rune/
 │   ├── session-compact-recovery.sh  # Team state re-injection after compaction
 │   ├── on-session-stop.sh           # STOP-001: Active workflow detection on session end
 │   ├── arc-batch-stop-hook.sh       # ARC-BATCH-STOP: Stop hook loop driver for arc-batch
-│   ├── arc-batch.sh                 # Arc batch executor (DEPRECATED — V1 subprocess pattern)
 │   ├── arc-batch-preflight.sh       # Arc batch pre-flight validation
 │   └── echo-search/                 # Echo Search MCP server + hooks
 ├── talisman.example.yml

@@ -40,11 +40,11 @@ scripts/arc-batch-stop-hook.sh (Stop hook — loop driver)
 
 **Inspired by**: [ralph-wiggum plugin](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum) Stop hook pattern.
 
-## V1 Architecture (DEPRECATED — arc-batch.sh)
+## V1 Architecture (REMOVED — v1.59.0)
 
 The V1 architecture used `scripts/arc-batch.sh` to spawn `claude -p` subprocesses in a loop. This was broken because the Bash tool timeout (max 600s / 10 min) is far shorter than a single arc run (45-240 min). The parent process would be killed, orphaning the child `claude -p` process, causing the batch to get stuck after the first plan.
 
-See `scripts/arc-batch.sh` (deprecated) for the V1 implementation.
+`scripts/arc-batch.sh` was removed in v1.59.0. See git history for the V1 implementation.
 
 ## State File Format
 
@@ -136,7 +136,7 @@ Final iteration:
 | on-session-stop.sh conflict | GUARD 5 defers when batch state file present | scripts/on-session-stop.sh |
 | Stale teams between plans | Stop hook cleans teams/tasks dirs | arc-batch-stop-hook.sh |
 
-## V1 Edge Cases (DEPRECATED — arc-batch.sh)
+## V1 Edge Cases (REMOVED — v1.59.0)
 
 These edge cases applied to the V1 subprocess architecture and are no longer relevant:
 

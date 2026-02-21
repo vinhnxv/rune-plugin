@@ -17,8 +17,8 @@
 - **Arc-batch awareness in `/rune:cancel-arc`** — Step 0 now checks for and removes the batch loop state file when cancelling an arc that is part of a batch
 - **GUARD 5 in `on-session-stop.sh`** — Defers to arc-batch stop hook when `.claude/arc-batch-loop.local.md` exists, preventing conflicting "active workflow detected" messages
 
-### Deprecated
-- **`scripts/arc-batch.sh`** — Subprocess-based batch loop script. Kept for reference (not deleted). Replaced by Stop hook pattern
+### Removed
+- **`scripts/arc-batch.sh`** — Subprocess-based batch loop script deleted. Replaced by Stop hook pattern (`arc-batch-stop-hook.sh`)
 
 ## [1.58.0] - 2026-02-21
 
