@@ -122,10 +122,28 @@ Veil Piercer findings may CONTRADICT findings from other Ashes. This is intentio
 
 Veil Piercer participates in the dedup hierarchy at position `SEC > BACK > VEIL > ...` for ordering and priority purposes. However, cross-Ash dedup (same-file, same-line suppression) rarely triggers for VEIL- findings because truth-telling operates at a different level of abstraction than technical review. A VEIL- finding about "this feature solves the wrong problem" and a BACK- finding about "this function has a null bug" on the same file are different perspectives, not duplicates. In the rare case of a genuine same-line overlap (e.g., both say "this code is unreachable"), VEIL wins over DOC/QUAL/FRONT/CDX but yields to SEC and BACK per the hierarchy.
 
+### Interaction Type (Q/N) Dedup Rules
+
+Findings may carry an `interaction` attribute (`"question"` or `"nit"`) orthogonal to severity. When deduplicating findings that include interaction types:
+
+| Finding A (existing) | Finding B (new, same location) | Action |
+|---------------------|-------------------------------|--------|
+| Assertion (P1/P2/P3, no interaction) | Q (interaction="question") | Drop Q — assertion supersedes question |
+| Assertion (P1/P2/P3, no interaction) | N (interaction="nit") | Drop N — assertion supersedes nit |
+| Q (interaction="question") | N (interaction="nit") | Keep both — different interaction types |
+| N (interaction="nit") | Q (interaction="question") | Keep both — different interaction types |
+| Q (interaction="question") | Q (interaction="question") | Merge into single Q (same location) |
+| N (interaction="nit") | N (interaction="nit") | Merge if same issue, keep both if different |
+| Q (interaction="question") | Assertion (P1/P2/P3) | Replace Q with assertion — assertion wins |
+| N (interaction="nit") | Assertion (P1/P2/P3) | Replace N with assertion — assertion wins |
+
+**Key principle:** Assertions always supersede questions and nits at the same location. Q and N coexist because they represent different interaction modes (clarification vs. cosmetic).
+
 ### Dedup Algorithm
 
 ```
-for each finding in all_findings:
+// Pass 1: Insert all assertion findings (no interaction attribute)
+for each finding in all_findings where finding.interaction is undefined:
   key = (file, line_range_bucket(line, 5))
 
   if key already in seen:
@@ -138,6 +156,20 @@ for each finding in all_findings:
       add finding.ash to existing.also_flagged_by
   else:
     seen[key] = finding
+
+// Pass 2: Insert Q/N findings only if no assertion exists at same location
+for each finding in all_findings where finding.interaction is "question" or "nit":
+  key = (file, line_range_bucket(line, 5))
+  interaction_key = (file, line_range_bucket(line, 5), finding.interaction)
+
+  if key in seen AND seen[key].interaction is undefined:
+    // Assertion exists → drop Q/N, record in dedup log
+    add finding.ash to seen[key].also_flagged_by
+  elif interaction_key in seen_interactions:
+    // Same interaction type at same location → merge
+    add finding.ash to seen_interactions[interaction_key].also_flagged_by
+  else:
+    seen_interactions[interaction_key] = finding
 ```
 
 ### TOME.md Format After Dedup
@@ -169,6 +201,14 @@ for each finding in all_findings:
 
 [findings...]
 
+## Questions — {count}
+
+[Q findings with interaction="question" — clarification needed from author]
+
+## Nits — {count}
+
+[N findings with interaction="nit" — cosmetic, author's discretion]
+
 ## Incomplete Deliverables
 
 | Ash | Status | Impact |
@@ -179,6 +219,7 @@ for each finding in all_findings:
 
 - Total findings: {count}
 - Deduplicated: {removed_count} (from {original_count})
+- P1: {count}, P2: {count}, P3: {count}, Q: {count}, N: {count}
 - Evidence coverage: {percentage}%
 - Ash completed: {count}/{total}
 ```

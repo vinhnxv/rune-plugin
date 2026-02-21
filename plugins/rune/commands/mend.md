@@ -90,6 +90,32 @@ See [parse-tome.md](mend/references/parse-tome.md) for detailed TOME finding ext
 
 **Summary**: Find TOME, validate freshness, extract `<!-- RUNE:FINDING -->` markers with nonce validation, deduplicate by priority hierarchy, group by file.
 
+### Q/N Interaction Filtering
+
+After extracting findings from TOME, filter Q and N interaction types BEFORE file grouping:
+
+```
+// Separate Q/N findings from actionable findings
+const actionableFindings = []
+const skippedByInteraction = []
+
+for (const finding of allFindings) {
+  if (finding.interaction === "question") {
+    skippedByInteraction.push({ ...finding, skip_reason: "Question requires human clarification — not auto-fixable" })
+  } else if (finding.interaction === "nit") {
+    skippedByInteraction.push({ ...finding, skip_reason: "Nit — author's discretion" })
+  } else {
+    actionableFindings.push(finding)
+  }
+}
+
+// File groups are built from actionableFindings only
+// File groups with ONLY Q/N findings → excluded entirely
+log(`Filtered ${skippedByInteraction.length} Q/N findings (${skippedByInteraction.filter(f => f.interaction === "question").length} Q, ${skippedByInteraction.filter(f => f.interaction === "nit").length} N)`)
+```
+
+Q/N findings are preserved for Phase 6 (Resolution Report) but are NOT assigned to mend-fixers.
+
 ## Phase 1: PLAN
 
 ### Analyze Dependencies
@@ -870,6 +896,8 @@ TOME: {tome_path}
 - False positive: {Y}
 - Failed: {Z}
 - Skipped: {W}
+- Questions (awaiting author): {Q}
+- Nits (author's discretion): {Nit}
 
 ## Fixed Findings
 <!-- RESOLVED:SEC-001:FIXED -->
@@ -904,6 +932,20 @@ TOME: {tome_path}
 **Target**: README.md
 **Old value**: 1.1.0, **New value**: 1.2.0
 <!-- /RESOLVED:CONSIST-001 -->
+
+## Questions (awaiting author clarification)
+### BACK-010: Custom token validator diverges from framework
+**Status**: QUESTION
+**File**: src/auth/handler.py:45
+**Question**: Why was this approach chosen over framework.validate_token()?
+**Fallback**: If no response, treating as P3 suggestion to align with convention.
+
+## Nits (author's discretion)
+### QUAL-011: Variable naming preference
+**Status**: NIT
+**File**: src/utils/format.py:12
+**Nit**: Variable `x` could be `formatted_output` for clarity.
+**Author's call**: Cosmetic only — no functional impact.
 ```
 
 ## Phase 7: CLEANUP

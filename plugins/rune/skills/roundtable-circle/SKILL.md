@@ -221,12 +221,12 @@ SEAL: {
 Then sends to the Tarnished (max 50 words — Glyph Budget enforced):
 ```
 "Seal: forge-warden complete. Path: tmp/reviews/142/forge-warden.md.
-Findings: 2 P1, 3 P2, 2 P3. Confidence: 0.85. Self-reviewed: yes."
+Findings: 2 P1, 3 P2, 2 P3, 1 Q, 0 N. Confidence: 0.85. Self-reviewed: yes."
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `findings` | integer | Total P1+P2+P3 findings count |
+| `findings` | integer | Total P1+P2+P3+Q+N findings count |
 | `evidence_verified` | boolean | All findings have Rune Trace blocks |
 | `confidence` | float 0-1 | Self-assessed confidence (0.7+ = high) |
 | `self_reviewed` | boolean | Whether self-review pass was performed |
@@ -279,9 +279,11 @@ Task({
 The Runebinder:
 1. Reads all Ash output files
 2. Deduplicates findings (see references/dedup-runes.md)
-3. Prioritizes: P1 first, then P2, then P3
+3. Prioritizes: P1 first, then P2, then P3, then Q (questions), then N (nits)
 4. Reports gaps from crashed/stalled Ash
 5. Writes `tmp/reviews/{pr}/TOME.md`
+
+**Q/N Interaction Types (v1.60.0+):** Findings may carry an `interaction` attribute (`"question"` or `"nit"`) orthogonal to severity. Questions and nits appear in separate `## Questions` and `## Nits` sections in the TOME. They are excluded from convergence scoring and auto-mend. See [dedup-runes.md](references/dedup-runes.md) for Q/N dedup rules.
 
 ## Phase 6: Verify (Truthsight)
 

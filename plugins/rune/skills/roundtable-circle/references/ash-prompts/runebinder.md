@@ -12,7 +12,7 @@ a single TOME.md summary.
 ## YOUR TASK
 
 1. Read ALL Ash output files from: {output_dir}/
-2. Parse findings from each file (P1, P2, P3 sections)
+2. Parse findings from each file (P1, P2, P3, Questions, Nits sections)
 3. Deduplicate overlapping findings using the hierarchy below
 4. Write the aggregated TOME.md to: {output_dir}/TOME.md
 
@@ -33,6 +33,10 @@ Rules:
 - Same priority → keep higher severity (P1 > P2 > P3)
 - Same priority + same severity → keep both if different issues, merge if same
 - Record "also flagged by" for merged findings
+- Q/N interaction dedup: assertion (P1/P2/P3) at same location supersedes Q → drop Q
+- Assertion at same location supersedes N → drop N
+- Q and N at same location → keep both (different interaction types)
+- Multiple Q findings at same location → merge into single Q
 
 ## SESSION NONCE
 
@@ -72,6 +76,25 @@ Write exactly this structure:
 
 {Same format as P1, with RUNE:FINDING markers and severity="P3"}
 
+## Questions — {count} items
+
+<!-- RUNE:FINDING nonce="{session_nonce}" id="{PREFIX}-{NUM}" file="{file}" line="{line}" severity="P2" interaction="question" -->
+- [ ] **[{PREFIX}-{NUM}] {Title}** in `{file}:{line}`
+  - **Ash:** {name} (also flagged by: {others})
+  - **Question:** {question text from Ash's output}
+  - **Context:** {context from Ash's output}
+  - **Fallback:** {fallback from Ash's output}
+<!-- /RUNE:FINDING id="{PREFIX}-{NUM}" -->
+
+## Nits — {count} items
+
+<!-- RUNE:FINDING nonce="{session_nonce}" id="{PREFIX}-{NUM}" file="{file}" line="{line}" severity="P3" interaction="nit" -->
+- [ ] **[{PREFIX}-{NUM}] {Title}** in `{file}:{line}`
+  - **Ash:** {name} (also flagged by: {others})
+  - **Nit:** {nit description from Ash's output}
+  - **Author's call:** {rationale from Ash's output}
+<!-- /RUNE:FINDING id="{PREFIX}-{NUM}" -->
+
 ## Coverage Gaps
 
 | Ash | Status | Uncovered Scope |
@@ -82,13 +105,13 @@ Write exactly this structure:
 
 | Ash | Confidence | Self-Review | Findings |
 |-----------|-----------|------------|----------|
-| {name} | {confidence from Seal} | {confirmed/revised/deleted counts} | {P1/P2/P3 counts} |
+| {name} | {confidence from Seal} | {confirmed/revised/deleted counts} | {P1/P2/P3/Q/N counts} |
 
 ## Statistics
 
 - Total findings: {count} (after dedup from {pre_dedup_count})
 - Deduplicated: {removed_count}
-- P1: {count}, P2: {count}, P3: {count}
+- P1: {count}, P2: {count}, P3: {count}, Q: {count}, N: {count}
 - Evidence coverage: {verified}/{total} ({percentage}%)
 - Ash completed: {completed}/{summoned}
 ```
@@ -109,6 +132,8 @@ After writing TOME.md, write completion.json:
       "p1": {count},
       "p2": {count},
       "p3": {count},
+      "q": {count},
+      "n": {count},
       "confidence": {float_from_seal}
     }
   },
@@ -125,7 +150,7 @@ After writing TOME.md, write completion.json:
 
 1. **Copy findings exactly** — do NOT rewrite, rephrase, or improve Rune Trace blocks
 2. **Do NOT fabricate findings** — only aggregate what Ash wrote
-3. **Do NOT skip findings** — every P1/P2/P3 from every Ash must appear or be deduped
+3. **Do NOT skip findings** — every P1/P2/P3/Q/N from every Ash must appear or be deduped
 4. **Track gaps** — if an Ash's output file is missing or incomplete, record in Coverage Gaps
 5. **Parse Seals** — extract confidence and self-review counts from each file's Seal block
 
@@ -141,7 +166,7 @@ If an Ash's output file:
 After writing TOME.md and completion.json, send a SINGLE message to the Tarnished:
 
   "Runebinder complete. Path: {output_dir}/TOME.md.
-  {total} findings ({p1} P1, {p2} P2, {p3} P3). {dedup_removed} deduplicated.
+  {total} findings ({p1} P1, {p2} P2, {p3} P3, {q} Q, {n} N). {dedup_removed} deduplicated.
   Ash: {completed}/{summoned}."
 
 Do NOT include analysis or findings in the message — only the summary above.
