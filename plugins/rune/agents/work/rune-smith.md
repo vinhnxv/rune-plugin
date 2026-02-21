@@ -267,6 +267,38 @@ REMINDER: Resume your reviewer role. Report CRITICAL bugs only."""
 adds ~2 min of codex overhead. With 3 workers x 5 tasks = up to 30 min additional time.
 Consider this when setting arc total timeout.
 
+## Worktree Mode Lifecycle
+
+If you are running in a git worktree (your working directory is NOT the main project — check if `git worktree list` shows your CWD as a linked worktree), follow this modified lifecycle for Steps 6-8:
+
+**Detection**: The orchestrator includes `WORKTREE MODE ACTIVE` in your spawn prompt when worktree isolation is enabled. If you see this marker, follow the worktree lifecycle below instead of the standard patch generation.
+
+```
+Worktree Mode Steps 6-8 (replaces standard patch generation):
+6. Generate patch for commit broker → SKIP (not applicable in worktree mode)
+7. Commit directly in your worktree:
+   a. Stage ONLY your task-specific files: git add <files>
+   b. Write commit message to a temp file (SEC-011: no inline -m):
+      Write commit-msg.txt with: "rune: {subject} [ward-checked]"
+   c. Make exactly ONE commit: git commit -F commit-msg.txt
+   d. Record your branch: BRANCH=$(git branch --show-current)
+   e. Save branch in task metadata: TaskUpdate({ taskId, metadata: { branch: BRANCH } })
+8. Mark complete and Seal:
+   a. TaskUpdate({ taskId, status: "completed" })
+   b. SendMessage: "Seal: task #{id} done. Branch: {BRANCH}. Files: {list}"
+
+RULES:
+- Make exactly ONE commit per task (not multiple)
+- Do NOT push your branch (orchestrator handles all merges)
+- Do NOT run git merge
+- Use absolute paths for files outside your worktree:
+  - Todo files: {PROJECT_ROOT}/tmp/work/{timestamp}/todos/{name}.md
+  - Signal files: {PROJECT_ROOT}/tmp/.rune-signals/...
+  The PROJECT_ROOT is your MAIN project directory, not your worktree CWD.
+```
+
+**Ward failure in worktree mode**: Do NOT commit. Revert (`git checkout -- .`), release the task, and report failure. Your uncommitted changes are isolated to your worktree and cannot affect other workers.
+
 ## Exit Conditions
 
 - No unblocked tasks available: wait 30s, retry 3x, then send idle notification
