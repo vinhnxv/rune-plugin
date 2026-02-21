@@ -23,7 +23,7 @@ If two Ash flag the same file within a 5-line range:
 
 ```
 Ward Sentinel > Forge Warden > Veil Piercer > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle
-SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX
+SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX
 ```
 
 When the same issue is found by multiple Ash:
@@ -44,16 +44,16 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 - If `settings.dedup_hierarchy` is defined in config, use it as-is (user controls the order)
 - If NOT defined, append custom prefixes AFTER built-in hierarchy (lowest priority):
   ```
-  SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX > {custom_1} > {custom_2} > ...
+  SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > {custom_1} > {custom_2} > ...
   ```
 - **External model prefix ordering (v1.57.0+):** CLI-backed Ash prefixes (from `ashes.custom[]` entries with `cli:` field) are positioned BELOW `CDX` in the default hierarchy. Built-in prefixes (`SEC`, `BACK`, `DOC`, `QUAL`, `FRONT`, `CDX`) MUST always precede external model prefixes. This enforcement applies ONLY to CLI-backed external model prefixes — agent-backed custom Ashes can be placed anywhere in a user-defined hierarchy.
   ```
   Default with external models:
-  SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX > {cli_ext_1} > {cli_ext_2} > {agent_custom_1} > ...
+  SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > {cli_ext_1} > {cli_ext_2} > {agent_custom_1} > ...
   ```
 - Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
 - Prefix format: 2-5 uppercase alphanumeric characters (A-Z, 0-9)
-- Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `QUAL`, `FRONT`, `DOC`, `CDX` — cannot be used by custom Ash
+- Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `DOUBT`, `QUAL`, `FRONT`, `DOC`, `CDX` — cannot be used by custom Ash
 - Reserved deep-audit prefixes (active only when `/rune:audit --deep`): `DEBT`, `INTG`, `BIZL`, `EDGE`, `CORR`, `FAIL`, `DSEC`, `DSGN`, `RSRC`, `OBSV`, `MTNB`
 - **Note:** `CDX-DRIFT` is an internal Phase 5.6 finding ID used by the Codex gap analysis — it is NOT a custom Ash prefix
 
@@ -61,15 +61,15 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 
 When `--deep` flag is active, the dedup hierarchy extends to include deep investigation prefixes:
 
-**Standard hierarchy**: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`
-**Deep hierarchy (full)**: `SEC > BACK > CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > VEIL > DSGN > RSRC > DOC > OBSV > MTNB > QUAL > FRONT > CDX`
+**Standard hierarchy**: `SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX`
+**Deep hierarchy (full)**: `SEC > BACK > CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > VEIL > DOUBT > DSGN > RSRC > DOC > OBSV > MTNB > QUAL > FRONT > CDX`
 
 **Which hierarchy is used where:**
 - **Pass 1 Runebinder** (TOME-standard.md): Standard hierarchy
 - **Pass 2 Runebinder** (TOME-deep.md): Deep sub-hierarchies (see below)
 - **Merge Runebinder** (final TOME.md): Full extended hierarchy
 
-**Merge hierarchy (cross-pass dedup):** `SEC > CORR > FAIL > DSEC > BACK > DSGN > RSRC > VEIL > OBSV > MTNB > DOC > QUAL > FRONT > CDX`
+**Merge hierarchy (cross-pass dedup):** `SEC > CORR > FAIL > DSEC > BACK > DSGN > RSRC > VEIL > DOUBT > OBSV > MTNB > DOC > QUAL > FRONT > CDX`
 
 **Pass 2 sub-hierarchies:**
 - Deep investigation sub-hierarchy: `DEBT > INTG > BIZL > EDGE`
@@ -95,6 +95,7 @@ Each Ash uses a unique prefix for finding IDs:
 | Glyph Scribe | `FRONT-` | `FRONT-001` | Built-in |
 | Knowledge Keeper | `DOC-` | `DOC-001` | Built-in |
 | Codex Oracle | `CDX-` | `CDX-001` | Built-in |
+| Doubt Seer | `DOUBT-` | `DOUBT-001` | Built-in |
 | rot-seeker | `DEBT-` | `DEBT-001` | Deep-audit |
 | strand-tracer | `INTG-` | `INTG-001` | Deep-audit |
 | decree-auditor | `BIZL-` | `BIZL-001` | Deep-audit |

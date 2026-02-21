@@ -833,7 +833,7 @@ if (cycleCount > 1) {
     Bash(`cp -- "${cycleTomes[0]}" "tmp/reviews/${identifier}/TOME.md"`)
   } else {
     // Multi-TOME merge: deduplicate by finding ID, keep highest severity
-    // Merge follows the same dedup hierarchy as Runebinder (SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX)
+    // Merge follows the same dedup hierarchy as Runebinder (SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX)
     log(`Merging ${cycleTomes.length} cycle TOMEs...`)
     const mergedFindings = []
     const seenFindings = new Set()  // Track by file:line:prefix to dedup
@@ -1201,7 +1201,7 @@ Task({
   name: "runebinder",
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/reviews/{identifier}/.
-    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX).
+    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     Write unified summary to tmp/reviews/{identifier}/TOME.md.
     Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.

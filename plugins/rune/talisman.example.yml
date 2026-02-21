@@ -569,6 +569,21 @@ testing:
 #   confidence_floor: 60           # Prompt-enforced: teammates with post-review confidence below this report blocker instead of completing (default: 60, not hook-enforced)
 
 # ──────────────────────────────────────────────
+# Doubt Seer — Evidence quality challenger (v1.61.0+)
+# ──────────────────────────────────────────────
+# Cross-examines Ash findings for unsubstantiated claims.
+# Runs at Phase 4.5 (after Ash monitoring, before Runebinder aggregation).
+# Only spawned when enabled AND P1+P2 findings > 0.
+# When disabled, evidence_coverage and unproven_claims Seal fields are absent entirely.
+doubt_seer:
+  enabled: false                     # Opt-in — set true to enable doubt-seer (default: false)
+  workflows: [review, audit]         # Which workflows use doubt-seer (valid: review, audit, plan)
+  challenge_threshold: "P2"          # Minimum severity to challenge: "P1" or "P2" (default: "P2")
+  max_challenges: 20                 # Max findings to challenge per run (default: 20, range: 1-50)
+  block_on_unproven: false           # VERDICT:BLOCK when unproven P1 found (default: false)
+  unproven_threshold: 0.8            # Evidence ratio below this triggers CONCERN (default: 0.8, range: 0.0-1.0)
+
+# ──────────────────────────────────────────────
 # Codex Oracle — Cross-model verification (v1.18.0+)
 # ──────────────────────────────────────────────
 # Codex Oracle is auto-detected when the `codex` CLI is installed

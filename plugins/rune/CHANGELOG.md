@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.61.0] - 2026-02-21
+
+### Added
+- **Doubt Seer agent** (`doubt-seer.md`) — Evidence quality challenger that cross-examines Ash findings for unsubstantiated claims. Challenges findings lacking Rune Traces, verifies evidence against source, and produces a structured verdict (PASS/CONCERN/BLOCK). Configurable via `doubt_seer` talisman block
+- **Phase 4.5: Doubt Seer** in Roundtable Circle — Conditional phase between Monitor (Phase 4) and Aggregate (Phase 5). Spawns doubt-seer when enabled in talisman AND P1+P2 findings exist. 5-minute timeout with separate polling loop. VERDICT parsing determines workflow continuation
+- **Evidence-tagged Seal fields** — `evidence_coverage` ("N/M findings have structured evidence") and `unproven_claims` (integer) added to all three Seal locations in inscription-protocol.md. Fields absent entirely when doubt-seer disabled (backward compatible)
+- **DOUBT finding prefix** — Reserved in custom-ashes.md validation rules and added to dedup hierarchy in output-format.md (`SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX`)
+- **`doubt_seer` talisman config** — 6-field configuration block: `enabled` (default: false), `workflows`, `challenge_threshold`, `max_challenges`, `block_on_unproven`, `unproven_threshold`
+
+### Changed
+- Review agent count: 22 → 23 (added doubt-seer)
+- Total agent count: 67 → 68
+- Inscription schema updated with doubt-seer teammate entry and evidence fields
+- Agent registry updated with doubt-seer entry
+
 ## [1.60.0] - 2026-02-21
 
 ### Added

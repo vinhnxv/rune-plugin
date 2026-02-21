@@ -493,7 +493,7 @@ Task({
   name: "runebinder",
   subagent_type: "general-purpose",
   prompt: `Read all findings from tmp/audit/{audit_id}/.
-    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX).
+    Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
     ${flags['--deep']
       ? "Write standard-pass summary to tmp/audit/{audit_id}/TOME-standard.md."

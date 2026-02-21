@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 67 agents** (22 review + 5 research + 2 work + 11 utility* + 23 investigation + 4 testing)
+**Total: 68 agents** (23 review + 5 research + 2 work + 11 utility* + 23 investigation + 4 testing)
 
 \* 11 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 
@@ -32,6 +32,7 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | naming-intent-analyzer | Naming intent quality, name-behavior mismatch, vague names, boolean inversion, side-effect hiding |
 | refactor-guardian | Refactoring completeness, orphaned callers, broken import paths |
 | reference-validator | Cross-file reference integrity, config path validation, frontmatter schema |
+| doubt-seer | Cross-agent claim verification through adversarial interrogation |
 
 ## Research Agents (`agents/research/`)
 
