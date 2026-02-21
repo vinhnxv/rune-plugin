@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.56.0] - 2026-02-21
+
+### Added
+- **4 new investigation agents** for deep audit (`/rune:audit --deep`):
+  - `rot-seeker` — Tech debt investigation (TODOs, deprecated patterns, complexity hotspots)
+  - `strand-tracer` — Integration gap detection (unconnected modules, dead routes, unwired DI)
+  - `decree-auditor` — Business logic validation (domain rules, state machines, invariants)
+  - `fringe-watcher` — Edge case analysis (boundary checks, null handling, race conditions)
+- **Two-pass deep audit architecture**: Standard audit (Pass 1) + Deep investigation (Pass 2) + Cross-pass TOME merge
+- **`--deep` flag** for `/rune:audit` enabling two-pass investigation
+- **4 ash prompt templates** for deep investigation teammates
+- **Extended dedup hierarchy**: `SEC > BACK > DEBT > INTG > BIZL > EDGE > DOC > QUAL > FRONT > CDX`
+- **Deep audit talisman config**: `audit.deep.enabled`, `audit.deep.ashes`, `audit.always_deep`
+- **Circle registry update**: Deep Investigation Ashes section with 4 new entries
+
+### Changed
+- Investigation agent count: 12 → 16
+
 ## [1.55.1] - 2026-02-21
 
 ### Added

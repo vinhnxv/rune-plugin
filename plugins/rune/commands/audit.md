@@ -4,7 +4,8 @@ description: |
   Full codebase audit using Agent Teams. Summons up to 7 built-in Ashes
   (plus custom Ash from talisman.yml), each with their own 200k context window.
   Scans entire project (or current directory) instead of git diff changes. Uses the same
-  7-phase Roundtable Circle lifecycle.
+  7-phase Roundtable Circle lifecycle. Optional `--deep` runs a second
+  investigation pass with dedicated Ashes and merges both TOMEs.
 
   <example>
   user: "/rune:audit"
@@ -42,8 +43,10 @@ Orchestrate a full codebase audit using the Roundtable Circle architecture. Each
 | `--dry-run` | Show scope selection and Ash plan without summoning agents | Off |
 | `--no-lore` | Disable Phase 0.5 Lore Layer (git history risk scoring). Also configurable via `goldmask.layers.lore.enabled: false` in talisman.yml. | Off |
 | `--deep-lore` | Run Lore Layer on ALL files (default: Tier 1 only — Ash-relevant extensions). Useful for comprehensive risk mapping on large repos. | Off |
+| `--deep` | Run two-pass deep audit: standard pass + dedicated investigation pass (`rot-seeker`, `strand-tracer`, `decree-auditor`, `fringe-watcher`) then merge. | Off |
 
 **Note:** Unlike `/rune:review`, there is no `--partial` flag. Audit always scans the full project.
+When `--deep` is enabled, audit still uses the same Roundtable lifecycle but executes it twice and performs a merge phase.
 
 **Focus mode** selects only the relevant Ash (see `roundtable-circle/references/circle-registry.md` for the mapping). This increases each Ash's effective context budget since fewer compete for resources.
 
@@ -480,7 +483,7 @@ if (result.timedOut) {
 **Stale detection**: If a task is `in_progress` for > 5 minutes, a warning is logged. No auto-release — audit Ash findings are non-fungible (compare with `work.md`/`mend.md` which auto-release stuck tasks after 10 min).
 **Total timeout**: Hard limit of 15 minutes. After timeout, a final sweep collects any results that completed during the last poll interval.
 
-## Phase 5: Aggregate (Runebinder)
+## Phase 5: Aggregate (Runebinder, Pass 1)
 
 After all tasks complete (or timeout):
 
@@ -492,7 +495,9 @@ Task({
   prompt: `Read all findings from tmp/audit/{audit_id}/.
     Deduplicate using hierarchy from settings.dedup_hierarchy (default: SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX).
     Include custom Ash outputs and Codex Oracle (CDX prefix) in dedup — use their finding_prefix from config.
-    Write unified summary to tmp/audit/{audit_id}/TOME.md.
+    ${flags['--deep']
+      ? "Write standard-pass summary to tmp/audit/{audit_id}/TOME-standard.md."
+      : "Write unified summary to tmp/audit/{audit_id}/TOME.md."}
     Use the TOME format from roundtable-circle/references/ash-prompts/runebinder.md.
     Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.
     The session_nonce is from inscription.json. Without these markers, /rune:mend cannot parse findings.
@@ -507,8 +512,91 @@ Task({
     **Files reviewed:** {reviewed_count} (capped by context budgets)
 
     Include a "Coverage Gaps" section listing files skipped per Ash
-    due to context budget caps.`
+    due to context budget caps.
+    Also write tmp/audit/{audit_id}/coverage-map.json with:
+    {
+      "workflow": "rune-audit",
+      "generated_at": "{timestamp}",
+      "files": {
+        "path/to/file": { "reviewed_by": ["forge-warden"], "status": "reviewed|skipped" }
+      }
+    }`
 })
+```
+
+## Phase 5.6: Deep Investigation Pass (conditional: `--deep`)
+
+When `--deep` is enabled, run a second Roundtable pass focused on four dedicated investigation Ashes:
+- `rot-seeker` (DEBT): tech debt root-cause analysis
+- `strand-tracer` (INTG): integration and wiring gaps
+- `decree-auditor` (BIZL): business logic correctness and invariants
+- `fringe-watcher` (EDGE): boundary and edge-case analysis
+
+```javascript
+if (flags['--deep']) {
+  const deepAsh = ["rot-seeker", "strand-tracer", "decree-auditor", "fringe-watcher"]
+
+  // Extend inscription for deep pass (same team, second task wave)
+  Write("tmp/audit/{audit_id}/inscription-deep.json", {
+    workflow: "rune-audit-deep",
+    timestamp: timestamp,
+    output_dir: "tmp/audit/{audit_id}/",
+    deep_context: {
+      standard_tome: "tmp/audit/{audit_id}/TOME-standard.md",
+      coverage_map: "tmp/audit/{audit_id}/coverage-map.json"
+    },
+    teammates: deepAsh.map(name => ({
+      name,
+      output_file: `${name}.md`,
+      required_sections: ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Summary"]
+    })),
+    verification: { enabled: true }
+  })
+
+  // Summon deep Ashes in parallel
+  for (const ash of deepAsh) {
+    Task({
+      team_name: "rune-audit-{audit_id}",
+      name: ash,
+      subagent_type: ash,
+      prompt: `You are ${ash} in deep audit mode.
+Read tmp/audit/{audit_id}/TOME-standard.md and tmp/audit/{audit_id}/coverage-map.json first.
+Then investigate all project files assigned by Rune Gaze with your deep-audit protocol.
+Use finding prefixes reserved for deep mode only: DEBT / INTG / BIZL / EDGE.
+Write output to tmp/audit/{audit_id}/${ash}.md with P1/P2/P3 sections + Summary.`,
+      run_in_background: true
+    })
+  }
+
+  // Runebinder for deep pass output
+  Task({
+    team_name: "rune-audit-{audit_id}",
+    name: "runebinder-deep",
+    subagent_type: "general-purpose",
+    prompt: `Read deep Ash outputs (rot-seeker, strand-tracer, decree-auditor, fringe-watcher) from tmp/audit/{audit_id}/.
+Deduplicate with deep prefixes enabled: DEBT > INTG > BIZL > EDGE (within deep pass only).
+Write tmp/audit/{audit_id}/TOME-deep.md.`
+  })
+}
+```
+
+## Phase 5.7: Merge TOMEs (conditional: `--deep`)
+
+When `--deep` is enabled, merge standard and deep TOMEs into the final output:
+
+```javascript
+if (flags['--deep']) {
+  Task({
+    team_name: "rune-audit-{audit_id}",
+    name: "runebinder-merge",
+    subagent_type: "general-purpose",
+    prompt: `Merge tmp/audit/{audit_id}/TOME-standard.md + tmp/audit/{audit_id}/TOME-deep.md.
+Use category-bucketed merge with semantic dedup within category.
+Severity reconciliation: max(pass1, pass2).
+If contradictory findings remain unresolved, add CONFLICT markers with both finding IDs.
+Write final merged output to tmp/audit/{audit_id}/TOME.md.`
+  })
+}
 ```
 
 ## Phase 5.5: Truthseer Validator (conditional)
@@ -549,7 +637,7 @@ If file count <= 100, skip this phase (coverage gaps are manageable via manual i
 
 ## Phase 6: Verify (Truthsight)
 
-If inscription.json has `verification.enabled: true`:
+If inscription.json (or inscription-deep.json for deep pass) has `verification.enabled: true`:
 
 1. **Layer 0**: Lead runs grep-based inline checks (file paths exist, line numbers valid)
 2. **Layer 2**: Summon Truthsight Verifier for P1 findings (see `rune-orchestration/references/verifier-prompt.md`)
