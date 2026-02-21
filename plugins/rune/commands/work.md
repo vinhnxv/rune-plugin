@@ -41,22 +41,23 @@ allowed-tools:
 
 Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`, `git-worktree` (when worktree mode active)
 
 ## Usage
 
 ```
 /rune:work plans/feat-user-auth-plan.md              # Execute a specific plan
 /rune:work plans/feat-user-auth-plan.md --approve    # Require plan approval per task
+/rune:work plans/feat-user-auth-plan.md --worktree   # Use git worktree isolation (experimental)
 /rune:work                                            # Auto-detect recent plan
 ```
 
 ## Pipeline Overview
 
 ```
-Phase 0: Parse Plan -> Extract tasks, clarify ambiguities
+Phase 0: Parse Plan -> Extract tasks, clarify ambiguities, detect --worktree flag
     |
-Phase 0.5: Environment Setup -> Branch check, stash dirty files
+Phase 0.5: Environment Setup -> Branch check, stash dirty files, SDK canary (worktree)
     |
 Phase 1: Forge Team -> TeamCreate + TaskCreate pool
     |
@@ -64,7 +65,7 @@ Phase 2: Summon Workers -> Self-organizing swarm
     | (workers claim -> implement -> complete -> repeat)
 Phase 3: Monitor -> TaskList polling, stale detection
     |
-Phase 3.5: Commit Broker -> Apply patches, commit (orchestrator-only)
+Phase 3.5: Commit/Merge Broker -> Apply patches or merge worktree branches (orchestrator-only)
     |
 Phase 4: Ward Check -> Quality gates + verification checklist
     |
@@ -90,6 +91,31 @@ Output: Feature branch with commits + PR (optional)
 See [parse-plan.md](work/references/parse-plan.md) for detailed task extraction, shard context, ambiguity detection, and user confirmation flow.
 
 **Summary**: Read plan file, validate path, extract tasks with dependencies, classify as impl/test, detect ambiguities, confirm with user.
+
+### Worktree Mode Detection (Phase 0)
+
+Parse `--worktree` flag from `$ARGUMENTS` and read talisman configuration. This follows the same pattern as `--approve` flag parsing.
+
+```javascript
+// Parse --worktree flag from $ARGUMENTS (same pattern as --approve)
+const args = "$ARGUMENTS"
+const worktreeFlag = args.includes("--worktree")
+
+// Read talisman config for worktree default
+const talisman = readTalisman()
+const worktreeEnabled = talisman?.work?.worktree?.enabled || false
+
+// worktreeMode: flag wins, talisman is fallback default
+const worktreeMode = worktreeFlag || worktreeEnabled
+```
+
+When `worktreeMode === true`:
+- Load `git-worktree` skill for merge strategy knowledge
+- Phase 1 computes wave groupings after task extraction (step 5.3)
+- Phase 2 spawns workers with `isolation: "worktree"` per wave
+- Phase 3 uses wave-aware monitoring loop
+- Phase 3.5 uses `mergeBroker()` instead of `commitBroker()`
+- Workers commit directly instead of generating patches
 
 ## Phase 0.5: Environment Setup
 
@@ -151,6 +177,72 @@ let didStash = false  // Set to true if stash was applied above; consumed by Pha
 ```
 
 **Branch name derivation**: `rune/work-{slugified-plan-name}-{YYYYMMDD-HHMMSS}` matching arc skill's COMMIT-1 convention.
+
+### Worktree Validation (Phase 0.5, when worktreeMode === true)
+
+When worktree mode is active, validate git support and SDK contract before proceeding.
+
+```javascript
+if (worktreeMode) {
+  // 1. Validate git version >= 2.5 (worktree support)
+  const gitVersion = Bash("git --version").trim()
+  const versionMatch = gitVersion.match(/git version (\d+)\.(\d+)/)
+  if (!versionMatch || (parseInt(versionMatch[1]) < 2) ||
+      (parseInt(versionMatch[1]) === 2 && parseInt(versionMatch[2]) < 5)) {
+    warn(`Git worktree requires git >= 2.5 (found: ${gitVersion}). Falling back to patch mode.`)
+    worktreeMode = false
+  }
+
+  // 2. Validate git worktree command works
+  if (worktreeMode) {
+    const worktreeListResult = Bash("git worktree list 2>&1")
+    if (worktreeListResult.exitCode !== 0) {
+      warn(`git worktree not available: ${worktreeListResult.stderr}. Falling back to patch mode.`)
+      worktreeMode = false
+    }
+  }
+
+  // 3. SDK canary test (C3): Verify isolation: "worktree" parameter is supported
+  //    Spawn a no-op Task with isolation: "worktree" and check result contains worktreeBranch
+  if (worktreeMode) {
+    try {
+      const canaryResult = Task({
+        team_name: teamName,  // Will be created in Phase 1; canary runs after team creation
+        name: "worktree-canary",
+        subagent_type: "general-purpose",
+        isolation: "worktree",
+        max_turns: 1,
+        prompt: "Exit immediately. Do nothing."
+      })
+      // Verify SDK contract: result should include worktreeBranch
+      if (!canaryResult?.worktreeBranch) {
+        warn("SDK canary: isolation: 'worktree' did not return worktreeBranch. Falling back to patch mode.")
+        worktreeMode = false
+      } else {
+        log(`SDK canary passed. Worktree branch: ${canaryResult.worktreeBranch}`)
+        // Cleanup canary worktree
+        if (canaryResult.worktreePath) {
+          Bash(`git worktree remove "${canaryResult.worktreePath}" 2>/dev/null`)
+        }
+        if (canaryResult.worktreeBranch) {
+          Bash(`git branch -D "${canaryResult.worktreeBranch}" 2>/dev/null`)
+        }
+      }
+    } catch (e) {
+      warn(`SDK canary failed: ${e.message}. Falling back to patch mode.`)
+      worktreeMode = false
+    }
+  }
+
+  if (worktreeMode) {
+    log("Worktree mode: ACTIVE (experimental). Workers will use isolated git worktrees.")
+  }
+}
+```
+
+**NOTE**: The SDK canary test requires a team to exist. In practice, the canary runs as the first operation after `TeamCreate` in Phase 1, before creating the task pool. The pseudocode above shows it logically in Phase 0.5 but it executes at Phase 1 step 0.5.
+
+**Graceful fallback**: All three validation steps fall back to patch mode instead of aborting. This ensures `/rune:work --worktree` degrades gracefully on older git versions or if the SDK removes `isolation: "worktree"` support.
 
 ## Phase 1: Forge Team
 
@@ -230,13 +322,19 @@ Write(`${signalDir}/inscription.json`, JSON.stringify({
 // 2. Create output directories
 Bash(`mkdir -p "tmp/work/${timestamp}/patches" "tmp/work/${timestamp}/proposals" "tmp/work/${timestamp}/todos"`)
 
-// 3. Write state file
+// 3. Write state file (includes worktree_mode when active)
 Write("tmp/.rune-work-{timestamp}.json", {
   team_name: "rune-work-{timestamp}",
   started: new Date().toISOString(),
   status: "active",
   plan: planPath,
-  expected_workers: workerCount
+  expected_workers: workerCount,
+  ...(worktreeMode && {
+    worktree_mode: true,
+    waves: [],           // Populated in step 5.3 (wave computation)
+    current_wave: 0,
+    merged_branches: []
+  })
 })
 
 // 4. Generate inscription.json (see roundtable-circle/references/inscription-schema.md)
@@ -358,6 +456,76 @@ for (let i = 0; i < extractedTasks.length; i++) {
       TaskUpdate({ taskId: idMap[`#${i + 1}`], addBlockedBy: realBlockers })
     }
   }
+}
+
+// 5.3 Wave computation (worktree mode only)
+// Runs AFTER file ownership serialization (5.1) and dependency linking (6) because
+// file ownership adds implicit blockedBy dependencies that affect wave depth.
+if (worktreeMode) {
+  // Compute dependency depth using DFS with cycle detection
+  // White = unvisited, Gray = in-progress (visiting), Black = fully processed
+  const WHITE = 0, GRAY = 1, BLACK = 2
+  const color = new Map()      // taskRef -> color
+  const depth = new Map()      // taskRef -> depth
+  const cyclePath = []         // For error reporting
+
+  function depthOf(taskRef) {
+    const task = extractedTasks[parseInt(taskRef.replace('#', '')) - 1]
+    if (!task) return 0
+
+    if (color.get(taskRef) === BLACK) return depth.get(taskRef)
+    if (color.get(taskRef) === GRAY) {
+      // Cycle detected — collect cycle path for error reporting
+      const cycleStart = cyclePath.indexOf(taskRef)
+      const cycle = cyclePath.slice(cycleStart).concat(taskRef)
+      throw new Error(`Circular dependency detected: ${cycle.join(' -> ')}. Remove one dependency to proceed.`)
+    }
+
+    color.set(taskRef, GRAY)
+    cyclePath.push(taskRef)
+
+    let maxBlockerDepth = -1
+    for (const blockerRef of (task.blockedBy || [])) {
+      const blockerDepth = depthOf(blockerRef)
+      if (blockerDepth > maxBlockerDepth) maxBlockerDepth = blockerDepth
+    }
+
+    const taskDepth = maxBlockerDepth === -1 ? 0 : maxBlockerDepth + 1
+    depth.set(taskRef, taskDepth)
+    color.set(taskRef, BLACK)
+    cyclePath.pop()
+    return taskDepth
+  }
+
+  // Compute depth for all tasks
+  for (let i = 0; i < extractedTasks.length; i++) {
+    depthOf(`#${i + 1}`)
+  }
+
+  // Group tasks into waves by depth
+  const waves = []
+  for (let i = 0; i < extractedTasks.length; i++) {
+    const d = depth.get(`#${i + 1}`) || 0
+    if (!waves[d]) waves[d] = []
+    waves[d].push(idMap[`#${i + 1}`])
+  }
+
+  // Log wave plan
+  log("Wave plan (worktree mode):")
+  for (let w = 0; w < waves.length; w++) {
+    log(`  Wave ${w}: ${waves[w].length} task(s)`)
+  }
+  log(`  Total: ${waves.length} wave(s), ${extractedTasks.length} task(s)`)
+
+  // Threshold check: if max wave width < 3, patch mode may be more efficient
+  const maxWaveWidth = Math.max(...waves.map(w => w.length))
+  if (maxWaveWidth < 3) {
+    warn(`Max wave width is ${maxWaveWidth} (< 3). Patch mode may be more efficient for this plan shape.`)
+  }
+
+  // Update state file with wave data
+  // (stateFile was written at step 3; update with computed waves)
+  stateFile.waves = waves
 }
 ```
 
@@ -481,6 +649,87 @@ during summary generation. Workers MUST NOT write counter fields.
        }
      -->
 
+### Worktree Mode: Wave-Based Worker Spawning (Phase 2)
+
+When `worktreeMode === true`, workers are spawned per-wave instead of all at once.
+This is a **completely separate code path** from the flat spawning above (not a conditional inside a shared loop).
+
+See [worktree-merge.md](work/references/worktree-merge.md) for the merge broker that runs between waves.
+
+```javascript
+if (worktreeMode) {
+  // Wave-based spawning: one wave at a time
+  // waves[] computed in step 5.3 (Phase 1)
+  const maxWorkersPerWave = Math.min(
+    talisman?.work?.max_workers || 3,
+    talisman?.work?.worktree?.max_workers_per_wave || 3
+  )
+
+  for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
+    const waveTasks = waves[waveIndex]
+    const waveWorkerCount = Math.min(waveTasks.length, maxWorkersPerWave)
+
+    log(`\n## Wave ${waveIndex}/${waves.length - 1}: Spawning ${waveWorkerCount} worker(s) for ${waveTasks.length} task(s)`)
+
+    // Spawn workers for this wave with isolation: "worktree"
+    const workerBranches = new Map()  // workerName -> { branchName, worktreePath }
+
+    for (let w = 0; w < waveWorkerCount; w++) {
+      const workerName = `rune-smith-${w + 1}`
+      Task({
+        team_name: teamName,
+        name: workerName,
+        subagent_type: "general-purpose",
+        isolation: "worktree",    // Each worker gets its own git worktree
+        max_turns: 75,
+        prompt: `${workerPromptTemplate}
+
+    WORKTREE MODE INSTRUCTIONS:
+    You are running in an isolated git worktree. Your working directory is a separate
+    copy of the repository with its own branch.
+
+    COMMIT PROTOCOL (replaces patch generation):
+    8. IF ward passes:
+       a. Stage your changes: git add <specific-files>
+       b. Make exactly ONE commit: git commit -m "rune: {subject} [ward-checked]"
+       c. Record your branch: Bash("git branch --show-current")
+       d. Store branch in task metadata: TaskUpdate({ taskId, metadata: { branch: branchName } })
+       e. TaskUpdate({ taskId, status: "completed" })
+       f. SendMessage to the Tarnished: "Seal: task #{id} done. Branch: {branch}. Files: {list}"
+       g. Do NOT push. Do NOT merge. The Tarnished handles merging after the wave completes.
+
+    CRITICAL RULES:
+    - Make exactly ONE commit per task (not multiple commits)
+    - Do NOT push your branch
+    - Do NOT merge into any other branch
+    - Do NOT run git add -A or git add . (only add specific files)
+    - Include your branch name in BOTH the Seal message AND task metadata
+    - Signal files and todo files must use ABSOLUTE paths to the main project directory,
+      not relative paths from your worktree
+`,
+        run_in_background: true
+      })
+    }
+
+    // Monitor this wave (see Phase 3 for monitoring loop)
+    // After all wave tasks complete, collect branches and run merge broker
+    // Then proceed to next wave
+  }
+
+} else {
+  // Flat spawning (patch mode) — existing code path
+  // Spawn all workers at once, workers claim tasks from shared pool
+  // (existing rune-smith + trial-forger spawn code from worker-prompts.md)
+}
+```
+
+**Worker branch collection**: After each wave's monitoring loop completes, collect branch names from:
+1. **Task results**: `task.result.worktreeBranch` (from `isolation: "worktree"` SDK)
+2. **Task metadata**: `TaskGet(taskId).metadata.branch` (set by worker)
+3. **Seal messages**: Parse `Branch: {name}` from worker Seal messages
+
+See [worktree-merge.md](work/references/worktree-merge.md) `collectWaveBranches()` for the full collection algorithm.
+
 ## Phase 3: Monitor
 
 Poll TaskList with timeout guard to track progress. See [monitor-utility.md](../skills/roundtable-circle/references/monitor-utility.md) for the shared polling utility.
@@ -586,6 +835,130 @@ function commitBroker(taskId) {
 ```
 
 **Recovery on restart**: Scan `tmp/work/{timestamp}/patches/` for metadata JSON with no recorded commit SHA -- re-apply unapplied patches.
+
+### Phase 3.5: Merge Broker (Worktree Mode, Orchestrator-Only)
+
+When `worktreeMode === true`, the merge broker replaces the commit broker. Called between waves and after the final wave to merge worktree branches into the feature branch. See [worktree-merge.md](work/references/worktree-merge.md) for the complete algorithm, conflict resolution flow, and cleanup procedures.
+
+```javascript
+if (worktreeMode) {
+  // Merge broker state: maintained across waves for deduplication
+  const mergedBranches = new Set()
+  const mergeSHAs = []
+  const BRANCH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
+
+  function mergeBroker(completedBranches, featureBranch) {
+    // Inputs: completedBranches[] (from collectWaveBranches())
+    // Outputs: merged feature branch, updated mergeSHAs[]
+    // Preconditions: All wave workers have exited, branches exist
+    // Error handling: Merge conflict → escalate to user (NEVER auto-resolve)
+
+    // Sort by task ID for deterministic merge order
+    const sorted = completedBranches.sort((a, b) => a.taskId - b.taskId)
+
+    for (const entry of sorted) {
+      const { branchName, taskId, workerName, worktreePath } = entry
+
+      // 1. Dedup guard
+      if (mergedBranches.has(branchName)) {
+        warn(`Task ${taskId}: duplicate merge -- skipping`)
+        continue
+      }
+
+      // 2. Validate branch name (C5)
+      if (!branchName || !BRANCH_RE.test(branchName)) {
+        warn(`Task ${taskId}: invalid branch name "${branchName}" -- skipping`)
+        continue
+      }
+
+      // 3. Empty branch detection
+      const commitCount = Bash(`git log "${featureBranch}".."${branchName}" --oneline | wc -l`).trim()
+      if (commitCount === "0") {
+        log(`Task ${taskId}: no changes on ${branchName} (completed-no-change)`)
+        cleanupWorktree(worktreePath, branchName)
+        mergedBranches.add(branchName)
+        continue
+      }
+
+      // 4. Merge with --no-ff, file-based commit message
+      const safeWorkerName = workerName.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32)
+      Write(`tmp/work/${timestamp}/patches/${taskId}-merge-msg.txt`,
+        `rune: merge ${safeWorkerName} [worktree]`)
+      const mergeResult = Bash(
+        `git merge --no-ff "${branchName}" -F "tmp/work/${timestamp}/patches/${taskId}-merge-msg.txt"`
+      )
+
+      if (mergeResult.exitCode !== 0) {
+        // 5. Conflict handling — escalate to user (C1: NO auto-resolve)
+        // See worktree-merge.md handleMergeConflict() for full flow
+        const conflictFiles = Bash("git diff --name-only --diff-filter=U").trim()
+        AskUserQuestion({
+          questions: [{
+            question: `Merge conflict on branch \`${branchName}\` (task #${taskId}):\n\n${conflictFiles}\n\nHow to resolve?`,
+            header: "Merge Conflict",
+            options: [
+              { label: "Manual resolve", description: "Pause -- resolve manually, then continue" },
+              { label: "Accept incoming (theirs)", description: "Accept worker branch changes" },
+              { label: "Keep current (ours)", description: "Keep current state" },
+              { label: "Abort merge", description: "git merge --abort, mark NEEDS_MANUAL_MERGE" }
+            ],
+            multiSelect: false
+          }]
+        })
+        // Handle user choice per worktree-merge.md handleMergeConflict()
+        // "Abort merge": Bash("git merge --abort"), skip branch, do NOT add to mergedBranches
+        continue
+      }
+
+      // 6. Record merge SHA
+      const sha = Bash("git rev-parse HEAD").trim()
+      mergedBranches.add(branchName)
+      mergeSHAs.push(sha)
+      log(`Task ${taskId}: merged ${branchName} (${sha.slice(0, 8)})`)
+
+      // 7. Cleanup worktree and branch
+      cleanupWorktree(worktreePath, branchName)
+    }
+  }
+
+  function cleanupWorktree(worktreePath, branchName) {
+    // Check for uncommitted changes (EC-1: worker crash mid-commit)
+    if (worktreePath) {
+      const wStatus = Bash(`git -C "${worktreePath}" status --porcelain 2>/dev/null`).trim()
+      if (wStatus !== "") {
+        Bash(`git -C "${worktreePath}" reset --hard HEAD 2>/dev/null`)
+      }
+      // Remove worktree (retry with --force)
+      const rmResult = Bash(`git worktree remove "${worktreePath}" 2>/dev/null`)
+      if (rmResult.exitCode !== 0) {
+        Bash(`git worktree remove --force "${worktreePath}" 2>/dev/null`)
+      }
+    }
+    // Delete merged branch (-d first, -D fallback for unmerged)
+    if (Bash(`git branch -d "${branchName}" 2>/dev/null`).exitCode !== 0) {
+      Bash(`git branch -D "${branchName}" 2>/dev/null`)
+    }
+  }
+
+  // Get committed files for Phase 4.3 compatibility (GAP-6)
+  const baseSHA = Bash("git rev-parse HEAD~" + mergeSHAs.length).trim()  // pre-merge baseline
+  const committedFiles = Bash(`git diff --name-only "${baseSHA}"..HEAD`).trim()
+    .split('\n').filter(Boolean)
+}
+```
+
+**Worktree mode vs patch mode selection:**
+```javascript
+// Phase 3.5 dispatch:
+if (worktreeMode) {
+  // Called per-wave in the wave monitoring loop (Phase 3)
+  // createWaveCheckpoint(waveIndex)  // See worktree-merge.md
+  // mergeBroker(collectWaveBranches(waveTasks), featureBranch)
+} else {
+  // Called once after waitForCompletion returns
+  // commitBroker(taskId) for each completed task
+}
+```
 
 ## Phase 4: Ward Check
 
