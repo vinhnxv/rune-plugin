@@ -1,23 +1,24 @@
 #!/bin/bash
 # scripts/on-session-stop.sh
-# STOP-001: Detects active Rune workflows and blocks session stop with cleanup guidance.
+# STOP-001: Auto-cleans stale Rune workflows on session stop.
 #
-# When a user attempts to stop the session while Rune workflows are active (teams,
-# arc checkpoints, or workflow state files), this hook blocks the stop and provides
-# instructions for proper cleanup.
+# When a session ends, this hook automatically cleans up orphaned resources
+# instead of blocking the user. Resources cleaned:
+#   1. Team dirs (rune-*/arc-*) — rm team + task dirs
+#   2. State files (.rune-*.json with status "active") — set status to "stopped"
+#   3. Arc checkpoints with in_progress phases — set to "cancelled"
 #
 # DESIGN PRINCIPLES:
 #   1. Fail-open — if anything goes wrong, allow the stop (exit 0)
 #   2. Loop prevention — check stop_hook_active field to avoid re-entry
 #   3. rune-*/arc-* prefix filter (never touch foreign plugin state)
-#   4. Parameter expansion for basename (${dir##*/}) — no xargs
+#   4. Auto-clean, don't block — "janitor on the way out, not security guard"
+#   5. Report what was cleaned via additionalContext (informational)
 #
 # Hook event: Stop
 # Timeout: 5s
-# Exit 0 with no output: Allow stop
-# Exit 0 with top-level decision=block: Block stop with guidance
-# NOTE: Stop hooks use top-level `decision: "block"` (NOT hookSpecificOutput wrapper
-# which is for PreToolUse). Verified correct per Claude Code hook contract. (BACK-006 FP)
+# Exit 0 with no output: Allow stop (nothing to clean)
+# Exit 0 with stdout summary: Report what was cleaned (informational, non-blocking)
 
 set -euo pipefail
 trap 'exit 0' ERR
@@ -32,7 +33,7 @@ fi
 INPUT=$(head -c 1048576 2>/dev/null || true)
 
 # ── GUARD 3: Loop prevention ──
-# If stop_hook_active is true, we are being called recursively — allow stop immediately
+# If stop_hook_active is true, we already cleaned on a previous pass — allow stop
 STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // empty' 2>/dev/null || true)
 if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then
   exit 0
@@ -50,7 +51,7 @@ fi
 
 # ── GUARD 5: Defer to arc-batch stop hook ──
 # When arc-batch loop is active, arc-batch-stop-hook.sh handles the Stop event.
-# This prevents conflicting "active workflow detected" messages.
+# This prevents conflicting cleanup.
 if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
   exit 0
 fi
@@ -61,32 +62,77 @@ if [[ -z "$CHOME" ]] || [[ "$CHOME" != /* ]]; then
   exit 0
 fi
 
-# ── SCAN FOR ACTIVE WORKFLOWS ──
-active_workflows=()
+# ── BUILD STATE FILE TEAM SET ──
+# Collect team names referenced by state files in THIS project's tmp/.
+# This scopes cleanup to teams owned by workflows in the current CWD,
+# preventing cross-session interference when multiple sessions run concurrently.
+state_team_names=()
+if [[ -d "${CWD}/tmp/" ]]; then
+  shopt -s nullglob
+  for sf in "${CWD}/tmp/"/.rune-*.json; do
+    [[ ! -f "$sf" ]] && continue
+    [[ -L "$sf" ]] && continue
+    # Extract team_name ONLY from active state files (skip completed/stopped/failed)
+    # This prevents matching old state files from previous workflows
+    tname=$(jq -r 'select(.status == "active") | .team_name // empty' "$sf" 2>/dev/null || true)
+    if [[ -n "$tname" ]] && [[ "$tname" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+      state_team_names+=("$tname")
+    fi
+  done
+  shopt -u nullglob
+fi
 
-# 1. Scan for active Rune/Arc teams in CHOME/teams/
-# NOTE: Team scan is global (not CWD-scoped). Teams don't inherently have project
-# association, so stopping any session lists all rune-*/arc-* teams. State file scan
-# (section 2) and arc checkpoint scan (section 3) ARE CWD-scoped. (BACK-005)
+# ── AUTO-CLEAN PHASE 1: Team dirs (rune-*/arc-*) ──
+# Strategy:
+#   - Teams WITH a matching state file in CWD → always clean (belongs to this project)
+#   - Teams WITHOUT a state file → only clean if older than 30 min (orphan fallback)
+# This protects active teams from other sessions while still catching true orphans.
+cleaned_teams=()
 if [[ -d "$CHOME/teams/" ]]; then
+  NOW=$(date +%s)
   for dir in "$CHOME/teams/"*/; do
     [[ ! -d "$dir" ]] && continue
     [[ -L "$dir" ]] && continue
     dirname="${dir%/}"
     dirname="${dirname##*/}"
-    # Only rune-* and arc-* teams (not goldmask-*)
-    # goldmask-* filter is redundant (goldmask teams don't match rune-*/arc-* prefixes)
-    # but retained as defense-in-depth in case naming conventions change
     if [[ "$dirname" == rune-* || "$dirname" == arc-* ]] && [[ "$dirname" != goldmask-* ]]; then
-      # Validate safe characters
       [[ "$dirname" =~ ^[a-zA-Z0-9_-]+$ ]] || continue
-      active_workflows+=("team:${dirname}")
+
+      # Check if this team has a corresponding state file in CWD
+      has_state_file=false
+      for stn in "${state_team_names[@]}"; do
+        if [[ "$stn" == "$dirname" ]]; then
+          has_state_file=true
+          break
+        fi
+      done
+
+      should_clean=false
+      if [[ "$has_state_file" == "true" ]]; then
+        # State file in CWD → belongs to this project's workflow → safe to clean
+        should_clean=true
+      else
+        # No state file → only clean if older than 30 min (true orphan)
+        dir_mtime=$(stat -f %m "$dir" 2>/dev/null || stat -c %Y "$dir" 2>/dev/null || echo 0)
+        dir_age_min=$(( (NOW - dir_mtime) / 60 ))
+        if [[ $dir_age_min -gt 30 ]]; then
+          should_clean=true
+        fi
+      fi
+
+      if [[ "$should_clean" == "true" ]]; then
+        # SEC-1: Re-check symlink immediately before rm-rf (TOCTOU mitigation)
+        if [[ ! -L "$CHOME/teams/${dirname}" ]]; then
+          rm -rf "$CHOME/teams/${dirname}/" "$CHOME/tasks/${dirname}/" 2>/dev/null
+          cleaned_teams+=("$dirname")
+        fi
+      fi
     fi
   done
 fi
 
-# 2. Scan for workflow state files in tmp/
-#    Covers 7 workflow types: review, audit, work, mend, plan, forge, inspect
+# ── AUTO-CLEAN PHASE 2: State files (set active → stopped) ──
+cleaned_states=()
 if [[ -d "${CWD}/tmp/" ]]; then
   shopt -s nullglob
   for f in "${CWD}/tmp/"/.rune-review-*.json \
@@ -98,68 +144,77 @@ if [[ -d "${CWD}/tmp/" ]]; then
            "${CWD}/tmp/"/.rune-inspect-*.json; do
     [[ ! -f "$f" ]] && continue
     [[ -L "$f" ]] && continue
-    # Only consider files with "active" status
     if jq -e '.status == "active"' "$f" >/dev/null 2>&1; then
+      # Update status to "stopped" (not "completed" — distinguishes clean exit from crash)
+      jq '.status = "stopped" | .stopped_by = "STOP-001"' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null
       fname="${f##*/}"
-      active_workflows+=("state:${fname}")
+      cleaned_states+=("$fname")
     fi
   done
   shopt -u nullglob
 fi
 
-# 3. Scan for arc checkpoints with in_progress phases
-#    Arc checkpoints live at .claude/arc/{id}/checkpoint.json
+# ── AUTO-CLEAN PHASE 3: Arc checkpoints (in_progress → cancelled) ──
+# Only cancel checkpoints older than 5 min to avoid hitting active arc in another session.
+# 5 min is shorter than the 30 min team threshold because arc checkpoints are CWD-scoped
+# (less cross-session risk) and in_progress phases from crashed sessions should be cancelled quickly.
+cleaned_arcs=()
 if [[ -d "${CWD}/.claude/arc/" ]]; then
+  [[ -z "${NOW:-}" ]] && NOW=$(date +%s)
   shopt -s nullglob
   for f in "${CWD}/.claude/arc/"*/checkpoint.json; do
     [[ ! -f "$f" ]] && continue
     [[ -L "$f" ]] && continue
+    # Age guard: skip checkpoints modified within the last 5 minutes
+    f_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+    f_age_min=$(( (NOW - f_mtime) / 60 ))
+    if [[ $f_age_min -le 5 ]]; then
+      continue
+    fi
     if jq -e '.phases | to_entries | map(.value.status) | any(. == "in_progress")' "$f" >/dev/null 2>&1; then
+      # Cancel all in_progress phases
+      jq '.phases |= with_entries(if .value.status == "in_progress" then .value.status = "cancelled" else . end)' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null
       arc_id="${f%/*}"
       arc_id="${arc_id##*/}"
-      active_workflows+=("arc:${arc_id}")
+      cleaned_arcs+=("$arc_id")
     fi
   done
   shopt -u nullglob
 fi
 
-# ── DECISION ──
-if [[ ${#active_workflows[@]} -eq 0 ]]; then
-  # No active workflows — allow stop
+# ── REPORT ──
+total=$((${#cleaned_teams[@]} + ${#cleaned_states[@]} + ${#cleaned_arcs[@]}))
+
+if [[ $total -eq 0 ]]; then
+  # Nothing to clean — allow stop silently
   exit 0
 fi
 
-# Build human-readable workflow list
-workflow_list=""
-for w in "${active_workflows[@]}"; do
-  workflow_list="${workflow_list}  - ${w}\n"
-done
+# Build summary of what was cleaned
+summary="STOP-001 AUTO-CLEANUP: Cleaned ${total} stale resource(s) on session exit."
 
-# Build cleanup instructions based on detected types
-cleanup_instructions="To clean up before stopping:"
-has_teams=false
-has_arc=false
-for w in "${active_workflows[@]}"; do
-  case "$w" in
-    team:*) has_teams=true ;;
-    arc:*)  has_arc=true ;;
-  esac
-done
-
-if [[ "$has_arc" == "true" ]]; then
-  cleanup_instructions="${cleanup_instructions}\n  1. Run /rune:cancel-arc to cancel the active arc pipeline"
-fi
-if [[ "$has_teams" == "true" ]]; then
-  cleanup_instructions="${cleanup_instructions}\n  2. Run /rune:rest to clean up workflow artifacts"
-  cleanup_instructions="${cleanup_instructions}\n  3. Or shut down teams manually with TeamDelete"
+if [[ ${#cleaned_teams[@]} -gt 0 ]]; then
+  team_list="${cleaned_teams[*]:0:5}"
+  summary="${summary} Teams: [${team_list}]."
+  if [[ ${#cleaned_teams[@]} -gt 5 ]]; then
+    summary="${summary} (+$((${#cleaned_teams[@]} - 5)) more)"
+  fi
 fi
 
-# Build reason message
-reason="STOP-001: Active Rune workflow(s) detected:\\n${workflow_list}\\n${cleanup_instructions}"
+if [[ ${#cleaned_states[@]} -gt 0 ]]; then
+  state_list="${cleaned_states[*]:0:3}"
+  summary="${summary} States: [${state_list}]."
+fi
 
-# Output blocking JSON — Stop hooks use top-level decision/reason (not hookSpecificOutput)
-jq -n --arg reason "$reason" '{
-  decision: "block",
-  reason: $reason
-}'
+if [[ ${#cleaned_arcs[@]} -gt 0 ]]; then
+  arc_list="${cleaned_arcs[*]:0:3}"
+  summary="${summary} Arcs: [${arc_list}]."
+fi
+
+# Log to trace file for debugging (always, not just RUNE_TRACE)
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] $summary" >> "${CWD}/tmp/.rune-stop-cleanup.log" 2>/dev/null
+
+# Silent cleanup — allow stop immediately, no block
+# Summary is echoed to stdout so Claude sees it as context (informational only)
+echo "$summary"
 exit 0
