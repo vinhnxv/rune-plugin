@@ -60,6 +60,9 @@ source "${SCRIPT_DIR}/resolve-session-identity.sh"
 # handles the Stop event. Only defer if we're the owning session.
 # If the batch belongs to another session, proceed with normal cleanup for THIS session.
 if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
+  # QUAL-6: Intentional duplication of YAML field extraction (vs arc-batch-stop-hook.sh get_field).
+  # This script only needs 2 fields from one specific file. Adding a sourced helper dependency
+  # for 3 lines would increase complexity in a time-sensitive Stop hook (5s timeout).
   _BATCH_FM=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null | sed '1d;$d')
   _BATCH_CFG=$(echo "$_BATCH_FM" | grep "^config_dir:" | sed 's/^config_dir:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
   _BATCH_PID=$(echo "$_BATCH_FM" | grep "^owner_pid:" | sed 's/^owner_pid:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)

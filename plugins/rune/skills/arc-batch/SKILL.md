@@ -222,8 +222,8 @@ if (existingState && existingState.includes("active: true")) {
   if (existingCfg && existingCfg !== configDir) {
     ownedByOther = true
   }
-  if (!ownedByOther && existingPid && existingPid !== ownerPid) {
-    // Check if other session is alive
+  if (!ownedByOther && existingPid && /^\d+$/.test(existingPid) && existingPid !== ownerPid) {
+    // Check if other session is alive (SEC-1: numeric guard before shell interpolation)
     const alive = Bash(`kill -0 ${existingPid} 2>/dev/null && echo "alive" || echo "dead"`).trim()
     if (alive === "alive") {
       ownedByOther = true

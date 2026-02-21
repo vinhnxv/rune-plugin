@@ -12,6 +12,10 @@
 #      - tmp/.rune-review-*.json with "active" status
 #      - tmp/.rune-audit-*.json with "active" status
 #      - tmp/.rune-work-*.json with "active" status
+#      - tmp/.rune-inspect-*.json with "active" status
+#      - tmp/.rune-mend-*.json with "active" status
+#      - tmp/.rune-plan-*.json with "active" status
+#      - tmp/.rune-forge-*.json with "active" status
 #   3. If active workflow found, verify Task input includes team_name
 #   4. Block if team_name missing — output deny JSON
 #
@@ -84,7 +88,10 @@ fi
 # SEC-1 FIX: Use nullglob + flattened loop to prevent word splitting on paths with spaces
 if [[ -z "$active_workflow" ]]; then
   shopt -s nullglob
-  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-inspect-*.json; do
+  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json \
+           "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-inspect-*.json \
+           "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-plan-*.json \
+           "${CWD}"/tmp/.rune-forge-*.json; do
     # Skip files older than STALE_THRESHOLD_MIN minutes
     if [[ -f "$f" ]] && find "$f" -maxdepth 0 -mmin -${STALE_THRESHOLD_MIN} -print -quit 2>/dev/null | grep -q . && grep -q '"active"' "$f" 2>/dev/null; then
       # ── Ownership filter: skip state files from other sessions ──

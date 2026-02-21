@@ -12,7 +12,7 @@
 - **Core Rule 11: Session isolation** — Documented as CRITICAL rule in plugin CLAUDE.md and project CLAUDE.md
 
 ### Fixed
-- **Arc pre-flight directory** — Fixed pre-flight check searching `$CHOME/arc` (wrong — user config dir) instead of `${CWD}/.claude/arc` (correct — project-scoped checkpoints) in both jq and grep fallback paths
+- **Arc pre-flight directory** — Fixed pre-flight check using bare relative `find .claude/arc` instead of explicit `${CWD}/.claude/arc` (correct — project-scoped checkpoints) in both jq and grep fallback paths
 - **Arc resume path** — Fixed `--resume` checkpoint discovery to search `${CWD}/.claude/arc` instead of `$CHOME/arc`
 - **Cancel command PID validation** — Added numeric validation (`/^\d+$/.test()`) before `kill -0` calls in cancel-review.md and cancel-audit.md pseudocode (SEC-3)
 - **Cancel command variable scoping** — Fixed `const selected` redeclaration and `state.owner_pid` reference in cancel-review.md and cancel-audit.md (BACK-2, BACK-3)
