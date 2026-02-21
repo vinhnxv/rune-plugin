@@ -82,8 +82,15 @@ let noMerge = args.includes('--no-merge')
 
 if (resumeMode) {
   const progress = JSON.parse(Read("tmp/arc-batch/batch-progress.json"))
-  planPaths = progress.plans.map(p => p.path)
-  log(`Resuming batch: ${progress.plans.filter(p => p.status === "completed").length}/${planPaths.length} completed`)
+  // P1-FIX: Filter to pending plans only — don't re-execute completed plans
+  const allPlans = progress.plans
+  const pendingPlans = allPlans.filter(p => p.status === "pending")
+  planPaths = pendingPlans.map(p => p.path)
+  log(`Resuming batch: ${allPlans.filter(p => p.status === "completed").length}/${allPlans.length} completed, ${planPaths.length} remaining`)
+  if (planPaths.length === 0) {
+    log("All plans already completed. Nothing to resume.")
+    return
+  }
 } else {
   const inputArg = args.replace(/--\S+/g, '').trim()
   if (inputArg.endsWith('.txt')) {
@@ -215,17 +222,22 @@ Arc batch loop state. Do not edit manually.
 Use /rune:cancel-arc-batch to stop the batch loop.
 `)
 
-// ── Mark first plan as in_progress ──
+// ── Mark first pending plan as in_progress ──
+// P1-FIX: Find the correct plan entry in progress file by matching path,
+// not by index — planPaths[0] is the first *pending* plan (filtered in resume mode).
+const firstPlan = planPaths[0]
 const progress = JSON.parse(Read(progressFile))
-progress.plans[0].status = "in_progress"
-progress.plans[0].started_at = new Date().toISOString()
-progress.updated_at = new Date().toISOString()
-Write(progressFile, JSON.stringify(progress, null, 2))
+const planEntry = progress.plans.find(p => p.path === firstPlan && p.status === "pending")
+if (planEntry) {
+  planEntry.status = "in_progress"
+  planEntry.started_at = new Date().toISOString()
+  progress.updated_at = new Date().toISOString()
+  Write(progressFile, JSON.stringify(progress, null, 2))
+}
 
 // ── Invoke arc for first plan ──
 // Native skill invocation — no subprocess, no timeout limit.
 // Each arc runs as a full Claude Code turn with complete tool access.
-const firstPlan = planPaths[0]
 const mergeFlag = !autoMerge ? " --no-merge" : ""
 Skill("arc", `${firstPlan} --skip-freshness${mergeFlag}`)
 

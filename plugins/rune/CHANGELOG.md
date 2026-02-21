@@ -2,6 +2,10 @@
 
 ## [1.59.0] - 2026-02-21
 
+### Fixed
+- **P1: Resume mode re-executing completed plans** — `--resume` now filters to pending plans only (was using `planPaths[0]` which pointed to the first plan regardless of status). Phase 5 finds the correct plan entry by path match instead of array index
+- **P1: Truthbinding gap in re-injected prompts** — Arc batch stop hook now wraps plan paths and progress file paths with ANCHOR/RE-ANCHOR Truthbinding delimiters and `<plan-path>`/`<file-path>` data tags. Prevents semantic prompt injection via adversarial plan filenames
+
 ### Changed
 - **CRITICAL: Arc-batch migrated from subprocess loop to Stop hook pattern** — Replaces the broken `Bash(arc-batch.sh)` subprocess-based loop with a self-invoking Stop hook, inspired by the [ralph-wiggum](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum) plugin from Anthropic. Each arc now runs as a native Claude Code turn with full tool access, eliminating the Bash tool timeout limitation (max 600s) that caused arc-batch to get stuck after the first plan
 - **New Stop hook**: `scripts/arc-batch-stop-hook.sh` — core loop mechanism. Reads batch state from `.claude/arc-batch-loop.local.md`, marks completed plans, finds next pending plan, re-injects arc prompt via `{"decision":"block","reason":"<prompt>"}`
