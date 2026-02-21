@@ -12,6 +12,10 @@
 #      - tmp/.rune-review-*.json with "active" status
 #      - tmp/.rune-audit-*.json with "active" status
 #      - tmp/.rune-work-*.json with "active" status
+#      - tmp/.rune-inspect-*.json with "active" status
+#      - tmp/.rune-mend-*.json with "active" status
+#      - tmp/.rune-plan-*.json with "active" status
+#      - tmp/.rune-forge-*.json with "active" status
 #   3. If active workflow found, verify Task input includes team_name
 #   4. Block if team_name missing — output deny JSON
 #
@@ -58,10 +62,22 @@ if [[ -z "$CWD" || "$CWD" != /* ]]; then exit 0; fi
 STALE_THRESHOLD_MIN=30
 active_workflow=""
 
+# ── Session identity for cross-session ownership filtering ──
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=resolve-session-identity.sh
+source "${SCRIPT_DIR}/resolve-session-identity.sh"
+
 # Check arc checkpoints (skip stale files older than STALE_THRESHOLD_MIN)
 if [[ -d "${CWD}/.claude/arc" ]]; then
   while IFS= read -r f; do
     if grep -q '"in_progress"' "$f" 2>/dev/null; then
+      # ── Ownership filter: skip checkpoints from other sessions ──
+      stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+      stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+      if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+      if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
+        kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+      fi
       active_workflow=1
       break
     fi
@@ -72,9 +88,19 @@ fi
 # SEC-1 FIX: Use nullglob + flattened loop to prevent word splitting on paths with spaces
 if [[ -z "$active_workflow" ]]; then
   shopt -s nullglob
-  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-inspect-*.json; do
+  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json \
+           "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-inspect-*.json \
+           "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-plan-*.json \
+           "${CWD}"/tmp/.rune-forge-*.json; do
     # Skip files older than STALE_THRESHOLD_MIN minutes
     if [[ -f "$f" ]] && find "$f" -maxdepth 0 -mmin -${STALE_THRESHOLD_MIN} -print -quit 2>/dev/null | grep -q . && grep -q '"active"' "$f" 2>/dev/null; then
+      # ── Ownership filter: skip state files from other sessions ──
+      stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+      stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+      if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+      if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
+        kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+      fi
       active_workflow=1
       break
     fi

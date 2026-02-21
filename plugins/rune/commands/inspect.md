@@ -290,6 +290,10 @@ if (flag("--dry-run")):
 
 ```
 // Write state file for concurrency detection and rest.md cleanup
+// ── Resolve session identity for cross-session isolation ──
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
 const stateFile = `tmp/.rune-inspect-${identifier}.json`
 Write(stateFile, JSON.stringify({
   status: "active",
@@ -298,6 +302,9 @@ Write(stateFile, JSON.stringify({
   plan_path: planPath,
   output_dir: outputDir,
   started: new Date().toISOString(),
+  config_dir: configDir,
+  owner_pid: ownerPid,
+  session_id: "${CLAUDE_SESSION_ID}",
   inspectors: Object.keys(inspectorAssignments),
   requirement_count: requirements.length
 }))
@@ -702,6 +709,9 @@ const stateFile = `tmp/.rune-inspect-${identifier}.json`
 const state = JSON.parse(Read(stateFile))
 state.status = "completed"
 state.completed = new Date().toISOString()
+state.config_dir = configDir    // preserve session identity
+state.owner_pid = ownerPid
+state.session_id = "${CLAUDE_SESSION_ID}"
 state.verdict = extractVerdict(verdict)
 state.completion = extractCompletion(verdict)
 Write(stateFile, JSON.stringify(state))

@@ -68,6 +68,8 @@ fi
 # Extract fields using grep+sed (portable, no awk dependency)
 get_field() {
   local field="$1"
+  # SEC-2: Validate field name to prevent regex metachar injection via grep/sed
+  [[ "$field" =~ ^[a-z_]+$ ]] || return 1
   echo "$FRONTMATTER" | grep "^${field}:" | sed "s/^${field}:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' | head -1
 }
 
@@ -92,6 +94,58 @@ fi
 if [[ -L "${CWD}/${PROGRESS_FILE}" ]]; then
   rm -f "$STATE_FILE" 2>/dev/null
   exit 0
+fi
+
+# ── GUARD 5.7: Session isolation (cross-session safety) ──
+# The state file is project-scoped (.claude/arc-batch-loop.local.md).
+# Multiple Claude Code sessions may share the same CWD.
+# Only the session that created the batch should process it.
+# Two-layer isolation:
+#   Layer 1: config_dir — isolates different Claude Code installations
+#   Layer 2: owner_pid — isolates different sessions with the same config dir
+# QUAL-1: Source shared session identity helper (DRY with other 4 hook scripts)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=resolve-session-identity.sh
+source "${SCRIPT_DIR}/resolve-session-identity.sh"
+
+STORED_CONFIG_DIR=$(get_field "config_dir")
+STORED_PID=$(get_field "owner_pid")
+
+# Layer 1: Config-dir isolation
+if [[ -n "$STORED_CONFIG_DIR" && "$STORED_CONFIG_DIR" != "$RUNE_CURRENT_CFG" ]]; then
+  # Not our batch — another Claude Code installation owns it.
+  exit 0
+fi
+
+# Layer 2: PID isolation (same config dir, different session)
+# $PPID = Claude Code process PID (hook runs as child of Claude Code)
+if [[ -n "$STORED_PID" && "$STORED_PID" =~ ^[0-9]+$ ]]; then
+  if [[ "$STORED_PID" != "$PPID" ]]; then
+    # Different process — check if owner is still alive
+    if kill -0 "$STORED_PID" 2>/dev/null; then
+      # Owner is alive and it's a different session → not our batch
+      exit 0
+    fi
+    # Owner died → orphaned batch. Mark in-progress plan as failed, then clean up.
+    # BACK-1: Prevents batch-progress.json from retaining stale "in_progress" status
+    if [[ -n "$PROGRESS_FILE" && -f "${CWD}/${PROGRESS_FILE}" ]]; then
+      _ORPHAN_PROGRESS=$(jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+        (.plans[] | select(.status == "in_progress")) |= (
+          .status = "failed" |
+          .failed_at = $ts |
+          .failure_reason = "orphaned: owner session died"
+        )
+      ' "${CWD}/${PROGRESS_FILE}" 2>/dev/null || true)
+      if [[ -n "$_ORPHAN_PROGRESS" ]]; then
+        _TMPFILE=$(mktemp "${CWD}/${PROGRESS_FILE}.XXXXXX" 2>/dev/null) || true
+        if [[ -n "$_TMPFILE" ]]; then
+          echo "$_ORPHAN_PROGRESS" > "$_TMPFILE" && mv -f "$_TMPFILE" "${CWD}/${PROGRESS_FILE}" 2>/dev/null || rm -f "$_TMPFILE" 2>/dev/null
+        fi
+      fi
+    fi
+    rm -f "$STATE_FILE" 2>/dev/null
+    exit 0
+  fi
 fi
 
 # ── GUARD 6: Validate active flag ──

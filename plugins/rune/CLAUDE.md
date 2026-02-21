@@ -59,13 +59,19 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 8. **zsh compatibility** (macOS default shell):
    - **Read-only variables**: Never use `status` as a Bash variable name — it is read-only in zsh. Use `task_status`, `tstat`, or `completion_status` instead. Also avoid: `pipestatus`, `ERRNO`, `signals`.
    - **Glob NOMATCH**: In zsh, unmatched globs in `for` loops cause fatal errors (`no matches found`). Always protect globs with `(N)` qualifier: `for f in path/*.md(N); do`. Alternatively, use `setopt nullglob` or `shopt -s nullglob` before the loop.
-   - **Enforcement**: `enforce-zsh-compat.sh` PreToolUse hook (ZSH-001) blocks both `status=` assignments and unprotected `for ... in GLOB; do` patterns at runtime when zsh is detected. The `zsh-compat` skill provides background knowledge for all zsh pitfalls.
+   - **History expansion**: In zsh, `! [[ expr ]]` triggers history expansion of `!` instead of logical negation. Always use `[[ ! expr ]]` instead. Error signature: `(eval):N: command not found: !`.
+   - **Enforcement**: `enforce-zsh-compat.sh` PreToolUse hook (ZSH-001) catches three patterns at runtime when zsh is detected: (A) `status=` assignments → denied, (B) unprotected `for ... in GLOB; do` → auto-fixed with `setopt nullglob`, (C) `! [[ ... ]]` → auto-fixed to `[[ ! ... ]]`. The `zsh-compat` skill provides background knowledge for all zsh pitfalls.
 9. **Polling loop fidelity**: When translating `waitForCompletion` pseudocode, you MUST call the `TaskList` tool on every poll cycle — not just sleep and hope. The correct sequence per cycle is: `TaskList()` → count completed → check stale/timeout → `Bash("sleep 30")` → repeat. Derive loop parameters from config — not arbitrary values: `maxIterations = ceil(timeoutMs / pollIntervalMs)` and `sleep $(pollIntervalMs / 1000)`. See monitor-utility.md per-command configuration table for exact values.
    - **NEVER** use `Bash("sleep N && echo poll check")` as a monitoring pattern. This skips TaskList entirely and provides zero visibility into task progress.
    - **ALWAYS** call `TaskList` between sleeps to check actual task status.
    - **ALWAYS** use `pollIntervalMs` from config (30s for all commands), never arbitrary values like 45s or 60s.
    - **Enforcement**: `enforce-polling.sh` PreToolUse hook (POLL-001) blocks sleep+echo anti-patterns at runtime. The `polling-guard` skill provides background knowledge for correct monitoring patterns.
 10. **Teammate non-persistence**: Teammates do NOT survive session resume. After `/resume`, assume all teammates are dead. Clean up stale teams before starting new workflows.
+11. **Session isolation** (CRITICAL): All workflow state files (`tmp/.rune-*.json`) and arc checkpoints (`.claude/arc/*/checkpoint.json`) MUST include `config_dir` and `owner_pid` for cross-session safety. Different sessions MUST NOT interfere with each other.
+    - State file creation: Always include `config_dir`, `owner_pid`, `session_id`
+    - Hook scripts: Always filter by ownership before acting on state files
+    - Cancel commands: Warn if cancelling another session's workflow
+    - Pattern: `resolve-session-identity.sh` provides `RUNE_CURRENT_CFG`; `$PPID` = Claude Code PID
 
 ## Core Pseudo-Functions
 
@@ -130,11 +136,11 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | Hook | Script | Purpose |
 |------|--------|---------|
 | `PreToolUse:Write\|Edit\|Bash\|NotebookEdit` | `scripts/enforce-readonly.sh` | SEC-001: Blocks write tools for review/audit/inspect Ashes when `.readonly-active` marker exists. |
-| `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. |
-| `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) blocks unprotected glob in `for` loops. Only active when user's shell is zsh (or macOS fallback). |
+| `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. Filters workflow detection by session ownership. |
+| `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) auto-fixes unprotected glob with setopt nullglob, (C) auto-fixes `! [[` history expansion to `[[ !`. Only active when user's shell is zsh (or macOS fallback). |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-gap-fixer-paths.sh` | SEC-GAP-001: Blocks gap-fixer Ashes from writing to `.claude/`, `.github/`, `node_modules/`, CI YAML, and `.env` files. Only active during gap-fix workflows. |
-| `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
+| `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. Filters by session ownership. |
 | `PreToolUse:TeamCreate` | `scripts/enforce-team-lifecycle.sh` | TLC-001: Validates team name (hard block on invalid), detects stale teams (30-min threshold), auto-cleans filesystem orphans, injects advisory context. |
 | `PostToolUse:TeamDelete` | `scripts/verify-team-cleanup.sh` | TLC-002: Verifies team dir removal after TeamDelete, reports zombie dirs. |
 | `PostToolUse:Write\|Edit` | `scripts/echo-search/annotate-hook.sh` | Marks echo search index as dirty when echo files are modified. Triggers re-indexing on next search. |
@@ -142,11 +148,11 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `TaskCompleted` | `scripts/validate-inner-flame.sh` | Inner Flame self-review enforcement. Validates teammate output includes Grounding/Completeness/Self-Adversarial checks. Configurable via talisman. |
 | `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
 | `SessionStart:startup\|resume\|clear\|compact` | `scripts/session-start.sh` | Loads using-rune workflow routing into context. Runs synchronously to ensure routing is available from first message. |
-| `SessionStart:startup\|resume` | `scripts/session-team-hygiene.sh` | TLC-003: Scans for orphaned team dirs and stale state files at session start and resume. |
+| `SessionStart:startup\|resume` | `scripts/session-team-hygiene.sh` | TLC-003: Scans for orphaned team dirs and stale state files at session start and resume. Filters stale state counting by session ownership. |
 | `PreCompact:manual\|auto` | `scripts/pre-compact-checkpoint.sh` | Saves team state (config.json, tasks, workflow phase, arc checkpoint) to `tmp/.rune-compact-checkpoint.json` before compaction. Non-blocking (exit 0). |
 | `SessionStart:compact` | `scripts/session-compact-recovery.sh` | Re-injects team checkpoint as `additionalContext` after compaction. Correlation guard verifies team still exists. One-time injection (deletes checkpoint after use). |
-| `Stop` | `scripts/arc-batch-stop-hook.sh` | ARC-BATCH-STOP: Drives the arc-batch loop via Stop hook pattern. Reads `.claude/arc-batch-loop.local.md` state file, marks current plan completed, constructs next arc prompt, re-injects via blocking JSON. Runs BEFORE on-session-stop.sh. |
-| `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. One-shot design prevents infinite loops via `stop_hook_active` flag. |
+| `Stop` | `scripts/arc-batch-stop-hook.sh` | ARC-BATCH-STOP: Drives the arc-batch loop via Stop hook pattern. Reads `.claude/arc-batch-loop.local.md` state file, marks current plan completed, constructs next arc prompt, re-injects via blocking JSON. Includes session isolation guard. Runs BEFORE on-session-stop.sh. |
+| `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. Filters cleanup by session ownership. One-shot design prevents infinite loops via `stop_hook_active` flag. |
 
 **Seal Convention**: Ashes emit `<seal>TAG</seal>` as the last line of output for deterministic completion detection. See `roundtable-circle/references/monitor-utility.md` "Seal Convention" section.
 

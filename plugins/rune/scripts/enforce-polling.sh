@@ -69,13 +69,25 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
   SLEEP_NUM=$(printf '%s\n' "$NORMALIZED" | grep -oE 'sleep[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+')
   [[ "${SLEEP_NUM:-0}" -lt 10 ]] && exit 0
 
-  # Check for active Rune workflow
+  # Check for active Rune workflow (THIS session only)
   active_workflow=""
+
+  # ── Session identity for cross-session ownership filtering ──
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # shellcheck source=resolve-session-identity.sh
+  source "${SCRIPT_DIR}/resolve-session-identity.sh"
 
   # Arc checkpoint detection
   if [[ -d "${CWD}/.claude/arc" ]]; then
     while IFS= read -r f; do
       if grep -q '"in_progress"' "$f" 2>/dev/null; then
+        # ── Ownership filter: skip checkpoints from other sessions ──
+        stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+        stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+        if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+        if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
+          kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+        fi
         active_workflow="arc"
         break
       fi
@@ -87,8 +99,16 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
     shopt -s nullglob
     for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json \
              "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json \
-             "${CWD}"/tmp/.rune-plan-*.json "${CWD}"/tmp/.rune-forge-*.json; do
+             "${CWD}"/tmp/.rune-plan-*.json "${CWD}"/tmp/.rune-forge-*.json \
+             "${CWD}"/tmp/.rune-inspect-*.json; do
       if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
+        # ── Ownership filter: skip state files from other sessions ──
+        stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+        stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+        if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+        if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
+          kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+        fi
         active_workflow=1
         break
       fi

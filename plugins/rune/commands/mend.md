@@ -255,8 +255,13 @@ if (id.includes('..')) throw new Error('Path traversal detected in mend id')
 const preMendSha = Bash('git rev-parse HEAD').trim()
 
 // 1c. Create state file for concurrency detection
+// ── Resolve session identity for cross-session isolation ──
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
 Write("tmp/.rune-mend-{id}.json", {
-  status: "active", started: timestamp, tome_path: tome_path, fixer_count: fixer_count
+  status: "active", started: timestamp, tome_path: tome_path, fixer_count: fixer_count,
+  config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}"
 })
 
 // 1d. Snapshot pre-mend working tree for bisection safety
@@ -996,6 +1001,7 @@ if (!cleanupSucceeded) {
 const mendStatus = (failedCount === 0 && !timedOut) ? "completed" : "partial"
 Write("tmp/.rune-mend-{id}.json", {
   status: mendStatus, started: startTime, completed: timestamp,
+  config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
   tome_path: tome_path, report_path: `tmp/mend/${id}/resolution-report.md`,
   failed_count: failedCount, timed_out: timedOut
 })

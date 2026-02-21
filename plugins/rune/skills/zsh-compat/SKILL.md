@@ -2,10 +2,12 @@
 name: zsh-compat
 description: |
   Use when generating Bash commands on macOS, when ZSH-001 hook denies a command,
-  when "read-only variable" or "no matches found" errors appear in shell output,
-  or when writing for loops over glob patterns. Covers read-only variables (status,
-  pipestatus, ERRNO), glob NOMATCH protection, word splitting, and array indexing.
-  Keywords: zsh, NOMATCH, status variable, read-only, nullglob, glob, ZSH-001.
+  when "read-only variable", "no matches found", or "command not found: !" errors
+  appear in shell output, or when writing for loops over glob patterns. Covers
+  read-only variables (status, pipestatus, ERRNO), glob NOMATCH protection,
+  history expansion of `!` before `[[`, word splitting, and array indexing.
+  Keywords: zsh, NOMATCH, status variable, read-only, nullglob, glob, ZSH-001,
+  history expansion, command not found.
 
   <example>
   Context: LLM generating a Bash command with a loop over glob pattern.
@@ -33,9 +35,10 @@ Claude Code's `Bash` tool inherits the user's shell. On macOS (default since Cat
 
 ## Enforcement
 
-The `enforce-zsh-compat.sh` PreToolUse hook (ZSH-001) catches the two most common issues at runtime:
+The `enforce-zsh-compat.sh` PreToolUse hook (ZSH-001) catches the three most common issues at runtime:
 - **Check A**: Bare `status=` variable assignment → denied
-- **Check B**: Unprotected glob in `for ... in GLOB; do` → denied
+- **Check B**: Unprotected glob in `for ... in GLOB; do` → auto-fixed with `setopt nullglob`
+- **Check C**: `! [[ ... ]]` history expansion → auto-fixed by rewriting to `[[ ! ... ]]`
 
 This skill teaches the correct patterns so the hook rarely fires.
 
@@ -159,12 +162,40 @@ echo =ls
 
 This rarely affects generated code but can cause confusion in path handling.
 
+## Pitfall 6: `!` History Expansion Before `[[`
+
+In zsh, `!` at the start of a command is interpreted as **history expansion** (like `!!` or `!$`). When used for logical negation before `[[ ]]`, it causes `command not found: !`.
+
+```bash
+# BAD — zsh interprets `!` as history expansion
+if ! [[ "$epoch" =~ ^[0-9]+$ ]]; then
+  echo "not numeric"
+fi
+# zsh: (eval):1: command not found: !
+
+# GOOD — negation inside [[ ]] (semantically equivalent for single expressions)
+if [[ ! "$epoch" =~ ^[0-9]+$ ]]; then
+  echo "not numeric"
+fi
+```
+
+### Why This Happens
+
+In bash, `!` before `[[ ]]` is recognized as the pipeline negation operator. In zsh's eval context (which is how Claude Code's Bash tool executes commands), `!` can trigger history expansion before the parser reaches `[[`.
+
+### Fix
+
+Move the `!` inside `[[ ]]`. For single-expression conditionals, `! [[ expr ]]` and `[[ ! expr ]]` are semantically equivalent.
+
+**Note**: `! command` (e.g., `! grep -q pattern file`) is generally safe because the command name that follows is a real command. The issue is specifically `! [[` where zsh gets confused.
+
 ## Quick Reference — Safe Patterns
 
 | Pattern | Bash-only | zsh-safe |
 |---------|-----------|----------|
 | Variable name | `status=val` | `task_status=val` |
 | Glob loop | `for f in *.md; do` | `for f in *.md(N); do` |
+| Negated `[[` | `if ! [[ expr ]]; then` | `if [[ ! expr ]]; then` |
 | Word split | `for w in $var; do` | `for w in ${(s: :)var}; do` or use arrays |
 | Array index | `${arr[0]}` | `${arr[1]}` or iterate with `[@]` |
 | Glob in args | `ls *.log` | `setopt nullglob; ls *.log` |

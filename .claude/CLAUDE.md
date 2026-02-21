@@ -456,3 +456,18 @@ find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -
 - Don't commit plan files (`./plans/*.md`)
 - Always ensure plugin version is in sync between `.claude-plugin/marketplace.json` and `plugins/rune/.claude-plugin/plugin.json`
 - **Planning disambiguation**: ALWAYS use `/rune:plan` for feature planning — NEVER use `EnterPlanMode`. Plan output MUST follow Rune templates (YAML frontmatter + Minimal/Standard/Comprehensive sections from `plan/references/synthesize.md`)
+
+## Rune Session Isolation Rule
+
+Session-level isolation is a CRITICAL requirement for the Rune plugin. Different Claude Code sessions working on the same repo MUST NOT interfere with each other, even if they share the same CLAUDE_CONFIG_DIR.
+
+**All Rune state files MUST include:**
+- `config_dir` — resolved CLAUDE_CONFIG_DIR path (installation isolation)
+- `owner_pid` — Claude Code process PID via $PPID (session isolation)
+- `session_id` — CLAUDE_SESSION_ID (diagnostic, not verifiable in bash)
+
+**All Rune hook scripts that read state files MUST:**
+- Check `config_dir` matches current session before acting
+- Check `owner_pid` matches $PPID (with kill -0 liveness check) before acting
+- Skip silently if state belongs to another live session
+- Clean up if state belongs to a dead session (orphan recovery)
