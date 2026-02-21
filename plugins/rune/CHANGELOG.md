@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.63.1] - 2026-02-21
+
+### Fixed
+- **Arc checkpoint zsh compat** — Replaced `! [[ "$epoch" =~ ^[0-9]+$ ]]` with POSIX `case` statement in concurrent arc detection. The negated `[[ =~ ]]` caused `condition expected: \!` errors in zsh (macOS default shell)
+
 ## [1.63.0] - 2026-02-21
 
 ### Added
