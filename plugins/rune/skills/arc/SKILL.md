@@ -16,7 +16,7 @@ description: |
   assistant: "Resuming arc from Phase 5 (WORK) — validating checkpoint integrity..."
   </example>
 user-invocable: true
-disable-model-invocation: true
+disable-model-invocation: false
 argument-hint: "[plan-file-path | --resume]"
 allowed-tools:
   - Read
