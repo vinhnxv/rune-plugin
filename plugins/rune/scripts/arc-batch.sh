@@ -1,10 +1,16 @@
 #!/bin/bash
+# DEPRECATED (v1.59.0): Replaced by Stop hook pattern (arc-batch-stop-hook.sh).
+# This script used a subprocess-based loop which hit the Bash tool timeout limit
+# (max 600s / 10 min), causing arc-batch to get stuck after the first plan.
+# The new architecture uses a Stop hook self-invoking loop inspired by the
+# ralph-wiggum plugin from Anthropic.
+# Kept for reference. See CHANGELOG.md v1.59.0.
 set -euo pipefail
 umask 077
 
 # ──────────────────────────────────────────────
-# arc-batch.sh — Sequential arc execution with auto-merge
-# Invoked by /rune:arc-batch SKILL.md
+# arc-batch.sh — Sequential arc execution with auto-merge (DEPRECATED)
+# Replaced by arc-batch-stop-hook.sh (Stop hook pattern)
 # ──────────────────────────────────────────────
 
 # ── Pre-flight: required tools ──

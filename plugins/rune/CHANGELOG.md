@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.59.0] - 2026-02-21
+
+### Changed
+- **CRITICAL: Arc-batch migrated from subprocess loop to Stop hook pattern** — Replaces the broken `Bash(arc-batch.sh)` subprocess-based loop with a self-invoking Stop hook, inspired by the [ralph-wiggum](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum) plugin from Anthropic. Each arc now runs as a native Claude Code turn with full tool access, eliminating the Bash tool timeout limitation (max 600s) that caused arc-batch to get stuck after the first plan
+- **New Stop hook**: `scripts/arc-batch-stop-hook.sh` — core loop mechanism. Reads batch state from `.claude/arc-batch-loop.local.md`, marks completed plans, finds next pending plan, re-injects arc prompt via `{"decision":"block","reason":"<prompt>"}`
+- **SKILL.md Phase 5 rewritten** — Now writes a state file and invokes `/rune:arc` natively via `Skill()` instead of spawning `claude -p` subprocesses. Phase 6 (summary) removed — handled by the stop hook's final iteration
+- **hooks.json updated** — `arc-batch-stop-hook.sh` added as first entry in `Stop` array (before `on-session-stop.sh`). 15s timeout for git + JSON operations
+
+### Added
+- **`/rune:cancel-arc-batch` command** (`commands/cancel-arc-batch.md`) — Removes the batch loop state file, like ralph-wiggum's `/cancel-ralph`. Current arc finishes normally but no further plans start
+- **Arc-batch awareness in `/rune:cancel-arc`** — Step 0 now checks for and removes the batch loop state file when cancelling an arc that is part of a batch
+- **GUARD 5 in `on-session-stop.sh`** — Defers to arc-batch stop hook when `.claude/arc-batch-loop.local.md` exists, preventing conflicting "active workflow detected" messages
+
+### Deprecated
+- **`scripts/arc-batch.sh`** — Subprocess-based batch loop script. Kept for reference (not deleted). Replaced by Stop hook pattern
+
 ## [1.58.0] - 2026-02-21
 
 ### Added

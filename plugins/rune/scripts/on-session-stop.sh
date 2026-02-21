@@ -48,6 +48,13 @@ if [[ -z "$CWD" || "$CWD" != /* ]]; then
   exit 0
 fi
 
+# ── GUARD 5: Defer to arc-batch stop hook ──
+# When arc-batch loop is active, arc-batch-stop-hook.sh handles the Stop event.
+# This prevents conflicting "active workflow detected" messages.
+if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
+  exit 0
+fi
+
 # ── CHOME resolution ──
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 if [[ -z "$CHOME" ]] || [[ "$CHOME" != /* ]]; then

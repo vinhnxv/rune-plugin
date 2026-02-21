@@ -1,0 +1,68 @@
+---
+name: rune:cancel-arc-batch
+description: |
+  Cancel an active arc batch loop. Removes the state file so the Stop hook
+  allows the session to end after the current arc completes.
+
+  <example>
+  user: "/rune:cancel-arc-batch"
+  assistant: "Arc batch loop cancelled at iteration 2/4."
+  </example>
+user-invocable: true
+allowed-tools:
+  - Read
+  - Bash
+  - Glob
+---
+
+# /rune:cancel-arc-batch — Cancel Active Arc Batch Loop
+
+Removes the batch loop state file (`.claude/arc-batch-loop.local.md`), stopping the Stop hook from re-injecting the next arc prompt. The currently-running arc will finish normally, but no further plans will be started.
+
+## Steps
+
+### 1. Check for Active Batch Loop
+
+```javascript
+const stateFile = ".claude/arc-batch-loop.local.md"
+const exists = Bash(`test -f "${stateFile}" && echo "yes" || echo "no"`).trim()
+```
+
+If `"no"`: Report "No active arc batch loop found." and exit.
+
+### 2. Read Current State
+
+```javascript
+const content = Read(stateFile)
+// Parse YAML frontmatter for iteration and total_plans
+const iterationMatch = content.match(/iteration:\s*(\d+)/)
+const totalMatch = content.match(/total_plans:\s*(\d+)/)
+const iteration = iterationMatch ? iterationMatch[1] : "?"
+const totalPlans = totalMatch ? totalMatch[1] : "?"
+```
+
+### 3. Remove State File
+
+```javascript
+Bash('rm -f .claude/arc-batch-loop.local.md')
+```
+
+### 4. Report
+
+```
+Arc batch loop cancelled at iteration {iteration}/{totalPlans}.
+
+The current arc run will finish normally.
+No further plans will be started.
+
+To see batch progress: Read tmp/arc-batch/batch-progress.json
+To resume later: /rune:arc-batch --resume
+```
+
+### 5. Delegate to Cancel-Arc (Optional)
+
+If the user also wants to cancel the currently-running arc:
+
+```
+To also cancel the current arc run: /rune:cancel-arc
+```

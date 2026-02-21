@@ -41,6 +41,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | `/rune:inspect` | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
 | `/rune:plan-review` | Review plan code samples for implementation correctness (thin wrapper for /rune:inspect --mode plan) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
+| `/rune:cancel-arc-batch` | Cancel active arc-batch loop and remove state file |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:elicit` | Interactive elicitation method selection |
 | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
@@ -144,6 +145,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `SessionStart:startup\|resume` | `scripts/session-team-hygiene.sh` | TLC-003: Scans for orphaned team dirs and stale state files at session start and resume. |
 | `PreCompact:manual\|auto` | `scripts/pre-compact-checkpoint.sh` | Saves team state (config.json, tasks, workflow phase, arc checkpoint) to `tmp/.rune-compact-checkpoint.json` before compaction. Non-blocking (exit 0). |
 | `SessionStart:compact` | `scripts/session-compact-recovery.sh` | Re-injects team checkpoint as `additionalContext` after compaction. Correlation guard verifies team still exists. One-time injection (deletes checkpoint after use). |
+| `Stop` | `scripts/arc-batch-stop-hook.sh` | ARC-BATCH-STOP: Drives the arc-batch loop via Stop hook pattern. Reads `.claude/arc-batch-loop.local.md` state file, marks current plan completed, constructs next arc prompt, re-injects via blocking JSON. Runs BEFORE on-session-stop.sh. |
 | `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. One-shot design prevents infinite loops via `stop_hook_active` flag. |
 
 **Seal Convention**: Ashes emit `<seal>TAG</seal>` as the last line of output for deterministic completion detection. See `roundtable-circle/references/monitor-utility.md` "Seal Convention" section.
