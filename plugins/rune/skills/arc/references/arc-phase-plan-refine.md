@@ -48,8 +48,8 @@ for (const reviewer of reviewers) {
     // BACK-7 FIX: Also sanitize inline code (single backtick)
     const sanitized = output
       .slice(0, 5000)
-      .replace(/<!--[^]*?-->/g, '')
-      .replace(/```[^]*?```/g, '[code block removed]')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/```[\s\S]*?```/g, '[code block removed]')
       .replace(/`[^`]+`/g, '[code removed]')
       .slice(0, 2000)
     concerns.push({ reviewer: reviewer.name, verdict: "CONCERN", content: sanitized })
