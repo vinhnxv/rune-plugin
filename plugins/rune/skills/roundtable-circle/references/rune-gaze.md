@@ -96,7 +96,7 @@ if talisman.codex.disabled is not true:
     ash_selections.add("codex-oracle")  # Cross-model: when codex CLI available
 
 # External model CLI-backed Ashes (multi-model adversarial review, v1.57.0+)
-# Iterate ashes.custom[] entries where cli: is present.
+# Iterate ashes.custom[] entries where cli: is present (discriminated union — see custom-ashes.md).
 # Uses detectAllCLIAshes() from codex-detection.md which:
 #   1. Applies max_cli_ashes limit BEFORE detection (default: 2)
 #   2. Runs detectExternalModel(config) for each candidate

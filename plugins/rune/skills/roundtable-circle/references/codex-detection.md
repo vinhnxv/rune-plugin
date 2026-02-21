@@ -155,7 +155,7 @@ When logging errors, always include:
 
 ## External Model Detection (CLI-Backed Ashes)
 
-Generalized detection algorithm for CLI-backed Ashes defined in `ashes.custom[]` with a `cli:` field. Follows the same safety principles as Codex detection but supports arbitrary CLI binaries.
+Generalized detection algorithm for CLI-backed Ashes defined in `ashes.custom[]` with a `cli:` field (discriminated union — see custom-ashes.md for schema). Follows the same safety principles as Codex detection but supports arbitrary CLI binaries.
 
 ### detectExternalModel(config)
 

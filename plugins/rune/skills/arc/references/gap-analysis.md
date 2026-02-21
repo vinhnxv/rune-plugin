@@ -756,7 +756,7 @@ let claimVerificationResults = []
 
 if (verifiableClaims.length > 0) {
   // 2. Apply sanitizePlanContent() to each claim text
-  // sanitizePlanContent: strip backticks, code fences, HTML tags, limit length
+  // Claim-specific variant (500 char limit). Canonical: security-patterns.md
   const sanitizePlanContent = (text) => {
     return text
       .replace(/```[\s\S]*?```/g, '')   // Remove code fences

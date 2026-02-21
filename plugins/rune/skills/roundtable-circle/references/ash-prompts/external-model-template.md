@@ -8,7 +8,7 @@
 > | Variable | Source | Default |
 > |----------|--------|---------|
 > | `{cli_binary}` | `ashes.custom[].cli` | — |
-> | `{model_name}` | `ashes.custom[].model` | — |
+> | `{model_name}` | `ashes.custom[].model` | — | <!-- Note: codex-oracle uses {codex_model} (domain-prefixed). This template uses generic naming for multi-CLI portability. -->
 > | `{finding_prefix}` | `ashes.custom[].finding_prefix` | — |
 > | `{output_format}` | `ashes.custom[].output_format` | — |
 > | `{ignore_file}` | `ashes.custom[].ignore_file` | (empty) |
@@ -177,7 +177,7 @@ SEAL: {
 - CLI arguments use `--` before positional arguments to prevent flag injection
 - Content is sanitized via `sanitizePlanContent()` before injection (see security-patterns.md)
 - Nonce boundaries prevent reviewed code from escaping the content injection zone
-- The Hallucination Guard (3+1 steps) is enforced in the prompt — findings without valid Rune Traces are discarded during Truthsight verification
+- The Hallucination Guard (4-Step) is enforced in the prompt — findings without valid Rune Traces are discarded during Truthsight verification
 
 ## References
 

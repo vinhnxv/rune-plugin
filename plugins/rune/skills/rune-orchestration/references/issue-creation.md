@@ -14,10 +14,10 @@ Create a GitHub or Linear issue from a plan file.
    ```javascript
    // CDX-003 MITIGATION (P1): Validate and sanitize title/path before shell interpolation
    // to prevent command injection via crafted plan titles or filenames.
-   const SAFE_IDENTIFIER_PATTERN = /^[a-zA-Z0-9 ._\-:()]+$/
+   const SAFE_TITLE_PATTERN = /^[a-zA-Z0-9 ._\-:()]+$/
    const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
 
-   if (!SAFE_IDENTIFIER_PATTERN.test(title)) throw new Error('Unsafe characters in issue title')
+   if (!SAFE_TITLE_PATTERN.test(title)) throw new Error('Unsafe characters in issue title')
    if (!SAFE_PATH_PATTERN.test(path) || path.includes('..')) throw new Error('Unsafe characters in plan path')
 
    // Use -- to separate flags from positional args, write title to temp file to avoid shell expansion
@@ -28,7 +28,7 @@ Create a GitHub or Linear issue from a plan file.
 3. **Linear**:
    ```javascript
    // CDX-003: Same validation applies to Linear CLI
-   if (!SAFE_IDENTIFIER_PATTERN.test(title)) throw new Error('Unsafe characters in issue title')
+   if (!SAFE_TITLE_PATTERN.test(title)) throw new Error('Unsafe characters in issue title')
    if (!SAFE_PATH_PATTERN.test(path) || path.includes('..')) throw new Error('Unsafe characters in plan path')
 
    Write('tmp/.issue-title.txt', title)

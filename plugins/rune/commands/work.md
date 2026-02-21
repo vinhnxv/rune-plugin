@@ -409,7 +409,9 @@ during summary generation. Workers MUST NOT write counter fields.
      embedded in web results could influence worker behavior (e.g., modifying unrelated files,
      exfiltrating data via Bash).
 
-     REQUIRED: Sanitize plan content before interpolation into worker prompts using sanitizePlanContent():
+     REQUIRED: Sanitize plan content before interpolation into worker prompts using sanitizePlanContent().
+     NOTE: This is a worker-prompt-specific variant (8000 char limit, heading/Truthbinding stripping).
+     Canonical definition: security-patterns.md. See also: gap-analysis.md sanitizeClaimText().
 
        function sanitizePlanContent(content) {
          return (content || '')
