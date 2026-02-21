@@ -12,7 +12,7 @@
 - **`--deep` flag** for `/rune:audit` enabling two-pass investigation
 - **4 ash prompt templates** for deep investigation teammates
 - **Extended dedup hierarchy**: `SEC > BACK > DEBT > INTG > BIZL > EDGE > DOC > QUAL > FRONT > CDX`
-- **Deep audit talisman config**: `audit.deep.enabled`, `audit.deep.ashes`, `audit.always_deep`
+- **Deep audit talisman config**: `audit.deep.enabled`, `audit.deep.ashes`, `audit.deep.max_deep_ashes`, `audit.deep.timeout_multiplier`, `audit.always_deep`
 - **Circle registry update**: Deep Investigation Ashes section with 4 new entries
 
 ### Changed

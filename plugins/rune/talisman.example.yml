@@ -172,7 +172,7 @@ audit:
       - fringe-watcher
     max_deep_ashes: 4
     timeout_multiplier: 1.5
-  always_deep: false
+  always_deep: false              # When true, all audits run deep pass without --deep flag
 
 # ──────────────────────────────────────────────
 # Defaults — Disable built-in Ash

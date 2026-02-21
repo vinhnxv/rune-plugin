@@ -50,11 +50,11 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 - Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `QUAL`, `FRONT`, `DOC`, `CDX` — cannot be used by custom Ash
 - Reserved deep-audit prefixes (active only when `/rune:audit --deep`): `DEBT`, `INTG`, `BIZL`, `EDGE`
 
-### Deep Audit Extended Hierarchy (v1.44.0+)
+### Deep Audit Extended Hierarchy (v1.56.0+)
 
 When `--deep` flag is active, the dedup hierarchy extends to include deep investigation prefixes:
 
-**Standard hierarchy**: `SEC > BACK > DOC > QUAL > FRONT > CDX`
+**Standard hierarchy**: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`
 **Deep hierarchy (full)**: `SEC > BACK > DEBT > INTG > BIZL > EDGE > DOC > QUAL > FRONT > CDX`
 
 **Which hierarchy is used where:**
