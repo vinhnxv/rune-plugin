@@ -53,7 +53,7 @@ const activeStates = stateFiles
   .map(s => {
     // ── Ownership detection: warn if this belongs to another session ──
     const isForeign = (s.state.config_dir && s.state.config_dir !== configDir) ||
-      (s.state.owner_pid && s.state.owner_pid !== ownerPid &&
+      (s.state.owner_pid && /^\d+$/.test(s.state.owner_pid) && s.state.owner_pid !== ownerPid &&
        Bash(`kill -0 ${s.state.owner_pid} 2>/dev/null && echo alive`).trim() === "alive")
     return { ...s, isForeign }
   })
@@ -95,9 +95,9 @@ if (activeStates.length === 1) {
 if (!team_name) { warn("No team_name in state file — cannot cancel."); return }
 
 // ── Foreign session warning (warn, don't block) ──
-const selected = activeStates.find(s => s.state.team_name === team_name) || activeStates[0]
-if (selected?.isForeign) {
-  warn(`WARNING: This review (${team_name}) appears to belong to another active session (PID: ${state.owner_pid}). Cancelling may disrupt that session's workflow. Proceeding anyway.`)
+const target = activeStates.find(s => s.state.team_name === team_name) || activeStates[0]
+if (target?.isForeign) {
+  warn(`WARNING: This review (${team_name}) appears to belong to another active session (PID: ${target.state.owner_pid}). Cancelling may disrupt that session's workflow. Proceeding anyway.`)
 }
 ```
 

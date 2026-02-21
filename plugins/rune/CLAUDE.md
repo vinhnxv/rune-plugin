@@ -136,11 +136,11 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | Hook | Script | Purpose |
 |------|--------|---------|
 | `PreToolUse:Write\|Edit\|Bash\|NotebookEdit` | `scripts/enforce-readonly.sh` | SEC-001: Blocks write tools for review/audit/inspect Ashes when `.readonly-active` marker exists. |
-| `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. |
+| `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. Filters workflow detection by session ownership. |
 | `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) blocks unprotected glob in `for` loops. Only active when user's shell is zsh (or macOS fallback). |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-gap-fixer-paths.sh` | SEC-GAP-001: Blocks gap-fixer Ashes from writing to `.claude/`, `.github/`, `node_modules/`, CI YAML, and `.env` files. Only active during gap-fix workflows. |
-| `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. |
+| `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. Filters by session ownership. |
 | `PreToolUse:TeamCreate` | `scripts/enforce-team-lifecycle.sh` | TLC-001: Validates team name (hard block on invalid), detects stale teams (30-min threshold), auto-cleans filesystem orphans, injects advisory context. |
 | `PostToolUse:TeamDelete` | `scripts/verify-team-cleanup.sh` | TLC-002: Verifies team dir removal after TeamDelete, reports zombie dirs. |
 | `PostToolUse:Write\|Edit` | `scripts/echo-search/annotate-hook.sh` | Marks echo search index as dirty when echo files are modified. Triggers re-indexing on next search. |
@@ -148,11 +148,11 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `TaskCompleted` | `scripts/validate-inner-flame.sh` | Inner Flame self-review enforcement. Validates teammate output includes Grounding/Completeness/Self-Adversarial checks. Configurable via talisman. |
 | `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
 | `SessionStart:startup\|resume\|clear\|compact` | `scripts/session-start.sh` | Loads using-rune workflow routing into context. Runs synchronously to ensure routing is available from first message. |
-| `SessionStart:startup\|resume` | `scripts/session-team-hygiene.sh` | TLC-003: Scans for orphaned team dirs and stale state files at session start and resume. |
+| `SessionStart:startup\|resume` | `scripts/session-team-hygiene.sh` | TLC-003: Scans for orphaned team dirs and stale state files at session start and resume. Filters stale state counting by session ownership. |
 | `PreCompact:manual\|auto` | `scripts/pre-compact-checkpoint.sh` | Saves team state (config.json, tasks, workflow phase, arc checkpoint) to `tmp/.rune-compact-checkpoint.json` before compaction. Non-blocking (exit 0). |
 | `SessionStart:compact` | `scripts/session-compact-recovery.sh` | Re-injects team checkpoint as `additionalContext` after compaction. Correlation guard verifies team still exists. One-time injection (deletes checkpoint after use). |
-| `Stop` | `scripts/arc-batch-stop-hook.sh` | ARC-BATCH-STOP: Drives the arc-batch loop via Stop hook pattern. Reads `.claude/arc-batch-loop.local.md` state file, marks current plan completed, constructs next arc prompt, re-injects via blocking JSON. Runs BEFORE on-session-stop.sh. |
-| `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. One-shot design prevents infinite loops via `stop_hook_active` flag. |
+| `Stop` | `scripts/arc-batch-stop-hook.sh` | ARC-BATCH-STOP: Drives the arc-batch loop via Stop hook pattern. Reads `.claude/arc-batch-loop.local.md` state file, marks current plan completed, constructs next arc prompt, re-injects via blocking JSON. Includes session isolation guard. Runs BEFORE on-session-stop.sh. |
+| `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. Filters cleanup by session ownership. One-shot design prevents infinite loops via `stop_hook_active` flag. |
 
 **Seal Convention**: Ashes emit `<seal>TAG</seal>` as the last line of output for deterministic completion detection. See `roundtable-circle/references/monitor-utility.md` "Seal Convention" section.
 

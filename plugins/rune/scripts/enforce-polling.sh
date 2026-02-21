@@ -99,7 +99,8 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
     shopt -s nullglob
     for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json \
              "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json \
-             "${CWD}"/tmp/.rune-plan-*.json "${CWD}"/tmp/.rune-forge-*.json; do
+             "${CWD}"/tmp/.rune-plan-*.json "${CWD}"/tmp/.rune-forge-*.json \
+             "${CWD}"/tmp/.rune-inspect-*.json; do
       if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
         # ── Ownership filter: skip state files from other sessions ──
         stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)

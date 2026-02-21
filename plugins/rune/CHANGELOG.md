@@ -8,12 +8,16 @@
 - **Ownership filtering in hook scripts** — `enforce-teams.sh`, `on-session-stop.sh`, `enforce-polling.sh`, and `session-team-hygiene.sh` now filter state files by session ownership before acting
 - **Session identity fields in all state files** — `config_dir`, `owner_pid`, `session_id` added to state file writes in review, audit, work, mend, forge, and inspect commands
 - **Session identity in arc checkpoints** — `config_dir`, `owner_pid`, `session_id` added to `.claude/arc/{id}/checkpoint.json` creation
-- **Foreign session warning in cancel commands** — `cancel-review.md` and `cancel-audit.md` warn (don't block) when cancelling another session's workflow
+- **Foreign session warning in cancel commands** — `cancel-review.md`, `cancel-audit.md`, and `cancel-arc-batch.md` warn (don't block) when cancelling another session's workflow. `cancel-arc.md` skips batch cancellation when the batch belongs to another live session
 - **Core Rule 11: Session isolation** — Documented as CRITICAL rule in plugin CLAUDE.md and project CLAUDE.md
 
 ### Fixed
-- **Arc pre-flight directory** — Fixed pre-flight check searching `$CHOME/arc` (wrong — user config dir) instead of `${CWD}/.claude/arc` (correct — project-scoped checkpoints)
+- **Arc pre-flight directory** — Fixed pre-flight check searching `$CHOME/arc` (wrong — user config dir) instead of `${CWD}/.claude/arc` (correct — project-scoped checkpoints) in both jq and grep fallback paths
 - **Arc resume path** — Fixed `--resume` checkpoint discovery to search `${CWD}/.claude/arc` instead of `$CHOME/arc`
+- **Cancel command PID validation** — Added numeric validation (`/^\d+$/.test()`) before `kill -0` calls in cancel-review.md and cancel-audit.md pseudocode (SEC-3)
+- **Cancel command variable scoping** — Fixed `const selected` redeclaration and `state.owner_pid` reference in cancel-review.md and cancel-audit.md (BACK-2, BACK-3)
+- **enforce-polling.sh missing inspect glob** — Added `.rune-inspect-*.json` to state file detection glob, matching enforce-teams.sh coverage (QUAL-7)
+- **on-session-stop.sh config-dir resolution** — Moved `resolve-session-identity.sh` source before GUARD 5 to eliminate duplicate config-dir resolution (SEC-12)
 
 ### Changed
 - `enforce-teams.sh`: Sources `resolve-session-identity.sh`, filters arc checkpoints and state files by ownership

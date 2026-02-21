@@ -334,7 +334,7 @@ if command -v jq >/dev/null 2>&1; then
 else
   # NOTE: grep fallback is imprecise — matches "in_progress" anywhere in file, not field-specific.
   # Acceptable as degraded-mode check when jq is unavailable. The jq path above is the robust check.
-  active=$(find "$CHOME/arc" -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
+  active=$(find "${CWD}/.claude/arc" -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
     if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then basename "$(dirname "$f")"; fi
   done)
 fi
