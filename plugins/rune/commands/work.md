@@ -758,6 +758,60 @@ The commit broker (Phase 3.5) runs after `waitForCompletion` returns, processing
 
 **Total timeout**: Hard limit of 30 minutes. After timeout, a final sweep collects any results that completed during the last poll interval.
 
+### Wave-Aware Monitoring (Worktree Mode)
+
+When `worktreeMode === true`, monitoring processes waves sequentially. Each wave completes before the next begins, with the merge broker running between waves.
+
+```javascript
+if (worktreeMode) {
+  const WAVE_TIMEOUT = 600_000  // 10 min per wave (subset of 30 min total)
+
+  for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
+    const waveTasks = waves[waveIndex]
+    log(`\n## Wave ${waveIndex}/${waves.length - 1}: Monitoring ${waveTasks.length} task(s)`)
+
+    // Monitor until all tasks in this wave complete
+    const waveResult = waitForCompletion(teamName, waveTasks.length, {
+      timeoutMs: WAVE_TIMEOUT,
+      staleWarnMs: 300_000,
+      autoReleaseMs: 600_000,
+      pollIntervalMs: 30_000,
+      label: `Wave ${waveIndex}`,
+      taskFilter: (task) => waveTasks.includes(task.id),  // Only track this wave's tasks
+      onCheckpoint: (cp) => {
+        log(`  Wave ${waveIndex} — ${cp.completed}/${cp.total} (${cp.percentage}%)`)
+      }
+    })
+
+    // Collect branches from completed wave tasks
+    const completedBranches = collectWaveBranches(waveTasks)
+    // See worktree-merge.md collectWaveBranches() for the full algorithm
+
+    // Run merge broker between waves
+    if (completedBranches.length > 0) {
+      log(`Wave ${waveIndex}: Merging ${completedBranches.length} branch(es)`)
+      const featureBranch = Bash("git branch --show-current").trim()
+      mergeBroker(completedBranches, featureBranch)
+    }
+
+    // Update state file with wave progress
+    stateFile.current_wave = waveIndex + 1
+
+    if (waveResult.timedOut) {
+      warn(`Wave ${waveIndex} timed out. Proceeding with partial results.`)
+    }
+  }
+} else {
+  // Flat monitoring (patch mode) — waitForCompletion for all tasks at once
+  // (existing code above)
+}
+```
+
+**Wave monitoring vs flat monitoring:**
+- **Flat (patch mode)**: All workers run concurrently, single `waitForCompletion` call
+- **Wave (worktree mode)**: Sequential waves, each monitored independently, merge broker runs between waves
+- **Timeout**: Per-wave timeout (10 min) prevents a single stalled wave from consuming the entire budget
+
 ### Phase 3.5: Commit Broker (Orchestrator-Only)
 
 The Tarnished is the **sole committer** -- workers generate patches, the orchestrator applies and commits them. This serializes all git index operations through a single writer, eliminating `.git/index.lock` contention entirely.
@@ -1280,6 +1334,7 @@ const blockedTasks = allTasks.filter(t => t.status === "pending" && t.blockedBy?
 // This catches workers + utility teammates (e.g., codex-advisory) summoned in any phase
 let allMembers = []
 try {
+  // CHOME-SAFE: SDK Read() resolves CLAUDE_CONFIG_DIR automatically
   const teamConfig = Read(`~/.claude/teams/rune-work-${timestamp}/config.json`)
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
@@ -1329,7 +1384,32 @@ for (const todoFile of todoFiles) {
   } catch (e) { /* non-blocking */ }
 }
 
-// 3.6 Restore stashed changes if Phase 0.5 stashed
+// 3.6 Worktree garbage collection (C9, worktree mode only)
+if (worktreeMode) {
+  Bash("git worktree prune")
+  // Remove orphaned worktrees matching rune-work pattern
+  const wtList = Bash("git worktree list --porcelain").trim()
+  const wtEntries = wtList.split("\n\n").filter(e => e.includes("rune-work-"))
+  for (const entry of wtEntries) {
+    const pathMatch = entry.match(/^worktree (.+)$/m)
+    if (pathMatch) {
+      warn(`Removing orphaned worktree: ${pathMatch[1]}`)
+      Bash(`git worktree remove --force "${pathMatch[1]}" 2>/dev/null`)
+    }
+  }
+  // Cleanup orphaned branches
+  const orphanBranches = Bash("git branch --list 'rune-work-*' 2>/dev/null").trim()
+  if (orphanBranches) {
+    for (const branch of orphanBranches.split('\n').map(b => b.trim()).filter(Boolean)) {
+      if (branch.startsWith('*')) continue
+      const cleanBranch = branch.replace(/^\*?\s*/, '')
+      if (BRANCH_RE.test(cleanBranch)) Bash(`git branch -D "${cleanBranch}" 2>/dev/null`)
+    }
+  }
+  Bash("git worktree prune")
+}
+
+// 3.7 Restore stashed changes if Phase 0.5 stashed
 if (didStash) {
   const popResult = Bash("git stash pop 2>/dev/null")
   if (popResult.exitCode !== 0) {
@@ -1413,6 +1493,9 @@ Artifacts: tmp/work/{timestamp}/
 | Detached HEAD state | Abort with error -- require user to checkout a branch first |
 | `git stash push` failure (Phase 0.5) | Warn and continue with dirty tree |
 | `git stash pop` failure (Phase 6) | Warn user -- manual restore needed: `git stash list` |
+| Merge conflict (worktree mode) | Escalate to user via AskUserQuestion — never auto-resolve |
+| Worker crash in worktree | Worktree cleaned up on Phase 6, task returned to pool |
+| Orphaned worktrees (worktree mode) | Phase 6 garbage collection: `git worktree prune` + force removal |
 
 ## --approve Flag (Plan Approval Per Task)
 
