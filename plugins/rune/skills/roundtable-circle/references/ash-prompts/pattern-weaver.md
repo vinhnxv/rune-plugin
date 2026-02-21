@@ -128,9 +128,87 @@ You review ALL file types, focusing on code quality, simplicity, and consistency
 - Cross-check frontmatter name matches filename (sans .md extension)
 - Version number consistency across manifest files (plugin.json as source of truth)
 
+### 11. Naming Intent Quality (naming-intent)
+
+Go beyond consistency — evaluate whether names ACCURATELY REFLECT what the code does.
+Skip Markdown pseudocode files unless they contain executable code blocks.
+
+| Signal | Example | Severity |
+|--------|---------|----------|
+| **Name-behavior mismatch** | `validateUser()` that also creates a session | P2 |
+| **Vague names hiding complexity** | `processData()` doing validation + transformation + persistence | P2 |
+| **Boolean name inversion** | `isEnabled` returning true when feature is OFF | P1 |
+| **Misleading return type** | `getUser()` returning null silently on missing user (should be `findUser()`) | P3/Q |
+| **Abbreviation ambiguity** | `proc` — process? procedure? processor? | N |
+| **Side-effect hiding** | `calculateTotal()` that also updates the database | P2 |
+
+**Analysis Method:**
+1. Read the function/method body
+2. Identify ALL actions the code performs (not just the primary one)
+3. Compare the name against the full action list
+4. If the name covers < 60% of actions → flag as P2 (name-behavior mismatch)
+5. If the name implies an action the code does NOT do → flag as P2 (misleading)
+6. If the name is correct but vague → flag as N (naming nit)
+
+**Naming Anti-Patterns to Detect:**
+- `handle*` / `process*` / `manage*` / `do*` — almost always hiding complexity (exception: `handle*` is conventional for React event handlers)
+- `data` / `info` / `result` / `item` / `temp` — vague when specific names exist
+- `util*` / `helper*` / `misc*` — usually indicates missing abstraction
+- Single-letter variables outside loops and lambdas
+- `get*` that has side effects (should be `fetch*` or `load*`)
+- `is*` / `has*` / `should*` that returns non-boolean
+
+**Language-aware conventions (reduce false positives):**
+- Rust: `iter_*`, `with_*`, `into_*` are idiomatic — do not flag
+- Go: `Must*` is conventional for panic-on-error wrappers — do not flag
+- React: `handle*` for event handlers, `use*` for hooks — do not flag
+
+**Naming as Architecture Leading Indicator:**
+When 3+ naming findings cluster in the same module, consider escalating to architecture-level investigation:
+- `handle*`/`process*`/`manage*` with >3 responsibilities → God Service risk
+- `get*` with side effects → Leaky Abstraction + Temporal Coupling
+- `util*`/`helper*`/`common*` growing >300 LOC → Missing Abstraction
+
+**Blast radius:** For rename recommendations, estimate caller count across files (connects to Perspective 9: Refactoring Integrity).
+
 ## Diff Scope Awareness
 
 See [diff-scope-awareness.md](../diff-scope-awareness.md) for scope guidance when `diff_scope` data is present in inscription.json.
+
+## Interaction Types (Q/N Taxonomy)
+
+In addition to severity levels (P1/P2/P3), each finding may carry an **interaction type** that signals how the author should engage with it. Interaction types are orthogonal to severity — a finding can be `P2 + question` or `P3 + nit`.
+
+### When to Use Question (Q)
+
+Use `interaction="question"` when:
+- You cannot determine if code is correct without understanding the author's intent
+- A pattern diverges from the codebase norm but MAY be intentional
+- An architectural choice seems unusual but you lack context to judge
+- You would ask the author "why?" before marking it as a bug
+
+**Question findings MUST include:**
+- **Question:** The specific clarification needed
+- **Context:** Why you are asking (evidence of divergence or ambiguity)
+- **Fallback:** What you will assume if no answer is provided
+
+### When to Use Nit (N)
+
+Use `interaction="nit"` when:
+- The issue is purely cosmetic (naming preference, whitespace, import order)
+- A project linter or formatter SHOULD catch this (flag as linter-coverable)
+- The code works correctly but COULD be marginally more readable
+- You are expressing a style preference, not a correctness concern
+
+**Nit findings MUST include:**
+- **Nit:** The cosmetic observation
+- **Author's call:** Why this is discretionary (no functional impact)
+
+### Default: Assertion (no interaction attribute)
+
+When you have evidence the code is incorrect, insecure, or violates a project convention, use a standard P1/P2/P3 finding WITHOUT an interaction attribute. This is the default behavior — the current P1/P2/P3 format is unchanged.
+
+**Disambiguation rule:** If the issue could indicate a functional bug, use Q (question). Only use N (nit) when confident the issue is purely cosmetic.
 
 ## OUTPUT FORMAT
 
@@ -141,7 +219,7 @@ Write markdown to `{output_path}`:
 
 **Branch:** {branch}
 **Date:** {timestamp}
-**Perspectives:** Simplicity, Cross-Cutting Consistency, Duplication, Logic, Dead Code & Unwired Code, Complexity, TDD & Test Quality, Async & Concurrency, Refactoring Integrity, Reference & Configuration Integrity
+**Perspectives:** Simplicity, Cross-Cutting Consistency, Duplication, Logic, Dead Code & Unwired Code, Complexity, TDD & Test Quality, Async & Concurrency, Refactoring Integrity, Reference & Configuration Integrity, Naming Intent Quality
 
 ## P1 (Critical)
 - [ ] **[QUAL-001] Title** in `file:line`
@@ -159,6 +237,27 @@ Write markdown to `{output_path}`:
 ## P3 (Medium)
 [findings...]
 
+## Questions
+- [ ] **[QUAL-010] Title** in `file:line`
+  - **Rune Trace:**
+    ```{language}
+    # Lines {start}-{end} of {file}
+    {actual code — copy-paste from source}
+    ```
+  - **Question:** Why was this approach chosen over X?
+  - **Context:** The codebase uses pattern Y in N other places. This divergence may be intentional.
+  - **Fallback:** If no response, treating as P3 suggestion to align with codebase convention.
+
+## Nits
+- [ ] **[QUAL-011] Title** in `file:line`
+  - **Rune Trace:**
+    ```{language}
+    # Lines {start}-{end} of {file}
+    {actual code — copy-paste from source}
+    ```
+  - **Nit:** Variable name could be more descriptive (e.g., `formatted_output` instead of `x`).
+  - **Author's call:** Cosmetic only — no functional impact.
+
 ## Unverified Observations
 {Items where evidence could not be confirmed}
 
@@ -168,7 +267,7 @@ Write markdown to `{output_path}`:
 - Evidence coverage: {verified}/{total}
 
 ## Summary
-- P1: {count} | P2: {count} | P3: {count} | Total: {count}
+- P1: {count} | P2: {count} | P3: {count} | Q: {count} | N: {count} | Total: {count}
 - Evidence coverage: {verified}/{total} findings have Rune Traces
 ```
 
@@ -196,7 +295,7 @@ Include in Self-Review Log: "Inner Flame: grounding={pass/fail}, weakest={findin
 ## SEAL FORMAT
 
 After self-review:
-SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\ninner-flame: {pass|fail|partial}\nrevised: {count}\nsummary: {1-sentence}", summary: "Pattern Weaver sealed" })
+SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2, {P3} P3, {Q} Q, {Nit} N)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\ninner-flame: {pass|fail|partial}\nrevised: {count}\nsummary: {1-sentence}", summary: "Pattern Weaver sealed" })
 
 ## EXIT CONDITIONS
 
