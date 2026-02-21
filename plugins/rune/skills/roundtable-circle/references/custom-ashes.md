@@ -32,13 +32,21 @@ Define custom Ash in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Unique identifier. Used in task names, output filenames, and team messaging |
-| `agent` | string | Yes | Agent identifier. Local name (e.g., `my-reviewer`) or plugin namespace (e.g., `my-plugin:review:agent`) |
-| `source` | enum | Yes | Where to find the agent: `local`, `global`, or `plugin` |
+| `agent` | string | Yes* | Agent identifier. Local name (e.g., `my-reviewer`) or plugin namespace (e.g., `my-plugin:review:agent`). *Optional when `cli:` is present |
+| `source` | enum | Yes* | Where to find the agent: `local`, `global`, or `plugin`. *Optional when `cli:` is present |
+| `cli` | string | No | CLI binary name for external model Ash. When present, marks this entry as CLI-backed (discriminated union). Must match `CLI_BINARY_PATTERN` (`/^[a-zA-Z0-9_-]+$/`). Resolved path must NOT be within the project directory |
+| `model` | string | No* | Model name for CLI-backed Ash (e.g., `gemini-2.5-pro`). Must match `model_pattern`. *Required when `cli:` is present |
+| `output_format` | enum | No* | Output format: `jsonl`, `text`, or `json`. *Required when `cli:` is present |
+| `timeout` | int | No | CLI execution timeout in seconds. Must match `CLI_TIMEOUT_PATTERN` (`/^\d{1,5}$/`) with bounds 30-3600. Default: 300 |
+| `ignore_file` | string | No | Ignore file name (e.g., `.geminiignore`). Must match `SAFE_PATH_PATTERN`. Resolved path must be within project root |
+| `detection_steps` | list | No | Optional detection steps: `version_check`, `auth_check`, `jq_check`, `ignore_file_check` |
+| `model_pattern` | regex | No | Regex to validate model name. Default: `/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/` (MODEL_NAME_PATTERN) |
 | `workflows` | list | Yes | Which commands use this: `[review]`, `[audit]`, `[forge]`, or combinations |
 | `trigger.extensions` | list | Yes* | File extensions that activate this Ash. Use `["*"]` for all files. *Required for review/audit workflows |
 | `trigger.paths` | list | No | Directory prefixes to match. If set, file must match BOTH extension AND path |
 | `trigger.topics` | list | No* | Topic keywords for Forge Gaze matching. *Required if `forge` is in `workflows` |
 | `trigger.min_files` | int | No | Minimum matching files required to summon. Default: 1 |
+| `trigger.always` | bool | No | When true, Ash is always summoned (skip file matching). Useful for CLI-backed Ashes |
 | `context_budget` | int | Yes | Maximum files this Ash reads. Recommended: 15-30 |
 | `finding_prefix` | string | Yes | Unique 2-5 uppercase character prefix for finding IDs (e.g., `DOM`, `PERF`) |
 | `required_sections` | list | No | Expected sections in output file. Default: `["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Summary"]` |
@@ -46,11 +54,30 @@ Define custom Ash in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml
 | `forge.perspective` | string | No* | Description of the agent's focus area for forge prompts. *Required if `forge` is in `workflows` |
 | `forge.budget` | enum | No* | `enrichment` or `research`. *Required if `forge` is in `workflows` |
 
+#### CLI-Backed Ash — Discriminated Union
+
+When `cli:` is present, the entry is a **CLI-backed Ash** that invokes an external model via CLI instead of a Claude Code agent. This changes the required fields:
+
+| Field | Agent-backed (default) | CLI-backed (`cli:` present) |
+|-------|----------------------|---------------------------|
+| `agent` | Required | Optional (ignored if absent) |
+| `source` | Required | Optional (ignored if absent) |
+| `cli` | Absent | Required |
+| `model` | N/A | Required |
+| `output_format` | N/A | Required |
+| `timeout` | N/A | Optional (default: 300) |
+| `ignore_file` | N/A | Optional |
+| `detection_steps` | N/A | Optional |
+| `model_pattern` | N/A | Optional (default: MODEL_NAME_PATTERN) |
+
+CLI-backed Ashes use `detectExternalModel()` (see [codex-detection.md](codex-detection.md)) instead of agent resolution. Their prompt is generated from the [external-model-template.md](ash-prompts/external-model-template.md) template.
+
 ### `settings` Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `max_ashes` | int | 9 | Hard cap on total Ash (built-in + custom) |
+| `max_cli_ashes` | int | 2 | Sub-cap on CLI-backed Ashes. Must be <= `max_ashes`. Codex Oracle is NOT counted toward this limit (it has its own gate) |
 | `dedup_hierarchy` | list | Built-in order | Priority order for dedup. Higher position = wins on conflict |
 | `verification.layer_2_custom_agents` | bool | true | Whether Truthsight verifier checks custom outputs |
 
@@ -75,16 +102,23 @@ The Tarnished resolves the `agent` field based on `source`:
 ```
 1. Read talisman.yml
 2. For each custom Ash:
-   a. Validate agent name: must match /^[a-zA-Z0-9_:-]+$/
+   a. If cli: field is present → CLI-backed Ash (skip agent resolution):
+      - Validate cli against CLI_BINARY_PATTERN (/^[a-zA-Z0-9_-]+$/)
+      - Validate model against model_pattern (default: MODEL_NAME_PATTERN)
+      - Validate output_format is in OUTPUT_FORMAT_ALLOWLIST
+      - Run detectExternalModel(config) — see codex-detection.md
+      - If detection fails → skip this Ash, log warning
+      - Skip steps b-d entirely
+   b. Validate agent name: must match /^[a-zA-Z0-9_:-]+$/
       - Reject names containing: /, \, .., or any path separator
       - If invalid → error: "Invalid agent name '{agent}'"
-   b. If source == "local":
+   c. If source == "local":
       - Check .claude/agents/{agent}.md exists (Glob)
       - If not found → error: "Agent '{agent}' not found in .claude/agents/"
-   c. If source == "global":
+   d. If source == "global":
       - Check ~/.claude/agents/{agent}.md exists (Glob)
       - If not found → error: "Agent '{agent}' not found in ~/.claude/agents/"
-   d. If source == "plugin":
+   e. If source == "plugin":
       - Agent string must contain ":" (namespace separator)
       - Trust that the plugin system resolves it at summon time
       - If summon fails → report in TOME.md as partial failure
@@ -96,7 +130,7 @@ The Tarnished resolves the `agent` field based on `source`:
 Custom agents don't know about Rune protocols. The Tarnished wraps their prompt with Truthbinding + Glyph Budget + Seal format:
 
 ```markdown
-# CRITICAL RULES (Read First — Truthbinding Protocol)
+# ANCHOR — TRUTHBINDING PROTOCOL
 
 1. Every finding MUST include a **Rune Trace** code block with actual code from the source file
 2. Write ALL output to: {output_dir}/{name}.md
@@ -167,7 +201,7 @@ SEAL: {
 }
 ---
 
-# REMINDER (Re-read Before Starting)
+# RE-ANCHOR — TRUTHBINDING REMINDER
 - Every finding needs a Rune Trace with actual code from the file
 - Write to {output_dir}/{name}.md — NOT to the return message
 - Return ONLY the file path + 1-sentence summary (max 50 words)
@@ -196,7 +230,13 @@ Run these checks at Phase 0 before summoning any agents:
 | Valid prefix format | 2-5 uppercase alphanumeric characters | "Invalid prefix '{prefix}': must be 2-5 uppercase chars (A-Z, 0-9)" |
 | Unique name | No two Ash share a `name` | "Duplicate Ash name '{name}'" |
 | Count cap | Total active Ash ≤ `settings.max_ashes` | "Too many Ash ({count}). Max: {max}. Reduce custom entries or increase settings.max_ashes" |
-| Agent exists | Agent file/namespace is resolvable | "Agent '{agent}' not found in {source}" |
+| Agent exists | Agent file/namespace is resolvable. **Skip when `cli:` is present** | "Agent '{agent}' not found in {source}" |
+| CLI binary safe | When `cli:` present: must match `CLI_BINARY_PATTERN` (`/^[a-zA-Z0-9_-]+$/`) | "Invalid CLI binary '{cli}': must match CLI_BINARY_PATTERN" |
+| CLI model valid | When `cli:` present: `model` must match `model_pattern` (default: `MODEL_NAME_PATTERN`) | "Invalid model '{model}' for CLI Ash '{name}': must match model_pattern" |
+| CLI output format | When `cli:` present: `output_format` must be in `OUTPUT_FORMAT_ALLOWLIST` | "Invalid output_format '{value}' in CLI Ash '{name}'. Must be 'jsonl', 'text', or 'json'" |
+| CLI timeout range | When `cli:` present and `timeout` set: must match `CLI_TIMEOUT_PATTERN` + bounds 30-3600 | "Invalid timeout '{value}' in CLI Ash '{name}': must be 30-3600" |
+| CLI path safe | When `cli:` present: resolved binary path must NOT be within project directory | "CLI binary '{cli}' resolves to project directory — rejected for safety" |
+| CLI count cap | Total CLI-backed Ashes ≤ `settings.max_cli_ashes` (default: 2) | "Too many CLI-backed Ashes ({count}). Max: {max}" |
 | Valid workflows | Each entry is `review`, `audit`, or `forge` | "Invalid workflow '{value}' in Ash '{name}'. Must be 'review', 'audit', or 'forge'" |
 | Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, VEIL, QUAL, FRONT, DOC, CDX. Also reserved in deep-audit mode (`/rune:audit --deep`): DEBT, INTG, BIZL, EDGE | "Prefix '{prefix}' is reserved for built-in/deep-audit Ash '{name}'" |
 | Agent name safe | `agent` field matches `^[a-zA-Z0-9_:-]+$` (no path separators or `..`) | "Invalid agent name '{agent}': must contain only alphanumeric, hyphen, underscore, or colon characters" |
