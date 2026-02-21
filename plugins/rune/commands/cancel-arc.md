@@ -27,6 +27,27 @@ Cancel an active arc pipeline and gracefully shutdown all phase teammates. Compl
 
 ## Steps
 
+### 0. Cancel Arc-Batch Loop (if active)
+
+```javascript
+// Check for active arc-batch loop state file
+const batchStateFile = ".claude/arc-batch-loop.local.md"
+const batchExists = Bash(`test -f "${batchStateFile}" && echo "yes" || echo "no"`).trim()
+
+if (batchExists === "yes") {
+  // Read iteration info before removing
+  const batchContent = Read(batchStateFile)
+  const iterMatch = batchContent.match(/iteration:\s*(\d+)/)
+  const totalMatch = batchContent.match(/total_plans:\s*(\d+)/)
+  const iteration = iterMatch ? iterMatch[1] : "?"
+  const total = totalMatch ? totalMatch[1] : "?"
+
+  // Remove state file to stop the batch loop
+  Bash('rm -f .claude/arc-batch-loop.local.md')
+  log(`Arc-batch loop also cancelled (was at iteration ${iteration}/${total})`)
+}
+```
+
 ### 1. Find Active Arc
 
 ```bash

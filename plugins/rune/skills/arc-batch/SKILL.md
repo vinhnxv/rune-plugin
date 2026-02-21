@@ -24,9 +24,9 @@ argument-hint: "[plans/*.md | queue-file.txt] [--resume] [--dry-run] [--no-merge
 
 # /rune:arc-batch — Sequential Batch Arc Execution
 
-Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 17-phase pipeline (forge through merge) before the next plan starts.
+Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 20-phase pipeline (forge through merge) before the next plan starts.
 
-**Core loop**: For each plan -> run arc (forge through merge) -> checkout main -> pull latest -> clean state -> next plan.
+**Core loop**: Stop hook pattern (ralph-wiggum). Each arc runs as a native Claude Code turn. Between arcs, the Stop hook intercepts session end, reads batch state from `.claude/arc-batch-loop.local.md`, determines the next plan, cleans git state, and re-injects the arc prompt.
 
 ## Usage
 
@@ -50,16 +50,16 @@ Executes `/rune:arc` across multiple plan files sequentially. Each arc run compl
 
 See [batch-algorithm.md](references/batch-algorithm.md) for full pseudocode.
 
-## Known Limitations (V1)
+## Known Limitations (V2 — Stop Hook Pattern)
 
 1. **Sequential only**: No parallel arc execution (SDK one-team-per-session constraint).
 2. **No version bump coordination**: Multiple arcs bumping plugin.json will conflict.
 3. **No dependency ordering**: Plans processed in given order.
-4. **Headless security tradeoff**: `--dangerously-skip-permissions` bypasses all permission prompts and hook-based enforcement. Ensure all plans are trusted.
+4. **Context growth**: Each arc runs as a native turn. Auto-compaction handles context window growth across multiple arcs. State is tracked in files, not context.
 
 ## Orchestration
 
-The skill orchestrates via `$ARGUMENTS` parsing and invokes `scripts/arc-batch.sh` for the batch loop:
+The skill orchestrates via `$ARGUMENTS` parsing. Phase 5 writes a state file and invokes the first arc natively. The Stop hook (`scripts/arc-batch-stop-hook.sh`) handles all subsequent plans via self-invoking loop:
 
 ```
 Phase 0: Parse arguments (glob expand or queue file read)
@@ -67,8 +67,8 @@ Phase 1: Pre-flight validation (arc-batch-preflight.sh)
 Phase 2: Dry run (if --dry-run)
 Phase 3: Initialize batch-progress.json
 Phase 4: Confirm batch with user
-Phase 5: Run batch (arc-batch.sh)
-Phase 6: Present summary
+Phase 5: Write state file + invoke first arc (Stop hook handles rest)
+(Stop hook handles all subsequent plans + final summary)
 ```
 
 ### Phase 0: Parse Arguments
@@ -82,8 +82,15 @@ let noMerge = args.includes('--no-merge')
 
 if (resumeMode) {
   const progress = JSON.parse(Read("tmp/arc-batch/batch-progress.json"))
-  planPaths = progress.plans.map(p => p.path)
-  log(`Resuming batch: ${progress.plans.filter(p => p.status === "completed").length}/${planPaths.length} completed`)
+  // P1-FIX: Filter to pending plans only — don't re-execute completed plans
+  const allPlans = progress.plans
+  const pendingPlans = allPlans.filter(p => p.status === "pending")
+  planPaths = pendingPlans.map(p => p.path)
+  log(`Resuming batch: ${allPlans.filter(p => p.status === "completed").length}/${allPlans.length} completed, ${planPaths.length} remaining`)
+  if (planPaths.length === 0) {
+    log("All plans already completed. Nothing to resume.")
+    return
+  }
 } else {
   const inputArg = args.replace(/--\S+/g, '').trim()
   if (inputArg.endsWith('.txt')) {
@@ -182,92 +189,72 @@ AskUserQuestion({
 })
 ```
 
-### Phase 5: Run Batch
+### Phase 5: Start Batch Loop (Stop Hook Pattern)
+
+Write state file for the Stop hook, mark the first plan as in_progress, and invoke `/rune:arc` natively. The Stop hook (`scripts/arc-batch-stop-hook.sh`) handles all subsequent plans and the final summary.
 
 ```javascript
 const pluginDir = Bash(`echo "${CLAUDE_PLUGIN_ROOT}"`).trim()
 const planListFile = "tmp/arc-batch/plan-list.txt"
 Write(planListFile, planPaths.join('\n'))
 
-// Emit state file for workflow discovery
-const batchTimestamp = Date.now().toString()
-Write(`tmp/.rune-batch-${batchTimestamp}.json`, JSON.stringify({
-  team_name: null,
-  plans_file: planListFile,
-  started: new Date().toISOString(),
-  status: "active"
-}))
-
-// Read talisman config for batch overrides (3-layer: hardcoded → talisman → future CLI)
+// Merge resolution: CLI --no-merge (highest) → talisman auto_merge → default (true)
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
 const talisman = readTalisman()
 const batchConfig = talisman?.arc?.batch || {}
-
-// Validate and clamp config values to safe ranges
-const maxRetries = Math.max(1, Math.min(10, batchConfig.max_retries ?? 3))
-const maxBudget = Math.max(1.0, Math.min(100.0, batchConfig.max_budget ?? 15.0))
-const maxTurns = Math.max(50, Math.min(1000, batchConfig.max_turns ?? 200))
-const totalBudget = batchConfig.total_budget != null
-  ? Math.max(1.0, Math.min(500.0, batchConfig.total_budget))
-  : null
-const totalTimeout = batchConfig.total_timeout ?? null
-const stopOnDivergence = batchConfig.stop_on_divergence ?? false
-const perPlanTimeout = batchConfig.per_plan_timeout != null
-  ? Math.max(300, Math.min(14400, batchConfig.per_plan_timeout))
-  : 7200
-
-// Merge resolution: CLI --no-merge (highest) → talisman auto_merge → default (true)
-// noMerge from Phase 0 is true only when --no-merge CLI flag is present
 const autoMerge = noMerge ? false : (batchConfig.auto_merge ?? true)
 
-// Write config file for bash script
-Write("tmp/arc-batch/batch-config.json", JSON.stringify({
-  plans_file: planListFile,
-  plugin_dir: pluginDir,
-  progress_file: progressFile,
-  no_merge: !autoMerge,
-  max_retries: maxRetries,
-  max_budget: maxBudget,
-  max_turns: maxTurns,
-  total_budget: totalBudget,
-  total_timeout: totalTimeout,
-  stop_on_divergence: stopOnDivergence,
-  per_plan_timeout: perPlanTimeout
-}, null, 2))
+// ── Write state file for Stop hook ──
+// Format matches ralph-wiggum's .local.md convention (YAML frontmatter)
+Write(".claude/arc-batch-loop.local.md", `---
+active: true
+iteration: 1
+max_iterations: 0
+total_plans: ${planPaths.length}
+no_merge: ${!autoMerge}
+plugin_dir: ${pluginDir}
+plans_file: ${planListFile}
+progress_file: ${progressFile}
+started_at: "${new Date().toISOString()}"
+---
 
-const result = Bash(`"${pluginDir}/scripts/arc-batch.sh" "tmp/arc-batch/batch-config.json"`)
+Arc batch loop state. Do not edit manually.
+Use /rune:cancel-arc-batch to stop the batch loop.
+`)
 
-// Update state file
-Write(`tmp/.rune-batch-${batchTimestamp}.json`, JSON.stringify({
-  team_name: null,
-  plans_file: planListFile,
-  started: new Date().toISOString(),
-  status: "completed",
-  completed: new Date().toISOString()
-}))
-```
-
-### Phase 6: Present Summary
-
-```javascript
+// ── Mark first pending plan as in_progress ──
+// P1-FIX: Find the correct plan entry in progress file by matching path,
+// not by index — planPaths[0] is the first *pending* plan (filtered in resume mode).
+const firstPlan = planPaths[0]
 const progress = JSON.parse(Read(progressFile))
-const completed = progress.plans.filter(p => p.status === "completed")
-const failed = progress.plans.filter(p => p.status === "failed")
-
-log("\n--- Batch Summary ---")
-log(`Plans: ${completed.length} completed, ${failed.length} failed`)
-log(`Duration: ${Math.round(progress.total_duration_s / 60)} minutes`)
-log("")
-
-for (const plan of progress.plans) {
-  const icon = plan.status === "completed" ? "OK" : plan.status === "failed" ? "FAIL" : "SKIP"
-  const err = plan.error && plan.error !== "null" ? ` -- ${plan.error}` : ""
-  log(`  [${icon}] ${plan.path}${err}`)
+const planEntry = progress.plans.find(p => p.path === firstPlan && p.status === "pending")
+if (planEntry) {
+  planEntry.status = "in_progress"
+  planEntry.started_at = new Date().toISOString()
+  progress.updated_at = new Date().toISOString()
+  Write(progressFile, JSON.stringify(progress, null, 2))
 }
 
-if (failed.length > 0) {
-  log(`\nFailed plans need manual attention.`)
-  log(`Re-run with: /rune:arc-batch --resume`)
-}
-log(`\nFull progress: ${progressFile}`)
-log(`Run logs: tmp/arc-batch/`)
+// ── Invoke arc for first plan ──
+// Native skill invocation — no subprocess, no timeout limit.
+// Each arc runs as a full Claude Code turn with complete tool access.
+const mergeFlag = !autoMerge ? " --no-merge" : ""
+Skill("arc", `${firstPlan} --skip-freshness${mergeFlag}`)
+
+// After the first arc completes, Claude's response ends.
+// The Stop hook fires, reads the state file, marks plan 1 as completed,
+// finds plan 2, and re-injects the arc prompt for the next plan.
+// This continues until all plans are processed.
 ```
+
+**How the loop works:**
+1. Phase 5 invokes `/rune:arc` for the first plan (native turn)
+2. When arc completes, Claude's response ends → Stop event fires
+3. `arc-batch-stop-hook.sh` reads `.claude/arc-batch-loop.local.md`
+4. Marks current plan as completed in `batch-progress.json`
+5. Finds next pending plan
+6. Re-injects arc prompt via `{"decision":"block","reason":"<prompt>"}`
+7. Claude receives the re-injected prompt → runs next arc
+8. Repeat until all plans done
+9. On final iteration: removes state file, injects summary prompt
+10. Summary turn completes → Stop hook finds no state file → allows session end

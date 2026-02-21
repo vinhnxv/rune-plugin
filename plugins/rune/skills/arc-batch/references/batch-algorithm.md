@@ -2,7 +2,7 @@
 
 Full orchestration pseudocode for `/rune:arc-batch`. The SKILL.md body contains the executable version; this reference documents the design rationale and edge cases.
 
-## Architecture
+## Architecture (V2 — Stop Hook Pattern, v1.59.0)
 
 ```
 SKILL.md (orchestration layer)
@@ -11,66 +11,82 @@ SKILL.md (orchestration layer)
   ├── Phase 2: Dry run (if --dry-run) → early return
   ├── Phase 3: Initialize batch-progress.json
   ├── Phase 4: Confirm batch → AskUserQuestion
-  ├── Phase 5: Run batch → arc-batch.sh (execution layer)
-  └── Phase 6: Present summary
+  └── Phase 5: Start loop → write state file + Skill("arc", firstPlan)
+                │
+                └── Stop hook drives all subsequent iterations:
 
-scripts/arc-batch.sh (execution layer)
-  ├── Pre-flight: jq, git availability
-  ├── Config: read batch-config.json
-  ├── Signal handling: SIGINT/SIGTERM/SIGHUP trap
-  ├── Main loop: for each plan → [timeout] [setsid] claude -p "..."
-  │   ├── pre_run_git_health() — stuck rebase, stale lock, MERGE_HEAD, dirty tree
-  │   ├── Retry loop (max 3 attempts, --resume on retry)
-  │   ├── Watchdog polling (10s): process alive? + checkpoint status check
-  │   │   └── Checkpoint complete + process hung 60s → SIGTERM → SIGKILL after 5s
-  │   ├── On success: cleanup_state("inter") — checkout main, pull, delete branch
-  │   └── On failure: cleanup_state("failed") — hard reset, checkout main
-  └── Final summary: update progress, exit code
+scripts/arc-batch-stop-hook.sh (Stop hook — loop driver)
+  ├── Guard: jq available?
+  ├── Guard: stdin cap (1MB)
+  ├── Guard: CWD extraction from hook input
+  ├── Guard: .claude/arc-batch-loop.local.md exists?
+  ├── Guard: symlink check
+  ├── Guard: active flag = true?
+  ├── Guard: numeric field validation
+  ├── Guard: max_iterations reached?
+  ├── Read batch-progress.json
+  │   ├── Mark current in_progress plan → completed
+  │   └── Find next pending plan
+  ├── No more plans?
+  │   └── rm state file → block stop with summary prompt
+  └── More plans?
+      ├── Increment iteration in state file
+      ├── Git cleanup (checkout main, pull --ff-only)
+      ├── Clean stale teams/tasks dirs
+      └── Output: {"decision":"block","reason":"<arc prompt>"}
 ```
 
-## Process Isolation Strategy
+**Key difference from V1**: Each arc run executes as a native Claude Code turn. No subprocess spawning, no Bash tool timeout limit, no orphaned processes. The Stop hook intercepts session end and re-injects the next arc prompt.
 
-### With `setsid` (Linux, macOS with coreutils)
+**Inspired by**: [ralph-wiggum plugin](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum) Stop hook pattern.
 
-```
-arc-batch.sh (session leader)
-  └── setsid claude -p "..." (new session, new process group)
-        └── child processes (inherit PGID from setsid)
-```
+## V1 Architecture (REMOVED — v1.59.0)
 
-Signal handling: `kill -TERM $PID` kills the `claude` process. Child processes receive SIGHUP when session leader dies.
+The V1 architecture used `scripts/arc-batch.sh` to spawn `claude -p` subprocesses in a loop. This was broken because the Bash tool timeout (max 600s / 10 min) is far shorter than a single arc run (45-240 min). The parent process would be killed, orphaning the child `claude -p` process, causing the batch to get stuck after the first plan.
 
-### Without `setsid` (macOS default)
+`scripts/arc-batch.sh` was removed in v1.59.0. See git history for the V1 implementation.
 
-```
-arc-batch.sh (parent)
-  └── claude -p "..." (same session, child process)
-        └── child processes
-```
+## State File Format
 
-Signal handling: `kill -TERM $PID` kills `claude` directly. Child processes may need explicit cleanup.
+The Stop hook reads and writes `.claude/arc-batch-loop.local.md`:
 
-### Checkpoint-Based Completion Detection (v1.57.1)
+```yaml
+---
+active: true
+iteration: 1
+max_iterations: 0
+total_plans: 4
+no_merge: false
+plugin_dir: /path/to/rune/plugin
+plans_file: tmp/arc-batch/plan-list.txt
+progress_file: tmp/arc-batch/batch-progress.json
+started_at: "2026-02-21T00:00:00Z"
+---
 
-```
-arc-batch.sh (parent)                    claude -p "arc pipeline" (child)
-─────────────────────                    ────────────────────────────────
-Snapshot: ls .claude/arc/ (before)       Phase 1-9: work, review, mend...
-Spawn claude -p ...                      → Creates .claude/arc/arc-{ts}/checkpoint.json
-                                         → Updates checkpoint at each phase transition
-Watchdog loop (every 10s):               Phase 9.5: merge done!
-  1. Process alive? (kill -0)              → checkpoint: merge.status = "completed"
-  2. Detect new arc session ID             Completion stamp...
-     (diff pre/post ls .claude/arc/)       (process may hang here)
-  3. Read checkpoint.json
-     → merge + ship both done?
-     → 6 consecutive detections (60s grace)
-     → kill -TERM → wait 5s → kill -KILL
+Batch arc loop state. Do not edit manually.
+Use /rune:cancel-arc-batch to stop.
 ```
 
-**Arc session tracing**: Before spawning claude, arc-batch snapshots existing arc session dirs. After spawn, it diffs the listing to find the new `arc-{timestamp}` dir, then verifies `plan_file` matches the current plan. The arc session ID is recorded in `batch-progress.json` for traceability.
+## Stop Hook Loop Flow
 
-**No pipeline modifications needed**: Checkpoint is already written by the arc dispatcher at every phase transition — arc-batch.sh is a passive observer.
+```
+Claude session turn N:
+  1. /rune:arc completes (or user ends turn)
+  2. Claude stops responding → Stop hook fires
+  3. arc-batch-stop-hook.sh reads state file
+  4. Marks current plan completed in batch-progress.json
+  5. Finds next pending plan
+  6. Outputs blocking JSON → Claude starts new turn with arc prompt
+  7. /rune:arc runs for next plan
+  8. Repeat from step 2
+
+Final iteration:
+  3. Stop hook reads state file, finds no more pending plans
+  4. Removes state file
+  5. Outputs blocking JSON with summary prompt
+  6. Claude reads batch-progress.json, presents summary
+  7. Stop hook fires again, no state file → exit 0 (allows stop)
+```
 
 ## Progress File Schema
 
@@ -95,27 +111,7 @@ Watchdog loop (every 10s):               Phase 9.5: merge done!
 }
 ```
 
-## Config File Schema
-
-Config values are resolved via **3-layer priority**: hardcoded defaults → `talisman.yml` (`arc.batch.*`) → future CLI flags.
-
-```json
-{
-  "plans_file": "tmp/arc-batch/plan-list.txt",
-  "plugin_dir": "/path/to/rune/plugin",
-  "progress_file": "tmp/arc-batch/batch-progress.json",
-  "no_merge": false,
-  "max_retries": 3,
-  "max_budget": 15.0,
-  "max_turns": 200,
-  "total_budget": null,
-  "total_timeout": null,
-  "stop_on_divergence": false,
-  "per_plan_timeout": 7200
-}
-```
-
-## Edge Case Matrix
+## Edge Case Matrix (V2)
 
 | Edge Case | Handler | Location |
 |-----------|---------|----------|
@@ -124,21 +120,31 @@ Config values are resolved via **3-layer priority**: hardcoded defaults → `tal
 | Plan file is symlink | arc-batch-preflight.sh rejects | scripts/ |
 | Duplicate plan in list | arc-batch-preflight.sh deduplicates | scripts/ |
 | Path traversal (`..`) | arc-batch-preflight.sh rejects | scripts/ |
-| `claude -p` not available | SKILL.md checks `command -v claude` | SKILL.md Phase 0 |
 | Auto-merge disabled | SKILL.md detects and prompts | SKILL.md Phase 1 |
-| Arc fails at Phase 5 | Retry --resume up to 3x, then skip | arc-batch.sh |
-| Post-merge branch cleanup | checkout main, pull --ff-only | arc-batch.sh cleanup_state |
-| Ctrl+C mid-batch | trap sends TERM to child PID | arc-batch.sh cleanup() |
-| Stuck rebase from prior arc | pre_run_git_health() aborts | arc-batch.sh |
-| Stale .git/index.lock | pre_run_git_health() removes | arc-batch.sh |
-| `setsid` unavailable (macOS) | Falls back to direct execution | arc-batch.sh HAS_SETSID |
-| Claude hangs after completion | Checkpoint watchdog detects done, kills in ~60s | arc-batch.sh watchdog loop |
-| Claude hangs (checkpoint not written) | `timeout --kill-after=30` kills process (exit 124) | arc-batch.sh per_plan_timeout |
-| Arc session ID unknown | Pre/post spawn `ls .claude/arc/` diff + plan_file match | arc-batch.sh session tracing |
-| `$!` captures tee PID (not claude) | Direct redirect (`> file`) — no pipe | arc-batch.sh FIX-2 |
-| JSON output buffers (0-byte logs) | `--output-format text` for streaming | arc-batch.sh FIX-3 |
-| Path with spaces/tildes rejected | Denylist (metacharacters) instead of allowlist | arc-batch.sh validate_path |
-| Spend tracking inflated | 50% heuristic instead of max_budget | arc-batch.sh FIX-4 |
-| Batch total_budget exceeded | Break loop, mark remaining as failed | arc-batch.sh budget guard |
-| Batch total_timeout exceeded | Break loop, mark remaining as failed | arc-batch.sh timeout guard |
-| Main branch divergence | Break loop when stop_on_divergence=true | arc-batch.sh divergence guard |
+| State file missing | Stop hook exits 0 (no active batch) | arc-batch-stop-hook.sh |
+| State file is symlink | Stop hook exits 0 (security guard) | arc-batch-stop-hook.sh |
+| State file corrupt/non-YAML | Stop hook removes state file, exits 0 | arc-batch-stop-hook.sh |
+| jq unavailable | Stop hook exits 0 (cannot parse progress) | arc-batch-stop-hook.sh |
+| stdin exceeds 1MB | Stop hook exits 0 (safety cap) | arc-batch-stop-hook.sh |
+| max_iterations reached | Stop hook removes state file, exits 0 | arc-batch-stop-hook.sh |
+| Progress file missing | Stop hook removes state file, exits 0 | arc-batch-stop-hook.sh |
+| No more pending plans | Stop hook removes state file, blocks with summary prompt | arc-batch-stop-hook.sh |
+| Git checkout/pull fails | Stop hook skips git ops, includes in prompt | arc-batch-stop-hook.sh |
+| Context window growth | Auto-compaction handles; state in file not context | Claude Code |
+| Cancel mid-batch | `/rune:cancel-arc-batch` removes state file | commands/cancel-arc-batch.md |
+| Cancel arc also cancels batch | `/rune:cancel-arc` Step 0 removes batch state file | commands/cancel-arc.md |
+| on-session-stop.sh conflict | GUARD 5 defers when batch state file present | scripts/on-session-stop.sh |
+| Stale teams between plans | Stop hook cleans teams/tasks dirs | arc-batch-stop-hook.sh |
+
+## V1 Edge Cases (REMOVED — v1.59.0)
+
+These edge cases applied to the V1 subprocess architecture and are no longer relevant:
+
+| Edge Case | V1 Handler | V2 Status |
+|-----------|-----------|-----------|
+| Bash tool timeout (600s) | Root cause of V1 failure | Eliminated — no Bash subprocess |
+| `claude -p` not available | SKILL.md check | Eliminated — uses native Skill() |
+| `setsid` unavailable | Fallback to direct exec | Eliminated — no subprocess |
+| Claude hangs after completion | Checkpoint watchdog | Eliminated — Stop hook fires naturally |
+| `$!` captures tee PID | Direct redirect fix | Eliminated — no subprocess |
+| JSON output buffers | `--output-format text` | Eliminated — no subprocess |

@@ -41,6 +41,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | `/rune:inspect` | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
 | `/rune:plan-review` | Review plan code samples for implementation correctness (thin wrapper for /rune:inspect --mode plan) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
+| `/rune:cancel-arc-batch` | Cancel active arc-batch loop and remove state file |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:elicit` | Interactive elicitation method selection |
 | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
@@ -144,13 +145,14 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `SessionStart:startup\|resume` | `scripts/session-team-hygiene.sh` | TLC-003: Scans for orphaned team dirs and stale state files at session start and resume. |
 | `PreCompact:manual\|auto` | `scripts/pre-compact-checkpoint.sh` | Saves team state (config.json, tasks, workflow phase, arc checkpoint) to `tmp/.rune-compact-checkpoint.json` before compaction. Non-blocking (exit 0). |
 | `SessionStart:compact` | `scripts/session-compact-recovery.sh` | Re-injects team checkpoint as `additionalContext` after compaction. Correlation guard verifies team still exists. One-time injection (deletes checkpoint after use). |
+| `Stop` | `scripts/arc-batch-stop-hook.sh` | ARC-BATCH-STOP: Drives the arc-batch loop via Stop hook pattern. Reads `.claude/arc-batch-loop.local.md` state file, marks current plan completed, constructs next arc prompt, re-injects via blocking JSON. Runs BEFORE on-session-stop.sh. |
 | `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. One-shot design prevents infinite loops via `stop_hook_active` flag. |
 
 **Seal Convention**: Ashes emit `<seal>TAG</seal>` as the last line of output for deterministic completion detection. See `roundtable-circle/references/monitor-utility.md` "Seal Convention" section.
 
 All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL hooks (`enforce-readonly.sh`, `validate-mend-fixer-paths.sh`) exit 2 (blocking). Non-security hooks exit 0 (non-blocking). A `SessionStart` hook validates `jq` availability and warns if missing. Hook configuration lives in `hooks/hooks.json`.
 
-**Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-polling.sh`, `enforce-zsh-compat.sh`, `enforce-teams.sh`, `enforce-team-lifecycle.sh`) emit deny/allow decisions directly. Informational hooks (`verify-team-cleanup.sh`, `session-team-hygiene.sh`) emit messages directly to stdout; their output appears in the session transcript. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), PostToolUse 5s (fast-path verify), SessionStart 5s (startup scan), TaskCompleted 10s (signal I/O + haiku gate), TeammateIdle 15s (inscription parse + output validation), PreCompact 10s (team state checkpoint with filesystem discovery), SessionStart:compact 5s (JSON parse + context injection), Stop 5s (workflow state file scan).
+**Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-polling.sh`, `enforce-zsh-compat.sh`, `enforce-teams.sh`, `enforce-team-lifecycle.sh`) emit deny/allow decisions directly. Informational hooks (`verify-team-cleanup.sh`, `session-team-hygiene.sh`) emit messages directly to stdout; their output appears in the session transcript. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), PostToolUse 5s (fast-path verify), SessionStart 5s (startup scan), TaskCompleted 10s (signal I/O + haiku gate), TeammateIdle 15s (inscription parse + output validation), PreCompact 10s (team state checkpoint with filesystem discovery), SessionStart:compact 5s (JSON parse + context injection), Stop 15s (arc-batch loop: git ops + progress file I/O) and 5s (on-session-stop: workflow state file scan).
 
 ## MCP Servers
 

@@ -199,6 +199,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/arc-batch-stop-hook.sh",
+            "timeout": 15,
+            "statusMessage": "Checking arc batch loop..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on-session-stop.sh",
             "timeout": 5,
             "statusMessage": "Checking for active Rune workflows..."

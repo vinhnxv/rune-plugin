@@ -15,8 +15,8 @@
 # Hook event: Stop
 # Timeout: 5s
 # Exit 0 with no output: Allow stop
-# Exit 0 with hookSpecificOutput decision=block: Block stop with guidance
-# NOTE: Stop hooks use `decision: "block"` in hookSpecificOutput (NOT `permissionDecision`
+# Exit 0 with top-level decision=block: Block stop with guidance
+# NOTE: Stop hooks use top-level `decision: "block"` (NOT hookSpecificOutput wrapper
 # which is for PreToolUse). Verified correct per Claude Code hook contract. (BACK-006 FP)
 
 set -euo pipefail
@@ -45,6 +45,13 @@ if [[ -z "$CWD" ]]; then
 fi
 CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
 if [[ -z "$CWD" || "$CWD" != /* ]]; then
+  exit 0
+fi
+
+# ── GUARD 5: Defer to arc-batch stop hook ──
+# When arc-batch loop is active, arc-batch-stop-hook.sh handles the Stop event.
+# This prevents conflicting "active workflow detected" messages.
+if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
   exit 0
 fi
 
@@ -150,12 +157,9 @@ fi
 # Build reason message
 reason="STOP-001: Active Rune workflow(s) detected:\\n${workflow_list}\\n${cleanup_instructions}"
 
-# Output blocking JSON with hookSpecificOutput wrapper
+# Output blocking JSON — Stop hooks use top-level decision/reason (not hookSpecificOutput)
 jq -n --arg reason "$reason" '{
-  hookSpecificOutput: {
-    hookEventName: "Stop",
-    decision: "block",
-    reason: $reason
-  }
+  decision: "block",
+  reason: $reason
 }'
 exit 0
