@@ -55,12 +55,19 @@ updateCheckpoint({ phase: "audit_mend", status: "in_progress", phase_sequence: 1
 
 // Post-delegation: discover team name from state file
 const postStateFiles = Glob("tmp/.rune-mend-deep-*.json").filter(f => {
-  const state = JSON.parse(Read(f))
-  const age = Date.now() - new Date(state.started).getTime()
-  return !Number.isNaN(age) && age >= 0 && age < auditMendTimeout
+  try {
+    const state = JSON.parse(Read(f))
+    const age = Date.now() - new Date(state.started).getTime()
+    return !Number.isNaN(age) && age >= 0 && age < auditMendTimeout
+  } catch (e) {
+    warn(`Failed to parse mend state file ${f}: ${e.message}`)
+    return false
+  }
 })
 
-const teamName = postStateFiles.length > 0 ? JSON.parse(Read(postStateFiles[0])).team_name : null
+const teamName = postStateFiles.length > 0
+  ? (() => { try { return JSON.parse(Read(postStateFiles[0])).team_name } catch (e) { return null } })()
+  : null
 
 // Read resolution report
 const resReport = Read(`tmp/arc/${id}/audit-resolution-report.md`)

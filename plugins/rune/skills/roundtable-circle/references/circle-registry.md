@@ -201,6 +201,8 @@ Focus mode increases context budget per Ash since fewer are competing for resour
 > **7-dimension deep investigation** — These agents analyze code through specialized
 > dimension lenses. They run alongside the existing 4 deep investigation agents
 > in Pass 2 of the deep audit. Each dimension targets specific quality attributes.
+>
+> **Status**: Agent definitions complete. Orchestration wiring pending — not yet invoked by audit.md.
 
 | Ash | Agent | Prefix | Focus | Context Budget |
 |-----|-------|--------|-------|---------------|

@@ -100,7 +100,7 @@ const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`)
 const rawAuditSummary = exists(`tmp/arc/${id}/audit-report.md`)
   ? Read(`tmp/arc/${id}/audit-report.md`).split('\n').slice(0, 20).join('\n')
   : "Audit report not available"
-const auditSummary = '```\n' + rawAuditSummary + '\n```'
+const auditSummary = '```\n' + rawAuditSummary.replace(/```/g, "'''") + '\n```'
 
 // Read talisman PR settings
 const monitoringRequired = arcConfig.ship.pr_monitoring

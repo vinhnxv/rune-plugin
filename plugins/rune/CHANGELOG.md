@@ -3,7 +3,7 @@
 ## [1.58.0] - 2026-02-21
 
 ### Added
-- **7 new deep dimension investigation agents** for `/rune:audit --deep`:
+- **7 new deep dimension investigation agent definitions** for `/rune:audit --deep` (orchestration wiring deferred to follow-up):
   - `truth-seeker` — Correctness: logic vs requirements, behavior validation, test quality (CORR prefix)
   - `ruin-watcher` — Failure modes: resilience, retry, crash recovery, circuit breakers (FAIL prefix)
   - `breach-hunter` — Security-deep: threat modeling, auth boundaries, data exposure (DSEC prefix)
@@ -13,9 +13,10 @@
   - `decay-tracer` — Maintainability: naming intent, complexity hotspots, convention drift (MTNB prefix)
 - **7 deep dimension ash prompt templates** for deep investigation Pass 2
 - **Extended dedup hierarchy** with 7 new dimension prefixes: CORR, FAIL, DSEC, DSGN, RSRC, OBSV, MTNB
-- **Combined deep hierarchy**: CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > DSGN > RSRC > OBSV > MTNB
+- **Combined deep sub-hierarchy** (Pass 2 Runebinder): CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > DSGN > RSRC > OBSV > MTNB
 - **Circle registry update**: Deep Dimension Ashes section with 7 new entries alongside existing 4 investigation agents
 - **Talisman config**: `audit.deep.dimensions` for selecting which dimension agents to run
+- **Audit-mend convergence loop**: `arc-phase-audit-mend.md` and `arc-phase-audit-verify.md` for post-audit finding resolution (Phases 8.5 and 8.7)
 
 ### Changed
 - Deep investigation Ashes capacity increased from 4 to 11 (4 investigation + 7 dimension)

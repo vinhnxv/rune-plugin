@@ -16,7 +16,6 @@ tools:
   - Write
   - Glob
   - Grep
-  - Bash
   - SendMessage
 mcpServers:
   - echo-search

@@ -3,12 +3,12 @@ name: arc
 description: |
   Use when you want to go from plan to merged PR in one command, when running
   the full development pipeline (forge + work + review + mend + ship + merge),
-  or when resuming a previously interrupted pipeline. 18-phase automated pipeline
-  with checkpoint resume, convergence loops, cross-model verification, Goldmask risk analysis, and auto gap remediation.
+  or when resuming a previously interrupted pipeline. 20-phase automated pipeline
+  with checkpoint resume, convergence loops, cross-model verification, Goldmask risk analysis, audit-mend convergence, and auto gap remediation.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
-  assistant: "The Tarnished begins the arc — 18 phases of forge, review, goldmask, test, mend, convergence, ship, and merge..."
+  assistant: "The Tarnished begins the arc — 20 phases of forge, review, goldmask, test, mend, audit-mend, convergence, ship, and merge..."
   </example>
 
   <example>
@@ -40,7 +40,7 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains eighteen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, gap remediation, goldmask verification, code review, goldmask correlation, mend, verify mend (convergence controller), test, audit, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 9, and 9.5). Phase 5.5 is hybrid: deterministic STEP A + Inspector Ashes STEP B. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
+Chains twenty phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, gap remediation, goldmask verification, code review, goldmask correlation, mend, verify mend (convergence controller), test, audit, audit-mend, audit-verify, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 9, and 9.5). Phase 5.5 is hybrid: deterministic STEP A + Inspector Ashes STEP B. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`, `testing`, `agent-browser`
 
@@ -129,6 +129,10 @@ Phase 7.7: TEST → 3-tier QA gate: unit → integration → E2E/browser (v1.43.
     ↓ (test-report.md) — WARN only, never halts. Feeds into audit context.
 Phase 8:   AUDIT → Final quality gate (informational)
     ↓ (audit-report.md)
+Phase 8.5: AUDIT MEND → Fix P1/P2 audit findings (mend-fixer teammates)
+    ↓ (audit-mend-report.md)
+Phase 8.7: AUDIT VERIFY → Re-audit to confirm fixes (single-pass, max 2 cycles)
+    ↓ converged → proceed | retry → loop to Phase 8.5 | halted → warn + proceed
 Phase 9:   SHIP → Push branch + create PR (orchestrator-only)
     ↓ (pr-body.md + checkpoint.pr_url)
 Phase 9.5: MERGE → Rebase + conflict check + auto-merge (orchestrator-only)

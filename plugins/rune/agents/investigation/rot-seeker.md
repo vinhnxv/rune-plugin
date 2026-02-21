@@ -91,7 +91,7 @@ Context budget: **30 files maximum**. Prioritize high-signal files; skip generat
 
 For each finding, assign:
 - **Priority**: P1 (critical rot — blocks progress or causes failures) | P2 (significant rot — degrades maintainability) | P3 (minor rot — cosmetic or low-impact)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `DEBT-NNN` prefix
 
 ## Output Format
@@ -103,19 +103,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[DEBT-001]** `src/payments/processor.py:142` — Function exceeds 200 lines with 6-level nesting
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: `process_payment()` at line 142 is 213 lines with nested try/if/for/if/try/except
   - **Impact**: Untestable — no unit tests cover inner branches
 
 ### P2 — Significant
 - [ ] **[DEBT-002]** `lib/auth/legacy_adapter.js:1` — Entire file uses deprecated OAuth 1.0 flow
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: Imports `oauth1-client` (deprecated 2023), 14 call sites across 3 modules
   - **Impact**: Security risk — library no longer receives patches
 
 ### P3 — Minor
 - [ ] **[DEBT-003]** `utils/helpers.py:55` — TODO from 2022 referencing closed issue #387
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: `# TODO(#387): refactor after migration` — issue #387 closed 18 months ago
   - **Impact**: Misleading comment — migration is complete
 ```
@@ -139,7 +139,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 30 files read)

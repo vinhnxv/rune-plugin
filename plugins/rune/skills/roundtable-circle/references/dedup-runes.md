@@ -62,7 +62,7 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 When `--deep` flag is active, the dedup hierarchy extends to include deep investigation prefixes:
 
 **Standard hierarchy**: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`
-**Deep hierarchy (full)**: `SEC > BACK > CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > DSGN > RSRC > DOC > OBSV > MTNB > QUAL > FRONT > CDX`
+**Deep hierarchy (full)**: `SEC > BACK > CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > VEIL > DSGN > RSRC > DOC > OBSV > MTNB > QUAL > FRONT > CDX`
 
 **Which hierarchy is used where:**
 - **Pass 1 Runebinder** (TOME-standard.md): Standard hierarchy

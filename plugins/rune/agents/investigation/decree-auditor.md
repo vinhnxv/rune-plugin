@@ -91,7 +91,7 @@ Context budget: **25 files maximum**. Prioritize domain models, services, valida
 
 For each finding, assign:
 - **Priority**: P1 (incorrect business logic — wrong rule, broken state machine, violated invariant) | P2 (inconsistent logic — validation drift, unclear error paths) | P3 (logic debt — missing guards, implicit rules)
-- **Confidence**: 0-100 (evidence strength)
+- **Confidence**: PROVEN (verified in code) | LIKELY (strong evidence) | UNCERTAIN (circumstantial)
 - **Finding ID**: `BIZL-NNN` prefix
 
 ## Output Format
@@ -103,19 +103,19 @@ Write findings to the designated output file:
 
 ### P1 — Critical
 - [ ] **[BIZL-001]** `src/orders/state_machine.py:67` — Dead-end state "processing" has no outgoing transitions
-  - **Confidence**: 95
+  - **Confidence**: PROVEN
   - **Evidence**: State "processing" defined at line 67, no transition rules reference it as source state
   - **Impact**: Orders entering "processing" state are permanently stuck
 
 ### P2 — Significant
 - [ ] **[BIZL-002]** `src/pricing/discount_service.py:34` — Discount threshold differs from validator
-  - **Confidence**: 85
+  - **Confidence**: LIKELY
   - **Evidence**: Service uses `amount >= 100` at line 34, but `DiscountValidator` uses `amount > 100` at validators/discount.py:22
   - **Impact**: Orders of exactly $100 get discount in service but fail validation
 
 ### P3 — Minor
 - [ ] **[BIZL-003]** `src/users/registration.py:89` — Implicit uniqueness rule not guarded
-  - **Confidence**: 70
+  - **Confidence**: UNCERTAIN
   - **Evidence**: Email uniqueness assumed but no explicit check before insert at line 89
   - **Impact**: Race condition could allow duplicate registrations
 ```
@@ -139,7 +139,7 @@ Write findings to the designated output file:
 
 Before writing output:
 - [ ] Every finding has a **specific file:line** reference
-- [ ] Confidence score assigned (0-100) based on evidence strength
+- [ ] Confidence level assigned (PROVEN / LIKELY / UNCERTAIN) based on evidence strength
 - [ ] Priority assigned (P1 / P2 / P3)
 - [ ] Finding caps respected (P2 max 15, P3 max 10)
 - [ ] Context budget respected (max 25 files read)
