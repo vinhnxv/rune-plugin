@@ -903,10 +903,15 @@ Task({
     YOUR TASK:
     1. TaskList() → claim the "Codex Gap Analysis" task
     2. Check codex availability: command -v codex
-    3. Run: timeout ${talisman?.codex?.gap_analysis?.timeout ?? 600} codex exec \\
+    2.5. SEC-008 FIX: Verify .codexignore exists before --full-auto:
+         Bash("test -f .codexignore && echo yes || echo no")
+         If "no": write "Skipped: .codexignore not found" to output, complete task, exit.
+    3. SEC-R1-001 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion on prompt content
+       CTX-001: Prompt uses file PATHS not inline content — Codex reads files itself.
+       Run: cat "tmp/arc/${id}/codex-gap-prompt.txt" | timeout ${talisman?.codex?.gap_analysis?.timeout ?? 900} codex exec \\
          -m "${codexModel}" --config model_reasoning_effort="high" \\
          --sandbox read-only --full-auto --skip-git-repo-check \\
-         "$(cat tmp/arc/${id}/codex-gap-prompt.txt)" 2>/dev/null
+         - 2>/dev/null
     4. Parse output for gap findings
     5. Write results to tmp/arc/${id}/codex-gap-analysis.md
        Format: [CDX-GAP-NNN] {type: MISSING | EXTRA | INCOMPLETE | DRIFT} {description}
@@ -923,7 +928,7 @@ Task({
 
 ```javascript
 // CDX-002 FIX: Normalize timeout to ms (talisman value is seconds, matching bash timeout)
-waitForCompletion("codex-gap-analyzer", (talisman?.codex?.gap_analysis?.timeout ?? 600) * 1000)
+waitForCompletion("codex-gap-analyzer", (talisman?.codex?.gap_analysis?.timeout ?? 900) * 1000)
 
 // Shutdown + cleanup
 SendMessage({ type: "shutdown_request", recipient: "codex-gap-analyzer" })
