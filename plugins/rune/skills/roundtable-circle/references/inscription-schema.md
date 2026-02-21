@@ -6,7 +6,7 @@
 
 ```json
 {
-  "workflow": "string — rune-review | rune-audit | rune-plan | rune-work | rune-mend | rune-forge | rune-inspect",
+  "workflow": "string — rune-review | rune-audit | rune-audit-deep | rune-plan | rune-work | rune-mend | rune-forge | rune-inspect",
   "timestamp": "ISO-8601 datetime",
   "pr_number": "integer (optional — for reviews)",
   "branch": "string (optional)",
@@ -22,6 +22,11 @@
       "file_scope": ["array of file patterns assigned to this teammate"]
     }
   ],
+
+  "deep_context": {
+    "standard_tome": "string — path to pass-1 TOME (required for rune-audit-deep)",
+    "coverage_map": "string — path to coverage-map.json (required for rune-audit-deep)"
+  },
 
   "aggregator": {
     "name": "runebinder",

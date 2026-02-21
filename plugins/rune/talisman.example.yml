@@ -158,6 +158,22 @@ settings:
   verification:
     layer_2_custom_agents: true
 
+# ── Deep Audit settings (v1.56.0+) ──────────────
+# Deep investigation teammates for /rune:audit --deep.
+# Runs a second Roundtable Circle pass with 4 investigation Ashes
+# after the standard audit completes.
+audit:
+  deep:
+    enabled: true
+    ashes:
+      - rot-seeker
+      - strand-tracer
+      - decree-auditor
+      - fringe-watcher
+    max_deep_ashes: 4
+    timeout_multiplier: 1.5
+  always_deep: false              # When true, all audits run deep pass without --deep flag
+
 # ──────────────────────────────────────────────
 # Defaults — Disable built-in Ash
 # ──────────────────────────────────────────────

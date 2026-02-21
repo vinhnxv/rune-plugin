@@ -27,7 +27,7 @@ Plan → Work → Review → Mend → Audit                        (standalone c
 | `/rune:review` | Multi-agent code review before merging |
 | `/rune:mend` | Parallel finding resolution from TOME |
 | `/rune:elicit` | Interactive structured reasoning (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys) |
-| `/rune:audit` | Full codebase audit with specialized Ashes |
+| `/rune:audit` | Full codebase audit with specialized Ashes (+ `--deep` for two-pass investigation) |
 
 Each Ash teammate gets its own 200k context window, eliminating single-context bottlenecks.
 
@@ -45,7 +45,7 @@ Each Ash teammate gets its own 200k context window, eliminating single-context b
 
 | Plugin | Description | Version |
 |--------|-------------|---------|
-| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.22.0 |
+| [rune](plugins/rune/) | Multi-agent engineering orchestration — plan, work, review, audit with Agent Teams | 1.56.0 |
 
 ## Structure
 

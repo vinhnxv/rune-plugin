@@ -198,7 +198,7 @@ Run these checks at Phase 0 before summoning any agents:
 | Count cap | Total active Ash ≤ `settings.max_ashes` | "Too many Ash ({count}). Max: {max}. Reduce custom entries or increase settings.max_ashes" |
 | Agent exists | Agent file/namespace is resolvable | "Agent '{agent}' not found in {source}" |
 | Valid workflows | Each entry is `review`, `audit`, or `forge` | "Invalid workflow '{value}' in Ash '{name}'. Must be 'review', 'audit', or 'forge'" |
-| Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, VEIL, QUAL, FRONT, DOC, CDX | "Prefix '{prefix}' is reserved for built-in Ash '{name}'" |
+| Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, VEIL, QUAL, FRONT, DOC, CDX. Also reserved in deep-audit mode (`/rune:audit --deep`): DEBT, INTG, BIZL, EDGE | "Prefix '{prefix}' is reserved for built-in/deep-audit Ash '{name}'" |
 | Agent name safe | `agent` field matches `^[a-zA-Z0-9_:-]+$` (no path separators or `..`) | "Invalid agent name '{agent}': must contain only alphanumeric, hyphen, underscore, or colon characters" |
 | Forge fields | If `forge` in workflows: `trigger.topics` (≥2), `forge.subsection`, `forge.perspective`, `forge.budget` required | "Ash '{name}' has 'forge' workflow but missing required forge fields" |
 | Forge budget value | `forge.budget` must be `enrichment` or `research` | "Invalid forge budget '{value}' in Ash '{name}'. Must be 'enrichment' or 'research'" |

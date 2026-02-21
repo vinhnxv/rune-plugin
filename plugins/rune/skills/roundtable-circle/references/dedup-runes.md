@@ -48,6 +48,25 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
   ```
 - Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
 - Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `QUAL`, `FRONT`, `DOC`, `CDX` — cannot be used by custom Ash
+- Reserved deep-audit prefixes (active only when `/rune:audit --deep`): `DEBT`, `INTG`, `BIZL`, `EDGE`
+
+### Deep Audit Extended Hierarchy (v1.56.0+)
+
+When `--deep` flag is active, the dedup hierarchy extends to include deep investigation prefixes:
+
+**Standard hierarchy**: `SEC > BACK > VEIL > DOC > QUAL > FRONT > CDX`
+**Deep hierarchy (full)**: `SEC > BACK > DEBT > INTG > BIZL > EDGE > DOC > QUAL > FRONT > CDX`
+
+**Which hierarchy is used where:**
+- **Pass 1 Runebinder** (TOME-standard.md): Standard hierarchy
+- **Pass 2 Runebinder** (TOME-deep.md): Deep-only hierarchy `DEBT > INTG > BIZL > EDGE`
+- **Merge Runebinder** (final TOME.md): Full extended hierarchy
+
+**Cross-pass dedup rules:**
+- Same file:line, same issue → Deep finding SUPERSEDES standard (deeper analysis wins)
+- Same file, different line → Both kept (different concerns)
+- Same concern, different files → Both kept (cross-file pattern)
+- Deep finding contradicts standard → Flag with CONFLICT marker for human review
 
 ### Finding ID Prefixes
 
@@ -62,6 +81,10 @@ Each Ash uses a unique prefix for finding IDs:
 | Glyph Scribe | `FRONT-` | `FRONT-001` | Built-in |
 | Knowledge Keeper | `DOC-` | `DOC-001` | Built-in |
 | Codex Oracle | `CDX-` | `CDX-001` | Built-in |
+| rot-seeker | `DEBT-` | `DEBT-001` | Deep-audit |
+| strand-tracer | `INTG-` | `INTG-001` | Deep-audit |
+| decree-auditor | `BIZL-` | `BIZL-001` | Deep-audit |
+| fringe-watcher | `EDGE-` | `EDGE-001` | Deep-audit |
 | *(custom)* | *from config* | e.g., `DOM-001` | Custom |
 
 Custom Ashes define their prefix in `talisman.yml` → `ashes.custom[].finding_prefix`. Must be 2-5 uppercase chars and unique across all Ashes.

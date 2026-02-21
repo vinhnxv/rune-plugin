@@ -148,3 +148,19 @@ When `/rune:audit --focus <area>` is used, only summon the relevant Ash(s):
 | `full` | All (default) |
 
 Focus mode increases context budget per Ash since fewer are competing for resources.
+
+### Deep Investigation Ashes (Audit --deep only)
+
+> **Separate lifecycle** — Deep Ashes run in Pass 2 of a two-pass deep audit.
+> They are NOT part of the standard Roundtable Circle. Each has its own
+> Roundtable Circle lifecycle with 4 Ashes maximum.
+
+| Ash | Agent | Prefix | Focus | Context Budget |
+|-----|-------|--------|-------|---------------|
+| rot-seeker | rot-seeker | DEBT | Tech debt, complexity, deprecated patterns | 30 files |
+| strand-tracer | strand-tracer | INTG | Integration gaps, dead routes, unwired DI | 30 files |
+| decree-auditor | decree-auditor | BIZL | Business rules, state machines, validation | 25 files |
+| fringe-watcher | fringe-watcher | EDGE | Boundary checks, null handling, race conditions | 25 files |
+
+**Audit file priority:** Investigation-specific (see Deep Gaze section)
+**Activation:** `/rune:audit --deep` flag or `audit.always_deep: true` in talisman.yml
