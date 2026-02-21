@@ -95,6 +95,21 @@ Write exactly this structure:
   - **Author's call:** {rationale from Ash's output}
 <!-- /RUNE:FINDING id="{PREFIX}-{NUM}" -->
 
+## Doubt Seer Challenges
+
+If doubt-seer output exists, create a `## Doubt Seer Challenges` section containing the doubt-seer's challenge findings. DOUBT-prefixed findings are NOT merged into P1/P2/P3 sections — they appear only in this dedicated section.
+
+{If doubt-seer.md exists in output_dir:}
+<!-- RUNE:FINDING nonce="{session_nonce}" id="DOUBT-{NUM}" file="{file}" line="{line}" severity="{severity}" -->
+- [ ] **[DOUBT-{NUM}] {Title}** in `{file}:{line}`
+  - **Challenge:** {challenge description from doubt-seer output}
+  - **Original finding:** {ID of the finding being challenged}
+  - **Verdict:** {PASS|CONCERN|BLOCK}
+<!-- /RUNE:FINDING id="DOUBT-{NUM}" -->
+
+{If doubt-seer.md is missing: omit this section entirely}
+{If doubt-seer timed out: include `[DOUBT SEER: TIMEOUT — partial results preserved]` marker}
+
 ## Coverage Gaps
 
 | Ash | Status | Uncovered Scope |

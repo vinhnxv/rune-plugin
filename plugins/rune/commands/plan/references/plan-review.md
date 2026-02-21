@@ -214,10 +214,10 @@ Task({
   run_in_background: true
 })
 
-// Doubt Seer — cross-agent claim verification (v1.60.0+)
+// Doubt Seer — cross-agent claim verification (v1.61.0+)
 // Skipped if talisman doubt_seer.enabled === false or doubt_seer.workflows excludes "plan"
 // Scope: doubt-seer = individual claim validity, decree-arbiter = structural soundness
-const doubtSeerEnabled = readTalisman()?.doubt_seer?.enabled !== false
+const doubtSeerEnabled = readTalisman()?.doubt_seer?.enabled === true
 const doubtSeerWorkflows = readTalisman()?.doubt_seer?.workflows ?? ["review", "audit"]
 if (doubtSeerEnabled && doubtSeerWorkflows.includes("plan")) {
   reviewerCount++

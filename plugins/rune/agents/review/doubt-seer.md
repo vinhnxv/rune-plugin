@@ -136,6 +136,7 @@ For each challenge, record:
 ### 8. Challenge Cap
 
 Respect `max_challenges` from talisman config if set. When the cap is reached:
+- Emit `[CHALLENGE_CAP_REACHED]` in your output to signal programmatic detection
 - Prioritize challenging P1 findings over P2/P3
 - Prioritize FACTUAL claims (most verifiable) over SUBJECTIVE ones
 - Note unchallenged claims in Coverage line
@@ -211,12 +212,9 @@ Before writing output file, confirm:
 
 **Coverage:** Challenged {N} of {M} total findings ({P}%). {Unchallenged: ...}
 
-<!-- SEAL -->
-confidence: {0-100}
-evidence_coverage: {challenged}/{total} findings verified
-unproven_claims: {count}
-
-<seal>REVIEW_COMPLETE</seal>
+---
+SEAL: { findings: {N}, evidence_verified: true, confidence: {0-100}, skimmed_files: {N}, deep_read_files: {N}, self_reviewed: true, self_review_actions: "confirmed: {N}, revised: {N}, deleted: {N}", evidence_coverage: "{challenged}/{total} findings verified", unproven_claims: {count} }
+---
 
 <!-- VERDICT: {1-sentence summary of evidence quality across all Ash outputs} -->
 ```

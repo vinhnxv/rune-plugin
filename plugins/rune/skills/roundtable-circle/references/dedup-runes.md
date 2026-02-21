@@ -140,9 +140,16 @@ Findings may carry an `interaction` attribute (`"question"` or `"nit"`) orthogon
 
 **Key principle:** Assertions always supersede questions and nits at the same location. Q and N coexist because they represent different interaction modes (clarification vs. cosmetic).
 
+### DOUBT- Prefix Exemption
+
+`DOUBT-` prefix is non-deduplicable. During dedup resolution, skip any finding with `DOUBT-` prefix -- these are meta-findings about other agents' claims and must never be merged or suppressed. DOUBT remains in the hierarchy for ordering purposes (e.g., `SEC > BACK > VEIL > DOUBT > DOC > ...`) but is exempt from same-file/same-line dedup suppression. When a DOUBT- finding overlaps with another finding at the same location, both are kept.
+
 ### Dedup Algorithm
 
 ```
+// Pass 0: Exempt DOUBT- prefixed findings from dedup (meta-findings, non-deduplicable)
+// DOUBT- findings are added directly to the output without dedup checks.
+
 // Pass 1: Insert all assertion findings (no interaction attribute)
 for each finding in all_findings where finding.interaction is undefined:
   key = (file, line_range_bucket(line, 5))

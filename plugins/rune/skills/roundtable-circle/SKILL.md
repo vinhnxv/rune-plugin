@@ -287,8 +287,9 @@ After Phase 4 Monitor completes, optionally spawn the Doubt Seer to cross-examin
    b. Task(team_name, name="doubt-seer", subagent_type="general-purpose",
       prompt=doubt-seer system prompt + inscription.json path + output_dir)
    c. Orchestrator polls until doubt-seer completes or 5-min timeout
-   d. Read doubt-seer.md output
-   e. If VERDICT:BLOCK AND block_on_unproven:true → set workflow_blocked flag
+   d. On timeout: write `[DOUBT SEER: TIMEOUT — partial results preserved]` to the doubt-seer output slot. Proceed to Phase 5 (Aggregate) with whatever partial results exist. Do not block the pipeline.
+   e. Read doubt-seer.md output
+   f. If VERDICT:BLOCK AND block_on_unproven:true → set workflow_blocked flag
 4. If count == 0: Skip doubt-seer, write marker:
    "[DOUBT SEER: No findings to challenge - skipped]"
 5. Proceed to Phase 5 (Runebinder)
