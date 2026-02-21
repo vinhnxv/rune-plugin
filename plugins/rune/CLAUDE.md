@@ -67,6 +67,11 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
    - **ALWAYS** use `pollIntervalMs` from config (30s for all commands), never arbitrary values like 45s or 60s.
    - **Enforcement**: `enforce-polling.sh` PreToolUse hook (POLL-001) blocks sleep+echo anti-patterns at runtime. The `polling-guard` skill provides background knowledge for correct monitoring patterns.
 10. **Teammate non-persistence**: Teammates do NOT survive session resume. After `/resume`, assume all teammates are dead. Clean up stale teams before starting new workflows.
+11. **Session isolation** (CRITICAL): All workflow state files (`tmp/.rune-*.json`) and arc checkpoints (`.claude/arc/*/checkpoint.json`) MUST include `config_dir` and `owner_pid` for cross-session safety. Different sessions MUST NOT interfere with each other.
+    - State file creation: Always include `config_dir`, `owner_pid`, `session_id`
+    - Hook scripts: Always filter by ownership before acting on state files
+    - Cancel commands: Warn if cancelling another session's workflow
+    - Pattern: `resolve-session-identity.sh` provides `RUNE_CURRENT_CFG`; `$PPID` = Claude Code PID
 
 ## Core Pseudo-Functions
 

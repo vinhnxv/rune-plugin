@@ -309,7 +309,8 @@ CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
 if command -v jq >/dev/null 2>&1; then
   # SEC-5 FIX: Place -maxdepth before -name for POSIX portability (BSD find on macOS)
-  active=$(find "$CHOME/arc" -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
+  # FIX: Search CWD-scoped .claude/arc/ (where checkpoints live), not $CHOME/arc/ (wrong directory)
+  active=$(find "${CWD}/.claude/arc" -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
     # Skip checkpoints older than 7 days (abandoned)
     started_at=$(jq -r '.started_at // empty' "$f" 2>/dev/null)
     if [ -n "$started_at" ]; then
@@ -651,8 +652,13 @@ const changedFiles = diffStats.files || []
 // Calculate dynamic total timeout based on tier
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 
+// ── Resolve session identity for cross-session isolation ──
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
 Write(`.claude/arc/${id}/checkpoint.json`, {
   id, schema_version: 11, plan_file: planFile,
+  config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
   pr_url: null,
@@ -756,8 +762,8 @@ for (const prefix of ARC_TEAM_PREFIXES) {
 On resume, validate checkpoint integrity before proceeding:
 
 ```
-1. Find most recent checkpoint: CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; find "$CHOME/arc" -maxdepth 2 -name checkpoint.json -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1
-2. Read "$CHOME/arc/{id}/checkpoint.json" — extract plan_file for downstream phases
+1. Find most recent checkpoint: find "${CWD}/.claude/arc" -maxdepth 2 -name checkpoint.json -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1
+2. Read "${CWD}/.claude/arc/{id}/checkpoint.json" — extract plan_file for downstream phases
 2b. Validate session_nonce from checkpoint (prevents tampering):
    ```javascript
    if (!/^[0-9a-f]{12}$/.test(checkpoint.session_nonce)) {

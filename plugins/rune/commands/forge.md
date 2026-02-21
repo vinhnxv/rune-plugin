@@ -352,12 +352,19 @@ if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge timestam
 
 // Emit state file for arc delegation pattern discovery (matches work.md/review.md/audit.md pattern)
 // Arc reads this via Glob("tmp/.rune-forge-*.json") to discover team_name for checkpoint/cancel-arc.
+// ── Resolve session identity for cross-session isolation ──
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
 const startedTimestamp = new Date().toISOString()
 Write(`tmp/.rune-forge-${timestamp}.json`, {
   team_name: `rune-forge-${timestamp}`,
   plan: planPath,
   started: startedTimestamp,
-  status: "active"
+  status: "active",
+  config_dir: configDir,
+  owner_pid: ownerPid,
+  session_id: "${CLAUDE_SESSION_ID}"
 })
 
 // Create output directory before agents write to it
@@ -645,13 +652,16 @@ if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-${timestamp}/" "$CHOME/tasks/rune-forge-${timestamp}/" 2>/dev/null`)
 }
 
-// Update state file to completed (matches work.md/review.md/audit.md pattern)
+// Update state file to completed (preserve session identity from active write)
 Write(`tmp/.rune-forge-${timestamp}.json`, {
   team_name: `rune-forge-${timestamp}`,
   plan: planPath,
   started: startedTimestamp,
   status: "completed",
-  completed: new Date().toISOString()
+  completed: new Date().toISOString(),
+  config_dir: configDir,
+  owner_pid: ownerPid,
+  session_id: "${CLAUDE_SESSION_ID}"
 })
 ```
 

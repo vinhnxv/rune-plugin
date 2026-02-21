@@ -43,9 +43,20 @@ Read each state file and filter to active ones. If multiple active audits exist,
 
 ```javascript
 // Read each state file, find active ones
+// ── Resolve session identity for ownership check ──
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
 const activeStates = stateFiles
   .map(f => ({ path: f, state: Read(f) }))
   .filter(s => s.state.status === "active")
+  .map(s => {
+    // ── Ownership detection: warn if this belongs to another session ──
+    const isForeign = (s.state.config_dir && s.state.config_dir !== configDir) ||
+      (s.state.owner_pid && s.state.owner_pid !== ownerPid &&
+       Bash(`kill -0 ${s.state.owner_pid} 2>/dev/null && echo alive`).trim() === "alive")
+    return { ...s, isForeign }
+  })
   .sort((a, b) => new Date(b.state.started) - new Date(a.state.started))
 
 if (activeStates.length === 0) {
@@ -82,6 +93,12 @@ if (activeStates.length === 1) {
 
 // QUAL-005 FIX: Null guard for team_name (matches cancel-arc.md pattern)
 if (!team_name) { warn("No team_name in state file — cannot cancel."); return }
+
+// ── Foreign session warning (warn, don't block) ──
+const selected = activeStates.find(s => s.state.team_name === team_name) || activeStates[0]
+if (selected?.isForeign) {
+  warn(`WARNING: This audit (${team_name}) appears to belong to another active session (PID: ${state.owner_pid}). Cancelling may disrupt that session's workflow. Proceeding anyway.`)
+}
 ```
 
 ### 3. Broadcast Cancellation
