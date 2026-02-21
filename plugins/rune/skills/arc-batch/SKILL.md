@@ -211,6 +211,9 @@ const totalBudget = batchConfig.total_budget != null
   : null
 const totalTimeout = batchConfig.total_timeout ?? null
 const stopOnDivergence = batchConfig.stop_on_divergence ?? false
+const perPlanTimeout = batchConfig.per_plan_timeout != null
+  ? Math.max(300, Math.min(14400, batchConfig.per_plan_timeout))
+  : 7200
 
 // Merge resolution: CLI --no-merge (highest) → talisman auto_merge → default (true)
 // noMerge from Phase 0 is true only when --no-merge CLI flag is present
@@ -227,7 +230,8 @@ Write("tmp/arc-batch/batch-config.json", JSON.stringify({
   max_turns: maxTurns,
   total_budget: totalBudget,
   total_timeout: totalTimeout,
-  stop_on_divergence: stopOnDivergence
+  stop_on_divergence: stopOnDivergence,
+  per_plan_timeout: perPlanTimeout
 }, null, 2))
 
 const result = Bash(`"${pluginDir}/scripts/arc-batch.sh" "tmp/arc-batch/batch-config.json"`)

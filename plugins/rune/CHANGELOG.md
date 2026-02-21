@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.57.1] - 2026-02-21
+
+### Added
+- **Checkpoint-based completion detection** — Watchdog polls `.claude/arc/{id}/checkpoint.json` to detect when all arc phases are done. Detects completion in ~60s instead of waiting for full timeout. No arc pipeline modifications needed — reads existing checkpoint data passively
+- **Arc session tracing** — arc-batch now tracks which `arc-{timestamp}` session belongs to each plan via pre/post spawn directory diff. Session ID recorded in `batch-progress.json` for debugging
+- **Watchdog polling loop** — Replaces blind `wait $PID` with 10s polling that checks both process liveness and checkpoint status. 60s grace period after completion detection before kill
+
+### Fixed
+- **CRITICAL: Per-plan timeout** — `wait $PID` no longer blocks forever if claude hangs after completing all phases. Wraps invocation with `timeout --kill-after=30` (GNU `timeout` or `gtimeout`). Default 2h, configurable via `talisman.yml` → `arc.batch.per_plan_timeout`
+- **CRITICAL: PID tracking** — `$!` now captures the `claude` PID instead of `tee` PID. Replaced `cmd | tee file &` with `cmd > file 2>&1 &` so signal handler kills the correct process
+- **HIGH: Real-time log streaming** — Switched from `--output-format json` (buffers all output until exit → 0-byte logs) to `--output-format text` (streams output → `tail -f` works for monitoring)
+- **MEDIUM: Spend tracking inflation** — Batch spend now estimates at 50% of `max_budget` per plan instead of 100%, preventing premature `total_budget` exhaustion when multiple plans run
+- **LOW: Path validation too strict** — Replaced character allowlist regex (`[a-zA-Z0-9._/-]+`) with shell metacharacter denylist, allowing paths with spaces and tildes
+
 ## [1.57.0] - 2026-02-21
 
 ### Added

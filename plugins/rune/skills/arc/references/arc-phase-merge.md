@@ -370,6 +370,7 @@ updateCheckpoint({
   artifact_hash: sha256(mergeReport),
   phase_sequence: 9.5, team_name: null
 })
+
 ```
 
 ## Error Handling

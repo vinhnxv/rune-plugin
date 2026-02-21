@@ -11,6 +11,16 @@ umask 077
 command -v jq >/dev/null 2>&1 || { echo "[arc-batch] ERROR: jq is required but not installed" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "[arc-batch] ERROR: git is required but not installed" >&2; exit 1; }
 
+# ── Per-plan timeout support (FIX-1: detect timeout/gtimeout for process kill) ──
+TIMEOUT_CMD=""
+if command -v timeout >/dev/null 2>&1; then
+  TIMEOUT_CMD="timeout"
+elif command -v gtimeout >/dev/null 2>&1; then
+  TIMEOUT_CMD="gtimeout"
+else
+  echo "[arc-batch] WARNING: timeout/gtimeout not found. Per-plan timeout disabled." >&2
+fi
+
 # ── Config (single JSON file — self-documenting, extensible) ──
 CONFIG_FILE="$1"
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -28,17 +38,35 @@ MAX_TURNS=$(jq -r '.max_turns // 200' "$CONFIG_FILE")
 TOTAL_BUDGET=$(jq -r '.total_budget // "null"' "$CONFIG_FILE")
 TOTAL_TIMEOUT=$(jq -r '.total_timeout // "null"' "$CONFIG_FILE")
 STOP_ON_DIVERGENCE=$(jq -r '.stop_on_divergence // false' "$CONFIG_FILE")
+PER_PLAN_TIMEOUT=$(jq -r '.per_plan_timeout // 7200' "$CONFIG_FILE")
 
 # SEC-002 FIX: Validate config values before use in shell commands
-[[ "$PLANS_FILE" =~ ^[a-zA-Z0-9._/-]+$ ]] || { echo "[arc-batch] ERROR: Invalid plans_file path" >&2; exit 1; }
-[[ "$PLUGIN_DIR" =~ ^[a-zA-Z0-9._/-]+$ ]] || { echo "[arc-batch] ERROR: Invalid plugin_dir path" >&2; exit 1; }
-[[ "$PROGRESS_FILE" =~ ^[a-zA-Z0-9._/-]+$ ]] || { echo "[arc-batch] ERROR: Invalid progress_file path" >&2; exit 1; }
+# Uses denylist (shell metacharacters) instead of allowlist to support paths with spaces/tildes
+validate_path() {
+  local label="$1" path="$2"
+  if [[ -z "$path" || "$path" == "null" ]]; then
+    echo "[arc-batch] ERROR: $label is empty or null" >&2; return 1
+  fi
+  if [[ "$path" == *".."* ]]; then
+    echo "[arc-batch] ERROR: $label contains path traversal (..)" >&2; return 1
+  fi
+  if [[ "$path" =~ [\;\|\&\$\`\(\)\{\}\!] ]]; then
+    echo "[arc-batch] ERROR: $label contains shell metacharacters" >&2; return 1
+  fi
+  return 0
+}
+validate_path "plans_file" "$PLANS_FILE" || exit 1
+validate_path "plugin_dir" "$PLUGIN_DIR" || exit 1
+validate_path "progress_file" "$PROGRESS_FILE" || exit 1
+[[ -f "$PLANS_FILE" ]] || { echo "[arc-batch] ERROR: plans_file not found: $PLANS_FILE" >&2; exit 1; }
+[[ -d "$PLUGIN_DIR" ]] || { echo "[arc-batch] ERROR: plugin_dir not found: $PLUGIN_DIR" >&2; exit 1; }
 [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || MAX_RETRIES=3
 [[ "$MAX_BUDGET" =~ ^[0-9]+\.?[0-9]*$ ]] || MAX_BUDGET=15.0
 [[ "$MAX_TURNS" =~ ^[0-9]+$ ]] || MAX_TURNS=200
 [[ "$TOTAL_BUDGET" == "null" || "$TOTAL_BUDGET" =~ ^[0-9]+\.?[0-9]*$ ]] || TOTAL_BUDGET="null"
 [[ "$TOTAL_TIMEOUT" == "null" || "$TOTAL_TIMEOUT" =~ ^[0-9]+$ ]] || TOTAL_TIMEOUT="null"
 [[ "$STOP_ON_DIVERGENCE" == "true" || "$STOP_ON_DIVERGENCE" == "false" ]] || STOP_ON_DIVERGENCE=false
+[[ "$PER_PLAN_TIMEOUT" =~ ^[0-9]+$ ]] || PER_PLAN_TIMEOUT=7200
 
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BATCH_START=$(date +%s)
@@ -344,43 +372,121 @@ IMPORTANT:
 
     update_progress "$INDEX" "in_progress"
 
+    # Snapshot existing arc sessions before spawn (v1.57.1: checkpoint-based tracking)
+    # After claude starts, we detect the NEW checkpoint to trace which arc session belongs to this plan.
+    CHOME_ARC="${CHOME}/arc"
+    PRE_SPAWN_ARCS=""
+    if [[ -d "$CHOME_ARC" ]]; then
+      PRE_SPAWN_ARCS=$(ls -1 "$CHOME_ARC" 2>/dev/null | sort)
+    fi
+
     # Run arc via claude -p for headless execution
-    # CC-2: Use setsid when available for process group isolation, fall back to direct exec
     # --dangerously-skip-permissions: headless mode — no interactive prompts
     # --no-session-persistence: ephemeral session — no state leak between runs
     # WARNING: Plans execute with full permissions. Ensure all plans are trusted.
-    # BACK-002/BACK-008 FIX: Use pipe instead of process substitution.
-    # Process substitution >(tee ...) has two issues:
-    # 1. With setsid, $! is the PID of setsid — exit code of claude is lost
-    # 2. tee processes can become orphaned on signal, accumulating FDs
-    # Pipe + pipefail ensures correct exit code propagation and clean tee lifecycle.
+    #
+    # FIX-1: Per-plan timeout via timeout/gtimeout (kills hung claude processes)
+    # FIX-2: Direct redirect (> file) instead of pipe (| tee) — $! captures claude PID, not tee
+    # FIX-3: --output-format text instead of json — enables real-time log streaming (tail -f)
+    CLAUDE_ARGS=(
+      -p "$EFFECTIVE_CMD"
+      --plugin-dir "$PLUGIN_DIR"
+      --output-format text
+      --no-session-persistence
+      --dangerously-skip-permissions
+      --max-turns "$MAX_TURNS"
+      --max-budget-usd "$MAX_BUDGET"
+    )
+
+    # Build command prefix: [timeout] [setsid] claude
+    CMD_PREFIX=()
+    if [[ -n "$TIMEOUT_CMD" ]]; then
+      CMD_PREFIX+=("$TIMEOUT_CMD" "--kill-after=30" "$PER_PLAN_TIMEOUT")
+    fi
     if $HAS_SETSID; then
-      setsid claude -p "$EFFECTIVE_CMD" \
-        --plugin-dir "$PLUGIN_DIR" \
-        --output-format json \
-        --no-session-persistence \
-        --dangerously-skip-permissions \
-        --max-turns "$MAX_TURNS" \
-        --max-budget-usd "$MAX_BUDGET" \
-        2>&1 | tee "$LOG_FILE" &
-    else
-      # macOS fallback: direct execution without setsid
-      claude -p "$EFFECTIVE_CMD" \
-        --plugin-dir "$PLUGIN_DIR" \
-        --output-format json \
-        --no-session-persistence \
-        --dangerously-skip-permissions \
-        --max-turns "$MAX_TURNS" \
-        --max-budget-usd "$MAX_BUDGET" \
-        2>&1 | tee "$LOG_FILE" &
+      CMD_PREFIX+=("setsid")
     fi
+
+    "${CMD_PREFIX[@]}" claude "${CLAUDE_ARGS[@]}" > "$LOG_FILE" 2>&1 &
     CURRENT_PID=$!
-    if wait "$CURRENT_PID" 2>/dev/null; then
-      EXIT_CODE=0
-    else
-      EXIT_CODE=$?
-    fi
+
+    # Watchdog polling loop: check process status + checkpoint completion every 10s
+    # Instead of blind `wait $PID`, polls arc checkpoint.json for phase completion.
+    # If all phases completed/skipped but process hangs, kill it and proceed.
+    EXIT_CODE=""
+    ARC_SESSION_ID=""
+    CHECKPOINT_GRACE_COUNT=0
+    while true; do
+      # Check if process exited naturally
+      if ! kill -0 "$CURRENT_PID" 2>/dev/null; then
+        wait "$CURRENT_PID" 2>/dev/null && EXIT_CODE=0 || EXIT_CODE=$?
+        break
+      fi
+
+      # Detect arc session ID (once) — find new checkpoint that didn't exist pre-spawn
+      if [[ -z "$ARC_SESSION_ID" && -d "$CHOME_ARC" ]]; then
+        POST_SPAWN_ARCS=$(ls -1 "$CHOME_ARC" 2>/dev/null | sort)
+        NEW_ARC=$(comm -13 <(echo "$PRE_SPAWN_ARCS") <(echo "$POST_SPAWN_ARCS") | head -1)
+        if [[ -n "$NEW_ARC" && -f "$CHOME_ARC/$NEW_ARC/checkpoint.json" ]]; then
+          # Verify this checkpoint belongs to our plan
+          CP_PLAN=$(jq -r '.plan_file // ""' "$CHOME_ARC/$NEW_ARC/checkpoint.json" 2>/dev/null)
+          if [[ "$CP_PLAN" == "$plan" ]]; then
+            ARC_SESSION_ID="$NEW_ARC"
+            echo "  Arc session: $ARC_SESSION_ID"
+          fi
+        fi
+      fi
+
+      # Check checkpoint for arc completion (all phases done)
+      if [[ -n "$ARC_SESSION_ID" ]]; then
+        CP_FILE="$CHOME_ARC/$ARC_SESSION_ID/checkpoint.json"
+        if [[ -f "$CP_FILE" ]]; then
+          # Check if merge or ship phase completed/skipped (final phases)
+          MERGE_STATUS=$(jq -r '.phases.merge.status // "pending"' "$CP_FILE" 2>/dev/null)
+          SHIP_STATUS=$(jq -r '.phases.ship.status // "pending"' "$CP_FILE" 2>/dev/null)
+
+          # Arc is done when merge completed/skipped (after ship)
+          if [[ "$MERGE_STATUS" == "completed" || "$MERGE_STATUS" == "skipped" || "$MERGE_STATUS" == "failed" ]] \
+             && [[ "$SHIP_STATUS" == "completed" || "$SHIP_STATUS" == "skipped" || "$SHIP_STATUS" == "failed" ]]; then
+            CHECKPOINT_GRACE_COUNT=$((CHECKPOINT_GRACE_COUNT + 1))
+            if [[ $CHECKPOINT_GRACE_COUNT -ge 6 ]]; then
+              # Checkpoint shows done for 60s (6 polls) — process still alive, kill it
+              echo "  Checkpoint complete ($ARC_SESSION_ID): merge=$MERGE_STATUS, ship=$SHIP_STATUS"
+              echo "  Process still running after 60s grace. Terminating..."
+              kill -TERM "$CURRENT_PID" 2>/dev/null || true
+              sleep 5
+              kill -0 "$CURRENT_PID" 2>/dev/null && kill -KILL "$CURRENT_PID" 2>/dev/null || true
+              wait "$CURRENT_PID" 2>/dev/null || true
+              # Exit code based on actual arc result
+              if [[ "$MERGE_STATUS" == "completed" || "$SHIP_STATUS" == "completed" ]]; then
+                EXIT_CODE=0
+              else
+                EXIT_CODE=1
+              fi
+              break
+            fi
+          else
+            CHECKPOINT_GRACE_COUNT=0  # Reset if phases not yet done
+          fi
+        fi
+      fi
+
+      sleep 10
+    done
     CURRENT_PID=0
+
+    # Record arc session ID in progress file for traceability
+    if [[ -n "$ARC_SESSION_ID" ]]; then
+      jq --argjson idx "$INDEX" --arg sid "$ARC_SESSION_ID" \
+        '.plans[$idx].arc_session_id = $sid' \
+        "$PROGRESS_FILE" > "${PROGRESS_FILE}.tmp.$$" \
+        && mv "${PROGRESS_FILE}.tmp.$$" "$PROGRESS_FILE"
+    fi
+
+    # Detect timeout (GNU timeout exit code 124)
+    if [[ $EXIT_CODE -eq 124 ]]; then
+      echo "  TIMEOUT: Plan exceeded per_plan_timeout (${PER_PLAN_TIMEOUT}s)"
+    fi
 
     if [[ $EXIT_CODE -eq 0 ]]; then
       ARC_SUCCESS=true
@@ -403,9 +509,10 @@ IMPORTANT:
     COMPLETED=$((COMPLETED + 1))
     echo "  Completed in ${RUN_DURATION}s"
 
-    # Track cumulative spend (estimate from per-run max_budget as upper bound)
-    # Actual spend would require claude CLI cost reporting — use max_budget as conservative estimate
-    BATCH_SPEND=$(awk "BEGIN { printf \"%.2f\", $BATCH_SPEND + $MAX_BUDGET }")
+    # FIX-4: Estimate spend at 50% of max_budget (actual cost unavailable with text output)
+    # Previous bug: used MAX_BUDGET as actual spend, causing premature total_budget exhaustion
+    ESTIMATED_SPEND=$(awk "BEGIN { printf \"%.2f\", $MAX_BUDGET * 0.5 }")
+    BATCH_SPEND=$(awk "BEGIN { printf \"%.2f\", $BATCH_SPEND + $ESTIMATED_SPEND }")
 
     # Inter-run cleanup: checkout main, pull, clean state
     CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
