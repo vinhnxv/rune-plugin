@@ -27,11 +27,9 @@ Render the following sections in order. Skip any section where data is unavailab
 
 **Include when**: A `risk-map.json` is available AND at least one relevant file has a risk entry.
 
-**Render as**:
+**Render as** (the `## Risk Context (Goldmask)` wrapper is injected by the CALLER after assembling all sections; `renderRiskContextTemplate` returns only the subsection content below):
 
 ```
-## Risk Context (Goldmask)
-
 ### File Risk Tiers
 
 | File | Risk Tier | Churn (90d) | Owners | Co-Change Cluster |

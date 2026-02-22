@@ -149,9 +149,11 @@ See [synthesize.md](references/synthesize.md) for the full protocol.
 
 After the plan is synthesized but before shatter assessment, runs a predictive Goldmask analysis to identify which existing files are likely to be affected, surface Wisdom advisories (caution zones) for risky areas, trace dependency chains (Impact Layer), and inform the shatter decision with risk data.
 
-**Skip conditions**: `--quick` mode, `talisman.goldmask.enabled === false`, non-git repo.
+**Skip conditions**: `--quick` mode, `talisman.goldmask.enabled === false`, `talisman.goldmask.devise.enabled === false`, non-git repo.
 
 **Note**: Phase 2.3 runs AFTER Phase 1, which creates the plan team (`rune-plan-{timestamp}`). All Task calls MUST use `team_name` (ATE-1 compliance — unlike Phase 0 sages which run before team creation).
+
+**Timeout inheritance**: Arc timeouts (from `talisman.arc.timeouts`) are NOT automatically propagated to Phase 2.3 devise agents. Phase 2.3 uses its own internal ceiling (`PHASE_23_TOTAL_CEILING_MS = 300_000`). If arc timeout is tighter than 5 min, Phase 2.3 agents may outlive the arc phase budget — ensure arc `forge` timeout accounts for Phase 2.3's contribution.
 
 **Non-blocking**: If any agent fails, the pipeline continues with partial data. All failures are recoverable.
 
@@ -159,11 +161,11 @@ After the plan is synthesized but before shatter assessment, runs a predictive G
 
 | Mode | Agents | Time | When to use |
 |------|--------|------|-------------|
-| `basic` | 2 (lore + wisdom) | 50-170s | Legacy, lightweight |
-| `enhanced` (default) | 6 (lore + 3 tracers + wisdom + coordinator) | 2.5-4.5 min | Standard planning |
-| `full` | 8 (lore + 5 tracers + wisdom + coordinator) | 3-5 min | Major architectural changes |
+| `basic` (default) | 2 (lore + wisdom) | 50-170s | Standard planning — opt-in to enhanced for richer analysis |
+| `enhanced` | 6 (lore + 3 tracers + wisdom + coordinator) | 2.5-4.5 min | Explicit opt-in: `goldmask.devise.depth: enhanced` |
+| `full` | 8 (lore + 5 tracers + wisdom + coordinator) | 3-5 min | Major architectural changes — explicit opt-in only |
 
-**Talisman config**: `goldmask.devise.depth` — `basic` | `enhanced` (default) | `full`
+**Talisman config**: `goldmask.devise.depth` — `basic` (default) | `enhanced` | `full`
 
 ### Step 0: Extract Predicted Files
 
@@ -172,21 +174,23 @@ NOT from regex parsing of free-form plan prose.
 
 ```javascript
 const goldmaskEnabled: boolean = talisman?.goldmask?.enabled !== false
+const goldmaskDeviseEnabled: boolean = talisman?.goldmask?.devise?.enabled !== false
 const isGitRepo: boolean = Bash("git rev-parse --is-inside-work-tree 2>/dev/null").trim() === "true"
 const isQuick: boolean = args.includes("--quick")
 
-if (!goldmaskEnabled || !isGitRepo || isQuick) {
+if (!goldmaskEnabled || !goldmaskDeviseEnabled || !isGitRepo || isQuick) {
   const skipReason: string = !goldmaskEnabled ? "goldmask.enabled=false"
+    : !goldmaskDeviseEnabled ? "goldmask.devise.enabled=false"
     : !isGitRepo ? "not a git repo" : "--quick flag"
   warn(`Phase 2.3: Predictive Goldmask skipped — ${skipReason}`)
   // Continue to Phase 2.5
 } else {
-  const deviseDepth: string = talisman?.goldmask?.devise?.depth ?? "enhanced"
-  // Validate depth value — fallback to enhanced for unrecognized values
+  const deviseDepth: string = talisman?.goldmask?.devise?.depth ?? "basic"
+  // Validate depth value — fallback to basic for unrecognized values
   const validDepths: string[] = ["basic", "enhanced", "full"]
-  const effectiveDepth: string = validDepths.includes(deviseDepth) ? deviseDepth : "enhanced"
+  const effectiveDepth: string = validDepths.includes(deviseDepth) ? deviseDepth : "basic"
   if (deviseDepth !== effectiveDepth) {
-    warn(`Phase 2.3: Unrecognized depth "${deviseDepth}" — defaulting to "enhanced"`)
+    warn(`Phase 2.3: Unrecognized depth "${deviseDepth}" — defaulting to "basic"`)
   }
 
   // Extract predicted files from Phase 1 research outputs (structured)
@@ -276,13 +280,23 @@ YOUR LIFECYCLE:
     // Wait for wisdom (120s timeout) — non-blocking on failure
 ```
 
-### Enhanced Mode (6 agents — default)
+### Enhanced Mode (6 agents — opt-in)
 
 ```javascript
   } else if (effectiveDepth === "enhanced") {
     // Phase 2.3a: 4 agents in parallel (lore + 3 Impact tracers)
     const PHASE_23A_TIMEOUT_MS: number = 90_000  // 90s for parallel phase
     const PHASE_23_TOTAL_CEILING_MS: number = 300_000  // 5 min hard ceiling
+    // PER_AGENT_TIMEOUT_MS: lore=120s, each tracer=90s, wisdom=120s, coordinator=120s
+    // Total sequential-worst-case: 90s (2.3a) + 120s (wisdom) + 120s (coordinator) = 330s
+    // BACK-003: Enforce timeout budget before spawning 6 agents
+    const phaseStartMs: number = Date.now()
+    const perAgentTimeout: number = 120_000  // 2 min per agent (conservative upper bound)
+    const estimatedTotalMs: number = PHASE_23A_TIMEOUT_MS + perAgentTimeout + perAgentTimeout  // 2.3a + wisdom + coordinator
+    if (estimatedTotalMs > PHASE_23_TOTAL_CEILING_MS) {
+      warn(`Phase 2.3: Enhanced mode estimated time (${Math.round(estimatedTotalMs / 1000)}s) exceeds hard ceiling (${Math.round(PHASE_23_TOTAL_CEILING_MS / 1000)}s) — falling back to basic mode`)
+      // Fall through to basic mode
+    } else {
 
     TaskCreate({ subject: "Lore analysis — risk scoring for predicted files" })
     TaskCreate({ subject: "Business logic tracing — domain rule dependencies" })
@@ -431,6 +445,7 @@ YOUR LIFECYCLE:
     })
 
     // Wait for coordinator (120s timeout) — non-blocking on failure
+    } // end enhanced-mode budget check
 ```
 
 ### Full Mode (8 agents)
@@ -460,7 +475,19 @@ After coordinator completes, inject the prediction into the plan document:
   // Read coordinator output
   try {
     const prediction: string = Read(`${outputDir}/GOLDMASK-PREDICTION.md`)
-    if (prediction && prediction.trim().length > 0) {
+    // BACK-005: Validate all required sections are present before injecting
+    const REQUIRED_SECTIONS: string[] = [
+      "## Risk & Dependency Analysis (Goldmask Prediction)",
+      "### Predicted File Impact",
+      "### Caution Zones",
+      "### Collateral Damage Predictions",
+      "### MUST-CHANGE Files",
+      "### SHOULD-CHECK Files"
+    ]
+    const missingSections: string[] = REQUIRED_SECTIONS.filter(s => !prediction.includes(s))
+    if (missingSections.length > 0) {
+      warn(`Phase 2.3: Coordinator output missing sections: ${missingSections.join(", ")} — skipping plan injection`)
+    } else if (prediction && prediction.trim().length > 0) {
       // Insert after "## Non-Goals" section in the plan (before implementation phases)
       Edit(planPath, {
         old_string: "## Non-Goals",  // Find the Non-Goals heading
@@ -517,7 +544,7 @@ Total: 2.5-4.5 min | Hard ceiling: 5 min
 | 2.3b | Wisdom Sage timeout (120s) | Same as failure — proceed without wisdom | WARN |
 | 2.3c | Coordinator timeout (120s) | Skip plan injection, all upstream work wasted | ERROR |
 | 2.3c | Malformed GOLDMASK-PREDICTION.md | Skip plan injection, warn user | ERROR |
-| 2.3 | Unrecognized `depth` value | Treat as "enhanced", log warning | WARN |
+| 2.3 | Unrecognized `depth` value | Treat as "basic", log warning | WARN |
 | 2.3 | Team spawn failure | Fallback to basic mode | ERROR |
 
 ## Phase 2.5: Shatter Assessment

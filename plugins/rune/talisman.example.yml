@@ -818,9 +818,12 @@ codex:
 #                                        # Compares MUST-CHANGE files from GOLDMASK.md against actual
 #                                        # mend modifications. Reports untouched and unexpected changes.
 #   devise:
-#     depth: enhanced                    # Predictive Goldmask depth (default: enhanced)
-#                                        # basic    — 2 agents: lore-analyst + wisdom-sage (legacy)
-#                                        # enhanced — 6 agents: lore + 3 impact tracers + wisdom + coordinator
+#     enabled: true                      # Kill switch — disables Phase 2.3 Predictive Goldmask in /rune:devise (default: true)
+#                                        # Set false to skip Phase 2.3 entirely even when goldmask.enabled is true.
+#                                        # Checked at devise entry point; takes precedence over depth setting.
+#     depth: basic                       # Predictive Goldmask depth (default: basic)
+#                                        # basic    — 2 agents: lore-analyst + wisdom-sage (standard)
+#                                        # enhanced — 6 agents: lore + 3 impact tracers + wisdom + coordinator (explicit opt-in)
 #                                        # full     — 8 agents: all 5 impact tracers + lore + wisdom + coordinator (token-intensive — use for high-risk changes only)
 #   inspect:
 #     enabled: true                      # Enable Lore Layer in inspect (default: true)

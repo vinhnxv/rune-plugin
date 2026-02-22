@@ -319,8 +319,14 @@ if (riskMap) {
       if (maxRiskTier === 'CRITICAL') {
         req.inspectionPriority = 'HIGH'
         req.riskNote = "Touches CRITICAL-tier files — requires thorough inspection"
-        // Dual inspector assignment: grace-warden AND ruin-prophet
-        req.assignedInspectors = ['grace-warden', 'ruin-prophet']
+        // Dual inspector gate: only activate when plan has security-sensitive sections
+        // OR talisman explicitly enables dual_inspector_gate
+        const hasSecurity = requirements.some(r => /security|auth|crypt|token|inject|xss|sqli/i.test(r.text))
+        const dualGateEnabled = inspectConfig.dual_inspector_gate ?? hasSecurity
+        if (dualGateEnabled) {
+          // Dual inspector assignment: grace-warden AND ruin-prophet
+          req.assignedInspectors = ['grace-warden', 'ruin-prophet']
+        }
       } else if (maxRiskTier === 'HIGH') {
         req.inspectionPriority = 'ELEVATED'
       }
@@ -460,15 +466,15 @@ for (let i = 0; i < maxIterations; i++):
   5. Bash("sleep 30")
 ```
 
-## Phase 5 + Phase 6
+## Phase 5 + Phase 6: Verdict
 
 Read and execute [verdict-synthesis.md](references/verdict-synthesis.md) for the full Verdict Binder aggregation, score aggregation, evidence verification, gap classification, and VERDICT.md structure.
 
 **Summary:**
-- **Phase 5.2 (Verdict Binder)**: Aggregates inspector outputs. Produces VERDICT.md with requirement matrix, 9 dimension scores, gap analysis (8 categories), recommendations.
-- **Phase 5.3 (Wait)**: TaskList polling, 2-min timeout, 10s interval.
-- **Phase 6.1 (Evidence check)**: Verify up to 10 file references in VERDICT.md against disk.
-- **Phase 6.2 (Display)**: Show verdict summary (verdict, completion %, finding counts, report path).
+1. **Phase 5.2 (Verdict Binder)**: Aggregates inspector outputs. Produces VERDICT.md with requirement matrix, 9 dimension scores, gap analysis (8 categories), recommendations.
+2. **Phase 5.3 (Wait)**: TaskList polling, 2-min timeout, 10s interval.
+3. **Phase 6.1 (Evidence check)**: Verify up to 10 file references in VERDICT.md against disk.
+4. **Phase 6.2 (Display)**: Show verdict summary (verdict, completion %, finding counts, report path).
 
 ### Phase 5-6 Enhancement: Historical Risk Assessment in VERDICT.md
 

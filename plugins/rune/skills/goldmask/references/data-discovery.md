@@ -44,6 +44,8 @@ when nested files change via tmp+rename).
 | 3        | `tmp/reviews/*/`               | risk-map only                        |
 | 4        | `tmp/audit/*/`                 | risk-map only                        |
 | 5        | `tmp/inspect/*/`               | risk-map only                        |
+| 6        | `tmp/forge/*/`                 | risk-map only                        |
+| 7        | `tmp/plans/*/`                 | risk-map only                        |
 
 ## Step 1: ENUMERATE
 
@@ -63,6 +65,11 @@ For each search_path in search_order:
 
 For each candidate directory, stat the `risk-map.json` file inside it (if it
 exists) and sort by that file's mtime — most recent first.
+
+> **Platform note**: This step uses POSIX `stat` commands and is only supported on
+> POSIX-compatible systems (macOS, Linux). On Windows (non-POSIX), `stat -f` and
+> `stat -c` are not available. Goldmask data discovery is unsupported on Windows;
+> callers should treat discovery as returning `null` on Windows environments.
 
 ```
 For each candidate_dir:

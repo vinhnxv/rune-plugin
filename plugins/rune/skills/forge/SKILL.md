@@ -326,7 +326,9 @@ const assignments = forge_select(sections, topic_registry, mode)
 if (riskMap) {
   const TIER_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4, UNKNOWN: 5 }
 
-  // getMaxRiskTier: returns the highest risk tier among the given files
+  // getMaxRiskTier: returns the highest risk tier among the given files.
+  // NOTE: forge signature differs from inspect — second param is the full parsed risk-map object
+  // ({ files: RiskEntry[] }), not a flat RiskEntry[] array as in inspect/SKILL.md:335.
   function getMaxRiskTier(files: string[], parsedRiskMap: { files: Array<{ path: string, tier: string }> }): string {
     let maxTier: string = "UNKNOWN"
     for (const filePath of files) {
@@ -350,7 +352,8 @@ if (riskMap) {
       const maxRiskTier: string = getMaxRiskTier(sectionFiles, parsedRiskMap)
 
       if (maxRiskTier === 'CRITICAL') {
-        // Boost all agent scores for this section by 0.15
+        // Boost all agent scores for this section by 0.15 (heuristic threshold — not empirically
+        // calibrated; subject to tuning via future talisman.yml forge.risk_boost_critical config)
         for (const agentEntry of agents) {
           agentEntry[1] = Math.min(agentEntry[1] + 0.15, 1.0)
         }
@@ -358,6 +361,7 @@ if (riskMap) {
         section.autoIncludeResearchBudget = true  // Include research-budget agents even in default mode
         log(`  Risk boost: "${section.title}" — CRITICAL files, +0.15 boost`)
       } else if (maxRiskTier === 'HIGH') {
+        // Boost by 0.08 (heuristic threshold — not empirically calibrated; subject to tuning)
         for (const agentEntry of agents) {
           agentEntry[1] = Math.min(agentEntry[1] + 0.08, 1.0)
         }

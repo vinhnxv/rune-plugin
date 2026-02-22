@@ -9,7 +9,7 @@
   - **Inspect**: Phase 0.3 (Lore Layer) with risk-weighted requirement classification, dual inspector assignment for CRITICAL requirements, risk-enriched inspector prompts with role-specific notes, and Historical Risk Assessment in VERDICT.md.
   - **Devise upgrade**: Phase 2.3 upgraded from 2-agent basic to 6-agent enhanced mode (default). Three depth modes: `basic` (2 agents), `enhanced` (6 agents: lore + 3 Impact tracers + wisdom + coordinator), `full` (8 agents, inlined). Partial-ready gate, 5-min hard ceiling.
 - **Shared Goldmask infrastructure**:
-  - `goldmask/references/data-discovery.md` — standardized protocol for finding and reusing existing Goldmask outputs across workflows (5-path search order, age guard, TOCTOU-safe reads, 30% overlap validation)
+  - `goldmask/references/data-discovery.md` — standardized protocol for finding and reusing existing Goldmask outputs across workflows (7-path search order including forge/ and plans/, age guard, TOCTOU-safe reads, 30% overlap validation, POSIX-only platform note)
   - `goldmask/references/risk-context-template.md` — shared template for injecting risk data into agent prompts (3 sections: File Risk Tiers, Caution Zones, Blast Radius)
 - **Per-workflow talisman config** (`goldmask.forge`, `goldmask.mend`, `goldmask.devise`, `goldmask.inspect`) with documented kill switches and defaults
 
