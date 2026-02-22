@@ -220,7 +220,7 @@ updateCheckpoint({
 
 ## Team Lifecycle
 
-Delegated to `/rune:mend` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
+Delegated to `/rune:mend` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](../../rune-orchestration/references/team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
 
 Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See SKILL.md Inter-Phase Cleanup Guard section.
 
@@ -245,4 +245,4 @@ If this phase crashes, the orphaned resources above are recovered by the 3-layer
 Layer 1 (ORCH-1 resume), Layer 2 (`/rune:rest --heal`), Layer 3 (arc pre-flight stale scan).
 Mend phase teams use `rune-mend-*` prefix — handled by the sub-command's own pre-create guard (not Layer 3).
 
-See [team-lifecycle-guard.md](team-lifecycle-guard.md) §Orphan Recovery Pattern for full layer descriptions and coverage matrix.
+See [team-lifecycle-guard.md](../../rune-orchestration/references/team-lifecycle-guard.md) §Orphan Recovery Pattern for full layer descriptions and coverage matrix.

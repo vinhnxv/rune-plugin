@@ -174,7 +174,8 @@ const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'sem
 
 // IMPORTANT: checkArcTimeout() runs BETWEEN phases, not during. A phase that exceeds
 // its budget will only be detected after it finishes/times out internally.
-// NOTE: SETUP_BUDGET and MEND_EXTRA_BUDGET are defined in arc-phase-mend.md (mend-scoped).
+// NOTE: SETUP_BUDGET (5 min, all delegated phases) and MEND_EXTRA_BUDGET (3 min, mend-only)
+// are defined in arc-phase-mend.md.
 
 // Talisman-aware phase timeouts (v1.40.0+): talisman overrides → hardcoded defaults
 // CFG-DECREE-002: Clamp each talisman timeout to sane range (10s - 1hr)

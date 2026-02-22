@@ -2,6 +2,9 @@
 
 Canonical invocation patterns, error handling, and output verification for `codex exec`.
 
+**Inputs**: Codex CLI binary, prompt string, talisman codex config, STDERR_FILE (temp)
+**Outputs**: Codex exec stdout (JSONL or raw text), exit code, classified error (if non-zero)
+**Error handling**: All non-fatal. Classify via `classifyCodexError()` — see error table below. Pipeline always continues without Codex.
 **Consumers**: codex-cli/SKILL.md stubs, arc-codex-phases.md, codex-oracle.md
 **Prerequisites**: Detection passed (see SKILL.md § Detection), .codexignore exists
 

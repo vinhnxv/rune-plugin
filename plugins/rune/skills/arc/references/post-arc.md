@@ -32,7 +32,7 @@ if (exists(".claude/echoes/")) {
   appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
     layer: "inscribed",
     source: `rune:arc ${id}`,
-    content: `Arc completed: ${metrics.phases_completed}/18 phases, ` +
+    content: `Arc completed: ${metrics.phases_completed}/${PHASE_ORDER.length} phases, ` +
       `${metrics.tome_findings.p1} P1 findings, ` +
       `${metrics.convergence_cycles} mend cycle(s), ` +
       `${metrics.gap_missing} missing criteria. ` +
@@ -66,6 +66,8 @@ Phases:
   7.   MEND:            {status} — {fixed}/{total} findings resolved
   7.5  VERIFY MEND:     {status} — {convergence_verdict} (cycle {convergence.round + 1}/{convergence.tier.maxCycles})
   8.   AUDIT:           {status} — audit-report.md
+  8.5  AUDIT MEND:      {status} — audit-mend-report.md ({fixed_count} fixed)
+  8.7  AUDIT VERIFY:    {status} — audit-verify.md ({convergence_verdict})
   9.   SHIP:            {status} — PR: {pr_url || "skipped"}
   9.5  MERGE:           {status} — {merge_strategy} {wait_ci ? "(auto-merge pending)" : "(merged)"}
 

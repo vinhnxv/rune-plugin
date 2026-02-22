@@ -38,6 +38,7 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan")) {
 
     // CTX-001: Pass file PATH to Codex instead of inlining content to avoid context overflow.
     // Codex runs with --sandbox read-only and CAN read local files by path.
+    // SEC: enrichedPlanPath pre-validated at arc init via arc-preflight.md path guards
     const planFilePath = enrichedPlanPath
 
     // SEC-002 FIX: .codexignore pre-flight check before --full-auto
@@ -189,8 +190,23 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("work")) {
   if (gapEnabled) {
     // CTX-001 + CTX-002: Pass file PATHS (not content) and split into focused aspects for parallel review.
     // Each aspect has a smaller, focused prompt → faster, more resilient, better results.
-    const planFilePath = checkpoint.plan_file
-    const gitDiffRange = `${checkpoint.freshness?.git_sha ?? 'HEAD~5'}..HEAD`
+    // SEC-1: Re-validate checkpoint.plan_file before Codex prompt interpolation.
+    // On --resume, checkpoint data is read from disk — a tampered checkpoint could inject arbitrary content.
+    const rawPlanFile = checkpoint.plan_file
+    if (!/^[a-zA-Z0-9._\/-]+$/.test(rawPlanFile) || rawPlanFile.includes('..') || rawPlanFile.startsWith('-') || rawPlanFile.startsWith('/')) {
+      warn(`Phase 5.6: Invalid plan_file in checkpoint ("${rawPlanFile}") — skipping Codex gap analysis`)
+      Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Skipped: invalid plan_file path in checkpoint.")
+      updateCheckpoint({ phase: "codex_gap_analysis", status: "completed", artifact: `tmp/arc/${id}/codex-gap-analysis.md`, phase_sequence: 5.6, team_name: null })
+      return
+    }
+    const planFilePath = rawPlanFile
+
+    // SEC-2: Validate checkpoint.freshness.git_sha against strict git SHA pattern.
+    // A tampered checkpoint could inject shell commands via the Codex agent's git diff execution.
+    const GIT_SHA_PATTERN = /^[0-9a-f]{7,40}$/
+    const rawGitSha = checkpoint.freshness?.git_sha
+    const safeGitSha = GIT_SHA_PATTERN.test(rawGitSha ?? '') ? rawGitSha : null
+    const gitDiffRange = safeGitSha ? `${safeGitSha}..HEAD` : 'HEAD~5..HEAD'
 
     // Define focused gap aspects for parallel Codex calls
     const gapAspects = [
