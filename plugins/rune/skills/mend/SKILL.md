@@ -61,12 +61,15 @@ Parses a TOME file for structured findings, groups them by file to prevent concu
 ```
 Phase 0: PARSE -> Extract and validate TOME findings
     |
-Phase 1: PLAN -> Analyze dependencies, determine fixer count
+Phase 0.5: GOLDMASK DATA DISCOVERY (v1.71.0) -> Find existing risk-map + wisdom data
     |
+Phase 1: PLAN -> Analyze dependencies, determine fixer count
+    |  (ENHANCED: overlay risk tiers on severity ordering)
 Phase 2: FORGE TEAM -> TeamCreate + TaskCreate per file group
     |
 Phase 3: SUMMON FIXERS -> One mend-fixer per file group
     | (fixers read -> fix -> verify -> report)
+    | (ENHANCED: inject risk/wisdom context into fixer prompts)
 Phase 4: MONITOR -> Poll TaskList, stale/timeout detection
     |
 Phase 5: WARD CHECK -> Ward check + bisect on failure (MEND-1)
@@ -81,7 +84,9 @@ Phase 5.8: CODEX FIX VERIFICATION -> Cross-model post-fix validation (v1.39.0)
     |
 Phase 5.9: TODO UPDATE -> Update file-todos for resolved findings (conditional)
     |
-Phase 6: RESOLUTION REPORT -> Produce report (includes Codex verdict + todo cross-refs)
+Phase 5.95: GOLDMASK QUICK CHECK (v1.71.0) -> Deterministic MUST-CHANGE verification
+    |
+Phase 6: RESOLUTION REPORT -> Produce report (includes Codex verdict + todo cross-refs + Goldmask)
     |
 Phase 7: CLEANUP -> Shutdown fixers, persist echoes, report summary
 ```
@@ -100,6 +105,60 @@ Finds TOME, validates freshness, extracts `<!-- RUNE:FINDING -->` markers with n
 See [parse-tome.md](references/parse-tome.md) for detailed TOME finding extraction, freshness validation, nonce verification, deduplication, file grouping, and FALSE_POSITIVE handling.
 
 Read and execute when Phase 0 runs.
+
+## Phase 0.5: GOLDMASK DATA DISCOVERY
+
+Discover existing Goldmask outputs from upstream workflows (arc, appraise, audit, standalone goldmask). Mend does NOT spawn Goldmask agents — pure filesystem reads only.
+
+**Load reference**: [data-discovery.md](../goldmask/references/data-discovery.md)
+
+```javascript
+// Skip conditions
+const goldmaskEnabled = talisman?.goldmask?.enabled !== false       // default: true
+const mendEnabled = talisman?.goldmask?.mend?.enabled !== false     // default: true
+
+if (!goldmaskEnabled || !mendEnabled) {
+  goldmaskData = null
+  warn("Phase 0.5: Goldmask data discovery disabled (talisman kill switch)")
+} else {
+  // Single call requesting all fields (P0 concern: avoid double discoverGoldmaskData)
+  goldmaskData = discoverGoldmaskData({
+    needsRiskMap: true,
+    needsGoldmask: true,   // for Phase 5.95 quick check
+    needsWisdom: true,      // for Phase 3 fixer prompt injection
+    maxAgeDays: 7
+    // scopeFiles omitted — TOME files not yet known at Phase 0.5
+  })
+
+  if (goldmaskData) {
+    warn(`Phase 0.5: Found Goldmask data at ${goldmaskData.riskMapPath}`)
+
+    // Parse risk-map eagerly (P0 concern: wrap in try/catch)
+    try {
+      parsedRiskMap = JSON.parse(goldmaskData.riskMap)
+      // Validate schema: must have files array
+      if (!Array.isArray(parsedRiskMap?.files) || parsedRiskMap.files.length === 0) {
+        warn("Phase 0.5: risk-map.json has no files — discarding")
+        parsedRiskMap = null
+      }
+    } catch (parseError) {
+      warn(`Phase 0.5: risk-map.json parse error — proceeding without risk data`)
+      parsedRiskMap = null
+    }
+  } else {
+    warn("Phase 0.5: No existing Goldmask data found — proceeding without risk context")
+    parsedRiskMap = null
+  }
+}
+```
+
+**Agents spawned**: NONE. Pure filesystem reads via data-discovery protocol.
+
+**Performance**: 0-500ms (see data-discovery.md performance table).
+
+**Variables set for downstream phases**:
+- `goldmaskData` — raw discovery result (or `null`)
+- `parsedRiskMap` — parsed `risk-map.json` object (or `null`)
 
 ## Phase 1: PLAN
 
@@ -124,6 +183,49 @@ fixer_count = min(file_groups.length, 5)
 | 6+ | 5 (sequential batches for remaining groups) |
 
 **Zero-fixer guard**: If all findings were deduplicated, skipped, or marked FALSE_POSITIVE, skip directly to Phase 6 with "no actionable findings" summary.
+
+### Risk-Overlaid Severity Ordering (Goldmask Enhancement)
+
+When `parsedRiskMap` is available from Phase 0.5, overlay risk tiers on the finding severity ordering. This ensures CRITICAL-tier files are fixed first within each priority level.
+
+```javascript
+// Only runs when Phase 0.5 produced a valid parsedRiskMap
+if (parsedRiskMap) {
+  // Annotate each finding with risk tier
+  for (const finding of allFindings) {
+    const fileRisk = parsedRiskMap.files?.find(f => f.path === finding.file)
+    if (fileRisk) {
+      finding.riskTier = fileRisk.tier       // CRITICAL, HIGH, MEDIUM, LOW, STALE
+      finding.riskScore = fileRisk.risk_score // 0.0-1.0
+    } else {
+      finding.riskTier = 'UNKNOWN'
+      finding.riskScore = 0
+    }
+  }
+
+  // Within same priority level, sort by risk tier (CRITICAL first)
+  const tierOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4, UNKNOWN: 5 }
+  allFindings.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority - b.priority  // P1 first
+    return (tierOrder[a.riskTier] ?? 5) - (tierOrder[b.riskTier] ?? 5)
+  })
+
+  // Promote P3 findings in CRITICAL files to effective P2
+  for (const finding of allFindings) {
+    if (finding.priority === 3 && finding.riskTier === 'CRITICAL') {
+      finding.promotedReason = "P3 promoted: CRITICAL-tier file (Goldmask risk overlay)"
+      finding.effectivePriority = 2  // Treat as P2 for ordering and triage
+    }
+  }
+
+  const promotedCount = allFindings.filter(f => f.promotedReason).length
+  if (promotedCount > 0) {
+    warn(`Phase 1: ${promotedCount} P3 findings promoted to effective P2 (CRITICAL-tier files)`)
+  }
+}
+```
+
+**Skip condition**: When `parsedRiskMap` is `null`, original severity ordering (P1 > P2 > P3, then by line number) is preserved unchanged.
 
 ## Phase 2: FORGE TEAM
 
@@ -153,6 +255,73 @@ Summon mend-fixer teammates with ANCHOR/RE-ANCHOR Truthbinding. When 6+ file gro
 5. TaskUpdate completed
 
 **FALSE_POSITIVE rule**: SEC-prefix findings cannot be marked FALSE_POSITIVE by fixers — require AskUserQuestion.
+
+### Risk Context Injection (Goldmask Enhancement)
+
+When Goldmask data is available from Phase 0.5, inject risk context into each fixer's prompt. Uses the shared risk-context-template.
+
+**Load reference**: [risk-context-template.md](../goldmask/references/risk-context-template.md)
+
+```javascript
+// For each mend-fixer, inject Goldmask context for their assigned files
+const injectContext = talisman?.goldmask?.mend?.inject_context !== false  // default: true
+
+if (injectContext && (parsedRiskMap || goldmaskData?.wisdomReport || goldmaskData?.goldmaskMd)) {
+  for (const fixer of fixers) {
+    let goldmaskContext = ""
+
+    // Section 1: Risk tiers for assigned files (from risk-context-template.md)
+    if (parsedRiskMap) {
+      const riskEntries = fixer.assignedFiles
+        .map(f => parsedRiskMap.files?.find(r => r.path === f))
+        .filter(Boolean)
+
+      if (riskEntries.length > 0) {
+        // Render Section 1 (File Risk Tiers) from risk-context-template.md
+        goldmaskContext += renderRiskContextTemplate(riskEntries, fixer.assignedFiles)
+      }
+    }
+
+    // Section 2: Wisdom advisories for assigned files
+    if (goldmaskData?.wisdomReport) {
+      const advisories = filterWisdomForFiles(goldmaskData.wisdomReport, fixer.assignedFiles)
+      // filterWisdomForFiles: parse WISDOM-NNN headings, match file paths,
+      // return { file, intent, cautionScore, advisory }[]
+      if (advisories.length > 0) {
+        goldmaskContext += "\n\n### Caution Zones\n\n"
+        for (const adv of advisories) {
+          goldmaskContext += `- **\`${adv.file}\`** -- ${adv.intent} intent (caution: ${adv.cautionScore}). ${adv.advisory}\n`
+        }
+        goldmaskContext += "\n**IMPORTANT**: Preserve the original design intent of these code sections. Your changes must not break the defensive, constraint, or compatibility behavior described above.\n"
+      }
+    }
+
+    // Section 3: Blast-radius warnings for assigned files
+    if (goldmaskData?.goldmaskMd) {
+      // extractMustChangeFiles: parse MUST-CHANGE headings from GOLDMASK.md
+      // Strip path traversal (../) for safety
+      const mustChangeFiles = extractMustChangeFiles(goldmaskData.goldmaskMd)
+        .filter(f => !f.includes('..'))
+      const affectedAssigned = fixer.assignedFiles.filter(f => mustChangeFiles.includes(f))
+      if (affectedAssigned.length > 0) {
+        goldmaskContext += `\n\n### Blast Radius Warning\n\nThese files have WIDE blast radius: ${affectedAssigned.map(f => '\`' + f + '\`').join(', ')}. Changes here affect downstream dependencies. Test thoroughly.\n`
+      }
+    }
+
+    // Append to fixer prompt (only if non-empty)
+    if (goldmaskContext.trim()) {
+      fixer.prompt += "\n\n## Risk Context (Goldmask)\n" + goldmaskContext
+    }
+  }
+}
+```
+
+**Skip condition**: When `talisman.goldmask.mend.inject_context === false`, or when no Goldmask data exists, fixer prompts remain unchanged.
+
+**Helper functions** (implement inline — no shared module):
+- `renderRiskContextTemplate(riskEntries, files)` — renders Section 1 table from risk-context-template.md. Returns empty string when no entries.
+- `filterWisdomForFiles(wisdomReport, files)` — parses `WISDOM-NNN:` headings, returns `{ file, intent, cautionScore, advisory }[]` for matching files.
+- `extractMustChangeFiles(goldmaskMd)` — parses "MUST-CHANGE" classification from GOLDMASK.md findings table. Strips `../` for path traversal safety.
 
 See [fixer-spawning.md](references/fixer-spawning.md) for full fixer prompt template and batch monitoring logic.
 
@@ -344,6 +513,99 @@ if (todosExist) {
 
 **Claim lock**: The `mend_fixer_claim` frontmatter field prevents concurrent editing when two fixers work on findings in the same todo. The second fixer checks this field and skips if claimed.
 
+### Phase 5.95: Goldmask Quick Check (Deterministic)
+
+After all fixes and verifications, run a deterministic blast-radius check comparing mend output against Goldmask predictions. No agents — pure set comparison.
+
+```javascript
+// Skip conditions
+const quickCheckEnabled = talisman?.goldmask?.mend?.quick_check !== false  // default: true
+const goldmaskEnabled = talisman?.goldmask?.enabled !== false
+
+if (!goldmaskEnabled || !quickCheckEnabled) {
+  warn("Phase 5.95: Goldmask Quick Check disabled (talisman kill switch)")
+} else if (!goldmaskData?.goldmaskMd) {
+  warn("Phase 5.95: No GOLDMASK.md found — skipping quick check")
+} else {
+  // Extract MUST-CHANGE files from GOLDMASK.md
+  // Parse "MUST-CHANGE" classification from findings table in Impact Clusters section
+  const mustChangeFiles = extractMustChangeFiles(goldmaskData.goldmaskMd)
+    .filter(f => !f.includes('..'))  // Strip path traversal
+
+  // Intersect with TOME scope to avoid false positive "untouched" warnings
+  // (P0 concern: mustChangeFiles may reference files not in this TOME's scope)
+  const tomeFiles = allFindings.map(f => f.file)
+  const scopedMustChange = mustChangeFiles.filter(f => tomeFiles.includes(f))
+
+  if (scopedMustChange.length === 0) {
+    warn("Phase 5.95: No MUST-CHANGE files overlap with TOME scope — skipping")
+  } else {
+    // Get files actually modified by mend fixers
+    // Derive from git diff against preMendSha (captured at Phase 2)
+    const mendedFilesRaw = Bash(`git diff --name-only ${preMendSha}...HEAD 2>/dev/null`)
+    const mendedFiles = mendedFilesRaw.trim().split('\n').filter(Boolean)
+
+    // Check: did mend touch MUST-CHANGE files?
+    const untouchedMustChange = scopedMustChange.filter(f => !mendedFiles.includes(f))
+    const unexpectedTouches = mendedFiles.filter(f =>
+      !scopedMustChange.includes(f) && !tomeFiles.includes(f)
+    )
+
+    // Build quick check report
+    let quickCheckReport = `# Goldmask Quick Check -- rune-mend-${id}\n\n`
+    quickCheckReport += `Generated: ${new Date().toISOString()}\n\n`
+
+    if (untouchedMustChange.length > 0) {
+      warn(`Phase 5.95: ${untouchedMustChange.length} MUST-CHANGE files not modified by mend`)
+      quickCheckReport += `## Untouched MUST-CHANGE Files\n\n`
+      quickCheckReport += `${untouchedMustChange.length} files predicted as MUST-CHANGE were not modified:\n\n`
+      for (const f of untouchedMustChange) {
+        quickCheckReport += `- \`${f}\` (predicted MUST-CHANGE but not fixed)\n`
+      }
+      quickCheckReport += `\n`
+    }
+
+    if (unexpectedTouches.length > 0) {
+      warn(`Phase 5.95: ${unexpectedTouches.length} unexpected file modifications`)
+      quickCheckReport += `## Unexpected Modifications\n\n`
+      quickCheckReport += `${unexpectedTouches.length} files modified that were NOT in TOME or MUST-CHANGE:\n\n`
+      for (const f of unexpectedTouches) {
+        quickCheckReport += `- \`${f}\` (unexpected modification)\n`
+      }
+      quickCheckReport += `\n`
+    }
+
+    if (untouchedMustChange.length === 0 && unexpectedTouches.length === 0) {
+      quickCheckReport += `## Result: CLEAN\n\nAll MUST-CHANGE files in scope were addressed. No unexpected modifications.\n`
+    }
+
+    quickCheckReport += `\n## Summary\n\n`
+    quickCheckReport += `- MUST-CHANGE files in scope: ${scopedMustChange.length}\n`
+    quickCheckReport += `- Modified by mend: ${scopedMustChange.length - untouchedMustChange.length}\n`
+    quickCheckReport += `- Untouched: ${untouchedMustChange.length}\n`
+    quickCheckReport += `- Unexpected modifications: ${unexpectedTouches.length}\n`
+
+    Write(`${mendOutputDir}/goldmask-quick-check.md`, quickCheckReport)
+
+    // Store results for Phase 6 resolution report
+    quickCheckResults = {
+      scopedMustChange,
+      untouchedMustChange,
+      unexpectedTouches,
+      reportPath: `${mendOutputDir}/goldmask-quick-check.md`
+    }
+  }
+}
+```
+
+**Agents**: NONE. Deterministic set comparison.
+
+**Performance**: ~1-5s (git diff + file reads + set operations).
+
+**Output**: `tmp/mend/{id}/goldmask-quick-check.md`
+
+**Variables set for Phase 6**: `quickCheckResults` (or `undefined` if skipped)
+
 ## Phase 6: RESOLUTION REPORT
 
 Aggregates fixer SEAL messages, cross-file fixes, and doc-consistency fixes into `tmp/mend/{id}/resolution-report.md`.
@@ -365,6 +627,36 @@ Aggregates fixer SEAL messages, cross-file fixes, and doc-consistency fixes into
 ```
 
 Only include the `Todo` column when at least one finding has a corresponding todo file. Use an existence check (`Glob`) before rendering each row — do not emit dangling paths.
+
+### Goldmask Section in Resolution Report
+
+When Phase 0.5 found Goldmask data or Phase 5.95 produced quick check results, add a Goldmask section to the resolution report.
+
+```javascript
+// Add Goldmask section to resolution report (after Codex section, before completion summary)
+if (parsedRiskMap || quickCheckResults) {
+  report += "\n## Goldmask Integration\n\n"
+
+  if (parsedRiskMap) {
+    const criticalCount = allFindings.filter(f => f.riskTier === 'CRITICAL').length
+    const promotedCount = allFindings.filter(f => f.promotedReason).length
+
+    report += `### Risk Overlay\n`
+    report += `- Risk data source: \`${goldmaskData.riskMapPath}\`\n`
+    report += `- Findings in CRITICAL-tier files: ${criticalCount}\n`
+    report += `- P3 findings promoted to effective P2: ${promotedCount}\n\n`
+  }
+
+  if (quickCheckResults) {
+    report += `### Quick Check Results\n`
+    report += `- MUST-CHANGE files in scope: ${quickCheckResults.scopedMustChange.length}\n`
+    report += `- Verified (modified by mend): ${quickCheckResults.scopedMustChange.length - quickCheckResults.untouchedMustChange.length}\n`
+    report += `- Untouched MUST-CHANGE: ${quickCheckResults.untouchedMustChange.length}\n`
+    report += `- Unexpected modifications: ${quickCheckResults.unexpectedTouches.length}\n`
+    report += `- Full report: \`${quickCheckResults.reportPath}\`\n\n`
+  }
+}
+```
 
 See [resolution-report.md](references/resolution-report.md) for the full report format, convergence logic, and Codex verification section.
 
@@ -405,6 +697,20 @@ Write("tmp/.rune-mend-{id}.json", { status: mendStatus, completed: timestamp, ..
 if (exists(".claude/echoes/workers/")) { appendEchoEntry("...", { layer: "traced", ... }) }
 ```
 
+## Goldmask Skip Conditions
+
+| Condition | Effect |
+|-----------|--------|
+| `talisman.goldmask.enabled === false` | Skip Phase 0.5 and 5.95 entirely |
+| `talisman.goldmask.mend.enabled === false` | Skip all Goldmask integration in mend |
+| `talisman.goldmask.mend.inject_context === false` | Skip risk/wisdom injection into fixer prompts (Phase 3) |
+| `talisman.goldmask.mend.quick_check === false` | Skip Phase 5.95 |
+| No existing Goldmask data found | Proceed without risk context (graceful degradation) |
+| No GOLDMASK.md for quick check | Skip Phase 5.95 |
+| risk-map.json parse error | Proceed without risk overlay (Phase 1 and 3 skip Goldmask) |
+
+**Key principle**: All Goldmask integrations are **non-blocking**. Mend never fails because Goldmask data is unavailable.
+
 ## Error Handling
 
 | Error | Recovery |
@@ -421,3 +727,8 @@ if (exists(".claude/echoes/workers/")) { appendEchoEntry("...", { layer: "traced
 | Prompt injection detected in source | Report to user, continue fixing |
 | Consistency DAG contains cycles | CYCLE_DETECTED warning, skip all auto-fixes |
 | Consistency post-fix verification fails | NEEDS_HUMAN_REVIEW, do not re-attempt |
+| Phase 0.5: risk-map.json parse error | Proceed without risk context (phases 1/3/5.95 skip Goldmask) |
+| Phase 0.5: No Goldmask data found | Graceful degradation — original behavior preserved |
+| Phase 0.5: risk-map.json empty (0 files) | Discard, proceed without risk overlay |
+| Phase 5.95: GOLDMASK.md parse error | Skip quick check entirely |
+| Phase 5.95: git diff fails | Skip quick check, warn user |
