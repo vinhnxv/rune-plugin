@@ -31,7 +31,7 @@ Q4: Is the task purely internal (rename, comments, formatting, tests, docs)?
 ```
 
 ## File-Path Fallback Heuristic
-<!-- SYNC: risk-tier-paths — update both this table AND classifyRiskTier() in commands/work/references/parse-plan.md -->
+<!-- SYNC: risk-tier-paths — update both this table AND classifyRiskTier() in skills/work/references/parse-plan.md -->
 
 When task descriptions are ambiguous, use file paths to determine the default tier:
 
