@@ -78,6 +78,15 @@ Some files are assigned to multiple Ash intentionally:
 
 ## Review Mode Selection
 
+### Scope Parameter
+
+| Scope | Source | Used By |
+|-------|--------|---------|
+| `diff` | `git diff` (changed files only) | `/rune:appraise` (default) |
+| `full` | `find .` (all project files) | `/rune:appraise --scope full`, `/rune:audit` (implicit) |
+
+The scope parameter determines the file collection strategy. It is an internal orchestration parameter (not a user-facing flag) — `/rune:audit` always uses `scope=full` implicitly.
+
 ### Review (`/rune:appraise`)
 
 ```
@@ -97,6 +106,35 @@ Some files are assigned to multiple Ash intentionally:
 4. Cap per Ash by context budget (stricter due to volume)
 5. Files beyond budget → "Coverage Gaps" in TOME.md
 ```
+
+## Wave Assignment
+
+After Rune Gaze selects Ashes based on file classification, wave scheduling determines execution order for `depth=deep` mode. Standard depth bypasses wave scheduling entirely.
+
+### Integration with selectWaves()
+
+```
+1. Rune Gaze classifies files → produces selectedAsh set (Wave 1 candidates)
+2. If depth === "standard": return selectedAsh as single wave (no scheduling)
+3. If depth === "deep":
+   a. Pass selectedAsh + circleEntries to selectWaves()
+   b. selectWaves() reads wave/deepOnly from circle-registry.md
+   c. Wave 1: filtered by selectedAsh (conditional Ashes may be excluded)
+   d. Wave 2+: all deepOnly agents included automatically
+   e. mergeSmallWaves() consolidates undersized trailing waves
+   f. distributeTimeouts() allocates time budget per wave
+4. Each wave executes as an independent Roundtable Circle pass
+```
+
+### Wave Context Forwarding
+
+Later waves receive prior wave findings as read-only context:
+- **Wave 2** receives Wave 1 TOME output (aggregated findings)
+- **Wave 3** receives Wave 1 + Wave 2 findings
+
+This enables deep investigation agents to build on core reviewer discoveries rather than duplicating effort.
+
+See [wave-scheduling.md](wave-scheduling.md) for the full scheduling algorithm (selectWaves, mergeSmallWaves, distributeTimeouts).
 
 ### Focus Mode (`--focus <area>`)
 
@@ -174,4 +212,5 @@ for each chunk:
 ## References
 
 - [Rune Gaze](rune-gaze.md) — Extension classification rules
-- [Circle Registry](circle-registry.md) — Agent-to-Ash mapping
+- [Circle Registry](circle-registry.md) — Agent-to-Ash mapping, wave assignments, deepOnly flags
+- [Wave Scheduling](wave-scheduling.md) — Wave selection, merge logic, timeout distribution
