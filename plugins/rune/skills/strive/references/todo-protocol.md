@@ -178,6 +178,132 @@ If `todos/_summary.md` exists, append a collapsible Work Session section to the 
 
 **Error handling**: Missing summary → fall back to existing PR body generation (non-blocking).
 
+## Per-Task File-Todos (v2 — when talisman.file_todos.enabled)
+
+When `talisman.file_todos.enabled === true` and `talisman.file_todos.auto_generate.work === true`, the orchestrator creates per-task todo files in `todos/` (project root) alongside the per-worker session logs.
+
+### Orchestrator: Per-Task Todo Creation (Phase 1)
+
+After creating TaskCreate entries, generate corresponding per-task todo files:
+
+```javascript
+const talisman = readTalisman()
+const fileTodosEnabled = talisman?.file_todos?.enabled === true
+const autoGenWork = talisman?.file_todos?.auto_generate?.work === true
+
+if (fileTodosEnabled && autoGenWork) {
+  const todosDir = talisman?.file_todos?.dir || "todos/"
+  Bash(`mkdir -p "${todosDir}"`)
+
+  // Get next sequential ID (zsh-safe)
+  const existing = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)  // (N) safe
+  let nextId = existing.length + 1
+
+  for (const task of extractedTasks) {
+    // Dedup: check for existing todo with matching source_ref
+    const isDuplicate = existing.some(f => {
+      const fm = parseFrontmatter(Read(f))
+      return fm.source_ref === planPath && fm.tags?.includes(`task-${task.id}`)
+    })
+    if (isDuplicate) continue
+
+    // Map risk tier to priority
+    const priority = task.risk_tier === 'critical' ? 'p1'
+      : task.risk_tier === 'high' ? 'p2' : 'p3'
+
+    // Slug algorithm (must match file-todos skill definition)
+    const slug = task.subject.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40)
+
+    const issueId = String(nextId).padStart(3, '0')
+    const filename = `${issueId}-ready-${priority}-${slug}.md`
+
+    Write(`${todosDir}${filename}`, generateTodoFromTask(task, {
+      schema_version: 1,
+      status: "ready",            // work tasks are pre-triaged
+      priority,
+      issue_id: issueId,
+      source: "work",
+      source_ref: planPath,
+      tags: [`task-${task.id}`],
+      files: task.fileTargets || [],
+      work_session: timestamp,    // session correlation
+      created: today,
+      updated: today
+    }))
+
+    nextId++
+  }
+}
+```
+
+### Worker: Per-Task Todo Updates (Phase 2+)
+
+When per-task file-todos are active, workers also update their assigned todo file's Work Log:
+
+```
+PER-TASK TODO PROTOCOL (when file-todos enabled):
+1. After claiming a task, check if a matching todo exists in todos/
+   (grep for tags containing "task-{your-task-id}" in frontmatter)
+2. If found: append Work Log entries as you progress
+3. On completion: signal orchestrator (orchestrator updates status)
+4. On block: signal orchestrator (orchestrator updates status)
+NOTE: Workers do NOT modify frontmatter status directly — sole-orchestrator pattern.
+```
+
+### Orchestrator: Per-Task Status Updates (Phase 4.1)
+
+After all workers exit, update per-task todo frontmatter:
+
+```javascript
+if (fileTodosEnabled && autoGenWork) {
+  const todoFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
+  for (const todoFile of todoFiles) {
+    const fm = parseFrontmatter(Read(todoFile))
+    // Only update todos from THIS work session
+    if (fm.work_session !== timestamp) continue
+    if (fm.source !== 'work') continue
+
+    // Find corresponding TaskCreate entry
+    const taskTag = fm.tags?.find(t => t.startsWith('task-'))
+    if (!taskTag) continue
+
+    const taskId = taskTag.replace('task-', '')
+    const task = allTasks.find(t => t.id === taskId)
+    if (!task) continue
+
+    if (task.status === 'completed' && fm.status !== 'complete') {
+      Edit(todoFile, { old_string: `status: ${fm.status}`, new_string: 'status: complete' })
+      Edit(todoFile, { old_string: `updated: "${fm.updated}"`, new_string: `updated: "${today}"` })
+    } else if (task.status === 'pending' && fm.status === 'in_progress') {
+      // Task was released (ward failure) — mark blocked
+      Edit(todoFile, { old_string: 'status: in_progress', new_string: 'status: blocked' })
+      Edit(todoFile, { old_string: `updated: "${fm.updated}"`, new_string: `updated: "${today}"` })
+    }
+  }
+}
+```
+
+### Stale Cleanup (Phase 6, Step 3.55)
+
+Scoped to current session only via `work_session` field:
+
+```javascript
+if (fileTodosEnabled) {
+  const todoFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
+  for (const todoFile of todoFiles) {
+    const fm = parseFrontmatter(Read(todoFile))
+    if (fm.work_session !== timestamp) continue  // Skip other sessions' todos
+    if (fm.status === 'in_progress') {
+      Edit(todoFile, { old_string: 'status: in_progress', new_string: 'status: blocked' })
+      warn(`Per-task todo ${todoFile} was in_progress at cleanup — marked blocked`)
+    }
+  }
+}
+```
+
 ## Phase 6 Safety Net (FLAW-008)
 
 Workers may be killed before updating status. Phase 6 step 3.5 fixes any "active" files to "interrupted":

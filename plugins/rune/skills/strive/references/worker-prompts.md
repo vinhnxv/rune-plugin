@@ -142,6 +142,13 @@ Task({
     Workers MUST NOT write counter fields.
     Todo file write failure is non-blocking — warn orchestrator, continue without todo tracking.
 
+    PER-TASK FILE-TODOS (when enabled by orchestrator):
+    If the orchestrator created per-task todo files in todos/, you may also:
+    1. After claiming a task, search todos/ for a file with tag "task-{your-task-id}"
+    2. If found: append Work Log entries to that file as you progress
+    3. Do NOT modify frontmatter status — the orchestrator handles status transitions
+    This is optional and non-blocking. Per-worker todo files above remain mandatory.
+
     SELF-REVIEW (Inner Flame):
     Before generating your patch, execute the Inner Flame Worker checklist:
     - Re-read every changed file (full file, not just your diff)
@@ -255,6 +262,13 @@ Task({
     All counters are derived by the orchestrator during summary generation.
     Workers MUST NOT write counter fields.
     Todo file write failure is non-blocking — warn orchestrator, continue without todo tracking.
+
+    PER-TASK FILE-TODOS (when enabled by orchestrator):
+    If the orchestrator created per-task todo files in todos/, you may also:
+    1. After claiming a task, search todos/ for a file with tag "task-{your-task-id}"
+    2. If found: append Work Log entries to that file as you progress
+    3. Do NOT modify frontmatter status — the orchestrator handles status transitions
+    This is optional and non-blocking. Per-worker todo files above remain mandatory.
 
     SELF-REVIEW (Inner Flame):
     Before generating your patch, execute the Inner Flame Worker checklist:

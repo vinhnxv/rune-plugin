@@ -268,6 +268,7 @@ RULES:
 - Do NOT run git merge
 - Use absolute paths for files outside your worktree:
   - Todo files: {PROJECT_ROOT}/tmp/work/{timestamp}/todos/{name}.md
+  - Per-task todos: {PROJECT_ROOT}/todos/ (when file-todos enabled)
   - Signal files: {PROJECT_ROOT}/tmp/.rune-signals/...
   The PROJECT_ROOT is your MAIN project directory, not your worktree CWD.
 ```
