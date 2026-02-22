@@ -363,7 +363,7 @@ ${GIT_INSTRUCTIONS}
    for dir in \"\$CHOME/teams/\"rune-* \"\$CHOME/teams/\"arc-*; do
      [[ -d \"\$dir\" ]] || continue; [[ -L \"\$dir\" ]] && continue
      if [[ -n \"\$MY_SESSION\" ]] && [[ -f \"\$dir/.session\" ]] && [[ ! -L \"\$dir/.session\" ]]; then
-       owner=\$(head -c 128 \"\$dir/.session\" 2>/dev/null | tr -d '[:space:]' || true)
+       owner=\$(head -c 256 \"\$dir/.session\" 2>/dev/null | tr -d '[:space:]' || true)
        [[ -n \"\$owner\" ]] && [[ \"\$owner\" != \"\$MY_SESSION\" ]] && continue
      fi
      tname=\$(basename \"\$dir\"); rm -rf \"\$CHOME/teams/\$tname\" \"\$CHOME/tasks/\$tname\" 2>/dev/null

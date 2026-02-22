@@ -8,6 +8,11 @@
 # PostToolUse hooks CANNOT block — they are informational only.
 # Exit 0 on all errors (fail-open).
 #
+# NOTE: If this hook fails silently (fail-open), the team dir will lack a .session
+# marker and be treated as stale by enforce-team-lifecycle.sh after 30 min.
+# This is acceptable (fail-open design) — the worst case is premature cleanup
+# of an unmarked team, not data corruption.
+#
 # Hook events: PostToolUse:TeamCreate
 # Timeout: 5s
 
@@ -29,8 +34,8 @@ if [[ "$TOOL_NAME" != "TeamCreate" ]]; then
 fi
 
 # Extract session_id from hook input
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
-if [[ -z "$SESSION_ID" ]]; then
+HOOK_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+if [[ -z "$HOOK_SESSION_ID" ]]; then
   exit 0
 fi
 
@@ -60,14 +65,19 @@ if [[ ! -d "$TEAM_DIR" ]] || [[ -L "$TEAM_DIR" ]]; then
   exit 0
 fi
 
+# Symlink guard on .session itself (close latent TOCTOU gap on write path)
+if [[ -L "$TEAM_DIR/.session" ]]; then
+  rm -f "$TEAM_DIR/.session" 2>/dev/null
+fi
+
 # Atomic write: .session.tmp.$$ then mv
 TMP_FILE="$TEAM_DIR/.session.tmp.$$"
-if printf '%s' "$SESSION_ID" > "$TMP_FILE" 2>/dev/null; then
+if printf '%s' "$HOOK_SESSION_ID" > "$TMP_FILE" 2>/dev/null; then
   mv -f "$TMP_FILE" "$TEAM_DIR/.session" 2>/dev/null || rm -f "$TMP_FILE" 2>/dev/null
 else
   rm -f "$TMP_FILE" 2>/dev/null
 fi
 
-[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-004: stamped .session for team=$TEAM_NAME session=$SESSION_ID" >> /tmp/rune-hook-trace.log
+[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-004: stamped .session for team=$TEAM_NAME session=$HOOK_SESSION_ID" >> /tmp/rune-hook-trace.log
 
 exit 0

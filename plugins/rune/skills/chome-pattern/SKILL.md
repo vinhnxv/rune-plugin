@@ -134,6 +134,18 @@ When auditing a file for hardcoded `~/.claude/`, classify each reference:
 | In YAML comment | **SAFE** — user docs, no code execution |
 | In CHANGELOG | **SAFE** — historical record |
 
+## Session Identity Triplet
+
+CHOME resolves **installation isolation** (which Claude Code config dir). Two additional fields complete the session identity triplet for **session isolation**:
+
+| Field | Source | Isolation Layer |
+|-------|--------|----------------|
+| `config_dir` | `CHOME` (resolved `CLAUDE_CONFIG_DIR`) | Installation — different Claude Code configs |
+| `owner_pid` | `$PPID` in Bash | Session — different sessions with same config |
+| `session_id` | `CLAUDE_SESSION_ID` / `${CLAUDE_SESSION_ID}` in skills | Diagnostic — correlation across hooks and logs |
+
+All Rune state files must include all three fields. See `team-lifecycle-guard.md` for the full ownership verification matrix.
+
 ## Security: Always Quote CHOME
 
 The CHOME variable MUST be double-quoted in all Bash contexts to prevent word splitting:
