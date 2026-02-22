@@ -27,7 +27,7 @@ claude --plugin-dir /path/to/rune-plugin
 ## Quick Start
 
 ```bash
-# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge
+# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → audit-mend → audit-verify → ship → merge
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
@@ -38,19 +38,19 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:arc plans/my-plan.md --draft                # Create PR as draft
 
 # Plan a feature (brainstorm + research + forge + review by default)
-/rune:plan                       # Full pipeline
-/rune:plan --quick               # Quick: research + synthesize + review only
+/rune:devise                     # Full pipeline
+/rune:devise --quick             # Quick: research + synthesize + review only
 
 # Deepen an existing plan with Forge Gaze enrichment
 /rune:forge plans/my-plan.md     # Deepen specific plan
 /rune:forge                      # Auto-detect recent plan
 
 # Execute a plan with swarm workers
-/rune:work plans/feat-user-auth-plan.md
-/rune:work plans/my-plan.md --approve  # Require human approval per task
+/rune:strive plans/feat-user-auth-plan.md
+/rune:strive plans/my-plan.md --approve  # Require human approval per task
 
 # Run a multi-agent code review (changed files only)
-/rune:review
+/rune:appraise
 
 # Resolve findings from a review TOME
 /rune:mend tmp/reviews/abc123/TOME.md
@@ -61,7 +61,7 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:audit --max-agents 3      # Limit to 3 Ashes
 
 # Preview scope without summoning agents
-/rune:review --dry-run
+/rune:appraise --dry-run
 /rune:audit --dry-run
 
 # Interactive structured reasoning (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys)
@@ -106,7 +106,7 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## Arc Mode (End-to-End Pipeline)
 
-When you run `/rune:arc`, Rune chains 18 phases into one automated pipeline:
+When you run `/rune:arc`, Rune chains 20 phases into one automated pipeline:
 
 1. **FORGE** — Research agents enrich the plan with best practices, codebase patterns, and past echoes
 2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
@@ -126,6 +126,8 @@ Note: Phase numbers are non-sequential (5.5 → 5.6 → 5.8 → 5.7) for backwar
 7.5. **VERIFY MEND** — Adaptive convergence controller: loops Phase 6→7→7.5 until findings converge or tier max cycles reached (LIGHT: 2, STANDARD: 3, THOROUGH: 5). Proceeds to audit with warning on halt
 7.7. **TEST** — Diff-scoped test execution: unit → integration → E2E/browser (non-blocking WARN, skip with `--no-test`)
 8. **AUDIT** — Final quality gate (informational)
+8.5. **AUDIT MEND** — Fix P1/P2 audit findings with mend-fixer teammates
+8.7. **AUDIT VERIFY** — Re-audit to confirm fixes (single-pass, max 2 cycles)
 9. **SHIP** — Auto PR creation via `gh pr create` with generated template (skip with `--no-pr`)
 9.5. **MERGE** — Rebase onto target branch + auto squash-merge with pre-merge checklist (skip with `--no-merge`)
 
@@ -138,7 +140,7 @@ Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates 
 When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan files sequentially:
 
 1. **Pre-flight** — Validate all plan files exist, no duplicates or symlinks
-2. **For each plan** — Full 18-phase arc pipeline (forge through merge)
+2. **For each plan** — Full 20-phase arc pipeline (forge through merge)
 3. **Inter-run cleanup** — Checkout main, pull latest, clean state
 4. **Retry on failure** — Up to 3 `--resume` attempts per plan, then skip
 5. **Progress tracking** — `batch-progress.json` enables `--resume` for interrupted batches
@@ -185,7 +187,7 @@ Output: `tmp/inspect/{id}/VERDICT.md`
 
 ## What It Does
 
-When you run `/rune:review`, Rune:
+When you run `/rune:appraise`, Rune:
 
 1. **Detects scope** — classifies changed files by extension
 2. **Selects Ash** — picks the right reviewers (3–9 Ashes)
@@ -206,11 +208,11 @@ When you run `/rune:audit`, Rune scans your entire codebase instead of just chan
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes
 6. **Presents TOME** — unified audit summary with coverage gaps
 
-Unlike `/rune:review` (changed files only), `/rune:audit` does not require git. Each Ash's context budget limits how many files it processes, prioritized by architectural importance.
+Unlike `/rune:appraise` (changed files only), `/rune:audit` does not require git. Each Ash's context budget limits how many files it processes, prioritized by architectural importance.
 
 ## Plan Mode
 
-When you run `/rune:plan`, Rune orchestrates a multi-agent research pipeline:
+When you run `/rune:devise`, Rune orchestrates a multi-agent research pipeline:
 
 1. **Gathers input** — runs interactive brainstorm by default (auto-skips when requirements are clear)
 2. **Summons research agents** — 3-5 parallel agents explore best practices, codebase patterns, framework docs, and past echoes
@@ -223,7 +225,7 @@ Output: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 
 ## Work Mode
 
-When you run `/rune:work`, Rune parses a plan into tasks and summons self-organizing swarm workers:
+When you run `/rune:strive`, Rune parses a plan into tasks and summons self-organizing swarm workers:
 
 1. **Parses plan** — extracts tasks with dependencies, clarifies ambiguities via AskUserQuestion
 2. **Sets up environment** — branch safety check (warns on `main`), stash dirty files (Phase 0.5)
@@ -303,7 +305,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 ### How It Works
 
 1. Run `/rune:echoes init` to set up memory directories
-2. Run `/rune:review` or `/rune:audit` — agents persist high-confidence findings
+2. Run `/rune:appraise` or `/rune:audit` — agents persist high-confidence findings
 3. Future workflows read echoes via the `echo-reader` agent
 4. Memory self-prunes: stale entries archive automatically
 
@@ -363,7 +365,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 
 ### Research Agents
 
-Summoned during `/rune:plan` for parallel research:
+Summoned during `/rune:devise` for parallel research:
 
 | Agent | Purpose |
 |-------|---------|
@@ -375,7 +377,7 @@ Summoned during `/rune:plan` for parallel research:
 
 ### Work Agents
 
-Summoned during `/rune:work` as self-organizing swarm workers:
+Summoned during `/rune:strive` as self-organizing swarm workers:
 
 | Agent | Purpose |
 |-------|---------|
@@ -403,7 +405,7 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | Skill | Purpose |
 |-------|---------|
 | agent-browser | Browser automation knowledge injection for E2E testing (non-invocable) |
-| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 18 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge) |
+| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 20 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → audit-mend → audit-verify → ship → merge) |
 | arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
 | ash-guide | Agent invocation reference |
 | audit | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation |
@@ -412,20 +414,20 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 | context-weaving | Context overflow/rot prevention |
 | elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | forge | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
-| git-worktree | Worktree isolation for /rune:work (experimental `--worktree` flag) |
+| git-worktree | Worktree isolation for /rune:strive (experimental `--worktree` flag) |
 | goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers) |
 | inner-flame | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
 | inspect | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
 | mend | Parallel finding resolution from TOME |
-| plan | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
+| devise | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
 | polling-guard | Monitoring loop fidelity — correct waitForCompletion translation |
-| review | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
+| appraise | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | rune-orchestration | Multi-agent coordination patterns |
 | testing | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | using-rune | Workflow discovery and intent routing |
-| work | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
+| strive | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
 
 ## Configuration
@@ -513,13 +515,13 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **TOME** — The unified review summary after deduplication and prioritization.
 
-**Arc Pipeline** — End-to-end orchestration across 18 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, diff-scoped testing (unit/integration/E2E), auto PR creation (ship), and auto merge with pre-merge checklist. Phase 5.5 uses Inspector Ashes (9-dimension scoring), Phase 5.8 auto-remediates FIXABLE gaps.
+**Arc Pipeline** — End-to-end orchestration across 20 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, diff-scoped testing (unit/integration/E2E), auto PR creation (ship), and auto merge with pre-merge checklist. Phase 5.5 uses Inspector Ashes (9-dimension scoring), Phase 5.8 auto-remediates FIXABLE gaps.
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers, centralized ward check, and post-ward doc-consistency scan that fixes drift between source-of-truth files and their downstream targets.
 
 **Plan Section Convention** — Plans with pseudocode must include contract headers (Inputs/Outputs/Preconditions/Error handling) before code blocks. Phase 2.7 verification gate enforces this. Workers implement from contracts, not by copying pseudocode verbatim.
 
-**Forge Gaze** — Topic-aware agent selection for plan enrichment (default in `/rune:plan` and `/rune:forge`). Matches plan section topics to specialized agents via keyword overlap scoring. Configurable thresholds and budget tiers.
+**Forge Gaze** — Topic-aware agent selection for plan enrichment (default in `/rune:devise` and `/rune:forge`). Matches plan section topics to specialized agents via keyword overlap scoring. Configurable thresholds and budget tiers.
 
 **Rune Echoes** — Project-level agent memory with 3-layer lifecycle. Agents learn across sessions without explicit compound workflows.
 
@@ -569,10 +571,10 @@ plugins/rune/
 │   │   └── references/      # inspector-prompts.md, verdict-synthesis.md
 │   ├── mend/                # /rune:mend (parallel finding resolution)
 │   │   └── references/      # parse-tome.md, fixer-spawning.md, resolution-report.md
-│   ├── plan/                # /rune:plan (multi-agent planning pipeline)
+│   ├── devise/              # /rune:devise (multi-agent planning pipeline)
 │   │   └── references/      # brainstorm-phase.md, research-phase.md, synthesize.md, etc.
 │   ├── polling-guard/       # Monitoring loop fidelity
-│   ├── review/              # /rune:review (multi-agent code review)
+│   ├── appraise/            # /rune:appraise (multi-agent code review)
 │   │   └── references/      # ash-summoning.md, tome-aggregation.md, review-scope.md
 │   ├── roundtable-circle/   # Review orchestration
 │   │   └── references/      # e.g. rune-gaze.md, custom-ashes.md
@@ -582,7 +584,7 @@ plugins/rune/
 │   ├── testing/             # Test orchestration pipeline (non-invocable)
 │   │   └── references/      # test-discovery.md, service-startup.md, etc.
 │   ├── using-rune/          # Workflow discovery and intent routing
-│   ├── work/                # /rune:work (swarm work execution)
+│   ├── strive/              # /rune:strive (swarm work execution)
 │   │   └── references/      # parse-plan.md, worker-prompts.md, ship-phase.md, etc.
 │   └── zsh-compat/          # zsh shell compatibility
 ├── scripts/
@@ -644,7 +646,7 @@ Rune uses Elden Ring-inspired theming:
 - **Agent Teams is experimental** — Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable. Behavior may change across Claude Code releases.
 - **Context budget caps** — Each Ash can review a limited number of files (20-30). Large changesets (>20 files) are automatically split into chunks for thorough review with per-chunk quality metrics and adaptive convergence. For very large codebases in audit mode, coverage gaps are still reported in the TOME.
 - **No incremental audit** — `/rune:audit` scans all files each run. There is no diff-based "only audit what changed since last audit" mode yet.
-- **Concurrent sessions** — Only one `/rune:review`, `/rune:audit`, or `/rune:arc` can run at a time. Use `/rune:cancel-review`, `/rune:cancel-audit`, or `/rune:cancel-arc` to stop an active session.
+- **Concurrent sessions** — Only one `/rune:appraise`, `/rune:audit`, or `/rune:arc` can run at a time. Use `/rune:cancel-review`, `/rune:cancel-audit`, or `/rune:cancel-arc` to stop an active session.
 - **Manual cleanup optional** — Run `/rune:rest` to remove `tmp/` artifacts, or let the OS handle them.
 
 ## Troubleshooting
@@ -656,7 +658,7 @@ Rune uses Elden Ring-inspired theming:
 | "Concurrent review running" | Run `/rune:cancel-review` first, then retry |
 | Echo files causing merge conflicts | Add `.gitattributes` with `merge=union` for echo paths (see Configuration) |
 | No files to review | Ensure you have uncommitted changes on a feature branch (not main) |
-| `/rune:work` stalled workers | Workers are warned at 5 minutes and auto-released at 10 minutes. Lead re-assigns stuck tasks |
+| `/rune:strive` stalled workers | Workers are warned at 5 minutes and auto-released at 10 minutes. Lead re-assigns stuck tasks |
 
 ## Security
 

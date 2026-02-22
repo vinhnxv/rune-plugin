@@ -21,10 +21,10 @@ Plan → Work → Review → Mend → Audit                        (standalone c
 | Command | Purpose |
 |---------|---------|
 | `/rune:arc` | End-to-end pipeline (forge, plan review, refinement, verification, work, gap analysis, review, mend, verify mend, audit) |
-| `/rune:plan` | Turn feature ideas into structured plans with parallel research agents |
+| `/rune:devise` | Turn feature ideas into structured plans with parallel research agents |
 | `/rune:forge` | Deepen existing plan with Forge Gaze enrichment |
-| `/rune:work` | Execute plans with self-organizing swarm workers |
-| `/rune:review` | Multi-agent code review before merging |
+| `/rune:strive` | Execute plans with self-organizing swarm workers |
+| `/rune:appraise` | Multi-agent code review before merging |
 | `/rune:mend` | Parallel finding resolution from TOME |
 | `/rune:elicit` | Interactive structured reasoning (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys) |
 | `/rune:audit` | Full codebase audit with specialized Ashes (+ `--deep` for two-pass investigation) |

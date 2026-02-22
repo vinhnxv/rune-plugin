@@ -2,7 +2,7 @@
 
 ## Inscribed — Security Pattern Consistency Review (2026-01-15)
 
-**Source**: `rune:review abc123`
+**Source**: `rune:appraise abc123`
 **Confidence**: HIGH (3 Ashes, all completed)
 
 ### Review Metrics
@@ -23,7 +23,7 @@
 
 ## Inscribed — Performance Bottleneck Analysis (2026-01-20)
 
-**Source**: `rune:review def456`
+**Source**: `rune:appraise def456`
 **Confidence**: HIGH (4 Ashes, all completed, Codex verified)
 
 ### Review Metrics
@@ -42,7 +42,7 @@
 
 ## Etched — Recurring Anti-Patterns in Authentication Code (2026-02-01)
 
-**Source**: `rune:review ghi789`
+**Source**: `rune:appraise ghi789`
 **Confidence**: MEDIUM (pattern observed across 3 reviews)
 
 ### Observations
@@ -56,7 +56,7 @@ These patterns suggest a systemic gap in security review coverage for authentica
 
 ## Traced — Experimental: Rust FFI Boundary Review (2026-02-10)
 
-**Source**: rune:review jkl012
+**Source**: rune:appraise jkl012
 **Confidence**: LOW (single observation, needs verification)
 
 Observed that Rust FFI functions exposed via `#[no_mangle]` lack null pointer checks on C-side arguments. The `unsafe` block in `bindings.rs` trusts caller-provided pointers without validation. This could cause undefined behavior if called from Python ctypes with None arguments.

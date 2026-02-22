@@ -156,11 +156,11 @@ class TestIndexerIntegration:
         """Sources are correctly extracted from various formats."""
         sources = {e["tags"]: e["source"] for e in all_entries}
 
-        # Source with backticks: `rune:review abc123`
-        assert sources.get("Security Pattern Consistency Review") == "rune:review abc123"
+        # Source with backticks: `rune:appraise abc123`
+        assert sources.get("Security Pattern Consistency Review") == "rune:appraise abc123"
 
-        # Source without backticks: rune:review jkl012
-        assert sources.get("Experimental: Rust FFI Boundary Review") == "rune:review jkl012"
+        # Source without backticks: rune:appraise jkl012
+        assert sources.get("Experimental: Rust FFI Boundary Review") == "rune:appraise jkl012"
 
     def test_date_extraction(self, all_entries):
         """Dates are parsed from entry headers."""
@@ -366,7 +366,7 @@ class TestSearchIntegration:
         assert len(by_content) > 0
 
         # Search by source text
-        by_source = search_entries(populated_db, "rune:review")
+        by_source = search_entries(populated_db, "rune:appraise")
         assert len(by_source) > 0
 
         # Search by tag/title keyword

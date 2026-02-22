@@ -78,7 +78,7 @@ Some files are assigned to multiple Ash intentionally:
 
 ## Review Mode Selection
 
-### Review (`/rune:review`)
+### Review (`/rune:appraise`)
 
 ```
 1. Run: git diff --name-only main..HEAD

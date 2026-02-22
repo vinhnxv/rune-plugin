@@ -160,7 +160,7 @@ Time: {duration}
 
 Next steps:
 1. Review resolution report: tmp/mend/{id}/resolution-report.md
-2. /rune:review -- Re-review to verify fixes
+2. /rune:appraise -- Re-review to verify fixes
 3. git diff -- Inspect changes
 4. /rune:rest -- Clean up tmp/ artifacts when done
 ```

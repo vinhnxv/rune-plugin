@@ -30,7 +30,7 @@ Task pattern-weaver(all_files)       # Codebase quality + dead code
 Run simultaneously to gather knowledge from different angles. Produce Research-format output.
 
 ```
-# Parallel research for /rune:plan
+# Parallel research for /rune:devise
 Task repo-analyst(topic)             # Repo patterns + conventions
 Task best-practices(topic)           # External best practices
 Task framework-docs(topic)           # Framework documentation
@@ -42,7 +42,7 @@ Task framework-docs(topic)           # Framework documentation
 Self-organizing workers that claim tasks from a shared pool. Produce Status-format output.
 
 ```
-# Swarm mode for /rune:work — workers claim from task list
+# Swarm mode for /rune:strive — workers claim from task list
 Task rune-smith-1(task-pool)         # Claims and works on tasks
 Task rune-smith-2(task-pool)         # Claims and works on tasks
 # Each writes to tmp/work/
@@ -93,7 +93,7 @@ Task:
 
 | Workflow | Condition | Verifier Scope |
 |----------|-----------|----------------|
-| `/rune:review` | `inscription.verification.enabled` AND 3+ Ashes | All Ash outputs |
+| `/rune:appraise` | `inscription.verification.enabled` AND 3+ Ashes | All Ash outputs |
 | `/rune:audit` | `inscription.verification.enabled` AND 5+ Ashes | All Ash outputs |
 | Custom | Configurable via inscription `verification` block | Per configuration |
 

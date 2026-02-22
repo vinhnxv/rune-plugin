@@ -5,13 +5,13 @@ Each step is annotated: **RUN** (execute as-is), **SKIP** (arc handles this or n
 or **ADAPT** (run with arc-specific modifications).
 
 <!-- NOTE: When adding new arc phases that delegate to commands, add a section here. -->
-<!-- Cross-reference: review.md and audit.md Phase 0 sections contain DELEGATION-CONTRACT comments pointing here. -->
+<!-- Cross-reference: appraise.md and audit.md Phase 0 sections contain DELEGATION-CONTRACT comments pointing here. -->
 
 ## Security Note
 
 Arc must sanitize all variables before passing to delegated Phase 0 steps.
 Use `SAFE_PATH_PATTERN` validation for file paths and write file lists to temp files
-rather than inline interpolation (see review.md SEC-006). Variables from previous
+rather than inline interpolation (see appraise.md SEC-006). Variables from previous
 phase artifacts (plan paths, file lists, team names) are validated at arc pre-flight,
 but re-validate if transforming or concatenating.
 
@@ -29,7 +29,7 @@ Already explicit in arc-phase-forge.md. Listed here for completeness.
 
 ## Phase 2: PLAN REVIEW (independent implementation)
 
-Arc Phase 2 does NOT delegate to `/rune:plan` Phase 4 — it creates its own team (see
+Arc Phase 2 does NOT delegate to `/rune:devise` Phase 4 — it creates its own team (see
 arc-phase-plan-review.md). This section documents feature parity with plan-review.md.
 
 | Step | Action | Reason |
@@ -42,7 +42,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | Codex Plan Reviewer (4C) | **RUN** | Per `codex-detection.md`, if `plan` in `talisman.codex.workflows` |
 | Custom Ash for plan review | **SKIP** | No custom Ash workflow for plan review currently |
 
-## Phase 5: WORK → `/rune:work`
+## Phase 5: WORK → `/rune:strive`
 
 | Step | Action | Reason |
 |------|--------|--------|
@@ -51,7 +51,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | Forge team (work Phase 1) | **RUN** | Work creates its own team |
 | Codex Oracle detection | **RUN** | Per `codex-detection.md`, if `work` in `talisman.codex.workflows` |
 
-## Phase 6: CODE REVIEW → `/rune:review`
+## Phase 6: CODE REVIEW → `/rune:appraise`
 
 | Step | Action | Reason |
 |------|--------|--------|

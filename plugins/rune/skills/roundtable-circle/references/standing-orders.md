@@ -8,12 +8,12 @@ Structured anti-patterns for multi-agent orchestration. Each Standing Order uses
 
 | SO | Name | Anti-Pattern | Applies To |
 |----|------|-------------|------------|
-| SO-1 | Hollow Ash | Spawning Ash for atomic tasks | `/rune:work`, `/rune:review` |
-| SO-2 | Shattered Rune | Same file assigned to multiple workers | `/rune:work` |
+| SO-1 | Hollow Ash | Spawning Ash for atomic tasks | `/rune:strive`, `/rune:appraise` |
+| SO-2 | Shattered Rune | Same file assigned to multiple workers | `/rune:strive` |
 | SO-3 | Tarnished Smith | Lead implementing instead of coordinating | All workflows |
-| SO-4 | Blind Gaze | Skipping risk classification | `/rune:work` |
+| SO-4 | Blind Gaze | Skipping risk classification | `/rune:strive` |
 | SO-5 | Ember Overload | Context budget exceeded without compression | All agent workflows |
-| SO-6 | Silent Seal | Ash completing without proper output format | `/rune:review`, `/rune:audit` |
+| SO-6 | Silent Seal | Ash completing without proper output format | `/rune:appraise`, `/rune:audit` |
 
 ---
 

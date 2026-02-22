@@ -299,7 +299,7 @@ See [verdict-synthesis.md](references/verdict-synthesis.md) for full cleanup pro
 3. Update state file to "completed" (preserve `config_dir`, `owner_pid`, `session_id`, verdict, completion)
 4. Persist echo if P1 findings exist
 5. If `--fix`: run Phase 7.5 remediation (gap-fixer team, 2-min timeout, append results to VERDICT.md)
-6. Post-inspection: `AskUserQuestion` with options (View VERDICT, Fix gaps /rune:work, /rune:review, Done)
+6. Post-inspection: `AskUserQuestion` with options (View VERDICT, Fix gaps /rune:strive, /rune:appraise, Done)
 
 ## Error Handling
 

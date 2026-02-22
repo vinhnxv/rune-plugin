@@ -45,7 +45,7 @@ Task rune:review:ward-sentinel(...)
 
 ### Composite Ash Invocation (review/audit workflows)
 
-The `/rune:review` and `/rune:audit` commands use `general-purpose` subagents with composite
+The `/rune:appraise` and `/rune:audit` commands use `general-purpose` subagents with composite
 Ash prompt templates from [ash-prompts/](../roundtable-circle/references/ash-prompts/). Each Ash embeds
 multiple agent perspectives into a single teammate. This is intentional — composite Ashes
 don't map 1:1 to individual agent files.
@@ -87,7 +87,7 @@ Tool restriction is enforced via prompt instructions (defense-in-depth).
 
 ## Ash Roles (Consolidated Teammates)
 
-In `/rune:review`, agents are grouped into 7 built-in Ashes (extensible via talisman.yml):
+In `/rune:appraise`, agents are grouped into 7 built-in Ashes (extensible via talisman.yml):
 
 | Ash | Agents Embedded | Scope |
 |-----------|-----------------|-------|
@@ -142,7 +142,7 @@ In `/rune:review`, agents are grouped into 7 built-in Ashes (extensible via tali
 
 ## Ash Selection Logic
 
-The `/rune:review` command selects Ash based on file extensions (Rune Gaze):
+The `/rune:appraise` command selects Ash based on file extensions (Rune Gaze):
 
 | File Pattern | Ash Selected |
 |-------------|---------------------|

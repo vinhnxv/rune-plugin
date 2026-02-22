@@ -182,10 +182,10 @@ All Rune multi-agent workflows implement the inscription protocol.
 
 | Workflow | Typical Team Size | Inscription Required | Verification |
 |----------|-------------------|---------------------|-------------|
-| `/rune:review` | 3-5 | **Yes** (built-in) | Layer 0 + Layer 2 |
+| `/rune:appraise` | 3-5 | **Yes** (built-in) | Layer 0 + Layer 2 |
 | `/rune:audit` | 3-5 | **Yes** (built-in) | Layer 0 + Layer 2 + Validator |
-| `/rune:plan` | 3-5 | **Yes** | Layer 0 only |
-| `/rune:work` (swarm) | 2+ | **Yes** | None (status-only) |
+| `/rune:devise` | 3-5 | **Yes** | Layer 0 only |
+| `/rune:strive` (swarm) | 2+ | **Yes** | None (status-only) |
 | `/rune:mend` | 1+ | **Yes** | None (fixer-only) |
 | Custom (3+ agents) | Varies | **Yes** | Configurable |
 
@@ -367,10 +367,10 @@ For decisions beyond agent capability:
 
 | Workflow | Output Dir | Aggregator | Verification | Sections |
 |----------|-----------|------------|-------------|----------|
-| `/rune:review` | `tmp/reviews/{pr}/` | Runebinder → TOME.md | Layer 0 + Layer 2 | P1, P2, P3, Self-Review Log, Summary |
+| `/rune:appraise` | `tmp/reviews/{pr}/` | Runebinder → TOME.md | Layer 0 + Layer 2 | P1, P2, P3, Self-Review Log, Summary |
 | `/rune:audit` | `tmp/audit/{id}/` | Runebinder → TOME.md | Layer 0 + Layer 2 + Validator | P1, P2, P3, Self-Review Log, Summary |
-| `/rune:plan` | `tmp/plans/{timestamp}/research/` | Lead reads directly | Layer 0 only | Key Findings, Recommendations, Summary |
-| `/rune:work` | `tmp/work/` | Lead reads directly | None (status-only) | Status, Files Changed, Tests |
+| `/rune:devise` | `tmp/plans/{timestamp}/research/` | Lead reads directly | Layer 0 only | Key Findings, Recommendations, Summary |
+| `/rune:strive` | `tmp/work/` | Lead reads directly | None (status-only) | Status, Files Changed, Tests |
 
 ## State File Integration
 

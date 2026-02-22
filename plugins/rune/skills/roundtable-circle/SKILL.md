@@ -1,13 +1,13 @@
 ---
 name: roundtable-circle
 description: |
-  Use when running /rune:review or /rune:audit, when spawning multiple review agents,
+  Use when running /rune:appraise or /rune:audit, when spawning multiple review agents,
   or when orchestrating Agent Teams for code analysis. Handles team lifecycle, inscription
   contracts, Ash monitoring, TOME aggregation, and cleanup for up to 8 parallel reviewers.
 
   <example>
   Context: Running a code review
-  user: "/rune:review"
+  user: "/rune:appraise"
   assistant: "Loading roundtable-circle for Agent Teams review orchestration"
   </example>
 user-invocable: false
@@ -97,7 +97,7 @@ tmp/reviews/{id}/
 
 `/rune:audit` reuses the same 7-phase lifecycle with one difference in Phase 0:
 
-| Aspect | Review (`/rune:review`) | Audit (`/rune:audit`) |
+| Aspect | Review (`/rune:appraise`) | Audit (`/rune:audit`) |
 |--------|------------------------|----------------------|
 | Phase 0 input | `git diff` (changed files) | `find` (all project files) |
 | Identifier | PR number / branch name | Timestamp (`YYYYMMDD-HHMMSS`) |
@@ -132,7 +132,7 @@ See [Validator Rules](references/validator-rules.md) for confidence scoring and 
 ## Phase 0: Pre-flight
 
 ```bash
-# Unified scope (see /rune:review command for full implementation):
+# Unified scope (see /rune:appraise command for full implementation):
 # committed: git diff --name-only --diff-filter=ACMR "${default_branch}...HEAD"
 # staged: git diff --cached --name-only --diff-filter=ACMR
 # unstaged: git diff --name-only

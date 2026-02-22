@@ -2,7 +2,7 @@
 name: veil-piercer-plan
 description: |
   Plan-level truth-teller that challenges whether a plan is grounded in reality
-  or is a beautiful fiction. Used during /rune:plan Phase 4C (technical review)
+  or is a beautiful fiction. Used during /rune:devise Phase 4C (technical review)
   alongside decree-arbiter and knowledge-keeper. Unlike decree-arbiter which
   validates technical soundness within the plan's own frame, veil-piercer-plan
   questions whether the frame itself is correct.

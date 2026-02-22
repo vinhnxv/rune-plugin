@@ -1,17 +1,17 @@
 ---
-name: work
+name: strive
 description: |
   Multi-agent work execution using Agent Teams. Parses a plan into tasks,
   summons swarm workers that claim and complete tasks independently,
   and runs quality gates before completion.
 
   <example>
-  user: "/rune:work plans/feat-user-auth-plan.md"
+  user: "/rune:strive plans/feat-user-auth-plan.md"
   assistant: "The Tarnished marshals the Ash to forge the plan..."
   </example>
 
   <example>
-  user: "/rune:work"
+  user: "/rune:strive"
   assistant: "No plan specified. Looking for recent plans..."
   </example>
 user-invocable: true
@@ -39,7 +39,7 @@ allowed-tools:
 - Active workflows: !`ls tmp/.rune-*-*.json 2>/dev/null | grep -c '"active"' || echo 0`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
 
-# /rune:work — Multi-Agent Work Execution
+# /rune:strive — Multi-Agent Work Execution
 
 Parses a plan into tasks with dependencies, summons swarm workers, and coordinates parallel implementation.
 
@@ -48,10 +48,10 @@ Parses a plan into tasks with dependencies, summons swarm workers, and coordinat
 ## Usage
 
 ```
-/rune:work plans/feat-user-auth-plan.md              # Execute a specific plan
-/rune:work plans/feat-user-auth-plan.md --approve    # Require plan approval per task
-/rune:work plans/feat-user-auth-plan.md --worktree   # Use git worktree isolation (experimental)
-/rune:work                                            # Auto-detect recent plan
+/rune:strive plans/feat-user-auth-plan.md              # Execute a specific plan
+/rune:strive plans/feat-user-auth-plan.md --approve    # Require plan approval per task
+/rune:strive plans/feat-user-auth-plan.md --worktree   # Use git worktree isolation (experimental)
+/rune:strive                                            # Auto-detect recent plan
 ```
 
 ## Pipeline Overview
@@ -134,7 +134,7 @@ const currentBranch = Bash("git branch --show-current").trim()
 const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
   || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
 if (currentBranch === "") {
-  throw new Error("Detached HEAD detected. Checkout a branch before running /rune:work: git checkout -b <branch>")
+  throw new Error("Detached HEAD detected. Checkout a branch before running /rune:strive: git checkout -b <branch>")
 }
 const BRANCH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
 if (!BRANCH_RE.test(currentBranch)) throw new Error(`Invalid current branch name: ${currentBranch}`)
@@ -320,7 +320,7 @@ Read and execute [quality-gates.md](references/quality-gates.md) before proceedi
 if (exists(".claude/echoes/workers/")) {
   appendEchoEntry(".claude/echoes/workers/MEMORY.md", {
     layer: "inscribed",
-    source: `rune:work ${timestamp}`,
+    source: `rune:strive ${timestamp}`,
   })
 }
 ```

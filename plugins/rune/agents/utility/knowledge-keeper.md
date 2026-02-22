@@ -4,7 +4,7 @@ description: |
   Documentation coverage reviewer for plans. Validates that a plan addresses
   documentation needs — README updates, API docs, inline comments, migration guides,
   documentation impact assessment (version bumps, CHANGELOG, registry updates).
-  Used during /rune:plan Phase 4C (technical review) and /rune:arc Phase 2 (plan review)
+  Used during /rune:devise Phase 4C (technical review) and /rune:arc Phase 2 (plan review)
   alongside decree-arbiter and scroll-reviewer.
 
   Covers: Identify files needing documentation updates from plan changes, validate API

@@ -1,6 +1,6 @@
 # Ash Summoning — Phase 3 Reference
 
-This reference covers Phase 3 of `/rune:review`: Ash selection, prompt generation, inscription contract, talisman custom Ashes, and CLI-backed Ashes.
+This reference covers Phase 3 of `/rune:appraise`: Ash selection, prompt generation, inscription contract, talisman custom Ashes, and CLI-backed Ashes.
 
 ## Phase 3: Summon Ash
 
@@ -60,7 +60,7 @@ Task({
              // reference it in the prompt rather than embedding raw paths inline.
              // Codex Oracle additionally requires: {context_budget}, {codex_model}, {codex_reasoning},
              // {file_batch}, {review_mode}, {default_branch}, {identifier}, {diff_context}, {max_diff_size}
-             // review_mode is always "review" for /rune:review (Codex Oracle uses diff-focused strategy)
+             // review_mode is always "review" for /rune:appraise (Codex Oracle uses diff-focused strategy)
              // These are resolved from talisman.codex.* config. See codex-oracle.md header for full contract.
              // SEC-007: Validate review_mode before substitution:
              // review_mode = ["review", "audit"].includes(mode) ? mode : "audit"

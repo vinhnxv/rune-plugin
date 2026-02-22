@@ -71,10 +71,10 @@ codex:
   workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex (v1.39.0: added "mend")
   skip_git_check: false                # Pass --skip-git-repo-check if true
   work_advisory:
-    enabled: true                      # Codex advisory in /rune:work
+    enabled: true                      # Codex advisory in /rune:strive
     max_diff_size: 15000               # Truncate diff for advisory
   review_diff:
-    enabled: true                      # Diff-focused review for /rune:review
+    enabled: true                      # Diff-focused review for /rune:appraise
     max_diff_size: 15000               # Max diff chars per batch
     context_lines: 5                   # Context lines around changes
     include_new_files_full: true       # Full content for new files
@@ -144,7 +144,7 @@ Teams should add any proprietary configs, internal tooling paths, or domain-spec
 | `workspace-write` | Refactoring, editing | `--sandbox workspace-write --full-auto` |
 | `danger-full-access` | Full system access | Requires explicit `--dangerously-auto-approve` |
 
-Rune uses `read-only` for review/audit/forge workflows. Only `/rune:work` advisory
+Rune uses `read-only` for review/audit/forge workflows. Only `/rune:strive` advisory
 may use `workspace-write` in the future (currently read-only).
 
 ## Execution Pattern

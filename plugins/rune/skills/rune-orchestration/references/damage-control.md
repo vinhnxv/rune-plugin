@@ -47,7 +47,7 @@ Before overflow occurs, monitor for these signals and act:
 | Agent reads 20+ files in one task | Suggest skimming (see QW-1) for remaining files |
 | Agent confidence < 50 (see QW-2) | Consider reassigning — agent may be spending tokens unproductively |
 
-**Prevention is cheaper than recovery.** If an agent consistently hits DC-1 on task 5+, the session has too many tasks — split into multiple `/rune:work` runs.
+**Prevention is cheaper than recovery.** If an agent consistently hits DC-1 on task 5+, the session has too many tasks — split into multiple `/rune:strive` runs.
 
 ### DC-1 Smart Adaptive Retry Strategy
 

@@ -104,7 +104,7 @@ if (!/^[a-zA-Z0-9._\/-]+$/.test(planPath)) {
 }
 
 if (!exists(planPath)) {
-  error(`Plan not found: ${planPath}. Create one with /rune:plan first.`)
+  error(`Plan not found: ${planPath}. Create one with /rune:devise first.`)
   return
 }
 ```
@@ -133,7 +133,7 @@ AskUserQuestion({
 })
 ```
 
-If none found, suggest `/rune:plan` first.
+If none found, suggest `/rune:devise` first.
 
 ## Arc Context Detection
 
@@ -382,7 +382,7 @@ if (!isArcContext) {
       question: `Plan enriched at ${planPath}. What would you like to do next?`,
       header: "Next step",
       options: [
-        { label: "/rune:work (Recommended)", description: "Start implementing this plan with swarm workers" },
+        { label: "/rune:strive (Recommended)", description: "Start implementing this plan with swarm workers" },
         { label: "View diff", description: "Show what the forge changed (diff against backup)" },
         { label: "Revert enrichment", description: "Restore the original plan from backup" },
         { label: "Deepen sections", description: "Re-run forge on specific sections for more depth" }
@@ -395,7 +395,7 @@ if (!isArcContext) {
 ```
 
 **Action handlers**:
-- `/rune:work` → Invoke `Skill("rune:work", planPath)`
+- `/rune:strive` → Invoke `Skill("rune:strive", planPath)`
 - **View diff** → `Bash(\`diff -u "tmp/forge/{timestamp}/original-plan.md" "${planPath}" || true\`)` — display unified diff of all changes
 - **Revert enrichment** → `Bash(\`cp "tmp/forge/{timestamp}/original-plan.md" "${planPath}"\`)` — restore original, confirm to user
 - **Deepen sections** → Ask which sections to re-deepen via AskUserQuestion, then re-run Phase 2-5 targeting only those sections (reuse same `timestamp` and backup)
@@ -404,8 +404,8 @@ if (!isArcContext) {
 
 | Error | Recovery |
 |-------|----------|
-| Plan file not found | Suggest `/rune:plan` first |
-| No plans in plans/ directory | Suggest `/rune:plan` first |
+| Plan file not found | Suggest `/rune:devise` first |
+| No plans in plans/ directory | Suggest `/rune:devise` first |
 | No agents matched any section | Warn user, suggest `--exhaustive` for lower threshold |
 | Agent timeout (>5 min) | Release task, warn user, proceed with available enrichments |
 | Team lifecycle failure | Pre-create guard + rm fallback (see team-lifecycle-guard.md) |

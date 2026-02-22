@@ -1,12 +1,12 @@
 ---
-name: review
+name: appraise
 description: |
   Multi-agent code review using Agent Teams. Summons up to 7 built-in Ashes
   (plus custom Ash from talisman.yml), each with their own 200k context window.
   Handles scope selection, team creation, review orchestration, aggregation, verification, and cleanup.
 
   <example>
-  user: "/rune:review"
+  user: "/rune:appraise"
   assistant: "The Tarnished convenes the Roundtable Circle for review..."
   </example>
 user-invocable: true
@@ -32,7 +32,7 @@ allowed-tools:
 - Active workflows: !`ls tmp/.rune-*-*.json 2>/dev/null | grep -c '"active"' || echo 0`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
 
-# /rune:review — Multi-Agent Code Review
+# /rune:appraise — Multi-Agent Code Review
 
 Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams.
 

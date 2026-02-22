@@ -41,9 +41,9 @@ Files: 34  |  Chunks: 3  |  Tier: STANDARD (max 2 re-reviews)
 Token cost: ~3x single-pass review (one Roundtable Circle per chunk)
 
 Chunk 1 — plugins/rune/commands/ (12 files, complexity: 18.4)
-  plugins/rune/skills/review/SKILL.md    [md,  complexity: 0.5]
+  plugins/rune/skills/appraise/SKILL.md  [md,  complexity: 0.5]
   plugins/rune/commands/arc.md            [md,  complexity: 0.5]
-  plugins/rune/skills/work/SKILL.md      [md,  complexity: 0.5]
+  plugins/rune/skills/strive/SKILL.md    [md,  complexity: 0.5]
   ... (9 more)
 
 Chunk 2 — plugins/rune/skills/ (14 files, complexity: 21.7)

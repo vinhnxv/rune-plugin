@@ -46,7 +46,7 @@ The `rm -rf` filesystem fallback is essential because TeamDelete fails with "Can
 
 ## Traced — Experimental: Parallel Mend Workers (2026-02-12)
 
-**Source**: rune:work work-session-001
+**Source**: rune:strive work-session-001
 **Confidence**: LOW (single session, needs more data)
 
 Attempted 5 parallel mend workers on a 30-file changeset. Workers 3 and 4 experienced `.git/index.lock` contention despite commit broker serialization. Root cause: workers were running `git diff` for pre-fix snapshots, which acquires a shared lock that conflicts with the broker's exclusive lock during commit.

@@ -100,7 +100,7 @@ ashes:
       finding_prefix: "PERF"
 
     # Example 3: A review + forge agent (participates in all workflows)
-    # Forge is default in /rune:plan and /rune:forge — custom agents participate
+    # Forge is default in /rune:devise and /rune:forge — custom agents participate
     # via topic matching when "forge" is in their workflows list.
     - name: "api-contract-reviewer"
       agent: "api-contract-reviewer"       # Resolves to .claude/agents/api-contract-reviewer.md
@@ -227,8 +227,8 @@ defaults:
 # ──────────────────────────────────────────────
 # Forge — Forge Gaze selection overrides (forge runs by default)
 # ──────────────────────────────────────────────
-# Forge enrichment is enabled by default in /rune:plan and /rune:forge.
-# Use --quick with /rune:plan to skip forge, or --exhaustive for deeper research.
+# Forge enrichment is enabled by default in /rune:devise and /rune:forge.
+# Use --quick with /rune:devise to skip forge, or --exhaustive for deeper research.
 # forge:
 #   threshold: 0.30          # Score threshold for agent selection (0.0-1.0)
 #   max_per_section: 3       # Max agents per plan section (upper bound: 5)
@@ -268,7 +268,7 @@ defaults:
 # ──────────────────────────────────────────────
 # Pre-flight check in /rune:arc that detects when a plan's
 # source codebase has drifted significantly since plan creation.
-# Requires git_sha in plan frontmatter (added by /rune:plan v1.26.0+).
+# Requires git_sha in plan frontmatter (added by /rune:devise v1.26.0+).
 # Plans without git_sha gracefully skip the check.
 #
 # NOTE: These settings go under the same `plan:` key as verification_patterns above.
@@ -403,7 +403,7 @@ arc:
 # ──────────────────────────────────────────────
 # Solution Arena — Competitive solution evaluation (v1.24.0+)
 # ──────────────────────────────────────────────
-# Phase 1.8 in /rune:plan — generates 2-5 alternative solutions and
+# Phase 1.8 in /rune:devise — generates 2-5 alternative solutions and
 # evaluates them via Devil's Advocate + Innovation Scout challengers.
 # Weighted decision matrix selects the champion approach.
 # Arena runs by default. Use --no-arena to skip, or disable globally below.
@@ -507,7 +507,7 @@ echoes:
 # Work — Swarm execution settings
 # ──────────────────────────────────────────────
 work:
-  ward_commands:               # Quality gate commands for /rune:work
+  ward_commands:               # Quality gate commands for /rune:strive
     - "make check"
     - "npm test"
   max_workers: 3               # Max parallel swarm workers
@@ -623,14 +623,14 @@ codex:
   # Default: timeout - 60s. Must be < timeout.
   stream_idle_timeout: 540
   workflows: [review, audit, plan, forge, work, mend]
-  # Work advisory settings (Phase 4.5 of /rune:work — non-blocking plan-vs-implementation check)
+  # Work advisory settings (Phase 4.5 of /rune:strive — non-blocking plan-vs-implementation check)
   work_advisory:
     enabled: true                    # Set false to skip advisory in work pipeline
     max_diff_size: 15000             # Truncate diff to this many chars (default: 15000)
-  # Diff-focused review settings (for /rune:review — v1.31.0+)
+  # Diff-focused review settings (for /rune:appraise — v1.31.0+)
   # When enabled, Codex Oracle reviews unified diffs instead of whole files.
   # This reduces irrelevant findings on unchanged code and improves token efficiency.
-  # Only applies to /rune:review — /rune:audit always uses file-focused review.
+  # Only applies to /rune:appraise — /rune:audit always uses file-focused review.
   review_diff:
     enabled: true                      # Use diff instead of whole files (default: true)
     max_diff_size: 15000               # Max diff chars per codex exec batch (default: 15000)
@@ -653,7 +653,7 @@ codex:
   mend_verification:
     enabled: true                    # Enable post-fix verification (default: true)
     max_diff_size: 15000             # Max diff chars for verification (default: 15000)
-  # Codex Arena Judge in /rune:plan Phase 1.8
+  # Codex Arena Judge in /rune:devise Phase 1.8
   arena:
     enabled: true                    # Enable Codex Arena Judge (default: true)
     role: "judge"                    # "judge" | "generator" | "both" (default: "judge")
@@ -669,7 +669,7 @@ codex:
   gap_analysis:
     enabled: true                    # Enable cross-model gap detection (default: true)
     timeout: 600                     # Gap analysis timeout (default: 600s)
-  # Edge case suggestions for /rune:work trial-forger
+  # Edge case suggestions for /rune:strive trial-forger
   trial_forger:
     enabled: true                    # Enable edge case suggestions before test writing (default: true)
     timeout: 120                     # Quick check — 2 min max
@@ -681,7 +681,7 @@ codex:
     reasoning: "low"                 # Low reasoning for speed
     min_diff_size: 100               # Skip for trivial changes below this char count
     confidence_threshold: 90         # Only report CRITICAL findings (>= 90% confidence)
-  # Cross-model complexity scoring in /rune:plan Phase 2.5 (Shatter)
+  # Cross-model complexity scoring in /rune:devise Phase 2.5 (Shatter)
   shatter:
     enabled: true                    # Enable cross-model complexity scoring (default: true)
     weight: 0.3                      # Codex weight in blended score (default: 0.3, range: 0.0-1.0)

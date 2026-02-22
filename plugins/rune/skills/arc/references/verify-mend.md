@@ -2,7 +2,7 @@
 
 Full convergence controller that evaluates mend results, determines whether to loop back for another review-mend cycle, or proceed to audit. Replaces the previous single-pass spot-check with an adaptive multi-cycle review-mend loop.
 
-**Team**: None for convergence decision. Delegates full re-review to `/rune:review` (Phase 6) via dispatcher loop-back.
+**Team**: None for convergence decision. Delegates full re-review to `/rune:appraise` (Phase 6) via dispatcher loop-back.
 **Tools**: Read, Glob, Grep, Write, Bash (git diff)
 **Duration**: Max 4 minutes per convergence evaluation (re-review cycles run as separate Phase 6+7 invocations)
 
@@ -88,7 +88,7 @@ if (qCount + nCount > 0) {
 }
 
 // v1.38.0: Extract scope stats for smart convergence scoring
-// Scope stats are available when diff-scope tagging was applied (review.md Phase 5.3).
+// Scope stats are available when diff-scope tagging was applied (appraise.md Phase 5.3).
 // For untagged TOMEs (pre-v1.38.0), scopeStats is null → evaluateConvergence skips smart scoring.
 let scopeStats = null
 // SEC-007 FIX: Filter markers by session nonce before extracting scope stats.
@@ -250,10 +250,10 @@ function countP2Findings(tomeContent) {
 ## Mini-TOME Generation (reference — not called by convergence controller)
 
 <!-- QUAL-014: This function is a reference implementation preserved for future use.
-     The current convergence controller (STEP 3 retry branch) triggers a full /rune:review
+     The current convergence controller (STEP 3 retry branch) triggers a full /rune:appraise
      re-review instead of generating a mini-TOME. If the convergence design changes to use
      spot-check-based retry (without full re-review), this function would be needed. -->
-When `verify_mend` decides to retry but uses spot-check findings instead of a full re-review, it generates a mini-TOME. However, in the new convergence controller, retry triggers a full `/rune:review` re-review — the mini-TOME is only needed as a fallback when the convergence controller itself detects regressions before dispatching.
+When `verify_mend` decides to retry but uses spot-check findings instead of a full re-review, it generates a mini-TOME. However, in the new convergence controller, retry triggers a full `/rune:appraise` re-review — the mini-TOME is only needed as a fallback when the convergence controller itself detects regressions before dispatching.
 
 ```javascript
 function generateMiniTome(spotFindings, sessionNonce, round) {

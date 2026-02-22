@@ -38,10 +38,10 @@ The fundamental value lies in distributing cognitive load across separate contex
 
 | Category | Workflows | Orchestration Pattern |
 |----------|-----------|----------------------|
-| **Reviews** | `/rune:review` | Ash Specialists |
+| **Reviews** | `/rune:appraise` | Ash Specialists |
 | **Audits** | `/rune:audit` | Roundtable Circle (Fan-out / Fan-in) |
-| **Research** | `/rune:plan` | Parallel Exploration |
-| **Work** | `/rune:work` | Swarm Workers |
+| **Research** | `/rune:devise` | Parallel Exploration |
+| **Work** | `/rune:strive` | Swarm Workers |
 | **Custom** | Any workflow summoning 3+ agents | Choose pattern from below |
 
 **Generic trigger conditions:**
@@ -114,7 +114,7 @@ The Tarnished (orchestrator)
     └── knowledge-keeper    (docs review)
 ```
 
-**Used by:** `/rune:review`, `/rune:audit`
+**Used by:** `/rune:appraise`, `/rune:audit`
 
 **Mitigate telephone game:** Use file-based handoff, not message passing.
 
@@ -122,7 +122,7 @@ The Tarnished (orchestrator)
 
 Direct agent-to-agent communication. Workers self-organize and race to claim tasks.
 
-**Used by:** `/rune:work`
+**Used by:** `/rune:strive`
 
 **Example use case:** Multiple rune-smiths claiming independent tasks from a shared pool.
 
@@ -136,7 +136,7 @@ Strategy Layer (plan)
         └── Execution Layer (implement)
 ```
 
-**Used by:** `/rune:plan` → `/rune:work` → `/rune:review`
+**Used by:** `/rune:devise` → `/rune:strive` → `/rune:appraise`
 
 ## Agent Role Patterns
 

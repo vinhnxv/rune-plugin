@@ -64,7 +64,7 @@ if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${STDE
 > Truthbinding protocol, and injection mitigations, see
 > [codex-oracle.md](../../roundtable-circle/references/ash-prompts/codex-oracle.md) Review Mode section.
 
-For `/rune:review`, pass diff content instead of file lists:
+For `/rune:appraise`, pass diff content instead of file lists:
 
 ```bash
 # 1. Extract diff for batch (with rename detection)

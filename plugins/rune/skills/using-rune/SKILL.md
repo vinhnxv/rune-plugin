@@ -19,11 +19,11 @@ Do not auto-invoke heavyweight commands — suggest and let the user confirm.
 
 | User Says | Suggest | Why |
 |-----------|---------|-----|
-| "Review my code" / "check this PR" / "code review" | `/rune:review` | Multi-agent review of changed files |
+| "Review my code" / "check this PR" / "code review" | `/rune:appraise` | Multi-agent review of changed files |
 | "Audit the codebase" / "security scan" / "full review" | `/rune:audit` | Comprehensive codebase analysis (all files, not just diff) |
-| "Plan a feature" / "design this" / "how should we build" | `/rune:plan` | Multi-agent planning pipeline (brainstorm + research + synthesize) |
-| "Quick plan" / "just outline it" | `/rune:plan --quick` | Lightweight planning (research + synthesize, skip brainstorm/forge) |
-| "Implement this" / "build it" / "execute the plan" | `/rune:work plans/...` | Swarm workers execute a plan file |
+| "Plan a feature" / "design this" / "how should we build" | `/rune:devise` | Multi-agent planning pipeline (brainstorm + research + synthesize) |
+| "Quick plan" / "just outline it" | `/rune:devise --quick` | Lightweight planning (research + synthesize, skip brainstorm/forge) |
+| "Implement this" / "build it" / "execute the plan" | `/rune:strive plans/...` | Swarm workers execute a plan file |
 | "Fix these findings" / "resolve the review" | `/rune:mend tmp/.../TOME.md` | Parallel resolution of review findings |
 | "Run everything" / "ship it" / "end to end" | `/rune:arc plans/...` | Full 17-phase pipeline (forge → work → review → mend → test → goldmask → audit → ship → merge) |
 | "Batch arc" / "run all plans" / "overnight" / "multiple plans" | `/rune:arc-batch plans/*.md` | Sequential batch arc execution with auto-merge and crash recovery |
@@ -37,7 +37,7 @@ Do not auto-invoke heavyweight commands — suggest and let the user confirm.
 
 1. **Suggest, don't auto-invoke.** Rune commands spawn agent teams. Always confirm first.
 2. **One command per intent.** If ambiguous, ask which workflow they want.
-3. **Check for prerequisites.** `/rune:work` needs a plan file. `/rune:mend` needs a TOME. `/rune:arc` needs a plan.
+3. **Check for prerequisites.** `/rune:strive` needs a plan file. `/rune:mend` needs a TOME. `/rune:arc` needs a plan.
 4. **Recent artifacts matter.** Check `plans/` for recent plans, `tmp/reviews/` for recent TOMEs.
 
 ## When NOT to Route
@@ -51,10 +51,10 @@ Do not auto-invoke heavyweight commands — suggest and let the user confirm.
 
 | Command | Spawns Agents? | Duration | Input Required |
 |---------|---------------|----------|----------------|
-| `/rune:review` | Yes (up to 8) | 3-10 min | Git diff (auto-detected) |
+| `/rune:appraise` | Yes (up to 8) | 3-10 min | Git diff (auto-detected) |
 | `/rune:audit` | Yes (up to 8) | 5-15 min | None (scans all files) |
-| `/rune:plan` | Yes (up to 7) | 5-15 min | Feature description |
-| `/rune:work` | Yes (swarm) | 10-30 min | Plan file path |
+| `/rune:devise` | Yes (up to 7) | 5-15 min | Feature description |
+| `/rune:strive` | Yes (swarm) | 10-30 min | Plan file path |
 | `/rune:mend` | Yes (per file) | 3-10 min | TOME file path |
 | `/rune:arc` | Yes (per phase) | 30-90 min | Plan file path |
 | `/rune:arc-batch` | Yes (per plan) | 45-240 min/plan | Plan glob or queue file |

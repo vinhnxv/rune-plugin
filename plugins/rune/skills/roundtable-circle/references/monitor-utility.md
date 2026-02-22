@@ -1,6 +1,6 @@
 # Monitor Utility — Parameterized Polling for Agent Teams
 
-> Shared polling utility used by all 7 Rune commands (`review`, `audit`, `work`, `mend`, `plan`, `forge`, `arc`). Each command calls `waitForCompletion` with its own configuration instead of inlining a polling loop. ~147 lines of polling logic across 7 commands collapse into a single parameterized reference.
+> Shared polling utility used by all 7 Rune commands (`appraise`, `audit`, `strive`, `mend`, `devise`, `forge`, `arc`). Each command calls `waitForCompletion` with its own configuration instead of inlining a polling loop. ~147 lines of polling logic across 7 commands collapse into a single parameterized reference.
 
 ## Table of Contents
 
@@ -207,21 +207,21 @@ Each command passes its own `opts` to `waitForCompletion`:
 
 | Command | `timeoutMs` | `staleWarnMs` | `autoReleaseMs` | `pollIntervalMs` | `label` | `onCheckpoint` |
 |---------|-------------|---------------|-----------------|-------------------|---------|----------------|
-| `review` | 600,000 (10 min) | 300,000 (5 min) | — | 30,000 (30s) | `"Review"` | — |
+| `appraise` | 600,000 (10 min) | 300,000 (5 min) | — | 30,000 (30s) | `"Review"` | — |
 | `audit` | 900,000 (15 min) | 300,000 (5 min) | — | 30,000 (30s) | `"Audit"` | — |
-| `work` | 1,800,000 (30 min) | 300,000 (5 min) | 600,000 (10 min) | 30,000 (30s) | `"Work"` | Yes (milestone) |
+| `strive` | 1,800,000 (30 min) | 300,000 (5 min) | 600,000 (10 min) | 30,000 (30s) | `"Work"` | Yes (milestone) |
 | `mend` | 900,000 (15 min) ‡ | 300,000 (5 min) | 600,000 (10 min) | 30,000 (30s) | `"Mend"` | — |
-| `plan` | — (none) | 300,000 (5 min) | — | 30,000 (30s) | `"Plan Research"` | — |
+| `devise` | — (none) | 300,000 (5 min) | — | 30,000 (30s) | `"Plan Research"` | — |
 | `forge` | 1,200,000 (20 min) | 300,000 (5 min) | 300,000 (5 min)* | 30,000 (30s) | `"Forge"` | — |
 | `arc` | Per-phase (varies) | 300,000 (5 min) | — | 30,000 (30s) | `"Arc: {phase}"` | Planned |
 
 ‡ **Mend timeout override**: When called from arc with `--timeout <ms>`, inner polling timeout is derived: `timeout - SETUP_BUDGET(5m) - MEND_EXTRA_BUDGET(3m)`, minimum 120,000ms. On arc retry rounds, this reduces from 15 min to ~5 min. See mend.md Flags.
 
 **Key differences**:
-- `review` and `audit` have no `autoReleaseMs` because each Ash produces unique findings that cannot be reclaimed by another Ash.
-- `work` and `mend` enable auto-release because their tasks are fungible (any worker can pick up a released task).
+- `appraise` and `audit` have no `autoReleaseMs` because each Ash produces unique findings that cannot be reclaimed by another Ash.
+- `strive` and `mend` enable auto-release because their tasks are fungible (any worker can pick up a released task).
 - `forge` enables auto-release (5 min) because enrichment tasks are reassignable. *When `staleWarnMs === autoReleaseMs` (as in forge), warn and release fire on the same poll tick — this is by design since forge's stale detection and release are a single action.
-- `plan` has no `timeoutMs` — polling continues until all tasks complete or stale detection intervenes.
+- `devise` has no `timeoutMs` — polling continues until all tasks complete or stale detection intervenes.
 - `forge` has a 20-minute `timeoutMs` (`FORGE_TIMEOUT = 1_200_000` in forge.md) — enrichment sessions have a hard upper bound.
 - `arc` uses `PHASE_TIMEOUTS` from its constants (see `arc SKILL.md`) which vary per phase. Phase outer timeout = inner polling timeout + `SETUP_BUDGET` (5 min) + optional `MEND_EXTRA_BUDGET` (3 min). The inner timeout is the real enforcement — `checkArcTimeout()` only runs between phases.
 - **Signal-path compatibility**: When the Phase 2 fast path is active, `autoReleaseMs` and `onCheckpoint` are not evaluated. Commands that rely on these features (`work`, `mend`, `forge`) lose those capabilities until Phase 3 unifies both paths. Commands without these features (`review`, `audit`) behave identically on either path.
@@ -229,7 +229,7 @@ Each command passes its own `opts` to `waitForCompletion`:
 ## Usage Example
 
 ```javascript
-// In review.md Phase 4:
+// In appraise/SKILL.md Phase 4:
 const result = waitForCompletion(teamName, ashCount, {
   timeoutMs: 600_000,
   staleWarnMs: 300_000,
@@ -241,14 +241,14 @@ if (result.timedOut) {
   log(`Review completed with partial results: ${result.completed.length}/${ashCount} Ashes`)
 }
 
-// In plan.md Monitor Research (no timeout):
+// In devise/SKILL.md Monitor Research (no timeout):
 const result = waitForCompletion(teamName, researchTaskCount, {
   staleWarnMs: 300_000,
   pollIntervalMs: 30_000,
   label: "Plan Research"
 })
 
-// In work.md Phase 3 (with auto-release + optional checkpoint reporting):
+// In strive/SKILL.md Phase 3 (with auto-release + optional checkpoint reporting):
 const result = waitForCompletion(teamName, taskCount, {
   timeoutMs: 1_800_000,
   staleWarnMs: 300_000,
@@ -268,12 +268,12 @@ const result = waitForCompletion(teamName, taskCount, {
 
 ## Notes
 
-- **Timeout is optional**: When `timeoutMs` is `undefined`, the loop runs until all tasks complete. This matches `plan` and `forge` which have no hard timeout.
-- **Auto-release is optional**: When `autoReleaseMs` is `undefined`, stale tasks only produce warnings. This matches `review` and `audit` where Ash findings are non-fungible.
+- **Timeout is optional**: When `timeoutMs` is `undefined`, the loop runs until all tasks complete. This matches `devise` and `forge` which have no hard timeout.
+- **Auto-release is optional**: When `autoReleaseMs` is `undefined`, stale tasks only produce warnings. This matches `appraise` and `audit` where Ash findings are non-fungible.
 - **No retry logic**: `TaskList()` errors propagate naturally. Retry logic is out of scope for Phase 1.
-- **Final sweep**: On timeout, a final `TaskList()` call captures any tasks that completed during the last poll interval. This matches the existing pattern in `review.md`, `audit.md`, `work.md`, and `mend.md`.
-- **Arc per-phase budgets**: Arc does not call `waitForCompletion` directly with a single timeout. Instead, each delegated phase (work, review, mend, audit) uses its own inner timeout. Arc wraps these with a safety-net phase timeout (`PHASE_TIMEOUTS`) plus the global `calculateDynamicTimeout(tier)` ceiling (162-240 min depending on convergence tier; see arc SKILL.md).
-- **Checkpoint reporting is optional**: When `onCheckpoint` is `undefined`, no milestone tracking occurs. Existing callers without `onCheckpoint` get identical behavior. Currently used by `work`. Arc integration is planned but not yet wired.
+- **Final sweep**: On timeout, a final `TaskList()` call captures any tasks that completed during the last poll interval. This matches the existing pattern in `appraise.md`, `audit.md`, `strive.md`, and `mend.md`.
+- **Arc per-phase budgets**: Arc does not call `waitForCompletion` directly with a single timeout. Instead, each delegated phase (strive, appraise, mend, audit) uses its own inner timeout. Arc wraps these with a safety-net phase timeout (`PHASE_TIMEOUTS`) plus the global `calculateDynamicTimeout(tier)` ceiling (162-240 min depending on convergence tier; see arc SKILL.md).
+- **Checkpoint reporting is optional**: When `onCheckpoint` is `undefined`, no milestone tracking occurs. Existing callers without `onCheckpoint` get identical behavior. Currently used by `strive`. Arc integration is planned but not yet wired.
 - **zsh reserved variable names**: When translating pseudocode to Bash commands, **NEVER use `status` as a shell variable name**. In zsh (macOS default shell), `$status` is a read-only built-in (equivalent to `$?`). Assigning to it causes `(eval):1: read-only variable: status`. Use alternative names like `task_status`, `tstat`, or `completion_status` instead. Other zsh reserved names to avoid: `pipestatus`, `ERRNO`, `signals`.
 - **Polling loop parameters MUST match config**: When translating `waitForCompletion` to Bash, the loop parameters MUST be derived from the configured values — not invented. Use the formula: `maxIterations = ceil(timeoutMs / pollIntervalMs)` and `sleepSeconds = pollIntervalMs / 1000`. For example, mend with `timeoutMs: 900_000` and `pollIntervalMs: 30_000` → `maxIterations=30, sleep 30`. Never use arbitrary iteration counts or sleep intervals that don't match the per-command configuration table above.
 - **Polling enforcement hook**: `enforce-polling.sh` (POLL-001) blocks `sleep+echo` anti-patterns at runtime during active Rune workflows. The `polling-guard` skill provides background knowledge for the correct monitoring loop pattern. Together, these form a 3-layer enforcement pyramid (hook + skill + text warnings) that prevents the LLM from improvising sleep-based monitoring proxies.

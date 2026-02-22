@@ -1,6 +1,6 @@
 # Review Scope Algorithms — Reference
 
-This reference covers detailed diff scope algorithms: staged/unstaged/HEAD~N detection, chunk orchestration routing, and file filtering logic for `/rune:review`.
+This reference covers detailed diff scope algorithms: staged/unstaged/HEAD~N detection, chunk orchestration routing, and file filtering logic for `/rune:appraise`.
 
 ## Phase 0: Diff Scope Engine
 
@@ -269,7 +269,7 @@ if (cycleCount > 1) {
 // Single-pass (cycleCount === 1): continue with standard Phase 2-7 below
 ```
 
-**NOTE**: When `cycleCount === 1` (default), this wrapper is a no-op and the standard single-pass path continues unchanged. Multi-pass is only available in standalone `/rune:review` — arc convergence uses the Phase 7.5 convergence controller instead.
+**NOTE**: When `cycleCount === 1` (default), this wrapper is a no-op and the standard single-pass path continues unchanged. Multi-pass is only available in standalone `/rune:appraise` — arc convergence uses the Phase 7.5 convergence controller instead.
 
 ## Chunked Review (Large Changesets)
 

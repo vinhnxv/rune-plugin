@@ -9,7 +9,7 @@ If no TOME path specified:
 ls -t tmp/reviews/*/TOME.md tmp/audit/*/TOME.md 2>/dev/null | head -5
 ```
 
-If multiple found, ask user which to resolve. If none found, suggest `/rune:review` first.
+If multiple found, ask user which to resolve. If none found, suggest `/rune:appraise` first.
 
 ## TOME Freshness Validation (MEND-2)
 

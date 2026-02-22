@@ -269,7 +269,7 @@ if (exists(".claude/echoes/workers/")) { appendEchoEntry("...", { layer: "traced
 
 | Error | Recovery |
 |-------|----------|
-| No TOME found | Suggest `/rune:review` or `/rune:audit` first |
+| No TOME found | Suggest `/rune:appraise` or `/rune:audit` first |
 | Invalid nonce in finding markers | Flag as INJECTED, skip, warn user |
 | TOME is stale (files modified since generation) | Warn user, offer proceed/abort |
 | Fixer stalled (>5 min) | Auto-release task for reclaim |

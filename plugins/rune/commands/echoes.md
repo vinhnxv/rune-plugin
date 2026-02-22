@@ -74,7 +74,7 @@ Oldest entry: 2026-02-01
 Newest entry: 2026-02-11
 ```
 
-If no echoes exist: "No echoes found. Run `/rune:review` or `/rune:echoes init` to start building memory."
+If no echoes exist: "No echoes found. Run `/rune:appraise` or `/rune:echoes init` to start building memory."
 
 ### prune — Remove Stale Entries
 
@@ -162,7 +162,7 @@ Create the echo directory structure for a new project.
    - .claude/echoes/auditor/
    - .claude/echoes/team/
 
-   Run /rune:review or /rune:audit to start building memory.
+   Run /rune:appraise or /rune:audit to start building memory.
    ```
 
 ### promote — Promote Echoes to Remembrance

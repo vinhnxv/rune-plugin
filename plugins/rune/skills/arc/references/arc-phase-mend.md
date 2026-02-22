@@ -37,7 +37,7 @@ const tomeSource = mendRound === 0
 ```
 
 - **Round 0**: Uses the TOME produced by Phase 6 (CODE REVIEW) — full findings from Roundtable Circle review
-- **Round N (retry)**: Uses the TOME produced by Phase 6 re-review (full `/rune:review` pass with progressive focus scope from `review-focus-round-{N}.json`)
+- **Round N (retry)**: Uses the TOME produced by Phase 6 re-review (full `/rune:appraise` pass with progressive focus scope from `review-focus-round-{N}.json`)
 
 ## Timeout Calculation
 

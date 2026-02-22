@@ -185,7 +185,7 @@ Review cancelled.
 Partial results (if any) remain in: tmp/reviews/{identifier}/
 - {list of files that were written before cancellation}
 
-To re-run: /rune:review
+To re-run: /rune:appraise
 ```
 
 ## Notes

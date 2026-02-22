@@ -97,7 +97,7 @@ Every echo entry must include evidence-based metadata:
 ```markdown
 ### [2026-02-11] Pattern: Unused imports in new files
 - **layer**: inscribed
-- **source**: rune:review PR #42
+- **source**: rune:appraise PR #42
 - **confidence**: 0.85
 - **evidence**: `src/auth.py:1-5` — 3 unused imports found
 - **verified**: 2026-02-11
@@ -110,7 +110,7 @@ Every echo entry must include evidence-based metadata:
 ```markdown
 ### [2026-02-11] Observation: Slow test suite in CI
 - **layer**: traced
-- **source**: rune:work session-abc
+- **source**: rune:strive session-abc
 - **confidence**: 0.6
 - **evidence**: CI logs — test suite took 8min (vs 3min baseline)
 - **verified**: 2026-02-11
@@ -199,7 +199,7 @@ echoes:
 
 ## Integration Points
 
-### After Review (`/rune:review`)
+### After Review (`/rune:appraise`)
 
 In Phase 7 (Cleanup), before presenting TOME.md:
 
@@ -213,7 +213,7 @@ In Phase 7 (Cleanup), before presenting TOME.md:
 
 Same as review, writing to `.claude/echoes/auditor/MEMORY.md`.
 
-### During Plan (`/rune:plan`, v1.0)
+### During Plan (`/rune:devise`, v1.0)
 
 ```
 1. echo-reader agent reads .claude/echoes/planner/MEMORY.md + .claude/echoes/team/MEMORY.md
@@ -221,7 +221,7 @@ Same as review, writing to `.claude/echoes/auditor/MEMORY.md`.
 3. After plan: persist architectural discoveries to .claude/echoes/planner/
 ```
 
-### During Work (`/rune:work`, v1.0)
+### During Work (`/rune:strive`, v1.0)
 
 ```
 1. Read .claude/echoes/workers/MEMORY.md for implementation patterns

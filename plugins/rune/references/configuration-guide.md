@@ -44,10 +44,10 @@ codex:                                 # Codex CLI integration (see codex-cli sk
   stream_idle_timeout: 540             # Inner stream idle timeout — kills codex if no output for this duration (default: 540, range: 10-timeout)
   workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex — "mend" added in v1.39.0 for post-fix verification
   work_advisory:
-    enabled: true                      # Codex advisory in /rune:work
+    enabled: true                      # Codex advisory in /rune:strive
 
 solution_arena:
-  enabled: true                    # Enable Arena phase in /rune:plan
+  enabled: true                    # Enable Arena phase in /rune:devise
   skip_for_types: ["fix"]          # Feature types that skip Arena
   # Additional config (weights, thresholds) available in future versions
 

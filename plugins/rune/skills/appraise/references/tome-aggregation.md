@@ -1,6 +1,6 @@
 # TOME Aggregation — Phase 5+6 Reference
 
-This reference covers Phase 4.5 (Doubt Seer), Phase 5 (Runebinder aggregation), Phase 5.3 (Diff-Scope Tagging), Phase 5.5 (Cross-Model Verification), and Phase 6 (Truthsight verification) of `/rune:review`.
+This reference covers Phase 4.5 (Doubt Seer), Phase 5 (Runebinder aggregation), Phase 5.3 (Diff-Scope Tagging), Phase 5.5 (Cross-Model Verification), and Phase 6 (Truthsight verification) of `/rune:appraise`.
 
 ## Phase 4.5: Doubt Seer (Conditional)
 
@@ -147,7 +147,7 @@ if (diffScope?.enabled && diffScope?.ranges) {
 }
 ```
 
-<!-- NOTE: "Phase 5.5" in review.md refers to Cross-Model Verification (Codex Oracle).
+<!-- NOTE: "Phase 5.5" in appraise.md refers to Cross-Model Verification (Codex Oracle).
      Other pipelines use 5.5 for different sub-phases (audit: Truthseer Validator, arc: Gap Analysis). -->
 
 ## Phase 5.5: Cross-Model Verification (Codex Oracle)

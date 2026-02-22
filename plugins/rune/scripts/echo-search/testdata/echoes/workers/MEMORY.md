@@ -2,7 +2,7 @@
 
 ## Inscribed — Commit Broker Serialization Pattern (2026-01-18)
 
-**Source**: `rune:work work-abc123`
+**Source**: `rune:strive work-abc123`
 **Confidence**: HIGH (verified across 4 work sessions)
 
 ### Implementation Notes
@@ -40,7 +40,7 @@ When ward check fails after multiple fixer outputs are applied:
 
 ## Etched — TypeScript Migration Conventions (2026-02-07)
 
-**Source**: `rune:work work-ts-migration`
+**Source**: `rune:strive work-ts-migration`
 **Confidence**: MEDIUM (conventions stabilized after 3 migration batches)
 
 Established conventions for the ongoing TypeScript migration:
@@ -52,7 +52,7 @@ Established conventions for the ongoing TypeScript migration:
 
 ## Traced — Flaky Test Root Causes (2026-02-14)
 
-**Source**: rune:work work-flaky-tests
+**Source**: rune:strive work-flaky-tests
 **Confidence**: LOW (3 flaky tests identified, fix pending)
 
 Three flaky tests in the CI pipeline:

@@ -1,8 +1,8 @@
 # Phase 5: WORK — Full Algorithm
 
-Invoke `/rune:work` logic on the enriched plan. Swarm workers implement tasks with incremental commits.
+Invoke `/rune:strive` logic on the enriched plan. Swarm workers implement tasks with incremental commits.
 
-**Team**: `arc-work-{id}` (delegated to `/rune:work` — manages its own TeamCreate/TeamDelete with guards)
+**Team**: `arc-work-{id}` (delegated to `/rune:strive` — manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Full access (Read, Write, Edit, Bash, Glob, Grep)
 **Timeout**: 35 min (PHASE_TIMEOUTS.work = 2_100_000 — inner 30m + 5m setup)
 **Inputs**: id (string), enriched plan path (`tmp/arc/{id}/enriched-plan.md`), concern context (optional: `tmp/arc/{id}/concern-context.md`), verification report (optional: `tmp/arc/{id}/verification-report.md`), `--approve` flag
@@ -38,11 +38,11 @@ if (exists(`tmp/arc/${id}/verification-report.md`)) {
 // Quality contract for all workers
 workContext += `\n\n## Quality Contract\nAll code must include:\n- Type annotations on all function signatures\n- Docstrings on all public functions, classes, and modules\n- Error handling with specific exception types (no bare except)\n- Test coverage target: >=80% for new code`
 
-// STEP 3: Delegate to /rune:work
-// /rune:work manages its own team lifecycle (TeamCreate, TaskCreate, worker spawning,
+// STEP 3: Delegate to /rune:strive
+// /rune:strive manages its own team lifecycle (TeamCreate, TaskCreate, worker spawning,
 // monitoring, commit brokering, ward check, cleanup, TeamDelete).
 // Arc records the team_name for cancel-arc discovery.
-// Delegation pattern: /rune:work creates its own team (e.g., rune-work-{timestamp}).
+// Delegation pattern: /rune:strive creates its own team (e.g., rune-work-{timestamp}).
 // Arc reads the team name back from the work state file or teammate idle notification.
 // The team name is recorded in checkpoint for cancel-arc discovery.
 // PRE-DELEGATION: Record phase as in_progress with null team name.
@@ -126,12 +126,12 @@ The `--approve` flag routes to the **human user** via `AskUserQuestion` (not to 
 
 ## Team Lifecycle
 
-Delegated to `/rune:work` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
+Delegated to `/rune:strive` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
 
-Arc MUST record the actual `team_name` created by `/rune:work` in the checkpoint. This enables `/rune:cancel-arc` to discover and shut down the work team if the user cancels mid-pipeline. The work command creates its own team with its own naming convention — arc reads the team name back after delegation.
+Arc MUST record the actual `team_name` created by `/rune:strive` in the checkpoint. This enables `/rune:cancel-arc` to discover and shut down the work team if the user cancels mid-pipeline. The work command creates its own team with its own naming convention — arc reads the team name back after delegation.
 
 Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See SKILL.md Inter-Phase Cleanup Guard section.
 
 ## Feature Branch Strategy
 
-Before delegating to `/rune:work`, the arc orchestrator ensures a feature branch exists (see SKILL.md Pre-flight: Branch Strategy COMMIT-1). If already on a feature branch, the current branch is used. `/rune:work`'s own Phase 0.5 (env setup) skips branch creation when invoked from arc context.
+Before delegating to `/rune:strive`, the arc orchestrator ensures a feature branch exists (see SKILL.md Pre-flight: Branch Strategy COMMIT-1). If already on a feature branch, the current branch is used. `/rune:strive`'s own Phase 0.5 (env setup) skips branch creation when invoked from arc context.
