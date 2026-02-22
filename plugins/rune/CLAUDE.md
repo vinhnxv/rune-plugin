@@ -19,16 +19,16 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 17 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend → test → ship → merge) |
 | **testing** | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | **agent-browser** | Browser automation knowledge injection for E2E testing (non-invocable) |
-| **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection |
+| **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection. Shared data discovery + risk context template used by forge, mend, inspect, and devise |
 | **inner-flame** | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
 | **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
 | **arc-batch** | Sequential batch arc execution — runs /rune:arc across multiple plans with crash recovery and progress tracking |
 | **audit** | Full codebase audit — thin wrapper that sets scope=full, depth=deep, then delegates to shared Roundtable Circle orchestration phases. Default: deep. Use `--standard` to override. |
 | **file-todos** | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Gated by `talisman.file_todos.enabled` |
-| **forge** | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
-| **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
-| **mend** | Parallel finding resolution from TOME |
-| **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
+| **forge** | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer integration (Phase 1.5) for risk-aware section prioritization |
+| **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories). Goldmask Lore Layer integration (Phase 0.3) for risk-aware gap prioritization |
+| **mend** | Parallel finding resolution from TOME. Goldmask data passthrough (risk-overlaid severity, risk context injection) + quick check (Phase 5.95) |
+| **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask 6-agent mode for pre-implementation risk assessment |
 | **appraise** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml). Default: standard. Use `--deep` for multi-wave deep review. |
 | **strive** | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 

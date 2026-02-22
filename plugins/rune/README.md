@@ -414,13 +414,13 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | context-weaving | Context overflow/rot prevention |
 | elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | file-todos | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Gated by `talisman.file_todos.enabled` |
-| forge | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
+| forge | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer (Phase 1.5) for risk-aware section prioritization |
 | git-worktree | Worktree isolation for /rune:strive (experimental `--worktree` flag) |
-| goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers) |
+| goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers). Shared data discovery + risk context template reused by forge, mend, inspect, and devise for risk-aware workflows |
 | inner-flame | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
-| inspect | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
-| mend | Parallel finding resolution from TOME |
-| devise | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
+| inspect | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories). Goldmask Lore Layer (Phase 0.3) for risk-aware gap prioritization |
+| mend | Parallel finding resolution from TOME. Goldmask data passthrough (risk overlay + quick check) |
+| devise | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask 6-agent mode for pre-implementation risk assessment |
 | polling-guard | Monitoring loop fidelity — correct waitForCompletion translation |
 | appraise | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |

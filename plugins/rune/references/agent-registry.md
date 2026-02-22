@@ -77,7 +77,7 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | event-message-tracer | Impact tracing across event buses, message queues, pub/sub, and async pipelines |
 | config-dependency-tracer | Impact tracing across configuration, environment variables, feature flags, and deployment settings |
 | wisdom-sage | Git archaeology — commit intent classification, caution scoring via git blame analysis |
-| lore-analyst | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration |
+| lore-analyst | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration. Used in: goldmask, appraise, audit, devise, forge (Phase 1.5), inspect (Phase 0.3) |
 | goldmask-coordinator | Three-layer synthesis — merges Impact + Wisdom + Lore findings into unified GOLDMASK.md report |
 | grace-warden | Correctness & completeness inspector — plan requirement traceability and implementation status |
 | ruin-prophet | Failure modes, security posture, and operational readiness inspector |
