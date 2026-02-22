@@ -348,4 +348,4 @@ If this phase crashes before cleanup:
 | Docker containers | `tmp/arc/{id}/docker-containers.json` |
 | Screenshots | `tmp/arc/{id}/screenshots/` |
 
-Recovery: `prePhaseCleanup()` handles team/task cleanup. Docker containers auto-stop on Docker daemon restart. Browser sessions time out after 5 minutes of inactivity.
+Recovery: `prePhaseCleanup()` handles team/task cleanup before phase, `postPhaseCleanup()` handles cleanup after. See [arc-phase-cleanup.md](arc-phase-cleanup.md). Docker containers auto-stop on Docker daemon restart. Browser sessions time out after 5 minutes of inactivity.

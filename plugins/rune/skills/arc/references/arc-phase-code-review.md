@@ -252,7 +252,7 @@ When both conditions are met, the Codex Oracle is included as an additional revi
 
 Delegated to `/rune:appraise` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
 
-Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See SKILL.md Inter-Phase Cleanup Guard section.
+Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6) and `postPhaseCleanup(checkpoint, "code_review")` after checkpoint update. See SKILL.md Inter-Phase Cleanup Guard section and [arc-phase-cleanup.md](arc-phase-cleanup.md).
 
 ## Docs-Only Work Output
 

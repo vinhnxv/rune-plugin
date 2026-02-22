@@ -293,6 +293,8 @@ Runs before every delegated phase. 4-strategy cleanup: TeamDelete with backoff �
 
 // DISPATCHER INIT: Read arc-preflight.md to load prePhaseCleanup() into context
 Read(references/arc-preflight.md)
+// DISPATCHER INIT: Read arc-phase-cleanup.md to load postPhaseCleanup() + PHASE_PREFIX_MAP into context
+Read(references/arc-phase-cleanup.md)
 
 ### Initialize Checkpoint (ARC-2)
 
@@ -326,6 +328,8 @@ if (args.includes("--resume")) {
   // CRITICAL: Resume skips pre-flight, but phase stubs still call prePhaseCleanup().
   // Load arc-preflight.md here so prePhaseCleanup is in context for resumed phases.
   Read(references/arc-preflight.md)
+  // Load arc-phase-cleanup.md so postPhaseCleanup is in context for resumed phases.
+  Read(references/arc-phase-cleanup.md)
   Read and execute the arc-resume.md algorithm.
 }
 
@@ -341,6 +345,7 @@ See [arc-phase-forge.md](references/arc-phase-forge.md) for the full algorithm.
 prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-forge.md algorithm. Update checkpoint on completion.
+postPhaseCleanup(checkpoint, "forge")
 
 ## Phase 2: PLAN REVIEW (circuit breaker)
 
@@ -356,6 +361,7 @@ See [arc-phase-plan-review.md](references/arc-phase-plan-review.md) for the full
 prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-plan-review.md algorithm. Update checkpoint on completion.
+postPhaseCleanup(checkpoint, "plan_review")
 
 ## Phase 2.5: PLAN REFINEMENT (conditional)
 
@@ -398,6 +404,7 @@ See [arc-phase-work.md](references/arc-phase-work.md) for the full algorithm.
 prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-work.md algorithm. Update checkpoint on completion.
+postPhaseCleanup(checkpoint, "work")
 
 ## Phase 5.5: IMPLEMENTATION GAP ANALYSIS
 
@@ -408,6 +415,7 @@ Deterministic, orchestrator-only check that cross-references plan acceptance cri
 **Error handling**: Non-blocking (WARN). Gap analysis is advisory — missing criteria are flagged but do not halt the pipeline. Evaluator quality metrics (docstring coverage, function length, evaluation tests) are informational for Phase 6 reviewers.
 
 See [gap-analysis.md](references/gap-analysis.md) for the full algorithm.
+postPhaseCleanup(checkpoint, "gap_analysis")
 
 <!-- v1.57.0: Phase 5.5 STEP A.9 enhancement planned — CLI-backed Ashes can contribute
      to gap analysis by running detectAllCLIAshes() and including their findings
@@ -430,6 +438,7 @@ See [arc-codex-phases.md](references/arc-codex-phases.md) § Phase 5.6 for the f
 prePhaseCleanup(checkpoint)
 
 Read and execute the arc-codex-phases.md § Phase 5.6 algorithm. Update checkpoint on completion.
+postPhaseCleanup(checkpoint, "codex_gap_analysis")
 
 ## Phase 5.8: GAP REMEDIATION (conditional, v1.51.0)
 
@@ -453,6 +462,7 @@ updateCheckpoint({ phase: "gap_remediation", status: "in_progress", phase_sequen
 ```
 
 See [gap-remediation.md](references/gap-remediation.md) for the full algorithm. Update checkpoint on completion.
+postPhaseCleanup(checkpoint, "gap_remediation")
 
 ## Phase 6: CODE REVIEW (deep)
 
@@ -470,6 +480,7 @@ Phase 6 invokes `/rune:appraise --deep` for multi-wave review (Wave 1 core + Wav
 prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-code-review.md algorithm. Update checkpoint on completion.
+postPhaseCleanup(checkpoint, "code_review")
 
 ## Phase 7: MEND
 
@@ -483,6 +494,7 @@ See [arc-phase-mend.md](references/arc-phase-mend.md) for the full algorithm.
 prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-mend.md algorithm. Update checkpoint on completion.
+postPhaseCleanup(checkpoint, "mend")
 
 ## Phase 7.5: VERIFY MEND (review-mend convergence controller)
 
@@ -518,6 +530,7 @@ if (flags.no_test || talisman?.testing?.enabled === false) {
   // Read and execute the arc-phase-test.md algorithm
   // Update checkpoint on completion with tiers_run, pass_rate, coverage_pct, has_frontend
 }
+postPhaseCleanup(checkpoint, "test")
 ```
 
 ## Phase 9: SHIP (PR Creation)

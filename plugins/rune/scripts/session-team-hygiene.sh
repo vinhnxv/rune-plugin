@@ -50,7 +50,7 @@ if [[ -d "$CHOME/teams/" ]]; then
       # BACK-012 FIX: ((0++)) returns exit code 1 under set -e, killing the script
       orphan_count=$((orphan_count + 1))
     fi
-  done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -mmin +30 2>/dev/null)
+  done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" -o -name "goldmask-*" \) -mmin +30 2>/dev/null)
 fi
 
 [[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: orphan team dirs found: ${orphan_count}" >> /tmp/rune-hook-trace.log
@@ -68,7 +68,7 @@ stale_state_count=$(
   count=0
   # BACK-015 FIX: Capture epoch once before loop (consistency + efficiency)
   NOW=$(date +%s)
-  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-inspect-*.json "${CWD}"/tmp/.rune-forge-*.json; do
+  for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-inspect-*.json "${CWD}"/tmp/.rune-forge-*.json "${CWD}"/tmp/.rune-goldmask-*.json; do
     if [[ -f "$f" ]]; then
       # Check if status is "active" and file is older than 30 min
       # FIX-2: Fallback to epoch 0 (Jan 1 1970) if stat fails. Math: (NOW - 0) / 60 = ~29M minutes

@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.68.0] - 2026-02-23
+
+### Added
+- **Guaranteed post-phase team cleanup** (`postPhaseCleanup`) — New trailing-edge cleanup function that runs after every delegated arc phase completes (success/fail/timeout). Forms a before+after bracket with `prePhaseCleanup` around every phase:
+  - **`arc-phase-cleanup.md`** (new): Contains `postPhaseCleanup()` function and `PHASE_PREFIX_MAP` mapping 10 delegated phases to their team name prefixes. Uses prefix-based filesystem scan as primary mechanism (handles null `team_name` in checkpoint). Includes cross-session safety via `.session` marker comparison and symlink guards.
+  - **SKILL.md phase stubs**: All 10 delegated phases now call `postPhaseCleanup(checkpoint, phaseName)` after checkpoint update.
+  - **ARC-9 Strategy D** (new): Prefix-based sweep in post-arc final sweep catches teams missed by checkpoint. Uses `ARC_TEAM_PREFIXES` for comprehensive orphan scanning with symlink guard and regex validation.
+- **Goldmask session hook integration** — Closes the goldmask prefix gap in session cleanup hooks:
+  - **`on-session-stop.sh`**: Added `goldmask-*` to team directory scan pattern (was previously excluded).
+  - **`session-team-hygiene.sh`**: Added `goldmask-*` to orphan team scan and `.rune-goldmask-*.json` to state file pattern.
+  - **`goldmask/SKILL.md`**: Added state file creation (`tmp/.rune-goldmask-{session_id}.json`) with proper session isolation fields and cleanup on workflow completion.
+
+### Changed
+- **`post-arc.md`**: ARC-9 Final Sweep now has 4 strategies (A: discovery+shutdown, B: SDK TeamDelete, C: filesystem fallback, D: prefix-based sweep).
+- **`arc-phase-goldmask-verification.md`**: Added `postPhaseCleanup` call after checkpoint update and updated crash recovery documentation.
+- **Phase reference files**: Updated cleanup documentation in `arc-phase-forge.md`, `arc-phase-code-review.md`, `arc-phase-work.md`, `arc-phase-mend.md`, `arc-phase-test.md`, `arc-phase-plan-review.md` to reference both pre and post phase cleanup.
+- **`team-lifecycle-guard.md`** (rune-orchestration): Updated Inter-Phase Cleanup section to document the before+after bracket pattern.
+
 ## [1.67.0] - 2026-02-22
 
 ### Added

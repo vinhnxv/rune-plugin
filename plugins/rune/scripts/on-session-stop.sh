@@ -132,7 +132,7 @@ if [[ -d "$CHOME/teams/" ]]; then
     [[ -L "$dir" ]] && continue
     dirname="${dir%/}"
     dirname="${dirname##*/}"
-    if [[ "$dirname" == rune-* || "$dirname" == arc-* ]] && [[ "$dirname" != goldmask-* ]]; then
+    if [[ "$dirname" == rune-* || "$dirname" == arc-* || "$dirname" == goldmask-* ]]; then
       [[ "$dirname" =~ ^[a-zA-Z0-9_-]+$ ]] || continue
 
       # Check if this team has a corresponding state file in CWD

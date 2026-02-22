@@ -40,6 +40,7 @@ if (id.includes('..')) throw new Error('Path traversal detected in arc id')
 // NOTE: prePhaseCleanup(checkpoint) runs BEFORE this phase (added in v1.28.1),
 // clearing SDK leadership state + prior phase team dirs. This inline guard is
 // defense-in-depth for the specific team being created (stale same-name team).
+// postPhaseCleanup(checkpoint, "plan_review") runs AFTER checkpoint update (v1.68.0).
 // teamTransition — inlined 5-step protocol (see team-lifecycle-guard.md)
 // STEP 1: Validate — done above at lines 37-39 (defense-in-depth, upstream validated at arc init)
 // STEP 2: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)

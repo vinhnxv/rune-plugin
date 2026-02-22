@@ -198,6 +198,21 @@ Then:
 TeamCreate("{session_id}")
 ```
 
+Create state file for session hook discovery (STOP-001, TLC-003):
+```javascript
+// EC-12, ward-sentinel #3: resolve CLAUDE_SESSION_ID via Bash, not literal string
+const sessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+Write(`tmp/.rune-goldmask-${sessionId}.json`, JSON.stringify({
+  status: "active",
+  team_name: `goldmask-${sessionId}`,
+  started: new Date().toISOString(),
+  config_dir: configDir,
+  owner_pid: Bash("echo $PPID").trim(),
+  session_id: sessionId
+}))
+```
+
 ### 4. Create Tasks + Spawn Agents
 
 Create 8 tasks (one per agent), then spawn via `Task` with `team_name`:
@@ -293,6 +308,9 @@ if (!/^[a-zA-Z0-9_-]+$/.test(session_id)) { error("Invalid session_id"); return 
 # Fallback if TeamDelete fails:
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 rm -rf "$CHOME/teams/${session_id}" "$CHOME/tasks/${session_id}" 2>/dev/null
+
+# Clean up state file
+rm -f "tmp/.rune-goldmask-${session_id}.json" 2>/dev/null
 ```
 
 ### 8. Report

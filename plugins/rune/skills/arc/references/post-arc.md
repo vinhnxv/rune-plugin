@@ -171,6 +171,31 @@ try {
     try { TeamDelete() } catch (e) { /* SDK state cleared or was already clear */ }
   }
 
+  // Strategy D (v1.68.0): Prefix-based sweep for any teams missed by checkpoint
+  // This catches teams where team_name was null (sub-command crash before state file).
+  // Strategy D runs last because prefix-scan targets sub-command teams where this
+  // session was never the leader — TeamDelete cannot release their SDK state.
+  // Only rm-rf is needed. (rune-architect #4: ordering rationale documented)
+  // Uses ARC_TEAM_PREFIXES from arc-preflight.md (loaded in dispatcher init context).
+  for (const prefix of ARC_TEAM_PREFIXES) {
+    if (!/^[a-z-]+$/.test(prefix)) continue
+    // Resolve CHOME inline within same Bash call (ward-sentinel #4: prevents quoting gap)
+    const dirs = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
+    for (const dir of dirs) {
+      const teamName = dir.split('/').pop()
+      if (!teamName || !/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
+      if (teamName.includes('..')) continue
+      // Symlink guard (ward-sentinel #2)
+      const isSymlink = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -L "$CHOME/teams/${teamName}" && echo symlink`).trim() === "symlink"
+      if (isSymlink) { warn(`ARC-9 Strategy D: Skipping ${teamName} — symlink detected`); continue }
+      warn(`ARC-9 Strategy D: Cleaning orphan ${teamName}`)
+      // SEC: teamName validated above with /^[a-zA-Z0-9_-]+$/ — shell injection not possible
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+    }
+  }
+  // Final TeamDelete after prefix sweep
+  try { TeamDelete() } catch (e) { /* done */ }
+
 } catch (e) {
   // Defensive — final sweep must NEVER halt the pipeline or prevent the completion
   // report from being shown. If this fails, the user can still /rune:cancel-arc.
