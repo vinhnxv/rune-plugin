@@ -67,6 +67,7 @@ You are the Tarnished — orchestrator of the forge pipeline.
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--exhaustive` | Lower threshold (0.15), include research-budget agents, higher caps | Off |
+| `--no-lore` | Skip Goldmask Lore Layer (Phase 1.5) — no risk scoring or boost | Off |
 
 > **Note**: `--dry-run` is not yet implemented for `/rune:forge`. Forge Gaze logs its agent selection transparently during Phase 2 before the scope confirmation in Phase 3.
 
@@ -77,11 +78,15 @@ Phase 0: Locate Plan (argument or auto-detect)
     |
 Phase 1: Parse Plan Sections (## headings)
     |
-Phase 2: Forge Gaze Selection (topic-to-agent matching)
+Phase 1.3: Extract File References (parse plan for code paths)
+    |
+Phase 1.5: Lore Layer (risk scoring on referenced files — Goldmask)
+    |
+Phase 2: Forge Gaze Selection (topic-to-agent matching, risk-boosted)
     |
 Phase 3: Confirm Scope (AskUserQuestion)
     |
-Phase 4: Summon Forge Agents (enrichment per section)
+Phase 4: Summon Forge Agents (enrichment per section, risk context injected)
     |
 Phase 5: Merge Enrichments (Edit into plan)
     |
@@ -159,6 +164,154 @@ for (const section of sections) {
 }
 ```
 
+## Phase 1.3: Extract File References
+
+Parse plan content for file paths referenced in code blocks, backtick-wrapped paths, and annotations.
+These files become the scope for Lore Layer risk scoring.
+
+```javascript
+// Extract file paths mentioned in plan text
+// Patterns: `src/foo/bar.py`, backtick-wrapped paths, "File:" / "Path:" / "Module:" annotations,
+//           YAML paths, markdown link targets
+const fileRefPattern = /(?:`([^`]+\.\w+)`|(?:File|Path|Module):\s*(\S+\.\w+))/g
+const planContent = Read(planPath)
+const referencedFiles: string[] = []
+
+for (const match of planContent.matchAll(fileRefPattern)) {
+  const filePath: string = match[1] || match[2]
+  // Validate: must not contain path traversal, must exist on disk
+  if (filePath.includes('..')) continue
+  try {
+    Read(filePath)  // Existence check via Read — TOCTOU safe (we use the content later anyway)
+    referencedFiles.push(filePath)
+  } catch (readError) {
+    // File doesn't exist — skip silently
+    continue
+  }
+}
+
+// Deduplicate
+const uniqueFiles: string[] = [...new Set(referencedFiles)]
+log(`Phase 1.3: Extracted ${uniqueFiles.length} file references from plan`)
+```
+
+**Skip condition**: If `uniqueFiles.length === 0`, skip Phase 1.5 entirely (no files to score).
+
+## Phase 1.5: Lore Layer (Goldmask)
+
+Run Goldmask Lore Layer risk scoring on files referenced in the plan. Prefer reusing existing
+risk-map data from prior workflows via data discovery. Falls back to spawning lore-analyst.
+
+**Reference**: See [goldmask/references/data-discovery.md](../goldmask/references/data-discovery.md)
+for the data discovery protocol and [goldmask/references/risk-context-template.md](../goldmask/references/risk-context-template.md)
+for the risk context template injected into agent prompts.
+
+```javascript
+// readTalisman: SDK Read() with project->global fallback. See references/read-talisman.md
+const talisman = readTalisman()
+
+// Skip conditions (same pattern as appraise/audit)
+const goldmaskEnabled: boolean = talisman?.goldmask?.enabled !== false
+const forgeGoldmaskEnabled: boolean = talisman?.goldmask?.forge?.enabled !== false
+const loreEnabled: boolean = talisman?.goldmask?.layers?.lore?.enabled !== false
+const isGitRepo: boolean = Bash("git rev-parse --is-inside-work-tree 2>/dev/null").trim() === "true"
+const noLoreFlag: boolean = args.includes("--no-lore")
+
+let riskMap: string | null = null
+let riskMapSource: string = "none"
+
+if (!goldmaskEnabled || !forgeGoldmaskEnabled || !loreEnabled || !isGitRepo || noLoreFlag) {
+  const skipReason: string = !goldmaskEnabled ? "goldmask.enabled=false"
+    : !forgeGoldmaskEnabled ? "goldmask.forge.enabled=false"
+    : !loreEnabled ? "goldmask.layers.lore.enabled=false"
+    : !isGitRepo ? "not a git repo"
+    : "--no-lore flag"
+  warn(`Phase 1.5: Lore Layer skipped — ${skipReason}`)
+} else if (uniqueFiles.length === 0) {
+  warn("Phase 1.5: Lore Layer skipped — no file references found in plan")
+} else {
+  // Option A: Discover existing risk-map from prior workflows
+  // See goldmask/references/data-discovery.md for protocol
+  const existing: GoldmaskData | null = discoverGoldmaskData({
+    needsRiskMap: true,
+    maxAgeDays: 3,
+    scopeFiles: uniqueFiles
+  })
+
+  if (existing?.riskMap) {
+    riskMap = existing.riskMap
+    riskMapSource = existing.riskMapPath
+    warn(`Phase 1.5: Reusing existing risk-map from ${existing.riskMapPath}`)
+  } else {
+    // G5 guard: check commit count
+    const lookbackDays: number = talisman?.goldmask?.layers?.lore?.lookback_days ?? 180
+    const commitCount: number = parseInt(
+      Bash(`git rev-list --count HEAD --since='${lookbackDays} days ago' 2>/dev/null || echo 0`).trim()
+    )
+    if (commitCount < 5) {
+      warn("Phase 1.5: Lore Layer skipped — fewer than 5 commits (G5 guard)")
+    } else {
+      // Option B: Spawn lore-analyst as bare Task (ATE-1 EXEMPTION — no team exists yet)
+      // Same pattern as appraise Phase 0.5 and inspect Phase 0.3
+      // Uses subagent_type: "general-purpose" with identity via prompt
+      // (enforce-teams.sh only allows Explore/Plan as named types)
+      Task({
+        subagent_type: "general-purpose",
+        name: "forge-lore-analyst",
+        // NO team_name — ATE-1 exemption (pre-team phase, team created at Phase 4)
+        prompt: `You are rune:investigation:lore-analyst — a Goldmask Lore Layer analyst.
+
+Analyze git history risk metrics for the following files:
+${uniqueFiles.join("\n")}
+
+Lookback window: ${lookbackDays} days
+
+Write risk-map.json to: tmp/forge/${timestamp}/risk-map.json
+
+Follow the lore-analyst protocol: compute per-file churn frequency, ownership concentration,
+co-change coupling, and assign risk tiers (CRITICAL, HIGH, MEDIUM, LOW, STALE).
+Output format: { "files": [{ "path", "tier", "risk_score", "metrics": { "frequency", "ownership": { "distinct_authors", "top_contributor" }, "co_changes": [{ "coupled_file", "coupling_pct" }] } }] }`
+      })
+
+      // Wait for lore-analyst output (30s timeout — non-blocking)
+      const LORE_TIMEOUT_MS: number = 30_000
+      const LORE_POLL_MS: number = 5_000
+      const maxPolls: number = Math.ceil(LORE_TIMEOUT_MS / LORE_POLL_MS)
+      for (let poll = 0; poll < maxPolls; poll++) {
+        Bash(`sleep ${LORE_POLL_MS / 1000}`)
+        try {
+          riskMap = Read(`tmp/forge/${timestamp}/risk-map.json`)
+          if (riskMap && riskMap.trim().length > 0) {
+            riskMapSource = `tmp/forge/${timestamp}/risk-map.json`
+            break
+          }
+        } catch (readError) {
+          // Not ready yet — continue polling
+          continue
+        }
+      }
+
+      if (!riskMap) {
+        warn("Phase 1.5: Lore analyst timed out — proceeding without risk data")
+      }
+    }
+  }
+}
+```
+
+### Skip Conditions Summary — Forge Lore Layer
+
+| Condition | Effect |
+|-----------|--------|
+| `talisman.goldmask.enabled === false` | Skip Phase 1.5 entirely |
+| `talisman.goldmask.forge.enabled === false` | Skip Phase 1.5 entirely |
+| `talisman.goldmask.layers.lore.enabled === false` | Skip Phase 1.5 entirely |
+| `--no-lore` CLI flag | Skip Phase 1.5 entirely |
+| Non-git repo | Skip Phase 1.5 |
+| No file references in plan (Phase 1.3) | Skip Phase 1.5 |
+| < 5 commits in lookback window (G5 guard) | Skip Phase 1.5 |
+| Existing risk-map found (>30% overlap) | Reuse instead of spawning agent |
+
 ## Phase 2: Forge Gaze Selection
 
 Apply the Forge Gaze topic-matching algorithm (see `roundtable-circle/references/forge-gaze.md`):
@@ -167,9 +320,60 @@ Apply the Forge Gaze topic-matching algorithm (see `roundtable-circle/references
 const mode = flags.exhaustive ? "exhaustive" : "default"
 const assignments = forge_select(sections, topic_registry, mode)
 
-// Log selection transparently
+// ── Risk-Boosted Scoring (Goldmask Lore Layer) ──
+// When risk-map data is available from Phase 1.5, boost Forge Gaze scores
+// for sections that reference CRITICAL or HIGH risk files.
+if (riskMap) {
+  const TIER_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4, UNKNOWN: 5 }
+
+  // getMaxRiskTier: returns the highest risk tier among the given files
+  function getMaxRiskTier(files: string[], parsedRiskMap: { files: Array<{ path: string, tier: string }> }): string {
+    let maxTier: string = "UNKNOWN"
+    for (const filePath of files) {
+      const entry = parsedRiskMap.files?.find((f: { path: string }) => f.path === filePath)
+      if (entry && (TIER_ORDER[entry.tier] ?? 5) < (TIER_ORDER[maxTier] ?? 5)) {
+        maxTier = entry.tier
+      }
+    }
+    return maxTier
+  }
+
+  try {
+    const parsedRiskMap = JSON.parse(riskMap)
+    for (const [section, agents] of assignments) {
+      // Extract file refs from this specific section
+      const sectionFiles: string[] = []
+      for (const match of (section.content || '').matchAll(fileRefPattern)) {
+        const fp: string = match[1] || match[2]
+        if (fp && !fp.includes('..')) sectionFiles.push(fp)
+      }
+      const maxRiskTier: string = getMaxRiskTier(sectionFiles, parsedRiskMap)
+
+      if (maxRiskTier === 'CRITICAL') {
+        // Boost all agent scores for this section by 0.15
+        for (const agentEntry of agents) {
+          agentEntry[1] = Math.min(agentEntry[1] + 0.15, 1.0)
+        }
+        section.riskBoost = 0.15
+        section.autoIncludeResearchBudget = true  // Include research-budget agents even in default mode
+        log(`  Risk boost: "${section.title}" — CRITICAL files, +0.15 boost`)
+      } else if (maxRiskTier === 'HIGH') {
+        for (const agentEntry of agents) {
+          agentEntry[1] = Math.min(agentEntry[1] + 0.08, 1.0)
+        }
+        section.riskBoost = 0.08
+        log(`  Risk boost: "${section.title}" — HIGH files, +0.08 boost`)
+      }
+      // MEDIUM/LOW/STALE/UNKNOWN: no boost
+    }
+  } catch (parseError) {
+    warn("Phase 2: risk-map.json parse error — proceeding without risk boost")
+  }
+}
+
+// Log selection transparently (after risk boost applied)
 for (const [section, agents] of assignments) {
-  log(`Section: "${section.title}"`)
+  log(`Section: "${section.title}"${section.riskBoost ? ` [risk-boosted +${section.riskBoost}]` : ''}`)
   for (const [agent, score] of agents) {
     log(`  + ${agent.name} (${score.toFixed(2)}) — ${agent.perspective}`)
   }
@@ -406,6 +610,10 @@ if (!isArcContext) {
 |-------|----------|
 | Plan file not found | Suggest `/rune:devise` first |
 | No plans in plans/ directory | Suggest `/rune:devise` first |
+| No file refs in plan (Phase 1.3) | Skip Lore Layer, proceed without risk data |
+| Lore-analyst timeout (30s) | Proceed without risk data (non-blocking) |
+| risk-map.json parse error | Proceed without risk boost or context injection |
+| Forge Gaze risk boost NaN | Use original score (guard: `Math.min(..., 1.0)`) |
 | No agents matched any section | Warn user, suggest `--exhaustive` for lower threshold |
 | Agent timeout (>5 min) | Release task, warn user, proceed with available enrichments |
 | Team lifecycle failure | Pre-create guard + rm fallback (see team-lifecycle-guard.md) |
