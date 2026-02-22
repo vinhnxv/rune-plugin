@@ -131,6 +131,8 @@ Final iteration:
 **Schema v2 additions** (v1.66.0+): `shard_groups`, per-plan `shard_group` and `shard_num`.
 **v1.72.0 additions**: per-plan `summary_file` and `pr_url` (both nullable, backward-compatible).
 
+> **Schema version history**: schema v2 was introduced in v1.66.0 for shard metadata (`shard_groups`, `shard_group`, `shard_num`). The `summary_file` and `pr_url` fields are backward-compatible nullable additions within v2 (added in v1.72.0) — existing v2 progress files without these fields are valid.
+
 ## Edge Case Matrix (V2)
 
 | Edge Case | Handler | Location |

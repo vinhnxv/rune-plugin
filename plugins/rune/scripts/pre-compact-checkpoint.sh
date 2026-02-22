@@ -19,7 +19,10 @@ umask 077
 
 # ── PW-002 FIX: Opt-in trace logging (consistent with on-task-completed.sh) ──
 _trace() {
-  [[ "${RUNE_TRACE:-}" == "1" ]] && echo "[pre-compact] $*" >> /tmp/rune-hook-trace.log 2>/dev/null
+  if [[ "${RUNE_TRACE:-}" == "1" ]]; then
+    local _log="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+    [[ ! -L "$_log" ]] && echo "[pre-compact] $*" >> "$_log" 2>/dev/null
+  fi
   return 0
 }
 
@@ -31,6 +34,50 @@ _sort_by_mtime() {
     mtime=$(stat -f %m "$p" 2>/dev/null || stat -c %Y "$p" 2>/dev/null || echo 0)
     printf '%s\t%s\n' "$mtime" "$p"
   done | sort -rn | cut -f2
+}
+
+# ── QUAL-005 FIX: Shared arc-batch state extractor (DRY — called from both teamless and team-active paths) ──
+# Sets arc_batch_state global. Reads BATCH_STATE_FILE path from caller (must be set before calling).
+# Fixes: BACK-009 (summary_enabled gate), BACK-008 (numeric sort instead of ls -t)
+_capture_arc_batch_state() {
+  arc_batch_state="{}"
+  [[ ! -f "$BATCH_STATE_FILE" ]] && return 0
+  [[ -L "$BATCH_STATE_FILE" ]] && return 0
+  local _batch_frontmatter
+  _batch_frontmatter=$(sed -n '/^---$/,/^---$/p' "$BATCH_STATE_FILE" 2>/dev/null | sed '1d;$d')
+  [[ -z "$_batch_frontmatter" ]] && return 0
+  local _batch_iter _batch_total _batch_active _batch_summary_enabled
+  _batch_iter=$(echo "$_batch_frontmatter" | grep '^iteration:' | head -1 | sed 's/^iteration:[[:space:]]*//')
+  _batch_total=$(echo "$_batch_frontmatter" | grep '^total_plans:' | head -1 | sed 's/^total_plans:[[:space:]]*//')
+  _batch_active=$(echo "$_batch_frontmatter" | grep '^active:' | head -1 | sed 's/^active:[[:space:]]*//')
+  # BACK-009 FIX: extract summary_enabled from state file; default to true if absent
+  _batch_summary_enabled=$(echo "$_batch_frontmatter" | grep '^summary_enabled:' | head -1 | sed 's/^summary_enabled:[[:space:]]*//')
+  [[ -z "$_batch_summary_enabled" ]] && _batch_summary_enabled="true"
+  if [[ "$_batch_active" == "true" ]] && [[ "$_batch_iter" =~ ^[0-9]+$ ]] && [[ "$_batch_total" =~ ^[0-9]+$ ]]; then
+    local _latest_summary=""
+    local _batch_summary_dir="${CWD}/tmp/arc-batch/summaries"
+    # BACK-009 FIX: only populate latest_summary when enabled AND directory exists
+    if [[ "$_batch_summary_enabled" != "false" ]] && [[ -d "$_batch_summary_dir" ]] && [[ ! -L "$_batch_summary_dir" ]]; then
+      # BACK-008 FIX: numeric sort (iteration-N.md) instead of ls -t (mtime-prone)
+      local _found
+      _found=$(find "$_batch_summary_dir" -maxdepth 1 -name 'iteration-*.md' 2>/dev/null | sort -t- -k2 -n | tail -1)
+      if [[ -n "$_found" ]]; then
+        _latest_summary="${_found#${CWD}/}"
+      fi
+    fi
+    arc_batch_state=$(jq -n \
+      --arg iter "$_batch_iter" \
+      --arg total "$_batch_total" \
+      --arg summary "${_latest_summary:-none}" \
+      --arg sdir "tmp/arc-batch/summaries" \
+      '{
+        iteration: ($iter | tonumber),
+        total_plans: ($total | tonumber),
+        latest_summary: $summary,
+        summary_dir: $sdir
+      }' 2>/dev/null || echo '{}')
+    _trace "Arc-batch state captured: iter=${_batch_iter} total=${_batch_total} summary_enabled=${_batch_summary_enabled}"
+  fi
 }
 
 # ── GUARD 1: jq dependency ──
@@ -87,43 +134,15 @@ if [[ -z "$active_team" ]]; then
   # ── Arc-batch state capture (teamless — C6 accepted limitation) ──
   # Arc-batch teams are ephemeral, but batch state file persists.
   # Capture batch iteration context even when no team is active.
-  arc_batch_state="{}"
   BATCH_STATE_FILE="${CWD}/.claude/arc-batch-loop.local.md"
-  if [[ -f "$BATCH_STATE_FILE" ]] && [[ ! -L "$BATCH_STATE_FILE" ]]; then
-    _batch_frontmatter=$(sed -n '/^---$/,/^---$/p' "$BATCH_STATE_FILE" 2>/dev/null | sed '1d;$d')
-    if [[ -n "$_batch_frontmatter" ]]; then
-      _batch_iter=$(echo "$_batch_frontmatter" | grep '^iteration:' | head -1 | sed 's/^iteration:[[:space:]]*//')
-      _batch_total=$(echo "$_batch_frontmatter" | grep '^total_plans:' | head -1 | sed 's/^total_plans:[[:space:]]*//')
-      _batch_active=$(echo "$_batch_frontmatter" | grep '^active:' | head -1 | sed 's/^active:[[:space:]]*//')
-      if [[ "$_batch_active" == "true" ]] && [[ "$_batch_iter" =~ ^[0-9]+$ ]] && [[ "$_batch_total" =~ ^[0-9]+$ ]]; then
-        _latest_summary=""
-        _batch_summary_dir="${CWD}/tmp/arc-batch/summaries"
-        if [[ -d "$_batch_summary_dir" ]] && [[ ! -L "$_batch_summary_dir" ]]; then
-          _latest_summary=$(ls -t "${_batch_summary_dir}"/iteration-*.md 2>/dev/null | head -1 || true)
-          if [[ -n "$_latest_summary" ]]; then
-            _latest_summary="${_latest_summary#${CWD}/}"
-          fi
-        fi
-        arc_batch_state=$(jq -n \
-          --arg iter "$_batch_iter" \
-          --arg total "$_batch_total" \
-          --arg summary "${_latest_summary:-none}" \
-          --arg sdir "tmp/arc-batch/summaries" \
-          '{
-            iteration: ($iter | tonumber),
-            total_plans: ($total | tonumber),
-            latest_summary: $summary,
-            summary_dir: $sdir
-          }' 2>/dev/null || echo '{}')
-        _trace "Arc-batch state (teamless): iter=${_batch_iter} total=${_batch_total}"
-      fi
-    fi
-  fi
+  _capture_arc_batch_state
 
   # If we captured batch state, write a minimal checkpoint with it
   if [[ "$arc_batch_state" != "{}" ]]; then
     CHECKPOINT_FILE="${CWD}/tmp/.rune-compact-checkpoint.json"
-    CHECKPOINT_TMP="${CHECKPOINT_FILE}.tmp.$$"
+    # SEC-102 FIX: use mktemp instead of PID-based temp file; add symlink guard
+    CHECKPOINT_TMP=$(mktemp "${CHECKPOINT_FILE}.XXXXXX" 2>/dev/null) || { exit 0; }
+    [[ -L "$CHECKPOINT_TMP" ]] && { rm -f "$CHECKPOINT_TMP" 2>/dev/null; exit 0; }
     TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     if jq -n \
       --arg team "" \
@@ -216,43 +235,15 @@ if [[ -f "$arc_file" ]] && [[ ! -L "$arc_file" ]]; then
   arc_checkpoint=$(jq -c '.' "$arc_file" 2>/dev/null || echo '{}')
 fi
 
-# 5. Arc-batch state if active (v1.72.0)
-arc_batch_state="{}"
+# 5. Arc-batch state if active (v1.72.0) — QUAL-005 FIX: shared extractor
 BATCH_STATE_FILE="${CWD}/.claude/arc-batch-loop.local.md"
-if [[ -f "$BATCH_STATE_FILE" ]] && [[ ! -L "$BATCH_STATE_FILE" ]]; then
-  _batch_frontmatter=$(sed -n '/^---$/,/^---$/p' "$BATCH_STATE_FILE" 2>/dev/null | sed '1d;$d')
-  if [[ -n "$_batch_frontmatter" ]]; then
-    _batch_iter=$(echo "$_batch_frontmatter" | grep '^iteration:' | head -1 | sed 's/^iteration:[[:space:]]*//')
-    _batch_total=$(echo "$_batch_frontmatter" | grep '^total_plans:' | head -1 | sed 's/^total_plans:[[:space:]]*//')
-    _batch_active=$(echo "$_batch_frontmatter" | grep '^active:' | head -1 | sed 's/^active:[[:space:]]*//')
-    if [[ "$_batch_active" == "true" ]] && [[ "$_batch_iter" =~ ^[0-9]+$ ]] && [[ "$_batch_total" =~ ^[0-9]+$ ]]; then
-      _latest_summary=""
-      _batch_summary_dir="${CWD}/tmp/arc-batch/summaries"
-      if [[ -d "$_batch_summary_dir" ]] && [[ ! -L "$_batch_summary_dir" ]]; then
-        _latest_summary=$(ls -t "${_batch_summary_dir}"/iteration-*.md 2>/dev/null | head -1 || true)
-        if [[ -n "$_latest_summary" ]]; then
-          _latest_summary="${_latest_summary#${CWD}/}"
-        fi
-      fi
-      arc_batch_state=$(jq -n \
-        --arg iter "$_batch_iter" \
-        --arg total "$_batch_total" \
-        --arg summary "${_latest_summary:-none}" \
-        --arg sdir "tmp/arc-batch/summaries" \
-        '{
-          iteration: ($iter | tonumber),
-          total_plans: ($total | tonumber),
-          latest_summary: $summary,
-          summary_dir: $sdir
-        }' 2>/dev/null || echo '{}')
-      _trace "Arc-batch state: iter=${_batch_iter} total=${_batch_total}"
-    fi
-  fi
-fi
+_capture_arc_batch_state
 
 # ── WRITE CHECKPOINT (atomic) ──
 CHECKPOINT_FILE="${CWD}/tmp/.rune-compact-checkpoint.json"
-CHECKPOINT_TMP="${CHECKPOINT_FILE}.tmp.$$"
+# SEC-102 FIX: use mktemp instead of PID-based temp file; add symlink guard
+CHECKPOINT_TMP=$(mktemp "${CHECKPOINT_FILE}.XXXXXX" 2>/dev/null) || { exit 0; }
+[[ -L "$CHECKPOINT_TMP" ]] && { rm -f "$CHECKPOINT_TMP" 2>/dev/null; exit 0; }
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 if ! jq -n \

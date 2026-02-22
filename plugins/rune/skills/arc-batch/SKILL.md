@@ -64,7 +64,7 @@ Between arc iterations, the Stop hook writes a structured summary file capturing
 - Write failures are non-blocking — the batch continues without a summary
 - ARC_PROMPT step 4.5 is conditional: only injected when a summary was successfully written
 - `arc.batch.summaries.enabled: false` in talisman.yml disables all summary behavior
-- Max summary content is hardcoded to 30 lines for v1 (not talisman-configurable)
+- Git log content is capped to last 5 commits (not talisman-configurable)
 
 **Compact recovery**: The `pre-compact-checkpoint.sh` hook captures `arc_batch_state` (current iteration, total plans, latest summary path) in the compact checkpoint. On recovery, the session-compact-recovery hook includes batch iteration context in the injected message.
 

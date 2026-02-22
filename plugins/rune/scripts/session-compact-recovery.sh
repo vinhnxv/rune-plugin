@@ -20,7 +20,10 @@ umask 077
 
 # ── PW-002 FIX: Opt-in trace logging (consistent with on-task-completed.sh) ──
 _trace() {
-  [[ "${RUNE_TRACE:-}" == "1" ]] && echo "[compact-recovery] $*" >> /tmp/rune-hook-trace.log 2>/dev/null
+  if [[ "${RUNE_TRACE:-}" == "1" ]]; then
+    local _log="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+    [[ ! -L "$_log" ]] && echo "[compact-recovery] $*" >> "$_log" 2>/dev/null
+  fi
   return 0
 }
 
@@ -63,7 +66,7 @@ CHECKPOINT_DATA=$(jq -c '.' "$CHECKPOINT_FILE" 2>/dev/null) || {
 TEAM_NAME=$(echo "$CHECKPOINT_DATA" | jq -r '.team_name // empty' 2>/dev/null || true)
 
 # Check for arc-batch state (v1.72.0) — may exist even without an active team
-HAS_BATCH_STATE=$(echo "$CHECKPOINT_DATA" | jq -r 'if .arc_batch_state and .arc_batch_state != {} then "true" else "false" end' 2>/dev/null || echo "false")
+HAS_BATCH_STATE=$(echo "$CHECKPOINT_DATA" | jq -r 'if .arc_batch_state and .arc_batch_state != {} and (.arc_batch_state | has("iteration")) then "true" else "false" end' 2>/dev/null || echo "false")
 
 if [[ -z "$TEAM_NAME" ]]; then
   # No team — but if arc-batch state exists, still inject batch context
@@ -76,18 +79,22 @@ if [[ -z "$TEAM_NAME" ]]; then
     BATCH_TOTAL=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.total_plans // empty' 2>/dev/null || true)
     BATCH_SUMMARY=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.latest_summary // empty' 2>/dev/null || true)
 
-    BATCH_MSG=""
+    BATCH_INFO=""
     if [[ -n "$BATCH_ITER" ]] && [[ "$BATCH_ITER" =~ ^[0-9]+$ ]]; then
-      BATCH_MSG="Arc-batch iteration ${BATCH_ITER}/${BATCH_TOTAL:-unknown}."
+      if [[ ! "$BATCH_TOTAL" =~ ^[0-9]+$ ]]; then BATCH_TOTAL="unknown"; fi
+      BATCH_INFO="Arc-batch iteration ${BATCH_ITER}/${BATCH_TOTAL}."
       # SEC-008: Validate summary path before injecting into context message
       if [[ -n "$BATCH_SUMMARY" ]] && [[ "$BATCH_SUMMARY" != "none" ]]; then
         if [[ "$BATCH_SUMMARY" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
-          BATCH_MSG="${BATCH_MSG} Latest summary: ${BATCH_SUMMARY}."
+          BATCH_INFO="${BATCH_INFO} Latest summary: ${BATCH_SUMMARY}."
+        else
+          _trace "Rejected invalid batch summary path: ${BATCH_SUMMARY}"
+          BATCH_SUMMARY=""
         fi
       fi
     fi
 
-    CONTEXT_MSG="RUNE COMPACT RECOVERY (saved at ${SAVED_AT}): No active team at compaction time. ${BATCH_MSG} Re-read .claude/arc-batch-loop.local.md to resume batch coordination."
+    CONTEXT_MSG="RUNE COMPACT RECOVERY (saved at ${SAVED_AT}): No active team at compaction time. ${BATCH_INFO} Re-read .claude/arc-batch-loop.local.md to resume batch coordination."
     jq -n --arg ctx "$CONTEXT_MSG" '{
       hookSpecificOutput: {
         hookEventName: "SessionStart",
@@ -181,7 +188,8 @@ BATCH_TOTAL=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.total_plans // e
 BATCH_SUMMARY=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.latest_summary // empty' 2>/dev/null || true)
 
 if [[ -n "$BATCH_ITER" ]] && [[ "$BATCH_ITER" =~ ^[0-9]+$ ]]; then
-  BATCH_INFO=" Arc-batch iteration ${BATCH_ITER}/${BATCH_TOTAL:-unknown}."
+  if [[ ! "$BATCH_TOTAL" =~ ^[0-9]+$ ]]; then BATCH_TOTAL="unknown"; fi
+  BATCH_INFO=" Arc-batch iteration ${BATCH_ITER}/${BATCH_TOTAL}."
   # SEC-008: Validate summary path before injecting into context message
   if [[ -n "$BATCH_SUMMARY" ]] && [[ "$BATCH_SUMMARY" != "none" ]]; then
     if [[ "$BATCH_SUMMARY" =~ ^[a-zA-Z0-9._/-]+$ ]]; then

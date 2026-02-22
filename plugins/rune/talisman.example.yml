@@ -356,6 +356,8 @@ arc:
     # improved compact recovery and inter-arc context awareness.
     summaries:
       enabled: true              # Kill switch — set false to disable all summary behavior (default: true)
+      # max_content_lines: 30   # Reserved — currently hardcoded
+      # dir: tmp/arc-batch/summaries  # Reserved — currently hardcoded
 
   # ── Gap Analysis settings (v1.51.0+) ──
   gap_analysis:
