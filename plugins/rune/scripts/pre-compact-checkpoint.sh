@@ -41,6 +41,8 @@ _sort_by_mtime() {
 # Fixes: BACK-009 (summary_enabled gate), BACK-008 (numeric sort instead of ls -t)
 _capture_arc_batch_state() {
   arc_batch_state="{}"
+  # BACK-R1-009 FIX: Guard against CWD not yet initialized (function defined before CWD is set)
+  [[ -z "${CWD:-}" ]] && return 0
   [[ ! -f "$BATCH_STATE_FILE" ]] && return 0
   [[ -L "$BATCH_STATE_FILE" ]] && return 0
   local _batch_frontmatter
@@ -59,10 +61,18 @@ _capture_arc_batch_state() {
     # BACK-009 FIX: only populate latest_summary when enabled AND directory exists
     if [[ "$_batch_summary_enabled" != "false" ]] && [[ -d "$_batch_summary_dir" ]] && [[ ! -L "$_batch_summary_dir" ]]; then
       # BACK-008 FIX: numeric sort (iteration-N.md) instead of ls -t (mtime-prone)
+      # BACK-R1-004 FIX: extract iteration number from basename before sorting —
+      # sort -t- -k2 -n on full paths fails when directory contains hyphens (e.g. arc-batch)
       local _found
-      _found=$(find "$_batch_summary_dir" -maxdepth 1 -name 'iteration-*.md' 2>/dev/null | sort -t- -k2 -n | tail -1)
+      _found=$(find "$_batch_summary_dir" -maxdepth 1 -name 'iteration-*.md' 2>/dev/null | \
+        awk -F/ '{n=$NF; sub(/iteration-/,"",n); sub(/\.md$/,"",n); print n+0, $0}' | \
+        sort -k1 -n | tail -1 | cut -d' ' -f2-)
       if [[ -n "$_found" ]]; then
-        _latest_summary="${_found#${CWD}/}"
+        # BACK-R1-005 FIX: verify strip actually removed CWD prefix (symlink/mount mismatch guard)
+        local _rel="${_found#${CWD}/}"
+        if [[ "$_rel" != "$_found" ]] && [[ "$_rel" != /* ]]; then
+          _latest_summary="$_rel"
+        fi
       fi
     fi
     arc_batch_state=$(jq -n \

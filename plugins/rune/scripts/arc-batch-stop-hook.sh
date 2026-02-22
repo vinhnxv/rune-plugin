@@ -147,7 +147,7 @@ if [[ -n "$STORED_PID" && "$STORED_PID" =~ ^[0-9]+$ ]]; then
       if [[ -n "$_ORPHAN_PROGRESS" ]]; then
         _TMPFILE=$(mktemp "${CWD}/${PROGRESS_FILE}.XXXXXX" 2>/dev/null) || true
         if [[ -n "$_TMPFILE" ]]; then
-          echo "$_ORPHAN_PROGRESS" > "$_TMPFILE" && mv -f "$_TMPFILE" "${CWD}/${PROGRESS_FILE}" 2>/dev/null || rm -f "$_TMPFILE" 2>/dev/null
+          printf '%s\n' "$_ORPHAN_PROGRESS" > "$_TMPFILE" && mv -f "$_TMPFILE" "${CWD}/${PROGRESS_FILE}" 2>/dev/null || rm -f "$_TMPFILE" 2>/dev/null
         fi
       fi
     fi
@@ -192,6 +192,9 @@ fi
 # If crash during summary write, plan stays in_progress → --resume re-runs it (safe)
 SUMMARY_PATH=""
 SUMMARY_TMP=""
+# BACK-R1-003b FIX: Initialize PR_URL before conditional summary block
+# (previously unset when summary_enabled=false, relying on ${PR_URL:-none} under set -u)
+PR_URL="none"
 SUMMARY_ENABLED=$(get_field "summary_enabled")
 # Default to true if field missing (backward compat with pre-v1.72.0 state files)
 if [[ "$SUMMARY_ENABLED" != "false" ]]; then
@@ -262,17 +265,21 @@ if [[ "$SUMMARY_ENABLED" != "false" ]]; then
       SUMMARY_PATH=""
     fi
 
-    # SEC-101: Validate all values before embedding in YAML heredoc (injection prevention)
-    [[ "$SUMMARY_PLAN_PATH" =~ ^[a-zA-Z0-9._/-]+$ ]] || SUMMARY_PLAN_PATH="unknown"
-    _plan_started=$(echo "$SUMMARY_PLAN_META" | grep '^started:' | sed 's/^started:[[:space:]]*//' | head -1)
-    [[ "$_plan_started" =~ ^[0-9TZ:.+-]+$ ]] || _plan_started="unknown"
-    [[ "$BRANCH" =~ ^[a-zA-Z0-9._/-]+$ ]] || BRANCH="unknown"
-    [[ "$PR_URL" =~ ^https?:// ]] || PR_URL="none"
+    # BACK-R1-002 FIX: Guard all downstream code against cleared SUMMARY_PATH
+    # (previously, inner SUMMARY_PATH="" fell through to SEC-101 + mktemp block)
+    if [[ -n "$SUMMARY_PATH" ]]; then
+      # SEC-101: Validate all values before embedding in YAML heredoc (injection prevention)
+      [[ "$SUMMARY_PLAN_PATH" =~ ^[a-zA-Z0-9._/-]+$ ]] || SUMMARY_PLAN_PATH="unknown"
+      _plan_started=$(echo "$SUMMARY_PLAN_META" | grep '^started:' | sed 's/^started:[[:space:]]*//' | head -1)
+      [[ "$_plan_started" =~ ^[0-9TZ:.+-]+$ ]] || _plan_started="unknown"
+      [[ "$BRANCH" =~ ^[a-zA-Z0-9._/-]+$ ]] || BRANCH="unknown"
+      [[ "$PR_URL" =~ ^https?:// ]] || PR_URL="none"
 
-    # C8: Hardcode tail -30 for content cap (no talisman config chain)
-    # Build structured summary (Markdown)
-    # C1: Context note section merged into main file (no separate context.md)
-    SUMMARY_CONTENT="---
+      # C8/C9: Use git log --oneline -5 (5 commits — hardcoded, not talisman-configurable)
+      # Build structured summary (Markdown)
+      # C1: Context note section merged into main file (no separate context.md)
+      # SEC-R1-001 FIX: Use validated scalars only — not raw SUMMARY_PLAN_META block
+      SUMMARY_CONTENT="---
 iteration: ${ITERATION}
 plan: ${SUMMARY_PLAN_PATH}
 status: completed
@@ -284,7 +291,8 @@ timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 # Arc Batch Summary — Iteration ${ITERATION}
 
 ## Plan
-${SUMMARY_PLAN_META}
+path: ${SUMMARY_PLAN_PATH}
+started: ${_plan_started}
 completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 ## Changes (git log)
@@ -299,18 +307,19 @@ ${PR_URL}
 <!-- Claude adds a brief context note (max 5 lines) here during the next iteration -->
 "
 
-    # Atomic write (SEC-004: mktemp, not $$)
-    SUMMARY_TMP=$(mktemp "${SUMMARY_PATH}.XXXXXX" 2>/dev/null) || { _trace "Summary writer: mktemp failed"; SUMMARY_PATH=""; }
-    if [[ -n "$SUMMARY_TMP" ]]; then
-      if printf '%s\n' "$SUMMARY_CONTENT" > "$SUMMARY_TMP" 2>/dev/null; then
-        mv -f "$SUMMARY_TMP" "$SUMMARY_PATH" 2>/dev/null || { rm -f "$SUMMARY_TMP" 2>/dev/null; SUMMARY_PATH=""; }
-        # C5: Clear SUMMARY_TMP after mv succeeds (mktemp cleanup guard)
-        SUMMARY_TMP=""
-        _trace "Summary writer: wrote ${SUMMARY_PATH}"
-      else
-        rm -f "$SUMMARY_TMP" 2>/dev/null
-        SUMMARY_TMP=""
-        SUMMARY_PATH=""
+      # Atomic write (SEC-004: mktemp, not $$)
+      SUMMARY_TMP=$(mktemp "${SUMMARY_PATH}.XXXXXX" 2>/dev/null) || { _trace "Summary writer: mktemp failed"; SUMMARY_PATH=""; }
+      if [[ -n "$SUMMARY_TMP" ]]; then
+        if printf '%s\n' "$SUMMARY_CONTENT" > "$SUMMARY_TMP" 2>/dev/null; then
+          mv -f "$SUMMARY_TMP" "$SUMMARY_PATH" 2>/dev/null || { rm -f "$SUMMARY_TMP" 2>/dev/null; SUMMARY_PATH=""; }
+          # C5: Clear SUMMARY_TMP after mv succeeds (mktemp cleanup guard)
+          SUMMARY_TMP=""
+          _trace "Summary writer: wrote ${SUMMARY_PATH}"
+        else
+          rm -f "$SUMMARY_TMP" 2>/dev/null
+          SUMMARY_TMP=""
+          SUMMARY_PATH=""
+        fi
       fi
     fi
   fi
@@ -412,6 +421,7 @@ fi
 # Increment iteration in state file (atomic: read → replace → mktemp + mv)
 NEW_ITERATION=$((ITERATION + 1))
 _STATE_TMP=$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }
+# ITERATION guaranteed numeric by GUARD 7 (line 166) — sed pattern safe
 sed "s/^iteration: ${ITERATION}$/iteration: ${NEW_ITERATION}/" "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null \
   && mv -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null \
   || { rm -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null; exit 0; }
@@ -487,6 +497,16 @@ fi
 # ── [NEW v1.72.0] Build conditional summary step for ARC_PROMPT ──
 # Phase 2: Only inject step 4.5 when SUMMARY_PATH is non-empty (summary was written)
 SUMMARY_STEP=""
+if [[ -n "$SUMMARY_PATH" ]]; then
+  # SEC-R1-002 FIX: Validate SUMMARY_PATH before embedding in prompt
+  # (CWD is canonicalized via pwd -P, but this explicit guard prevents edge cases
+  # where CWD contains spaces or characters that could alter prompt structure)
+  _path_re='^[a-zA-Z0-9._/ -]+$'
+  if [[ ! "$SUMMARY_PATH" =~ $_path_re ]]; then
+    _trace "Summary writer: SUMMARY_PATH failed allowlist, skipping prompt injection"
+    SUMMARY_PATH=""
+  fi
+fi
 if [[ -n "$SUMMARY_PATH" ]]; then
   # C1: Claude appends context note to main summary file (no separate context.md)
   # SEC-003: Truthbinding on summary content

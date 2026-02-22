@@ -166,7 +166,7 @@ Final iteration:
 | summary_enabled: false | All summary logic skipped (talisman kill switch) | arc-batch-stop-hook.sh |
 | Old state file without summary_enabled | get_field returns empty → treated as true (backward compat) | arc-batch-stop-hook.sh |
 | Compaction during arc-batch (no team) | Teamless checkpoint with arc_batch_state (C6 accepted) | pre-compact-checkpoint.sh |
-| Large git diff stat | Capped to 30 lines via tail (hardcoded per C8) | arc-batch-stop-hook.sh |
+| Large git log output | Capped to 5 commits via --oneline -5 (hardcoded per C8/C9) | arc-batch-stop-hook.sh |
 | Summary path traversal/symlink | Rejected by path validation + symlink check | arc-batch-stop-hook.sh |
 
 ## V1 Edge Cases (REMOVED — v1.59.0)
