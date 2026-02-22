@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.67.0] - 2026-02-22
+
+### Added
+- **Session-scoped team cleanup** — Prevents cross-session interference when multiple Claude Code sessions work on the same repo:
+  - **TLC-004 session marker hook** (`stamp-team-session.sh`): PostToolUse:TeamCreate hook writes `.session` file inside team directory containing `session_id`. Atomic write (tmp+mv), fail-open.
+  - **Session-scoped stale scan** (`enforce-team-lifecycle.sh`): TLC-001 now checks `.session` marker during stale detection — skips teams owned by other live sessions, cleans only orphaned teams.
+  - **Session-scoped appraise identifiers**: `/rune:appraise` team names now include 4-char session suffix (`rune-review-{hash}-{sid4}`) to prevent collision when two sessions review the same commit.
+  - **Session context in TLC-002 reports**: `verify-team-cleanup.sh` includes 8-char session ID prefix in post-delete diagnostic messages.
+  - **Session-scoped arc-batch cleanup**: `arc-batch-stop-hook.sh` filters team cleanup to session-owned teams only (R13 fix).
+- **Session Ownership documentation** in `team-lifecycle-guard.md`: `.session` marker contract, ownership verification matrix, state file session fields reference.
+
 ## [1.66.0] - 2026-02-22
 
 ### Added

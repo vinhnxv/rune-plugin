@@ -121,6 +121,15 @@ if [[ "$HAS_TEAM_NAME" == "yes" ]]; then
   exit 0
 fi
 
+# ATE-1 EXEMPTION: Read-only built-in subagent types are safe without team_name.
+# Explore (Haiku, read-only) and Plan (read-only) agents produce bounded output
+# and cannot modify files — no risk of context explosion. The orchestrator needs
+# these for quick codebase queries during workflow phases.
+SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null || true)
+if [[ "$SUBAGENT_TYPE" == "Explore" || "$SUBAGENT_TYPE" == "Plan" ]]; then
+  exit 0
+fi
+
 # ATE-1 VIOLATION: Task call without team_name during active workflow
 # Output deny decision with actionable feedback
 cat << 'DENY_JSON'

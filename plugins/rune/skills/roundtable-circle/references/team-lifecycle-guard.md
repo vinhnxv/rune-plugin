@@ -101,10 +101,20 @@ Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${ne
 
 **When to use**: Before EVERY `TeamCreate` call. No exceptions.
 
-## Centralized Hook Guards (TLC-001/002/003)
+## Session Ownership
+
+Team directories are tagged with session identity via `.session` marker files (TLC-004). This enables session-scoped stale detection and cross-session safety.
+
+- **`.session` file**: Written by `stamp-team-session.sh` after TeamCreate. Contains raw `session_id`.
+- **Ownership contract**: match=own, mismatch+live=skip, mismatch+dead=orphan, absent=legacy orphan.
+- **State file fields**: `config_dir`, `owner_pid`, `session_id` — verified by cancel commands and hooks.
+
+See canonical version at [team-lifecycle-guard.md](../../../rune-orchestration/references/team-lifecycle-guard.md) for the full Session Ownership contract.
+
+## Centralized Hook Guards (TLC-001/002/003/004)
 
 See canonical version at [team-lifecycle-guard.md](../../../rune-orchestration/references/team-lifecycle-guard.md) for full details.
-Three hooks supplement the inlined teamTransition protocol: TLC-001 (PreToolUse:TeamCreate name validation + stale detection + advisory context injection), TLC-002 (PostToolUse:TeamDelete zombie check), TLC-003 (SessionStart:startup|resume orphan scan). Advisory-only for stale detection; hard block only for invalid team names.
+Four hooks supplement the inlined teamTransition protocol: TLC-001 (PreToolUse:TeamCreate name validation + stale detection + advisory context injection), TLC-002 (PostToolUse:TeamDelete zombie check), TLC-003 (SessionStart:startup|resume orphan scan), TLC-004 (PostToolUse:TeamCreate session marker). Advisory-only for stale detection; hard block only for invalid team names.
 
 ## Cleanup Fallback
 

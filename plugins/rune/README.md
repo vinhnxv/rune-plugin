@@ -667,7 +667,7 @@ Rune uses Elden Ring-inspired theming:
 - `.gitignore` excludes `.claude/echoes/` by default (opt-in to version control)
 - Sensitive data filter rejects API keys, passwords, tokens from echo entries
 - All findings require verified evidence from source code
-- **Hook-based enforcement**: 16 event-driven hook scripts provide deterministic guardrails (9 enforcement + 3 quality/lifecycle + 2 compaction resilience + 2 session stop):
+- **Hook-based enforcement**: 17 event-driven hook scripts provide deterministic guardrails (9 enforcement + 4 quality/lifecycle + 2 compaction resilience + 2 session stop):
 
 | Hook | Event | Purpose |
 |------|-------|---------|
@@ -679,6 +679,7 @@ Rune uses Elden Ring-inspired theming:
 | TLC-001 | PreToolUse:TeamCreate | Validates team names (hard block) + stale team cleanup (advisory) |
 | TLC-002 | PostToolUse:TeamDelete | Zombie team dir detection after deletion |
 | TLC-003 | SessionStart:startup\|resume | Orphaned team and stale state file detection |
+| TLC-004 | PostToolUse:TeamCreate | Session marker (.session file) for ownership verification |
 | — | PostToolUse:Write\|Edit | Echo search index dirty-signal annotation |
 | — | TaskCompleted | Signal files + haiku quality gate + Inner Flame self-review validation |
 | — | TeammateIdle | Output file validation + SEAL marker checks |

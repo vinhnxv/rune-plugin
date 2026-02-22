@@ -99,7 +99,40 @@ Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${ne
 
 **When to use**: Before EVERY `TeamCreate` call. No exceptions.
 
-## Centralized Hook Guards (TLC-001/002/003)
+## Session Ownership
+
+Team directories are tagged with session identity to enable cross-session safety.
+
+### .session Marker File (TLC-004)
+
+After every `TeamCreate`, the `stamp-team-session.sh` PostToolUse hook writes a `.session` file inside the team directory containing the `session_id`. This enables `enforce-team-lifecycle.sh` (TLC-001) to verify session ownership during stale scans.
+
+**File location**: `$CHOME/teams/{team_name}/.session`
+**Contents**: Raw `session_id` string (no newline, no JSON)
+**Write pattern**: Atomic (write to `.session.tmp.$$`, then `mv -f`)
+
+### Session Ownership Contract
+
+| Scenario | `.session` exists? | Matches current session? | Action |
+|----------|-------------------|-------------------------|--------|
+| Own team | Yes | Yes | Clean up normally |
+| Foreign team (live) | Yes | No | Skip (another session owns it) |
+| Orphaned team | Yes | No (owner PID dead) | Safe to clean |
+| Pre-v1.67 team | No | N/A | Treat as orphan (legacy migration) |
+
+### State File Session Fields
+
+All workflow state files (`tmp/.rune-*.json`) include three session identity fields:
+
+| Field | Source | Purpose |
+|-------|--------|---------|
+| `config_dir` | `CLAUDE_CONFIG_DIR` (resolved, absolute) | Installation isolation |
+| `owner_pid` | `$PPID` (Claude Code process PID) | Session isolation (liveness via `kill -0`) |
+| `session_id` | `CLAUDE_SESSION_ID` (skill substitution) | Diagnostic correlation |
+
+Cancel commands and hook scripts verify these fields before acting on state files.
+
+## Centralized Hook Guards (TLC-001/002/003/004)
 
 Three hooks provide defense-in-depth alongside the inlined teamTransition protocol:
 
@@ -108,6 +141,7 @@ Three hooks provide defense-in-depth alongside the inlined teamTransition protoc
 | TLC-001 | PreToolUse:TeamCreate | enforce-team-lifecycle.sh | Name validation (hard block) + stale detection (advisory) + auto fs cleanup + advisory context injection |
 | TLC-002 | PostToolUse:TeamDelete | verify-team-cleanup.sh | Zombie dir detection (informational, stdout) |
 | TLC-003 | SessionStart:startup\|resume | session-team-hygiene.sh | Orphan scan + stale state file detection |
+| TLC-004 | PostToolUse:TeamCreate | stamp-team-session.sh | Session marker (`.session` file) for ownership verification |
 
 **Interaction with teamTransition**: The hooks SUPPLEMENT the inlined protocol — they do not replace it.
 TLC-001 fires at teamTransition's Step 4 (TeamCreate call). By this point, Steps 2-3 have already

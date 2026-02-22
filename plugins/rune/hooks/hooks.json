@@ -94,6 +94,17 @@
         ]
       },
       {
+        "matcher": "TeamCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/stamp-team-session.sh",
+            "timeout": 5,
+            "statusMessage": "Stamping team session marker..."
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit",
         "hooks": [
           {
