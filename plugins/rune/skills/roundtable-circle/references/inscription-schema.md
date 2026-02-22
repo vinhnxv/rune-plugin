@@ -60,8 +60,9 @@
   "todos": {
     "enabled": "boolean — whether per-worker todo files are active (default: true, v1.43.0+)",
     "dir": "string — relative path to todos directory within output_dir (default: 'todos/'). Must match /^[a-zA-Z0-9_-]+\\/$/ — no path traversal",
-    "schema": "string — 'per-worker' (one file per worker, v1 only)",
-    "fields": ["array of required frontmatter fields (v1: worker, role, status [active|completed|interrupted|failed], plan_path)"],
+    "schema": "string — 'per-worker' (one file per worker, v1) | 'per-task' (one file per task, v2 — when talisman.file_todos.enabled === true)",
+    "fields": ["array of required frontmatter fields. per-worker v1: worker, role, status, plan_path. per-task v2: schema_version, status, priority, issue_id, source, source_ref, tags, dependencies, files, assigned_to, work_session, created, updated"],
+    "filename_template": "string — per-task only: '{issue_id}-{status}-{priority}-{slug}.md'. Status encodes INITIAL status only (Option A: no renames). Frontmatter status is authoritative.",
     "summary_file": "string — filename for orchestrator-generated summary (default: '_summary.md')"
   },
 
@@ -208,7 +209,7 @@
 | `context_intelligence` | No | `{ "available": false }` (v1.60.0+) |
 | `linter_context` | No | `{ "detected": [], "rule_categories": [], "suppress_categories": [] }` (v1.60.0+) |
 | `taxonomy_version` | No | `1` (v1.60.0+: set to `2` when Q/N interaction types are active) |
-| `todos` | No | `{ "enabled": true, "dir": "todos/", "schema": "per-worker", "summary_file": "_summary.md" }` (v1.43.0+, rune-work only) |
+| `todos` | No | `{ "enabled": true, "dir": "todos/", "schema": "per-worker", "summary_file": "_summary.md" }` (v1.43.0+, rune-work only). When `talisman.file_todos.enabled === true`: `{ "schema": "per-task", "dir": "todos/", "filename_template": "{id}-{status}-{priority}-{slug}.md" }` |
 | `aggregator` | No | No aggregation |
 | `verification` | No | `{ "enabled": false }` |
 | `context_engineering` | No | Defaults applied |

@@ -12,6 +12,7 @@
 | Arc State | `.claude/arc/{id}/` | `checkpoint.json` (persistent, NOT in tmp/) |
 | Scratch | `tmp/scratch/` | Session state |
 | Codex | Per-workflow (see codex-cli skill) | `codex-oracle.md`, `codex-analysis.md`, `codex-plan-review.md`, `codex-advisory.md` |
+| File-Todos | `todos/` (project root) | `{NNN}-{status}-{slug}.md` with YAML frontmatter. Persistent, project-scoped. Gated by `talisman.file_todos.enabled`. Distinct from `tmp/work/*/todos/` (session-scoped per-worker logs) |
 | Echoes | `.claude/echoes/{role}/` | `MEMORY.md`, `knowledge.md`, `archive/` |
 
 All `tmp/` directories are ephemeral and can be safely deleted after workflows complete.

@@ -272,6 +272,112 @@ Task({
 
 **TOME output format is identical for both scopes** — header differs only in `Scope:` field and `Files scanned:` vs `Files changed:`.
 
+## Phase 5.4: Todo Generation from TOME (Conditional)
+
+Generate per-finding todo files from scope-tagged TOME. Runs AFTER Phase 5.3 (diff-scope tagging) so scope attributes are available.
+
+**Skip conditions**: `talisman.file_todos.enabled !== true` OR `talisman.file_todos.auto_generate.{workflow_type} !== true` OR `--todos=false` flag.
+
+**Activation**: `talisman.file_todos.auto_generate.review === true` (for appraise) or `talisman.file_todos.auto_generate.audit === true` (for audit), or `--todos` flag override.
+
+```javascript
+// Phase 5.4: Todo Generation from TOME findings
+const fileTodosEnabled = talisman?.file_todos?.enabled === true  // opt-in (NOT !== false)
+const workflowType = workflow === "rune-review" ? "review" : "audit"
+const autoGenerate = talisman?.file_todos?.auto_generate?.[workflowType] === true
+const todosFlag = flags['--todos']
+
+// Skip if not enabled: master toggle + per-workflow toggle + flag override
+const generateTodos = fileTodosEnabled && (todosFlag === true || (autoGenerate && todosFlag !== false))
+
+if (generateTodos) {
+  // 1. Read scope-tagged TOME.md
+  const tomeContent = Read(`${outputDir}TOME.md`)
+  const tomePath = `${outputDir}TOME.md`
+
+  // 2. Extract findings via RUNE:FINDING markers (6-step pipeline)
+  //    nonce validation → marker parsing → attribute extraction →
+  //    path normalization → Q/N filtering → scope classification
+  const allFindings = extractFindings(tomeContent, sessionNonce)
+
+  // 3. Filter out non-actionable findings
+  const todoableFindings = allFindings.filter(f =>
+    f.interaction !== 'question' &&         // Q findings are non-actionable
+    f.interaction !== 'nit' &&              // N findings are non-actionable
+    f.status !== 'FALSE_POSITIVE' &&        // Already dismissed
+    !(f.scope === 'pre-existing' && f.severity !== 'P1')  // Skip pre-existing P2/P3
+    // Pre-existing P1 findings ARE kept (critical regardless of scope)
+  )
+
+  // 4. Ensure todos/ directory exists
+  const todosDir = talisman?.file_todos?.dir || "todos/"
+  Bash(`mkdir -p "${todosDir}"`)
+
+  // 5. Get next sequential ID (zsh-safe — uses Glob() not shell glob)
+  const existingFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
+  let nextId = 1
+  if (existingFiles.length > 0) {
+    const maxId = existingFiles
+      .map(f => parseInt(f.split('/').pop().match(/^(\d+)-/)?.[1] || '0', 10))
+      .reduce((a, b) => Math.max(a, b), 0)
+    nextId = maxId + 1
+  }
+
+  // 6. Idempotency check + write todo files
+  let createdCount = 0
+  for (const finding of todoableFindings) {
+    // Dedup: check if todo already exists for this finding
+    const existingTodos = Glob(`${todosDir}*.md`)
+    const isDuplicate = existingTodos.some(f => {
+      const fm = parseFrontmatter(Read(f))
+      return fm.finding_id === finding.id && fm.source_ref === tomePath
+    })
+    if (isDuplicate) continue
+
+    const priority = finding.severity.toLowerCase()  // P1→p1, P2→p2, P3→p3
+    const slug = finding.title.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40)
+    const paddedId = String(nextId).padStart(3, '0')
+    const filename = `${paddedId}-pending-${priority}-${slug}.md`
+
+    // Write from template (sole-orchestrator pattern — only orchestrator creates)
+    Write(`${todosDir}${filename}`, generateTodoFromFinding(finding, {
+      schema_version: 1,
+      status: "pending",
+      priority,
+      issue_id: paddedId,
+      source: workflowType,
+      source_ref: tomePath,
+      finding_id: finding.id,
+      finding_severity: finding.severity,
+      tags: finding.tags || [],
+      files: finding.files || [],
+      created: new Date().toISOString().slice(0, 10),
+      updated: new Date().toISOString().slice(0, 10)
+    }))
+
+    nextId++
+    createdCount++
+  }
+
+  log(`Phase 5.4: Generated ${createdCount} todo files from ${todoableFindings.length} actionable findings (${allFindings.length - todoableFindings.length} filtered out)`)
+}
+```
+
+**generateTodoFromFinding()** writes a markdown file using the template from `skills/file-todos/references/todo-template.md`, filling in the `source: review` (or `audit`) conditional sections with finding data from TOME.
+
+**Filtering summary**:
+
+| Filter | Rationale |
+|--------|-----------|
+| `interaction="question"` | Non-actionable (questions for the author) |
+| `interaction="nit"` | Non-actionable (style nits) |
+| `FALSE_POSITIVE` | Already dismissed in prior mend |
+| Pre-existing P2/P3 | Noise reduction (pre-existing debt) |
+| Pre-existing P1 | KEPT (critical regardless of scope) |
+
 ## Phase 6: Verify (Truthsight)
 
 Layer 0 inline checks + Layer 2 verifier. See roundtable-circle SKILL.md for the protocol.
@@ -382,3 +488,4 @@ const params = {
 - [Dedup Runes](dedup-runes.md) — Cross-wave dedup hierarchy
 - [Team Lifecycle Guard](../../rune-orchestration/references/team-lifecycle-guard.md) — Pre-create guard pattern
 - [Inscription Schema](inscription-schema.md) — inscription.json format
+- [File-Todos Integration](../../file-todos/references/integration-guide.md) — Phase 5.4 todo generation from TOME
