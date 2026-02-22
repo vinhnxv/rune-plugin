@@ -59,7 +59,8 @@ if [[ -d "$CHOME/teams/" ]]; then
 fi
 
 if [[ ${#remaining[@]} -gt 0 ]]; then
-  echo "TLC-002 POST-DELETE [${SHORT_SID:-no-sid}]: ${#remaining[@]} rune/arc team dir(s) still exist after TeamDelete: ${remaining[*]:0:5}. These may be from other workflows or zombie state. Run /rune:rest --heal if unexpected."
+  _msg="TLC-002 POST-DELETE [${SHORT_SID:-no-sid}]: ${#remaining[@]} rune/arc team dir(s) still exist after TeamDelete: ${remaining[*]:0:5}. These may be from other workflows or zombie state. Run /rune:rest --heal if unexpected."
+  jq -n --arg ctx "$_msg" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
 fi
 
 [[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-002 [${SHORT_SID:-no-sid}]: remaining team dirs after TeamDelete: ${#remaining[@]}" >> /tmp/rune-hook-trace.log

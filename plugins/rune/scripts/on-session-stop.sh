@@ -266,6 +266,7 @@ fi
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] $summary" >> "${CWD}/tmp/.rune-stop-cleanup.log" 2>/dev/null
 
 # Silent cleanup — allow stop immediately, no block
-# Summary is echoed to stdout so Claude sees it as context (informational only)
+# NOTE: Stop hooks do NOT support hookSpecificOutput (unlike PreToolUse/SessionStart).
+# The "Stop hook error:" UI label is a known Claude Code UX issue (#12667), not fixable from hook side.
 echo "$summary"
 exit 0
