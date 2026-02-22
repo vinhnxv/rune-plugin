@@ -3,7 +3,7 @@
 ## [1.64.0] - 2026-02-22
 
 ### Changed
-- **Commands-to-Skills migration** — Migrated 7 major commands to skills format with lazy-load reference decomposition: `work`, `devise`, `review`, `audit`, `mend`, `inspect`, `forge`
+- **Commands-to-Skills migration** — Migrated 7 major commands to skills format with lazy-load reference decomposition: `strive`, `devise`, `appraise`, `audit`, `mend`, `inspect`, `forge`
 - Skills gain `allowed-tools`, `disable-model-invocation`, `argument-hint`, and lazy-load reference support vs legacy commands
 - Plugin now has **8 commands** and **25 skills** (was 15 commands, 18 skills)
 - 12 new reference files created with content extracted from commands (quality-gates.md, todo-protocol.md, brainstorm-phase.md, ash-summoning.md, tome-aggregation.md, review-scope.md, fixer-spawning.md, resolution-report.md, inspector-prompts.md, verdict-synthesis.md, deep-mode.md, forge-enrichment-protocol.md)

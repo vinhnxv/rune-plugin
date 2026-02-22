@@ -147,7 +147,7 @@ if (diffScope?.enabled && diffScope?.ranges) {
 }
 ```
 
-<!-- NOTE: "Phase 5.5" in review.md refers to Cross-Model Verification (Codex Oracle).
+<!-- NOTE: "Phase 5.5" in appraise.md refers to Cross-Model Verification (Codex Oracle).
      Other pipelines use 5.5 for different sub-phases (audit: Truthseer Validator, arc: Gap Analysis). -->
 
 ## Phase 5.5: Cross-Model Verification (Codex Oracle)

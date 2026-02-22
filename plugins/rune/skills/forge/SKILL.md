@@ -395,7 +395,7 @@ if (!isArcContext) {
 ```
 
 **Action handlers**:
-- `/rune:strive` → Invoke `Skill("rune:work", planPath)`
+- `/rune:strive` → Invoke `Skill("rune:strive", planPath)`
 - **View diff** → `Bash(\`diff -u "tmp/forge/{timestamp}/original-plan.md" "${planPath}" || true\`)` — display unified diff of all changes
 - **Revert enrichment** → `Bash(\`cp "tmp/forge/{timestamp}/original-plan.md" "${planPath}"\`)` — restore original, confirm to user
 - **Deepen sections** → Ask which sections to re-deepen via AskUserQuestion, then re-run Phase 2-5 targeting only those sections (reuse same `timestamp` and backup)

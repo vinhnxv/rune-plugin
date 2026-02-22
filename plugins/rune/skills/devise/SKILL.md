@@ -296,7 +296,7 @@ Plan file written to: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 - `plans/2026-02-12-refactor-api-client-plan.md`
 
 After presenting the plan, offer next steps using AskUserQuestion:
-- `/rune:strive` → `Skill("rune:work", plan_path)`
+- `/rune:strive` → `Skill("rune:strive", plan_path)`
 - `/rune:forge` → `Skill("rune:forge", plan_path)`
 - Open in editor → `Bash("open plans/${path}")` (macOS)
 - Create issue → See [issue-creation.md](../rune-orchestration/references/issue-creation.md)

@@ -5,13 +5,13 @@ Each step is annotated: **RUN** (execute as-is), **SKIP** (arc handles this or n
 or **ADAPT** (run with arc-specific modifications).
 
 <!-- NOTE: When adding new arc phases that delegate to commands, add a section here. -->
-<!-- Cross-reference: review.md and audit.md Phase 0 sections contain DELEGATION-CONTRACT comments pointing here. -->
+<!-- Cross-reference: appraise.md and audit.md Phase 0 sections contain DELEGATION-CONTRACT comments pointing here. -->
 
 ## Security Note
 
 Arc must sanitize all variables before passing to delegated Phase 0 steps.
 Use `SAFE_PATH_PATTERN` validation for file paths and write file lists to temp files
-rather than inline interpolation (see review.md SEC-006). Variables from previous
+rather than inline interpolation (see appraise.md SEC-006). Variables from previous
 phase artifacts (plan paths, file lists, team names) are validated at arc pre-flight,
 but re-validate if transforming or concatenating.
 

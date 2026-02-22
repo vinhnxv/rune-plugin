@@ -88,7 +88,7 @@ if (qCount + nCount > 0) {
 }
 
 // v1.38.0: Extract scope stats for smart convergence scoring
-// Scope stats are available when diff-scope tagging was applied (review.md Phase 5.3).
+// Scope stats are available when diff-scope tagging was applied (appraise.md Phase 5.3).
 // For untagged TOMEs (pre-v1.38.0), scopeStats is null → evaluateConvergence skips smart scoring.
 let scopeStats = null
 // SEC-007 FIX: Filter markers by session nonce before extracting scope stats.

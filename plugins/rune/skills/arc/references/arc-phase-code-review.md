@@ -214,14 +214,14 @@ updateCheckpoint({
 
 If Phase 5.5 produced a gap analysis with MISSING or PARTIAL criteria, the counts are injected as context for reviewers. This helps reviewers focus on areas where the implementation may be incomplete relative to the plan. The full gap-analysis.md path is provided so reviewers can read details on demand.
 
-## Delegation Steps (Phase 6 → review.md Phase 0)
+## Delegation Steps (Phase 6 → appraise.md Phase 0)
 
 <!-- See arc-delegation-checklist.md Phase 6 for the canonical contract -->
 
 When arc invokes `/rune:appraise` logic, the delegated command MUST execute these Phase 0 steps
-from review.md. Step ordering matters — scope building depends on default branch detection.
+from appraise.md. Step ordering matters — scope building depends on default branch detection.
 
-| # | review.md Phase 0 Step | Action | Notes |
+| # | appraise.md Phase 0 Step | Action | Notes |
 |---|----------------------|--------|-------|
 | 1 | Default branch detection | **RUN** | Review needs this to compute `git diff` base |
 | 2 | Changed files scope building | **RUN** | Review needs file inventory for Ash assignment. Depends on step 1 |
