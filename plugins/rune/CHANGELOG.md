@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.65.0] - 2026-02-22
+
+### Changed
+- **Skill rename to avoid autocomplete collision** — Renamed 3 skills to prevent `/plan`, `/review`, `/work` from colliding with Claude Code built-in commands in autocomplete:
+  - `/rune:plan` -> `/rune:devise`
+  - `/rune:review` -> `/rune:appraise`
+  - `/rune:work` -> `/rune:strive`
+- Skill directories renamed: `skills/plan/` -> `skills/devise/`, `skills/review/` -> `skills/appraise/`, `skills/work/` -> `skills/strive/`
+- All cross-references updated across 77 files (289 insertions, 289 deletions)
+- **Preserved (unchanged)**: Internal team name prefixes (`rune-review-*`, `rune-work-*`, `rune-plan-*`), state file patterns, `ARC_TEAM_PREFIXES`, talisman config keys, workflow IDs, output paths (`tmp/reviews/`, `tmp/work/`), agent directories (`agents/work/`, `agents/review/`), cancel commands (`/rune:cancel-review`)
+
 ## [1.64.0] - 2026-02-22
 
 ### Changed

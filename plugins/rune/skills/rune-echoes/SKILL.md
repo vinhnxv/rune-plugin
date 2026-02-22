@@ -97,7 +97,7 @@ Every echo entry must include evidence-based metadata:
 ```markdown
 ### [2026-02-11] Pattern: Unused imports in new files
 - **layer**: inscribed
-- **source**: rune:review PR #42
+- **source**: rune:appraise PR #42
 - **confidence**: 0.85
 - **evidence**: `src/auth.py:1-5` — 3 unused imports found
 - **verified**: 2026-02-11
@@ -110,7 +110,7 @@ Every echo entry must include evidence-based metadata:
 ```markdown
 ### [2026-02-11] Observation: Slow test suite in CI
 - **layer**: traced
-- **source**: rune:work session-abc
+- **source**: rune:strive session-abc
 - **confidence**: 0.6
 - **evidence**: CI logs — test suite took 8min (vs 3min baseline)
 - **verified**: 2026-02-11

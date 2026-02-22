@@ -58,7 +58,7 @@ class TestParseMemoryFile:
             # Memory
 
             ## Inscribed — Team lifecycle guards (2026-01-15)
-            **Source**: `rune:review session-abc`
+            **Source**: `rune:appraise session-abc`
             **Confidence**: HIGH (verified across 3 sessions)
             ### Pattern
             - Always use pre-create guard before TeamCreate
@@ -72,7 +72,7 @@ class TestParseMemoryFile:
         assert e["role"] == "orchestrator"
         assert e["layer"] == "inscribed"
         assert e["date"] == "2026-01-15"
-        assert e["source"] == "rune:review session-abc"
+        assert e["source"] == "rune:appraise session-abc"
         assert e["tags"] == "Team lifecycle guards"
         assert "pre-create guard" in e["content"]
         assert "id" in e
@@ -86,7 +86,7 @@ class TestParseMemoryFile:
             - Input validation is essential
 
             ## Traced — Quick note (2026-02-10)
-            **Source**: `rune:work task-42`
+            **Source**: `rune:strive task-42`
             - This was a minor observation
         """))
 
@@ -134,20 +134,20 @@ class TestParseMemoryFile:
         md = tmp_path / "MEMORY.md"
         md.write_text(textwrap.dedent("""\
             ## Inscribed — Title (2026-01-01)
-            **Source**: rune:review abc
+            **Source**: rune:appraise abc
             Content body here
         """))
 
         entries = parse_memory_file(str(md), "test")
         assert len(entries) == 1
-        assert entries[0]["source"] == "rune:review abc"
+        assert entries[0]["source"] == "rune:appraise abc"
 
     def test_content_excludes_source_line(self, tmp_path):
         """Source line should not appear in the content field."""
         md = tmp_path / "MEMORY.md"
         md.write_text(textwrap.dedent("""\
             ## Inscribed — Title (2026-01-01)
-            **Source**: `rune:review`
+            **Source**: `rune:appraise`
             The actual content
         """))
 

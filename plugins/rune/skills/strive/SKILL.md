@@ -320,7 +320,7 @@ Read and execute [quality-gates.md](references/quality-gates.md) before proceedi
 if (exists(".claude/echoes/workers/")) {
   appendEchoEntry(".claude/echoes/workers/MEMORY.md", {
     layer: "inscribed",
-    source: `rune:work ${timestamp}`,
+    source: `rune:strive ${timestamp}`,
   })
 }
 ```

@@ -6,7 +6,7 @@ within the .claude/echoes/ directory.
 
 Expected format:
     ## Inscribed - Title here (YYYY-MM-DD)
-    **Source**: `rune:review session-abc`
+    **Source**: `rune:appraise session-abc`
     **Confidence**: HIGH (...)
     ### Section heading
     - Content describing the learning
