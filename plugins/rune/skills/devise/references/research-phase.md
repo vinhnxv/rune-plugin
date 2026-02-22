@@ -81,6 +81,22 @@ try {
 // STEP 5: Post-create verification
 Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/rune-plan-${timestamp}/config.json" || echo "WARN: config.json not found after TeamCreate"`)
 
+// STEP 6: Write workflow state file with session isolation fields
+// CRITICAL: This state file activates the ATE-1 hook (enforce-teams.sh) which blocks
+// bare Task calls without team_name. Without this file, agents spawn as local subagents
+// instead of Agent Team teammates, causing context explosion.
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+Write(`tmp/.rune-plan-${timestamp}.json`, {
+  team_name: `rune-plan-${timestamp}`,
+  started: new Date().toISOString(),
+  status: "active",
+  config_dir: configDir,
+  owner_pid: ownerPid,
+  session_id: "${CLAUDE_SESSION_ID}",
+  feature: feature
+})
+
 // 2. Create research output directory
 mkdir -p tmp/plans/{timestamp}/research/
 

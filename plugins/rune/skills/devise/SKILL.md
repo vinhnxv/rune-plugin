@@ -269,6 +269,13 @@ for (const member of allMembers) {
 
 // 2. Wait for approvals (max 30s)
 
+// 2.5. Mark state file as completed (deactivates ATE-1 enforcement for this workflow)
+try {
+  const stateFile = `tmp/.rune-plan-${timestamp}.json`
+  const state = JSON.parse(Read(stateFile))
+  Write(stateFile, { ...state, status: "completed" })
+} catch (e) { /* non-blocking — state file may already be cleaned */ }
+
 // 3. Cleanup team — QUAL-004: retry-with-backoff
 // CRITICAL: Validate timestamp (/^[a-zA-Z0-9_-]+$/) before rm -rf — path traversal guard
 if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid plan identifier")
