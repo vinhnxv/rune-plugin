@@ -408,7 +408,7 @@ postPhaseCleanup(checkpoint, "work")
 
 ## Phase 5.5: IMPLEMENTATION GAP ANALYSIS
 
-Deterministic, orchestrator-only check that cross-references plan acceptance criteria against committed code changes. Zero LLM cost. Includes doc-consistency cross-checks (STEP 4.5), plan section coverage (STEP 4.7), and evaluator quality metrics (STEP 4.8).
+Deterministic, orchestrator-only check that cross-references plan acceptance criteria against committed code changes. Zero LLM cost. Includes stale reference detection (STEP A.10), flag scope creep detection (STEP A.11), doc-consistency cross-checks (STEP 4.5), plan section coverage (STEP 4.7), and evaluator quality metrics (STEP 4.8).
 
 **Inputs**: enriched plan, work summary, git diff
 **Outputs**: `tmp/arc/{id}/gap-analysis.md`
@@ -429,7 +429,7 @@ postPhaseCleanup(checkpoint, "gap_analysis")
 See [arc-codex-phases.md](references/arc-codex-phases.md) § Phase 5.6 for the full algorithm.
 
 **Team**: `arc-gap-{id}` | **Output**: `tmp/arc/{id}/codex-gap-analysis.md`
-**Failure**: warn and continue — gap analysis is advisory
+**Failure**: warn and continue — gap analysis is advisory. Writes `codex_needs_remediation` flag to checkpoint when actionable findings exceed `codex.gap_analysis.remediation_threshold` (default: 5).
 
 <!-- v1.57.0: Phase 5.6 batched claim enhancement planned — when CLI-backed Ashes
      are configured, their gap findings can be batched with Codex gap findings
@@ -444,15 +444,17 @@ postPhaseCleanup(checkpoint, "codex_gap_analysis")
 
 ## Phase 5.8: GAP REMEDIATION (conditional, v1.51.0)
 
-<!-- SO-P2-001: Cross-phase checkpoint contract.
-     Gate: reads `needs_remediation` from gap_analysis phase checkpoint (written by Phase 5.5 STEP D).
+<!-- SO-P2-001: Cross-phase checkpoint contract (dual-gate, v1.70.0).
+     Gate A (deterministic): reads `needs_remediation` from gap_analysis phase checkpoint (written by Phase 5.5 STEP D).
+     Gate B (Codex): reads `codex_needs_remediation` from codex_gap_analysis phase checkpoint (written by Phase 5.6).
      Phase 5.5 STEP D writes: updateCheckpoint({ needs_remediation: true/false, fixable_count, ... })
-     Phase 5.8 reads: checkpoint.needs_remediation === true → proceed, else skip. -->
+     Phase 5.6 writes: updateCheckpoint({ codex_needs_remediation: true/false, codex_fixable_count, ... })
+     Phase 5.8 reads: (checkpoint.needs_remediation === true OR checkpoint.codex_needs_remediation === true) → proceed, else skip. -->
 
-Auto-fixes FIXABLE findings from the Phase 5.5 Inspector Ashes VERDICT before proceeding to Goldmask Verification. Only runs when Phase 5.5 STEP D sets `needs_remediation: true` in checkpoint AND `arc.gap_analysis.remediation.enabled` is not false in talisman.
+Auto-fixes FIXABLE findings from the Phase 5.5 Inspector Ashes VERDICT before proceeding to Goldmask Verification. Only runs when Phase 5.5 STEP D sets `needs_remediation: true` OR Phase 5.6 sets `codex_needs_remediation: true` in checkpoint AND `arc.gap_analysis.remediation.enabled` is not false in talisman.
 
 **Team**: `arc-gap-fix-{id}` — follows ATE-1 pattern
-**Inputs**: `tmp/arc/{id}/gap-analysis-verdict.md` (from Phase 5.5 STEP B), checkpoint `needs_remediation` flag
+**Inputs**: `tmp/arc/{id}/gap-analysis-verdict.md` (from Phase 5.5 STEP B), checkpoint `needs_remediation` flag (Phase 5.5 STEP D) or `codex_needs_remediation` flag (Phase 5.6)
 **Output**: `tmp/arc/{id}/gap-remediation-report.md`
 **Failure**: Non-blocking. Skips cleanly if gate fails. Times out → proceeds with partial fixes.
 
@@ -586,7 +588,7 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | SEMANTIC VERIFICATION | WORK | `codex-semantic-verification.md` | Codex contradiction findings (or skip) |
 | WORK | GAP ANALYSIS | Working tree + `work-summary.md` | Git diff of committed changes + task summary |
 | GAP ANALYSIS | CODEX GAP ANALYSIS | `gap-analysis.md` | Criteria coverage (ADDRESSED/MISSING/PARTIAL) |
-| CODEX GAP ANALYSIS | GAP REMEDIATION | `codex-gap-analysis.md` | Cross-model gap findings + `needs_remediation` checkpoint flag from Phase 5.5 STEP D |
+| CODEX GAP ANALYSIS | GAP REMEDIATION | `codex-gap-analysis.md` | Cross-model gap findings + `codex_needs_remediation` checkpoint flag from Phase 5.6 + `needs_remediation` checkpoint flag from Phase 5.5 STEP D |
 | GAP REMEDIATION | GOLDMASK VERIFICATION | `gap-remediation-report.md` | Fixed findings list + deferred list. Skips cleanly if gate fails |
 | CODE REVIEW | MEND | `tome.md` | TOME with `<!-- RUNE:FINDING ... -->` markers |
 | MEND | VERIFY MEND | `resolution-report.md` | Fixed/FP/Failed finding list |
@@ -608,7 +610,7 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | WORK | Halt if <50% tasks complete. Partial commits preserved | `/rune:arc --resume` |
 | GAP ANALYSIS | Non-blocking — WARN only | Advisory context for code review |
 | CODEX GAP ANALYSIS | Non-blocking — Codex timeout/unavailable → skip, proceed | Advisory (v1.39.0) |
-| GAP REMEDIATION | Non-blocking — gate miss (needs_remediation=false or talisman disabled) → skip cleanly. Fixer timeout → partial fixes, proceed | Advisory (v1.51.0) |
+| GAP REMEDIATION | Non-blocking — gate miss (needs_remediation=false AND codex_needs_remediation=false, or talisman disabled) → skip cleanly. Fixer timeout → partial fixes, proceed | Advisory (v1.51.0) |
 | CODE REVIEW | Does not halt | Produces findings or clean report |
 | MEND | Halt if >3 FAILED findings | User fixes, `/rune:arc --resume` |
 | VERIFY MEND | Non-blocking — retries up to tier max cycles (LIGHT: 2, STANDARD: 3, THOROUGH: 5), then proceeds | Convergence gate is advisory |

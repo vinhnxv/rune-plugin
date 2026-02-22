@@ -184,6 +184,8 @@ const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || e
 const codexDisabled = talisman?.codex?.disabled === true
 const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
 
+let gapTeamName = null
+
 if (codexAvailable && !codexDisabled && codexWorkflows.includes("work")) {
   const gapEnabled = talisman?.codex?.gap_analysis?.enabled !== false
 
@@ -196,7 +198,7 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("work")) {
     if (!/^[a-zA-Z0-9._\/-]+$/.test(rawPlanFile) || rawPlanFile.includes('..') || rawPlanFile.startsWith('-') || rawPlanFile.startsWith('/')) {
       warn(`Phase 5.6: Invalid plan_file in checkpoint ("${rawPlanFile}") — skipping Codex gap analysis`)
       Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Skipped: invalid plan_file path in checkpoint.")
-      updateCheckpoint({ phase: "codex_gap_analysis", status: "completed", artifact: `tmp/arc/${id}/codex-gap-analysis.md`, phase_sequence: 5.6, team_name: null })
+      updateCheckpoint({ phase: "codex_gap_analysis", status: "completed", artifact: `tmp/arc/${id}/codex-gap-analysis.md`, phase_sequence: 5.6, team_name: null, codex_needs_remediation: false })
       return
     }
     const planFilePath = rawPlanFile
@@ -253,7 +255,7 @@ If no issues found, output: "No integrity gaps detected."`
       Write(`tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt`, aspect.prompt)
     }
 
-    const gapTeamName = `arc-gap-${id}`
+    gapTeamName = `arc-gap-${id}`
     // SEC-003: Validate team name
     if (!/^[a-zA-Z0-9_-]+$/.test(gapTeamName)) {
       warn("Codex Gap Analysis: invalid team name — skipping")
@@ -368,12 +370,30 @@ if (!exists(`tmp/arc/${id}/codex-gap-analysis.md`)) {
   Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Codex gap analysis skipped (unavailable or disabled).")
 }
 
+// Compute codex_needs_remediation from aggregated gap findings
+// Only actionable findings count (MISSING/INCOMPLETE/DRIFT — EXTRA excluded)
+const codexGapContent = Read(`tmp/arc/${id}/codex-gap-analysis.md`)
+// PS-BACK-004 guard: skip regex matching when Codex was unavailable/disabled/skipped
+const codexWasSkipped = codexGapContent.startsWith("Codex gap analysis skipped") || codexGapContent.startsWith("Skipped:")
+const completenessFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\d+\]\s+MISSING\b/g) || [])
+const incompleteFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\d+\]\s+INCOMPLETE\b/g) || [])
+const driftFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\d+\]\s+DRIFT\b/g) || [])
+const codexFindingCount = completenessFindings.length + incompleteFindings.length + driftFindings.length
+// RUIN-001: Clamp threshold to [1, 20] range
+const codexThreshold = Math.max(1, Math.min(20,
+  talisman?.codex?.gap_analysis?.remediation_threshold ?? 5
+))
+const codexNeedsRemediation = !codexWasSkipped && codexFindingCount >= codexThreshold
+
 updateCheckpoint({
   phase: "codex_gap_analysis",
   status: "completed",
   artifact: `tmp/arc/${id}/codex-gap-analysis.md`,
   artifact_hash: sha256(Read(`tmp/arc/${id}/codex-gap-analysis.md`)),
   phase_sequence: 5.6,
-  team_name: gapTeamName ?? null
+  team_name: gapTeamName ?? null,
+  codex_needs_remediation: codexNeedsRemediation,
+  codex_finding_count: codexFindingCount,
+  codex_threshold: codexThreshold
 })
 ```

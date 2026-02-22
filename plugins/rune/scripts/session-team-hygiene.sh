@@ -107,7 +107,7 @@ if [[ $orphan_count -gt 0 ]] || [[ $stale_state_count -gt 0 ]]; then
   if [[ ${#orphan_names[@]} -gt 0 ]]; then
     msg+=" Orphans: ${orphan_names[*]:0:5}"
   fi
-  echo "$msg"
+  jq -n --arg ctx "$msg" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
 fi
 
 exit 0

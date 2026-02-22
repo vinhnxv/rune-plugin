@@ -613,12 +613,130 @@ const claimsPartial = claims.filter(c => c.deterministicVerdict === "PARTIAL").l
 const claimsUntestable = claims.filter(c => c.deterministicVerdict === "UNTESTABLE").length
 ```
 
+## STEP A.10: Stale Reference Detection
+
+Scan for lingering references to files deleted during the work phase. A deleted file that is still referenced elsewhere = incomplete cleanup = PARTIAL gap.
+
+```javascript
+// STEP A.10: Stale Reference Detection
+// Post-deletion scan: find codebase references to files removed during work phase.
+// Each stale reference becomes a PARTIAL criterion (fixable by removing the reference).
+
+const deletedResult = Bash(`git diff --diff-filter=D --name-only "${defaultBranch}...HEAD" 2>/dev/null`)
+const deletedFiles = [...new Set(
+  deletedResult.stdout.trim().split('\n').filter(f => f.length > 0)
+)]
+
+if (deletedFiles.length === 0) {
+  log("STEP A.10: No deleted files — skipping stale reference detection.")
+} else {
+  log(`STEP A.10: Scanning for stale references to ${deletedFiles.length} deleted file(s)...`)
+
+  for (const deleted of deletedFiles) {
+    const basename = deleted.split('/').pop()
+
+    // CDX-002 FIX: Sanitize basename before shell use
+    if (!/^[a-zA-Z0-9._\-]+$/.test(basename)) continue
+
+    // Search across plugins/ (primary), .claude/ (talisman configs), scripts/ (hooks)
+    // Uses Bash+rg to match existing gap-analysis.md tool pattern
+    const grepResult = Bash(`rg -l --fixed-strings "${basename}" plugins/ .claude/ scripts/ --glob '*.md' --glob '*.yml' --glob '*.sh' 2>/dev/null`)
+    const referrers = grepResult.stdout.trim().split('\n')
+      .filter(f => f.length > 0 && f !== deleted && !f.startsWith('tmp/') && !f.includes('gap-analysis.md'))
+
+    if (referrers.length > 0) {
+      gaps.push({
+        criterion: `Cleanup: deleted file '${basename}' still referenced in ${referrers.length} file(s)`,
+        status: "PARTIAL",
+        section: "Stale References",
+        evidence: `Stale references found in: ${referrers.slice(0, 5).join(', ')}${referrers.length > 5 ? ` (+${referrers.length - 5} more)` : ''}`,
+        source: "STEP_A10_STALE_REF"
+      })
+    }
+  }
+
+  const staleCount = gaps.filter(g => g.source === "STEP_A10_STALE_REF").length
+  log(`STEP A.10: Found ${staleCount} stale reference(s) across ${deletedFiles.length} deleted file(s).`)
+}
+```
+
+## STEP A.11: Flag Scope Creep Detection
+
+Identify CLI flags added in the implementation that were NOT specified in the plan. EXTRA scope items are advisory — flagged for review but not counted as fixable gaps. This is a lightweight supplement to Codex's comprehensive scope analysis (Phase 5.6).
+
+```javascript
+// STEP A.11: Flag Scope Creep Detection
+// Compare --flag patterns in plan vs implementation diff.
+// Unplanned flags → EXTRA status (advisory, not blocking).
+
+// Extract planned flags/modes from plan content (--flag patterns)
+// Pre-filter: remove code blocks and negative instruction contexts to reduce false positives
+const strippedPlanContent = planContent.replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '')
+const planFlagPattern = /--([a-z][a-z0-9-]*)/g
+const planFlags = [...new Set(
+  [...strippedPlanContent.matchAll(planFlagPattern)].map(m => m[1])
+)]
+
+// Extract implemented flags/modes from the diff (added lines only, excluding comments)
+const diffContent = Bash(`git diff "${defaultBranch}...HEAD" -- '*.md' '*.sh' '*.json' '*.yml' 2>/dev/null`)
+const addedLines = diffContent.stdout
+  .split('\n')
+  .filter(l => l.startsWith('+') && !l.startsWith('+++'))
+  .filter(l => { const trimmed = l.slice(1).trimStart(); return !trimmed.startsWith('//') && !trimmed.startsWith('#') && !trimmed.startsWith('*') && !trimmed.startsWith('<!--') })
+  .join('\n')
+
+const implFlagPattern = /--([a-z][a-z0-9-]*)/g
+const implFlags = [...new Set(
+  [...addedLines.matchAll(implFlagPattern)].map(m => m[1])
+)]
+
+// Find unplanned flags (in implementation but not in plan)
+// Exclude common/infrastructure flags that are always valid
+// NOTE: Consider auto-generating from SKILL.md argument-hint fields if FP rate > 3 per 5 runs
+const infraFlags = new Set([
+  'deep', 'dry-run', 'no-lore', 'deep-lore', 'verbose', 'help',
+  'max-agents', 'focus', 'partial', 'cycles', 'quick', 'resume',
+  'approve', 'no-forge', 'skip-freshness', 'confirm', 'no-test',
+  'worktree', 'exhaustive', 'no-brainstorm', 'no-arena',
+  'no-chunk', 'chunk-size', 'no-converge', 'scope-file', 'auto-mend',
+  'no-pr', 'no-merge', 'draft', 'no-shard-sort',
+  'threshold', 'fix', 'max-fixes', 'mode', 'output-dir', 'timeout',
+  'lore', 'full-auto', 'json'
+])
+
+const unplannedFlags = implFlags.filter(f =>
+  !planFlags.includes(f) && !infraFlags.has(f)
+)
+
+if (unplannedFlags.length > 0) {
+  for (const flag of unplannedFlags) {
+    // Find where this flag is introduced (uses Bash+rg per tool pattern convention)
+    const flagResult = Bash(`rg -l -- "--${flag}" plugins/ 2>/dev/null`)
+    const flagRefs = flagResult.stdout.trim().split('\n').filter(f => f.length > 0)
+
+    gaps.push({
+      criterion: `Scope creep: '--${flag}' added in implementation but not defined in plan`,
+      status: "EXTRA",
+      section: "Scope Creep",
+      evidence: flagRefs.length > 0 ? `Found in: ${flagRefs.slice(0, 3).join(', ')}` : null,
+      source: "STEP_A11_SCOPE_CREEP"
+    })
+  }
+
+  const creepCount = unplannedFlags.length
+  log(`STEP A.11: Found ${creepCount} unplanned flag(s): ${unplannedFlags.join(', ')}`)
+} else {
+  log("STEP A.11: No flag scope creep detected — all implementation flags match plan.")
+}
+```
+
 ## STEP A.5: Write Deterministic Gap Analysis Report
 
 ```javascript
 const addressed = gaps.filter(g => g.status === "ADDRESSED").length
 const partial = gaps.filter(g => g.status === "PARTIAL").length
 const missing = gaps.filter(g => g.status === "MISSING").length
+const extra = gaps.filter(g => g.status === "EXTRA").length
 
 const report = `# Implementation Gap Analysis\n\n` +
   `**Plan**: ${checkpoint.plan_file}\n` +
@@ -626,14 +744,20 @@ const report = `# Implementation Gap Analysis\n\n` +
   `**Criteria found**: ${criteria.length}\n\n` +
   `## Summary\n\n` +
   `| Status | Count |\n|--------|-------|\n` +
-  `| ADDRESSED | ${addressed} |\n| PARTIAL | ${partial} |\n| MISSING | ${missing} |\n\n` +
+  `| ADDRESSED | ${addressed} |\n| PARTIAL | ${partial} |\n| MISSING | ${missing} |\n| EXTRA | ${extra} |\n\n` +
   (missing > 0 ? `## MISSING (not found in committed code)\n\n` +
     gaps.filter(g => g.status === "MISSING").map(g =>
       `- [ ] ${g.criterion} (from section: ${g.section})`
     ).join('\n') + '\n\n' : '') +
   (partial > 0 ? `## PARTIAL (some evidence, not fully addressed)\n\n` +
     gaps.filter(g => g.status === "PARTIAL").map(g =>
-      `- [ ] ${g.criterion} (from section: ${g.section})`
+      `- [ ] ${g.criterion} (from section: ${g.section})` +
+      (g.evidence ? `\n  Evidence: ${g.evidence}` : '')
+    ).join('\n') + '\n\n' : '') +
+  (extra > 0 ? `## EXTRA (scope creep — not in plan)\n\n` +
+    gaps.filter(g => g.status === "EXTRA").map(g =>
+      `- [ ] ${g.criterion} (from section: ${g.section})` +
+      (g.evidence ? `\n  Evidence: ${g.evidence}` : '')
     ).join('\n') + '\n\n' : '') +
   `## ADDRESSED\n\n` +
   gaps.filter(g => g.status === "ADDRESSED").map(g =>
@@ -1245,13 +1369,17 @@ const normalizedScore = totalWeight > 0 ? Math.round(weightedScore / totalWeight
 // STEP C.3: Count fixable vs manual gaps
 const deterministicMissing = gaps.filter(g => g.status === "MISSING").length
 const deterministicPartial = gaps.filter(g => g.status === "PARTIAL").length
+const deterministicExtra = gaps.filter(g => g.status === "EXTRA").length
 const verdictP1Count = (verdictContent.match(/## P1 \(Critical\)/g) || []).length > 0
   ? (verdictContent.match(/^- \[ \].*P1/gm) || []).length : 0
 const verdictP2Count = (verdictContent.match(/^- \[ \].*P2/gm) || []).length
 
 // Fixable = P2/P3 findings without security or architecture tags; Manual = P1 or security
+// Stale references (PARTIAL) are fixable — just delete the reference
+// Scope creep (EXTRA) is advisory — flagged but doesn't count as fixable
 const fixableCount = verdictP2Count + deterministicPartial
 const manualCount = verdictP1Count + deterministicMissing
+const advisoryCount = deterministicExtra
 
 // STEP C.4: Write unified report
 const unifiedReport = `# Gap Analysis — Unified Report (Phase 5.5)\n\n` +
@@ -1266,10 +1394,12 @@ const unifiedReport = `# Gap Analysis — Unified Report (Phase 5.5)\n\n` +
   `| Metric | Value |\n|--------|-------|\n` +
   `| Deterministic: MISSING | ${deterministicMissing} |\n` +
   `| Deterministic: PARTIAL | ${deterministicPartial} |\n` +
+  `| Deterministic: EXTRA | ${deterministicExtra} |\n` +
   `| Inspector P1 findings | ${verdictP1Count} |\n` +
   `| Inspector P2 findings | ${verdictP2Count} |\n` +
   `| Fixable gaps | ${fixableCount} |\n` +
   `| Manual-review required | ${manualCount} |\n` +
+  `| Advisory (scope creep) | ${advisoryCount} |\n` +
   `| Weighted score (0-100) | ${normalizedScore ?? 'N/A'} |\n\n` +
   `**Verdict completion**: ${verdictCompletionPct !== null ? verdictCompletionPct + '%' : 'N/A'}\n`
 
