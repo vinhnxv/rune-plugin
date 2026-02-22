@@ -2,7 +2,7 @@
 
 Appends a persistent completion record to the plan file after arc finishes. Updates the plan's Status field. Creates an audit trail of arc executions.
 
-**Team**: None (orchestrator-only, runs after Phase 9.5 MERGE or Phase 8 AUDIT if ship/merge skipped)
+**Team**: None (orchestrator-only, runs after Phase 9.5 MERGE or Phase 7.7 TEST if ship/merge skipped)
 **Tools**: Read, Write, Bash (git queries)
 **Timeout**: 30 seconds (fast — single file read+write)
 
@@ -103,6 +103,7 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
   const existingRecords = (content.match(/## Arc Completion Record/g) || []).length
 
   // Phase results table
+  // Phase table dynamically matches PHASE_ORDER (17 phases, v1.67.0+)
   const phases = [
     ['1',   'FORGE',           'forge'],
     ['2',   'PLAN REVIEW',     'plan_review'],
@@ -112,10 +113,13 @@ function buildCompletionRecord(checkpoint, newStatus, content) {
     ['5',   'WORK',            'work'],
     ['5.5', 'GAP ANALYSIS',    'gap_analysis'],
     ['5.6', 'CODEX GAP ANALYSIS', 'codex_gap_analysis'],
-    ['6',   'CODE REVIEW',     'code_review'],
+    ['5.8', 'GAP REMEDIATION', 'gap_remediation'],
+    ['5.7', 'GOLDMASK VERIFICATION', 'goldmask_verification'],
+    ['6',   'CODE REVIEW (deep)', 'code_review'],
+    ['6.5', 'GOLDMASK CORRELATION', 'goldmask_correlation'],
     ['7',   'MEND',            'mend'],
     ['7.5', 'VERIFY MEND',     'verify_mend'],
-    ['8',   'AUDIT',           'audit'],
+    ['7.7', 'TEST',            'test'],
     ['9',   'SHIP',            'ship'],
     ['9.5', 'MERGE',           'merge'],
   ]

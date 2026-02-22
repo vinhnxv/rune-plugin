@@ -12,11 +12,10 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 | Phase 5.5 (GAP ANALYSIS) | Read, Glob, Grep, Write (VERDICT.md only) | Team: `arc-inspect-{id}` — Inspector Ashes (enhanced with 9-dimension scoring) |
 | Phase 5.8 (GAP REMEDIATION) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Team: `arc-gap-fix-{id}` — fix FIXABLE gaps before code review |
 | Phase 5.7 (GOLDMASK VERIFICATION) | Delegated to `/rune:goldmask` (manages own team + tools) | Risk validation -- delegates to standalone skill |
-| Phase 6 (CODE REVIEW) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Review -- no codebase modification |
+| Phase 6 (CODE REVIEW, deep) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec`. Deep mode runs multi-wave (Wave 1-3). | Review -- no codebase modification |
 | Phase 6.5 (GOLDMASK CORRELATION) | Read, Write, Glob, Grep | Orchestrator-only -- deterministic correlation |
 | Phase 7 (MEND) | Orchestrator: full. Fixers: restricted (see mend-fixer) | Least privilege for fixers |
 | Phase 7.5 (VERIFY MEND) | Read, Glob, Grep, Write, Bash (git diff) | Orchestrator-only — convergence controller (no team) |
-| Phase 8 (AUDIT) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec` | Audit -- no codebase modification |
 
 Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`". Only the arc orchestrator writes to checkpoint.json.
 
@@ -32,15 +31,14 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 | GAP ANALYSIS | 12 min | Enhanced with Inspector Ashes (arc-inspect-{id} team) |
 | GAP REMEDIATION | 15 min | New phase — gap auto-fix team (arc-gap-fix-{id}) |
 | GOLDMASK VERIFICATION | 15 min | Delegated to /rune:goldmask skill (manages own team) |
-| CODE REVIEW | 15 min | Inner 10m + 5m setup budget |
+| CODE REVIEW (deep) | 15 min | Inner 10m + 5m setup budget. Deep mode extends internally via wave timeout distribution |
 | GOLDMASK CORRELATION | 1 min | Orchestrator-only, deterministic TOME-to-Goldmask correlation |
 | MEND | 23 min | Inner 15m + 5m setup + 3m ward/cross-file |
 | VERIFY MEND | 4 min | Convergence evaluation (orchestrator-only); re-review cycles run as separate Phase 6+7 |
-| AUDIT | 20 min | Inner 15m + 5m setup budget |
 | TEST | 15 min | Inner 10m + 5m setup; dynamic 40 min with E2E (arc-test-{id} team) |
 | SHIP | 5 min | Orchestrator-only, push + PR creation |
 | MERGE | 10 min | Orchestrator-only, rebase + merge + CI wait |
 
-**Total pipeline hard ceiling**: Dynamic (203-240 min based on tier; hard cap 240 min). See `calculateDynamicTimeout()` in SKILL.md.
+**Total pipeline hard ceiling**: Dynamic (155-240 min based on tier; hard cap 240 min). See `calculateDynamicTimeout()` in SKILL.md.
 
 Delegated phases use inner-timeout + 60s buffer so the delegated command handles its own timeout first; the arc timeout is a safety net only.

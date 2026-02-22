@@ -1,6 +1,6 @@
 # Phase 7.5: Verify Mend (Review-Mend Convergence Controller) — Full Algorithm
 
-Full convergence controller that evaluates mend results, determines whether to loop back for another review-mend cycle, or proceed to audit. Replaces the previous single-pass spot-check with an adaptive multi-cycle review-mend loop.
+Full convergence controller that evaluates mend results, determines whether to loop back for another review-mend cycle, or proceed to test. Replaces the previous single-pass spot-check with an adaptive multi-cycle review-mend loop.
 
 **Team**: None for convergence decision. Delegates full re-review to `/rune:appraise` (Phase 6) via dispatcher loop-back.
 **Tools**: Read, Glob, Grep, Write, Bash (git diff)
@@ -166,7 +166,7 @@ if (verdict === 'converged') {
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport),
     phase_sequence: 8, team_name: null
   })
-  // → Dispatcher proceeds to Phase 8 (AUDIT)
+  // → Dispatcher proceeds to Phase 7.7 (TEST)
 
 } else if (verdict === 'retry') {
   // Build progressive focus scope for re-review
@@ -225,14 +225,14 @@ if (verdict === 'converged') {
 
 } else if (verdict === 'halted') {
   const round = checkpoint.convergence.round
-  warn(`Convergence halted after ${round + 1} cycle(s): ${currentFindingCount} findings remain (${p1Count} P1). Proceeding to audit.`)
+  warn(`Convergence halted after ${round + 1} cycle(s): ${currentFindingCount} findings remain (${p1Count} P1). Proceeding to test.`)
 
   updateCheckpoint({
     phase: 'verify_mend', status: 'completed',
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport),
     phase_sequence: 8, team_name: null
   })
-  // → Dispatcher proceeds to Phase 8 (AUDIT) with warning
+  // → Dispatcher proceeds to Phase 7.7 (TEST) with warning
 }
 ```
 
@@ -286,10 +286,10 @@ function generateMiniTome(spotFindings, sessionNonce, round) {
 
 **Output**: Convergence verdict stored in checkpoint. On retry, phases reset to "pending" and dispatcher loops back.
 
-**Failure policy**: Non-blocking. Halting proceeds to audit with warning. The convergence gate never blocks the pipeline permanently; it either retries or gives up gracefully.
+**Failure policy**: Non-blocking. Halting proceeds to test with warning. The convergence gate never blocks the pipeline permanently; it either retries or gives up gracefully.
 
 ## Dispatcher Contract
 
-**CRITICAL**: The dispatcher MUST use "first pending in PHASE_ORDER" scan to select the next phase. The convergence controller resets `code_review` to "pending" to trigger a loop-back. If the dispatcher were optimized to use "last completed + 1", the loop-back would silently fail and the pipeline would skip to Phase 8 (audit).
+**CRITICAL**: The dispatcher MUST use "first pending in PHASE_ORDER" scan to select the next phase. The convergence controller resets `code_review` to "pending" to trigger a loop-back. If the dispatcher were optimized to use "last completed + 1", the loop-back would silently fail and the pipeline would skip to Phase 7.7 (test).
 
 The defensive assertion in STEP 3 (retry branch) verifies the PHASE_ORDER invariant at runtime: `code_review` index must be less than `verify_mend` index.

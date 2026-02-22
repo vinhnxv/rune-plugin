@@ -1,15 +1,16 @@
 # Phase 9: SHIP — PR Creation
 
-Orchestrator-only phase (no team). Creates a GitHub PR after audit completes.
+Orchestrator-only phase (no team). Creates a GitHub PR after test completes.
 
-**Team**: None (orchestrator-only — runs inline after Phase 8)
+**Team**: None (orchestrator-only — runs inline after Phase 7.7 TEST)
 **Tools**: Bash (git + gh), Read, Write
 **Timeout**: 5 min (PHASE_TIMEOUTS.ship = 300_000)
 
 **Inputs**:
 - Checkpoint (with `plan_file`, `id`, `phases`, `convergence`)
 - `arcConfig.ship` (resolved via `resolveArcConfig()`)
-- Audit report (`tmp/arc/{id}/audit-report.md`)
+- TOME (`tmp/arc/{id}/tome.md`) — from Phase 6 deep review
+- Resolution report (`tmp/arc/{id}/resolution-report.md`) — unfixed findings from convergence
 
 **Outputs**: `tmp/arc/{id}/pr-body.md`, `checkpoint.pr_url`
 
@@ -105,12 +106,24 @@ const safePrTitle = prTitle.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 70) ||
 // 4. Build PR body
 const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`).trim()
 
-// SEC-006 FIX: Wrap audit summary in code fence to prevent markdown injection from reviewed content.
-// Audit report may contain content from compromised agents or tampered files.
-const rawAuditSummary = exists(`tmp/arc/${id}/audit-report.md`)
-  ? Read(`tmp/arc/${id}/audit-report.md`).split('\n').slice(0, 20).join('\n')
-  : "Audit report not available"
-const auditSummary = '```\n' + rawAuditSummary.replace(/```/g, "'''") + '\n```'
+// SEC-006 FIX: Wrap review summary in code fence to prevent markdown injection from reviewed content.
+// TOME may contain content from compromised agents or tampered files.
+const rawReviewSummary = exists(`tmp/arc/${id}/tome.md`)
+  ? Read(`tmp/arc/${id}/tome.md`).split('\n').slice(0, 20).join('\n')
+  : "Review TOME not available"
+const reviewSummary = '```\n' + rawReviewSummary.replace(/```/g, "'''") + '\n```'
+
+// Unfixed findings from convergence (if any remain after mend cycles)
+let unfixedSection = ""
+const resolutionPath = `tmp/arc/${id}/resolution-report.md`
+if (exists(resolutionPath)) {
+  const resReport = Read(resolutionPath)
+  const failedMatch = resReport.match(/FAILED:\s*(\d+)/i)
+  const failedCount = failedMatch ? parseInt(failedMatch[1], 10) : 0
+  if (failedCount > 0) {
+    unfixedSection = `\n- **Unfixed findings**: ${failedCount} (see resolution-report.md)`
+  }
+}
 
 // Read talisman PR settings
 const monitoringRequired = arcConfig.ship.pr_monitoring
@@ -156,12 +169,11 @@ ${diffStat}
 
 ### Arc Pipeline Results
 - **Commits**: ${commitCount} incremental commits, each ward-checked
-- **Code Review**: ${exists(`tmp/arc/${id}/tome.md`) ? "TOME generated" : "N/A"}
-- **Mend**: ${checkpoint.convergence?.history?.length ?? 0} convergence cycle(s)
-- **Audit**: Completed
+- **Code Review**: ${exists(`tmp/arc/${id}/tome.md`) ? "TOME generated (deep review)" : "N/A"}
+- **Mend**: ${checkpoint.convergence?.history?.length ?? 0} convergence cycle(s)${unfixedSection}
 
-### Audit Summary
-${auditSummary}
+### Review Summary
+${reviewSummary}
 
 ${monitoringRequired ? `## Post-Deploy Monitoring
 <!-- Fill in before merging -->
@@ -174,13 +186,13 @@ ${monitoringRequired ? `## Post-Deploy Monitoring
 Generated with [Claude Code](https://claude.ai/code) via Rune Plugin (/rune:arc)
 ${coAuthorLines}`
 
-// Known Issues from audit (v1.58.0+)
+// Known Issues from deep review (v1.67.0+: formerly from audit)
 const knownIssuesPath = `tmp/arc/${id}/audit-known-issues.md`
 const knownIssuesP3Path = `tmp/arc/${id}/audit-known-issues-p3.md`
 let knownIssuesSection = ''
 
 if (exists(knownIssuesPath)) {
-  knownIssuesSection += '\n\n## Known Issues (from deep audit)\n\n'
+  knownIssuesSection += '\n\n## Known Issues (from deep review)\n\n'
   knownIssuesSection += Read(knownIssuesPath)
 }
 if (exists(knownIssuesP3Path)) {
