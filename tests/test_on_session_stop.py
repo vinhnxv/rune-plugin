@@ -357,6 +357,7 @@ class TestSessionStopStateFileCleanup:
         assert result.returncode == 0
         updated = json.loads(sf.read_text())
         assert updated["status"] == "stopped"
+        assert "stopped_at" in updated
         assert updated["stopped_by"] == "STOP-001"
 
     @requires_jq

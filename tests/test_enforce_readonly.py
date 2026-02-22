@@ -223,6 +223,17 @@ class TestReadonlySignalTypes:
         # rune-work-* doesn't match the directory name pattern
         assert "deny" not in result.stdout
 
+    @requires_jq
+    def test_no_match_without_separator(self, project_env):
+        """Team name 'rune-reviewevil' (no second hyphen) should NOT trigger deny."""
+        project, config = project_env
+        signals = project / "tmp" / ".rune-signals" / "rune-reviewevil"
+        signals.mkdir(parents=True, exist_ok=True)
+        (signals / ".readonly-active").touch()
+        result = run_readonly_hook(project, config)
+        assert result.returncode == 0
+        assert "deny" not in result.stdout.lower()
+
 
 # ---------------------------------------------------------------------------
 # Edge Cases

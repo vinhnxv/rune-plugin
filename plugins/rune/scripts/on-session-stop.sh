@@ -190,7 +190,7 @@ if [[ -d "${CWD}/tmp/" ]]; then
         kill -0 "$f_pid" 2>/dev/null && continue  # alive = different session
       fi
       # Update status to "stopped" (not "completed" — distinguishes clean exit from crash)
-      jq '.status = "stopped" | .stopped_by = "STOP-001"' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null
+      jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '.status = "stopped" | .stopped_by = "STOP-001" | .stopped_at = $ts' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null
       fname="${f##*/}"
       cleaned_states+=("$fname")
     fi

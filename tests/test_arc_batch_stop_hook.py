@@ -237,6 +237,7 @@ class TestArcBatchSessionIsolation:
         result = run_batch_hook(project, config)
         assert result.returncode == 0
         # Should output block decision for next plan
+        assert result.stdout.strip(), f"Expected JSON output, got empty stdout. stderr: {result.stderr}"
         output = json.loads(result.stdout)
         assert output["decision"] == "block"
         assert "plans/b.md" in output["reason"]
@@ -261,6 +262,7 @@ class TestArcBatchProgressTracking:
         plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
         assert plan_a["status"] == "completed"
         assert plan_a["completed_at"] is not None
+        assert isinstance(plan_a["completed_at"], str)
 
     @requires_jq
     def test_all_done_removes_state_file(self, project_env):
@@ -370,7 +372,7 @@ class TestArcBatchSecurity:
         total_plans: 2
         no_merge: false
         plugin_dir: /tmp
-        config_dir: {config}
+        config_dir: {config.resolve()}
         owner_pid: {os.getppid()}
         session_id: test
         plans_file: ../../etc/passwd
@@ -380,6 +382,8 @@ class TestArcBatchSecurity:
         result = run_batch_hook(project, config)
         assert result.returncode == 0
         assert not state_file.exists()
+        # Security rejection should not produce any block decision (stdout empty)
+        assert result.stdout.strip() == "", f"Expected no output on security rejection, got: {result.stdout!r}"
 
     @requires_jq
     @pytest.mark.security
@@ -396,7 +400,7 @@ class TestArcBatchSecurity:
         total_plans: 2
         no_merge: false
         plugin_dir: /tmp
-        config_dir: {config}
+        config_dir: {config.resolve()}
         owner_pid: {os.getppid()}
         session_id: test
         plans_file: tmp/$(whoami).json
@@ -406,6 +410,8 @@ class TestArcBatchSecurity:
         result = run_batch_hook(project, config)
         assert result.returncode == 0
         assert not state_file.exists()
+        # Security rejection should not produce any block decision (stdout empty)
+        assert result.stdout.strip() == "", f"Expected no output on security rejection, got: {result.stdout!r}"
 
     @requires_jq
     @pytest.mark.security

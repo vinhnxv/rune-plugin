@@ -67,6 +67,7 @@ def create_arc_checkpoint(project: Path, config: Path) -> None:
     """Create an arc checkpoint with an in_progress phase."""
     arc_dir = project / ".claude" / "arc" / "arc-test"
     arc_dir.mkdir(parents=True, exist_ok=True)
+    # NOTE: Nested "phases" format — matches arc checkpoint schema. test_enforce_teams.py uses flat "phase" for enforce-teams hook.
     checkpoint = {
         "id": "arc-test",
         # resolve() to match pwd -P symlink resolution in hook scripts
@@ -106,7 +107,7 @@ class TestPollingGuardClauses:
 
     @requires_jq
     def test_exit_0_missing_cwd(self, project_env):
-        project, config = project_env
+        _project, config = project_env
         input_json = {"tool_name": "Bash", "tool_input": {"command": "sleep 30 && echo poll"}}
         env = os.environ.copy()
         env["CLAUDE_CONFIG_DIR"] = str(config)

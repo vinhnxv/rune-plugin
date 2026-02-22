@@ -710,6 +710,8 @@ class TestEnforceTeamsSessionIsolation:
         that is accessible via kill -0 (same uid), so the hook must skip this file.
         """
         project, config = project_env
+        # Guard: test requires parent PID to differ from current PID
+        assert os.getppid() != os.getpid(), "PID namespace prevents this test"
         # os.getppid() is alive and accessible (kill -0 succeeds) but != os.getpid()
         live_other_pid = os.getppid()
         _write_review_state(
@@ -727,6 +729,8 @@ class TestEnforceTeamsSessionIsolation:
     ) -> None:
         """Arc checkpoint owned by a live foreign PID must be skipped."""
         project, config = project_env
+        # Guard: test requires parent PID to differ from current PID
+        assert os.getppid() != os.getpid(), "PID namespace prevents this test"
         # os.getppid() is alive and accessible (kill -0 succeeds) but != os.getpid()
         live_other_pid = os.getppid()
         _write_arc_checkpoint(
@@ -774,7 +778,7 @@ class TestEnforceTeamsSessionIsolation:
         self, hook_runner, project_env
     ) -> None:
         """State file with no config_dir / owner_pid is treated as current session."""
-        project, config = project_env
+        project, _config = project_env
         # Write a minimal state file without ownership metadata
         state_file = project / "tmp" / ".rune-review-minimal.json"
         state_file.write_text(json.dumps({"status": "active"}))
@@ -921,7 +925,7 @@ class TestEnforceTeamsEdgeCases:
         self, hook_runner, project_env
     ) -> None:
         """Malformed JSON in a state file must not crash the hook."""
-        project, config = project_env
+        project, _config = project_env
         bad_state = project / "tmp" / ".rune-review-bad.json"
         bad_state.write_text("{invalid json {{")
         result = hook_runner(ENFORCE_TEAMS, _make_task_input(project))
@@ -944,7 +948,7 @@ class TestEnforceTeamsEdgeCases:
         self, hook_runner, project_env
     ) -> None:
         """Unknown .rune-*.json file type (not in supported list) is not checked."""
-        project, config = project_env
+        project, _config = project_env
         # e.g. .rune-unknown-abc.json — not in the glob list
         state_file = project / "tmp" / ".rune-unknown-abc.json"
         state_file.write_text(json.dumps({"status": "active"}))
