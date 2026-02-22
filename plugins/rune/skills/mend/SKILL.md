@@ -235,14 +235,15 @@ See [resolution-report.md](references/resolution-report.md) for Codex verificati
 
 ### Phase 5.9: Todo Update (Conditional)
 
-After all fixes are applied and verified, update corresponding file-todos for resolved findings. Runs only when `todos/` directory exists and contains todo files with matching `finding_id` values.
+After all fixes are applied and verified, update corresponding file-todos for resolved findings. Runs only when `file_todos.enabled === true` in talisman AND `todos/` directory exists with matching `finding_id` values.
 
-**Skip conditions**: `todos/` directory does not exist OR no todo files match any resolved finding IDs.
+**Skip conditions**: `talisman.file_todos.enabled` is not `=== true` (opt-in gate) OR `todos/` directory does not exist OR no todo files match any resolved finding IDs.
 
 ```javascript
 // Phase 5.9: Update file-todos for resolved findings
+const fileTodosEnabled = talisman?.file_todos?.enabled === true  // opt-in gate (must match strive/orchestration-phases)
 const todosDir = talisman?.file_todos?.dir || "todos/"
-const todosExist = Glob(`${todosDir}*.md`).length > 0
+const todosExist = fileTodosEnabled && Glob(`${todosDir}*.md`).length > 0
 
 if (todosExist) {
   const today = new Date().toISOString().slice(0, 10)
@@ -256,6 +257,7 @@ if (todosExist) {
     }
   }
 
+  const phaseFixerName = "mend-orchestrator"  // Phase 5.9 runs in orchestrator context, not a fixer agent
   let updatedCount = 0
 
   for (const finding of resolvedFindings) {
@@ -265,13 +267,13 @@ if (todosExist) {
     const { file: todoFile, frontmatter: fm } = todoEntry
 
     // Skip if already claimed by another mend-fixer
-    if (fm.mend_fixer_claim && fm.mend_fixer_claim !== fixerName) continue
+    if (fm.mend_fixer_claim && fm.mend_fixer_claim !== phaseFixerName) continue
 
     // Claim the todo for this fixer (prevents concurrent editing)
     if (!fm.mend_fixer_claim) {
       Edit(todoFile, {
         old_string: `assigned_to: ${fm.assigned_to || 'null'}`,
-        new_string: `assigned_to: ${fm.assigned_to || 'null'}\nmend_fixer_claim: "${fixerName}"`
+        new_string: `assigned_to: ${fm.assigned_to || 'null'}\nmend_fixer_claim: "${phaseFixerName}"`
       })
     }
 

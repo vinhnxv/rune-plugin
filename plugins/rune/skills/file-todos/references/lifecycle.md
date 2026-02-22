@@ -7,7 +7,7 @@
 | `pending` | Created, awaiting triage | Yes (initial) | Yes |
 | `ready` | Triaged and approved for work | Yes (initial) | Yes |
 | `in_progress` | Actively being worked on | NEVER | Yes |
-| `complete` | Work finished, criteria met | Yes (initial) | Yes |
+| `complete` | Work finished, criteria met | Yes (initial, rare) | Yes |
 | `blocked` | Blocked by dependencies | NEVER | Yes |
 | `wont_fix` | Rejected during triage | NEVER | Yes |
 

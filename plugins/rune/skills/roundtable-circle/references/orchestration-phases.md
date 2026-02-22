@@ -313,12 +313,12 @@ if (generateTodos) {
   const todosDir = talisman?.file_todos?.dir || "todos/"
   Bash(`mkdir -p "${todosDir}"`)
 
-  // 5. Get next sequential ID (zsh-safe)
-  const existing = Bash(`ls -1 "${todosDir}"*.md 2>/dev/null || true`).trim()
+  // 5. Get next sequential ID (zsh-safe — uses Glob() not shell glob)
+  const existingFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
   let nextId = 1
-  if (existing) {
-    const maxId = existing.split('\n')
-      .map(f => parseInt(f.match(/^(\d+)-/)?.[1] || '0', 10))
+  if (existingFiles.length > 0) {
+    const maxId = existingFiles
+      .map(f => parseInt(f.split('/').pop().match(/^(\d+)-/)?.[1] || '0', 10))
       .reduce((a, b) => Math.max(a, b), 0)
     nextId = maxId + 1
   }

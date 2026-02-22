@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.69.0] - 2026-02-23
+
+### Added
+- **file-todos skill** — Unified file-based todo tracking system for Rune workflows. Structured YAML frontmatter, 6-state lifecycle (`pending/ready/in_progress/complete/blocked/wont_fix`), source-aware templates, and 7 subcommands (`create`, `triage`, `status`, `list`, `next`, `search`, `archive`).
+  - **Core skill**: `skills/file-todos/SKILL.md` with 5 reference files (todo-template, lifecycle, triage-protocol, integration-guide, subcommands).
+  - **Command entry**: `commands/file-todos.md` for `/rune:file-todos` invocation.
+  - **Review integration**: Phase 5.4 in `orchestration-phases.md` — auto-generates file-todos from TOME findings (gated by `talisman.file_todos.enabled`).
+  - **Work integration**: `todo-protocol.md` in strive — per-task todo tracking during swarm execution.
+  - **Mend integration**: Phase 5.9 in `mend/SKILL.md` — updates file-todos for resolved findings (gated by `talisman.file_todos.enabled`).
+  - **Agent awareness**: `rune-smith.md` and `trial-forger.md` updated with todo protocol reference.
+  - **Inscription schema**: `inscription-schema.md` updated with `todos` output field.
+
 ## [1.68.0] - 2026-02-23
 
 ### Added

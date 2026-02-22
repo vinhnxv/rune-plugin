@@ -88,7 +88,7 @@ priority: p1                               # mapped from finding severity
 
 **Stale prevention**: Include `work_session` in frontmatter. Cleanup logic scopes to current session only. Check for existing `source_ref` match before creating duplicates across re-runs.
 
-**Backward compatibility**: When `talisman.file_todos.enabled !== true`, strive uses the existing per-worker log protocol (`tmp/work/{timestamp}/todos/{worker-name}.md`).
+**Backward compatibility**: When `talisman.file_todos.enabled` is not `=== true` (unset or `false`), strive uses the existing per-worker log protocol (`tmp/work/{timestamp}/todos/{worker-name}.md`).
 
 ## Integration: /rune:mend (Resolution)
 

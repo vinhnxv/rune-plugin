@@ -1,5 +1,5 @@
 ---
-name: rune:file-todos
+name: file-todos
 description: |
   Manage file-based todos — create, triage, list, search, archive, and track
   structured todo files in todos/ with YAML frontmatter and source-aware templates.
@@ -22,6 +22,7 @@ allowed-tools:
   - Glob
   - Grep
   - AskUserQuestion
+argument-hint: "[create|triage|status|list|next|search|archive] [--status=pending] [--priority=p1] [--source=review]"
 ---
 
 # /rune:file-todos — Manage File-Based Todos
