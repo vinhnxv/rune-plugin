@@ -14,30 +14,75 @@ inter-phase cleanup guard, and stale team scan.
 
 ## Branch Strategy (COMMIT-1)
 
-Before Phase 5 (WORK), create a feature branch if on main:
+Before Phase 5 (WORK), create a feature branch if on main. Shard-aware: reuses a shared
+feature branch across all shards of a shattered plan (v1.66.0+).
 
 ```bash
+# ── BRANCH STRATEGY (shard-aware) ──
+
 current_branch=$(git branch --show-current)
 if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
-  plan_name=$(basename "$plan_file" .md | sed 's/[^a-zA-Z0-9]/-/g')
-  plan_name=${plan_name:-unnamed}
-  branch_name="rune/arc-${plan_name}-$(date +%Y%m%d-%H%M%S)"
 
-  # SEC-006: Validate constructed branch name using git's own ref validation
-  if ! git check-ref-format --branch "$branch_name" 2>/dev/null; then
-    echo "ERROR: Invalid branch name: $branch_name"
-    exit 1
-  fi
-  if echo "$branch_name" | grep -qE '(HEAD|FETCH_HEAD|ORIG_HEAD|MERGE_HEAD)'; then
-    echo "ERROR: Branch name collides with Git special ref"
-    exit 1
-  fi
+  if [ -n "$SHARD_INFO" ]; then
+    # Shard mode: check if sibling shards already created a branch
+    feature_name=$(echo "$SHARD_FEATURE_NAME" | sed 's/[^a-zA-Z0-9]/-/g')
+    feature_name=${feature_name:-unnamed}
 
-  git checkout -b "$branch_name"
+    # Look for existing shard branch (most recent by creator date)
+    existing_branch=$(git for-each-ref --sort=-creatordate \
+      --format='%(refname:short)' \
+      "refs/heads/rune/arc-${feature_name}-shards-*" 2>/dev/null | head -1)
+
+    if [ -n "$existing_branch" ]; then
+      # Reuse existing shard branch
+      git checkout "$existing_branch"
+      # Pull latest if remote exists
+      git pull --ff-only origin "$existing_branch" 2>/dev/null || true
+      branch_name="$existing_branch"
+    else
+      # Create new shard branch
+      branch_name="rune/arc-${feature_name}-shards-$(date +%Y%m%d-%H%M%S)"
+
+      # SEC-006: Validate branch name
+      if ! git check-ref-format --branch "$branch_name" 2>/dev/null; then
+        echo "ERROR: Invalid branch name: $branch_name"
+        exit 1
+      fi
+      # Guard against HEAD/special-ref collisions (consistent with non-shard path)
+      if echo "$branch_name" | grep -qE '(HEAD|FETCH_HEAD|ORIG_HEAD|MERGE_HEAD)'; then
+        echo "ERROR: Branch name collides with Git special ref"
+        exit 1
+      fi
+
+      git checkout -b "$branch_name"
+    fi
+  else
+    # Non-shard: existing behavior
+    plan_name=$(basename "$plan_file" .md | sed 's/[^a-zA-Z0-9]/-/g')
+    plan_name=${plan_name:-unnamed}
+    branch_name="rune/arc-${plan_name}-$(date +%Y%m%d-%H%M%S)"
+
+    # SEC-006: Validate constructed branch name using git's own ref validation
+    if ! git check-ref-format --branch "$branch_name" 2>/dev/null; then
+      echo "ERROR: Invalid branch name: $branch_name"
+      exit 1
+    fi
+    if echo "$branch_name" | grep -qE '(HEAD|FETCH_HEAD|ORIG_HEAD|MERGE_HEAD)'; then
+      echo "ERROR: Branch name collides with Git special ref"
+      exit 1
+    fi
+
+    git checkout -b "$branch_name"
+  fi
 fi
 ```
 
 If already on a feature branch, use the current branch.
+
+**Edge Cases**:
+- Multiple shard branches exist for same feature: use most recent (sort by creator date)
+- Branch was force-deleted between shard runs: create new branch
+- Shard run on different machine: no existing branch, creates new one
 
 ## Concurrent Arc Prevention
 
@@ -141,6 +186,187 @@ if (Bash(`test -L "${planFile}" && echo "symlink"`).includes("symlink")) {
   return
 }
 ```
+
+## Shard Detection (v1.66.0+)
+
+Detect shard plans via filename regex and verify prerequisite shards are complete.
+Runs after plan path validation, before freshness gate. Non-shard plans bypass entirely (zero overhead).
+
+```javascript
+// ── SHARD DETECTION (after path validation, before freshness gate) ──
+
+// readTalisman: SDK Read() with project→global fallback
+const talisman = readTalisman()
+const shardConfig = talisman?.arc?.sharding ?? {}
+const shardEnabled = shardConfig.enabled !== false  // default: true
+const prereqCheck = shardConfig.prerequisite_check !== false  // default: true
+const sharedBranch = shardConfig.shared_branch !== false  // default: true
+
+const shardMatch = shardEnabled ? planFile.match(/-shard-(\d+)-/) : null
+let shardInfo = null
+
+if (shardMatch) {
+  const shardNum = parseInt(shardMatch[1])
+  // F-001 FIX: Shard numbers are 1-indexed. Reject shard-0 as semantically invalid.
+  if (shardNum < 1) {
+    warn(`Invalid shard number ${shardNum} in filename — shard numbers must be >= 1. Skipping shard detection.`)
+    // Fall through to non-shard path
+  } else {
+  log(`Shard detected: shard ${shardNum} of a shattered plan`)
+
+  // Read shard plan frontmatter
+  const planContent = Read(planFile)
+  const frontmatter = extractYamlFrontmatter(planContent)
+
+  if (!frontmatter?.parent) {
+    warn(`Shard plan missing 'parent' field in frontmatter — skipping prerequisite check`)
+  } else {
+    // Validate parent plan exists
+    const parentPath = frontmatter.parent
+    if (!/^[a-zA-Z0-9._\/-]+$/.test(parentPath) || parentPath.includes('..')) {
+      error(`Invalid parent plan path in frontmatter: ${parentPath}`)
+      return
+    }
+
+    // CONCERN-2 FIX: Sibling-relative path fallback when absolute parent path fails.
+    // Shard files in plans/shattering/ have parent: pointing to plans/ root.
+    // F-006 FIX: Safe dirname extraction for bare filenames (no '/')
+    const shardDir = planFile.includes('/') ? planFile.replace(/\/[^/]+$/, '') : '.'
+    let parentContent = null
+    try { parentContent = Read(parentPath) } catch (e) {
+      // Sibling-relative fallback: use shardDir (computed above, F-006 safe)
+      const parentBasename = parentPath.replace(/.*\//, '')
+      // SEC-004 FIX: Independent traversal guard on extracted basename
+      if (parentBasename.includes('/') || parentBasename.includes('..') || parentBasename === '') {
+        warn(`Unsafe parent basename: ${parentBasename} — skipping sibling fallback`)
+      } else {
+        try { parentContent = Read(`${shardDir}/${parentBasename}`) } catch (e2) {
+          warn(`Parent plan not found: ${parentPath} — skipping prerequisite check`)
+        }
+      }
+    }
+
+    if (parentContent) {
+      const parentFrontmatter = extractYamlFrontmatter(parentContent)
+
+      // Verify parent is actually shattered
+      if (!parentFrontmatter?.shattered) {
+        warn(`Parent plan does not have 'shattered: true' — treating as standalone shard`)
+      }
+
+      // Read dependency list from shard frontmatter
+      const dependencies = frontmatter.dependencies || []
+      // dependencies format: [shard-1, shard-2] or "none" or []
+      const depNums = []
+      if (Array.isArray(dependencies)) {
+        for (const dep of dependencies) {
+          const depMatch = String(dep).match(/shard-(\d+)/)
+          if (depMatch) {
+            const depNum = parseInt(depMatch[1])
+            // SEC-005 FIX: Upper-bound validation on dependency shard numbers
+            if (depNum >= 1 && depNum <= 999) depNums.push(depNum)
+          }
+        }
+      }
+
+      if (prereqCheck && depNums.length > 0) {
+        // Find sibling shard files
+        // F-006 FIX: Safe dirname for bare filenames
+        const planDir = planFile.includes('/') ? planFile.replace(/\/[^/]+$/, '') : '.'
+        // Consistent regex: matches parse-plan.md pattern (plugins/rune/skills/strive/references/parse-plan.md:60)
+        const planBase = planFile.replace(/.*\//, '').replace(/-shard-\d+-[^-]+-plan\.md$/, '')
+
+        const incompleteDeps = []
+        for (const depNum of depNums) {
+          const siblingPattern = `${planDir}/${planBase}-shard-${depNum}-*-plan.md`
+          const siblings = Glob(siblingPattern)
+
+          if (siblings.length === 0) {
+            incompleteDeps.push({ num: depNum, reason: "file not found" })
+            continue
+          }
+
+          const siblingContent = Read(siblings[0])
+          const siblingFrontmatter = extractYamlFrontmatter(siblingContent)
+          const siblingStatus = siblingFrontmatter?.status || "draft"
+
+          // Check if dependency shard has been implemented
+          // "completed" in frontmatter means /rune:work finished
+          // Also check git log for commits mentioning the shard
+          if (siblingStatus !== "completed") {
+            // Secondary check: look for arc completion stamp in the shard plan
+            // Heading format: "## Arc Completion Record" (arc-phase-completion-stamp.md:162)
+            const hasCompletionStamp = /^## Arc Completion Record/m.test(siblingContent)
+            if (!hasCompletionStamp) {
+              incompleteDeps.push({
+                num: depNum,
+                reason: `status: ${siblingStatus} (no completion stamp)`,
+                file: siblings[0]
+              })
+            }
+          }
+        }
+
+        if (incompleteDeps.length > 0) {
+          const depList = incompleteDeps.map(d =>
+            `  - Shard ${d.num}: ${d.reason}${d.file ? ` (${d.file})` : ''}`
+          ).join('\n')
+
+          AskUserQuestion({
+            questions: [{
+              question: `Shard ${shardNum} depends on incomplete shards:\n${depList}\n\nProceed anyway?`,
+              header: "Shard deps",
+              options: [
+                { label: "Proceed (risk)", description: "Run anyway — earlier shard code may be missing" },
+                { label: "Abort", description: "Run prerequisite shards first" }
+              ],
+              multiSelect: false
+            }]
+          })
+          // If user chose "Abort": return
+        }
+      }
+
+      // Store shard info for branch strategy and checkpoint
+      // F-011 FIX: Warn if parent plan doesn't specify total shard count
+      const totalShards = parentFrontmatter?.shards || 0
+      if (totalShards === 0) {
+        warn(`Parent plan missing 'shards:' count in frontmatter — PR title will show 'shard N of 0'`)
+      }
+
+      shardInfo = {
+        shardNum,
+        totalShards,
+        parentPath,
+        featureName: parentFrontmatter?.feature || frontmatter?.feature || "unknown",
+        dependencies: depNums,
+        shardName: frontmatter?.shard_name || `shard-${shardNum}`
+      }
+    }
+  } // end shard-0 else guard
+  }
+}
+
+// Store in checkpoint for downstream phases (branch strategy, ship phase PR title)
+if (shardInfo) {
+  updateCheckpoint({ shard: shardInfo })
+}
+
+// Set shell variables for Branch Strategy (above)
+// SHARD_INFO and SHARD_FEATURE_NAME are consumed by the branch strategy block
+if (shardInfo && sharedBranch) {
+  // SHARD_INFO is truthy — triggers shard branch path
+  // SHARD_FEATURE_NAME is used to construct branch name
+}
+```
+
+**Edge Cases**:
+- Shard plan with `dependencies: none` (shard-1 pattern): `Array.isArray("none")` is false, skip prerequisite check
+- Parent plan deleted after shattering: warn but proceed (CONCERN-2 fallback path)
+- Shard frontmatter missing `parent` field: warn, skip prerequisite check
+- Shard number 0 or negative: regex `-shard-(\d+)-` won't match 0 or negative
+- Non-numeric shard in filename (e.g., `-shard-abc-`): regex match fails, skip shard detection
+- Parent path in subdirectory: sibling-relative fallback resolves `plans/shattering/` paths (CONCERN-2 fix)
 
 ## Inter-Phase Cleanup Guard (ARC-6)
 

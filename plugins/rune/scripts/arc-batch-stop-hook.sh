@@ -300,6 +300,47 @@ if [[ "$NO_MERGE" == "true" ]]; then
   MERGE_FLAG=" --no-merge"
 fi
 
+# ── SHARD-AWARE TRANSITION DETECTION (v1.66.0+) ──
+# Detect if current and next plans are sibling shards (same feature group).
+# If so, skip git checkout main — stay on shared feature branch.
+CURRENT_PLAN=$(echo "$UPDATED_PROGRESS" | jq -r '
+  [.plans[] | select(.status == "completed")] | last | .path // empty
+' 2>/dev/null || true)
+
+current_shard_prefix=""
+next_shard_prefix=""
+is_sibling_shard="false"
+
+# Extract feature prefix (everything before -shard-N-) using sed (POSIX-compatible)
+case "$CURRENT_PLAN" in
+  *-shard-[0-9]*-*)
+    current_shard_prefix=$(echo "$CURRENT_PLAN" | sed 's/-shard-[0-9]*-.*//')
+    ;;
+esac
+case "$NEXT_PLAN" in
+  *-shard-[0-9]*-*)
+    next_shard_prefix=$(echo "$NEXT_PLAN" | sed 's/-shard-[0-9]*-.*//')
+    ;;
+esac
+
+if [[ -n "$current_shard_prefix" && "$current_shard_prefix" = "$next_shard_prefix" ]]; then
+  # SEC-003 FIX: Also verify same directory to prevent prefix collisions across dirs
+  current_dir=$(dirname "$CURRENT_PLAN" 2>/dev/null || echo "")
+  next_dir=$(dirname "$NEXT_PLAN" 2>/dev/null || echo "")
+  if [[ "$current_dir" = "$next_dir" ]]; then
+    is_sibling_shard="true"
+  fi
+fi
+
+# Build git instructions based on shard transition type
+if [[ "$is_sibling_shard" = "true" ]]; then
+  # Sibling shard transition: stay on feature branch
+  GIT_INSTRUCTIONS="2. Stay on the current feature branch (sibling shard transition - same feature group). Do NOT checkout main. Commit any uncommitted arc artifacts before starting the next shard."
+else
+  # Non-sibling transition: normal git cleanup (existing behavior)
+  GIT_INSTRUCTIONS="2. If dirty or not on main: git checkout main && git pull --ff-only origin main"
+fi
+
 # ── Construct arc prompt for next plan ──
 # P1-FIX (SEC-TRUTHBIND): Wrap plan path in data delimiters with Truthbinding preamble.
 # NEXT_PLAN passes the metachar allowlist but could contain adversarial natural language.
@@ -311,7 +352,7 @@ Arc Batch — Iteration ${NEW_ITERATION}/${TOTAL_PLANS}
 You are continuing the arc batch pipeline. Process the next plan.
 
 1. Verify git state is clean: git status
-2. If dirty or not on main: git checkout main && git pull --ff-only origin main
+${GIT_INSTRUCTIONS}
 3. Clean stale workflow state: rm -f tmp/.rune-*.json 2>/dev/null
 4. Clean stale teams:
    CHOME=\"\${CLAUDE_CONFIG_DIR:-\$HOME/.claude}\"

@@ -45,6 +45,7 @@ Executes `/rune:arc` across multiple plan files sequentially. Each arc run compl
 | `--dry-run` | List plans and exit without running | Off |
 | `--no-merge` | Pass `--no-merge` to each arc run | Off (auto-merge enabled) |
 | `--resume` | Resume from `batch-progress.json` | Off |
+| `--no-shard-sort` | Process plans in raw order (disable shard auto-sorting) | Off |
 
 ## Algorithm
 
@@ -54,7 +55,7 @@ See [batch-algorithm.md](references/batch-algorithm.md) for full pseudocode.
 
 1. **Sequential only**: No parallel arc execution (SDK one-team-per-session constraint).
 2. **No version bump coordination**: Multiple arcs bumping plugin.json will conflict.
-3. **No dependency ordering**: Plans processed in given order.
+3. **Shard ordering is sequential**: Shards are auto-sorted by number within groups but execute sequentially (no parallel shards). Use `--no-shard-sort` to disable auto-sorting.
 4. **Context growth**: Each arc runs as a native turn. Auto-compaction handles context window growth across multiple arcs. State is tracked in files, not context.
 
 ## Orchestration
@@ -103,6 +104,108 @@ if (resumeMode) {
 if (planPaths.length === 0) {
   error("No plan files found. Usage: /rune:arc-batch plans/*.md")
   return
+}
+
+// ── SHARD GROUP DETECTION (v1.66.0+, after initial plan list construction) ──
+const noShardSort = args.includes('--no-shard-sort')
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
+const talisman = readTalisman()
+const shardConfig = talisman?.arc?.sharding ?? {}
+const shardEnabled = shardConfig.enabled !== false  // default: true (PS-007 FIX: honor master enabled flag)
+const autoSort = shardConfig.auto_sort !== false  // default: true
+const excludeParent = shardConfig.exclude_parent !== false  // default: true
+
+if (!noShardSort && shardEnabled && autoSort && !resumeMode && planPaths.length > 1) {
+  // Separate shard plans from regular plans
+  const shardPlans = []
+  const regularPlans = []
+  const parentPlansToExclude = []
+
+  for (const path of planPaths) {
+    const shardMatch = path.match(/-shard-(\d+)-/)
+    if (shardMatch) {
+      shardPlans.push({
+        path,
+        shardNum: parseInt(shardMatch[1]),
+        // Extract feature prefix: everything before "-shard-N-{phase}-plan.md"
+        // Consistent regex with Task 1.1 and parse-plan.md
+        featurePrefix: path.replace(/-shard-\d+-[^-]+-plan\.md$/, '')
+      })
+    } else {
+      regularPlans.push(path)
+    }
+  }
+
+  // F-004 FIX: Declare shardGroups in outer scope to avoid block-scoping fragility
+  let shardGroups = new Map()
+
+  if (shardPlans.length > 0) {
+    // Check for parent plans in regularPlans (auto-exclude if shattered: true)
+    const filteredRegular = []
+    if (excludeParent) {
+      for (const path of regularPlans) {
+        try {
+          const content = Read(path)
+          const frontmatter = extractYamlFrontmatter(content)
+          if (frontmatter?.shattered === true) {
+            parentPlansToExclude.push(path)
+            continue
+          }
+        } catch (e) {
+          // Can't read — keep it
+        }
+        filteredRegular.push(path)
+      }
+    } else {
+      filteredRegular.push(...regularPlans)
+    }
+
+    if (parentPlansToExclude.length > 0) {
+      warn(`Auto-excluded ${parentPlansToExclude.length} parent plan(s) (shattered: true):`)
+      for (const p of parentPlansToExclude) {
+        warn(`  - ${p}`)
+      }
+    }
+
+    // Group shards by feature prefix
+    shardGroups = new Map()  // reset (outer-scope let)
+    for (const shard of shardPlans) {
+      if (!shardGroups.has(shard.featurePrefix)) {
+        shardGroups.set(shard.featurePrefix, [])
+      }
+      shardGroups.get(shard.featurePrefix).push(shard)
+    }
+
+    // Sort each group by shard number
+    for (const [prefix, shards] of shardGroups) {
+      shards.sort((a, b) => a.shardNum - b.shardNum)
+    }
+
+    // Detect missing shards within groups
+    for (const [prefix, shards] of shardGroups) {
+      const nums = shards.map(s => s.shardNum)
+      if (nums.length === 0) continue  // F-002 FIX: guard against Math.max() = -Infinity
+      const maxNum = Math.max(...nums)
+      const missing = []
+      for (let i = 1; i <= maxNum; i++) {
+        if (!nums.includes(i)) missing.push(i)
+      }
+      if (missing.length > 0) {
+        warn(`Shard group "${prefix.replace(/.*\//, '')}" has gaps: missing shard(s) ${missing.join(', ')}`)
+      }
+    }
+
+    // Rebuild plan paths: regular plans first, then shard groups in order
+    planPaths = [
+      ...filteredRegular,
+      ...Array.from(shardGroups.values()).flat().map(s => s.path)
+    ]
+
+    log(`Shard-aware ordering: ${filteredRegular.length} regular + ${shardPlans.length} shard plans across ${shardGroups.size} group(s)`)
+    if (parentPlansToExclude.length > 0) {
+      log(`Excluded ${parentPlansToExclude.length} parent plan(s)`)
+    }
+  }
 }
 ```
 
@@ -162,12 +265,32 @@ const progressFile = "tmp/arc-batch/batch-progress.json"
 if (!resumeMode) {
   Bash("mkdir -p tmp/arc-batch")
   Write(progressFile, JSON.stringify({
-    schema_version: 1,
+    schema_version: 2,  // v2: shard metadata (v1.66.0+)
     status: "running",
     started_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     total_plans: planPaths.length,
-    plans: planPaths.map(p => ({ path: p, status: "pending", error: null, completed_at: null }))
+    // NEW (v1.66.0): shard group summary for progress display
+    shard_groups: (shardGroups.size > 0)  // F-004: outer-scope Map, always defined
+      ? Array.from(shardGroups.entries()).map(([prefix, shards]) => ({
+          feature: prefix.replace(/.*\//, ''),  // basename of prefix
+          shards: shards.map(s => s.shardNum),
+          total: shards.length
+        }))
+      : [],
+    plans: planPaths.map(p => {
+      const shardMatch = p.match(/-shard-(\d+)-/)
+      return {
+        path: p,
+        status: "pending",
+        error: null,
+        completed_at: null,
+        arc_session_id: null,
+        // NEW (v1.66.0): shard metadata (null for non-shard plans)
+        shard_group: shardMatch ? p.replace(/-shard-\d+-[^/]*$/, '').replace(/.*\//, '') : null,
+        shard_num: shardMatch ? parseInt(shardMatch[1]) : null
+      }
+    })
   }, null, 2))
 }
 ```

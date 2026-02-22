@@ -61,11 +61,84 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
     fi
   done
 
+  # 7. Shard frontmatter validation (v1.66.0+, lightweight — WARNING only)
+  case "$plan" in
+    *-shard-[0-9]*-*)
+      frontmatter_section=$(head -20 "$plan" 2>/dev/null)
+      if ! echo "$frontmatter_section" | grep -q "^shard:"; then
+        echo "WARNING: Shard plan missing 'shard:' in frontmatter: $plan" >&2
+      fi
+      if ! echo "$frontmatter_section" | grep -q "^parent:"; then
+        echo "WARNING: Shard plan missing 'parent:' in frontmatter: $plan" >&2
+      fi
+      ;;
+  esac
+
   if ! $DUPLICATE; then
     SEEN+=("$CANONICAL")
     echo "$plan"
   fi
 done
+
+# ── SHARD GROUP ANALYSIS (v1.66.0+, second pass after main loop) ──
+# Uses a temp file to capture shard info for group analysis.
+# No associative arrays — uses grep/sort for macOS bash 3.x compatibility.
+
+SHARD_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/shard-check-XXXXXX")
+# shellcheck disable=SC2064
+trap "rm -f '$SHARD_TMPFILE'" EXIT
+
+# Collect shard info: "prefix:num" per shard plan in SEEN array
+for plan in "${SEEN[@]+"${SEEN[@]}"}"; do
+  case "$plan" in
+    *-shard-[0-9]*-*)
+      # Extract shard number (POSIX-compatible — no BASH_REMATCH)
+      shard_num=$(echo "$plan" | sed -n 's/.*-shard-\([0-9]*\)-.*/\1/p')
+      feature_prefix="${plan%-shard-*}"
+      if [[ -n "$shard_num" ]]; then
+        echo "${feature_prefix}:${shard_num}" >> "$SHARD_TMPFILE"
+      fi
+      ;;
+  esac
+done
+
+# Analyze groups (if any shards found)
+if [[ -s "$SHARD_TMPFILE" ]]; then
+  # Extract unique prefixes
+  cut -d: -f1 "$SHARD_TMPFILE" | sort -u | while IFS= read -r prefix; do
+    # Get shard numbers for this group (in input order)
+    nums=$(grep "^${prefix}:" "$SHARD_TMPFILE" | cut -d: -f2)
+    max_num=$(echo "$nums" | sort -n | tail -1)
+
+    # F-005 FIX: Validate max_num is a positive integer; warn on shard-0
+    if ! [[ "$max_num" =~ ^[0-9]+$ ]]; then continue; fi
+    if [[ "$max_num" -eq 0 ]]; then
+      echo "WARNING: Shard group '$(basename "$prefix")' has invalid shard 0 — shard numbers must be >= 1" >&2
+      continue
+    fi
+
+    # Check for gaps (missing shard numbers)
+    i=1
+    while [[ "$i" -le "$max_num" ]]; do
+      if ! echo "$nums" | grep -qw "$i"; then
+        echo "WARNING: Shard group '$(basename "$prefix")' missing shard $i" >&2
+      fi
+      i=$((i + 1))
+    done
+
+    # Check ordering (should be ascending in input order)
+    prev_num=0
+    for n in $nums; do
+      if [[ "$n" -lt "$prev_num" ]]; then
+        echo "WARNING: Shard group '$(basename "$prefix")' out of order: shard $n after shard $prev_num" >&2
+        break
+      fi
+      prev_num="$n"
+    done
+  done
+fi
+
+rm -f "$SHARD_TMPFILE"
 
 if [[ $ERRORS -gt 0 ]]; then
   echo "Pre-flight: $ERRORS error(s) found" >&2

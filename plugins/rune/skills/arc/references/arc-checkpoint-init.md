@@ -1,10 +1,10 @@
 # Initialize Checkpoint (ARC-2) — Full Algorithm
 
 Checkpoint initialization: config resolution (3-layer), session identity,
-checkpoint schema v11 creation, and initial state write.
+checkpoint schema v12 creation, and initial state write.
 
 **Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check
-**Outputs**: checkpoint object (schema v11), resolved arc config (`arcConfig`)
+**Outputs**: checkpoint object (schema v12), resolved arc config (`arcConfig`)
 **Error handling**: Fail arc if plan file missing or config invalid
 **Consumers**: SKILL.md checkpoint-init stub, resume logic in [arc-resume.md](arc-resume.md)
 
@@ -132,7 +132,10 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 ```
 
-## Checkpoint Schema v11
+## Checkpoint Schema v12
+
+Schema v12 adds optional `shard` field for shard-aware execution (v1.66.0+).
+Backward compatible: `shard` is `null` for non-shard arcs and missing in v11 checkpoints.
 
 ```javascript
 // ── Resolve session identity for cross-session isolation ──
@@ -140,7 +143,7 @@ const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null &&
 const ownerPid = Bash(`echo $PPID`).trim()
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 11, plan_file: planFile,
+  id, schema_version: 12, plan_file: planFile,
   config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
@@ -169,8 +172,24 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
   },
   convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [], original_changed_files: changedFiles },
   audit_convergence: { round: 0, max_rounds: 2, tier: { name: "LIGHT", maxCycles: 2, minCycles: 1 }, history: [] },
+  // NEW (v1.66.0): Shard metadata from pre-flight shard detection (null for non-shard arcs)
+  shard: shardInfo ? {
+    num: shardInfo.shardNum,           // e.g., 2
+    total: shardInfo.totalShards,      // e.g., 4
+    name: shardInfo.shardName,         // e.g., "methodology"
+    feature: shardInfo.featureName,    // e.g., "superpowers-gap-implementation"
+    parent: shardInfo.parentPath,      // e.g., "plans/...-implementation-plan.md"
+    dependencies: shardInfo.dependencies  // e.g., [1]
+  } : null,
   commits: [],
   started_at: new Date().toISOString(),
   updated_at: new Date().toISOString()
 })
+
+// Schema migration (in --resume checkpoint loading, see arc-resume.md)
+// if (checkpoint.schema_version < 12) {
+//   checkpoint.shard = checkpoint.shard ?? null
+//   checkpoint.schema_version = 12
+//   Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
+// }
 ```

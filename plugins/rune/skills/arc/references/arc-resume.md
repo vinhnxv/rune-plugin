@@ -84,6 +84,10 @@ On resume, validate checkpoint integrity before proceeding:
    b. Add phases.audit_verify: { status: "skipped", artifact: null, artifact_hash: null, team_name: null }
    c. Add audit_convergence: { round: 0, max_rounds: 2, tier: { name: "LIGHT", maxCycles: 2, minCycles: 1 }, history: [] }
    d. Set schema_version: 11
+3k-shard. If schema_version < 12, migrate v11 → v12:
+   a. Add checkpoint.shard = checkpoint.shard ?? null
+      // Default null — pre-v12 arcs are non-shard; safe to proceed without shard context.
+   b. Set schema_version: 12
 3k. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
