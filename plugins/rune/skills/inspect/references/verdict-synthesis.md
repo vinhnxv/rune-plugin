@@ -1,0 +1,244 @@
+# Verdict Synthesis — Reference
+
+This reference covers Phase 5 (Verdict Binder aggregation) through Phase 7.3 (state update) of `/rune:inspect`: score aggregation, gap classification, recommendation generation, and the requirement matrix.
+
+## Phase 5: Aggregate
+
+### Step 5.1 — Check Inspector Outputs
+
+```javascript
+const inspectorOutputs = []
+for (const inspector of Object.keys(inspectorAssignments)) {
+  const outputPath = `${outputDir}/${inspector}.md`
+  if (exists(outputPath)) {
+    inspectorOutputs.push({ inspector, path: outputPath, status: "complete" })
+  } else {
+    inspectorOutputs.push({ inspector, path: outputPath, status: "missing" })
+    log(`WARNING: ${inspector} output missing at ${outputPath}`)
+  }
+}
+```
+
+### Step 5.2 — Summon Verdict Binder
+
+If all (or most) inspector outputs exist, summon the Verdict Binder to aggregate:
+
+```javascript
+if (inspectorOutputs.filter(o => o.status === "complete").length === 0) {
+  error("No inspector outputs found. Inspection failed completely.")
+}
+
+// Build verdict-binder prompt from template
+const verdictPrompt = loadTemplate("verdict-binder.md", {
+  output_dir: outputDir,
+  inspector_files: inspectorOutputs
+    .filter(o => o.status === "complete")
+    .map(o => `${o.inspector}.md`)
+    .join(", "),
+  plan_path: planPath || "(inline)",
+  requirement_count: requirements.length,
+  inspector_count: Object.keys(inspectorAssignments).length,
+  timestamp: new Date().toISOString()
+})
+
+// ATE-1: Uses general-purpose with runebinder-style aggregation prompt (same as review.md Runebinder)
+Task({
+  prompt: verdictPrompt,
+  subagent_type: "general-purpose",
+  team_name: teamName,
+  name: "verdict-binder",
+  model: "sonnet",
+  run_in_background: true
+})
+```
+
+### Step 5.3 — Wait for Verdict
+
+```javascript
+// BACK-004 FIX: Use TaskList-based polling instead of fileExists (Core Rule 9 compliance)
+// SEC-007 FIX: Eliminates symlink-based TOCTOU race on VERDICT.md
+const verdictResult = waitForCompletion(teamName, 1, {
+  timeoutMs: 120_000,        // 2 minutes (aggregation is fast)
+  staleWarnMs: 60_000,       // 1 minute
+  pollIntervalMs: 10_000,    // 10 seconds
+  label: "Verdict Binder"
+})
+
+if (verdictResult.timedOut) {
+  warn("Verdict Binder timed out — checking for partial output")
+}
+if (!exists(`${outputDir}/VERDICT.md`) || Bash(`test -L "${outputDir}/VERDICT.md" && echo symlink`).trim() === 'symlink') {
+  error("VERDICT.md not produced. Check Verdict Binder output for errors.")
+}
+```
+
+## Phase 6: Verify
+
+### Step 6.1 — Cross-Check Evidence
+
+Read the VERDICT.md and perform lightweight verification:
+
+```javascript
+const verdict = Read(`${outputDir}/VERDICT.md`)
+
+// Verify: does VERDICT reference real files?
+const fileRefs = verdict.match(/`([^`]+:\d+)`/g) || []
+let verified = 0
+let total = fileRefs.length
+
+for (const ref of fileRefs.slice(0, 10)) {  // Cap at 10 checks
+  const [file, line] = ref.replace(/`/g, "").split(":")
+  if (fileExists(file)) {
+    verified++
+  }
+}
+
+log(`Evidence verification: ${verified}/${Math.min(total, 10)} file references valid`)
+```
+
+### Step 6.2 — Display Verdict Summary
+
+```javascript
+// Extract key metrics from VERDICT.md
+log("═══════════════════════════════════════════")
+log("  INSPECTION VERDICT")
+log("═══════════════════════════════════════════")
+log(`  Plan: ${planPath || "(inline)"}`)
+log(`  Requirements: ${requirements.length}`)
+log(`  Verdict: ${extractVerdict(verdict)}`)
+log(`  Completion: ${extractCompletion(verdict)}%`)
+log(`  Findings: ${extractFindingCounts(verdict)}`)
+log(`  Report: ${outputDir}/VERDICT.md`)
+log("═══════════════════════════════════════════")
+```
+
+## Phase 7: Cleanup
+
+### Step 7.1-7.2 — Shutdown and TeamDelete
+
+```javascript
+// Send shutdown to all active teammates
+for (const inspector of Object.keys(inspectorAssignments)) {
+  try {
+    SendMessage({ type: "shutdown_request", recipient: inspector, content: "Inspection complete." })
+  } catch { /* Inspector may have already exited */ }
+}
+
+// Also shutdown verdict-binder if still active
+try {
+  SendMessage({ type: "shutdown_request", recipient: "verdict-binder", content: "Aggregation complete." })
+} catch { /* pass */ }
+
+// Wait briefly for shutdowns
+Bash("sleep 5")
+
+try {
+  TeamDelete()
+} catch (e) {
+  // Filesystem fallback
+  const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+  if (/^[a-zA-Z0-9_-]+$/.test(teamName)) {
+    Bash(`rm -rf "${CHOME}/teams/${teamName}/" "${CHOME}/tasks/${teamName}/" 2>/dev/null`)
+  }
+}
+```
+
+### Step 7.3 — Update State File
+
+```javascript
+const stateFile = `tmp/.rune-inspect-${identifier}.json`
+const state = JSON.parse(Read(stateFile))
+state.status = "completed"
+state.completed = new Date().toISOString()
+state.config_dir = configDir    // preserve session identity
+state.owner_pid = ownerPid
+state.session_id = "${CLAUDE_SESSION_ID}"
+state.verdict = extractVerdict(verdict)
+state.completion = extractCompletion(verdict)
+Write(stateFile, JSON.stringify(state))
+```
+
+### Step 7.4 — Persist Echo (if significant findings)
+
+```javascript
+// Persist to Rune Echoes if there are P1 findings
+const p1Count = extractP1Count(verdict)
+if (p1Count > 0) {
+  // PW-001 FIX: Use appendEchoEntry() for structured echo persistence
+  if (exists(".claude/echoes/orchestrator/")) {
+    appendEchoEntry(".claude/echoes/orchestrator/MEMORY.md", {
+      layer: "traced", source: `rune:inspect ${identifier}`, confidence: 0.3,
+      session_id: identifier,
+      content: `## Inspection: ${planPath || "inline"}\nDate: ${new Date().toISOString()}\n`
+        + `Verdict: ${extractVerdict(verdict)}\nP1 findings: ${p1Count}\n\n`
+        + `Key gaps identified — see ${outputDir}/VERDICT.md`
+    })
+  }
+}
+```
+
+## Helper Functions
+
+### Score Extraction
+
+```javascript
+function extractVerdict(verdictContent) {
+  const match = verdictContent.match(/Verdict\s*\|\s*\*\*(\w+)\*\*/)
+  return match ? match[1] : "UNKNOWN"
+}
+
+function extractCompletion(verdictContent) {
+  const match = verdictContent.match(/Overall Completion\s*\|\s*(\d+)%/)
+  return match ? parseInt(match[1]) : 0
+}
+
+function extractP1Count(verdictContent) {
+  const match = verdictContent.match(/P1:\s*(\d+)/)
+  return match ? parseInt(match[1]) : 0
+}
+
+function extractFindingCounts(verdictContent) {
+  const p1 = extractP1Count(verdictContent)
+  const p2Match = verdictContent.match(/P2:\s*(\d+)/)
+  const p3Match = verdictContent.match(/P3:\s*(\d+)/)
+  return `${p1} P1, ${p2Match?.[1] ?? 0} P2, ${p3Match?.[1] ?? 0} P3`
+}
+```
+
+## Verdict Structure (VERDICT.md)
+
+The Verdict Binder produces VERDICT.md with the following sections:
+
+| Section | Content |
+|---------|---------|
+| Verdict Summary | Overall verdict (READY/PARTIAL/NOT_READY), completion %, finding counts |
+| Requirement Matrix | Per-requirement status (MET/PARTIAL/MISSING), evidence references |
+| Dimension Scores | 9 dimension scores from 0-100 |
+| Gap Analysis | P1/P2/P3 gaps organized by 8 gap categories |
+| Recommendations | Actionable next steps prioritized by severity |
+
+### Gap Categories
+
+| Category | Description |
+|----------|-------------|
+| MISSING | Feature/requirement not implemented at all |
+| INCOMPLETE | Partially implemented — core logic present but edge cases missing |
+| INCORRECT | Implemented but wrong — logic error, wrong behavior |
+| INSECURE | Security vulnerability or missing security control |
+| FRAGILE | Works but likely to break — missing error handling, no retries |
+| UNOBSERVABLE | No logging, metrics, or tracing for significant operations |
+| UNTESTED | No tests, or tests don't cover the requirement |
+| UNMAINTAINABLE | Hard to change — excessive coupling, missing docs, magic values |
+
+### Completion Threshold
+
+```javascript
+// RUIN-001 FIX: Runtime clamping prevents misconfiguration-based DoS/bypass
+completionThreshold = Math.max(0, Math.min(100,
+  flag("--threshold") ?? inspectConfig.completion_threshold ?? 80))
+```
+
+Verdict mapping:
+- `>= threshold` → **READY**
+- `>= threshold - 20` → **PARTIAL**
+- `< threshold - 20` → **NOT_READY**
