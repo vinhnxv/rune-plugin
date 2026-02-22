@@ -175,7 +175,7 @@ const result = waitForCompletion(teamName, Object.keys(fileGroups).length, {
 })
 ```
 
-See `roundtable-circle/references/monitor-utility.md` for the shared polling utility.
+See [monitor-utility.md](../roundtable-circle/references/monitor-utility.md) for the shared polling utility.
 
 **Anti-pattern**: NEVER `Bash("sleep 60 && echo poll check")` — call `TaskList` every cycle.
 
@@ -201,7 +201,7 @@ for (const ward of wards) {
 }
 ```
 
-See `roundtable-circle/references/ward-check.md` for ward discovery protocol and bisection algorithm.
+See [ward-check.md](../roundtable-circle/references/ward-check.md) for ward discovery protocol and bisection algorithm.
 
 ### Phase 5.5: Cross-File Mend (orchestrator-only)
 
@@ -221,7 +221,7 @@ Runs wards again only if Phase 5.5 produced any `FIXED_CROSS_FILE` results. On f
 
 After ward check passes, runs a single doc-consistency scan to fix drift between source-of-truth files and downstream targets. Hard depth limit: scan runs **once** — no re-scan after its own fixes.
 
-See `roundtable-circle/references/doc-consistency.md` for the full algorithm.
+See [doc-consistency.md](../roundtable-circle/references/doc-consistency.md) for the full algorithm.
 
 ### Phase 5.8: Codex Fix Verification
 

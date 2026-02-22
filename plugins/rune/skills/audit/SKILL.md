@@ -50,7 +50,7 @@ Orchestrate a full codebase audit using the Roundtable Circle architecture. Each
 **Note:** Unlike `/rune:review`, there is no `--partial` flag. Audit always scans the full project.
 When `--deep` is enabled, audit still uses the same Roundtable lifecycle but executes it twice and performs a merge phase.
 
-**Focus mode** selects only the relevant Ash (see `roundtable-circle/references/circle-registry.md` for the mapping).
+**Focus mode** selects only the relevant Ash (see [circle-registry.md](../roundtable-circle/references/circle-registry.md) for the mapping).
 
 **Max agents** reduces team size when context or cost is a concern. Priority order: Ward Sentinel > Forge Warden > Veil Piercer > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle. (Codex Oracle is always lowest priority — dropped first when --max-agents caps apply.)
 
@@ -104,11 +104,11 @@ After scanning files, check for custom Ash config:
 4. Apply defaults.disable_ashes to remove any disabled built-ins
 ```
 
-See `roundtable-circle/references/custom-ashes.md` for full schema and validation rules.
+See [custom-ashes.md](../roundtable-circle/references/custom-ashes.md) for full schema and validation rules.
 
 ### Detect Codex Oracle (CLI-Gated Built-in Ash)
 
-After custom Ash loading, check whether the Codex Oracle should be summoned. See `roundtable-circle/references/codex-detection.md` for the canonical Codex detection algorithm.
+After custom Ash loading, check whether the Codex Oracle should be summoned. See [codex-detection.md](../roundtable-circle/references/codex-detection.md) for the canonical Codex detection algorithm.
 
 **Note:** CLI detection is fast (no network call, <100ms). When Codex Oracle is selected, it counts toward the `max_ashes` cap. Codex Oracle findings use the `CDX` prefix.
 
@@ -126,7 +126,7 @@ See [deep-mode.md](references/deep-mode.md) for the full Lore Layer implementati
 
 ## Phase 1: Rune Gaze (Scope Selection)
 
-Classify ALL project files by extension. Adapted from `roundtable-circle/references/rune-gaze.md` — audit uses **total file lines** instead of `lines_changed` since there is no git diff.
+Classify ALL project files by extension. Adapted from [rune-gaze.md](../roundtable-circle/references/rune-gaze.md) — audit uses **total file lines** instead of `lines_changed` since there is no git diff.
 
 ```
 for each file in all_files:
@@ -408,7 +408,7 @@ If file count <= 100, skip this phase.
 If inscription.json has `verification.enabled: true`:
 
 1. **Layer 0**: Lead runs grep-based inline checks (file paths exist, line numbers valid)
-2. **Layer 2**: Summon Truthsight Verifier for P1 findings (see `rune-orchestration/references/verifier-prompt.md`)
+2. **Layer 2**: Summon Truthsight Verifier for P1 findings (see [verifier-prompt.md](../rune-orchestration/references/verifier-prompt.md))
 3. Flag any HALLUCINATED findings
 
 ## Phase 7: Cleanup & Echo Persist
