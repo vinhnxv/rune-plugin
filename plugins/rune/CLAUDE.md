@@ -16,19 +16,19 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
 | **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
-| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 20 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → audit-mend → audit-verify → ship → merge) |
+| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 17 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend → test → ship → merge) |
 | **testing** | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | **agent-browser** | Browser automation knowledge injection for E2E testing (non-invocable) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection |
 | **inner-flame** | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
 | **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
 | **arc-batch** | Sequential batch arc execution — runs /rune:arc across multiple plans with crash recovery and progress tracking |
-| **audit** | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation with 4 additional deep Ashes |
+| **audit** | Full codebase audit — thin wrapper that sets scope=full, depth=deep, then delegates to shared Roundtable Circle orchestration phases. Supports `--standard` to override default deep mode |
 | **forge** | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
 | **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
 | **mend** | Parallel finding resolution from TOME |
 | **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
-| **appraise** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
+| **appraise** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml). Supports `--deep` for multi-wave deep review |
 | **strive** | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 
 ## Commands
@@ -37,7 +37,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 |---------|-------------|
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
-| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 20 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend (convergence loop) → test → audit → audit-mend → audit-verify → ship → merge |
+| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 17 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend (convergence loop) → test → ship → merge |
 | `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
 | `/rune:plan-review` | Review plan code samples for implementation correctness (thin wrapper for /rune:inspect --mode plan) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
