@@ -184,6 +184,8 @@ const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || e
 const codexDisabled = talisman?.codex?.disabled === true
 const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
 
+let gapTeamName = null
+
 if (codexAvailable && !codexDisabled && codexWorkflows.includes("work")) {
   const gapEnabled = talisman?.codex?.gap_analysis?.enabled !== false
 
@@ -253,7 +255,7 @@ If no issues found, output: "No integrity gaps detected."`
       Write(`tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt`, aspect.prompt)
     }
 
-    const gapTeamName = `arc-gap-${id}`
+    gapTeamName = `arc-gap-${id}`
     // SEC-003: Validate team name
     if (!/^[a-zA-Z0-9_-]+$/.test(gapTeamName)) {
       warn("Codex Gap Analysis: invalid team name — skipping")
@@ -371,15 +373,17 @@ if (!exists(`tmp/arc/${id}/codex-gap-analysis.md`)) {
 // Compute codex_needs_remediation from aggregated gap findings
 // Only actionable findings count (MISSING/INCOMPLETE/DRIFT — EXTRA excluded)
 const codexGapContent = Read(`tmp/arc/${id}/codex-gap-analysis.md`)
-const completenessFindings = (codexGapContent.match(/\[CDX-GAP-\d+\]\s+MISSING\b/g) || [])
-const incompleteFindings = (codexGapContent.match(/\[CDX-GAP-\d+\]\s+INCOMPLETE\b/g) || [])
-const driftFindings = (codexGapContent.match(/\[CDX-GAP-\d+\]\s+DRIFT\b/g) || [])
+// PS-BACK-004 guard: skip regex matching when Codex was unavailable/disabled/skipped
+const codexWasSkipped = codexGapContent.startsWith("Codex gap analysis skipped") || codexGapContent.startsWith("Skipped:")
+const completenessFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\d+\]\s+MISSING\b/g) || [])
+const incompleteFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\d+\]\s+INCOMPLETE\b/g) || [])
+const driftFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\d+\]\s+DRIFT\b/g) || [])
 const codexFindingCount = completenessFindings.length + incompleteFindings.length + driftFindings.length
 // RUIN-001: Clamp threshold to [1, 20] range
 const codexThreshold = Math.max(1, Math.min(20,
   talisman?.codex?.gap_analysis?.remediation_threshold ?? 5
 ))
-const codexNeedsRemediation = codexFindingCount >= codexThreshold
+const codexNeedsRemediation = !codexWasSkipped && codexFindingCount >= codexThreshold
 
 updateCheckpoint({
   phase: "codex_gap_analysis",
