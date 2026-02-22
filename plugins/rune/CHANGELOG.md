@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.72.0] - 2026-02-23
+
+### Added
+- **Arc-batch inter-iteration summaries**: Structured summary files written between arc iterations for improved compact recovery and context awareness. Hybrid approach: hook-written structured metadata + Claude-written context note.
+  - New: `tmp/arc-batch/summaries/iteration-{N}.md` per-iteration summary files with plan path, status, git log, PR URL, branch name
+  - New: ARC_PROMPT step 4.5 for Claude context note injection (conditional on summary existence, Truthbinding-wrapped)
+  - New: `summary_enabled` and `summary_dir` fields in arc-batch state file (backward-compatible defaults)
+  - Enhanced: Pre-compact checkpoint captures arc-batch iteration state (`arc_batch_state` field)
+  - Enhanced: Compact recovery references latest summary file in additionalContext
+  - New talisman config: `arc.batch.summaries.enabled` (default: true)
+- Summary writer follows Revised Flow ordering: summary written BEFORE plan completion mark for crash-safety
+- Trace logging (`_trace()`) instrumentation in arc-batch stop hook (opt-in via `RUNE_TRACE=1`)
+
 ## [1.71.0] - 2026-02-23
 
 ### Added

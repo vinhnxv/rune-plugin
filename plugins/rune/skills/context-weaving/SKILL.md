@@ -314,6 +314,7 @@ Two hooks form a checkpoint/recovery pair:
    - Task list state (pending/in_progress/completed counts)
    - Current workflow phase (from arc checkpoint if available)
    - Arc checkpoint path and metadata
+   - Arc-batch state: current iteration, total plans, latest summary path (v1.72.0)
    - Writes to `tmp/.rune-compact-checkpoint.json`
 
 2. **SessionStart:compact** (`scripts/session-compact-recovery.sh`) — Fires when session resumes after compaction. Re-injects the saved checkpoint as `additionalContext` so the Tarnished can resume seamlessly. Includes a correlation guard that verifies the team still exists before injection. One-time use — deletes the checkpoint file after injection to prevent stale state.
@@ -327,6 +328,14 @@ After compaction recovery, the Tarnished reconciles three sources:
 | Team config.json | Team name, members, creation time | Authoritative for team existence |
 | Task list | Task status, assignments, dependencies | Authoritative for work state |
 | Arc checkpoint | Phase, artifacts, SHA-256 hashes | Authoritative for pipeline progress |
+
+### Layer 5.1: Arc-Batch Inter-Iteration Summaries (v1.72.0)
+
+When arc-batch is active, the Stop hook writes structured summary files between iterations to `tmp/arc-batch/summaries/iteration-{N}.md`. These summaries are captured in the pre-compact checkpoint (`arc_batch_state` field) and referenced in compact recovery context. Summary files are on disk (not in context), so they survive compaction and are available for `Read()` after recovery.
+
+The compact recovery message includes batch iteration number, total plans, and the path to the latest summary file — giving the Tarnished immediate awareness of batch progress after compaction.
+
+**Edge case**: During arc-batch, teams are created and destroyed per phase. Compaction may hit between phases when no team is active. The pre-compact hook captures batch state even without an active team, writing a minimal checkpoint. The recovery hook handles teamless checkpoints by injecting batch context directly without the team correlation guard.
 
 ### Relationship to Rule #5
 
