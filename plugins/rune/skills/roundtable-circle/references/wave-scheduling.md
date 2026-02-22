@@ -234,4 +234,4 @@ When convergence triggers a re-review in deep mode, it uses `depth=deep` with `-
 - [Circle Registry](circle-registry.md) — Source of truth for Ash wave assignments and deepOnly flags
 - [Smart Selection](smart-selection.md) — File-to-Ash assignment, Rune Gaze selection
 - [Monitor Utility](monitor-utility.md) — Per-wave timeout configuration and polling
-- [Orchestration Phases](../../appraise/references/orchestration-phases.md) — Shared phase execution reference (planned)
+- [Orchestration Phases](orchestration-phases.md) — Shared phase execution reference

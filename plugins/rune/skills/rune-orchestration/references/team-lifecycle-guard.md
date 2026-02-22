@@ -358,7 +358,6 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 | Phase 6: REVIEW | `/rune:appraise` (delegated) | Review manages own lifecycle |
 | Phase 7: MEND | `/rune:mend` (delegated) | Mend manages own lifecycle |
 | Phase 7.5: VERIFY MEND | Orchestrator-only (no team) | N/A |
-| Phase 8: AUDIT | `/rune:audit` (delegated) | Audit manages own lifecycle |
 
 ## Inter-Phase Cleanup (ARC-6)
 
@@ -507,7 +506,7 @@ Defense-in-depth — each layer targets a different failure mode.
 | Standalone command crash (no arc) | — | YES | — |
 
 **Phase file reference**: Each arc-phase file (arc-phase-work.md, arc-phase-code-review.md,
-arc-phase-mend.md, arc-phase-audit.md) documents its phase-specific orphaned resources
+arc-phase-mend.md) documents its phase-specific orphaned resources
 (team config, task list, state file, signal dir) and cross-references this section for
 recovery layer details.
 
@@ -515,7 +514,7 @@ recovery layer details.
 
 All multi-agent commands: plan.md, work.md, arc SKILL.md, mend.md, review.md, audit.md, forge.md, cancel-review.md, cancel-audit.md, cancel-arc.md, plan/references/research-phase.md, arc SKILL.md prePhaseCleanup(), rest.md --heal
 
-Arc phase references (extracted from arc SKILL.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md, arc-phase-audit.md
+Arc phase references (extracted from arc SKILL.md): arc-phase-forge.md, arc-phase-plan-review.md, arc-phase-plan-refine.md, arc-phase-work.md, arc-phase-code-review.md, arc-phase-mend.md
 
 ## Related
 

@@ -23,12 +23,12 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **inner-flame** | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
 | **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
 | **arc-batch** | Sequential batch arc execution — runs /rune:arc across multiple plans with crash recovery and progress tracking |
-| **audit** | Full codebase audit — thin wrapper that sets scope=full, depth=deep, then delegates to shared Roundtable Circle orchestration phases. Supports `--standard` to override default deep mode |
+| **audit** | Full codebase audit — thin wrapper that sets scope=full, depth=deep, then delegates to shared Roundtable Circle orchestration phases. Default: deep. Use `--standard` to override. |
 | **forge** | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
 | **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
 | **mend** | Parallel finding resolution from TOME |
 | **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
-| **appraise** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml). Supports `--deep` for multi-wave deep review |
+| **appraise** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml). Default: standard. Use `--deep` for multi-wave deep review. |
 | **strive** | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 
 ## Commands

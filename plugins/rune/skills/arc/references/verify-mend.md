@@ -24,7 +24,7 @@ const mendSummary = parseMendSummary(resolutionReport)
 
 // BACK-004 FIX: Removed mendSummary.fixed === 0 from entry guard — that case is handled by EC-1 below.
 if (checkpoint.phases.mend.status === "skipped" || mendSummary.total === 0) {
-  updateCheckpoint({ phase: "verify_mend", status: "skipped", phase_sequence: 8, team_name: null })
+  updateCheckpoint({ phase: "verify_mend", status: "skipped", phase_sequence: 7.5, team_name: null })
   return
 }
 
@@ -37,12 +37,12 @@ if (mendSummary.fixed === 0 && mendSummary.failed > 0) {
     round: mendRound, findings_before: mendSummary.total, findings_after: mendSummary.failed,
     p1_remaining: null, p2_remaining: null, verdict: 'halted', reason: 'zero_progress', timestamp: new Date().toISOString()
   })
-  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null,
+  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 7.5, team_name: null,
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport) })
   return
 }
 
-updateCheckpoint({ phase: "verify_mend", status: "in_progress", phase_sequence: 8, team_name: null })
+updateCheckpoint({ phase: "verify_mend", status: "in_progress", phase_sequence: 7.5, team_name: null })
 ```
 
 ## STEP 1: Read Current TOME and Count Findings
@@ -60,7 +60,7 @@ try {
     round: mendRound, findings_before: 0, findings_after: 0,
     p1_remaining: null, p2_remaining: null, verdict: 'halted', reason: 'tome_missing', timestamp: new Date().toISOString()
   })
-  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null })
+  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 7.5, team_name: null })
   return
 }
 if (!currentTome || (!currentTome.includes('RUNE:FINDING') && !currentTome.includes('<!-- CLEAN -->'))) {
@@ -70,7 +70,7 @@ if (!currentTome || (!currentTome.includes('RUNE:FINDING') && !currentTome.inclu
     round: mendRound, findings_before: 0, findings_after: 0,
     p1_remaining: null, p2_remaining: null, verdict: 'halted', reason: 'tome_malformed', timestamp: new Date().toISOString()
   })
-  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null })
+  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 7.5, team_name: null })
   return
 }
 
@@ -97,6 +97,8 @@ const sessionNonce = checkpoint.session_nonce
 // BACK-013 FIX: Validate nonce format before use in string matching (defense-in-depth)
 // SEC-001 FIX: On invalid nonce, set effectiveNonce to null so ternary takes allMarkers branch.
 // Previously, invalid nonce was used in filter → matched zero markers → silently disabled smart scoring.
+// Note: permissive regex ([a-zA-Z0-9_-]+) vs generation format ([0-9a-f]{12}).
+// Tampered nonces pass validation but never match real markers. Tightening: separate PR.
 let effectiveNonce = sessionNonce
 if (sessionNonce && !/^[a-zA-Z0-9_-]+$/.test(sessionNonce)) {
   warn(`Invalid session nonce format: ${sessionNonce} — falling back to unfiltered markers`)
@@ -164,7 +166,7 @@ if (verdict === 'converged') {
   updateCheckpoint({
     phase: 'verify_mend', status: 'completed',
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport),
-    phase_sequence: 8, team_name: null
+    phase_sequence: 7.5, team_name: null
   })
   // → Dispatcher proceeds to Phase 7.7 (TEST)
 
@@ -179,7 +181,7 @@ if (verdict === 'converged') {
     checkpoint.convergence.history[checkpoint.convergence.history.length - 1].reason = 'empty_focus_scope'
     updateCheckpoint({ phase: 'verify_mend', status: 'completed',
       artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport),
-      phase_sequence: 8, team_name: null })
+      phase_sequence: 7.5, team_name: null })
     return
   }
 
@@ -230,7 +232,7 @@ if (verdict === 'converged') {
   updateCheckpoint({
     phase: 'verify_mend', status: 'completed',
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport),
-    phase_sequence: 8, team_name: null
+    phase_sequence: 7.5, team_name: null
   })
   // → Dispatcher proceeds to Phase 7.7 (TEST) with warning
 }
@@ -244,43 +246,6 @@ if (verdict === 'converged') {
 function countP2Findings(tomeContent) {
   const markers = tomeContent.match(/<!-- RUNE:FINDING[^>]*severity="P2"[^>]*-->/gi) || []
   return markers.length
-}
-```
-
-## Mini-TOME Generation (reference — not called by convergence controller)
-
-<!-- QUAL-014: This function is a reference implementation preserved for future use.
-     The current convergence controller (STEP 3 retry branch) triggers a full /rune:appraise
-     re-review instead of generating a mini-TOME. If the convergence design changes to use
-     spot-check-based retry (without full re-review), this function would be needed. -->
-When `verify_mend` decides to retry but uses spot-check findings instead of a full re-review, it generates a mini-TOME. However, in the new convergence controller, retry triggers a full `/rune:appraise` re-review — the mini-TOME is only needed as a fallback when the convergence controller itself detects regressions before dispatching.
-
-```javascript
-function generateMiniTome(spotFindings, sessionNonce, round) {
-  // SEC-008 FIX: Validate round is a non-negative integer before interpolation into finding IDs
-  if (!Number.isInteger(round) || round < 0 || round > 10) {
-    throw new Error(`Invalid round number: ${round} (must be integer 0-10)`)
-  }
-  const header = `# TOME -- Convergence Round ${round}\n\n` +
-    `Generated by verify_mend convergence controller.\n` +
-    `Session nonce: ${sessionNonce}\n` +
-    `Findings: ${spotFindings.length}\n\n`
-
-  const findings = spotFindings.map((f, i) => {
-    const findingId = `SPOT-R${round}-${String(i + 1).padStart(3, '0')}`
-    const safeDesc = f.description
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/[\r\n]+/g, ' ')
-      .slice(0, 500)
-    return `<!-- RUNE:FINDING nonce="${sessionNonce}" id="${findingId}" file="${f.file}" line="${f.line}" severity="${f.severity}" -->\n` +
-      `### ${findingId}: ${safeDesc}\n` +
-      `**Ash:** verify_mend convergence (round ${round})\n` +
-      `**Evidence:** Regression detected in mend fix\n` +
-      `**Fix guidance:** Review and correct the mend fix\n` +
-      `<!-- /RUNE:FINDING -->\n`
-  }).join('\n')
-
-  return header + findings
 }
 ```
 

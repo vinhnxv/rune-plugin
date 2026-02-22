@@ -89,6 +89,10 @@ On resume, validate checkpoint integrity before proceeding:
       // Default null — pre-v12 arcs are non-shard; safe to proceed without shard context.
    b. Set schema_version: 12
 3l. If schema_version < 13, migrate v12 → v13:
+   // Edge case: if audit was in_progress with an active team, ORCH-1 cleanup
+   // (step 4) runs AFTER migration and sees status="skipped". The team_name
+   // is preserved so ORCH-1 defensive cleanup still removes the team.
+   // Low probability: requires v12 checkpoint + crash during audit + resume on v13 code.
    a. Mark audit phases as skipped (audit coverage now handled by Phase 6 --deep):
       checkpoint.phases.audit = { ...(checkpoint.phases.audit ?? {}), status: "skipped" }
       checkpoint.phases.audit_mend = { ...(checkpoint.phases.audit_mend ?? {}), status: "skipped" }
@@ -163,6 +167,8 @@ On resume, validate checkpoint integrity before proceeding:
 
    // Clean stale state files from crashed sub-commands (CC-4: includes forge, gap-fix)
    // See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
+   // "audit" retained for backward-compat: pre-v13 state files (tmp/.rune-audit-*.json)
+   // may still exist from interrupted sessions. Safe to scan — no-op if absent.
    for (const type of ["work", "review", "mend", "audit", "forge", "gap-fix", "inspect"]) {
      const stateFiles = Glob(`tmp/.rune-${type}-*.json`)
      for (const f of stateFiles) {

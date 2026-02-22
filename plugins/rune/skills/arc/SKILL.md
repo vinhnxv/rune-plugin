@@ -650,5 +650,5 @@ Catches zombie teammates from the last delegated phase. Uses 3-strategy cleanup:
 | Test phase: No test framework detected | Skip all tiers, produce empty report with WARN |
 | Test phase: Service startup failed | Skip integration/E2E tiers, unit tests still run |
 | Test phase: E2E browser agent timeout | Record timeout per-route, produce partial report |
-| Test phase: All tiers failed | Non-blocking — report recorded, pipeline continues to AUDIT |
+| Test phase: All tiers failed | Non-blocking — report recorded, pipeline continues to SHIP |
 | Zombie teammates after arc completion (ARC-9) | Final sweep sends shutdown_request + TeamDelete. Fallback: `/rune:cancel-arc` |

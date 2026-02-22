@@ -53,6 +53,12 @@ Write state file and create output directory.
 // If {stateFilePrefix}-{identifier}.json exists, < 30 min old, AND same config_dir → abort
 // If different config_dir or dead ownerPid → clean up stale state
 
+// Validate depth parameter (defense-in-depth)
+if (!["standard", "deep"].includes(depth)) {
+  warn(`Unknown depth "${depth}", defaulting to "standard"`)
+  depth = "standard"
+}
+
 // 2. Create output directory
 Bash(`mkdir -p "${outputDir}"`)
 
@@ -287,6 +293,8 @@ for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
 }
 if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+  // Deep mode: also clean wave-suffixed teams (v1.67.0+)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && for n in 2 3 4; do rm -rf "$CHOME/teams/${teamName}-w${n}/" "$CHOME/tasks/${teamName}-w${n}/" 2>/dev/null; done`)
 }
 
 // 4. Update state file
@@ -336,7 +344,7 @@ const params = {
 // Set parameters
 const params = {
   scope: "full",
-  depth: flags['--deep'] ? "deep" : (talisman?.audit?.always_deep ? "deep" : "standard"),
+  depth: flags['--standard'] ? "standard" : (flags['--deep'] !== false && (talisman?.audit?.always_deep !== false)) ? "deep" : "standard",
   teamPrefix: "rune-audit",
   outputDir: `tmp/audit/${audit_id}/`,
   stateFilePrefix: "tmp/.rune-audit",

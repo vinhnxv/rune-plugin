@@ -20,7 +20,6 @@ Maps each elicitation method to its target Rune phases, specifying when and how 
 | Review Phase 6 | `/rune:appraise` | 6 | 3 Tier 1, 3 Tier 2 |
 | Arc Phase 7 (Mend) | `/rune:arc` | 1 | 1 Tier 1 |
 | Arc Phase 7.5 (Verify Mend) | `/rune:arc` | 2 | 2 Tier 1 |
-| Arc Phase 8 (Audit) | `/rune:arc` | 3 | 1 Tier 1, 2 Tier 2 |
 
 ## Detailed Phase Mappings
 
@@ -120,13 +119,4 @@ Maps each elicitation method to its target Rune phases, specifying when and how 
 | Self-Consistency Validation | 1 | Cross-check fix consistency |
 | Critique and Refine | 1 | Systematic fix quality assessment |
 
-### Arc Phase 8 — Audit
-
-**Integration point**: Audit Ash agent prompts
-**Injection type**: Additional audit dimensions
-
-| Method | Tier | Target Agent |
-|--------|------|-------------|
-| Red Team vs Blue Team | 1 | ward-sentinel |
-| Security Audit Personas | 2 | ward-sentinel |
-| Chaos Monkey Scenarios | 2 | flaw-hunter |
+<!-- v1.67.0: Arc Phase 8 (Audit) removed — unified into Phase 6 --deep -->

@@ -187,6 +187,8 @@ Generated with [Claude Code](https://claude.ai/code) via Rune Plugin (/rune:arc)
 ${coAuthorLines}`
 
 // Known Issues from deep review (v1.67.0+: formerly from audit)
+// v1.67.0+: audit phases removed (v13 schema). These paths are dead for new arcs
+// but may exist for resumed v12 checkpoints where audit ran before migration.
 const knownIssuesPath = `tmp/arc/${id}/audit-known-issues.md`
 const knownIssuesP3Path = `tmp/arc/${id}/audit-known-issues-p3.md`
 let knownIssuesSection = ''
