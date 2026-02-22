@@ -1,15 +1,15 @@
 ---
 name: git-worktree
 description: |
-  Knowledge skill for git worktree isolation in /rune:work. Loaded when worktree
+  Knowledge skill for git worktree isolation in /rune:strive. Loaded when worktree
   mode is active (--worktree flag or work.worktree.enabled talisman). Covers
   worktree lifecycle, merge strategy, conflict resolution, wave-based execution,
   and talisman configuration.
   Keywords: worktree, isolation, wave, merge broker, branch merge, conflict.
 
   <example>
-  Context: Orchestrator activating worktree mode for /rune:work
-  user: "/rune:work plans/feat-api-plan.md --worktree"
+  Context: Orchestrator activating worktree mode for /rune:strive
+  user: "/rune:strive plans/feat-api-plan.md --worktree"
   assistant: "Worktree mode active. Workers will operate in isolated worktrees with direct commit."
   </example>
 
@@ -26,7 +26,7 @@ allowed-tools:
   - Grep
 ---
 
-# Git Worktree — Isolation Mode for /rune:work
+# Git Worktree — Isolation Mode for /rune:strive
 
 ## Overview
 
@@ -35,7 +35,7 @@ Git worktree mode gives each swarm worker its own isolated working copy via
 worktrees instead of generating patches. After each wave of workers completes,
 the orchestrator merges worktree branches back into the feature branch.
 
-**Two execution modes** coexist in `/rune:work`:
+**Two execution modes** coexist in `/rune:strive`:
 
 | Mode | Flag | Worker Behavior | Commit Strategy |
 |------|------|----------------|-----------------|

@@ -75,7 +75,7 @@ Agents persist learnings automatically after workflows. Future workflows read ec
 
 ## Forge Gaze (Topic-Aware Agent Selection)
 
-By default, `/rune:plan` and `/rune:forge` use Forge Gaze to match plan section topics to specialized agents.
+By default, `/rune:devise` and `/rune:forge` use Forge Gaze to match plan section topics to specialized agents.
 
 - **Keyword overlap scoring** with title bonus — deterministic, zero token cost, transparent
 - **Budget tiers**: `enrichment` (review agents, ~5k tokens) and `research` (practice-seeker/lore-scholar, ~15k tokens)

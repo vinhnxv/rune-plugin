@@ -3,7 +3,7 @@ name: horizon-sage
 description: |
   Strategic depth assessment of plans. Evaluates long-term viability, root-cause depth,
   innovation quotient, stability/resilience, and maintainability trajectory. Used during
-  /rune:plan Phase 3 (Forge enrichment) and Phase 4C (plan review) alongside decree-arbiter
+  /rune:devise Phase 3 (Forge enrichment) and Phase 4C (plan review) alongside decree-arbiter
   and knowledge-keeper. Intent-aware: adapts thresholds based on strategic_intent
   (long-term vs quick-win).
 

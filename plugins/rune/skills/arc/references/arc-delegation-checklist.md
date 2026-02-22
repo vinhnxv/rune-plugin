@@ -29,7 +29,7 @@ Already explicit in arc-phase-forge.md. Listed here for completeness.
 
 ## Phase 2: PLAN REVIEW (independent implementation)
 
-Arc Phase 2 does NOT delegate to `/rune:plan` Phase 4 — it creates its own team (see
+Arc Phase 2 does NOT delegate to `/rune:devise` Phase 4 — it creates its own team (see
 arc-phase-plan-review.md). This section documents feature parity with plan-review.md.
 
 | Step | Action | Reason |
@@ -42,7 +42,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | Codex Plan Reviewer (4C) | **RUN** | Per `codex-detection.md`, if `plan` in `talisman.codex.workflows` |
 | Custom Ash for plan review | **SKIP** | No custom Ash workflow for plan review currently |
 
-## Phase 5: WORK → `/rune:work`
+## Phase 5: WORK → `/rune:strive`
 
 | Step | Action | Reason |
 |------|--------|--------|
@@ -51,7 +51,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | Forge team (work Phase 1) | **RUN** | Work creates its own team |
 | Codex Oracle detection | **RUN** | Per `codex-detection.md`, if `work` in `talisman.codex.workflows` |
 
-## Phase 6: CODE REVIEW → `/rune:review`
+## Phase 6: CODE REVIEW → `/rune:appraise`
 
 | Step | Action | Reason |
 |------|--------|--------|

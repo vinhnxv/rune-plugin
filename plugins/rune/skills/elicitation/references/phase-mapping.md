@@ -8,16 +8,16 @@ Maps each elicitation method to its target Rune phases, specifying when and how 
 
 | Phase | Command | Methods Available | Auto-Suggest |
 |-------|---------|------------------|--------------|
-| Plan Phase 0 (Brainstorm) | `/rune:plan` | 6 | 5 Tier 1, 1 Tier 2 |
-| Plan Phase 1 (Research) | `/rune:plan` | 1 | 1 Tier 1 |
-| Plan Phase 1.8 (Solution Arena) | `/rune:plan` | 4 | 4 Tier 1 |
-| Plan Phase 2 (Synthesize) | `/rune:plan` | 2 | 1 Tier 1, 1 Tier 2 |
-| Plan Phase 2.5 (Shatter) | `/rune:plan` | 2 | 1 Tier 1, 1 Tier 2 |
-| Plan Phase 4 (Review) | `/rune:plan` | 3 | 3 Tier 1 |
+| Plan Phase 0 (Brainstorm) | `/rune:devise` | 6 | 5 Tier 1, 1 Tier 2 |
+| Plan Phase 1 (Research) | `/rune:devise` | 1 | 1 Tier 1 |
+| Plan Phase 1.8 (Solution Arena) | `/rune:devise` | 4 | 4 Tier 1 |
+| Plan Phase 2 (Synthesize) | `/rune:devise` | 2 | 1 Tier 1, 1 Tier 2 |
+| Plan Phase 2.5 (Shatter) | `/rune:devise` | 2 | 1 Tier 1, 1 Tier 2 |
+| Plan Phase 4 (Review) | `/rune:devise` | 3 | 3 Tier 1 |
 | Forge Phase 3 | `/rune:forge` | 7 | 5 Tier 1, 2 Tier 2 |
-| Work Phase 5 | `/rune:work` | 3 | 3 Tier 1 |
+| Work Phase 5 | `/rune:strive` | 3 | 3 Tier 1 |
 | Arc Phase 5.5 (Gap Analysis) | `/rune:arc` | 1 | 1 Tier 1 |
-| Review Phase 6 | `/rune:review` | 6 | 3 Tier 1, 3 Tier 2 |
+| Review Phase 6 | `/rune:appraise` | 6 | 3 Tier 1, 3 Tier 2 |
 | Arc Phase 7 (Mend) | `/rune:arc` | 1 | 1 Tier 1 |
 | Arc Phase 7.5 (Verify Mend) | `/rune:arc` | 2 | 2 Tier 1 |
 | Arc Phase 8 (Audit) | `/rune:arc` | 3 | 1 Tier 1, 2 Tier 2 |
@@ -26,7 +26,7 @@ Maps each elicitation method to its target Rune phases, specifying when and how 
 
 ### Plan Phase 0 — Brainstorm
 
-**Integration point**: After approach selection in `skills/plan/SKILL.md`
+**Integration point**: After approach selection in `skills/devise/SKILL.md`
 **Injection type**: AskUserQuestion-based method selection
 
 | Method | Tier | When Auto-Suggested |
@@ -69,7 +69,7 @@ Maps each elicitation method to its target Rune phases, specifying when and how 
 
 ### Work Phase 5 — Implementation
 
-**Integration point**: Worker task prompts during `/rune:work` execution
+**Integration point**: Worker task prompts during `/rune:strive` execution
 **Injection type**: 2-3 line additions to worker task description
 
 | Method | Tier | When Injected |

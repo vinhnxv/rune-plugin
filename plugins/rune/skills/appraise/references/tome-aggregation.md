@@ -1,6 +1,6 @@
 # TOME Aggregation — Phase 5+6 Reference
 
-This reference covers Phase 4.5 (Doubt Seer), Phase 5 (Runebinder aggregation), Phase 5.3 (Diff-Scope Tagging), Phase 5.5 (Cross-Model Verification), and Phase 6 (Truthsight verification) of `/rune:review`.
+This reference covers Phase 4.5 (Doubt Seer), Phase 5 (Runebinder aggregation), Phase 5.3 (Diff-Scope Tagging), Phase 5.5 (Cross-Model Verification), and Phase 6 (Truthsight verification) of `/rune:appraise`.
 
 ## Phase 4.5: Doubt Seer (Conditional)
 

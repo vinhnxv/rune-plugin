@@ -135,7 +135,7 @@ self_review_actions: "confirmed: 10, revised: 1, deleted: 1"
 
 | Workflow | Condition | Model |
 |----------|-----------|-------|
-| `/rune:review` | `inscription.verification.enabled` AND 3+ Ashes | haiku |
+| `/rune:appraise` | `inscription.verification.enabled` AND 3+ Ashes | haiku |
 | `/rune:audit` | `inscription.verification.enabled` AND 5+ Ashes | haiku |
 | Custom | Configurable via inscription `verification` block | haiku |
 
@@ -254,11 +254,11 @@ Track per-agent hallucination rates over time. Agents with high hallucination ra
 
 | Workflow | Layer 0 | Layer 1 | Layer 2 | Layer 3 |
 |----------|---------|---------|---------|---------|
-| `/rune:review` (3+ teammates) | Always | Always | Enabled | v2.0 |
-| `/rune:review` (1-2 teammates) | Always | Always | Optional | v2.0 |
+| `/rune:appraise` (3+ teammates) | Always | Always | Enabled | v2.0 |
+| `/rune:appraise` (1-2 teammates) | Always | Always | Optional | v2.0 |
 | `/rune:audit` (8+ agents) | Always | Always | Enabled | v2.0 |
-| `/rune:plan` | Skip | Skip | Skip | Skip |
-| `/rune:work` | Skip | Skip | Skip | Skip |
+| `/rune:devise` | Skip | Skip | Skip | Skip |
+| `/rune:strive` | Skip | Skip | Skip | Skip |
 
 ## Inscription Verification Block
 
@@ -304,10 +304,10 @@ When the verifier finds hallucinated Rune Traces, the Tarnished may summon targe
 
 | Workflow | Phase | Trigger |
 |----------|-------|---------|
-| `/rune:review` | Phase 6 (Verify) | Steps 6a (Layer 0), 6b (Layer 1 review), 6c (Layer 2) |
+| `/rune:appraise` | Phase 6 (Verify) | Steps 6a (Layer 0), 6b (Layer 1 review), 6c (Layer 2) |
 | `/rune:audit` | Phase 5.5 (Truthseer Validator) + Phase 6 | Steps 5.5 (cross-reference), 6a-6c |
-| `/rune:plan` | None | Verification not required for research |
-| `/rune:work` | None | Status-only output, no findings to verify |
+| `/rune:devise` | None | Verification not required for research |
+| `/rune:strive` | None | Status-only output, no findings to verify |
 
 ### Output Files
 

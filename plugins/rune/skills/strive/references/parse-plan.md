@@ -9,7 +9,7 @@ If no plan specified:
 ls -t plans/*.md 2>/dev/null | head -5
 ```
 
-If multiple found, ask user which to execute. If none found, suggest `/rune:plan` first.
+If multiple found, ask user which to execute. If none found, suggest `/rune:devise` first.
 
 ## Validate Plan Path
 

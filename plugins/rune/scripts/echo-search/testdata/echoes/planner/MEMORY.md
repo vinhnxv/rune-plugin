@@ -2,7 +2,7 @@
 
 ## Inscribed — Plan: API Rate Limiting Strategy (2026-01-12)
 
-**Source**: `rune:plan 20260112-rate-limiting`
+**Source**: `rune:devise 20260112-rate-limiting`
 **Confidence**: HIGH (full pipeline: brainstorm + 3 research agents + scroll review)
 
 ### Key Learnings
@@ -14,7 +14,7 @@
 
 ## Inscribed — Plan: Event-Driven Architecture Migration (2026-01-28)
 
-**Source**: `rune:plan 20260128-event-driven`
+**Source**: `rune:devise 20260128-event-driven`
 **Confidence**: HIGH (full pipeline: brainstorm + 4 research agents + forge enrichment)
 
 ### Key Learnings
@@ -38,7 +38,7 @@ Recommendation: auto-trigger forge for plans with security or performance keywor
 
 ## Traced — Unicode Handling in Search Queries (2026-02-15)
 
-**Source**: rune:plan 20260215-search-unicode
+**Source**: rune:devise 20260215-search-unicode
 **Confidence**: LOW (edge case, needs broader testing)
 
 FTS5 with `tokenize='porter unicode61'` handles CJK characters but Porter stemming has no effect on non-Latin scripts. Search queries in Japanese or Chinese match on exact substrings only, not stemmed forms. Consider adding language-specific tokenizers for multilingual deployments.

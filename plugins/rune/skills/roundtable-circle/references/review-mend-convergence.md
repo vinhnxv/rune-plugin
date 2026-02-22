@@ -1,6 +1,6 @@
 # Review-Mend Convergence — Shared Reference
 
-Shared tier selection, convergence evaluation, and progressive focus logic for both arc (Phase 6-7.5 loop) and standalone `/rune:review --cycles N`.
+Shared tier selection, convergence evaluation, and progressive focus logic for both arc (Phase 6-7.5 loop) and standalone `/rune:appraise --cycles N`.
 
 ## 3-Tier Adaptive Convergence
 

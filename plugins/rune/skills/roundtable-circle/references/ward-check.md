@@ -1,6 +1,6 @@
 # Ward Check — Shared Reference
 
-Shared ward gate execution, bisection algorithm, and cross-file deduplication used by `/rune:work` (Phase 4) and `/rune:mend` (Phase 5).
+Shared ward gate execution, bisection algorithm, and cross-file deduplication used by `/rune:strive` (Phase 4) and `/rune:mend` (Phase 5).
 
 ## Ward Discovery Protocol
 

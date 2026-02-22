@@ -32,7 +32,7 @@ allowed-tools:
 
 # /rune:audit — Full Codebase Audit
 
-Orchestrate a full codebase audit using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams. Unlike `/rune:review` (which reviews only changed files), `/rune:audit` scans the entire project.
+Orchestrate a full codebase audit using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams. Unlike `/rune:appraise` (which reviews only changed files), `/rune:audit` scans the entire project.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`, `polling-guard`, `zsh-compat`
 
@@ -47,7 +47,7 @@ Orchestrate a full codebase audit using the Roundtable Circle architecture. Each
 | `--deep-lore` | Run Lore Layer on ALL files (default: Tier 1 only — Ash-relevant extensions). Useful for comprehensive risk mapping on large repos. | Off |
 | `--deep` | Run two-pass deep audit: standard pass + dedicated investigation pass (`rot-seeker`, `strand-tracer`, `decree-auditor`, `fringe-watcher`) then merge. | Off |
 
-**Note:** Unlike `/rune:review`, there is no `--partial` flag. Audit always scans the full project.
+**Note:** Unlike `/rune:appraise`, there is no `--partial` flag. Audit always scans the full project.
 When `--deep` is enabled, audit still uses the same Roundtable lifecycle but executes it twice and performs a merge phase.
 
 **Focus mode** selects only the relevant Ash (see [circle-registry.md](../roundtable-circle/references/circle-registry.md) for the mapping).
@@ -87,7 +87,7 @@ branch=$(git branch --show-current 2>/dev/null || echo "n/a")
 - No files found → "No files to audit in current directory."
 - Only non-reviewable files (images, lock files, binaries) → "No auditable code found."
 
-**Note:** Unlike `/rune:review`, audit does NOT require a git repository.
+**Note:** Unlike `/rune:appraise`, audit does NOT require a git repository.
 
 ### Load Custom Ashes
 

@@ -194,13 +194,13 @@ const taskCount = completedTasks.length
 
 let reviewRecommendation
 if (hasSecurityFiles) {
-  reviewRecommendation = "/rune:review (Recommended) -- security-sensitive files changed"
+  reviewRecommendation = "/rune:appraise (Recommended) -- security-sensitive files changed"
 } else if (filesChanged >= 10 || taskCount >= 8) {
-  reviewRecommendation = "/rune:review (Recommended) -- large changeset"
+  reviewRecommendation = "/rune:appraise (Recommended) -- large changeset"
 } else if (hasConfigFiles) {
-  reviewRecommendation = "/rune:review (Suggested) -- configuration files changed"
+  reviewRecommendation = "/rune:appraise (Suggested) -- configuration files changed"
 } else {
-  reviewRecommendation = "/rune:review (Optional) -- small, focused changeset"
+  reviewRecommendation = "/rune:appraise (Optional) -- small, focused changeset"
 }
 
 AskUserQuestion({

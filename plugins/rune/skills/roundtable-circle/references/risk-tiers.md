@@ -1,6 +1,6 @@
 # Risk Tiers — Task Classification
 
-Deterministic risk classification for `/rune:work` tasks. Every task MUST be assigned a tier before execution. Uses a 4-question decision tree with zero ambiguity.
+Deterministic risk classification for `/rune:strive` tasks. Every task MUST be assigned a tier before execution. Uses a 4-question decision tree with zero ambiguity.
 
 ## Tier Summary
 
@@ -31,7 +31,7 @@ Q4: Is the task purely internal (rename, comments, formatting, tests, docs)?
 ```
 
 ## File-Path Fallback Heuristic
-<!-- SYNC: risk-tier-paths — update both this table AND classifyRiskTier() in skills/work/references/parse-plan.md -->
+<!-- SYNC: risk-tier-paths — update both this table AND classifyRiskTier() in skills/strive/references/parse-plan.md -->
 
 When task descriptions are ambiguous, use file paths to determine the default tier:
 
@@ -69,7 +69,7 @@ If any answer is "unknown" or "unsure", escalate to the Tarnished via `SendMessa
 
 ## TaskCreate Metadata Format
 
-When creating tasks in `/rune:work`, include the risk tier in task metadata:
+When creating tasks in `/rune:strive`, include the risk tier in task metadata:
 
 ```
 TaskCreate({
@@ -93,4 +93,4 @@ For projects consisting entirely of markdown files (like documentation repos or 
 - Standing Order: SO-4 (Blind Gaze) — triggered when classification is skipped
 - Damage Control: DC-2 (Broken Ward) — recovery when tier-required checks fail
 - Ward Check: `ward-check.md` — execution details for ward gates
-- File Ownership: integrated with risk tiers in `/rune:work` — Tier 2+ tasks should have serialized file ownership
+- File Ownership: integrated with risk tiers in `/rune:strive` — Tier 2+ tasks should have serialized file ownership

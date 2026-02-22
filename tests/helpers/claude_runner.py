@@ -254,8 +254,8 @@ class ClaudeRunner:
         return self.run(prompt)
 
     def run_review(self) -> RunResult:
-        """Run /rune:review on current changes."""
-        return self.run("/rune:review")
+        """Run /rune:appraise on current changes."""
+        return self.run("/rune:appraise")
 
     def run_command(self, command: str) -> RunResult:
         """Run any /rune: command."""

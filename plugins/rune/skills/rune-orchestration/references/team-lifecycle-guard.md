@@ -302,10 +302,10 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 
 | Command | Team Prefix | Identifier Source |
 |---------|------------|-------------------|
-| `/rune:review` | `rune-review` | `{identifier}` (git hash or user-provided) |
+| `/rune:appraise` | `rune-review` | `{identifier}` (git hash or user-provided) |
 | `/rune:audit` | `rune-audit` | `{identifier}` |
-| `/rune:plan` | `rune-plan` | `{timestamp}` (YYYYMMDD-HHMMSS) |
-| `/rune:work` | `rune-work` | `{timestamp}` |
+| `/rune:devise` | `rune-plan` | `{timestamp}` (YYYYMMDD-HHMMSS) |
+| `/rune:strive` | `rune-work` | `{timestamp}` |
 | `/rune:mend` | `rune-mend` | `{id}` (from TOME path or generated) |
 | `/rune:forge` | `rune-forge` | `{id}` |
 | `/rune:arc` (plan review) | `arc-plan-review` | `{id}` (arc session id) |
@@ -319,9 +319,9 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 | Phase 2: PLAN REVIEW | Arc orchestrator | `arc-plan-review-{id}` |
 | Phase 2.5: REFINE | Orchestrator-only (no team) | N/A |
 | Phase 2.7: VERIFY | Orchestrator-only (no team) | N/A |
-| Phase 5: WORK | `/rune:work` (delegated) | Work manages own lifecycle |
+| Phase 5: WORK | `/rune:strive` (delegated) | Work manages own lifecycle |
 | Phase 5.5: GAP ANALYSIS | Orchestrator-only (no team) | N/A |
-| Phase 6: REVIEW | `/rune:review` (delegated) | Review manages own lifecycle |
+| Phase 6: REVIEW | `/rune:appraise` (delegated) | Review manages own lifecycle |
 | Phase 7: MEND | `/rune:mend` (delegated) | Mend manages own lifecycle |
 | Phase 7.5: VERIFY MEND | Orchestrator-only (no team) | N/A |
 | Phase 8: AUDIT | `/rune:audit` (delegated) | Audit manages own lifecycle |

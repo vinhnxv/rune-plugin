@@ -217,7 +217,7 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
         question: `Plan freshness: ${freshnessScore.toFixed(2)}/1.0 (STALE). ${commitDistance} commits, ${fileDriftSignal > 0 ? Math.round(fileDriftSignal * 100) + '% file drift' : 'no file drift'}. Proceed?`,
         header: "Staleness",
         options: [
-          { label: "Re-plan (Recommended)", description: "Run /rune:plan to create fresh plan" },
+          { label: "Re-plan (Recommended)", description: "Run /rune:devise to create fresh plan" },
           { label: "Show drift details", description: "Display full signal breakdown" },
           { label: "Override and proceed", description: "Accept stale plan risk — logged to checkpoint" },
           { label: "Abort arc", description: "Cancel the arc pipeline" }
@@ -230,7 +230,7 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
       error(!answer ? "Arc halted — freshness dialog returned null" : "Arc halted by user at freshness check")
       return
     }
-    if (answer.startsWith("Re-plan")) { /* exit arc, suggest /rune:plan */ return }
+    if (answer.startsWith("Re-plan")) { /* exit arc, suggest /rune:devise */ return }
     if (answer.startsWith("Show drift")) {
       // FLAW-002 FIX: Display signal breakdown, then re-prompt without "Show drift details"
       log(`Signal breakdown:\n` +
@@ -244,7 +244,7 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
           question: `Plan freshness: ${freshnessScore.toFixed(2)}/1.0 (STALE). What would you like to do?`,
           header: "Staleness",
           options: [
-            { label: "Re-plan (Recommended)", description: "Run /rune:plan to create fresh plan" },
+            { label: "Re-plan (Recommended)", description: "Run /rune:devise to create fresh plan" },
             { label: "Override and proceed", description: "Accept stale plan risk — logged to checkpoint" },
             { label: "Abort arc", description: "Cancel the arc pipeline" }
           ], multiSelect: false

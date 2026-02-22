@@ -94,7 +94,7 @@ Chains twenty phases into a single automated pipeline: forge, plan review, plan 
 | `--no-test` | Skip Phase 7.7 (testing). Skips unit, integration, and E2E test tiers | Off |
 | `--draft` | Create PR as draft. Overrides `arc.ship.draft` from talisman | Off |
 
-> **Note**: Worktree mode for `/rune:work` (Phase 5) is activated via `work.worktree.enabled: true` in talisman.yml, not via a `--worktree` flag on arc. Arc delegates Phase 5 to `/rune:work`, which reads the talisman setting directly.
+> **Note**: Worktree mode for `/rune:strive` (Phase 5) is activated via `work.worktree.enabled: true` in talisman.yml, not via a `--worktree` flag on arc. Arc delegates Phase 5 to `/rune:strive`, which reads the talisman setting directly.
 
 ## Pipeline Overview
 
@@ -643,7 +643,7 @@ Catches zombie teammates from the last delegated phase. Uses 3-strategy cleanup:
 | Error | Recovery |
 |-------|----------|
 | Concurrent arc session active | Abort with warning, suggest `/rune:cancel-arc` |
-| Plan file not found | Suggest `/rune:plan` first |
+| Plan file not found | Suggest `/rune:devise` first |
 | Checkpoint corrupted | Warn user, offer fresh start or manual fix |
 | Artifact hash mismatch on resume | Demote phase to pending, re-run |
 | Phase timeout | Halt, preserve checkpoint, suggest `--resume` |

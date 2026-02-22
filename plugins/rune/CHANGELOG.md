@@ -3,7 +3,7 @@
 ## [1.64.0] - 2026-02-22
 
 ### Changed
-- **Commands-to-Skills migration** — Migrated 7 major commands to skills format with lazy-load reference decomposition: `work`, `plan`, `review`, `audit`, `mend`, `inspect`, `forge`
+- **Commands-to-Skills migration** — Migrated 7 major commands to skills format with lazy-load reference decomposition: `work`, `devise`, `review`, `audit`, `mend`, `inspect`, `forge`
 - Skills gain `allowed-tools`, `disable-model-invocation`, `argument-hint`, and lazy-load reference support vs legacy commands
 - Plugin now has **8 commands** and **25 skills** (was 15 commands, 18 skills)
 - 12 new reference files created with content extracted from commands (quality-gates.md, todo-protocol.md, brainstorm-phase.md, ash-summoning.md, tome-aggregation.md, review-scope.md, fixer-spawning.md, resolution-report.md, inspector-prompts.md, verdict-synthesis.md, deep-mode.md, forge-enrichment-protocol.md)
@@ -55,7 +55,7 @@
 ## [1.62.0] - 2026-02-21
 
 ### Added
-- **Git worktree isolation for `/rune:work`** — Experimental `--worktree` flag enables isolated git worktree execution. Workers operate in separate worktrees with direct commits instead of patch generation
+- **Git worktree isolation for `/rune:strive`** — Experimental `--worktree` flag enables isolated git worktree execution. Workers operate in separate worktrees with direct commits instead of patch generation
 - **`git-worktree` skill** (`skills/git-worktree/SKILL.md`) — Background knowledge for worktree merge strategies, conflict resolution, and cleanup procedures
 - **Wave-based execution** — Tasks grouped by dependency depth into waves for parallel worktree execution. DFS-based wave computation with cycle detection
 - **Merge broker** — Replaces commit broker in worktree mode. Merges worker branches into feature branch between waves with `--no-ff`, conflict escalation to user (never auto-resolves)
@@ -375,7 +375,7 @@
 - **`--mode plan` flag for `/rune:inspect`**: Mode-aware inspection that reviews plan code samples instead of codebase implementation. Extracts fenced code blocks, compares against codebase patterns, and produces VERDICT.md with plan-specific assessments
 - **4 plan-review ash-prompt templates**: `grace-warden-plan-review.md`, `ruin-prophet-plan-review.md`, `sight-oracle-plan-review.md`, `vigil-keeper-plan-review.md` — specialized for reviewing proposed code in plans
 - **Arc Phase 2 Layer 2**: Plan review now runs inspect agents alongside utility agents when code blocks detected. Layer 2 runs in parallel, results merged into circuit breaker
-- **`/rune:plan` Phase 4C.5**: Optional implementation correctness review with inspect agents during planning workflow
+- **`/rune:devise` Phase 4C.5**: Optional implementation correctness review with inspect agents during planning workflow
 - **Expanded `hasCodeBlocks` regex**: Now catches go, rust, yaml, json, toml in addition to existing languages
 - **Template `fileExists` guard**: Graceful fallback when plan-review template is missing
 
@@ -558,7 +558,7 @@
 Consolidated release from arc-batch run (PRs #58–#62).
 
 ### Added
-- **Per-worker todo files** for `/rune:work`: Persistent markdown with YAML frontmatter, `_summary.md` generation, PR body integration, sanitization + path containment (PR #58)
+- **Per-worker todo files** for `/rune:strive`: Persistent markdown with YAML frontmatter, `_summary.md` generation, PR body integration, sanitization + path containment (PR #58)
 - **Configurable codex timeout handling**: Two-layer timeout architecture with validation, error classification, and 12 codex exec site updates. New talisman keys for timeout config (PR #59)
 - **refactor-guardian review agent**: Detects refactoring safety issues — verifies rename propagation, extract method completeness, and interface contract preservation (PR #60)
 - **reference-validator review agent**: Validates cross-file references, link integrity, and documentation consistency across the codebase (PR #60)
@@ -804,10 +804,10 @@ Consolidated release from arc-batch run (PRs #58–#62).
 - **Progressive review focus** — Re-review rounds narrow scope to mend-modified files + 1-hop dependencies (max 10 additional). Reduces review cost on retry cycles.
 - **Dynamic arc timeout** — `calculateDynamicTimeout(tier)` replaces fixed `ARC_TOTAL_TIMEOUT`. Scales 162-240 min based on tier, hard cap at 240 min.
 - **Shared convergence reference** — `roundtable-circle/references/review-mend-convergence.md` contains `selectReviewMendTier()`, `evaluateConvergence()`, `buildProgressiveFocus()` shared by arc and standalone review.
-- **`--cycles <N>` flag for `/rune:review`** — Run N standalone review passes (1-5, numeric only) with TOME dedup merge. Standalone equivalent of arc convergence loop.
-- **`--scope-file <path>` flag for `/rune:review`** — Override changed_files from a JSON focus file. Used by arc convergence controller for progressive re-review scope.
-- **`--no-converge` flag for `/rune:review`** — Disable convergence loop for single review pass per chunk (report still generated).
-- **`--auto-mend` flag for `/rune:review`** — Auto-invoke `/rune:mend` after review completes when P1/P2 findings exist (skips post-review AskUserQuestion). Also configurable via `review.auto_mend: true` in talisman.yml.
+- **`--cycles <N>` flag for `/rune:appraise`** — Run N standalone review passes (1-5, numeric only) with TOME dedup merge. Standalone equivalent of arc convergence loop.
+- **`--scope-file <path>` flag for `/rune:appraise`** — Override changed_files from a JSON focus file. Used by arc convergence controller for progressive re-review scope.
+- **`--no-converge` flag for `/rune:appraise`** — Disable convergence loop for single review pass per chunk (report still generated).
+- **`--auto-mend` flag for `/rune:appraise`** — Auto-invoke `/rune:mend` after review completes when P1/P2 findings exist (skips post-review AskUserQuestion). Also configurable via `review.auto_mend: true` in talisman.yml.
 - **Arc convergence talisman keys** — `arc_convergence_tier_override`, `arc_convergence_max_cycles`, `arc_convergence_finding_threshold`, `arc_convergence_improvement_ratio` (all under `review:` with `arc_` prefix to avoid collision with standalone review convergence keys).
 - **Checkpoint schema v6** — Adds `convergence.tier` object (name, maxCycles, reason). Auto-migrated from v5 with `TIERS.standard` default.
 
@@ -1053,7 +1053,7 @@ Feature release: Plan Freshness Gate — structural drift detection prevents sta
 
 - **Plan Freshness Gate** — zero-LLM-cost pre-flight check in `/rune:arc` detects when a plan's source codebase has drifted since plan creation. Composite Structural Diff Score (5 weighted signals: commit distance, file drift, identifier loss, branch divergence, time decay) produces a freshness score (0.0–1.0). PASS/WARN/STALE thresholds with user override
 - **Enhanced Verification Gate** — check #8 re-checks file drift on forge-expanded references post-enrichment
-- **Plan metadata** — `/rune:plan` now writes `git_sha` and `branch` to plan YAML frontmatter for freshness tracking
+- **Plan metadata** — `/rune:devise` now writes `git_sha` and `branch` to plan YAML frontmatter for freshness tracking
 - **`--skip-freshness` flag** — bypass freshness check for `/rune:arc` when plan is intentionally ahead of codebase
 - **`plan.freshness` talisman config** — configurable thresholds (`warn_threshold`, `block_threshold`, `max_commit_distance`, `enabled`)
 - **SAFE_SHA_PATTERN** — new security pattern for git SHA validation in `security-patterns.md`
@@ -1166,7 +1166,7 @@ Feature release: Nelson-inspired anti-pattern library, damage control procedures
 - **Standing Orders** (`standing-orders.md`) — 6 named anti-patterns with observable symptoms, decision tables, remedy procedures, and cross-references: SO-1 Hollow Ash (over-delegation), SO-2 Shattered Rune (file conflicts), SO-3 Tarnished Smith (lead implementing), SO-4 Blind Gaze (skipping classification), SO-5 Ember Overload (context overflow), SO-6 Silent Seal (malformed output)
 - **Damage Control** (`damage-control.md`) — 6 recovery procedures with ASSESS/CONTAIN/RECOVER/VERIFY/REPORT format and double-failure escalation: DC-1 Glyph Flood (context overflow), DC-2 Broken Ward (quality failure), DC-3 Fading Ash (agent timeout), DC-4 Phantom Team (lifecycle failure), DC-5 Crossed Runes (concurrent workflows), DC-6 Lost Grace (session loss)
 - **Risk Tiers** (`risk-tiers.md`) — 4-tier deterministic classification (Tier 0 Grace, Tier 1 Ember, Tier 2 Rune, Tier 3 Elden) with 4-question decision tree, file-path fallback heuristic, graduated verification matrix, failure-mode checklist for Tier 2+, and TaskCreate metadata format
-- **File Ownership** in `/rune:work` — EXTRACT/DETECT/RESOLVE/DECLARE algorithm for preventing concurrent file edits. Ownership encoded in task descriptions (persists across auto-release reclaim). Directory-level by default, exact-file overrides when specific.
+- **File Ownership** in `/rune:strive` — EXTRACT/DETECT/RESOLVE/DECLARE algorithm for preventing concurrent file edits. Ownership encoded in task descriptions (persists across auto-release reclaim). Directory-level by default, exact-file overrides when specific.
 - **Checkpoint Reporting** in `monitor-utility.md` — `onCheckpoint` callback with milestone-based template (25%, 50%, 75% + blocker detection). Displays progress, active tasks, blockers, and decision recommendation.
 - work.md: Phase 1 risk tier classification via 4-question decision tree (parse-plan.md)
 - work.md: Phase 1 file target extraction from task descriptions (parse-plan.md)
@@ -1443,12 +1443,12 @@ Feature release: 4-part quality improvement for `/rune:arc` pipeline.
 - **No breaking changes** — existing checkpoints auto-migrate v2→v3→v4 on `--resume`
 - The convergence gate is automatic and requires no user configuration
 - Gap analysis is advisory only — warns but never halts the pipeline
-- Standalone `/rune:mend` and `/rune:review` are completely unaffected
+- Standalone `/rune:mend` and `/rune:appraise` are completely unaffected
 - Old checkpoints resumed with new code skip verify_mend and gap_analysis (marked "skipped")
 
 ## [1.12.0] - 2026-02-13
 
-Feature release: Ship workflow gaps — adds branch setup, plan clarification, quality verification checklist, PR creation, enhanced completion report, and key principles to `/rune:work`. Closes the "last mile" from plan → commits → PR in a single invocation.
+Feature release: Ship workflow gaps — adds branch setup, plan clarification, quality verification checklist, PR creation, enhanced completion report, and key principles to `/rune:strive`. Closes the "last mile" from plan → commits → PR in a single invocation.
 
 ### Added
 
@@ -1519,7 +1519,7 @@ Documentation normalization: Replace tiered agent rules (1-2/3-4/5+ tiers) with 
 - overflow-wards.md: Simplified ASCII decision tree from 3 branches to 2 (Rune command + custom workflow)
 - rune-orchestration/SKILL.md: Removed dead `Task x 1-2` branch from inscription protocol rule
 - inscription-protocol.md: Updated coverage matrix — removed "Single agent / Glyph Budget only" row, added `/rune:mend`
-- inscription-protocol.md: Removed conditional '(when 3+)' qualifier from `/rune:work` inscription requirement — inscription now unconditional for all Rune workflows
+- inscription-protocol.md: Removed conditional '(when 3+)' qualifier from `/rune:strive` inscription requirement — inscription now unconditional for all Rune workflows
 - inscription-protocol.md: Updated Step 4 verification table — all sizes use Agent Teams, verification scales with team size
 - structured-reasoning.md: Updated Thought 2 from "Task-only, Agent Teams, or hybrid?" to deterministic Agent Teams rule
 - task-templates.md: Added "Platform reference" note to Task Subagent template — Rune commands use Background Teammate
@@ -1692,7 +1692,7 @@ Patch release: forge enrichment improvements and review finding fixes.
 ### Added
 
 - `/rune:forge` — standalone plan enrichment command (deepen any existing plan with Forge Gaze)
-- `--quick` flag for `/rune:plan` — minimal pipeline (research + synthesize + review)
+- `--quick` flag for `/rune:devise` — minimal pipeline (research + synthesize + review)
 - Phase 1.5: Research Consolidation Validation checkpoint (AskUserQuestion after research)
 - Phase 2.5: Shatter Assessment for complex plan decomposition (complexity scoring + shard generation)
 - AI-Era Considerations section in Comprehensive template
@@ -1703,7 +1703,7 @@ Patch release: forge enrichment improvements and review finding fixes.
 
 ### Changed
 
-- **Brainstorm + forge now default** — `/rune:plan` runs full pipeline by default. Use `--quick` for minimal.
+- **Brainstorm + forge now default** — `/rune:devise` runs full pipeline by default. Use `--quick` for minimal.
 - `--skip-forge` renamed to `--no-forge` in `/rune:arc` for consistency
 - `--no-brainstorm`, `--no-forge`, `--exhaustive` still work as legacy flags
 - Post-plan options expanded (4 explicit + Other free-text)
@@ -1735,7 +1735,7 @@ Patch release: forge enrichment improvements and review finding fixes.
 - **Elden Lord persona** — The orchestrator/lead now has a named identity. All commands use
   lore-themed greeting messages ("The Elden Lord convenes the Roundtable Circle...").
 - **Lore Glossary** — New reference table in CLAUDE.md mapping 18 Elden Ring terms to plugin concepts.
-- **Forge Gaze** — Topic-aware agent selection for `/rune:plan --forge`. Matches plan section
+- **Forge Gaze** — Topic-aware agent selection for `/rune:devise --forge`. Matches plan section
   topics to specialized agents using keyword overlap scoring (deterministic, zero token cost).
   13 agents across 2 budget tiers replace generic `forge-researcher` agents.
   See `roundtable-circle/references/forge-gaze.md` for the topic registry and algorithm.
@@ -1784,16 +1784,16 @@ Patch release: forge enrichment improvements and review finding fixes.
 ### Added
 
 - Remembrance channel — Human-readable knowledge docs in `docs/solutions/` promoted from Rune Echoes
-- `--approve` flag for `/rune:work` — Optional plan approval gate per task
-- `--exhaustive` flag for `/rune:plan --forge` — Summon ALL agents per section
+- `--approve` flag for `/rune:strive` — Optional plan approval gate per task
+- `--exhaustive` flag for `/rune:devise --forge` — Summon ALL agents per section
 - E8 research pipeline upgrade — Conditional research, brainstorm auto-detect, 6-agent roster, plan detail levels
 - `/rune:echoes migrate` — Echo name migration utility
 - `/rune:echoes promote` — Promote echoes to Remembrance docs
 
 ### Changed
 
-- `/rune:plan` research now uses conditional summoning (local-first, external on demand)
-- `/rune:plan` post-generation options expanded to 6 (was 3)
+- `/rune:devise` research now uses conditional summoning (local-first, external on demand)
+- `/rune:devise` post-generation options expanded to 6 (was 3)
 - Team lifecycle guards added to all 9 commands — pre-create guards + cleanup fallbacks with input validation (see `team-lifecycle-guard.md`)
 - Reduced allowed-tools for `/rune:echoes`, `/rune:rest`, `/rune:cancel-arc` to enforce least-privilege
 
@@ -1803,7 +1803,7 @@ Patch release: forge enrichment improvements and review finding fixes.
 
 - `/rune:arc` — End-to-end orchestration pipeline (6 phases: forge → plan review → work → code review → mend → audit)
 - `/rune:cancel-arc` — Cancel active arc pipeline
-- `--forge` flag for `/rune:plan` — Research enrichment phase (replaces `--deep`)
+- `--forge` flag for `/rune:devise` — Research enrichment phase (replaces `--deep`)
 - `knowledge-keeper` standalone agent — Documentation coverage reviewer for arc Phase 2
 - Checkpoint-based resume (`--resume`) with artifact integrity validation (SHA-256)
 - Per-phase tool restrictions for arc pipeline (least-privilege enforcement)
@@ -1886,7 +1886,7 @@ Patch release: forge enrichment improvements and review finding fixes.
 - **Cleanup symlink safety** — added explicit symlink detection (`-L` check) before path validation in cleanup command
 - **specflow-findings.md** — moved item #7 (Custom agent templates) to Resolved table (delivered in v1.4.0)
 - **Keyword alignment** — synced `plugin.json` keywords with `marketplace.json` tags (`swarm`, `planning`)
-- **`--max-agents` flag** — added to `/rune:review` command (was only documented for `/rune:audit`)
+- **`--max-agents` flag** — added to `/rune:appraise` command (was only documented for `/rune:audit`)
 
 ## [1.4.0] - 2026-02-12
 
@@ -1906,7 +1906,7 @@ Patch release: forge enrichment improvements and review finding fixes.
 
 ### Changed
 
-- `/rune:review` and `/rune:audit` Phase 0 now reads `talisman.yml` for custom Tarnished definitions
+- `/rune:appraise` and `/rune:audit` Phase 0 now reads `talisman.yml` for custom Tarnished definitions
 - Phase 3 summoning extended to include custom Tarnished with wrapper prompts
 - Runebinder aggregation uses extended dedup hierarchy from config
 - `--max-agents` flag range updated from 1-5 to 1-8 (to include custom)
@@ -1933,7 +1933,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 ### Added
 
 - `/rune:cleanup` command — remove `tmp/` artifacts from completed workflows, with `--dry-run` and `--all` flags
-- `--dry-run` flag for `/rune:review` and `/rune:audit` — preview scope selection without summoning agents
+- `--dry-run` flag for `/rune:appraise` and `/rune:audit` — preview scope selection without summoning agents
 - Runebinder aggregation prompt (`tarnished-prompts/runebinder.md`) — TOME.md generation with dedup algorithm, completion.json
 - Truthseer Validator prompt (`tarnished-prompts/truthseer-validator.md`) — audit coverage validation for Phase 5.5
 
@@ -1986,7 +1986,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 
 - Circle Registry (`rune-circle/references/circle-registry.md`) — agent-to-Tarnished mapping with audit scope priorities and context budgets
 - `--focus <area>` and `--max-agents <N>` flags for `/rune:audit`
-- `--partial` flag for `/rune:review` (review staged files only)
+- `--partial` flag for `/rune:appraise` (review staged files only)
 - Known Limitations and Troubleshooting sections in README
 - `.gitattributes` with `merge=union` strategy for Rune Echoes files
 
@@ -1998,12 +1998,12 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 
 ### Added
 
-- `/rune:plan` — Multi-agent planning with parallel research pipeline
+- `/rune:devise` — Multi-agent planning with parallel research pipeline
   - 3 new research agents (lore-seeker, realm-analyst, lore-scholar) plus echo-reader (from v0.3.0)
   - Optional brainstorm phase (`--brainstorm`)
   - Optional deep section-level research (`--deep`)
   - Scroll Reviewer document quality check
-- `/rune:work` — Swarm work execution with self-organizing task pool
+- `/rune:strive` — Swarm work execution with self-organizing task pool
   - Rune Smith (implementation) and Trial Forger (test) workers
   - Dependency-aware task scheduling via TaskCreate/TaskUpdate
   - Auto-scaling workers (2-5 based on task count)
@@ -2032,7 +2032,7 @@ Based on comprehensive comparison of source `multi-agent-patterns` (6 files, ~2,
 
 ### Added
 
-- `/rune:review` — Multi-agent code review with Rune Circle lifecycle
+- `/rune:appraise` — Multi-agent code review with Rune Circle lifecycle
 - `/rune:cancel-review` — Cancel active review
 - 5 Tarnished (Forge Warden, Ward Sentinel, Pattern Weaver, Glyph Scribe, Lore Keeper)
 - 10 review agents with Truthbinding Protocol

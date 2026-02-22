@@ -44,10 +44,10 @@ codex:                                 # Codex CLI integration (see codex-cli sk
   stream_idle_timeout: 540             # Inner stream idle timeout — kills codex if no output for this duration (default: 540, range: 10-timeout)
   workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex — "mend" added in v1.39.0 for post-fix verification
   work_advisory:
-    enabled: true                      # Codex advisory in /rune:work
+    enabled: true                      # Codex advisory in /rune:strive
 
 solution_arena:
-  enabled: true                    # Enable Arena phase in /rune:plan
+  enabled: true                    # Enable Arena phase in /rune:devise
   skip_for_types: ["fix"]          # Feature types that skip Arena
   # Additional config (weights, thresholds) available in future versions
 
@@ -225,7 +225,7 @@ Per-phase timeout values in milliseconds. Values are clamped to 10s–3600s rang
 | `plan_refine` | number | 180000 | Phase 2.5: Plan refinement (3 min) |
 | `verification` | number | 30000 | Phase 2.7: Verification gate (30 sec) |
 | `semantic_verification` | number | 180000 | Phase 2.8: Codex semantic check (3 min) |
-| `work` | number | 2100000 | Phase 5: Work execution (35 min) |
+| `strive` | number | 2100000 | Phase 5: Work execution (35 min) |
 | `gap_analysis` | number | 60000 | Phase 5.5: Gap analysis (1 min) |
 | `codex_gap_analysis` | number | 660000 | Phase 5.6: Codex gap analysis (11 min) |
 | `code_review` | number | 900000 | Phase 6: Code review (15 min) |

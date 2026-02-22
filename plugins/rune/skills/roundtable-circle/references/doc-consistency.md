@@ -1,6 +1,6 @@
 # Doc-Consistency — Shared Reference
 
-Shared doc-consistency logic used by `/rune:work` (Phase 4.3) and `/rune:mend` (Phase 5.7). Detects and fixes version/count drift between source-of-truth files and downstream targets.
+Shared doc-consistency logic used by `/rune:strive` (Phase 4.3) and `/rune:mend` (Phase 5.7). Detects and fixes version/count drift between source-of-truth files and downstream targets.
 
 ## Algorithm
 

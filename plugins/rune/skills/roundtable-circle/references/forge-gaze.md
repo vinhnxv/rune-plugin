@@ -1,6 +1,6 @@
 # Forge Gaze — Topic-Aware Agent Selection for Plan Enrichment
 
-> Matches plan section topics to specialized agents for plan enrichment (default in `/rune:plan` and `/rune:forge`). Analogous to [Rune Gaze](rune-gaze.md) (file extensions → Ash for reviews). Use `--quick` with `/rune:plan` to skip forge.
+> Matches plan section topics to specialized agents for plan enrichment (default in `/rune:devise` and `/rune:forge`). Analogous to [Rune Gaze](rune-gaze.md) (file extensions → Ash for reviews). Use `--quick` with `/rune:devise` to skip forge.
 
 ## Table of Contents
 
@@ -26,7 +26,7 @@
 
 Each agent declares which plan section topics it can enrich, what subsection it produces, and its perspective focus.
 
-> **Note**: Forge Gaze matches agents **individually** (each agent scores independently against section topics), unlike `/rune:review` where agents are grouped into Ash composites.
+> **Note**: Forge Gaze matches agents **individually** (each agent scores independently against section topics), unlike `/rune:appraise` where agents are grouped into Ash composites.
 
 ### Review Agents (Enrichment Budget)
 
@@ -216,7 +216,7 @@ forge:
 
 ## Forge Modes
 
-### Default (runs automatically in `/rune:plan` and `/rune:forge`)
+### Default (runs automatically in `/rune:devise` and `/rune:forge`)
 
 ```
 1. Parse plan into sections (## headings)
@@ -227,7 +227,7 @@ forge:
 6. Lead merges enrichments into plan document
 ```
 
-Use `--quick` with `/rune:plan` to skip forge, or `--no-forge` for granular control.
+Use `--quick` with `/rune:devise` to skip forge, or `--no-forge` for granular control.
 
 ### --exhaustive
 
@@ -279,7 +279,7 @@ Fallback uses an inline generic prompt — no dedicated `forge-researcher` agent
 
 ## Dry-Run Output (Not Yet Implemented)
 
-> **Note**: `--dry-run` is not yet implemented in `/rune:plan`. The format below is the target specification for when it is added. Currently, Forge Gaze logs its selection transparently in the console output during Phase 3.
+> **Note**: `--dry-run` is not yet implemented in `/rune:devise`. The format below is the target specification for when it is added. Currently, Forge Gaze logs its selection transparently in the console output during Phase 3.
 
 When `--dry-run` is used, display selection without summoning (forge runs by default; `--quick` skips it):
 

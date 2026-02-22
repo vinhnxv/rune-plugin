@@ -1,8 +1,8 @@
 # Phase 6: CODE REVIEW — Full Algorithm
 
-Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundtable Circle lifecycle.
+Invoke `/rune:appraise` logic on the implemented changes. Summons Ash with Roundtable Circle lifecycle.
 
-**Team**: `arc-review-{id}` (delegated to `/rune:review` — manages its own TeamCreate/TeamDelete with guards)
+**Team**: `arc-review-{id}` (delegated to `/rune:appraise` — manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Read, Glob, Grep, Write (own output file only)
 **Timeout**: 15 min (PHASE_TIMEOUTS.code_review = 900_000 — inner 10m + 5m setup)
 **Inputs**: id (string), gap analysis path (optional: `tmp/arc/{id}/gap-analysis.md`)
@@ -17,7 +17,7 @@ Invoke `/rune:review` logic on the implemented changes. Summons Ash with Roundta
 On convergence retry (round > 0), Phase 6 uses a focused scope instead of the full branch diff:
 
 ```javascript
-// Before delegating to /rune:review, check for re-review context
+// Before delegating to /rune:appraise, check for re-review context
 const round = checkpoint.convergence?.round ?? 0
 
 if (round > 0) {
@@ -62,11 +62,11 @@ TOME output path varies by convergence round to prevent overwriting:
 
 ## CRITICAL — Delegation Contract
 
-This phase is **delegated** to `/rune:review` via sub-command invocation (Task tool). The arc orchestrator MUST NOT call `TeamCreate` for this phase. The `/rune:review` sub-command manages its own team lifecycle in a separate process. Attempting to create a team inline in the orchestrator would fail with "Already leading team X" if SDK leadership state leaked from Phase 2 (PLAN REVIEW).
+This phase is **delegated** to `/rune:appraise` via sub-command invocation (Task tool). The arc orchestrator MUST NOT call `TeamCreate` for this phase. The `/rune:appraise` sub-command manages its own team lifecycle in a separate process. Attempting to create a team inline in the orchestrator would fail with "Already leading team X" if SDK leadership state leaked from Phase 2 (PLAN REVIEW).
 
 The orchestrator's role in Phase 6 is limited to:
 1. Run `prePhaseCleanup(checkpoint)` — clear stale teams and SDK state
-2. Invoke `/rune:review` logic — the sub-command creates and manages its own team
+2. Invoke `/rune:appraise` logic — the sub-command creates and manages its own team
 3. Discover team name from state file — record in checkpoint for cancel-arc
 4. Relocate TOME artifact — copy from review output dir to arc artifacts
 5. Update checkpoint — record artifact path and hash
@@ -122,17 +122,17 @@ if (exists(verdictPath)) {
 // If detected and "review" is in talisman.codex.workflows, include Codex Oracle.
 // Codex Oracle findings use CDX prefix and participate in dedup and TOME aggregation.
 
-// STEP 3: Delegate to /rune:review
-// /rune:review manages its own team lifecycle (TeamCreate, Rune Gaze agent selection,
+// STEP 3: Delegate to /rune:appraise
+// /rune:appraise manages its own team lifecycle (TeamCreate, Rune Gaze agent selection,
 // Roundtable Circle 7-phase lifecycle, TOME aggregation, cleanup, TeamDelete).
 // Arc records the team_name for cancel-arc discovery.
-// Delegation pattern: /rune:review creates its own team (e.g., rune-review-{identifier}).
+// Delegation pattern: /rune:appraise creates its own team (e.g., rune-review-{identifier}).
 // Arc reads the team name from the review state file or teammate idle notification.
 // PRE-DELEGATION: Record phase as in_progress with null team name.
 // Actual team name will be discovered post-delegation from state file (see STEP 4.5 below).
 updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 6, team_name: null })
 
-// BACK-5 FIX: Pass gap analysis context and review context to /rune:review
+// BACK-5 FIX: Pass gap analysis context and review context to /rune:appraise
 // so reviewers can focus on areas where implementation may be incomplete.
 // reviewContext was built in STEP 1 from gap-analysis.md.
 
@@ -169,7 +169,7 @@ if (postReviewStateFiles.length > 0) {
 }
 
 // STEP 4: TOME relocation (copy, not move — original remains for debugging)
-// Source: tmp/reviews/{review-id}/TOME.md (produced by /rune:review)
+// Source: tmp/reviews/{review-id}/TOME.md (produced by /rune:appraise)
 // Target: round-aware path (consumed by Phase 7: MEND)
 // BACK-012 FIX: Discover TOME via glob — decoupled from team name resolution.
 // SEC-012 FIX: Filter candidates by recency — only consider TOMEs created after this phase started.
@@ -218,7 +218,7 @@ If Phase 5.5 produced a gap analysis with MISSING or PARTIAL criteria, the count
 
 <!-- See arc-delegation-checklist.md Phase 6 for the canonical contract -->
 
-When arc invokes `/rune:review` logic, the delegated command MUST execute these Phase 0 steps
+When arc invokes `/rune:appraise` logic, the delegated command MUST execute these Phase 0 steps
 from review.md. Step ordering matters — scope building depends on default branch detection.
 
 | # | review.md Phase 0 Step | Action | Notes |
@@ -244,11 +244,11 @@ When both conditions are met, the Codex Oracle is included as an additional revi
 
 ## TOME Relocation
 
-`/rune:review` writes the TOME to its own output directory (`tmp/reviews/{review-id}/TOME.md`). The arc orchestrator relocates it to `tmp/arc/{id}/tome.md` so that Phase 7 (MEND) can find it at the canonical arc artifact path. This is a file copy, not a move -- the original remains for debugging.
+`/rune:appraise` writes the TOME to its own output directory (`tmp/reviews/{review-id}/TOME.md`). The arc orchestrator relocates it to `tmp/arc/{id}/tome.md` so that Phase 7 (MEND) can find it at the canonical arc artifact path. This is a file copy, not a move -- the original remains for debugging.
 
 ## Team Lifecycle
 
-Delegated to `/rune:review` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
+Delegated to `/rune:appraise` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
 
 Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6). See SKILL.md Inter-Phase Cleanup Guard section.
 

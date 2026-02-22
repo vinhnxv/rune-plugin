@@ -37,4 +37,4 @@ Create a GitHub or Linear issue from a plan file.
 
 4. **No tracker configured**: Ask user and suggest adding `project_tracker: github` to CLAUDE.md.
 
-5. **After creation**: Display issue URL, offer to proceed to /rune:work.
+5. **After creation**: Display issue URL, offer to proceed to /rune:strive.

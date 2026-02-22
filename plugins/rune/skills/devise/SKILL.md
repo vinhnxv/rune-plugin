@@ -1,17 +1,17 @@
 ---
-name: plan
+name: devise
 description: |
   Multi-agent planning workflow using Agent Teams. Combines brainstorm, research,
   validation, synthesis, shatter assessment, forge enrichment, and review into a
   single orchestrated pipeline with dependency-aware task scheduling.
 
   <example>
-  user: "/rune:plan"
+  user: "/rune:devise"
   assistant: "The Tarnished begins the planning ritual — full pipeline with brainstorm, forge, and review..."
   </example>
 
   <example>
-  user: "/rune:plan --quick"
+  user: "/rune:devise --quick"
   assistant: "The Tarnished begins a quick planning ritual — research, synthesize, review only..."
   </example>
 user-invocable: true
@@ -39,7 +39,7 @@ allowed-tools:
   - mcp__plugin_compound-engineering_context7__query-docs
 ---
 
-# /rune:plan — Multi-Agent Planning Workflow
+# /rune:devise — Multi-Agent Planning Workflow
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`, `polling-guard`, `zsh-compat`
 
@@ -48,19 +48,19 @@ Orchestrates a planning pipeline using Agent Teams with dependency-aware task sc
 ## Usage
 
 ```
-/rune:plan                              # Full pipeline (brainstorm + research + validate + synthesize + shatter? + forge + review)
-/rune:plan --quick                      # Quick: research + synthesize + review only (skip brainstorm, forge, shatter)
+/rune:devise                              # Full pipeline (brainstorm + research + validate + synthesize + shatter? + forge + review)
+/rune:devise --quick                      # Quick: research + synthesize + review only (skip brainstorm, forge, shatter)
 ```
 
 ### Legacy Flags (still functional, undocumented)
 
 ```
-/rune:plan --no-brainstorm              # Skip brainstorm only (granular)
-/rune:plan --no-forge                   # Skip forge only (granular)
-/rune:plan --no-arena                   # Skip Arena only (granular)
-/rune:plan --exhaustive                 # Exhaustive forge mode (lower threshold, research-budget agents)
-/rune:plan --brainstorm                 # No-op (brainstorm is already default)
-/rune:plan --forge                      # No-op (forge is already default)
+/rune:devise --no-brainstorm              # Skip brainstorm only (granular)
+/rune:devise --no-forge                   # Skip forge only (granular)
+/rune:devise --no-arena                   # Skip Arena only (granular)
+/rune:devise --exhaustive                 # Exhaustive forge mode (lower threshold, research-budget agents)
+/rune:devise --brainstorm                 # No-op (brainstorm is already default)
+/rune:devise --forge                      # No-op (forge is already default)
 ```
 
 ## Pipeline Overview
@@ -193,7 +193,7 @@ When complexity >= 0.65, AskUserQuestion: Shatter (Recommended) / Keep as one pl
 3. Each shard: shared context section, specific phase tasks and acceptance criteria, dependencies on other shards
 4. Parent plan updated with shard index and cross-shard dependency graph
 
-After forge, `/rune:work` can target individual shards independently.
+After forge, `/rune:strive` can target individual shards independently.
 
 ## Phase 3: Forge (Default — skipped with `--quick`)
 
@@ -240,7 +240,7 @@ Persist planning learnings to Rune Echoes:
 if (exists(".claude/echoes/planner/")) {
   appendEchoEntry(".claude/echoes/planner/MEMORY.md", {
     layer: "inscribed",
-    source: `rune:plan ${timestamp}`,
+    source: `rune:devise ${timestamp}`,
     // ... key learnings from this planning session
   })
 }
@@ -296,7 +296,7 @@ Plan file written to: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 - `plans/2026-02-12-refactor-api-client-plan.md`
 
 After presenting the plan, offer next steps using AskUserQuestion:
-- `/rune:work` → `Skill("rune:work", plan_path)`
+- `/rune:strive` → `Skill("rune:work", plan_path)`
 - `/rune:forge` → `Skill("rune:forge", plan_path)`
 - Open in editor → `Bash("open plans/${path}")` (macOS)
 - Create issue → See [issue-creation.md](../rune-orchestration/references/issue-creation.md)

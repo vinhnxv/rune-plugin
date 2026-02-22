@@ -199,7 +199,7 @@ echoes:
 
 ## Integration Points
 
-### After Review (`/rune:review`)
+### After Review (`/rune:appraise`)
 
 In Phase 7 (Cleanup), before presenting TOME.md:
 
@@ -213,7 +213,7 @@ In Phase 7 (Cleanup), before presenting TOME.md:
 
 Same as review, writing to `.claude/echoes/auditor/MEMORY.md`.
 
-### During Plan (`/rune:plan`, v1.0)
+### During Plan (`/rune:devise`, v1.0)
 
 ```
 1. echo-reader agent reads .claude/echoes/planner/MEMORY.md + .claude/echoes/team/MEMORY.md
@@ -221,7 +221,7 @@ Same as review, writing to `.claude/echoes/auditor/MEMORY.md`.
 3. After plan: persist architectural discoveries to .claude/echoes/planner/
 ```
 
-### During Work (`/rune:work`, v1.0)
+### During Work (`/rune:strive`, v1.0)
 
 ```
 1. Read .claude/echoes/workers/MEMORY.md for implementation patterns

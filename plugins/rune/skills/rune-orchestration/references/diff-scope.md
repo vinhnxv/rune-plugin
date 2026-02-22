@@ -1,6 +1,6 @@
 # Diff-Scope Engine — Line-Level Diff Range Generation
 
-Generates per-file line ranges from `git diff` output. Used by `/rune:review` Phase 0 to enrich inscription.json with diff scope data, enabling downstream TOME tagging (Phase 5.3) and scope-aware mend filtering.
+Generates per-file line ranges from `git diff` output. Used by `/rune:appraise` Phase 0 to enrich inscription.json with diff scope data, enabling downstream TOME tagging (Phase 5.3) and scope-aware mend filtering.
 
 ## Algorithm
 
@@ -175,7 +175,7 @@ return diffScope
 ## Scope Tagging (Phase 5.3)
 
 Tags each RUNE:FINDING in the TOME with `scope="in-diff"` or `scope="pre-existing"`.
-Runs after Phase 5 (Aggregation) and BEFORE Phase 5.5 (Cross-Model Verification in `/rune:review`; not to be confused with Arc Phase 5.5 Gap Analysis).
+Runs after Phase 5 (Aggregation) and BEFORE Phase 5.5 (Cross-Model Verification in `/rune:appraise`; not to be confused with Arc Phase 5.5 Gap Analysis).
 
 ```javascript
 // STEP 1: Read TOME and diff_scope from inscription.json

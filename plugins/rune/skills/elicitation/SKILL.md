@@ -86,7 +86,7 @@ To parse methods.csv:
 
 ## Mandatory Status in Plan Workflow
 
-Elicitation method selection (Step 3.5 in `/rune:plan`) is **mandatory** — at least 1 method must be selected before proceeding. The selection prompt uses `multiSelect: true`, allowing multiple methods to be applied simultaneously. In `--quick` mode, the top-scored method is auto-selected without user interaction.
+Elicitation method selection (Step 3.5 in `/rune:devise`) is **mandatory** — at least 1 method must be selected before proceeding. The selection prompt uses `multiSelect: true`, allowing multiple methods to be applied simultaneously. In `--quick` mode, the top-scored method is auto-selected without user interaction.
 
 ## Method Selection Algorithm
 
