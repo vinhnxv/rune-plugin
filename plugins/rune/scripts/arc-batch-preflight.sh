@@ -110,6 +110,13 @@ if [[ -s "$SHARD_TMPFILE" ]]; then
     nums=$(grep "^${prefix}:" "$SHARD_TMPFILE" | cut -d: -f2)
     max_num=$(echo "$nums" | sort -n | tail -1)
 
+    # F-005 FIX: Validate max_num is a positive integer; warn on shard-0
+    if ! [[ "$max_num" =~ ^[0-9]+$ ]]; then continue; fi
+    if [[ "$max_num" -eq 0 ]]; then
+      echo "WARNING: Shard group '$(basename "$prefix")' has invalid shard 0 — shard numbers must be >= 1" >&2
+      continue
+    fi
+
     # Check for gaps (missing shard numbers)
     i=1
     while [[ "$i" -le "$max_num" ]]; do

@@ -207,6 +207,11 @@ let shardInfo = null
 
 if (shardMatch) {
   const shardNum = parseInt(shardMatch[1])
+  // F-001 FIX: Shard numbers are 1-indexed. Reject shard-0 as semantically invalid.
+  if (shardNum < 1) {
+    warn(`Invalid shard number ${shardNum} in filename — shard numbers must be >= 1. Skipping shard detection.`)
+    // Fall through to non-shard path
+  } else {
   log(`Shard detected: shard ${shardNum} of a shattered plan`)
 
   // Read shard plan frontmatter
@@ -225,12 +230,19 @@ if (shardMatch) {
 
     // CONCERN-2 FIX: Sibling-relative path fallback when absolute parent path fails.
     // Shard files in plans/shattering/ have parent: pointing to plans/ root.
+    // F-006 FIX: Safe dirname extraction for bare filenames (no '/')
+    const shardDir = planFile.includes('/') ? planFile.replace(/\/[^/]+$/, '') : '.'
     let parentContent = null
     try { parentContent = Read(parentPath) } catch (e) {
-      const shardDir = planFile.replace(/\/[^/]+$/, '')
+      // Sibling-relative fallback: use shardDir (computed above, F-006 safe)
       const parentBasename = parentPath.replace(/.*\//, '')
-      try { parentContent = Read(`${shardDir}/${parentBasename}`) } catch (e2) {
-        warn(`Parent plan not found: ${parentPath} — skipping prerequisite check`)
+      // SEC-004 FIX: Independent traversal guard on extracted basename
+      if (parentBasename.includes('/') || parentBasename.includes('..') || parentBasename === '') {
+        warn(`Unsafe parent basename: ${parentBasename} — skipping sibling fallback`)
+      } else {
+        try { parentContent = Read(`${shardDir}/${parentBasename}`) } catch (e2) {
+          warn(`Parent plan not found: ${parentPath} — skipping prerequisite check`)
+        }
       }
     }
 
@@ -249,13 +261,18 @@ if (shardMatch) {
       if (Array.isArray(dependencies)) {
         for (const dep of dependencies) {
           const depMatch = String(dep).match(/shard-(\d+)/)
-          if (depMatch) depNums.push(parseInt(depMatch[1]))
+          if (depMatch) {
+            const depNum = parseInt(depMatch[1])
+            // SEC-005 FIX: Upper-bound validation on dependency shard numbers
+            if (depNum >= 1 && depNum <= 999) depNums.push(depNum)
+          }
         }
       }
 
       if (prereqCheck && depNums.length > 0) {
         // Find sibling shard files
-        const planDir = planFile.replace(/\/[^/]+$/, '')  // dirname
+        // F-006 FIX: Safe dirname for bare filenames
+        const planDir = planFile.includes('/') ? planFile.replace(/\/[^/]+$/, '') : '.'
         // Consistent regex: matches parse-plan.md pattern (plugins/rune/skills/strive/references/parse-plan.md:60)
         const planBase = planFile.replace(/.*\//, '').replace(/-shard-\d+-[^-]+-plan\.md$/, '')
 
@@ -311,15 +328,22 @@ if (shardMatch) {
       }
 
       // Store shard info for branch strategy and checkpoint
+      // F-011 FIX: Warn if parent plan doesn't specify total shard count
+      const totalShards = parentFrontmatter?.shards || 0
+      if (totalShards === 0) {
+        warn(`Parent plan missing 'shards:' count in frontmatter — PR title will show 'shard N of 0'`)
+      }
+
       shardInfo = {
         shardNum,
-        totalShards: parentFrontmatter?.shards || 0,
+        totalShards,
         parentPath,
         featureName: parentFrontmatter?.feature || frontmatter?.feature || "unknown",
         dependencies: depNums,
         shardName: frontmatter?.shard_name || `shard-${shardNum}`
       }
     }
+  } // end shard-0 else guard
   }
 }
 

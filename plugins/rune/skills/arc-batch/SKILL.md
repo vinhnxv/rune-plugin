@@ -111,10 +111,11 @@ const noShardSort = args.includes('--no-shard-sort')
 // readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
 const talisman = readTalisman()
 const shardConfig = talisman?.arc?.sharding ?? {}
+const shardEnabled = shardConfig.enabled !== false  // default: true (PS-007 FIX: honor master enabled flag)
 const autoSort = shardConfig.auto_sort !== false  // default: true
 const excludeParent = shardConfig.exclude_parent !== false  // default: true
 
-if (!noShardSort && autoSort && !resumeMode && planPaths.length > 1) {
+if (!noShardSort && shardEnabled && autoSort && !resumeMode && planPaths.length > 1) {
   // Separate shard plans from regular plans
   const shardPlans = []
   const regularPlans = []
@@ -134,6 +135,9 @@ if (!noShardSort && autoSort && !resumeMode && planPaths.length > 1) {
       regularPlans.push(path)
     }
   }
+
+  // F-004 FIX: Declare shardGroups in outer scope to avoid block-scoping fragility
+  let shardGroups = new Map()
 
   if (shardPlans.length > 0) {
     // Check for parent plans in regularPlans (auto-exclude if shattered: true)
@@ -164,7 +168,7 @@ if (!noShardSort && autoSort && !resumeMode && planPaths.length > 1) {
     }
 
     // Group shards by feature prefix
-    const shardGroups = new Map()
+    shardGroups = new Map()  // reset (outer-scope let)
     for (const shard of shardPlans) {
       if (!shardGroups.has(shard.featurePrefix)) {
         shardGroups.set(shard.featurePrefix, [])
@@ -180,6 +184,7 @@ if (!noShardSort && autoSort && !resumeMode && planPaths.length > 1) {
     // Detect missing shards within groups
     for (const [prefix, shards] of shardGroups) {
       const nums = shards.map(s => s.shardNum)
+      if (nums.length === 0) continue  // F-002 FIX: guard against Math.max() = -Infinity
       const maxNum = Math.max(...nums)
       const missing = []
       for (let i = 1; i <= maxNum; i++) {
@@ -266,7 +271,7 @@ if (!resumeMode) {
     updated_at: new Date().toISOString(),
     total_plans: planPaths.length,
     // NEW (v1.66.0): shard group summary for progress display
-    shard_groups: (typeof shardGroups !== 'undefined' && shardGroups?.size > 0)
+    shard_groups: (shardGroups.size > 0)  // F-004: outer-scope Map, always defined
       ? Array.from(shardGroups.entries()).map(([prefix, shards]) => ({
           feature: prefix.replace(/.*\//, ''),  // basename of prefix
           shards: shards.map(s => s.shardNum),

@@ -310,7 +310,7 @@ Read(references/arc-preflight.md)
 See [arc-checkpoint-init.md](references/arc-checkpoint-init.md) for the full initialization.
 
 **Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check above
-**Outputs**: checkpoint object (schema v11), resolved arc config
+**Outputs**: checkpoint object (schema v12), resolved arc config
 **Error handling**: fail arc if plan file missing or config invalid
 
 // NOTE: Requires `freshnessResult` from the Freshness Check step (inline above).

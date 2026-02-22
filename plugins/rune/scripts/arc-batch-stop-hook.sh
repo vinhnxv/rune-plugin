@@ -303,7 +303,7 @@ fi
 # ── SHARD-AWARE TRANSITION DETECTION (v1.66.0+) ──
 # Detect if current and next plans are sibling shards (same feature group).
 # If so, skip git checkout main — stay on shared feature branch.
-CURRENT_PLAN=$(echo "$PROGRESS_CONTENT" | jq -r '
+CURRENT_PLAN=$(echo "$UPDATED_PROGRESS" | jq -r '
   [.plans[] | select(.status == "completed")] | last | .path // empty
 ' 2>/dev/null || true)
 
@@ -324,7 +324,12 @@ case "$NEXT_PLAN" in
 esac
 
 if [[ -n "$current_shard_prefix" && "$current_shard_prefix" = "$next_shard_prefix" ]]; then
-  is_sibling_shard="true"
+  # SEC-003 FIX: Also verify same directory to prevent prefix collisions across dirs
+  current_dir=$(dirname "$CURRENT_PLAN" 2>/dev/null || echo "")
+  next_dir=$(dirname "$NEXT_PLAN" 2>/dev/null || echo "")
+  if [[ "$current_dir" = "$next_dir" ]]; then
+    is_sibling_shard="true"
+  fi
 fi
 
 # Build git instructions based on shard transition type
