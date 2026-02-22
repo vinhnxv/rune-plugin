@@ -23,22 +23,22 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **inner-flame** | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
 | **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
 | **arc-batch** | Sequential batch arc execution — runs /rune:arc across multiple plans with crash recovery and progress tracking |
+| **audit** | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation with 4 additional deep Ashes |
+| **forge** | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
+| **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
+| **mend** | Parallel finding resolution from TOME |
+| **plan** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
+| **review** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
+| **work** | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/rune:review` | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
-| `/rune:audit` | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation with 4 additional deep Ashes |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
-| `/rune:plan` | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
-| `/rune:forge` | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
-| `/rune:work` | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
-| `/rune:mend` | Parallel finding resolution from TOME |
 | `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 20 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend (convergence loop) → test → audit → audit-mend → audit-verify → ship → merge |
 | `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
-| `/rune:inspect` | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
 | `/rune:plan-review` | Review plan code samples for implementation correctness (thin wrapper for /rune:inspect --mode plan) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:cancel-arc-batch` | Cancel active arc-batch loop and remove state file |

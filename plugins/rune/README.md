@@ -404,21 +404,29 @@ Summoned during `/rune:work` as self-organizing swarm workers:
 |-------|---------|
 | agent-browser | Browser automation knowledge injection for E2E testing (non-invocable) |
 | arc | End-to-end orchestration pipeline (pre-flight freshness gate + 18 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → ship → merge) |
+| arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
 | ash-guide | Agent invocation reference |
+| audit | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | context-weaving | Context overflow/rot prevention |
 | elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
+| forge | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`) |
+| git-worktree | Worktree isolation for /rune:work (experimental `--worktree` flag) |
 | goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers) |
 | inner-flame | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
+| inspect | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories) |
+| mend | Parallel finding resolution from TOME |
+| plan | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`) |
 | polling-guard | Monitoring loop fidelity — correct waitForCompletion translation |
+| review | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | rune-orchestration | Multi-agent coordination patterns |
 | testing | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | using-rune | Workflow discovery and intent routing |
+| work | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
-| arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
 
 ## Configuration
 
@@ -532,19 +540,12 @@ plugins/rune/
 ├── commands/
 │   ├── cancel-arc.md        # /rune:cancel-arc
 │   ├── cancel-arc-batch.md  # /rune:cancel-arc-batch
-│   ├── forge.md             # /rune:forge
-│   ├── mend.md          # /rune:mend
-│   ├── plan.md          # /rune:plan
-│   ├── work.md          # /rune:work
-│   ├── review.md        # /rune:review
-│   ├── cancel-review.md # /rune:cancel-review
-│   ├── audit.md         # /rune:audit
-│   ├── cancel-audit.md  # /rune:cancel-audit
-│   ├── elicit.md        # /rune:elicit
-│   ├── echoes.md        # /rune:echoes
-│   ├── inspect.md       # /rune:inspect
-│   ├── plan-review.md   # /rune:plan-review
-│   └── rest.md          # /rune:rest
+│   ├── cancel-review.md     # /rune:cancel-review
+│   ├── cancel-audit.md      # /rune:cancel-audit
+│   ├── elicit.md            # /rune:elicit
+│   ├── echoes.md            # /rune:echoes
+│   ├── plan-review.md       # /rune:plan-review
+│   └── rest.md              # /rune:rest
 ├── skills/
 │   ├── agent-browser/       # Browser automation knowledge (non-invocable)
 │   ├── arc/                 # /rune:arc (end-to-end pipeline)
@@ -552,14 +553,27 @@ plugins/rune/
 │   │   └── references/      # Arc-specific phase refs, delegation checklist
 │   ├── arc-batch/           # /rune:arc-batch (sequential multi-plan)
 │   ├── ash-guide/           # Agent reference
+│   ├── audit/               # /rune:audit (full codebase audit, --deep mode)
+│   │   └── references/      # deep-mode.md
 │   ├── chome-pattern/       # CLAUDE_CONFIG_DIR resolution
 │   ├── codex-cli/           # Codex CLI integration
 │   ├── context-weaving/     # Context management
 │   ├── elicitation/         # BMAD-derived reasoning methods
 │   │   └── references/      # methods.csv, examples.md, phase-mapping.md
+│   ├── forge/               # /rune:forge (plan enrichment, --exhaustive)
+│   │   └── references/      # forge-enrichment-protocol.md
+│   ├── git-worktree/        # Worktree isolation knowledge (non-invocable)
 │   ├── goldmask/            # Cross-layer impact analysis
 │   ├── inner-flame/         # 3-layer self-review protocol (non-invocable)
+│   ├── inspect/             # /rune:inspect (plan-vs-implementation audit)
+│   │   └── references/      # inspector-prompts.md, verdict-synthesis.md
+│   ├── mend/                # /rune:mend (parallel finding resolution)
+│   │   └── references/      # parse-tome.md, fixer-spawning.md, resolution-report.md
+│   ├── plan/                # /rune:plan (multi-agent planning pipeline)
+│   │   └── references/      # brainstorm-phase.md, research-phase.md, synthesize.md, etc.
 │   ├── polling-guard/       # Monitoring loop fidelity
+│   ├── review/              # /rune:review (multi-agent code review)
+│   │   └── references/      # ash-summoning.md, tome-aggregation.md, review-scope.md
 │   ├── roundtable-circle/   # Review orchestration
 │   │   └── references/      # e.g. rune-gaze.md, custom-ashes.md
 │   ├── rune-echoes/         # Smart Memory Lifecycle
@@ -568,6 +582,8 @@ plugins/rune/
 │   ├── testing/             # Test orchestration pipeline (non-invocable)
 │   │   └── references/      # test-discovery.md, service-startup.md, etc.
 │   ├── using-rune/          # Workflow discovery and intent routing
+│   ├── work/                # /rune:work (swarm work execution)
+│   │   └── references/      # parse-plan.md, worker-prompts.md, ship-phase.md, etc.
 │   └── zsh-compat/          # zsh shell compatibility
 ├── scripts/
 │   ├── enforce-readonly.sh          # SEC-001: Read-only agent enforcement

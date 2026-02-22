@@ -209,7 +209,7 @@ for each requirement:
     }
   ],
   "identifiers": [
-    { "type": "file", "value": "plugins/rune/commands/inspect.md" },
+    { "type": "file", "value": "plugins/rune/skills/inspect/SKILL.md" },
     { "type": "code", "value": "graceWarden" }
   ],
   "inspector_assignments": {

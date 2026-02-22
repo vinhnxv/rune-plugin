@@ -86,7 +86,10 @@ for (const section of sections) {
 }
 
 // 7. Check for undocumented security pattern declarations (R1 enforcement)
-const commandFiles = Glob("plugins/rune/commands/*.md")
+const commandFiles = [
+  ...Glob("plugins/rune/commands/*.md"),
+  ...Glob("plugins/rune/skills/*/SKILL.md")
+]
 for (const cmdFile of commandFiles) {
   const rawContent = Read(cmdFile)
   const content = rawContent.replace(/```[\s\S]*?```/g, '')

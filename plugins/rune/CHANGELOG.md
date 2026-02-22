@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.64.0] - 2026-02-22
+
+### Changed
+- **Commands-to-Skills migration** — Migrated 7 major commands to skills format with lazy-load reference decomposition: `work`, `plan`, `review`, `audit`, `mend`, `inspect`, `forge`
+- Skills gain `allowed-tools`, `disable-model-invocation`, `argument-hint`, and lazy-load reference support vs legacy commands
+- Plugin now has **8 commands** and **25 skills** (was 15 commands, 18 skills)
+- 12 new reference files created with content extracted from commands (quality-gates.md, todo-protocol.md, brainstorm-phase.md, ash-summoning.md, tome-aggregation.md, review-scope.md, fixer-spawning.md, resolution-report.md, inspector-prompts.md, verdict-synthesis.md, deep-mode.md, forge-enrichment-protocol.md)
+- 9 existing reference files moved via `git mv` (history preserved): 4 work refs, 4 plan refs, 1 mend ref
+- Cross-references updated: `skills/git-worktree/SKILL.md`, `skills/elicitation/references/phase-mapping.md`, `skills/roundtable-circle/references/risk-tiers.md`, `skills/roundtable-circle/references/chunk-orchestrator.md`, `skills/roundtable-circle/references/plan-parser.md`
+
 ## [1.63.2] - 2026-02-22
 
 ### Fixed
