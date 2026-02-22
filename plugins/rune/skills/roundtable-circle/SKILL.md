@@ -240,7 +240,18 @@ for (const wave of waves) {
   for (const task of remaining) {
     TaskUpdate({ taskId: task.id, status: "deleted" })
   }
-  TeamDelete()
+  // Inter-wave TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+  const WAVE_CLEANUP_DELAYS = [0, 3000, 8000]
+  let waveCleanupOk = false
+  for (let attempt = 0; attempt < WAVE_CLEANUP_DELAYS.length; attempt++) {
+    if (attempt > 0) Bash(`sleep ${WAVE_CLEANUP_DELAYS[attempt] / 1000}`)
+    try { TeamDelete(); waveCleanupOk = true; break } catch (e) {
+      if (attempt === WAVE_CLEANUP_DELAYS.length - 1) warn(`inter-wave cleanup: TeamDelete failed after ${WAVE_CLEANUP_DELAYS.length} attempts`)
+    }
+  }
+  if (!waveCleanupOk) {
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+  }
 
   // Forward findings to next wave as read-only context
   // Cross-wave context: finding locations (file:line + severity) ONLY — not interpretations
@@ -465,8 +476,17 @@ for (const member of allMembers) {
 
 // 2. Wait for shutdown approvals
 
-// 3. Cleanup team with fallback (uses teamTransition cleanup pattern)
-try { TeamDelete() } catch (e) {
+// 3. Cleanup team with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+const CLEANUP_DELAYS = [0, 3000, 8000]
+let cleanupSucceeded = false
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`review cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+// Filesystem fallback if TeamDelete failed
+if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
 }
 

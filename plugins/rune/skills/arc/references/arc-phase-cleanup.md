@@ -1,0 +1,118 @@
+# Post-Phase Cleanup — Full Algorithm
+
+Guaranteed team cleanup after every delegated arc phase completes. Complements `prePhaseCleanup()` (before) with a trailing-edge guarantee (after). Together they form a before+after bracket around every phase.
+
+**Inputs**: checkpoint object, phaseName (string)
+**Outputs**: cleaned teams/tasks directories, SDK state cleared
+**Error handling**: Non-blocking — try/catch around all operations, warn on failure, never halt pipeline
+**Consumers**: SKILL.md (Phase stubs — called after checkpoint update for each delegated phase)
+
+> **Design**: `prePhaseCleanup` handles SDK leadership state clearing (Strategy 1-4).
+> `postPhaseCleanup` handles teammate/filesystem cleanup with prefix scan.
+> `prePhaseCleanup` runs BEFORE the next phase; `postPhaseCleanup` runs AFTER the current phase.
+> If arc crashes mid-phase, `postPhaseCleanup` is skipped — CDX-7 preflight scan at next arc run catches crash orphans.
+
+## PHASE_PREFIX_MAP
+
+Maps each delegated phase to its expected team name prefixes. Used by `postPhaseCleanup()` Step 2 for prefix-based orphan scanning.
+
+**IMPORTANT**: New delegated phases MUST add their prefix here, or orphans won't be caught by postPhaseCleanup. Keep in sync with `ARC_TEAM_PREFIXES` in `arc-preflight.md`.
+
+Multi-prefix entries cover both arc-owned and sub-command-owned team variants (EC-7, rune-architect #2: audited against actual TeamCreate calls per phase).
+
+```javascript
+const PHASE_PREFIX_MAP = {
+  forge:                  ["rune-forge-", "arc-forge-"],        // /rune:forge + arc variant
+  plan_review:            ["arc-plan-review-"],
+  work:                   ["rune-work-"],
+  gap_analysis:           ["rune-inspect-", "arc-inspect-"],    // both prefix variants
+  codex_gap_analysis:     ["arc-gap-"],                         // CC-1 FIX: actual prefix is arc-gap- (arc-codex-phases.md L256)
+  gap_remediation:        ["arc-gap-fix-"],
+  goldmask_verification:  ["goldmask-"],
+  code_review:            ["rune-review-"],
+  mend:                   ["rune-mend-"],
+  test:                   ["arc-test-"],
+}
+// NOTE: 10 delegated phases. Phases removed in v1.67.0 (audit, audit_mend) are NOT listed.
+// Orchestrator-only phases (plan_refine, verification, semantic_verification,
+// goldmask_correlation, verify_mend, ship, merge) do not create teams — no entries needed.
+```
+
+## postPhaseCleanup(checkpoint, phaseName)
+
+```javascript
+// postPhaseCleanup(checkpoint, phaseName): Clean up after a phase completes.
+// Runs AFTER every delegated phase. Complements prePhaseCleanup (before) with
+// post-phase guarantee (after). Uses prefix-based scan as primary mechanism.
+//
+// DESIGN: prePhaseCleanup handles SDK leadership state clearing (Strategy 1-4).
+// postPhaseCleanup handles teammate/filesystem cleanup with prefix scan.
+// Together they form a before+after bracket around every phase.
+
+function postPhaseCleanup(checkpoint, phaseName) {
+  try {
+    const phaseInfo = checkpoint.phases?.[phaseName]
+    if (!phaseInfo) return  // Unknown phase — nothing to clean
+
+    // Step 1: Targeted cleanup if team_name is known
+    if (phaseInfo.team_name && typeof phaseInfo.team_name === 'string'
+        && /^[a-zA-Z0-9_-]+$/.test(phaseInfo.team_name)) {
+      const teamName = phaseInfo.team_name
+
+      // Dynamic member discovery + shutdown
+      try {
+        const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+        const teamConfig = Read(`${CHOME}/teams/${teamName}/config.json`)
+        const members = Array.isArray(teamConfig?.members) ? teamConfig.members : []
+        for (const m of members) {
+          if (m.name && /^[a-zA-Z0-9_-]+$/.test(m.name)) {
+            try { SendMessage({ type: "shutdown_request", recipient: m.name, content: `Phase ${phaseName} complete — cleanup` }) } catch (e) { /* member may already be gone */ }
+          }
+        }
+        if (members.length > 0) Bash(`sleep 5`)  // Normalized with ARC-9 Strategy A grace period
+      } catch (e) { /* team config unreadable — proceed to filesystem cleanup */ }
+
+      // SDK state clear + filesystem rm-rf (TeamDelete clears SDK leadership, not the named team)
+      try { TeamDelete() } catch (e) { /* may already be deleted */ }
+      // SEC: teamName validated above with /^[a-zA-Z0-9_-]+$/ — shell injection not possible
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+    }
+
+    // Step 2: Prefix-based scan for this phase's expected prefixes
+    // Even if team_name was null, scan by prefix to catch orphans
+    const prefixes = PHASE_PREFIX_MAP[phaseName] || []
+    for (const prefix of prefixes) {
+      if (!/^[a-z][a-z-]*-$/.test(prefix)) { warn(`postPhaseCleanup: invalid prefix format: ${prefix} — skipping`); continue }
+      const dirs = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
+      for (const dir of dirs) {
+        const orphanName = dir.split('/').pop()
+        if (!orphanName || !/^[a-zA-Z0-9_-]+$/.test(orphanName)) continue
+        // Cross-session safety: check .session marker before cleaning
+        // .session contains session_id (written by stamp-team-session.sh TLC-004)
+        // If session_id differs from ours, skip — belongs to another session
+        // (EC-1/EC-2: CRITICAL — must not delete concurrent session's teams)
+        const sessionCheck = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${orphanName}/.session" && cat "$CHOME/teams/${orphanName}/.session" 2>/dev/null`).trim()
+        const arcSessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
+        if (!sessionCheck || sessionCheck !== arcSessionId) {
+          warn(`postPhaseCleanup: Skipping ${orphanName} — no session marker or belongs to another session`)
+          continue
+        }
+        warn(`postPhaseCleanup: Cleaning orphan team ${orphanName} from phase ${phaseName}`)
+        // SEC: Atomic symlink guard + rm-rf in single Bash call (closes TOCTOU window)
+        // orphanName validated above with /^[a-zA-Z0-9_-]+$/ — shell injection not possible
+        Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && [[ ! -L "$CHOME/teams/${orphanName}" ]] && rm -rf "$CHOME/teams/${orphanName}/" "$CHOME/tasks/${orphanName}/" 2>/dev/null`)
+      }
+    }
+
+    // Step 3: Final SDK state clear (only needed if Step 1 was skipped — team_name was null)
+    // EC-3: After Step 2's prefix scan, clear any residual SDK state.
+    // EC-9: Redundant with prePhaseCleanup Strategy 1 — intentional defense-in-depth.
+    if (!phaseInfo.team_name) {
+      try { TeamDelete() } catch (e) { /* expected if no active team */ }
+    }
+
+  } catch (e) {
+    warn(`postPhaseCleanup(${phaseName}): ${e.message} — proceeding`)
+  }
+}
+```

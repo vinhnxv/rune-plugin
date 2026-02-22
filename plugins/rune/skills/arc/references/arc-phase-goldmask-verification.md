@@ -179,6 +179,7 @@ updateCheckpoint({
   finding_count: findingCount,
   critical_count: criticalCount
 })
+postPhaseCleanup(checkpoint, "goldmask_verification")
 ```
 
 ## Crash Recovery
@@ -192,4 +193,4 @@ If this phase crashes before cleanup:
 | Goldmask output | `tmp/goldmask/` |
 | Arc artifacts | `tmp/arc/{id}/goldmask-verification.md`, `tmp/arc/{id}/goldmask-findings.json` |
 
-Recovery: `prePhaseCleanup()` handles team/task cleanup via ARC_TEAM_PREFIXES which includes `"goldmask-"`. Goldmask output in `tmp/goldmask/` is cleaned by `/rune:rest`.
+Recovery: `prePhaseCleanup()` handles team/task cleanup via ARC_TEAM_PREFIXES which includes `"goldmask-"`. `postPhaseCleanup()` provides additional prefix-based sweep after phase completion. Goldmask output in `tmp/goldmask/` is cleaned by `/rune:rest`.

@@ -361,14 +361,16 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 
 ## Inter-Phase Cleanup (ARC-6)
 
-Arc's dispatcher runs `prePhaseCleanup(checkpoint)` before every delegated phase.
-This is the **arc-specific application** of the Pre-Create Guard pattern, using
-checkpoint state to identify which phase teams may be stale.
+Arc's dispatcher runs `prePhaseCleanup(checkpoint)` before every delegated phase
+and `postPhaseCleanup(checkpoint, phaseName)` after every delegated phase (v1.68.0).
+Together they form a before+after bracket guaranteeing cleanup at phase boundaries.
+
+- **`prePhaseCleanup`** (before): Handles SDK leadership state clearing (4-strategy). See [arc-preflight.md](../../arc/references/arc-preflight.md).
+- **`postPhaseCleanup`** (after): Handles teammate/filesystem cleanup with prefix-based scan. See [arc-phase-cleanup.md](../../arc/references/arc-phase-cleanup.md).
 
 Complements CDX-7 (crash recovery) — ARC-6 handles normal phase transitions where
-TeamDelete is async and may not complete before the next phase starts.
-
-See arc SKILL.md for the full `prePhaseCleanup()` implementation.
+TeamDelete is async and may not complete before the next phase starts. If arc crashes
+mid-phase before `postPhaseCleanup` runs, CDX-7 preflight scan catches orphans at next arc start.
 
 ## Staleness Detection
 
