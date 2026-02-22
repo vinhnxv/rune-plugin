@@ -1,10 +1,10 @@
-# Phase 6: CODE REVIEW — Full Algorithm
+# Phase 6: CODE REVIEW (deep) — Full Algorithm
 
-Invoke `/rune:appraise` logic on the implemented changes. Summons Ash with Roundtable Circle lifecycle.
+Invoke `/rune:appraise --deep` on the implemented changes. Multi-wave review (Wave 1 core + Wave 2 investigation + Wave 3 dimension analysis) replaces the former separate audit phases (8/8.5/8.7).
 
 **Team**: `arc-review-{id}` (delegated to `/rune:appraise` — manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Read, Glob, Grep, Write (own output file only)
-**Timeout**: 15 min (PHASE_TIMEOUTS.code_review = 900_000 — inner 10m + 5m setup)
+**Timeout**: 15 min (PHASE_TIMEOUTS.code_review = 900_000 — inner 10m + 5m setup). Deep mode extends internally via wave timeout distribution.
 **Inputs**: id (string), gap analysis path (optional: `tmp/arc/{id}/gap-analysis.md`)
 **Outputs**: `tmp/arc/{id}/tome.md`
 **Error handling**: Does not halt — review always produces findings or a clean report. Timeout → partial results collected. Team creation failure → cleanup fallback via `rm -rf` (see [team-lifecycle-guard.md](team-lifecycle-guard.md)).
@@ -45,8 +45,9 @@ if (round > 0) {
     log(`Re-review round ${round}: ${changed_files.length} files (${focus.mend_modified.length} mend-modified + ${focus.dependency_files?.length ?? 0} dependencies)`)
   }
   // QUAL-017: Reduce Ash count for focused reviews — 3 is sufficient for mend-modified files.
+  // Re-review still uses --deep (depth=deep) with reduced agent count for focused coverage.
   // Documented in CHANGELOG v1.37.0 and phase-tool-matrix.md.
-  maxAgents = Math.min(3, maxAgents)  // Cap at 3 Ashes for re-review
+  maxAgents = Math.min(3, maxAgents)  // Cap at 3 Ashes for re-review (applies to Wave 1 only)
   // Reduce timeout proportionally (minimum 5 min to allow meaningful review)
   // BACK-007 FIX: Floor prevents sub-minute timeout when PHASE_TIMEOUTS.code_review is small
   reviewTimeout = Math.max(300_000, Math.floor(PHASE_TIMEOUTS.code_review * 0.6))
@@ -122,9 +123,10 @@ if (exists(verdictPath)) {
 // If detected and "review" is in talisman.codex.workflows, include Codex Oracle.
 // Codex Oracle findings use CDX prefix and participate in dedup and TOME aggregation.
 
-// STEP 3: Delegate to /rune:appraise
-// /rune:appraise manages its own team lifecycle (TeamCreate, Rune Gaze agent selection,
-// Roundtable Circle 7-phase lifecycle, TOME aggregation, cleanup, TeamDelete).
+// STEP 3: Delegate to /rune:appraise --deep
+// /rune:appraise --deep runs multi-wave review (Wave 1 core + Wave 2 investigation + Wave 3 dimension).
+// This replaces the former separate audit phases (8/8.5/8.7) by folding audit-depth analysis
+// into the review pass. The appraise skill manages its own team lifecycle per wave.
 // Arc records the team_name for cancel-arc discovery.
 // Delegation pattern: /rune:appraise creates its own team (e.g., rune-review-{identifier}).
 // Arc reads the team name from the review state file or teammate idle notification.
@@ -214,11 +216,11 @@ updateCheckpoint({
 
 If Phase 5.5 produced a gap analysis with MISSING or PARTIAL criteria, the counts are injected as context for reviewers. This helps reviewers focus on areas where the implementation may be incomplete relative to the plan. The full gap-analysis.md path is provided so reviewers can read details on demand.
 
-## Delegation Steps (Phase 6 → appraise.md Phase 0)
+## Delegation Steps (Phase 6 → appraise.md Phase 0 with --deep)
 
 <!-- See arc-delegation-checklist.md Phase 6 for the canonical contract -->
 
-When arc invokes `/rune:appraise` logic, the delegated command MUST execute these Phase 0 steps
+When arc invokes `/rune:appraise --deep`, the delegated command MUST execute these Phase 0 steps
 from appraise.md. Step ordering matters — scope building depends on default branch detection.
 
 | # | appraise.md Phase 0 Step | Action | Notes |
