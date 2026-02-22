@@ -613,61 +613,6 @@ const claimsPartial = claims.filter(c => c.deterministicVerdict === "PARTIAL").l
 const claimsUntestable = claims.filter(c => c.deterministicVerdict === "UNTESTABLE").length
 ```
 
-## STEP A.5: Write Deterministic Gap Analysis Report
-
-```javascript
-const addressed = gaps.filter(g => g.status === "ADDRESSED").length
-const partial = gaps.filter(g => g.status === "PARTIAL").length
-const missing = gaps.filter(g => g.status === "MISSING").length
-const extra = gaps.filter(g => g.status === "EXTRA").length
-
-const report = `# Implementation Gap Analysis\n\n` +
-  `**Plan**: ${checkpoint.plan_file}\n` +
-  `**Date**: ${new Date().toISOString()}\n` +
-  `**Criteria found**: ${criteria.length}\n\n` +
-  `## Summary\n\n` +
-  `| Status | Count |\n|--------|-------|\n` +
-  `| ADDRESSED | ${addressed} |\n| PARTIAL | ${partial} |\n| MISSING | ${missing} |\n| EXTRA | ${extra} |\n\n` +
-  (missing > 0 ? `## MISSING (not found in committed code)\n\n` +
-    gaps.filter(g => g.status === "MISSING").map(g =>
-      `- [ ] ${g.criterion} (from section: ${g.section})`
-    ).join('\n') + '\n\n' : '') +
-  (partial > 0 ? `## PARTIAL (some evidence, not fully addressed)\n\n` +
-    gaps.filter(g => g.status === "PARTIAL").map(g =>
-      `- [ ] ${g.criterion} (from section: ${g.section})` +
-      (g.evidence ? `\n  Evidence: ${g.evidence}` : '')
-    ).join('\n') + '\n\n' : '') +
-  (extra > 0 ? `## EXTRA (scope creep — not in plan)\n\n` +
-    gaps.filter(g => g.status === "EXTRA").map(g =>
-      `- [!] ${g.criterion} (from section: ${g.section})` +
-      (g.evidence ? `\n  Evidence: ${g.evidence}` : '')
-    ).join('\n') + '\n\n' : '') +
-  `## ADDRESSED\n\n` +
-  gaps.filter(g => g.status === "ADDRESSED").map(g =>
-    `- [x] ${g.criterion}`
-  ).join('\n') + '\n\n' +
-  `## Task Completion\n\n` +
-  `- Completed: ${taskStats.completed}/${taskStats.total} tasks\n` +
-  `- Failed: ${taskStats.failed} tasks\n` +
-  docConsistencySection +
-  planSectionCoverageSection +
-  evaluatorMetricsSection +
-  // STEP A.9: Semantic Claims section
-  (claims.length > 0 ? `\n## Semantic Claims\n\n` +
-    `| Claim | Type | Deterministic | Codex | Evidence |\n` +
-    `|-------|------|---------------|-------|----------|\n` +
-    claims.map(c => {
-      const codexV = c.codexVerdict ?? '—'
-      const evidenceLinks = (c.evidence || []).slice(0, 3)
-        .map(e => `${e.keyword} in ${e.files[0] || '?'}`)
-        .join('; ') || '—'
-      return `| ${c.id}: ${c.text.slice(0, 80)}${c.text.length > 80 ? '...' : ''} | ${c.type} | ${c.deterministicVerdict} | ${codexV} | ${evidenceLinks} |`
-    }).join('\n') + '\n\n' +
-    `Semantic drift score: ${claimsSatisfied}/${claims.length} claims verified\n` : '')
-
-// STEP A.9 exhausts the A.x numbering space. Future additions should use STEP A.10+ or promote STEP A into sub-phases.
-```
-
 ## STEP A.10: Stale Reference Detection
 
 Scan for lingering references to files deleted during the work phase. A deleted file that is still referenced elsewhere = incomplete cleanup = PARTIAL gap.
@@ -695,9 +640,9 @@ if (deletedFiles.length === 0) {
 
     // Search across plugins/ (primary), .claude/ (talisman configs), scripts/ (hooks)
     // Uses Bash+rg to match existing gap-analysis.md tool pattern
-    const grepResult = Bash(`rg -l "${basename}" plugins/ .claude/ scripts/ --glob '*.md' --glob '*.yml' --glob '*.sh' 2>/dev/null`)
+    const grepResult = Bash(`rg -l --fixed-strings "${basename}" plugins/ .claude/ scripts/ --glob '*.md' --glob '*.yml' --glob '*.sh' 2>/dev/null`)
     const referrers = grepResult.stdout.trim().split('\n')
-      .filter(f => f.length > 0 && f !== deleted && !f.startsWith('tmp/'))
+      .filter(f => f.length > 0 && f !== deleted && !f.startsWith('tmp/') && !f.includes('gap-analysis.md'))
 
     if (referrers.length > 0) {
       gaps.push({
@@ -725,16 +670,19 @@ Identify CLI flags added in the implementation that were NOT specified in the pl
 // Unplanned flags → EXTRA status (advisory, not blocking).
 
 // Extract planned flags/modes from plan content (--flag patterns)
+// Pre-filter: remove code blocks and negative instruction contexts to reduce false positives
+const strippedPlanContent = planContent.replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '')
 const planFlagPattern = /--([a-z][a-z0-9-]*)/g
 const planFlags = [...new Set(
-  [...planContent.matchAll(planFlagPattern)].map(m => m[1])
+  [...strippedPlanContent.matchAll(planFlagPattern)].map(m => m[1])
 )]
 
-// Extract implemented flags/modes from the diff (added lines only)
+// Extract implemented flags/modes from the diff (added lines only, excluding comments)
 const diffContent = Bash(`git diff "${defaultBranch}...HEAD" -- '*.md' '*.sh' '*.json' '*.yml' 2>/dev/null`)
 const addedLines = diffContent.stdout
   .split('\n')
   .filter(l => l.startsWith('+') && !l.startsWith('+++'))
+  .filter(l => { const trimmed = l.slice(1).trimStart(); return !trimmed.startsWith('//') && !trimmed.startsWith('#') && !trimmed.startsWith('*') && !trimmed.startsWith('<!--') })
   .join('\n')
 
 const implFlagPattern = /--([a-z][a-z0-9-]*)/g
@@ -770,7 +718,7 @@ if (unplannedFlags.length > 0) {
       criterion: `Scope creep: '--${flag}' added in implementation but not defined in plan`,
       status: "EXTRA",
       section: "Scope Creep",
-      evidence: `Found in: ${flagRefs.slice(0, 3).join(', ')}`,
+      evidence: flagRefs.length > 0 ? `Found in: ${flagRefs.slice(0, 3).join(', ')}` : null,
       source: "STEP_A11_SCOPE_CREEP"
     })
   }
@@ -782,7 +730,60 @@ if (unplannedFlags.length > 0) {
 }
 ```
 
+## STEP A.5: Write Deterministic Gap Analysis Report
+
 ```javascript
+const addressed = gaps.filter(g => g.status === "ADDRESSED").length
+const partial = gaps.filter(g => g.status === "PARTIAL").length
+const missing = gaps.filter(g => g.status === "MISSING").length
+const extra = gaps.filter(g => g.status === "EXTRA").length
+
+const report = `# Implementation Gap Analysis\n\n` +
+  `**Plan**: ${checkpoint.plan_file}\n` +
+  `**Date**: ${new Date().toISOString()}\n` +
+  `**Criteria found**: ${criteria.length}\n\n` +
+  `## Summary\n\n` +
+  `| Status | Count |\n|--------|-------|\n` +
+  `| ADDRESSED | ${addressed} |\n| PARTIAL | ${partial} |\n| MISSING | ${missing} |\n| EXTRA | ${extra} |\n\n` +
+  (missing > 0 ? `## MISSING (not found in committed code)\n\n` +
+    gaps.filter(g => g.status === "MISSING").map(g =>
+      `- [ ] ${g.criterion} (from section: ${g.section})`
+    ).join('\n') + '\n\n' : '') +
+  (partial > 0 ? `## PARTIAL (some evidence, not fully addressed)\n\n` +
+    gaps.filter(g => g.status === "PARTIAL").map(g =>
+      `- [ ] ${g.criterion} (from section: ${g.section})` +
+      (g.evidence ? `\n  Evidence: ${g.evidence}` : '')
+    ).join('\n') + '\n\n' : '') +
+  (extra > 0 ? `## EXTRA (scope creep — not in plan)\n\n` +
+    gaps.filter(g => g.status === "EXTRA").map(g =>
+      `- [ ] ${g.criterion} (from section: ${g.section})` +
+      (g.evidence ? `\n  Evidence: ${g.evidence}` : '')
+    ).join('\n') + '\n\n' : '') +
+  `## ADDRESSED\n\n` +
+  gaps.filter(g => g.status === "ADDRESSED").map(g =>
+    `- [x] ${g.criterion}`
+  ).join('\n') + '\n\n' +
+  `## Task Completion\n\n` +
+  `- Completed: ${taskStats.completed}/${taskStats.total} tasks\n` +
+  `- Failed: ${taskStats.failed} tasks\n` +
+  docConsistencySection +
+  planSectionCoverageSection +
+  evaluatorMetricsSection +
+  // STEP A.9: Semantic Claims section
+  (claims.length > 0 ? `\n## Semantic Claims\n\n` +
+    `| Claim | Type | Deterministic | Codex | Evidence |\n` +
+    `|-------|------|---------------|-------|----------|\n` +
+    claims.map(c => {
+      const codexV = c.codexVerdict ?? '—'
+      const evidenceLinks = (c.evidence || []).slice(0, 3)
+        .map(e => `${e.keyword} in ${e.files[0] || '?'}`)
+        .join('; ') || '—'
+      return `| ${c.id}: ${c.text.slice(0, 80)}${c.text.length > 80 ? '...' : ''} | ${c.type} | ${c.deterministicVerdict} | ${codexV} | ${evidenceLinks} |`
+    }).join('\n') + '\n\n' +
+    `Semantic drift score: ${claimsSatisfied}/${claims.length} claims verified\n` : '')
+
+// STEP A.9 exhausts the A.x numbering space. Future additions should use STEP A.10+ or promote STEP A into sub-phases.
+
 Write(`tmp/arc/${id}/gap-analysis.md`, report)
 
 updateCheckpoint({
