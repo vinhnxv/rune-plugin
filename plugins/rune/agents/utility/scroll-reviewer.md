@@ -49,6 +49,7 @@ Before beginning document review, query Rune Echoes for previously identified do
    - **Completeness**: Are all necessary sections present?
    - **Consistency**: Do sections contradict each other?
    - **Actionability**: Can a developer implement from this?
+   - **Structure**: Does the document flow logically from context to detail?
    - **References**: Do cross-references and links work?
    - **No Time Estimates**: Flag any durations, level-of-effort, or completion time language (e.g., "~2 hours", "takes about a day", "ETA", "estimated time"). Plans should describe steps, dependencies, and outputs — never durations.
    - **Writing Style**: Flag passive voice in action items ("should be implemented" → "implement"), future tense in descriptions ("will handle" → "handles"), and vague quantifiers ("various", "some", "etc." without specifics).
