@@ -45,6 +45,8 @@ codex:                                 # Codex CLI integration (see codex-cli sk
   workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex — "mend" added in v1.39.0 for post-fix verification
   work_advisory:
     enabled: true                      # Codex advisory in /rune:strive
+  gap_analysis:
+    remediation_threshold: 5           # Actionable Codex findings (MISSING/INCOMPLETE/DRIFT, excluding EXTRA) to trigger Phase 5.8 via Codex gate (default: 5, range: [1, 20] — RUIN-001 clamp)
 
 solution_arena:
   enabled: true                    # Enable Arena phase in /rune:devise
