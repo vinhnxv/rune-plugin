@@ -106,7 +106,6 @@ if (!phase_team) {
     verify_mend: null,        // Orchestrator-only phase, no team (convergence gate)
     code_review: null,        // Delegated (v1.28.0) -- team name from checkpoint
     mend: `arc-mend-${id}`,
-    audit: null               // Delegated (v1.28.0) -- team name from checkpoint
   }
   phase_team = legacyMap[current_phase]
 }
@@ -115,7 +114,7 @@ if (!phase_team) {
 if (phase_team === null && current_phase) {
   const typeMap = {
     forge: "forge", work: "work",
-    code_review: "review", mend: "mend", audit: "audit"
+    code_review: "review", mend: "mend"
   }
   const type = typeMap[current_phase]
   if (type) {
@@ -156,10 +155,14 @@ Delegate cancellation based on the currently-active phase:
 | **VERIFICATION** (Phase 2.7) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **WORK** (Phase 5) | Shutdown work team — broadcast cancellation, send shutdown requests to all rune-smith workers |
 | **GAP ANALYSIS** (Phase 5.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
+| **GOLDMASK VERIFICATION** (Phase 5.7) | Shutdown goldmask team (`goldmask-*`) — broadcast cancellation, send shutdown requests. Cleanup goldmask state files (`tmp/.rune-goldmask-*.json`) |
 | **CODE REVIEW** (Phase 6) | Delegate to `/rune:cancel-review` logic — broadcast, shutdown Ash, cleanup |
 | **MEND** (Phase 7) | Shutdown mend team — broadcast cancellation, send shutdown requests to all mend-fixer workers |
 | **VERIFY MEND** (Phase 7.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
-| **AUDIT** (Phase 8) | Delegate to `/rune:cancel-audit` logic — broadcast, shutdown Ash, cleanup |
+| **TEST** (Phase 7.7) | Shutdown test team (`arc-test-{id}`) — broadcast cancellation, send shutdown requests. Cleanup test state files (`tmp/.rune-test-*.json`) |
+| **SHIP** (Phase 9) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
+| **MERGE** (Phase 9.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
+<!-- Phase 8 (AUDIT) removed in v1.67.0 — audit phases no longer exist in the arc pipeline -->
 
 #### 3a. Broadcast Cancellation
 
@@ -261,24 +264,28 @@ Do NOT delete any files from completed phases:
 
 ### 6. Report
 
-```
-Arc pipeline cancelled.
+```javascript
+// Dynamically iterate PHASE_ORDER for the report (no hardcoded phase names)
+const PHASE_LABELS = {
+  forge: '1 (FORGE)', plan_review: '2 (PLAN REVIEW)', plan_refine: '2.5 (PLAN REFINEMENT)',
+  verification: '2.7 (VERIFICATION)', semantic_verification: '2.8 (SEMANTIC VERIFICATION)',
+  work: '5 (WORK)', gap_analysis: '5.5 (GAP ANALYSIS)', codex_gap_analysis: '5.6 (CODEX GAP ANALYSIS)',
+  gap_remediation: '5.8 (GAP REMEDIATION)', goldmask_verification: '5.7 (GOLDMASK VERIFICATION)',
+  code_review: '6 (CODE REVIEW)', goldmask_correlation: '6.5 (GOLDMASK CORRELATION)',
+  mend: '7 (MEND)', verify_mend: '7.5 (VERIFY MEND)', test: '7.7 (TEST)',
+  ship: '9 (SHIP)', merge: '9.5 (MERGE)'
+}
 
-Phase {N} ({PHASE_NAME}) was in progress — cancelled.
-Completed phases preserved:
-- Phase 1 (FORGE): {status}
-- Phase 2 (PLAN REVIEW): {status}
-- Phase 2.5 (PLAN REFINEMENT): {status}
-- Phase 2.7 (VERIFICATION): {status}
-- Phase 5 (WORK): {status}
-- Phase 5.5 (GAP ANALYSIS): {status}
-- Phase 6 (CODE REVIEW): {status}
-- Phase 7 (MEND): {status}
-- Phase 7.5 (VERIFY MEND): {status}
-- Phase 8 (AUDIT): {status}
-
-Artifacts remain in: .claude/arc/{id}/
-To resume: /rune:arc --resume
+let report = `Arc pipeline cancelled.\n\n`
+report += `Phase ${PHASE_LABELS[current_phase] || current_phase} was in progress — cancelled.\n`
+report += `Completed phases preserved:\n`
+for (const phaseName of PHASE_ORDER) {
+  const p = checkpoint.phases[phaseName]
+  if (p) {
+    report += `- Phase ${PHASE_LABELS[phaseName]}: ${p.status}\n`
+  }
+}
+report += `\nArtifacts remain in: .claude/arc/${id}/\nTo resume: /rune:arc --resume`
 ```
 
 ## Notes

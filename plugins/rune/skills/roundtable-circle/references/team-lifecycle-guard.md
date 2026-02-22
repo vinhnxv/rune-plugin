@@ -317,7 +317,6 @@ For commands where `team_name` is hardcoded with a known-safe prefix (e.g., `run
 | Phase 6: REVIEW | `/rune:appraise` (delegated) | Review manages own lifecycle |
 | Phase 7: MEND | `/rune:mend` (delegated) | Mend manages own lifecycle |
 | Phase 7.5: VERIFY MEND | Orchestrator-only (no team) | N/A |
-| Phase 8: AUDIT | `/rune:audit` (delegated) | Audit manages own lifecycle |
 
 ## Consumers
 

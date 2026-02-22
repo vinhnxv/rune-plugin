@@ -40,7 +40,7 @@
 **Source**: `rune:arc arc-session-003`
 **Confidence**: HIGH (8th confirmed occurrence)
 
-Ghost team Strategy 4 remains essential for multi-session arcs: SDK leadership state from Phase 6 review team persisted through context continuations and blocked Phase 8 audit TeamCreate. Recreating minimal dir then TeamDelete then cleanup worked on first attempt. This is the most reliable pattern for resolving stale SDK state.
+Ghost team Strategy 4 remains essential for multi-session arcs: SDK leadership state from Phase 6 review team persisted through context continuations and blocked the Phase 6 --deep audit TeamCreate. Recreating minimal dir then TeamDelete then cleanup worked on first attempt. This is the most reliable pattern for resolving stale SDK state.
 
 The `rm -rf` filesystem fallback is essential because TeamDelete fails with "Cannot cleanup team with N active members" even after all shutdown approvals are received. This has been observed in 8 consecutive arcs.
 

@@ -1,6 +1,6 @@
 # Resume (`--resume`) — Full Algorithm
 
-Full `--resume` logic: checkpoint discovery, validation, schema migration (v1→v11),
+Full `--resume` logic: checkpoint discovery, validation, schema migration (v1→v13),
 hash integrity verification, orphan cleanup, and phase demotion.
 
 > Requires familiarity with checkpoint schema from [arc-checkpoint-init.md](arc-checkpoint-init.md).
@@ -88,7 +88,21 @@ On resume, validate checkpoint integrity before proceeding:
    a. Add checkpoint.shard = checkpoint.shard ?? null
       // Default null — pre-v12 arcs are non-shard; safe to proceed without shard context.
    b. Set schema_version: 12
-3k. Resume freshness re-check:
+3l. If schema_version < 13, migrate v12 → v13:
+   // Edge case: if audit was in_progress with an active team, ORCH-1 cleanup
+   // (step 4) runs AFTER migration and sees status="skipped". The team_name
+   // is preserved so ORCH-1 defensive cleanup still removes the team.
+   // Low probability: requires v12 checkpoint + crash during audit + resume on v13 code.
+   a. Mark audit phases as skipped (audit coverage now handled by Phase 6 --deep):
+      checkpoint.phases.audit = { ...(checkpoint.phases.audit ?? {}), status: "skipped" }
+      checkpoint.phases.audit_mend = { ...(checkpoint.phases.audit_mend ?? {}), status: "skipped" }
+      checkpoint.phases.audit_verify = { ...(checkpoint.phases.audit_verify ?? {}), status: "skipped" }
+      // Preserve existing phase data (artifact, hash) if audit already ran — safe to skip on re-dispatch.
+      // The dispatcher uses PHASE_ORDER (which no longer includes these phases) so they are never re-entered.
+   b. Remove audit_convergence (no longer used):
+      delete checkpoint.audit_convergence
+   c. Set schema_version: 13
+3m. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)
@@ -153,6 +167,8 @@ On resume, validate checkpoint integrity before proceeding:
 
    // Clean stale state files from crashed sub-commands (CC-4: includes forge, gap-fix)
    // See team-lifecycle-guard.md §Stale State File Scan Contract for canonical type list and threshold
+   // "audit" retained for backward-compat: pre-v13 state files (tmp/.rune-audit-*.json)
+   // may still exist from interrupted sessions. Safe to scan — no-op if absent.
    for (const type of ["work", "review", "mend", "audit", "forge", "gap-fix", "inspect"]) {
      const stateFiles = Glob(`tmp/.rune-${type}-*.json`)
      for (const f of stateFiles) {

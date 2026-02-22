@@ -102,12 +102,12 @@ Next steps:
 > on idle notifications ("Twisting...") because the SDK still holds leadership state from
 > the last phase's team. This is the safety net — `prePhaseCleanup` handles inter-phase cleanup,
 > but there is no subsequent phase to trigger cleanup after Phase 9.5 (the last phase).
-> Phases 9 and 9.5 are orchestrator-only so their cleanup is a no-op, but Phase 8 (AUDIT)
-> summons a team that needs cleanup.
+> Phases 9 and 9.5 are orchestrator-only so their cleanup is a no-op, but Phase 7 (MEND)
+> and Phase 6 (CODE REVIEW) summon teams that need cleanup.
 
 ```javascript
 // POST-ARC FINAL SWEEP (ARC-9)
-// Catches zombie teammates from the last delegated phase (typically Phase 8: AUDIT).
+// Catches zombie teammates from the last delegated phases (Phase 7: MEND and Phase 6: CODE REVIEW).
 // prePhaseCleanup only runs BEFORE each phase — nothing cleans up AFTER the last phase.
 // Without this, teammates survive and the lead spins on idle notifications indefinitely.
 

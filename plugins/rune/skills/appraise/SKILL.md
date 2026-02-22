@@ -4,6 +4,7 @@ description: |
   Multi-agent code review using Agent Teams. Summons up to 7 built-in Ashes
   (plus custom Ash from talisman.yml), each with their own 200k context window.
   Handles scope selection, team creation, review orchestration, aggregation, verification, and cleanup.
+  Optional `--deep` runs multi-wave deep review with up to 18 Ashes across 3 waves.
 
   <example>
   user: "/rune:appraise"
@@ -11,7 +12,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[--partial | --dry-run | --max-agents <N> | --no-chunk | --chunk-size <N> | --no-converge | --cycles <N> | --scope-file <path> | --no-lore | --auto-mend]"
+argument-hint: "[--deep | --partial | --dry-run | --max-agents <N> | --no-chunk | --chunk-size <N> | --no-converge | --cycles <N> | --scope-file <path> | --no-lore | --auto-mend]"
 allowed-tools:
   - Task
   - TaskCreate
@@ -38,10 +39,36 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`, `polling-guard`, `zsh-compat`
 
+## Orchestration Parameters
+
+Appraise sets these parameters before delegating to the shared [orchestration-phases.md](../roundtable-circle/references/orchestration-phases.md):
+
+```javascript
+const params = {
+  scope: "diff",                          // Always diff for appraise (changed files only)
+  depth: flags['--deep'] ? "deep" : "standard",  // Standard by default, deep with --deep
+  teamPrefix: "rune-review",
+  outputDir: `tmp/reviews/${identifier}/`,
+  stateFilePrefix: "tmp/.rune-review",
+  identifier,                              // "{gitHash}-{shortSession}"
+  timeoutMs: 600_000,                      // 10 min
+  label: "Review",
+  workflow: "rune-review",
+  focusArea: "full",                       // Appraise has no --focus flag
+  // + configDir, ownerPid, sessionId (session isolation)
+  // + selectedAsh, fileList, maxAgents, flags, talisman
+}
+```
+
+**Standard depth** (default): Single-pass review with up to 7 Wave 1 Ashes. Identical to pre-deep behavior.
+
+**Deep depth** (`--deep`): Multi-wave review. Phase 3 loops over waves from `selectWaves()`. Each wave creates its own team, tasks, and monitor cycle. See [orchestration-phases.md](../roundtable-circle/references/orchestration-phases.md) for the full wave execution loop.
+
 ## Flags
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `--deep` | Run multi-wave deep review: Wave 1 (core, up to 7 Ashes) + Wave 2 (investigation, 4 Ashes) + Wave 3 (dimension, up to 7 Ashes). Each wave runs as a full Roundtable Circle pass. | Off |
 | `--partial` | Review only staged files (`git diff --cached`) instead of full branch diff | Off |
 | `--dry-run` | Show scope selection, Ash plan, and chunk plan without summoning agents | Off |
 | `--max-agents <N>` | Limit total Ash summoned (1-8). Priority: Ward Sentinel > Forge Warden > Veil Piercer > Pattern Weaver > Glyph Scribe > Knowledge Keeper > Codex Oracle | All selected |
@@ -55,7 +82,18 @@ Orchestrate a multi-agent code review using the Roundtable Circle architecture. 
 
 **Partial mode** is useful for reviewing a subset of changes before committing.
 
+**Deep mode** runs 3 waves of review with up to 18 Ashes total. See [orchestration-phases.md](../roundtable-circle/references/orchestration-phases.md) for the wave execution pattern and [wave-scheduling.md](../roundtable-circle/references/wave-scheduling.md) for wave selection logic.
+
 **Dry-run mode** executes Phase 0 (Pre-flight) and Phase 1 (Rune Gaze) only, then displays changed files classified by type, which Ash would be summoned, file assignments per Ash, estimated team size, and chunk plan if file count exceeds `CHUNK_THRESHOLD`. No teams, tasks, state files, or agents are created.
+
+### Flag Interactions
+
+| Combination | Behavior |
+|-------------|----------|
+| `--deep + --partial` | Warning: "Deep review on staged-only changes may produce sparse findings from investigation Ashes." Proceeds (not a hard error). |
+| `--deep + --cycles N` (N > 1) | Warning: "Deep review with N cycles runs N x 3 waves (up to {N*18} agent invocations). This is expensive." Proceeds. |
+| `--deep + --max-agents N` | Applies to Wave 1 only. Wave 2/3 agents are not subject to --max-agents cap (they are deepOnly). |
+| `--deep + --no-converge` | Deep waves still execute. `--no-converge` affects per-chunk convergence, not wave scheduling. |
 
 ## Phase 0: Pre-flight
 

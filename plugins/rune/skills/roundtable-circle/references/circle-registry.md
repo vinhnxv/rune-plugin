@@ -1,14 +1,25 @@
 # Circle Registry — Agent-to-Ash Mapping
 
-> Maps review agent perspectives to Ash roles, with scope assignments for audit mode.
+> Maps review agent perspectives to Ash roles, with scope assignments and wave scheduling for the Parameterized Roundtable Circle.
 
 ## Agent Registry
 
-Each review agent is embedded as a "perspective" inside an Ash. This registry defines which perspectives belong to which Ash and what file scopes they target.
+Each review agent is embedded as a "perspective" inside an Ash. This registry defines which perspectives belong to which Ash, what file scopes they target, and which wave they execute in.
 
 > **Architecture note:** Forge Warden, Ward Sentinel, Pattern Weaver, and Veil Piercer embed dedicated review agent files from `agents/review/` (21 agents across 4 Ashes). Glyph Scribe, Knowledge Keeper, and Codex Oracle use **inline perspective definitions** in their Ash prompts rather than dedicated agent files.
 
+### Wave & Depth Fields
+
+Each Ash entry carries two scheduling fields used by [wave-scheduling.md](wave-scheduling.md):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `wave` | number (1-3) | Execution wave. Wave 1 runs first, Wave 2 after Wave 1 completes, etc. |
+| `deepOnly` | boolean | If `true`, this Ash only runs in `depth=deep` mode. Standard depth skips it. |
+
 ### Forge Warden (Backend)
+
+**Wave:** 1 | **Deep only:** false
 
 | Agent | Perspective | Scope Priority |
 |-------|-------------|---------------|
@@ -26,6 +37,8 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 
 ### Ward Sentinel (Security)
 
+**Wave:** 1 | **Deep only:** false
+
 | Agent | Perspective | Scope Priority |
 |-------|-------------|---------------|
 | ward-sentinel | Vulnerabilities, OWASP | Auth files > API routes > infrastructure |
@@ -34,6 +47,8 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 **Context budget:** max 20 files (all file types)
 
 ### Pattern Weaver (Quality)
+
+**Wave:** 1 | **Deep only:** false
 
 | Agent | Perspective | Scope Priority |
 |-------|-------------|---------------|
@@ -52,6 +67,8 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 
 ### Glyph Scribe (Frontend)
 
+**Wave:** 1 | **Deep only:** false
+
 > **Inline perspectives** — Glyph Scribe does not use dedicated agent files. Its perspectives are defined inline within the Ash prompt.
 
 | Perspective (inline) | Focus | Scope Priority |
@@ -64,6 +81,8 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 **Context budget:** max 25 files
 
 ### Knowledge Keeper (Documentation)
+
+**Wave:** 1 | **Deep only:** false
 
 > **Inline perspectives** — Knowledge Keeper does not use dedicated agent files. Its perspectives are defined inline within the Ash prompt.
 
@@ -80,6 +99,8 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 
 ### Codex Oracle (Cross-Model)
 
+**Wave:** 1 | **Deep only:** false
+
 > **External CLI** — Codex Oracle invokes `codex exec` via Bash, unlike other Ashes which use Claude Code tools directly. Auto-detected, conditionally summoned. Uses **inline perspective definitions** (like Glyph Scribe and Knowledge Keeper).
 
 | Perspective (inline) | Focus | Scope Priority |
@@ -94,6 +115,8 @@ Each review agent is embedded as a "perspective" inside an Ash. This registry de
 **Finding prefix:** `CDX`
 
 ### Veil Piercer (Truth-Telling)
+
+**Wave:** 1 | **Deep only:** false
 
 | Agent | Perspective | Scope Priority |
 |-------|-------------|---------------|
@@ -180,11 +203,11 @@ Focus mode increases context budget per Ash since fewer are competing for resour
 
 **Registry pattern:** Each CLI-backed Ash appears in the Circle as a named Ash with its own finding prefix, prompt wrapper, and Seal. It participates in standard dedup, TOME aggregation, and Truthsight verification — identical lifecycle to agent-backed custom Ashes.
 
-### Deep Investigation Ashes (Audit --deep only)
+### Deep Investigation Ashes (Wave 2, deepOnly)
 
-> **Separate lifecycle** — Deep Ashes run in Pass 2 of a two-pass deep audit.
-> They are NOT part of the standard Roundtable Circle. Each has its own
-> Roundtable Circle lifecycle with 11 Ashes maximum (4 investigation + 7 dimension).
+**Wave:** 2 | **Deep only:** true
+
+> Deep investigation Ashes run in Wave 2 of `depth=deep` reviews/audits. They receive Wave 1 findings as additional context and focus on specialized investigation areas. In standard depth, these Ashes are skipped entirely.
 
 | Ash | Agent | Prefix | Focus | Context Budget |
 |-----|-------|--------|-------|---------------|
@@ -194,15 +217,15 @@ Focus mode increases context budget per Ash since fewer are competing for resour
 | fringe-watcher | fringe-watcher | EDGE | Boundary checks, null handling, race conditions | 25 files |
 
 **Audit file priority:** Investigation-specific (see Deep Gaze section)
-**Activation:** `/rune:audit --deep` flag or `audit.always_deep: true` in talisman.yml
+**Activation:** `depth=deep` (via `--deep` flag or `audit.always_deep: true` in talisman.yml)
 
-### Deep Dimension Ashes (Audit --deep v1.58.0+)
+### Deep Dimension Ashes (Wave 3, deepOnly)
 
-> **7-dimension deep investigation** — These agents analyze code through specialized
-> dimension lenses. They run alongside the existing 4 deep investigation agents
-> in Pass 2 of the deep audit. Each dimension targets specific quality attributes.
+**Wave:** 3 | **Deep only:** true
+
+> Deep dimension Ashes run in Wave 3 of `depth=deep` reviews/audits. They analyze code through specialized dimension lenses, receiving findings from both Wave 1 and Wave 2 as context.
 >
-> **Status**: Agent definitions complete. Orchestration wiring pending — not yet invoked by audit.md.
+> **Merge rule:** If fewer than 3 dimension agents are selected, Wave 3 merges into Wave 2 (see [wave-scheduling.md](wave-scheduling.md) `mergeSmallWaves`).
 
 | Ash | Agent | Prefix | Focus | Context Budget |
 |-----|-------|--------|-------|---------------|
@@ -213,3 +236,34 @@ Focus mode increases context budget per Ash since fewer are competing for resour
 | ember-seer | ember-seer | RSRC | Performance-deep: resource lifecycle, memory, blocking, pool management | 25 files |
 | signal-watcher | signal-watcher | OBSV | Observability: logging context, metrics, traces, error classification | 25 files |
 | decay-tracer | decay-tracer | MTNB | Maintainability: naming intent, complexity hotspots, convention drift | 25 files |
+
+## Wave Summary
+
+Quick reference for wave assignments across all Ashes. See [wave-scheduling.md](wave-scheduling.md) for the scheduling algorithm.
+
+| Ash | Wave | Deep Only | Prefix | Conditional |
+|-----|------|-----------|--------|-------------|
+| Forge Warden | 1 | false | BACK | Yes (backend files) |
+| Ward Sentinel | 1 | false | SEC | No (always) |
+| Pattern Weaver | 1 | false | QUAL | No (always) |
+| Veil Piercer | 1 | false | VEIL | No (always) |
+| Glyph Scribe | 1 | false | FRONT | Yes (frontend files) |
+| Knowledge Keeper | 1 | false | DOC | Yes (docs >= 10 lines) |
+| Codex Oracle | 1 | false | CDX | Yes (codex CLI available) |
+| rot-seeker | 2 | true | DEBT | No (all deep) |
+| strand-tracer | 2 | true | INTG | No (all deep) |
+| decree-auditor | 2 | true | BIZL | No (all deep) |
+| fringe-watcher | 2 | true | EDGE | No (all deep) |
+| truth-seeker | 3 | true | CORR | No (all deep) |
+| ruin-watcher | 3 | true | FAIL | No (all deep) |
+| breach-hunter | 3 | true | DSEC | No (all deep) |
+| order-auditor | 3 | true | DSGN | No (all deep) |
+| ember-seer | 3 | true | RSRC | No (all deep) |
+| signal-watcher | 3 | true | OBSV | No (all deep) |
+| decay-tracer | 3 | true | MTNB | No (all deep) |
+
+## References
+
+- [Wave Scheduling](wave-scheduling.md) — Wave selection, merge logic, timeout distribution
+- [Smart Selection](smart-selection.md) — File-to-Ash assignment, context budgets
+- [Rune Gaze](rune-gaze.md) — Extension classification rules

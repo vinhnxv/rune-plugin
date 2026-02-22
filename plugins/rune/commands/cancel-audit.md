@@ -31,8 +31,9 @@ Cancel an active Roundtable Circle audit and gracefully shutdown all teammates.
 ### 1. Find Active Audit
 
 ```bash
-# Find active audit state files (standard + deep), most recent first
-ls -t tmp/.rune-audit-*.json tmp/.rune-audit-deep-*.json 2>/dev/null
+# Find active audit state files, most recent first
+# (deep audits now use same state file prefix — depth is a parameter, not a separate workflow)
+ls -t tmp/.rune-audit-*.json 2>/dev/null
 ```
 
 If no state files found: "No active audit to cancel."
@@ -163,14 +164,12 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
     }
   }
 }
-// Filesystem fallback with CHOME — clean both standard and deep audit teams
+// Filesystem fallback with CHOME — clean main team + any wave-suffixed teams
 Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${team_name}/" "$CHOME/tasks/${team_name}/" 2>/dev/null`)
 
-// If this is a standard audit, also clean the corresponding deep audit team (if it exists)
-const deepTeamName = team_name.replace("rune-audit-", "rune-audit-deep-")
-if (deepTeamName !== team_name) {
-  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${deepTeamName}/" "$CHOME/tasks/${deepTeamName}/" 2>/dev/null`)
-}
+// Clean wave-suffixed teams (deep audits use rune-audit-{id}-w2, -w3, etc.)
+// Wave 1 uses the base team name; waves 2+ get -wN suffix
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && for n in 2 3 4; do rm -rf "$CHOME/teams/${team_name}-w${n}/" "$CHOME/tasks/${team_name}-w${n}/" 2>/dev/null; done`)
 
 // NOTE: identifier is derived from team_name via .replace("rune-audit-", "").
 // The team_name regex guard above implicitly validates identifier (it's a substring).
@@ -199,4 +198,4 @@ To re-run: /rune:audit
 - Partial results are NOT deleted — they remain for manual inspection
 - State file is updated to "cancelled" to prevent conflicts
 - Team resources are fully cleaned up
-- Deep audit teams (`rune-audit-deep-{id}`) are cleaned up alongside standard teams
+- Wave-suffixed teams (`rune-audit-{id}-w2`, `-w3`, `-w4`) are cleaned up alongside the main team

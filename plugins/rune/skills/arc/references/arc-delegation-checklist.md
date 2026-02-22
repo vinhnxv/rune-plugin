@@ -51,7 +51,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | Forge team (work Phase 1) | **RUN** | Work creates its own team |
 | Codex Oracle detection | **RUN** | Per `codex-detection.md`, if `work` in `talisman.codex.workflows` |
 
-## Phase 6: CODE REVIEW → `/rune:appraise`
+## Phase 6: CODE REVIEW (deep) → `/rune:appraise --deep`
 
 | Step | Action | Reason |
 |------|--------|--------|
@@ -65,6 +65,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 
 ### Arc context adaptations for Phase 6
 
+- `--deep` flag: **ALWAYS** — arc always passes `--deep` for multi-wave review (replaces former Phase 8 audit)
 - Dry-run mode: **SKIP** — arc never does dry-run
 - `--partial` flag: **SKIP** — arc always reviews full scope
 - User-facing scope selection prompt: **SKIP** — arc is automated
@@ -109,19 +110,6 @@ Orchestrator-only phase — no delegation, no team creation. Reads Phase 5.7 + P
 
 On re-review rounds (`round > 0`), `goldmask_correlation` is reset to `pending` by verify-mend.md so it re-correlates with the new TOME. Goldmask verification is NOT re-run (blast radius doesn't change between mend cycles).
 
-## Phase 8: AUDIT → `/rune:audit`
-
-| Step | Action | Reason |
-|------|--------|--------|
-| Generate audit identifier | **ADAPT** | Use arc id for consistent artifact naming |
-| File scanning | **RUN** | Audit needs full project file inventory |
-| Branch detection (metadata) | **SKIP** | Arc already has this from pre-flight |
-| Abort conditions check | **RUN** | If no auditable files, audit should no-op gracefully |
-| Custom Ash loading | **RUN** | `ashes.custom[]` filtered by `workflows: [audit]` (no-op if none configured) |
-| Codex Oracle detection | **RUN** | Per `codex-detection.md`, if `audit` in `talisman.codex.workflows` |
-
-### Arc context adaptations for Phase 8
-
-- `--focus` flag: **SKIP** — arc audit is always `full`
-- `--max-agents` flag: **SKIP** — arc uses default agent count
-- `--dry-run` mode: **SKIP** — arc never does dry-run
+<!-- Phase 8 (AUDIT) delegation removed in v1.67.0. Audit coverage is now handled by
+     Phase 6 `/rune:appraise --deep` (multi-wave review with investigation + dimension Ashes).
+     See arc-phase-code-review.md for the updated delegation contract. -->

@@ -57,30 +57,35 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 - Reserved deep-audit prefixes (active only when `/rune:audit --deep`): `DEBT`, `INTG`, `BIZL`, `EDGE`, `CORR`, `FAIL`, `DSEC`, `DSGN`, `RSRC`, `OBSV`, `MTNB`
 - **Note:** `CDX-DRIFT` is an internal Phase 5.6 finding ID used by the Codex gap analysis — it is NOT a custom Ash prefix
 
-### Deep Audit Extended Hierarchy (v1.56.0+)
+### Deep / Cross-Wave Extended Hierarchy
 
-When `--deep` flag is active, the dedup hierarchy extends to include deep investigation prefixes:
+When `depth=deep` is active (via `--deep` flag or audit), the dedup hierarchy extends to include deep investigation prefixes. Waves execute sequentially; dedup runs at two levels:
 
-**Standard hierarchy**: `SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX`
-**Deep hierarchy (full)**: `SEC > BACK > CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > VEIL > DOUBT > DSGN > RSRC > DOC > OBSV > MTNB > QUAL > FRONT > CDX`
+1. **Intra-wave dedup** — within each wave's Runebinder pass (standard rules)
+2. **Cross-wave dedup** — when merging TOME from all waves into final TOME.md
+
+**Standard hierarchy (Wave 1 only)**: `SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX`
+**Deep hierarchy (full, all waves)**: `SEC > BACK > CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > VEIL > DOUBT > DSGN > RSRC > DOC > OBSV > MTNB > QUAL > FRONT > CDX`
 
 **Which hierarchy is used where:**
-- **Pass 1 Runebinder** (TOME-standard.md): Standard hierarchy
-- **Pass 2 Runebinder** (TOME-deep.md): Deep sub-hierarchies (see below)
-- **Merge Runebinder** (final TOME.md): Full extended hierarchy
+- **Wave 1 Runebinder** (TOME-w1.md): Standard hierarchy
+- **Wave 2 Runebinder** (TOME-w2.md): Deep sub-hierarchies (see below)
+- **Wave 3 Runebinder** (TOME-w3.md, if not merged into Wave 2): Dimension sub-hierarchy
+- **Merge Runebinder** (final TOME.md): Full extended hierarchy with cross-wave dedup
 
-**Merge hierarchy (cross-pass dedup):** `SEC > CORR > FAIL > DSEC > BACK > DSGN > RSRC > VEIL > DOUBT > OBSV > MTNB > DOC > QUAL > FRONT > CDX`
+**Merge hierarchy (cross-wave dedup):** `SEC > CORR > FAIL > DSEC > BACK > DSGN > RSRC > VEIL > DOUBT > OBSV > MTNB > DOC > QUAL > FRONT > CDX`
 
-**Pass 2 sub-hierarchies:**
-- Deep investigation sub-hierarchy: `DEBT > INTG > BIZL > EDGE`
-- Deep dimension sub-hierarchy: `CORR > FAIL > DSEC > DSGN > RSRC > OBSV > MTNB`
+**Per-wave sub-hierarchies:**
+- Wave 2 (deep investigation): `DEBT > INTG > BIZL > EDGE`
+- Wave 3 (deep dimension): `CORR > FAIL > DSEC > DSGN > RSRC > OBSV > MTNB`
 - Combined deep hierarchy: `CORR > FAIL > DSEC > DEBT > INTG > BIZL > EDGE > DSGN > RSRC > OBSV > MTNB`
 
-**Cross-pass dedup rules:**
-- Same file:line, same issue → Deep finding SUPERSEDES standard (deeper analysis wins)
+**Cross-wave dedup rules:**
+- Same file:line, same issue → Later wave finding SUPERSEDES earlier wave (deeper analysis wins)
 - Same file, different line → Both kept (different concerns)
 - Same concern, different files → Both kept (cross-file pattern)
-- Deep finding contradicts standard → Flag with CONFLICT marker for human review
+- Later wave finding contradicts earlier wave → Flag with CONFLICT marker for human review
+- DOUBT- prefix findings are exempt from cross-wave dedup (meta-findings preserved across all waves)
 
 ### Finding ID Prefixes
 

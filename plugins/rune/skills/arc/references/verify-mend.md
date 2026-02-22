@@ -1,6 +1,6 @@
 # Phase 7.5: Verify Mend (Review-Mend Convergence Controller) — Full Algorithm
 
-Full convergence controller that evaluates mend results, determines whether to loop back for another review-mend cycle, or proceed to audit. Replaces the previous single-pass spot-check with an adaptive multi-cycle review-mend loop.
+Full convergence controller that evaluates mend results, determines whether to loop back for another review-mend cycle, or proceed to test. Replaces the previous single-pass spot-check with an adaptive multi-cycle review-mend loop.
 
 **Team**: None for convergence decision. Delegates full re-review to `/rune:appraise` (Phase 6) via dispatcher loop-back.
 **Tools**: Read, Glob, Grep, Write, Bash (git diff)
@@ -24,7 +24,7 @@ const mendSummary = parseMendSummary(resolutionReport)
 
 // BACK-004 FIX: Removed mendSummary.fixed === 0 from entry guard — that case is handled by EC-1 below.
 if (checkpoint.phases.mend.status === "skipped" || mendSummary.total === 0) {
-  updateCheckpoint({ phase: "verify_mend", status: "skipped", phase_sequence: 8, team_name: null })
+  updateCheckpoint({ phase: "verify_mend", status: "skipped", phase_sequence: 7.5, team_name: null })
   return
 }
 
@@ -37,12 +37,12 @@ if (mendSummary.fixed === 0 && mendSummary.failed > 0) {
     round: mendRound, findings_before: mendSummary.total, findings_after: mendSummary.failed,
     p1_remaining: null, p2_remaining: null, verdict: 'halted', reason: 'zero_progress', timestamp: new Date().toISOString()
   })
-  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null,
+  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 7.5, team_name: null,
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport) })
   return
 }
 
-updateCheckpoint({ phase: "verify_mend", status: "in_progress", phase_sequence: 8, team_name: null })
+updateCheckpoint({ phase: "verify_mend", status: "in_progress", phase_sequence: 7.5, team_name: null })
 ```
 
 ## STEP 1: Read Current TOME and Count Findings
@@ -60,7 +60,7 @@ try {
     round: mendRound, findings_before: 0, findings_after: 0,
     p1_remaining: null, p2_remaining: null, verdict: 'halted', reason: 'tome_missing', timestamp: new Date().toISOString()
   })
-  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null })
+  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 7.5, team_name: null })
   return
 }
 if (!currentTome || (!currentTome.includes('RUNE:FINDING') && !currentTome.includes('<!-- CLEAN -->'))) {
@@ -70,7 +70,7 @@ if (!currentTome || (!currentTome.includes('RUNE:FINDING') && !currentTome.inclu
     round: mendRound, findings_before: 0, findings_after: 0,
     p1_remaining: null, p2_remaining: null, verdict: 'halted', reason: 'tome_malformed', timestamp: new Date().toISOString()
   })
-  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 8, team_name: null })
+  updateCheckpoint({ phase: 'verify_mend', status: 'completed', phase_sequence: 7.5, team_name: null })
   return
 }
 
@@ -97,6 +97,8 @@ const sessionNonce = checkpoint.session_nonce
 // BACK-013 FIX: Validate nonce format before use in string matching (defense-in-depth)
 // SEC-001 FIX: On invalid nonce, set effectiveNonce to null so ternary takes allMarkers branch.
 // Previously, invalid nonce was used in filter → matched zero markers → silently disabled smart scoring.
+// Note: permissive regex ([a-zA-Z0-9_-]+) vs generation format ([0-9a-f]{12}).
+// Tampered nonces pass validation but never match real markers. Tightening: separate PR.
 let effectiveNonce = sessionNonce
 if (sessionNonce && !/^[a-zA-Z0-9_-]+$/.test(sessionNonce)) {
   warn(`Invalid session nonce format: ${sessionNonce} — falling back to unfiltered markers`)
@@ -164,9 +166,9 @@ if (verdict === 'converged') {
   updateCheckpoint({
     phase: 'verify_mend', status: 'completed',
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport),
-    phase_sequence: 8, team_name: null
+    phase_sequence: 7.5, team_name: null
   })
-  // → Dispatcher proceeds to Phase 8 (AUDIT)
+  // → Dispatcher proceeds to Phase 7.7 (TEST)
 
 } else if (verdict === 'retry') {
   // Build progressive focus scope for re-review
@@ -179,7 +181,7 @@ if (verdict === 'converged') {
     checkpoint.convergence.history[checkpoint.convergence.history.length - 1].reason = 'empty_focus_scope'
     updateCheckpoint({ phase: 'verify_mend', status: 'completed',
       artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport),
-      phase_sequence: 8, team_name: null })
+      phase_sequence: 7.5, team_name: null })
     return
   }
 
@@ -225,14 +227,14 @@ if (verdict === 'converged') {
 
 } else if (verdict === 'halted') {
   const round = checkpoint.convergence.round
-  warn(`Convergence halted after ${round + 1} cycle(s): ${currentFindingCount} findings remain (${p1Count} P1). Proceeding to audit.`)
+  warn(`Convergence halted after ${round + 1} cycle(s): ${currentFindingCount} findings remain (${p1Count} P1). Proceeding to test.`)
 
   updateCheckpoint({
     phase: 'verify_mend', status: 'completed',
     artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport),
-    phase_sequence: 8, team_name: null
+    phase_sequence: 7.5, team_name: null
   })
-  // → Dispatcher proceeds to Phase 8 (AUDIT) with warning
+  // → Dispatcher proceeds to Phase 7.7 (TEST) with warning
 }
 ```
 
@@ -247,49 +249,12 @@ function countP2Findings(tomeContent) {
 }
 ```
 
-## Mini-TOME Generation (reference — not called by convergence controller)
-
-<!-- QUAL-014: This function is a reference implementation preserved for future use.
-     The current convergence controller (STEP 3 retry branch) triggers a full /rune:appraise
-     re-review instead of generating a mini-TOME. If the convergence design changes to use
-     spot-check-based retry (without full re-review), this function would be needed. -->
-When `verify_mend` decides to retry but uses spot-check findings instead of a full re-review, it generates a mini-TOME. However, in the new convergence controller, retry triggers a full `/rune:appraise` re-review — the mini-TOME is only needed as a fallback when the convergence controller itself detects regressions before dispatching.
-
-```javascript
-function generateMiniTome(spotFindings, sessionNonce, round) {
-  // SEC-008 FIX: Validate round is a non-negative integer before interpolation into finding IDs
-  if (!Number.isInteger(round) || round < 0 || round > 10) {
-    throw new Error(`Invalid round number: ${round} (must be integer 0-10)`)
-  }
-  const header = `# TOME -- Convergence Round ${round}\n\n` +
-    `Generated by verify_mend convergence controller.\n` +
-    `Session nonce: ${sessionNonce}\n` +
-    `Findings: ${spotFindings.length}\n\n`
-
-  const findings = spotFindings.map((f, i) => {
-    const findingId = `SPOT-R${round}-${String(i + 1).padStart(3, '0')}`
-    const safeDesc = f.description
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/[\r\n]+/g, ' ')
-      .slice(0, 500)
-    return `<!-- RUNE:FINDING nonce="${sessionNonce}" id="${findingId}" file="${f.file}" line="${f.line}" severity="${f.severity}" -->\n` +
-      `### ${findingId}: ${safeDesc}\n` +
-      `**Ash:** verify_mend convergence (round ${round})\n` +
-      `**Evidence:** Regression detected in mend fix\n` +
-      `**Fix guidance:** Review and correct the mend fix\n` +
-      `<!-- /RUNE:FINDING -->\n`
-  }).join('\n')
-
-  return header + findings
-}
-```
-
 **Output**: Convergence verdict stored in checkpoint. On retry, phases reset to "pending" and dispatcher loops back.
 
-**Failure policy**: Non-blocking. Halting proceeds to audit with warning. The convergence gate never blocks the pipeline permanently; it either retries or gives up gracefully.
+**Failure policy**: Non-blocking. Halting proceeds to test with warning. The convergence gate never blocks the pipeline permanently; it either retries or gives up gracefully.
 
 ## Dispatcher Contract
 
-**CRITICAL**: The dispatcher MUST use "first pending in PHASE_ORDER" scan to select the next phase. The convergence controller resets `code_review` to "pending" to trigger a loop-back. If the dispatcher were optimized to use "last completed + 1", the loop-back would silently fail and the pipeline would skip to Phase 8 (audit).
+**CRITICAL**: The dispatcher MUST use "first pending in PHASE_ORDER" scan to select the next phase. The convergence controller resets `code_review` to "pending" to trigger a loop-back. If the dispatcher were optimized to use "last completed + 1", the loop-back would silently fail and the pipeline would skip to Phase 7.7 (test).
 
 The defensive assertion in STEP 3 (retry branch) verifies the PHASE_ORDER invariant at runtime: `code_review` index must be less than `verify_mend` index.

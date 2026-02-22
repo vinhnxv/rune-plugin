@@ -1,10 +1,10 @@
 # Initialize Checkpoint (ARC-2) — Full Algorithm
 
 Checkpoint initialization: config resolution (3-layer), session identity,
-checkpoint schema v12 creation, and initial state write.
+checkpoint schema v13 creation, and initial state write.
 
 **Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check
-**Outputs**: checkpoint object (schema v12), resolved arc config (`arcConfig`)
+**Outputs**: checkpoint object (schema v13), resolved arc config (`arcConfig`)
 **Error handling**: Fail arc if plan file missing or config invalid
 **Consumers**: SKILL.md checkpoint-init stub, resume logic in [arc-resume.md](arc-resume.md)
 
@@ -132,10 +132,11 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 ```
 
-## Checkpoint Schema v12
+## Checkpoint Schema v13
 
-Schema v12 adds optional `shard` field for shard-aware execution (v1.66.0+).
-Backward compatible: `shard` is `null` for non-shard arcs and missing in v11 checkpoints.
+Schema v13 removes audit/audit_mend/audit_verify phases (v1.67.0+). Phase 6 now invokes
+`/rune:appraise --deep` which covers audit-depth analysis via multi-wave review.
+Backward compatible: v12 checkpoints are migrated by marking removed audit phases as "skipped".
 
 ```javascript
 // ── Resolve session identity for cross-session isolation ──
@@ -143,7 +144,7 @@ const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null &&
 const ownerPid = Bash(`echo $PPID`).trim()
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 12, plan_file: planFile,
+  id, schema_version: 13, plan_file: planFile,
   config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
@@ -164,14 +165,10 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     test:         { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false },
-    audit:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
-    audit_mend:   { status: "pending", artifact: null, artifact_hash: null, team_name: null },
-    audit_verify: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     ship:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     merge:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
   },
   convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [], original_changed_files: changedFiles },
-  audit_convergence: { round: 0, max_rounds: 2, tier: { name: "LIGHT", maxCycles: 2, minCycles: 1 }, history: [] },
   // NEW (v1.66.0): Shard metadata from pre-flight shard detection (null for non-shard arcs)
   shard: shardInfo ? {
     num: shardInfo.shardNum,           // e.g., 2
@@ -187,9 +184,9 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 })
 
 // Schema migration (in --resume checkpoint loading, see arc-resume.md)
-// if (checkpoint.schema_version < 12) {
-//   checkpoint.shard = checkpoint.shard ?? null
-//   checkpoint.schema_version = 12
+// if (checkpoint.schema_version < 13) {
+//   // v12→v13: Remove audit phases, mark as skipped
+//   checkpoint.schema_version = 13
 //   Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
 // }
 ```
