@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.70.0] - 2026-02-23
+
+### Added
+- Phase 5.5 STEP A.10: Stale reference detection — scans for lingering references to deleted files
+- Phase 5.5 STEP A.11: Flag scope creep detection — identifies unplanned CLI flags in implementation
+- Phase 5.8 dual-gate: Codex findings now trigger gap remediation via OR logic with deterministic gate
+- New talisman key: `codex.gap_analysis.remediation_threshold` (default: 5, range: [1, 20])
+
+### Unchanged
+- `halt_on_critical` default remains `false` — Codex dual-gate provides activation path without breaking existing pipelines
+
 ## [1.69.0] - 2026-02-23
 
 ### Added
