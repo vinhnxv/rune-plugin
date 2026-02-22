@@ -226,6 +226,21 @@ Each command passes its own `opts` to `waitForCompletion`:
 - `arc` uses `PHASE_TIMEOUTS` from its constants (see `arc SKILL.md`) which vary per phase. Phase outer timeout = inner polling timeout + `SETUP_BUDGET` (5 min) + optional `MEND_EXTRA_BUDGET` (3 min). The inner timeout is the real enforcement — `checkArcTimeout()` only runs between phases.
 - **Signal-path compatibility**: When the Phase 2 fast path is active, `autoReleaseMs` and `onCheckpoint` are not evaluated. Commands that rely on these features (`work`, `mend`, `forge`) lose those capabilities until Phase 3 unifies both paths. Commands without these features (`review`, `audit`) behave identically on either path.
 
+### Wave-Aware Monitoring
+
+When `depth=deep` activates wave scheduling, `waitForCompletion` is called once per wave with that wave's timeout allocation (from `distributeTimeouts`). The orchestrator manages the wave loop externally — `waitForCompletion` itself is unchanged.
+
+**Per-wave signal directory:** Each wave uses the same signal directory (`tmp/.rune-signals/{teamName}/`) but the directory is reset between waves. Signal files are cleared, `.expected` is rewritten with the new wave's agent count, and done files use the pattern `{ash-slug}-w{N}.done` to prevent cross-wave signal contamination.
+
+```javascript
+// Wave-aware signal setup (between waves)
+Bash(`find "${signalDir}" -mindepth 1 -delete`)
+Write(`${signalDir}/.expected`, String(wave.agents.length))
+// .readonly-active marker persists across waves (review/audit teams stay read-only)
+```
+
+**Timeout per wave:** Each wave receives its allocated timeout from `distributeTimeouts()`, plus any carry-forward from prior waves that completed early. See [wave-scheduling.md](wave-scheduling.md) for the carry-forward algorithm.
+
 ## Usage Example
 
 ```javascript
@@ -495,3 +510,4 @@ The bare `<seal>TAG</seal>` format is the canonical form. The legacy `SEAL:` pre
 
 - [Inscription Schema](inscription-schema.md) — Output contract for monitored tasks
 - [Task Templates](task-templates.md) — Task creation patterns used before monitoring
+- [Wave Scheduling](wave-scheduling.md) — Wave selection, timeout distribution, carry-forward budget

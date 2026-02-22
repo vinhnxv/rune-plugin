@@ -185,12 +185,12 @@ See [Rune Gaze](references/rune-gaze.md) for the full file classification algori
 
 ## Phase 3: Summon Ash
 
-For each selected Ash, summon as a background teammate:
+For each selected Ash in the current wave, summon as a background teammate:
 
 ```
 Task({
   team_name: "rune-review-{pr}",
-  name: "{ash-name}",
+  name: "{ash-slug}",     // uses ash.slug — no wave suffix (preserves hook compatibility)
   subagent_type: "general-purpose",
   prompt: [from references/ash-prompts/{role}.md],
   run_in_background: true
@@ -202,6 +202,64 @@ Each Ash prompt includes:
 - Task claiming via TaskList/TaskUpdate
 - Glyph Budget enforcement
 - Seal Format for completion
+
+### Wave Execution Loop (depth=deep only)
+
+When `depth === "deep"`, Phases 2-4 repeat for each wave. Standard depth executes a single pass (no loop).
+
+```javascript
+// Wave execution — depth=deep mode only
+const waves = selectWaves(circleEntries, depth, selectedAsh)
+
+for (const wave of waves) {
+  // Phase 2: Forge Team (per wave)
+  TeamCreate({ team_name: `${teamBase}-w${wave.waveNumber}` })
+  for (const ash of wave.agents) {
+    TaskCreate({ subject: `Review as ${ash.name}`, ... })
+  }
+
+  // Phase 3: Summon Ash (per wave)
+  for (const ash of wave.agents) {
+    Task({ team_name, name: ash.slug, ... })  // NO -w1 suffix — preserves hook compat
+  }
+
+  // Phase 4: Monitor (per wave — uses wave.timeoutMs)
+  const result = waitForCompletion(teamName, wave.agents.length, {
+    timeoutMs: wave.timeoutMs,
+    ...opts
+  })
+
+  // Phase 4.5: Doubt Seer (per wave, if enabled)
+
+  // Inter-wave cleanup: shutdown all teammates, force-delete remaining tasks
+  for (const ash of wave.agents) {
+    SendMessage({ type: "shutdown_request", recipient: ash.slug })
+  }
+  // Force-delete remaining tasks to prevent zombie contamination
+  const remaining = TaskList().filter(t => t.status !== "completed")
+  for (const task of remaining) {
+    TaskUpdate({ taskId: task.id, status: "deleted" })
+  }
+  TeamDelete()
+
+  // Forward findings to next wave as read-only context
+  // Cross-wave context: finding locations (file:line + severity) ONLY — not interpretations
+  if (wave.waveNumber < waves.length) {
+    collectWaveFindings(outputDir, wave.waveNumber)  // file:line + severity summary
+  }
+}
+
+// After all waves: Phase 5 (Aggregate), Phase 6 (Verify), Phase 7 (Cleanup)
+```
+
+**CRITICAL constraints:**
+- Concurrent wave execution is NOT supported — waves run sequentially
+- Teammate naming uses `ash.slug` (no `-w1` suffix) to preserve hook compatibility
+- Max 8 concurrent teammates per wave (SDK limit)
+- Cross-wave context is limited to finding locations (file:line + severity), not full interpretations
+- If Wave 1 times out, pass `partial: true` flag to subsequent waves
+
+See [wave-scheduling.md](references/wave-scheduling.md) for `selectWaves()`, `mergeSmallWaves()`, and `distributeTimeouts()`.
 
 ### Seal Format
 
@@ -441,14 +499,15 @@ Partial results remain in `tmp/audit/{id}/`.
 ## References
 
 - [Rune Gaze](references/rune-gaze.md) — File classification algorithm
-- [Circle Registry](references/circle-registry.md) — Agent-to-Ash mapping, audit scope priorities, focus mode
-- [Smart Selection](references/smart-selection.md) — File-to-Ash assignment, context budgets, focus mode
+- [Circle Registry](references/circle-registry.md) — Agent-to-Ash mapping, wave assignments, deepOnly flags
+- [Smart Selection](references/smart-selection.md) — File-to-Ash assignment, context budgets, wave integration
+- [Wave Scheduling](references/wave-scheduling.md) — Multi-wave orchestration, selectWaves, mergeSmallWaves, timeout distribution
 - [Task Templates](references/task-templates.md) — TaskCreate templates for each Ash role
 - [Output Format](references/output-format.md) — Raw finding format, validated format, TOME format, JSON output
 - [Validator Rules](references/validator-rules.md) — Confidence scoring, risk classification, dedup, gap reporting
 - [Ash Prompts](references/ash-prompts/) — Individual Ash prompts
 - [Inscription Schema](references/inscription-schema.md) — inscription.json format
-- [Dedup Runes](references/dedup-runes.md) — Deduplication hierarchy
+- [Dedup Runes](references/dedup-runes.md) — Deduplication hierarchy (with cross-wave dedup)
 - [Standing Orders](references/standing-orders.md) — 6 anti-patterns for multi-agent orchestration (SO-1 through SO-6)
 - [Risk Tiers](references/risk-tiers.md) — 4-tier deterministic task classification (Grace/Ember/Rune/Elden)
 - Companion: `rune-orchestration` (patterns), `context-weaving` (Glyph Budget)
