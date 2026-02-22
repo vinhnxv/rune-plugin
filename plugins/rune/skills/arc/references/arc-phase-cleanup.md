@@ -69,10 +69,10 @@ function postPhaseCleanup(checkpoint, phaseName) {
             try { SendMessage({ type: "shutdown_request", recipient: m.name, content: `Phase ${phaseName} complete — cleanup` }) } catch (e) { /* member may already be gone */ }
           }
         }
-        if (members.length > 0) Bash(`sleep 3`)  // Brief grace period
+        if (members.length > 0) Bash(`sleep 5`)  // Normalized with ARC-9 Strategy A grace period
       } catch (e) { /* team config unreadable — proceed to filesystem cleanup */ }
 
-      // TeamDelete + rm-rf
+      // SDK state clear + filesystem rm-rf (TeamDelete clears SDK leadership, not the named team)
       try { TeamDelete() } catch (e) { /* may already be deleted */ }
       // SEC: teamName validated above with /^[a-zA-Z0-9_-]+$/ — shell injection not possible
       Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
@@ -82,7 +82,7 @@ function postPhaseCleanup(checkpoint, phaseName) {
     // Even if team_name was null, scan by prefix to catch orphans
     const prefixes = PHASE_PREFIX_MAP[phaseName] || []
     for (const prefix of prefixes) {
-      if (!/^[a-z-]+$/.test(prefix)) continue  // Validate prefix
+      if (!/^[a-z][a-z-]*-$/.test(prefix)) { warn(`postPhaseCleanup: invalid prefix format: ${prefix} — skipping`); continue }
       const dirs = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
       for (const dir of dirs) {
         const orphanName = dir.split('/').pop()
@@ -91,32 +91,25 @@ function postPhaseCleanup(checkpoint, phaseName) {
         // .session contains session_id (written by stamp-team-session.sh TLC-004)
         // If session_id differs from ours, skip — belongs to another session
         // (EC-1/EC-2: CRITICAL — must not delete concurrent session's teams)
-        const sessionCheck = Bash(`test -f "${dir}/.session" && cat "${dir}/.session" 2>/dev/null`).trim()
-        if (sessionCheck) {
-          const arcSessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
-          if (sessionCheck !== arcSessionId) {
-            warn(`postPhaseCleanup: Skipping ${orphanName} — belongs to session ${sessionCheck}`)
-            continue
-          }
-        }
-        // SEC: Symlink guard — prevents TOCTOU attack (ward-sentinel #2)
-        // Matches pattern from arc-preflight.md Stale Arc Team Scan
-        const isSymlink = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -L "$CHOME/teams/${orphanName}" && echo symlink`).trim() === "symlink"
-        if (isSymlink) {
-          warn(`postPhaseCleanup: Skipping ${orphanName} — symlink detected (security)`)
+        const sessionCheck = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${orphanName}/.session" && cat "$CHOME/teams/${orphanName}/.session" 2>/dev/null`).trim()
+        const arcSessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
+        if (!sessionCheck || sessionCheck !== arcSessionId) {
+          warn(`postPhaseCleanup: Skipping ${orphanName} — no session marker or belongs to another session`)
           continue
         }
         warn(`postPhaseCleanup: Cleaning orphan team ${orphanName} from phase ${phaseName}`)
-        // SEC: orphanName validated above with /^[a-zA-Z0-9_-]+$/ — shell injection not possible
-        Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${orphanName}/" "$CHOME/tasks/${orphanName}/" 2>/dev/null`)
+        // SEC: Atomic symlink guard + rm-rf in single Bash call (closes TOCTOU window)
+        // orphanName validated above with /^[a-zA-Z0-9_-]+$/ — shell injection not possible
+        Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && [[ ! -L "$CHOME/teams/${orphanName}" ]] && rm -rf "$CHOME/teams/${orphanName}/" "$CHOME/tasks/${orphanName}/" 2>/dev/null`)
       }
     }
 
-    // Step 3: Final SDK state clear
-    // EC-3: This runs after Step 1's grace period (sleep 3), so teammates have had
-    // time to finish. EC-9: Redundant with prePhaseCleanup Strategy 1 — intentional
-    // defense-in-depth. prePhaseCleanup should succeed on first try after this.
-    try { TeamDelete() } catch (e) { /* expected if no active team */ }
+    // Step 3: Final SDK state clear (only needed if Step 1 was skipped — team_name was null)
+    // EC-3: After Step 2's prefix scan, clear any residual SDK state.
+    // EC-9: Redundant with prePhaseCleanup Strategy 1 — intentional defense-in-depth.
+    if (!phaseInfo.team_name) {
+      try { TeamDelete() } catch (e) { /* expected if no active team */ }
+    }
 
   } catch (e) {
     warn(`postPhaseCleanup(${phaseName}): ${e.message} — proceeding`)

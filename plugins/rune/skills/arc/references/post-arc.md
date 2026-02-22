@@ -185,12 +185,17 @@ try {
       const teamName = dir.split('/').pop()
       if (!teamName || !/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
       if (teamName.includes('..')) continue
-      // Symlink guard (ward-sentinel #2)
-      const isSymlink = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -L "$CHOME/teams/${teamName}" && echo symlink`).trim() === "symlink"
-      if (isSymlink) { warn(`ARC-9 Strategy D: Skipping ${teamName} — symlink detected`); continue }
+      // Session ownership check (v1.68.0 mend fix — SEC-001)
+      const sessionMarker = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${teamName}/.session" && cat "$CHOME/teams/${teamName}/.session" 2>/dev/null`).trim()
+      const currentSessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
+      if (!sessionMarker || sessionMarker !== currentSessionId) {
+        warn(`ARC-9 Strategy D: Skipping ${teamName} — no session marker or belongs to another session`)
+        continue
+      }
+      // SEC: Atomic symlink guard + rm-rf in single Bash call (closes TOCTOU window)
       warn(`ARC-9 Strategy D: Cleaning orphan ${teamName}`)
       // SEC: teamName validated above with /^[a-zA-Z0-9_-]+$/ — shell injection not possible
-      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && [[ ! -L "$CHOME/teams/${teamName}" ]] && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
     }
   }
   // Final TeamDelete after prefix sweep

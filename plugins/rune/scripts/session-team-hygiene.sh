@@ -48,6 +48,8 @@ if [[ -d "$CHOME/teams/" ]]; then
     if [[ "$dirname" =~ ^[a-zA-Z0-9_-]+$ ]] && [[ ! -L "$dir" ]]; then
       orphan_names+=("$dirname")
       # BACK-012 FIX: ((0++)) returns exit code 1 under set -e, killing the script
+      # NOTE: Orphan count may include teams from other active sessions (no .session ownership check).
+      # This is reporting-only — actual cleanup is handled by postPhaseCleanup/ARC-9 with ownership checks.
       orphan_count=$((orphan_count + 1))
     fi
   done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" -o -name "goldmask-*" \) -mmin +30 2>/dev/null)

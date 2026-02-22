@@ -415,6 +415,8 @@ Deterministic, orchestrator-only check that cross-references plan acceptance cri
 **Error handling**: Non-blocking (WARN). Gap analysis is advisory — missing criteria are flagged but do not halt the pipeline. Evaluator quality metrics (docstring coverage, function length, evaluation tests) are informational for Phase 6 reviewers.
 
 See [gap-analysis.md](references/gap-analysis.md) for the full algorithm.
+// Phase 5.5 hybrid: Inspector Ashes STEP B may create rune-inspect-/arc-inspect- teams.
+// No prePhaseCleanup needed (orchestrator-only phase holds no SDK team state).
 postPhaseCleanup(checkpoint, "gap_analysis")
 
 <!-- v1.57.0: Phase 5.5 STEP A.9 enhancement planned — CLI-backed Ashes can contribute
@@ -463,6 +465,20 @@ updateCheckpoint({ phase: "gap_remediation", status: "in_progress", phase_sequen
 
 See [gap-remediation.md](references/gap-remediation.md) for the full algorithm. Update checkpoint on completion.
 postPhaseCleanup(checkpoint, "gap_remediation")
+
+## Phase 5.7: GOLDMASK VERIFICATION (blast-radius analysis, v1.47.0)
+
+See [arc-phase-goldmask-verification.md](references/arc-phase-goldmask-verification.md) for the full algorithm.
+
+**Team**: `arc-goldmask-{id}` — follows ATE-1 pattern
+**Output**: `tmp/arc/{id}/goldmask-verification.md`
+**Failure**: Non-blocking — proceed with warnings.
+
+// ARC-6: Clean stale teams before delegating to goldmask verification
+prePhaseCleanup(checkpoint)
+
+Read and execute the arc-phase-goldmask-verification.md algorithm. Update checkpoint on completion.
+postPhaseCleanup(checkpoint, "goldmask_verification")
 
 ## Phase 6: CODE REVIEW (deep)
 
@@ -530,8 +546,8 @@ if (flags.no_test || talisman?.testing?.enabled === false) {
   // Read and execute the arc-phase-test.md algorithm
   // Update checkpoint on completion with tiers_run, pass_rate, coverage_pct, has_frontend
 }
-postPhaseCleanup(checkpoint, "test")
 ```
+postPhaseCleanup(checkpoint, "test")
 
 ## Phase 9: SHIP (PR Creation)
 

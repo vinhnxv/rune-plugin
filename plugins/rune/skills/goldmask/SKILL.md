@@ -203,12 +203,14 @@ Create state file for session hook discovery (STOP-001, TLC-003):
 // EC-12, ward-sentinel #3: resolve CLAUDE_SESSION_ID via Bash, not literal string
 const sessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
 const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash("echo $PPID").trim()
+if (!/^[0-9]+$/.test(ownerPid)) { warn("goldmask: invalid PPID — using fallback"); }
 Write(`tmp/.rune-goldmask-${sessionId}.json`, JSON.stringify({
   status: "active",
-  team_name: `goldmask-${sessionId}`,
+  team_name: sessionId,  // sessionId already contains "goldmask-" prefix
   started: new Date().toISOString(),
   config_dir: configDir,
-  owner_pid: Bash("echo $PPID").trim(),
+  owner_pid: /^[0-9]+$/.test(ownerPid) ? ownerPid : "0",
   session_id: sessionId
 }))
 ```
