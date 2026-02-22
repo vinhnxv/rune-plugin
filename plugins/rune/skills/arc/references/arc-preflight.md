@@ -1,0 +1,328 @@
+# Pre-flight — Full Algorithm
+
+Pre-flight sequence: branch strategy, concurrent arc prevention, plan path validation,
+inter-phase cleanup guard, and stale team scan.
+
+**Inputs**: plan path, branch state, team registry
+**Outputs**: feature branch (if on main), validated plan path, clean team state
+**Error handling**: Abort arc on validation failure, warn on stale teams
+**Consumers**: SKILL.md (Pre-flight stub), `--resume` path (partial re-run via prePhaseCleanup)
+
+> **Note**: `prePhaseCleanup(checkpoint)` is defined here but called from 13+ phase stubs
+> in SKILL.md. The orchestrator reads this file at dispatcher init (before phase loop).
+> `FORBIDDEN_PHASE_KEYS` is defined inline in SKILL.md and available in the orchestrator's context.
+
+## Branch Strategy (COMMIT-1)
+
+Before Phase 5 (WORK), create a feature branch if on main:
+
+```bash
+current_branch=$(git branch --show-current)
+if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
+  plan_name=$(basename "$plan_file" .md | sed 's/[^a-zA-Z0-9]/-/g')
+  plan_name=${plan_name:-unnamed}
+  branch_name="rune/arc-${plan_name}-$(date +%Y%m%d-%H%M%S)"
+
+  # SEC-006: Validate constructed branch name using git's own ref validation
+  if ! git check-ref-format --branch "$branch_name" 2>/dev/null; then
+    echo "ERROR: Invalid branch name: $branch_name"
+    exit 1
+  fi
+  if echo "$branch_name" | grep -qE '(HEAD|FETCH_HEAD|ORIG_HEAD|MERGE_HEAD)'; then
+    echo "ERROR: Branch name collides with Git special ref"
+    exit 1
+  fi
+
+  git checkout -b "$branch_name"
+fi
+```
+
+If already on a feature branch, use the current branch.
+
+## Concurrent Arc Prevention
+
+```bash
+# SEC-007: Use find instead of ls glob to avoid ARG_MAX issues
+# SEC-007 (P2): This checks for concurrent arc sessions only. Cross-command concurrency
+# (e.g., arc + review + work + mend running simultaneously) is not checked here.
+# LIMITATION: Multiple /rune:* commands can run concurrently on the same codebase,
+# potentially causing git index contention, file edit conflicts, and team name collisions.
+# TODO: Implement shared lock file check across all /rune:* commands. Proposed approach:
+#   1. Each /rune:* command creates a lock file: tmp/.rune-lock-{command}-{timestamp}.json
+#   2. Before team creation, scan tmp/.rune-lock-*.json for active sessions (< 30 min old)
+#   3. If active session found, warn user and offer: proceed (risk conflicts) or abort
+#   4. Lock file cleanup in each command's Phase 6/7 cleanup step
+const MAX_CHECKPOINT_AGE = 604_800_000  // 7 days in ms — abandoned checkpoints ignored
+
+# ZSH-COMPAT: Resolve CHOME for CLAUDE_CONFIG_DIR support (avoids ~ expansion issues in zsh)
+CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
+if command -v jq >/dev/null 2>&1; then
+  # SEC-5 FIX: Place -maxdepth before -name for POSIX portability (BSD find on macOS)
+  # FIX: Search CWD-scoped .claude/arc/ (where checkpoints live), not $CHOME/arc/ (wrong directory)
+  active=$(find "${CWD}/.claude/arc" -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
+    # Skip checkpoints older than 7 days (abandoned)
+    started_at=$(jq -r '.started_at // empty' "$f" 2>/dev/null)
+    if [ -n "$started_at" ]; then
+      # BSD date (-j -f) with GNU fallback (-d).
+      # Parse failure → epoch=0 → age=now-0=currentTimestamp → exceeds 7-day threshold → skipped as stale.
+      epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${started_at%%.*}" +%s 2>/dev/null || date -d "${started_at}" +%s 2>/dev/null || echo 0)
+      # SEC-002 FIX: Validate epoch is numeric before arithmetic (defense against malformed started_at)
+      # ZSH-FIX: Use POSIX case instead of [[ =~ ]] — avoids zsh history expansion and regex quirks
+      case "$epoch" in *[!0-9]*|'') continue ;; esac
+      [ "$epoch" -eq 0 ] && echo "WARNING: Failed to parse started_at: $started_at" >&2
+      age_s=$(( $(date +%s) - epoch ))
+      # Skip if age is negative (future timestamp = suspicious) or > 7 days (abandoned)
+      [ "$age_s" -lt 0 ] 2>/dev/null && continue
+      [ "$age_s" -gt 604800 ] 2>/dev/null && continue
+    fi
+    # EXIT-CODE FIX: || true normalizes exit code when select() filters out everything
+    # (no in_progress phases). Without this, jq exits non-zero → loop exit code propagates →
+    # LLM sees "Error: Exit code 5" and may cascade-fail parallel sibling tool calls.
+    jq -r 'select(.phases | to_entries | map(.value.status) | any(. == "in_progress")) | .id' "$f" 2>/dev/null || true
+  done)
+else
+  # NOTE: grep fallback is imprecise — matches "in_progress" anywhere in file, not field-specific.
+  # Acceptable as degraded-mode check when jq is unavailable. The jq path above is the robust check.
+  active=$(find "${CWD}/.claude/arc" -maxdepth 2 -name checkpoint.json 2>/dev/null | while read f; do
+    if grep -q '"status"[[:space:]]*:[[:space:]]*"in_progress"' "$f" 2>/dev/null; then basename "$(dirname "$f")"; fi
+  done)
+fi
+
+if [ -n "$active" ]; then
+  echo "Active arc session detected: $active"
+  echo "Cancel with /rune:cancel-arc or wait for completion"
+  exit 1
+fi
+
+# Advisory: check for other active rune workflows (not just arc)
+otherWorkflows=$(find tmp -maxdepth 1 -name ".rune-*.json" 2>/dev/null | while read f; do
+  if command -v jq >/dev/null 2>&1; then
+    # EXIT-CODE FIX: || true — same rationale as concurrent arc check above
+    jq -r 'select(.status == "active") | .status' "$f" 2>/dev/null || true
+  else
+    grep -q '"status"[[:space:]]*:[[:space:]]*"active"' "$f" 2>/dev/null && echo "active"
+  fi
+done | wc -l | tr -d ' ')
+if [ "$otherWorkflows" -gt 0 ] 2>/dev/null; then
+  echo "Advisory: $otherWorkflows active Rune workflow(s) detected (may include delegated sub-commands from this arc). Independent Rune commands may cause git index contention."
+fi
+```
+
+## Validate Plan Path
+
+```javascript
+if (!/^[a-zA-Z0-9._\/-]+$/.test(planFile)) {
+  error(`Invalid plan path: ${planFile}. Only alphanumeric, dot, slash, hyphen, and underscore allowed.`)
+  return
+}
+// CDX-005 MITIGATION (P2): Explicit .. rejection — PRIMARY defense against path traversal.
+// The regex above intentionally allows . and / for valid paths like "plans/2026-01-01-plan.md".
+// This check is the real barrier against ../../../etc/passwd style traversal.
+if (planFile.includes('..')) {
+  error(`Path traversal detected in plan path: ${planFile}`)
+  return
+}
+// CDX-009 MITIGATION: Reject leading-hyphen paths (option injection in cp, ls, etc.)
+if (planFile.startsWith('-')) {
+  error(`Plan path starts with hyphen (option injection risk): ${planFile}`)
+  return
+}
+// Reject absolute paths — plan files must be relative to project root
+if (planFile.startsWith('/')) {
+  error(`Absolute paths not allowed: ${planFile}. Use a relative path from project root.`)
+  return
+}
+// CDX-010 FIX: Reject symlinks — a symlink at plans/evil.md -> /etc/passwd would
+// pass all regex/traversal checks above but read arbitrary files via Read().
+// Use Bash test -L (not stat) for portability across macOS/Linux.
+if (Bash(`test -L "${planFile}" && echo "symlink"`).includes("symlink")) {
+  error(`Plan path is a symlink (not following): ${planFile}`)
+  return
+}
+```
+
+## Inter-Phase Cleanup Guard (ARC-6)
+
+Runs before every delegated phase to ensure no stale team blocks TeamCreate. Idempotent — harmless no-op when no stale team exists. Complements CDX-7 (crash recovery) — this handles normal phase transitions.
+
+```javascript
+// prePhaseCleanup(checkpoint): Clean stale teams from prior phases.
+// Runs before EVERY delegated phase. See team-lifecycle-guard.md Pre-Create Guard.
+// NOTE: Assumes checkpoint schema v5+ where each phase entry has { status, team_name, ... }
+// SYNC-POINT: team_name validation regex must stay in sync with post-arc.md
+
+function prePhaseCleanup(checkpoint) {
+  try {
+    // Guard: validate checkpoint.phases exists and is an object
+    if (!checkpoint?.phases || typeof checkpoint.phases !== 'object' || Array.isArray(checkpoint.phases)) {
+      warn('ARC-6: Invalid checkpoint.phases — skipping inter-phase cleanup')
+      return
+    }
+
+    // Strategy 1: Clear SDK session leadership state FIRST (while dirs still exist)
+    // TeamDelete() targets the CURRENT SESSION's active team. Must run BEFORE rm -rf
+    // so the SDK finds the directory and properly clears internal leadership tracking.
+    // If dirs are already gone, TeamDelete may not clear state — hence "first" ordering.
+    // See team-lifecycle-guard.md "Team Completion Verification" section.
+    // Retry-with-backoff (3 attempts: 0s, 3s, 8s)
+    const CLEANUP_DELAYS = [0, 3000, 8000]
+    for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+      if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+      try { TeamDelete(); break } catch (e) {
+        warn(`ARC-6: TeamDelete attempt ${attempt + 1} failed: ${e.message}`)
+      }
+    }
+
+    // Strategy 2: Checkpoint-aware filesystem cleanup for ALL prior-phase teams
+    // rm -rf targets named teams from checkpoint (may include teams this session
+    // never led). TeamDelete can't target foreign teams — only rm -rf works here.
+    for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
+      if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue
+      if (!phaseInfo || typeof phaseInfo !== 'object') continue
+      if (!phaseInfo.team_name || typeof phaseInfo.team_name !== 'string') continue
+      // ARC-6 STATUS GUARD: Denylist approach — only "in_progress" is preserved.
+      // All other statuses (completed, failed, skipped, timeout, pending) are eligible for cleanup.
+      // If a new active-state status is added to PHASE_ORDER, update this guard.
+      if (phaseInfo.status === "in_progress") continue  // Don't clean actively running phase
+
+      const teamName = phaseInfo.team_name
+
+      // SEC-003: Validate BEFORE any filesystem operations — see security-patterns.md
+      if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) {
+        warn(`ARC-6: Invalid team name for phase ${phaseName}: "${teamName}" — skipping`)
+        continue
+      }
+      // Unreachable after regex — retained as defense-in-depth per SEC-003
+      if (teamName.includes('..')) {
+        warn('ARC-6: Path traversal detected in team name — skipping')
+        continue
+      }
+
+      // SEC-002: rm -rf unconditionally — no exists() guard (eliminates TOCTOU window).
+      // rm -rf on a nonexistent path is a no-op, so this is safe.
+      // ARC-6: teamName validated above — contains only [a-zA-Z0-9_-]
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+
+      // Post-removal verification: detect if cleaning happened or if dir persists
+      // TOME-1 FIX: Use CHOME-based check instead of bare ~/.claude/ path
+      const stillExists = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -d "$CHOME/teams/${teamName}/" && echo "exists"`)
+      if (stillExists.trim() === "exists") {
+        warn(`ARC-6: rm -rf failed for ${teamName} — directory still exists`)
+      }
+    }
+
+    // Step C: Single TeamDelete after cross-phase filesystem cleanup
+    // Single attempt is intentional — filesystem cleanup above should have unblocked
+    // SDK state. If this doesn't work, more retries with sleep won't help.
+    try { TeamDelete() } catch (e3) { /* SDK state cleared or was already clear */ }
+
+    // Strategy 4 (SDK leadership nuclear reset): If Strategies 1-3 all failed because
+    // a prior phase's cleanup already rm-rf'd team dirs before TeamDelete could clear
+    // SDK internal leadership tracking, the SDK still thinks we're leading a ghost team.
+    // Fix: temporarily recreate each checkpoint-recorded team's minimal dir so TeamDelete
+    // can find it and release leadership. When TeamDelete succeeds, we've found the
+    // ghost team and cleared state. Only iterates completed/failed/skipped phases.
+    // This handles the Phase 2 → Phase 6+ leadership leak where Phase 2's rm-rf fallback
+    // cleared dirs before TeamDelete could clear SDK state (see team-lifecycle-guard.md).
+    let strategy4Resolved = false
+    for (const [pn, pi] of Object.entries(checkpoint.phases)) {
+      if (FORBIDDEN_PHASE_KEYS.has(pn)) continue
+      if (!pi?.team_name || typeof pi.team_name !== 'string') continue
+      if (pi.status === 'in_progress') continue
+      if (!/^[a-zA-Z0-9_-]+$/.test(pi.team_name)) continue
+
+      const tn = pi.team_name
+      // Recreate minimal dir so SDK can find and release the team
+      // SEC-001 TRUST BOUNDARY: tn comes from checkpoint.phases[].team_name (untrusted).
+      // Validated above: FORBIDDEN_PHASE_KEYS, type check, status != in_progress, regex /^[a-zA-Z0-9_-]+$/.
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && mkdir -p "$CHOME/teams/${tn}" && printf '{"team_name":"%s","members":[]}' "${tn}" > "$CHOME/teams/${tn}/config.json" 2>/dev/null`)
+      try {
+        TeamDelete()
+        // Success — SDK leadership state cleared. Clean up the recreated dir.
+        Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${tn}/" "$CHOME/tasks/${tn}/" 2>/dev/null`)
+        strategy4Resolved = true
+        break  // SDK only tracks one team at a time — done
+      } catch (e4) {
+        // Not the team SDK was tracking, or TeamDelete failed for another reason.
+        // Clean up the recreated dir and try the next checkpoint team.
+        Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${tn}/" "$CHOME/tasks/${tn}/" 2>/dev/null`)
+      }
+    }
+    // BACK-009 FIX: Warn if Strategy 4 exhausted all checkpoint phases without finding the ghost team.
+    // Non-fatal — the ghost team may be from a different session not recorded in this checkpoint.
+    if (!strategy4Resolved) {
+      warn('ARC-6 Strategy 4: ghost team not found in checkpoint — may be from a different session. The phase pre-create guard will handle remaining cleanup.')
+    }
+
+  } catch (e) {
+    // Top-level guard: defensive infrastructure must NEVER halt the pipeline.
+    warn(`ARC-6: prePhaseCleanup failed (${e.message}) — proceeding anyway`)
+  }
+}
+```
+
+## Stale Arc Team Scan
+
+CDX-7 Layer 3: Scan for orphaned arc-specific teams from prior sessions. Runs after checkpoint init (where `id` is available) for both new and resumed arcs. Covers both arc-owned teams (`arc-*` prefixes) and sub-command teams (`rune-*` prefixes).
+
+```javascript
+// CC-5: Placed after checkpoint init — id is available here
+// CC-3: Use find instead of ls -d (SEC-007 compliance)
+// SECURITY-CRITICAL: ARC_TEAM_PREFIXES must remain hardcoded string literals.
+// These values are interpolated into shell `find -name` commands (see find loop below).
+// If externalized to config (e.g., talisman.yml), shell metacharacter injection becomes possible.
+//
+// arc-* prefixes: teams created directly by arc (Phase 2 plan review)
+// rune-* prefixes: teams created by delegated sub-commands (forge, work, review, mend, audit)
+const ARC_TEAM_PREFIXES = [
+  "arc-forge-", "arc-plan-review-", "arc-verify-", "arc-gap-", "arc-gap-fix-", "arc-inspect-", "arc-test-",  // arc-owned teams
+  "rune-forge-", "rune-work-", "rune-review-", "rune-mend-", "rune-mend-deep-", "rune-audit-",  // sub-command teams
+  "goldmask-"  // goldmask skill teams (Phase 5.7 delegation)
+]
+
+// SECURITY: Validate all prefixes before use in shell commands
+for (const prefix of ARC_TEAM_PREFIXES) {
+  if (!/^[a-z-]+$/.test(prefix)) {
+    throw new Error(`Invalid team prefix: ${prefix} (only lowercase letters and hyphens allowed)`)
+  }
+}
+
+// Collect in-progress teams from checkpoint to exclude from cleanup
+const activeTeams = Object.values(checkpoint.phases)
+  .filter(p => p.status === "in_progress" && p.team_name)
+  .map(p => p.team_name)
+
+// SEC-004 NOTE: Known limitation — this cross-workflow scan runs unconditionally during
+// prePhaseCleanup. Architecturally correct for arc (owns all phases, serial execution),
+// but could collide with concurrent non-arc workflows (e.g., standalone /rune:review).
+// TODO: Shared lock file or advisory lock to coordinate with non-arc workflows.
+for (const prefix of ARC_TEAM_PREFIXES) {
+  const dirs = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
+  for (const dir of dirs) {
+    // basename() is safe — find output comes from trusted teams/ directory
+    const teamName = basename(dir)
+
+    // SEC-003: Validate team name before any filesystem operations
+    if (!/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
+    // Defense-in-depth: redundant with regex above, per safeTeamCleanup() contract
+    if (teamName.includes('..')) continue
+
+    // Don't clean our own team (current arc session)
+    // BACK-002 FIX: Use exact prefix+id match instead of fragile substring includes()
+    if (teamName === `${prefix}${id}`) continue
+    // Don't clean teams that are actively in-progress in checkpoint
+    if (activeTeams.includes(teamName)) continue
+    // SEC: Symlink attack prevention — don't follow symlinks
+    // SEC-006 FIX: Strict equality prevents matching "symlink" in stderr error messages
+    if (Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -L "$CHOME/teams/${teamName}" && echo symlink`).trim() === "symlink") {
+      warn(`ARC-SECURITY: Skipping ${teamName} — symlink detected`)
+      continue
+    }
+
+    // This team is from a different arc session — orphaned
+    warn(`CDX-7: Stale arc team from prior session: ${teamName} — cleaning`)
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+  }
+}
+```

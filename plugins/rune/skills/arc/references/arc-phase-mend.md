@@ -55,6 +55,10 @@ const mendTimeout = mendRound === 0 ? PHASE_TIMEOUTS.mend : MEND_RETRY_TIMEOUT
 The inner polling timeout passed to `/rune:mend` is derived from the outer phase budget minus overhead:
 
 ```javascript
+// Mend-specific budget constants (scoped to this phase only — no other phase uses these)
+const SETUP_BUDGET = 300_000          //  5 min — team creation, parsing, report, cleanup
+const MEND_EXTRA_BUDGET = 180_000     //  3 min — ward check, cross-file, doc-consistency
+
 // BUG FIX (v1.24.1): Propagate arc phase budget to mend's inner polling timeout.
 // Without --timeout, mend always uses 15 min (standalone default) — which exceeds
 // arc's retry budget (13 min) and ignores setup/teardown overhead.

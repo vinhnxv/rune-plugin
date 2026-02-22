@@ -34,7 +34,7 @@ allowed-tools:
 
 Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`, `polling-guard`, `zsh-compat`
 
 ## Flags
 
