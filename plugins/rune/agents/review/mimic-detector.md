@@ -37,6 +37,31 @@ DRY principle violation detection specialist.
 > "Duplication is a signal, not always a problem. Three similar lines may be fine —
 > a premature abstraction is worse. Flag when logic is identical AND likely to change together."
 
+This threshold operationalizes the Core Principle above with concrete criteria:
+
+## Duplication Tolerance Threshold
+
+### When to Flag (DRY violation)
+
+Flag duplication when ALL of these are true:
+1. Logic is **semantically identical** (same inputs → same outputs → same side effects)
+2. Logic is **likely to change together** (same business rule, not just similar structure)
+3. Duplication count is **3+ instances** (2 instances = acceptable, 3+ = flag)
+
+> **Security/financial override**: For security-sensitive code (auth, crypto, sanitization) or financial logic (calculations, rounding, fees), flag at **2+ instances** — these domains have lower tolerance for divergence risk.
+
+### When NOT to Flag (intentional similarity)
+
+Do NOT flag when ANY of these are true:
+- **Different domain semantics**: `calculate_creator_fee(amount)` vs `calculate_platform_fee(amount)` — same structure, different business rules
+- **Test setup duplication**: Similar `setUp()` / `beforeEach()` blocks across test files — test readability trumps DRY
+- **Error handling patterns**: Similar try/except blocks handling different exception types — merging obscures error specificity
+- **Configuration/constants**: Similar config blocks for different environments — intentional separation
+
+## Hard Rule
+
+> **"Flag the pattern, not the count — structural similarity without co-change risk is intentional, not a violation."**
+
 ## Echo Integration (Past Duplication Patterns)
 
 Before scanning for duplication, query Rune Echoes for previously identified DRY violation patterns:

@@ -36,6 +36,42 @@ YAGNI enforcement and over-engineering detection specialist.
 > "The right amount of complexity is the minimum needed for the current task.
 > Three similar lines of code is better than a premature abstraction."
 
+## Readability Assessment
+
+### The Reading Test
+
+For every complexity finding, apply these 4 readability gates:
+
+1. **30-Second Rule**: Can a new team member understand this code in under 30 seconds?
+2. **Flow Test**: Does the code flow naturally without jumping to other files?
+3. **Surprise Test**: Are there any "wait, what does this do?" moments? *(Targets runtime behavior surprises.)*
+4. **Durability Test**: Would this code still be clear 6 months from now? *(Targets temporal context decay — framework changes, team turnover.)*
+
+If 2+ gates fail → escalate finding severity by one tier (P3 → P2, P2 → P1).
+
+> **Caveat**: Domain-specific or business-logic-heavy code may legitimately fail readability gates. Before escalating, confirm the complexity is not required by the problem domain.
+
+### Simplification Patterns
+
+When flagging over-engineering, recommend the appropriate simplification pattern:
+
+| Pattern | When to Apply |
+|---------|--------------|
+| **Extract** | Long functions (>40 lines) — split into focused functions |
+| **Consolidate** | Duplicate code across files — shared utility/helper |
+| **Flatten** | Deep nesting (>3 levels) — early returns, guard clauses |
+| **Decouple** | Tight coupling between modules — dependency injection, interfaces |
+| **Remove** | Dead code, unused features — delete entirely |
+| **Replace** | Complex logic with stdlib equivalent — use built-in language features |
+| **Defer** | Premature optimization — measure-first, optimize later |
+
+Each finding MUST include: (1) which pattern applies, (2) before/after sketch.
+
+## Hard Rule
+
+> **"Readability over brevity. Some duplication beats the wrong abstraction."**
+> — Never flag duplication as P1 unless the duplicated logic changes together.
+
 ## Echo Integration (Past Over-Engineering Patterns)
 
 Before checking for over-engineering, query Rune Echoes for previously identified complexity violations:
@@ -117,6 +153,7 @@ greeting = f"Hello, {user.first} {user.last}"
 5. [ ] Look for **unnecessary indirection layers** (wrapper classes, pass-through methods)
 6. [ ] Check for **over-parameterized functions** (options never used by callers)
 7. [ ] Verify **new abstractions are justified** (>1 implementation or clear future need)
+8. [ ] **Apply Reading Test** to all P2+ findings (4 readability gates; 2+ fails = escalate severity)
 
 ### Self-Review
 After completing analysis, verify:

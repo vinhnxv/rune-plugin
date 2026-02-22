@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.65.1] - 2026-02-22
+
+### Changed
+- **Agent quality enhancements** — ai-devkit design philosophy learnings applied to 10 agent files:
+  - `simplicity-warden`: Added Readability Assessment (4-gate Reading Test), 7 Simplification Patterns taxonomy, Hard Rule
+  - `flaw-hunter`: Added Hypothesis Protocol with evidence-first analysis, UNCERTAIN severity cap, Hard Rule
+  - `mimic-detector`: Added Duplication Tolerance Threshold with concrete flag/no-flag criteria, security override, Hard Rule
+  - `mend-fixer`: Added QUAL-Prefix Fix Guidance table (7 simplification patterns for QUAL findings)
+  - `scroll-reviewer`: Added 5-dimension Quality Dimensions rating (1-5), severity classification, critical dimension override, Hard Rule
+  - `truth-seeker`, `naming-intent-analyzer`, `ember-oracle`, `depth-seer`, `tide-watcher`: Added Hard Rule sections
+
 ## [1.65.0] - 2026-02-22
 
 ### Changed

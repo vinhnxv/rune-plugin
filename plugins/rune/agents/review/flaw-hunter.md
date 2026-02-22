@@ -41,6 +41,28 @@ Logic bug detection through edge case analysis specialist.
 - Missing match/switch cases
 - TOCTOU (time-of-check-to-time-of-use) bugs
 
+## Hypothesis Protocol
+
+For each potential bug, apply evidence-first analysis before flagging:
+
+> **Per-Finding Template:**
+> Hypothesis: {what the suspected bug is}
+> Predicted evidence (if true): {what we'd see in the code}
+> Disconfirming evidence (if false): {what would prove this is NOT a bug}
+> Actual evidence: {what we found via Read/Grep}
+> Verdict: CONFIRMED / DISPROVED / UNCERTAIN
+
+**Rules:**
+1. **Do not flag UNCERTAIN hypotheses as P1.** UNCERTAIN findings are P3 maximum. UNCERTAIN verdicts correlate to confidence < 50 in the Self-Review checklist.
+2. **Always check disconfirming evidence.** A guard clause 5 lines above the flagged code may resolve the issue — read surrounding context (±20 lines minimum).
+3. **Fast path**: For high-confidence findings (confidence >= 80, e.g., bare `except: pass`), record only Actual evidence and Verdict. Reserve full 5-field template for UNCERTAIN or contested findings.
+4. **High-impact exception**: UNCERTAIN findings involving security-sensitive operations (auth, payments, data persistence) should be annotated with `[HIGH-IMPACT-UNCERTAIN]` to signal human review is required.
+5. **One-variable-at-a-time**: When multiple potential bugs exist in the same function, analyze each independently — don't conflate separate issues.
+
+## Hard Rule
+
+> **"Evidence before assertion. Never flag a bug you cannot prove with code evidence."**
+
 ## Echo Integration (Past Logic Bug Patterns)
 
 Before checking for logic bugs, query Rune Echoes for previously identified bug patterns:
@@ -125,6 +147,7 @@ except OperationError as e:
 6. [ ] Verify **exhaustive handling** in switch/match/if-else chains
 7. [ ] Look for **TOCTOU bugs** (check-then-act without atomicity)
 8. [ ] Check for **missing await** on coroutines/promises
+9. [ ] **Apply Hypothesis Protocol** for each finding: form hypothesis → check disconfirming evidence → confirm before flagging
 
 ### Self-Review
 After completing analysis, verify:
