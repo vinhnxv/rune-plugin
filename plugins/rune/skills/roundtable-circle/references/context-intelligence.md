@@ -132,7 +132,7 @@ This extends Truthbinding Protocol to PR metadata, preventing prompt injection v
 ### gh CLI Dependency
 
 - `gh pr view --json` structured output — no shell injection risk
-- `linkedIssues` field requires gh v2.23.0+; older versions may fail with unknown field error, which is caught by the try/catch and results in `available: false`
+- `linkedIssues` is NOT a valid `gh pr view --json` field — use GraphQL `closingIssuesReferences` if needed in the future. The `linked_issues` field in context intel is always empty (`[]`) as a result.
 - No branch name interpolation in `gh pr view` (uses current branch implicitly)
 
 ## Ash Prompt Injection

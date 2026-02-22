@@ -34,7 +34,7 @@ allowed-tools:
 
 Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`, `polling-guard`, `zsh-compat`
 
 ## Flags
 
@@ -233,7 +233,7 @@ if (contextEnabled && ghAvailable && !flags['--partial']) {
   // gh pr view returns non-zero if no PR exists for the branch
   // Note: --json uses structured output (no shell injection risk)
   // Removed unused fields: milestone, assignees (never consumed downstream)
-  const prResult = Bash(`gh pr view --json number,title,body,labels,linkedIssues,additions,deletions,changedFiles,baseRefName,headRefName,url 2>/dev/null`)
+  const prResult = Bash(`gh pr view --json number,title,body,labels,additions,deletions,changedFiles,baseRefName,headRefName,url 2>/dev/null`)
 
   if (prResult.exitCode === 0) {
     try {
@@ -254,7 +254,7 @@ if (contextEnabled && ghAvailable && !flags['--partial']) {
         additions: pr.additions ?? 0,
         deletions: pr.deletions ?? 0,
         changed_files_count: pr.changedFiles ?? changed_files.length,
-        linked_issues: (pr.linkedIssues || []).slice(0, 5)
+        linked_issues: []
       }
 
       // Step 2: Scope Size Warning
@@ -288,7 +288,7 @@ if (contextEnabled && ghAvailable && !flags['--partial']) {
       // Step 4: Context Quality Assessment
       const hasDescription = (pr.body || '').trim().length > 50
       const hasWhyExplanation = /\b(because|reason|motivation|problem|issue|caused by|in order to|so that)\b/i.test(pr.body || '')
-      const hasLinkedIssue = (pr.linkedIssues || []).length > 0
+      const hasLinkedIssue = false  // linkedIssues not available via gh pr view --json
 
       let contextQuality = 'good'
       const contextWarnings = []

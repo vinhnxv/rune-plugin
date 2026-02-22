@@ -1,0 +1,176 @@
+# Initialize Checkpoint (ARC-2) — Full Algorithm
+
+Checkpoint initialization: config resolution (3-layer), session identity,
+checkpoint schema v11 creation, and initial state write.
+
+**Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check
+**Outputs**: checkpoint object (schema v11), resolved arc config (`arcConfig`)
+**Error handling**: Fail arc if plan file missing or config invalid
+**Consumers**: SKILL.md checkpoint-init stub, resume logic in [arc-resume.md](arc-resume.md)
+
+> **Note**: `PHASE_ORDER`, `PHASE_TIMEOUTS`, `calculateDynamicTimeout`, and `FORBIDDEN_PHASE_KEYS`
+> are defined inline in SKILL.md (Phase Constants block). They are in the orchestrator's context.
+
+## Initialize Checkpoint
+
+```javascript
+const id = `arc-${Date.now()}`
+if (!/^arc-[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid arc identifier")
+// SEC: Session nonce prevents TOME injection from prior sessions.
+// MUST be cryptographically random — NOT derived from timestamp or arc id.
+// LLM shortcutting this to `arc{id}` defeats the security purpose.
+const rawNonce = crypto.randomBytes(6).toString('hex').toLowerCase()
+// Validate format AFTER generation, BEFORE checkpoint write: exactly 12 lowercase hex characters
+// .toLowerCase() ensures consistency across JS runtimes (defense-in-depth)
+if (!/^[0-9a-f]{12}$/.test(rawNonce)) {
+  throw new Error(`Session nonce generation failed. Must be 12 hex chars from crypto.randomBytes(6). Retry arc invocation.`)
+}
+const sessionNonce = rawNonce
+
+// SEC-006 FIX: Compute tier BEFORE checkpoint init (was referenced but never defined)
+// SEC-011 FIX: Null guard — parseDiffStats may return null on empty/malformed git output
+const diffStats = parseDiffStats(Bash(`git diff --stat ${defaultBranch}...HEAD`)) ?? { insertions: 0, deletions: 0, files: [] }
+const planMeta = extractYamlFrontmatter(Read(planFile))
+// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
+const talisman = readTalisman()
+```
+
+## 3-Layer Config Resolution
+
+```javascript
+// 3-layer config resolution: hardcoded defaults → talisman → inline CLI flags (v1.40.0+)
+// Contract: inline flags ALWAYS override talisman; talisman overrides hardcoded defaults.
+function resolveArcConfig(talisman, inlineFlags) {
+  // Layer 1: Hardcoded defaults
+  const defaults = {
+    no_forge: false,
+    approve: false,
+    skip_freshness: false,
+    confirm: false,
+    ship: {
+      auto_pr: true,
+      auto_merge: false,
+      merge_strategy: "squash",
+      wait_ci: false,
+      draft: false,
+      labels: [],
+      pr_monitoring: false,
+      rebase_before_merge: true,
+    }
+  }
+
+  // Layer 2: Talisman overrides (null-safe)
+  const talismanDefaults = talisman?.arc?.defaults ?? {}
+  const talismanShip = talisman?.arc?.ship ?? {}
+  const talismanPreMerge = talisman?.arc?.pre_merge_checks ?? {}  // QUAL-001 FIX
+
+  const config = {
+    no_forge:        talismanDefaults.no_forge ?? defaults.no_forge,
+    approve:         talismanDefaults.approve ?? defaults.approve,
+    skip_freshness:  talismanDefaults.skip_freshness ?? defaults.skip_freshness,
+    confirm:         talismanDefaults.confirm ?? defaults.confirm,
+    ship: {
+      auto_pr:       talismanShip.auto_pr ?? defaults.ship.auto_pr,
+      auto_merge:    talismanShip.auto_merge ?? defaults.ship.auto_merge,
+      // SEC-001 FIX: Validate merge_strategy against allowlist at config resolution time
+      merge_strategy: ["squash", "rebase", "merge"].includes(talismanShip.merge_strategy)
+        ? talismanShip.merge_strategy : defaults.ship.merge_strategy,
+      wait_ci:       talismanShip.wait_ci ?? defaults.ship.wait_ci,
+      draft:         talismanShip.draft ?? defaults.ship.draft,
+      labels:        Array.isArray(talismanShip.labels) ? talismanShip.labels : defaults.ship.labels,  // SEC-DECREE-002: validate array
+      pr_monitoring: talismanShip.pr_monitoring ?? defaults.ship.pr_monitoring,
+      rebase_before_merge: talismanShip.rebase_before_merge ?? defaults.ship.rebase_before_merge,
+      // BACK-012 FIX: Include co_authors in 3-layer resolution (was read from raw talisman)
+      // QUAL-003 FIX: Check arc.ship.co_authors first, fall back to work.co_authors
+      co_authors: Array.isArray(talismanShip.co_authors) ? talismanShip.co_authors
+        : Array.isArray(talisman?.work?.co_authors) ? talisman.work.co_authors : [],
+    },
+    // QUAL-001 FIX: Include pre_merge_checks in config resolution (was missing — talisman overrides silently ignored)
+    pre_merge_checks: {
+      migration_conflict: talismanPreMerge.migration_conflict ?? true,
+      schema_conflict: talismanPreMerge.schema_conflict ?? true,
+      lock_file_conflict: talismanPreMerge.lock_file_conflict ?? true,
+      uncommitted_changes: talismanPreMerge.uncommitted_changes ?? true,
+      migration_paths: Array.isArray(talismanPreMerge.migration_paths) ? talismanPreMerge.migration_paths : [],
+    }
+  }
+
+  // Layer 3: Inline CLI flags override (only if explicitly passed)
+  if (inlineFlags.no_forge !== undefined) config.no_forge = inlineFlags.no_forge
+  if (inlineFlags.approve !== undefined) config.approve = inlineFlags.approve
+  if (inlineFlags.skip_freshness !== undefined) config.skip_freshness = inlineFlags.skip_freshness
+  if (inlineFlags.confirm !== undefined) config.confirm = inlineFlags.confirm
+  // Ship flags can also be overridden inline
+  if (inlineFlags.no_pr !== undefined) config.ship.auto_pr = !inlineFlags.no_pr
+  if (inlineFlags.no_merge !== undefined) config.ship.auto_merge = !inlineFlags.no_merge
+  if (inlineFlags.draft !== undefined) config.ship.draft = inlineFlags.draft
+
+  return config
+}
+
+// Parse inline flags and resolve config
+const inlineFlags = {
+  no_forge: args.includes('--no-forge') ? true : undefined,
+  approve: args.includes('--approve') ? true : undefined,
+  skip_freshness: args.includes('--skip-freshness') ? true : undefined,
+  confirm: args.includes('--confirm') ? true : undefined,
+  no_pr: args.includes('--no-pr') ? true : undefined,
+  no_merge: args.includes('--no-merge') ? true : undefined,
+  draft: args.includes('--draft') ? true : undefined,
+}
+const arcConfig = resolveArcConfig(talisman, inlineFlags)
+// Use arcConfig.no_forge, arcConfig.approve, arcConfig.ship.auto_pr, etc. throughout
+```
+
+## Tier Selection and Timeout Calculation
+
+```javascript
+const tier = selectReviewMendTier(diffStats, planMeta, talisman)
+// SEC-005 FIX: Collect changed files for progressive focus fallback (EC-9 paradox recovery)
+const changedFiles = diffStats.files || []
+// Calculate dynamic total timeout based on tier
+const arcTotalTimeout = calculateDynamicTimeout(tier)
+```
+
+## Checkpoint Schema v11
+
+```javascript
+// ── Resolve session identity for cross-session isolation ──
+const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+const ownerPid = Bash(`echo $PPID`).trim()
+
+Write(`.claude/arc/${id}/checkpoint.json`, {
+  id, schema_version: 11, plan_file: planFile,
+  config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
+  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
+  arc_config: arcConfig,
+  pr_url: null,
+  freshness: freshnessResult || null,
+  session_nonce: sessionNonce, phase_sequence: 0,
+  phases: {
+    forge:        { status: arcConfig.no_forge ? "skipped" : "pending", artifact: null, artifact_hash: null, team_name: null },
+    plan_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    plan_refine:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    semantic_verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    work:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    codex_gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    gap_remediation: { status: "pending", artifact: null, artifact_hash: null, team_name: null, fixed_count: null, deferred_count: null },
+    code_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    test:         { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false },
+    audit:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    audit_mend:   { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    audit_verify: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    ship:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    merge:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+  },
+  convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [], original_changed_files: changedFiles },
+  audit_convergence: { round: 0, max_rounds: 2, tier: { name: "LIGHT", maxCycles: 2, minCycles: 1 }, history: [] },
+  commits: [],
+  started_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+})
+```

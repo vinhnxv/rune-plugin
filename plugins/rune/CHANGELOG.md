@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.63.2] - 2026-02-22
+
+### Fixed
+- **SEC-1/SEC-2**: Added checkpoint validation guards in `arc-codex-phases.md` Phase 5.6 — `plan_file` path validation and `git_sha` pattern validation prevent prompt injection from tampered checkpoint JSON
+- **VEIL-1**: Added missing Phase 8.5 (AUDIT MEND) and Phase 8.7 (AUDIT VERIFY) to completion report template in `post-arc.md` (pre-existing bug)
+- **DOC-1**: Fixed broken `team-lifecycle-guard.md` relative links in `arc-phase-mend.md` — updated to correct `../../rune-orchestration/references/` path
+- **SEC-3**: Added inline SEC annotation for `enrichedPlanPath` in `arc-codex-phases.md` Phase 2.8
+- **VEIL-2**: Clarified SETUP_BUDGET scope comment in `arc/SKILL.md` — was misleadingly described as "mend-scoped" but applies to all delegated phases
+- **QUAL-1**: Added missing Inputs/Outputs/Error handling metadata to `codex-execution.md` for cross-skill consistency
+- **DOC-2**: Replaced hardcoded `/18 phases` with `/${PHASE_ORDER.length}` in `post-arc.md` echo persist
+- **Context Intelligence**: Removed invalid `linkedIssues` field from `gh pr view --json` query — field doesn't exist in gh CLI structured output
+
 ## [1.63.1] - 2026-02-21
 
 ### Fixed
