@@ -30,7 +30,7 @@ const shouldRemediate = remediationEnabled && (deterministicNeedsRemediation || 
 if (!shouldRemediate) {
   const reason = !remediationEnabled
     ? "arc.gap_analysis.remediation.enabled: false in talisman"
-    : "Neither Phase 5.5 nor Phase 5.6 flagged needs_remediation"
+    : `Neither Phase 5.5 nor Phase 5.6 flagged needs_remediation (deterministicNeedsRemediation=${deterministicNeedsRemediation}, codexNeedsRemediation=${codexNeedsRemediation}, codexFindingCount=${codexFindingCount}, codexThreshold=${codexThreshold})`
 
   Write(`tmp/arc/${id}/gap-remediation-report.md`,
     `# Gap Remediation — Skipped\n\n**Reason**: ${reason}\n**Date**: ${new Date().toISOString()}\n`)
@@ -263,6 +263,7 @@ const fixerPrompt = loadTemplate("gap-fixer.md", {
   output_dir: `tmp/arc/${id}`,
   identifier: id,
   gaps: gapList,
+  fixer_inputs: fixerInputs,
   context: "arc-gap-remediation",
   timestamp: new Date().toISOString()
 })

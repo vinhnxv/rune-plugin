@@ -454,7 +454,7 @@ postPhaseCleanup(checkpoint, "codex_gap_analysis")
 Auto-fixes FIXABLE findings from the Phase 5.5 Inspector Ashes VERDICT before proceeding to Goldmask Verification. Only runs when Phase 5.5 STEP D sets `needs_remediation: true` OR Phase 5.6 sets `codex_needs_remediation: true` in checkpoint AND `arc.gap_analysis.remediation.enabled` is not false in talisman.
 
 **Team**: `arc-gap-fix-{id}` — follows ATE-1 pattern
-**Inputs**: `tmp/arc/{id}/gap-analysis-verdict.md` (from Phase 5.5 STEP B), checkpoint `needs_remediation` flag
+**Inputs**: `tmp/arc/{id}/gap-analysis-verdict.md` (from Phase 5.5 STEP B), checkpoint `needs_remediation` flag (Phase 5.5 STEP D) or `codex_needs_remediation` flag (Phase 5.6)
 **Output**: `tmp/arc/{id}/gap-remediation-report.md`
 **Failure**: Non-blocking. Skips cleanly if gate fails. Times out → proceeds with partial fixes.
 
