@@ -256,4 +256,43 @@ See the consistency checks section in `talisman.example.yml` for schema and exam
 
 ---
 
+## goldmask — Per-workflow integration (v1.71.0+)
+
+Per-workflow Goldmask configuration lives under the `goldmask:` key as flat siblings to `goldmask.layers:`. All defaults are `true` — Goldmask is always on unless explicitly disabled. The master switch `goldmask.enabled` takes precedence over per-workflow switches.
+
+### `goldmask` — Top-level settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | boolean | `true` | Master switch. When `false`, disables ALL Goldmask integration across all workflows (forge, mend, devise, inspect, arc, appraise, audit). Per-workflow switches are ignored when this is `false`. |
+
+### `goldmask.forge` — Lore Layer in forge
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable Lore Layer risk scoring in forge. Runs before Forge Gaze selection. CRITICAL/HIGH files boost Gaze scores and forge agents receive risk context. Skip chain: talisman → git guard → G5 guard → `--no-lore`. |
+
+### `goldmask.mend` — Data passthrough + quick check in mend
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | boolean | `true` | Master switch for all mend Goldmask integration. When false, skips data discovery (Phase 0.5) and quick check (Phase 5.9). |
+| `inject_context` | boolean | `true` | Inject risk/wisdom context into fixer prompts. Fixer agents receive file risk tiers, wisdom advisories, and blast-radius warnings from prior Goldmask outputs. |
+| `quick_check` | boolean | `true` | Run deterministic quick check after mend (Phase 5.9). Compares MUST-CHANGE files from GOLDMASK.md against actual mend modifications. Reports untouched and unexpected changes. |
+
+### `goldmask.devise` — Predictive Goldmask depth
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `depth` | string | `"enhanced"` | Predictive Goldmask depth. `basic`: 2 agents (lore-analyst + wisdom-sage, legacy). `enhanced`: 6 agents (lore + 3 impact tracers + wisdom + coordinator). `full`: 8 agents (all 5 impact tracers + lore + wisdom + coordinator). **Warning**: `full` mode is token-intensive — 8 parallel agents each with their own context window. Use only for high-risk changes. |
+
+### `goldmask.inspect` — Lore Layer + wisdom passthrough in inspect
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable Lore Layer risk scoring in inspect. Runs before inspector assignment. CRITICAL requirements get dual inspector coverage (grace-warden + ruin-prophet). Skip chain: talisman → git guard → G5 guard → `--no-lore`. |
+| `wisdom_passthrough` | boolean | `true` | Inject wisdom advisories from prior Goldmask runs into inspector prompts. Each inspector receives role-specific guidance notes alongside risk data. |
+
+---
+
 See `../skills/roundtable-circle/references/custom-ashes.md` for full schema and `talisman.example.yml` at plugin root.

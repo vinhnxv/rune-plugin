@@ -766,6 +766,7 @@ codex:
 # Three-layer investigation: Impact (dependency tracing), Wisdom (git archaeology),
 # Lore (quantitative risk scoring), plus Collateral Damage Detection.
 # goldmask:
+#   enabled: true                        # Master switch — disables ALL Goldmask across all workflows (default: true)
 #   layers:
 #     impact:
 #       enabled: true                    # Enable Impact Layer (5 Haiku tracers)
@@ -800,3 +801,34 @@ codex:
 #   modes:
 #     quick: false                       # Skip Wisdom + Lore layers (Impact only)
 #     deep: false                        # Extended lookback (360 days), lower thresholds
+#   # ── Per-workflow Goldmask integration (v1.71.0+) ──
+#   # Controls how each workflow uses Goldmask data.
+#   # All defaults are true — Goldmask is always on unless explicitly disabled.
+#   forge:
+#     enabled: true                      # Enable Lore Layer in forge (default: true)
+#                                        # Runs risk scoring on files referenced in plan before Forge Gaze selection.
+#                                        # CRITICAL/HIGH files get score boost, forge agents receive risk context.
+#                                        # Skip conditions: talisman → git guard → G5 guard → --no-lore flag
+#   mend:
+#     enabled: true                      # Master switch for mend Goldmask integration (default: true)
+#     inject_context: true               # Inject risk/wisdom context into fixer prompts (default: true)
+#                                        # Fixer agents receive file risk tiers, wisdom advisories, and
+#                                        # blast-radius warnings from prior Goldmask outputs.
+#     quick_check: true                  # Post-mend deterministic quick check (default: true)
+#                                        # Compares MUST-CHANGE files from GOLDMASK.md against actual
+#                                        # mend modifications. Reports untouched and unexpected changes.
+#   devise:
+#     enabled: true                      # Kill switch — disables Phase 2.3 Predictive Goldmask in /rune:devise (default: true)
+#                                        # Set false to skip Phase 2.3 entirely even when goldmask.enabled is true.
+#                                        # Checked at devise entry point; takes precedence over depth setting.
+#     depth: basic                       # Predictive Goldmask depth (default: basic)
+#                                        # basic    — 2 agents: lore-analyst + wisdom-sage (standard)
+#                                        # enhanced — 6 agents: lore + 3 impact tracers + wisdom + coordinator (explicit opt-in)
+#                                        # full     — 8 agents: all 5 impact tracers + lore + wisdom + coordinator (token-intensive — use for high-risk changes only)
+#   inspect:
+#     enabled: true                      # Enable Lore Layer in inspect (default: true)
+#                                        # Runs risk scoring on scope files before inspector assignment.
+#                                        # CRITICAL requirements get dual inspector coverage.
+#     wisdom_passthrough: true           # Inject wisdom from prior Goldmask into inspector prompts (default: true)
+#                                        # When available, wisdom advisories are passed through to inspectors
+#                                        # with inspector-specific guidance notes.

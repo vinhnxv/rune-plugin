@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.71.0] - 2026-02-23
+
+### Added
+- **Universal Goldmask integration** across all Rune workflows that previously lacked it:
+  - **Forge**: Phase 1.3 (file ref extraction) + Phase 1.5 (Lore Layer) with risk-boosted Forge Gaze scoring (CRITICAL +0.15, HIGH +0.08) and risk context injection into forge agent prompts. New `--no-lore` flag.
+  - **Mend**: Phase 0.5 (Goldmask data discovery) with risk-overlaid severity ordering, fixer prompt injection (risk tiers + wisdom advisories + blast-radius warnings), and Phase 5.9 (deterministic quick check against MUST-CHANGE files).
+  - **Inspect**: Phase 0.3 (Lore Layer) with risk-weighted requirement classification, dual inspector assignment for CRITICAL requirements, risk-enriched inspector prompts with role-specific notes, and Historical Risk Assessment in VERDICT.md.
+  - **Devise upgrade**: Phase 2.3 upgraded from 2-agent basic to 6-agent enhanced mode (default). Three depth modes: `basic` (2 agents), `enhanced` (6 agents: lore + 3 Impact tracers + wisdom + coordinator), `full` (8 agents, inlined). Partial-ready gate, 5-min hard ceiling.
+- **Shared Goldmask infrastructure**:
+  - `goldmask/references/data-discovery.md` — standardized protocol for finding and reusing existing Goldmask outputs across workflows (7-path search order including forge/ and plans/, age guard, TOCTOU-safe reads, 30% overlap validation, POSIX-only platform note)
+  - `goldmask/references/risk-context-template.md` — shared template for injecting risk data into agent prompts (3 sections: File Risk Tiers, Caution Zones, Blast Radius)
+- **Per-workflow talisman config** (`goldmask.forge`, `goldmask.mend`, `goldmask.devise`, `goldmask.inspect`) with documented kill switches and defaults
+
+### Changed
+- `goldmask.enabled` now defaults to `true` consistently across all workflows
+- `goldmask.devise.depth` defaults to `enhanced` (was implicit `basic`)
+- `agent-registry.md`: lore-analyst usage contexts updated (now includes forge, inspect)
+
 ## [1.70.0] - 2026-02-23
 
 ### Added

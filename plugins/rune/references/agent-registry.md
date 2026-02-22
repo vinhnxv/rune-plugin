@@ -69,16 +69,27 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 
 ## Investigation Agents (`agents/investigation/`)
 
+### Goldmask Agents (Impact Layer + Wisdom Layer + Lore Layer)
+
+Used by `/rune:goldmask`, `/rune:arc` Phase 5.7, and `/rune:devise` predictive mode:
+
+| Agent | Layer | Purpose |
+|-------|-------|---------|
+| data-layer-tracer | Impact | Impact tracing across data models, schemas, migrations, and storage layers |
+| api-contract-tracer | Impact | Impact tracing across API endpoints, contracts, request/response schemas |
+| business-logic-tracer | Impact | Impact tracing across business rules, domain logic, and workflow orchestration |
+| event-message-tracer | Impact | Impact tracing across event buses, message queues, pub/sub, and async pipelines |
+| config-dependency-tracer | Impact | Impact tracing across configuration, environment variables, feature flags, and deployment settings |
+| wisdom-sage | Wisdom | Git archaeology — commit intent classification, caution scoring via git blame analysis |
+| lore-analyst | Lore | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration. Used in: goldmask, appraise, audit, devise, forge (Phase 1.5), inspect (Phase 0.3) |
+| goldmask-coordinator | Synthesis | Three-layer synthesis — merges Impact + Wisdom + Lore findings into unified GOLDMASK.md report |
+
+### Inspector Agents (Plan-vs-Implementation)
+
+Used by `/rune:inspect` and `/rune:arc` Phase 5.5:
+
 | Agent | Purpose |
 |-------|---------|
-| data-layer-tracer | Impact tracing across data models, schemas, migrations, and storage layers |
-| api-contract-tracer | Impact tracing across API endpoints, contracts, request/response schemas |
-| business-logic-tracer | Impact tracing across business rules, domain logic, and workflow orchestration |
-| event-message-tracer | Impact tracing across event buses, message queues, pub/sub, and async pipelines |
-| config-dependency-tracer | Impact tracing across configuration, environment variables, feature flags, and deployment settings |
-| wisdom-sage | Git archaeology — commit intent classification, caution scoring via git blame analysis |
-| lore-analyst | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration |
-| goldmask-coordinator | Three-layer synthesis — merges Impact + Wisdom + Lore findings into unified GOLDMASK.md report |
 | grace-warden | Correctness & completeness inspector — plan requirement traceability and implementation status |
 | ruin-prophet | Failure modes, security posture, and operational readiness inspector |
 | sight-oracle | Design alignment, coupling analysis, and performance profiling inspector |

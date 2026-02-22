@@ -38,7 +38,7 @@ allowed-tools:
 
 Orchestrate a multi-agent inspection that measures implementation completeness and quality against a plan. Each Inspector Ash gets its own 200k context window via Agent Teams.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `polling-guard`, `zsh-compat`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `polling-guard`, `zsh-compat`, `goldmask`
 
 ## Flags
 
@@ -51,6 +51,7 @@ Orchestrate a multi-agent inspection that measures implementation completeness a
 | `--fix` | After VERDICT, spawn gap-fixer to auto-fix FIXABLE findings | Off |
 | `--max-fixes <N>` | Cap on fixable gaps per run | 20 |
 | `--mode <mode>` | Inspection mode: `implementation` (default) or `plan` | implementation |
+| `--no-lore` | Disable Phase 1.3 Lore Layer (git history risk scoring) | Off |
 
 **Dry-run mode** executes Phase 0 + Phase 0.5 + Phase 1 only. Displays: extracted requirements with IDs and priorities, inspector assignments, relevant codebase files, estimated team size. No teams, tasks, state files, or agents are created.
 
@@ -186,6 +187,171 @@ if (scopeFiles.length > 120):
 
 If `--dry-run`, display scope + assignments and stop. No teams, tasks, or agents created.
 
+## Phase 1.3: Lore Layer (Risk Intelligence)
+
+Runs AFTER scope is known (Phase 1) but BEFORE team creation (Phase 2). Discovers existing risk-map or spawns `lore-analyst` as a bare Task (no team yet — ATE-1 exemption). Re-sorts `scopeFiles` by risk tier and enriches requirement classification.
+
+See [data-discovery.md](../goldmask/references/data-discovery.md) for the discovery protocol and [risk-context-template.md](../goldmask/references/risk-context-template.md) for prompt injection format.
+
+### Skip Conditions
+
+| Condition | Effect |
+|-----------|--------|
+| `talisman.goldmask.enabled === false` | Skip Phase 1.3 entirely |
+| `talisman.goldmask.inspect.enabled === false` | Skip Phase 1.3 entirely |
+| `talisman.goldmask.layers.lore.enabled === false` | Skip Phase 1.3 entirely |
+| `--no-lore` flag | Skip Phase 1.3 entirely |
+| Non-git repo | Skip Phase 1.3 |
+| < 5 commits in lookback window (G5 guard) | Skip Phase 1.3 |
+| `talisman.goldmask.inspect.wisdom_passthrough === false` | Skip wisdom injection in Phase 3 only |
+| Existing risk-map found (>= 30% scope overlap) | Reuse instead of spawning agent |
+
+### Step 1.3.1 — Skip Gate
+
+```javascript
+const goldmaskEnabled = config?.goldmask?.enabled !== false
+const inspectGoldmaskEnabled = config?.goldmask?.inspect?.enabled !== false
+const loreEnabled = config?.goldmask?.layers?.lore?.enabled !== false
+const noLoreFlag = flag("--no-lore")
+const isGitRepo = Bash("git rev-parse --is-inside-work-tree 2>/dev/null").trim() === "true"
+
+let riskMap = null       // string | null — raw JSON from risk-map.json
+let wisdomData = null    // string | null — raw markdown from wisdom-report.md
+
+if (!goldmaskEnabled || !inspectGoldmaskEnabled || !loreEnabled || noLoreFlag || !isGitRepo) {
+  warn("Phase 1.3: Lore Layer skipped — " + skipReason)
+  // Proceed to Phase 2 without risk data
+} else {
+  // G5 guard: require minimum commit history
+  const lookbackDays = config?.goldmask?.layers?.lore?.lookback_days ?? 180
+  const commitCount = parseInt(
+    Bash(`git rev-list --count HEAD --since='${lookbackDays} days ago' 2>/dev/null || echo 0`)
+  )
+  if (commitCount < 5) {
+    warn("Phase 1.3: Lore Layer skipped — fewer than 5 commits in lookback window (G5 guard)")
+  } else {
+    // Step 1.3.2 — Discover or spawn
+  }
+}
+```
+
+### Step 1.3.2 — Discover Existing Risk-Map or Spawn Lore-Analyst
+
+```javascript
+// Option A: Reuse existing risk-map from prior workflows
+const existing = discoverGoldmaskData({
+  needsRiskMap: true,
+  maxAgeDays: 3,
+  scopeFiles: scopeFiles  // 30% overlap validation
+})
+
+if (existing?.riskMap) {
+  riskMap = existing.riskMap
+  warn(`Phase 1.3: Reusing existing risk-map from ${existing.riskMapPath}`)
+} else {
+  // Option B: Spawn lore-analyst as bare Task (ATE-1 exemption — no team exists yet)
+  Task({
+    subagent_type: "general-purpose",
+    name: "inspect-lore-analyst",
+    // NO team_name — ATE-1 exemption (pre-team phase, team created at Phase 2)
+    prompt: `You are rune:investigation:lore-analyst.
+Analyze git history risk for the following scope files.
+Write risk-map.json to ${outputDir}/risk-map.json and lore-analysis.md to ${outputDir}/lore-analysis.md.
+
+Scope files: ${scopeFiles.join(", ")}
+Lookback days: ${lookbackDays}`
+  })
+
+  // Wait for completion (30s timeout, non-blocking)
+  try {
+    riskMap = Read(`${outputDir}/risk-map.json`)
+  } catch (readError) {
+    warn("Phase 1.3: lore-analyst output not available — proceeding without risk data")
+    riskMap = null
+  }
+}
+
+// Best-effort: load wisdom data if available (for Phase 3 injection)
+const wisdomPassthrough = config?.goldmask?.inspect?.wisdom_passthrough !== false
+if (wisdomPassthrough) {
+  const wisdomResult = discoverGoldmaskData({
+    needsRiskMap: false,
+    needsWisdom: true,
+    maxAgeDays: 7
+  })
+  if (wisdomResult?.wisdomReport) {
+    wisdomData = wisdomResult.wisdomReport
+  }
+}
+```
+
+**Agent**: `lore-analyst` spawned as `general-purpose` with identity via prompt (ATE-1 compatible). Same pattern as appraise Phase 0.5.
+
+**Output**: `tmp/inspect/{identifier}/risk-map.json` + `tmp/inspect/{identifier}/lore-analysis.md`
+
+**Error handling**: If lore-analyst fails or times out, proceed without risk data. Non-blocking.
+
+### Step 1.3.3 — Risk-Weighted Scope Sorting and Requirement Enhancement
+
+```javascript
+if (riskMap) {
+  try {
+    const parsed = JSON.parse(riskMap)
+    const riskFiles = parsed?.files ?? []
+
+    // Re-sort scopeFiles by risk tier: CRITICAL → HIGH → MEDIUM → LOW → STALE → unscored
+    const tierOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4 }
+    scopeFiles.sort((a, b) => {
+      const aEntry = riskFiles.find(f => f.path === a)
+      const bEntry = riskFiles.find(f => f.path === b)
+      const aTier = tierOrder[aEntry?.tier] ?? 5
+      const bTier = tierOrder[bEntry?.tier] ?? 5
+      return aTier - bTier
+    })
+
+    // Enhance requirement classification with risk weighting
+    for (const req of requirements) {
+      const reqFiles = identifiers
+        .filter(id => id.type === "file" && req.text.includes(id.value))
+        .map(id => id.value)
+      const maxRiskTier = getMaxRiskTier(reqFiles, riskFiles)
+
+      if (maxRiskTier === 'CRITICAL') {
+        req.inspectionPriority = 'HIGH'
+        req.riskNote = "Touches CRITICAL-tier files — requires thorough inspection"
+        // Dual inspector gate: only activate when plan has security-sensitive sections
+        // OR talisman explicitly enables dual_inspector_gate
+        const hasSecurity = requirements.some(r => /security|auth|crypt|token|inject|xss|sqli/i.test(r.text))
+        const dualGateEnabled = inspectConfig.dual_inspector_gate ?? hasSecurity
+        if (dualGateEnabled) {
+          // Dual inspector assignment: grace-warden AND ruin-prophet
+          req.assignedInspectors = ['grace-warden', 'ruin-prophet']
+        }
+      } else if (maxRiskTier === 'HIGH') {
+        req.inspectionPriority = 'ELEVATED'
+      }
+    }
+  } catch (parseError) {
+    warn("Phase 1.3: risk-map.json parse error — proceeding without risk data")
+    riskMap = null
+  }
+}
+
+// Helper: returns highest risk tier from a list of files
+function getMaxRiskTier(files: string[], riskFiles: RiskEntry[]): string {
+  const tierOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4, UNKNOWN: 5 }
+  let maxTier = 'UNKNOWN'
+  for (const f of files) {
+    const entry = riskFiles.find(r => r.path === f)
+    const tier = entry?.tier ?? 'UNKNOWN'
+    if ((tierOrder[tier] ?? 5) < (tierOrder[maxTier] ?? 5)) {
+      maxTier = tier
+    }
+  }
+  return maxTier
+}
+```
+
 ## Phase 2: Forge Team
 
 ```javascript
@@ -235,6 +401,56 @@ Read and execute [inspector-prompts.md](references/inspector-prompts.md) for the
 - `model: "sonnet"` for each inspector
 - Template path: `roundtable-circle/references/ash-prompts/{inspector}-inspect.md` (or `{inspector}-plan-review.md` for `--mode plan`)
 
+### Step 3.1 — Risk Context Injection (Goldmask Enhancement)
+
+If `riskMap` is available from Phase 1.3, inject risk context into each inspector's prompt using the [risk-context-template.md](../goldmask/references/risk-context-template.md) template.
+
+```javascript
+for (const inspector of inspectors) {
+  const inspectorFiles = getFilesForInspector(inspector, requirements, scopeFiles)
+  let riskContext = ""
+
+  // Section 1+3: File Risk Tiers + Blast Radius from risk-map.json
+  if (riskMap) {
+    riskContext = renderRiskContextTemplate(riskMap, inspectorFiles)
+  }
+
+  // Section 2: Wisdom advisories passthrough
+  if (wisdomData) {
+    const advisories = filterWisdomForFiles(wisdomData, inspectorFiles)
+    if (advisories.length > 0) {
+      riskContext += "\n\n### Caution Zones\n\n"
+      for (const adv of advisories) {
+        riskContext += `- **\`${adv.file}\`** -- ${adv.intent} intent (caution: ${adv.cautionScore}). ${adv.advisory}\n`
+      }
+      riskContext += "\n**IMPORTANT**: Preserve the original design intent of these code sections."
+      riskContext += " Your inspection must flag changes that break defensive, constraint, or compatibility behavior.\n"
+    }
+  }
+
+  // Inspector-specific risk guidance notes
+  if (riskContext) {
+    if (inspector.name === 'grace-warden') {
+      riskContext += "\n**Grace-warden note**: Prioritize completeness checks on CRITICAL-tier files."
+      riskContext += " Requirements touching these files have outsized impact.\n"
+    } else if (inspector.name === 'ruin-prophet') {
+      riskContext += "\n**Ruin-prophet note**: CRITICAL-tier files with DEFENSIVE or CONSTRAINT intent"
+      riskContext += " require extra scrutiny. These files guard against known failure modes.\n"
+    } else if (inspector.name === 'sight-oracle') {
+      riskContext += "\n**Sight-oracle note**: CRITICAL-tier files with high churn suggest unstable"
+      riskContext += " architecture. Check for coupling issues.\n"
+    } else if (inspector.name === 'vigil-keeper') {
+      riskContext += "\n**Vigil-keeper note**: Files with ownership concentration (1-2 owners) have"
+      riskContext += " bus factor risk. Check test coverage and documentation.\n"
+    }
+
+    inspector.prompt += "\n\n" + riskContext
+  }
+}
+```
+
+**Rendering rule**: Only inject when `riskContext` is non-empty. Empty risk context = omit entirely. See [risk-context-template.md](../goldmask/references/risk-context-template.md) for rendering rules.
+
 ## Phase 4: Monitor
 
 ```
@@ -250,15 +466,78 @@ for (let i = 0; i < maxIterations; i++):
   5. Bash("sleep 30")
 ```
 
-## Phase 5 + Phase 6
+## Phase 5 + Phase 6: Verdict
 
 Read and execute [verdict-synthesis.md](references/verdict-synthesis.md) for the full Verdict Binder aggregation, score aggregation, evidence verification, gap classification, and VERDICT.md structure.
 
 **Summary:**
-- **Phase 5.2 (Verdict Binder)**: Aggregates inspector outputs. Produces VERDICT.md with requirement matrix, 9 dimension scores, gap analysis (8 categories), recommendations.
-- **Phase 5.3 (Wait)**: TaskList polling, 2-min timeout, 10s interval.
-- **Phase 6.1 (Evidence check)**: Verify up to 10 file references in VERDICT.md against disk.
-- **Phase 6.2 (Display)**: Show verdict summary (verdict, completion %, finding counts, report path).
+1. **Phase 5.2 (Verdict Binder)**: Aggregates inspector outputs. Produces VERDICT.md with requirement matrix, 9 dimension scores, gap analysis (8 categories), recommendations.
+2. **Phase 5.3 (Wait)**: TaskList polling, 2-min timeout, 10s interval.
+3. **Phase 6.1 (Evidence check)**: Verify up to 10 file references in VERDICT.md against disk.
+4. **Phase 6.2 (Display)**: Show verdict summary (verdict, completion %, finding counts, report path).
+
+### Phase 5-6 Enhancement: Historical Risk Assessment in VERDICT.md
+
+If `riskMap` is available from Phase 1.3, the Verdict Binder includes a Historical Risk Assessment section in VERDICT.md. This section is appended AFTER the standard verdict sections.
+
+```javascript
+if (riskMap) {
+  try {
+    const parsed = JSON.parse(riskMap)
+    const riskFiles = parsed?.files ?? []
+    const tierOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4 }
+
+    // Categorize files by tier
+    const criticalFiles = riskFiles.filter(f => f.tier === 'CRITICAL')
+    const highFiles = riskFiles.filter(f => f.tier === 'HIGH')
+    const mediumFiles = riskFiles.filter(f => f.tier === 'MEDIUM')
+    const lowFiles = riskFiles.filter(f => f.tier === 'LOW')
+
+    // Single-owner files (bus factor risk)
+    const singleOwnerFiles = riskFiles.filter(f =>
+      f.metrics?.ownership?.distinct_authors === 1
+    )
+
+    // Build Historical Risk section
+    let riskSection = "## Historical Risk Assessment (Goldmask Lore)\n\n"
+    riskSection += "### File Risk Distribution\n\n"
+    riskSection += "| Tier | Count | Files |\n"
+    riskSection += "|------|-------|-------|\n"
+    riskSection += `| CRITICAL | ${criticalFiles.length} | ${criticalFiles.map(f => '\`' + f.path + '\`').join(', ') || '--'} |\n`
+    riskSection += `| HIGH | ${highFiles.length} | ${highFiles.map(f => '\`' + f.path + '\`').join(', ') || '--'} |\n`
+    riskSection += `| MEDIUM | ${mediumFiles.length} | ... |\n`
+    riskSection += `| LOW | ${lowFiles.length} | ... |\n\n`
+
+    // Bus factor warnings
+    if (singleOwnerFiles.length > 0) {
+      riskSection += "### Bus Factor Warnings\n\n"
+      for (const f of singleOwnerFiles.slice(0, 10)) {
+        riskSection += `- \`${f.path}\`: single owner (${f.metrics?.ownership?.top_contributor ?? 'unknown'})\n`
+      }
+      riskSection += "\n"
+    }
+
+    // Inspection coverage vs risk
+    riskSection += "### Inspection Coverage vs Risk\n\n"
+    riskSection += "| Requirement | Risk Tier | Inspector Coverage | Finding Count |\n"
+    riskSection += "|-------------|-----------|-------------------|---------------|\n"
+    for (const req of requirements) {
+      const reqTier = req.inspectionPriority === 'HIGH' ? 'CRITICAL'
+        : req.inspectionPriority === 'ELEVATED' ? 'HIGH' : 'UNKNOWN'
+      riskSection += `| ${req.id ?? req.text?.slice(0, 40)} | ${reqTier} | ${req.assignedInspectors?.length ?? 1} | -- |\n`
+    }
+    riskSection += "\n**Note**: Requirements touching CRITICAL files with zero findings"
+    riskSection += " warrant manual review — they may represent gaps in inspection coverage.\n"
+
+    // Append to VERDICT.md
+    verdictContent += "\n\n" + riskSection
+  } catch (parseError) {
+    warn("Phase 5-6: risk-map parse error — omitting Historical Risk section from VERDICT")
+  }
+}
+```
+
+**Rendering rule**: The Historical Risk Assessment section is optional. If `riskMap` is null or parsing fails, the section is simply omitted from VERDICT.md. This is non-blocking.
 
 ## 9 Dimensions + 8 Gap Categories
 
@@ -312,6 +591,10 @@ See [verdict-synthesis.md](references/verdict-synthesis.md) for full cleanup pro
 | TeamCreate fails | Retry with pre-create guard |
 | TeamDelete fails | Filesystem fallback (CHOME pattern) |
 | VERDICT.md not created | Manual aggregation from inspector outputs |
+| Lore-analyst timeout (Phase 1.3) | Proceed without risk data (WARN) |
+| risk-map.json parse error (Phase 1.3) | Proceed without risk data (WARN) |
+| Wisdom passthrough unavailable (Phase 3) | Skip wisdom injection (INFO) |
+| Risk section render error (Phase 5-6) | Omit Historical Risk section from VERDICT (WARN) |
 
 ## Security
 
