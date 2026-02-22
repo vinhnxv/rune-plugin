@@ -1,6 +1,6 @@
 {
   "name": "rune",
-  "version": "1.66.0",
+  "version": "1.67.0",
   "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspect, test, and audit with Agent Teams. Includes 23 review agents, 5 research agents, 23 investigation agents, 11 utility agents, 2 work agents, 4 testing agents, 8 commands, and 25 skills. BMAD-derived elicitation methods for structured reasoning. Multi-language quality guidance (Python, TypeScript, Rust).",
   "author": {
     "name": "vinhnxv",

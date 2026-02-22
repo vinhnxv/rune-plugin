@@ -96,6 +96,9 @@ if [[ -L "${CWD}/${PROGRESS_FILE}" ]]; then
   exit 0
 fi
 
+# ── EXTRACT: session_id for session-scoped cleanup in injected prompts ──
+HOOK_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+
 # ── GUARD 5.7: Session isolation (cross-session safety) ──
 # The state file is project-scoped (.claude/arc-batch-loop.local.md).
 # Multiple Claude Code sessions may share the same CWD.
@@ -354,10 +357,17 @@ You are continuing the arc batch pipeline. Process the next plan.
 1. Verify git state is clean: git status
 ${GIT_INSTRUCTIONS}
 3. Clean stale workflow state: rm -f tmp/.rune-*.json 2>/dev/null
-4. Clean stale teams:
+4. Clean stale teams (session-scoped — only remove teams owned by this session):
    CHOME=\"\${CLAUDE_CONFIG_DIR:-\$HOME/.claude}\"
-   find \"\$CHOME/teams/\" -maxdepth 1 -type d \\( -name \"rune-*\" -o -name \"arc-*\" \\) -exec rm -rf {} + 2>/dev/null
-   find \"\$CHOME/tasks/\" -maxdepth 1 -type d \\( -name \"rune-*\" -o -name \"arc-*\" \\) -exec rm -rf {} + 2>/dev/null
+   MY_SESSION=\"${HOOK_SESSION_ID}\"
+   for dir in \"\$CHOME/teams/\"rune-* \"\$CHOME/teams/\"arc-*; do
+     [[ -d \"\$dir\" ]] || continue; [[ -L \"\$dir\" ]] && continue
+     if [[ -n \"\$MY_SESSION\" ]] && [[ -f \"\$dir/.session\" ]] && [[ ! -L \"\$dir/.session\" ]]; then
+       owner=\$(head -c 128 \"\$dir/.session\" 2>/dev/null | tr -d '[:space:]' || true)
+       [[ -n \"\$owner\" ]] && [[ \"\$owner\" != \"\$MY_SESSION\" ]] && continue
+     fi
+     tname=\$(basename \"\$dir\"); rm -rf \"\$CHOME/teams/\$tname\" \"\$CHOME/tasks/\$tname\" 2>/dev/null
+   done
 5. Execute: /rune:arc <plan-path>${NEXT_PLAN}</plan-path> --skip-freshness${MERGE_FLAG}
 
 IMPORTANT: Execute autonomously — do NOT ask for confirmation.

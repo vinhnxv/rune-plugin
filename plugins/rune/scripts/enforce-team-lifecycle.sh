@@ -94,6 +94,9 @@ if [[ ${#TEAM_NAME} -gt 128 ]]; then
   exit 0
 fi
 
+# ── EXTRACT: session_id from hook input (for session-scoped stale scan) ──
+HOOK_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+
 # ── STALE TEAM DETECTION (Advisory — D-1, D-2) ──
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
@@ -113,6 +116,16 @@ if [[ -d "$CHOME/teams/" ]]; then
     dirname=$(basename "$dir")
     # Validate dirname before adding (defense-in-depth)
     if [[ "$dirname" =~ ^[a-zA-Z0-9_-]+$ ]] && [[ ! -L "$dir" ]]; then
+      # Session scoping: check .session marker before treating as stale
+      if [[ -n "$HOOK_SESSION_ID" ]] && [[ -f "$dir/.session" ]] && [[ ! -L "$dir/.session" ]]; then
+        # .session marker exists — read owner session_id
+        marker_session=$(head -c 256 "$dir/.session" 2>/dev/null | tr -d '[:space:]' || true)
+        if [[ -n "$marker_session" ]] && [[ "$marker_session" != "$HOOK_SESSION_ID" ]]; then
+          # Different session owns this team — skip it
+          continue
+        fi
+      fi
+      # No .session marker OR same session OR empty HOOK_SESSION_ID → treat as stale (backwards compat)
       stale_teams+=("$dirname")
     fi
   done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -mmin +30 2>/dev/null)

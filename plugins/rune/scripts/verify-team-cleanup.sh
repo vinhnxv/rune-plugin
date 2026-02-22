@@ -29,6 +29,10 @@ if [[ "$TOOL_NAME" != "TeamDelete" ]]; then
   exit 0
 fi
 
+# Extract session context for report prefixing
+HOOK_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+SHORT_SID="${HOOK_SESSION_ID:0:8}"
+
 # SEC-2 NOTE: CWD not extracted — TLC-002 operates only on $CHOME paths.
 # If adding CWD-relative operations, add canonicalization guard (see TLC-001 lines 36-41).
 
@@ -55,9 +59,9 @@ if [[ -d "$CHOME/teams/" ]]; then
 fi
 
 if [[ ${#remaining[@]} -gt 0 ]]; then
-  echo "TLC-002 POST-DELETE: ${#remaining[@]} rune/arc team dir(s) still exist after TeamDelete: ${remaining[*]:0:5}. These may be from other workflows or zombie state. Run /rune:rest --heal if unexpected."
+  echo "TLC-002 POST-DELETE [${SHORT_SID:-no-sid}]: ${#remaining[@]} rune/arc team dir(s) still exist after TeamDelete: ${remaining[*]:0:5}. These may be from other workflows or zombie state. Run /rune:rest --heal if unexpected."
 fi
 
-[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-002: remaining team dirs after TeamDelete: ${#remaining[@]}" >> /tmp/rune-hook-trace.log
+[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-002 [${SHORT_SID:-no-sid}]: remaining team dirs after TeamDelete: ${#remaining[@]}" >> /tmp/rune-hook-trace.log
 
 exit 0

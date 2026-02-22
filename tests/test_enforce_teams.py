@@ -35,16 +35,18 @@ def _make_task_input(
     project: Path,
     *,
     team_name: str | None = None,
+    subagent_type: str = "general-purpose",
     description: str = "Do some work",
 ) -> dict:
     """Build a minimal Task tool_input JSON payload.
 
     If team_name is None the field is omitted (bare Task call).
     If team_name is provided it is included (compliant Task call).
+    subagent_type defaults to "general-purpose" (blocked by ATE-1).
     """
     tool_input: dict = {
         "description": description,
-        "subagent_type": "general-purpose",
+        "subagent_type": subagent_type,
         "prompt": "Perform the task.",
     }
     if team_name is not None:
@@ -656,6 +658,133 @@ class TestEnforceTeamsTeamNameEnforcement:
         """Without an active workflow, even a bare Task must be allowed."""
         project, _ = project_env
         result = hook_runner(ENFORCE_TEAMS, _make_task_input(project, team_name=None))
+        assert not _is_deny(result)
+
+
+# ---------------------------------------------------------------------------
+# Read-only subagent exemption tests (ATE-1 exemption for Explore/Plan)
+# ---------------------------------------------------------------------------
+
+
+class TestEnforceTeamsReadOnlyExemption:
+    """Verify that read-only built-in subagent types (Explore, Plan) are exempt."""
+
+    @requires_jq
+    def test_allows_explore_without_team_name_during_review(
+        self, hook_runner, project_env
+    ) -> None:
+        """Explore subagent (read-only, Haiku) must be allowed without team_name."""
+        project, config = project_env
+        _write_review_state(project, config_dir=config, owner_pid=os.getpid())
+        result = hook_runner(
+            ENFORCE_TEAMS,
+            _make_task_input(project, team_name=None, subagent_type="Explore"),
+        )
+        assert not _is_deny(result)
+
+    @requires_jq
+    def test_allows_plan_without_team_name_during_review(
+        self, hook_runner, project_env
+    ) -> None:
+        """Plan subagent (read-only) must be allowed without team_name."""
+        project, config = project_env
+        _write_review_state(project, config_dir=config, owner_pid=os.getpid())
+        result = hook_runner(
+            ENFORCE_TEAMS,
+            _make_task_input(project, team_name=None, subagent_type="Plan"),
+        )
+        assert not _is_deny(result)
+
+    @requires_jq
+    def test_allows_explore_without_team_name_during_arc(
+        self, hook_runner, project_env
+    ) -> None:
+        """Explore must be allowed during active arc checkpoint."""
+        project, config = project_env
+        _write_arc_checkpoint(project, config_dir=config, owner_pid=os.getpid())
+        result = hook_runner(
+            ENFORCE_TEAMS,
+            _make_task_input(project, team_name=None, subagent_type="Explore"),
+        )
+        assert not _is_deny(result)
+
+    @requires_jq
+    def test_allows_plan_without_team_name_during_arc(
+        self, hook_runner, project_env
+    ) -> None:
+        """Plan must be allowed during active arc checkpoint."""
+        project, config = project_env
+        _write_arc_checkpoint(project, config_dir=config, owner_pid=os.getpid())
+        result = hook_runner(
+            ENFORCE_TEAMS,
+            _make_task_input(project, team_name=None, subagent_type="Plan"),
+        )
+        assert not _is_deny(result)
+
+    @requires_jq
+    def test_denies_general_purpose_without_team_name(
+        self, hook_runner, project_env
+    ) -> None:
+        """general-purpose agents must still be denied without team_name."""
+        project, config = project_env
+        _write_review_state(project, config_dir=config, owner_pid=os.getpid())
+        result = hook_runner(
+            ENFORCE_TEAMS,
+            _make_task_input(project, team_name=None, subagent_type="general-purpose"),
+        )
+        assert _is_deny(result)
+
+    @requires_jq
+    def test_denies_bash_agent_without_team_name(
+        self, hook_runner, project_env
+    ) -> None:
+        """Bash subagent type must still be denied without team_name."""
+        project, config = project_env
+        _write_review_state(project, config_dir=config, owner_pid=os.getpid())
+        result = hook_runner(
+            ENFORCE_TEAMS,
+            _make_task_input(project, team_name=None, subagent_type="Bash"),
+        )
+        assert _is_deny(result)
+
+    @requires_jq
+    def test_denies_custom_rune_agent_without_team_name(
+        self, hook_runner, project_env
+    ) -> None:
+        """Custom Rune agent types must still be denied without team_name."""
+        project, config = project_env
+        _write_review_state(project, config_dir=config, owner_pid=os.getpid())
+        result = hook_runner(
+            ENFORCE_TEAMS,
+            _make_task_input(
+                project, team_name=None, subagent_type="rune:review:flaw-hunter"
+            ),
+        )
+        assert _is_deny(result)
+
+    @requires_jq
+    def test_explore_case_sensitive(
+        self, hook_runner, project_env
+    ) -> None:
+        """Explore exemption is case-sensitive — 'explore' (lowercase) is denied."""
+        project, config = project_env
+        _write_review_state(project, config_dir=config, owner_pid=os.getpid())
+        result = hook_runner(
+            ENFORCE_TEAMS,
+            _make_task_input(project, team_name=None, subagent_type="explore"),
+        )
+        assert _is_deny(result)
+
+    @requires_jq
+    def test_explore_no_workflow_still_allowed(
+        self, hook_runner, project_env
+    ) -> None:
+        """Explore without active workflow is allowed (baseline — no enforcement)."""
+        project, _ = project_env
+        result = hook_runner(
+            ENFORCE_TEAMS,
+            _make_task_input(project, team_name=None, subagent_type="Explore"),
+        )
         assert not _is_deny(result)
 
 
