@@ -351,6 +351,12 @@ arc:
     total_timeout: null        # Total batch timeout in ms (default: null = no limit)
     stop_on_divergence: false  # Stop batch if main diverges between runs (default: false)
 
+    # Inter-iteration summaries (v1.72.0)
+    # Write structured summary files between arc iterations for
+    # improved compact recovery and inter-arc context awareness.
+    summaries:
+      enabled: true              # Kill switch — set false to disable all summary behavior (default: true)
+
   # ── Gap Analysis settings (v1.51.0+) ──
   gap_analysis:
     inspectors: 2              # Number (1-4): spawn first N from priority list (grace-warden > ruin-prophet > sight-oracle > vigil-keeper). Or array of names: ["grace-warden", "ruin-prophet", "sight-oracle", "vigil-keeper"]

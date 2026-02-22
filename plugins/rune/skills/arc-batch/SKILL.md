@@ -51,12 +51,30 @@ Executes `/rune:arc` across multiple plan files sequentially. Each arc run compl
 
 See [batch-algorithm.md](references/batch-algorithm.md) for full pseudocode.
 
+## Inter-Iteration Summaries (v1.72.0)
+
+Between arc iterations, the Stop hook writes a structured summary file capturing metadata from the just-completed arc. These summaries improve compact recovery context and provide a record of what each arc accomplished.
+
+**Location**: `tmp/arc-batch/summaries/iteration-{N}.md` (flat path — no PID subdirectory; session isolation is handled by Guard 5.7 in the Stop hook).
+
+**Contents**: Plan path, status, branch name, PR URL, git log (last 5 commits), and a `## Context Note` section where Claude adds a brief qualitative summary during the next turn.
+
+**Behavior**:
+- Summaries are written BEFORE marking the plan as completed (crash-safe ordering)
+- Write failures are non-blocking — the batch continues without a summary
+- ARC_PROMPT step 4.5 is conditional: only injected when a summary was successfully written
+- `arc.batch.summaries.enabled: false` in talisman.yml disables all summary behavior
+- Max summary content is hardcoded to 30 lines for v1 (not talisman-configurable)
+
+**Compact recovery**: The `pre-compact-checkpoint.sh` hook captures `arc_batch_state` (current iteration, total plans, latest summary path) in the compact checkpoint. On recovery, the session-compact-recovery hook includes batch iteration context in the injected message.
+
 ## Known Limitations (V2 — Stop Hook Pattern)
 
 1. **Sequential only**: No parallel arc execution (SDK one-team-per-session constraint).
 2. **No version bump coordination**: Multiple arcs bumping plugin.json will conflict.
 3. **Shard ordering is sequential**: Shards are auto-sorted by number within groups but execute sequentially (no parallel shards). Use `--no-shard-sort` to disable auto-sorting.
 4. **Context growth**: Each arc runs as a native turn. Auto-compaction handles context window growth across multiple arcs. State is tracked in files, not context.
+5. **Compact recovery during arc-batch**: Teams are created/destroyed per phase. Compaction may hit when no team is active. Summary files persist independently — the compact checkpoint captures batch state even without an active team (C6 accepted limitation).
 
 ## Orchestration
 
@@ -326,6 +344,7 @@ Write(planListFile, planPaths.join('\n'))
 const talisman = readTalisman()
 const batchConfig = talisman?.arc?.batch || {}
 const autoMerge = noMerge ? false : (batchConfig.auto_merge ?? true)
+const summaryEnabled = batchConfig?.summaries?.enabled !== false  // default: true
 
 // ── Resolve session identity for cross-session isolation ──
 // Two isolation layers prevent cross-session interference:
@@ -376,12 +395,19 @@ owner_pid: ${ownerPid}
 session_id: ${CLAUDE_SESSION_ID}
 plans_file: ${planListFile}
 progress_file: ${progressFile}
+summary_enabled: ${summaryEnabled}
+summary_dir: tmp/arc-batch/summaries
 started_at: "${new Date().toISOString()}"
 ---
 
 Arc batch loop state. Do not edit manually.
 Use /rune:cancel-arc-batch to stop the batch loop.
 `)
+// NOTE: summary_enabled and summary_dir are read by the Stop hook via get_field().
+// summary_enabled defaults to true when missing (backward compat with old state files).
+// summary_dir is always "tmp/arc-batch/summaries" (flat path per C2 — no PID subdirectory).
+// Phase 6 synthetic resume summaries are NOT implemented (C11 — YAGNI).
+// On --resume, step 4.5 handles missing summaries via conditional injection.
 
 // ── Mark first pending plan as in_progress ──
 // P1-FIX: Find the correct plan entry in progress file by matching path,

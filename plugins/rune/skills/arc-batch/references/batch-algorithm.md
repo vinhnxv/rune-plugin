@@ -64,12 +64,19 @@ owner_pid: 12345
 session_id: abc-123-def-456
 plans_file: tmp/arc-batch/plan-list.txt
 progress_file: tmp/arc-batch/batch-progress.json
+summary_enabled: true
+summary_dir: tmp/arc-batch/summaries
 started_at: "2026-02-21T00:00:00Z"
 ---
 
 Batch arc loop state. Do not edit manually.
 Use /rune:cancel-arc-batch to stop.
 ```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `summary_enabled` | boolean | `true` | Enable inter-iteration summary files. Read from `talisman.arc.batch.summaries.enabled`. Backward-compat: missing field treated as `true`. |
+| `summary_dir` | string | `tmp/arc-batch/summaries` | Flat directory for summary files (no PID subdirectory — session isolation via Guard 5.7). |
 
 ## Stop Hook Loop Flow
 
@@ -78,9 +85,13 @@ Claude session turn N:
   1. /rune:arc completes (or user ends turn)
   2. Claude stops responding → Stop hook fires
   3. arc-batch-stop-hook.sh reads state file
+  3.5. [v1.72.0] Write structured summary to tmp/arc-batch/summaries/iteration-{N}.md
+       (plan path, status, git log, PR URL, branch — BEFORE marking completed)
   4. Marks current plan completed in batch-progress.json
   5. Finds next pending plan
   6. Outputs blocking JSON → Claude starts new turn with arc prompt
+     [v1.72.0] ARC_PROMPT includes step 4.5 (conditional):
+     read summary, append context note under ## Context Note section
   7. /rune:arc runs for next plan
   8. Repeat from step 2
 
@@ -96,7 +107,7 @@ Final iteration:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "status": "running | completed | finished | interrupted",
   "started_at": "ISO-8601",
   "updated_at": "ISO-8601",
@@ -109,11 +120,16 @@ Final iteration:
       "status": "pending | in_progress | completed | failed",
       "error": "null | error message",
       "completed_at": "ISO-8601 | null",
-      "arc_session_id": "arc-{timestamp} | null"
+      "arc_session_id": "arc-{timestamp} | null",
+      "summary_file": "tmp/arc-batch/summaries/iteration-1.md | null",
+      "pr_url": "https://github.com/... | null"
     }
   ]
 }
 ```
+
+**Schema v2 additions** (v1.66.0+): `shard_groups`, per-plan `shard_group` and `shard_num`.
+**v1.72.0 additions**: per-plan `summary_file` and `pr_url` (both nullable, backward-compatible).
 
 ## Edge Case Matrix (V2)
 
@@ -143,6 +159,13 @@ Final iteration:
 | Cancel from wrong session | Ownership warning on cancel commands (still allows cancellation) | cancel-arc-batch.md, cancel-arc.md |
 | on-session-stop.sh deferral | Only defers to arc-batch hook if this session owns the batch | on-session-stop.sh |
 | Stale teams between plans | Stop hook cleans teams/tasks dirs | arc-batch-stop-hook.sh |
+| Summary write fails | Non-blocking — SUMMARY_PATH set to empty, step 4.5 omitted | arc-batch-stop-hook.sh |
+| First iteration (no prior summary) | Step 4.5 conditional on SUMMARY_PATH — omitted for first arc | arc-batch-stop-hook.sh |
+| summary_enabled: false | All summary logic skipped (talisman kill switch) | arc-batch-stop-hook.sh |
+| Old state file without summary_enabled | get_field returns empty → treated as true (backward compat) | arc-batch-stop-hook.sh |
+| Compaction during arc-batch (no team) | Teamless checkpoint with arc_batch_state (C6 accepted) | pre-compact-checkpoint.sh |
+| Large git diff stat | Capped to 30 lines via tail (hardcoded per C8) | arc-batch-stop-hook.sh |
+| Summary path traversal/symlink | Rejected by path validation + symlink check | arc-batch-stop-hook.sh |
 
 ## V1 Edge Cases (REMOVED — v1.59.0)
 

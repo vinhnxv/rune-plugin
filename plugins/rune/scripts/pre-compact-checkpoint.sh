@@ -78,8 +78,80 @@ fi
 
 _trace "Team discovery: active_team=${active_team:-<none>}"
 
-# If no active team, nothing to checkpoint
+# NOTE: During arc-batch, teams are created/destroyed per-phase — compaction may
+# hit when no team is active. Summary files persist independently of team state.
+# Arc-batch state is captured regardless of team presence (see section below).
+
+# If no active team, nothing to checkpoint (but still capture arc-batch state below)
 if [[ -z "$active_team" ]]; then
+  # ── Arc-batch state capture (teamless — C6 accepted limitation) ──
+  # Arc-batch teams are ephemeral, but batch state file persists.
+  # Capture batch iteration context even when no team is active.
+  arc_batch_state="{}"
+  BATCH_STATE_FILE="${CWD}/.claude/arc-batch-loop.local.md"
+  if [[ -f "$BATCH_STATE_FILE" ]] && [[ ! -L "$BATCH_STATE_FILE" ]]; then
+    _batch_frontmatter=$(sed -n '/^---$/,/^---$/p' "$BATCH_STATE_FILE" 2>/dev/null | sed '1d;$d')
+    if [[ -n "$_batch_frontmatter" ]]; then
+      _batch_iter=$(echo "$_batch_frontmatter" | grep '^iteration:' | head -1 | sed 's/^iteration:[[:space:]]*//')
+      _batch_total=$(echo "$_batch_frontmatter" | grep '^total_plans:' | head -1 | sed 's/^total_plans:[[:space:]]*//')
+      _batch_active=$(echo "$_batch_frontmatter" | grep '^active:' | head -1 | sed 's/^active:[[:space:]]*//')
+      if [[ "$_batch_active" == "true" ]] && [[ "$_batch_iter" =~ ^[0-9]+$ ]] && [[ "$_batch_total" =~ ^[0-9]+$ ]]; then
+        _latest_summary=""
+        _batch_summary_dir="${CWD}/tmp/arc-batch/summaries"
+        if [[ -d "$_batch_summary_dir" ]] && [[ ! -L "$_batch_summary_dir" ]]; then
+          _latest_summary=$(ls -t "${_batch_summary_dir}"/iteration-*.md 2>/dev/null | head -1 || true)
+          if [[ -n "$_latest_summary" ]]; then
+            _latest_summary="${_latest_summary#${CWD}/}"
+          fi
+        fi
+        arc_batch_state=$(jq -n \
+          --arg iter "$_batch_iter" \
+          --arg total "$_batch_total" \
+          --arg summary "${_latest_summary:-none}" \
+          --arg sdir "tmp/arc-batch/summaries" \
+          '{
+            iteration: ($iter | tonumber),
+            total_plans: ($total | tonumber),
+            latest_summary: $summary,
+            summary_dir: $sdir
+          }' 2>/dev/null || echo '{}')
+        _trace "Arc-batch state (teamless): iter=${_batch_iter} total=${_batch_total}"
+      fi
+    fi
+  fi
+
+  # If we captured batch state, write a minimal checkpoint with it
+  if [[ "$arc_batch_state" != "{}" ]]; then
+    CHECKPOINT_FILE="${CWD}/tmp/.rune-compact-checkpoint.json"
+    CHECKPOINT_TMP="${CHECKPOINT_FILE}.tmp.$$"
+    TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    if jq -n \
+      --arg team "" \
+      --arg ts "$TIMESTAMP" \
+      --argjson batch "$arc_batch_state" \
+      '{
+        team_name: $team,
+        saved_at: $ts,
+        team_config: {},
+        tasks: [],
+        workflow_state: {},
+        arc_checkpoint: {},
+        arc_batch_state: $batch
+      }' > "$CHECKPOINT_TMP" 2>/dev/null; then
+      mv -f "$CHECKPOINT_TMP" "$CHECKPOINT_FILE" 2>/dev/null || rm -f "$CHECKPOINT_TMP" 2>/dev/null
+      CHECKPOINT_TMP=""
+    else
+      rm -f "$CHECKPOINT_TMP" 2>/dev/null
+    fi
+    jq -n '{
+      hookSpecificOutput: {
+        hookEventName: "PreCompact",
+        additionalContext: "No active Rune team but arc-batch state captured in compact checkpoint."
+      }
+    }'
+    exit 0
+  fi
+
   jq -n '{
     hookSpecificOutput: {
       hookEventName: "PreCompact",
@@ -144,6 +216,40 @@ if [[ -f "$arc_file" ]] && [[ ! -L "$arc_file" ]]; then
   arc_checkpoint=$(jq -c '.' "$arc_file" 2>/dev/null || echo '{}')
 fi
 
+# 5. Arc-batch state if active (v1.72.0)
+arc_batch_state="{}"
+BATCH_STATE_FILE="${CWD}/.claude/arc-batch-loop.local.md"
+if [[ -f "$BATCH_STATE_FILE" ]] && [[ ! -L "$BATCH_STATE_FILE" ]]; then
+  _batch_frontmatter=$(sed -n '/^---$/,/^---$/p' "$BATCH_STATE_FILE" 2>/dev/null | sed '1d;$d')
+  if [[ -n "$_batch_frontmatter" ]]; then
+    _batch_iter=$(echo "$_batch_frontmatter" | grep '^iteration:' | head -1 | sed 's/^iteration:[[:space:]]*//')
+    _batch_total=$(echo "$_batch_frontmatter" | grep '^total_plans:' | head -1 | sed 's/^total_plans:[[:space:]]*//')
+    _batch_active=$(echo "$_batch_frontmatter" | grep '^active:' | head -1 | sed 's/^active:[[:space:]]*//')
+    if [[ "$_batch_active" == "true" ]] && [[ "$_batch_iter" =~ ^[0-9]+$ ]] && [[ "$_batch_total" =~ ^[0-9]+$ ]]; then
+      _latest_summary=""
+      _batch_summary_dir="${CWD}/tmp/arc-batch/summaries"
+      if [[ -d "$_batch_summary_dir" ]] && [[ ! -L "$_batch_summary_dir" ]]; then
+        _latest_summary=$(ls -t "${_batch_summary_dir}"/iteration-*.md 2>/dev/null | head -1 || true)
+        if [[ -n "$_latest_summary" ]]; then
+          _latest_summary="${_latest_summary#${CWD}/}"
+        fi
+      fi
+      arc_batch_state=$(jq -n \
+        --arg iter "$_batch_iter" \
+        --arg total "$_batch_total" \
+        --arg summary "${_latest_summary:-none}" \
+        --arg sdir "tmp/arc-batch/summaries" \
+        '{
+          iteration: ($iter | tonumber),
+          total_plans: ($total | tonumber),
+          latest_summary: $summary,
+          summary_dir: $sdir
+        }' 2>/dev/null || echo '{}')
+      _trace "Arc-batch state: iter=${_batch_iter} total=${_batch_total}"
+    fi
+  fi
+fi
+
 # ── WRITE CHECKPOINT (atomic) ──
 CHECKPOINT_FILE="${CWD}/tmp/.rune-compact-checkpoint.json"
 CHECKPOINT_TMP="${CHECKPOINT_FILE}.tmp.$$"
@@ -156,13 +262,15 @@ if ! jq -n \
   --argjson tasks "$tasks_json" \
   --argjson workflow "$workflow_state" \
   --argjson arc "$arc_checkpoint" \
+  --argjson batch "$arc_batch_state" \
   '{
     team_name: $team,
     saved_at: $ts,
     team_config: $config,
     tasks: $tasks,
     workflow_state: $workflow,
-    arc_checkpoint: $arc
+    arc_checkpoint: $arc,
+    arc_batch_state: $batch
   }' > "$CHECKPOINT_TMP" 2>/dev/null; then
   echo "WARN: Failed to write compact checkpoint" >&2
   rm -f "$CHECKPOINT_TMP" 2>/dev/null
