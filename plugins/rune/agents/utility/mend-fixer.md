@@ -130,6 +130,25 @@ If a fix requires changes to files outside your assignment, report this to the T
 6. Report completion via SendMessage to the Tarnished
 ```
 
+### QUAL-Prefix Fix Guidance (Simplification Patterns)
+
+When resolving QUAL-prefix findings from simplicity-warden, apply the matching pattern:
+
+| Finding Type | Pattern | Fix Approach |
+|-------------|---------|-------------|
+| Premature Abstraction | **Remove** | Delete abstract class, use concrete implementation directly |
+| Unnecessary Indirection | **Flatten** | Remove wrapper, call underlying function directly |
+| Over-Parameterized Function | **Remove** | Delete unused parameters, simplify signature |
+| One-Use Helper | **Flatten** | Inline the logic at call site, delete helper |
+| Speculative Configuration | **Remove** | Replace config lookup with literal value |
+| Deep Nesting | **Flatten** | Early returns, guard clauses |
+| Complex One-Liner | **Extract** | Break into named intermediate steps (only when the one-liner is *itself* the finding target, not surrounding code) |
+
+**Hard Rule for QUAL fixes:**
+> **"Do not modify code until you understand all callers."**
+> For every QUAL fix: Grep for ALL usages of the simplified entity.
+> If caller count > 5, verify the simplification doesn't break any call site.
+
 ## FALSE_POSITIVE Handling
 
 If you determine a finding is a false positive:

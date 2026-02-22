@@ -51,6 +51,10 @@ Key principles:
 - **Error paths neglected**: What happens when things go wrong?
 - **Complexity hides bugs**: Long functions and deep nesting harbor subtle issues
 
+## Hard Rule
+
+> **"Missing error handling is only a finding when the error is reachable. Trace the call path."**
+
 ## Echo Integration (Past Missing Logic Patterns)
 
 Before reviewing for missing logic, query Rune Echoes for previously identified logic gap patterns:

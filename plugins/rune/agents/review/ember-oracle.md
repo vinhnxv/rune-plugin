@@ -40,6 +40,10 @@ Performance bottleneck detection specialist.
 - Missing caching opportunities
 - Bundle size and lazy loading (frontend)
 
+## Hard Rule
+
+> **"Measure before you optimize. Never flag a performance issue without evidence of actual impact."**
+
 ## Echo Integration (Past Performance Bottlenecks)
 
 Before scanning for performance bottlenecks, query Rune Echoes for previously identified performance issues:

@@ -47,6 +47,10 @@ Async and concurrency patterns specialist. Detects correctness issues in asynchr
 - Blocking calls in async contexts
 - Frontend timing bugs (DOM lifecycle, animation races)
 
+## Hard Rule
+
+> **"Every async finding must include the concrete race scenario — who writes, who reads, when."**
+
 ## Echo Integration (Past Async/Concurrency Issues)
 
 Before reviewing async patterns, query Rune Echoes for previously identified concurrency issues:

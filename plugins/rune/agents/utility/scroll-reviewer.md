@@ -49,6 +49,7 @@ Before beginning document review, query Rune Echoes for previously identified do
    - **Completeness**: Are all necessary sections present?
    - **Consistency**: Do sections contradict each other?
    - **Actionability**: Can a developer implement from this?
+   - **Structure**: Does the document flow logically from context to detail?
    - **References**: Do cross-references and links work?
    - **No Time Estimates**: Flag any durations, level-of-effort, or completion time language (e.g., "~2 hours", "takes about a day", "ETA", "estimated time"). Plans should describe steps, dependencies, and outputs — never durations.
    - **Writing Style**: Flag passive voice in action items ("should be implemented" → "implement"), future tense in descriptions ("will handle" → "handles"), and vague quantifiers ("various", "some", "etc." without specifics).
@@ -62,6 +63,28 @@ Before beginning document review, query Rune Echoes for previously identified do
 ## Document Review: {document title}
 
 ### Quality Score: {A/B/C/D/F}
+
+### Quality Dimensions (rate each 1-5)
+
+| Dimension | Rating | Assessment |
+|-----------|--------|------------|
+| **Clarity** | X/5 | Can a developer understand each section without asking questions? |
+| **Completeness** | X/5 | Are all necessary sections present with sufficient detail? |
+| **Actionability** | X/5 | Can a developer implement from this without guesswork? |
+| **Structure** | X/5 | Does the document flow logically from context to detail? |
+| **Consistency** | X/5 | Do sections agree with each other? No contradictions? |
+
+**Overall Score**: Average of dimension ratings → maps to letter grade:
+- 4.5-5.0 = A, 3.5-4.4 = B, 2.5-3.4 = C, 1.5-2.4 = D, 1.0-1.4 = F
+- **Critical dimension override**: If Actionability or Completeness ≤ 2, the overall grade is capped at D regardless of average.
+
+> **Note**: Dimensional ratings cover primary quality dimensions. Ancillary checks (References, Style, Time Estimates, Traceability) remain in the Issues table without a dimension score.
+
+### Severity Classification
+
+- **HIGH**: Blocks implementation — developer cannot proceed without clarification
+- **MEDIUM**: Causes confusion but workaround exists — developer can guess intent
+- **LOW**: Polish and improvement — nice-to-have for document quality
 
 ### Strengths
 - {What works well}
@@ -86,6 +109,12 @@ Before beginning document review, query Rune Echoes for previously identified do
 ## Output Budget
 
 Write review to the designated output file. Return only a 1-sentence summary to the Tarnished via SendMessage (max 50 words).
+
+## Hard Rule
+
+> **"Suggest concrete fix text, not vague advice."**
+> Every issue MUST include a specific replacement text or rewrite suggestion.
+> "This section is unclear" is NOT acceptable — provide the clearer version.
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
