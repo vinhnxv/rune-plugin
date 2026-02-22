@@ -314,6 +314,16 @@ arc:
     skip_freshness: false        # Bypass plan freshness check (CLI: --skip-freshness)
     confirm: false               # Pause for confirmation between phases (CLI: --confirm)
 
+  # ── Shard Execution (v1.66.0+) ─────────────
+  # Controls shard-aware behavior in arc and arc-batch.
+  # Shard plans are detected via -shard-N- filename regex.
+  sharding:
+    enabled: true                # Master toggle for all shard awareness (default: true)
+    auto_sort: true              # Auto-sort shards by number in arc-batch (default: true)
+    exclude_parent: true         # Auto-exclude parent plans with shattered: true (default: true)
+    prerequisite_check: true     # Verify prerequisite shards before arc run (default: true)
+    shared_branch: true          # Share feature branch across shards (default: true)
+
   # ── Ship settings (Phase 9) ────────────────
   # Controls PR creation after audit passes.
   ship:

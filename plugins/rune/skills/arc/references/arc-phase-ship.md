@@ -83,13 +83,23 @@ if (pushResult.exitCode !== 0) {
   return
 }
 
-// 3. Generate PR title from plan frontmatter
+// 3. Generate PR title from plan frontmatter (shard-aware v1.66.0+)
 const planContent = Read(checkpoint.plan_file)
 const titleMatch = planContent.match(/^---\n[\s\S]*?^title:\s*(.+?)$/m)
 const planTitle = titleMatch ? titleMatch[1].trim() : basename(checkpoint.plan_file, '.md').replace(/^\d{4}-\d{2}-\d{2}-/, '')
 const typeMatch = planContent.match(/^type:\s*(\w+)/m)
 const planType = typeMatch ? typeMatch[1] : 'feat'
-const prTitle = `${planType}: ${planTitle}`
+
+let prTitle
+if (checkpoint.shard) {
+  const s = checkpoint.shard
+  // CONCERN-3 FIX: Use "of" instead of "/" and hyphen instead of em dash
+  // safePrTitle sanitizer strips both / and — characters
+  prTitle = `feat(shard ${s.num} of ${s.total}): ${s.name} - ${s.feature.replace(/-/g, ' ')}`
+} else {
+  // Existing behavior — preserve planType (not hardcode feat:)
+  prTitle = `${planType}: ${planTitle}`
+}
 const safePrTitle = prTitle.replace(/[^a-zA-Z0-9 ._\-:()]/g, '').slice(0, 70) || "Arc: work completed"
 
 // 4. Build PR body
@@ -117,10 +127,27 @@ const safePlanFile = SAFE_PATH_RE.test(checkpoint.plan_file) && !checkpoint.plan
   ? checkpoint.plan_file
   : "(invalid plan path)"
 
+// NEW (v1.66.0): Shard context section for PR body
+let prBodyShardSection = ""
+if (checkpoint.shard) {
+  const s = checkpoint.shard
+  prBodyShardSection = `
+## Shard Context
+
+- **Shard**: ${s.num} of ${s.total} (${s.name})
+- **Parent plan**: \`${s.parent}\`
+- **Dependencies**: ${s.dependencies.length > 0 ? s.dependencies.map(n => \`shard-\${n}\`).join(', ') : 'None (foundation)'}
+- **Feature**: ${s.feature}
+
+> This PR implements one shard of a shattered plan. See parent plan for full scope.
+`
+}
+
 const prBody = `## Summary
 
 Implemented from plan: \`${safePlanFile}\`
 Pipeline: \`/rune:arc\` (${Object.values(checkpoint.phases).filter(p => p.status === "completed").length} phases completed)
+${prBodyShardSection}
 
 ### Changes
 \`\`\`

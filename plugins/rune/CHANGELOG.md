@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.66.0] - 2026-02-22
+
+### Added
+- **Shard-aware arc execution** — `/rune:arc` and `/rune:arc-batch` now detect shattered plans and coordinate shard execution:
+  - **Shard detection in arc pre-flight**: Detects shard plans via `-shard-N-` filename regex, reads parent plan frontmatter, verifies prerequisite shards are complete (warn, not block)
+  - **Shared feature branch**: Shard arcs reuse `rune/arc-{feature}-shards-{timestamp}` branch instead of creating separate branches per shard
+  - **Shard-aware PR titles**: `feat(shard 2 of 4): methodology - feature name` format with `safePrTitle` sanitizer compatibility
+  - **Shard context in PR body**: Parent plan reference, dependency list, and shard position
+  - **Arc-batch shard group detection**: Auto-sorts shards by number, auto-excludes parent plans (`shattered: true`), detects missing shard gaps
+  - **Arc-batch preflight shard validation**: Validates shard frontmatter (`shard:`, `parent:` fields), checks group ordering and gaps
+  - **Shard-aware stop hook**: Detects sibling shard transitions — stays on feature branch instead of checking out main between sibling shards
+  - **Shard metadata in batch progress**: `batch-progress.json` schema v2 with `shard_group`, `shard_num`, and group summary
+  - **Talisman configuration**: `arc.sharding.*` keys (enabled, auto_sort, exclude_parent, prerequisite_check, shared_branch) — all default to true
+  - **`--no-shard-sort` flag** for arc-batch to disable auto-sorting
+- **Parent path fallback**: Sibling-relative path resolution when absolute `parent:` path in shard frontmatter fails (handles `plans/shattering/` subdirectory case)
+- **Checkpoint schema v12**: Added optional `shard` field with num, total, name, feature, parent, dependencies
+
 ## [1.65.1] - 2026-02-22
 
 ### Changed
