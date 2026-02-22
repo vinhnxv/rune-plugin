@@ -257,6 +257,19 @@ for (const member of allMembers) {
 // TeamDelete with retry-with-backoff (QUAL-003: 3 attempts: 0s, 3s, 8s)
 // SEC-003: id validated at Phase 2 — defense-in-depth .. check here too
 if (id.includes('..')) throw new Error('Path traversal detected in mend id')
+if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid mend identifier')
+
+const CLEANUP_DELAYS = [0, 3000, 8000]
+let cleanupSucceeded = false
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`mend cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+if (!cleanupSucceeded) {
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-mend-${id}/" "$CHOME/tasks/rune-mend-${id}/" 2>/dev/null`)
+}
 
 // Update state file status → "completed" or "partial"
 Write("tmp/.rune-mend-{id}.json", { status: mendStatus, completed: timestamp, ... })

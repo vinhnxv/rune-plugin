@@ -208,7 +208,18 @@ for (const wave of waves) {
     for (const task of remaining) {
       TaskUpdate({ taskId: task.id, status: "deleted" })
     }
-    TeamDelete()
+    // Inter-wave TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
+    const WAVE_CLEANUP_DELAYS = [0, 3000, 8000]
+    let waveCleanupOk = false
+    for (let attempt = 0; attempt < WAVE_CLEANUP_DELAYS.length; attempt++) {
+      if (attempt > 0) Bash(`sleep ${WAVE_CLEANUP_DELAYS[attempt] / 1000}`)
+      try { TeamDelete(); waveCleanupOk = true; break } catch (e) {
+        if (attempt === WAVE_CLEANUP_DELAYS.length - 1) warn(`inter-wave cleanup: TeamDelete failed after ${WAVE_CLEANUP_DELAYS.length} attempts`)
+      }
+    }
+    if (!waveCleanupOk) {
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+    }
 
     // Collect findings for next wave context (file:line + severity ONLY)
     if (waveResult.timedOut) {
