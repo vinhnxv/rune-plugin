@@ -12,8 +12,12 @@ Instead of fixed-interval polling, wait for a specific condition:
 | File appearance | Waiting for agent output file | `while [[ ! -f "$file" ]]; do sleep 1; done` |
 | Process exit | Waiting for build/test process | `wait $PID; echo "exit: $?"` |
 | Port availability | Waiting for service startup | `while ! nc -z localhost $PORT 2>/dev/null; do sleep 1; done` |
-| Log pattern | Waiting for specific log line | `tail -f "$log" \| grep -q "$PATTERN"` |
+| Log pattern | Waiting for specific log line | `tail -f "$log" \| grep -qF -- "$PATTERN"` |
 | Task completion | Standard agent monitoring | `TaskList() → check status → sleep 30 → repeat` |
+
+**Security**: `$PATTERN` must be a literal string, not derived from untrusted external sources. `-qF` uses fixed-string matching (no regex interpretation) and `--` ends option parsing, preventing injection.
+
+**Note**: `nc -z` behavior varies between BSD (macOS) and GNU (Linux) netcat. On some Linux systems, use `timeout 1 bash -c '</dev/tcp/localhost/$PORT'` as a portable alternative.
 
 **Important**: File-based waiting should always have a timeout fallback:
 ```bash
@@ -38,6 +42,8 @@ Total timeout:  ~3 minutes
 ```
 
 Formula per attempt: `delay = min(initial * (factor ^ attempt) * (1 ± jitter), max_delay)`
+
+**Note**: `^` denotes exponentiation (mathematical notation). In bash, use `bc` or Python for actual computation — bash's `^` operator is XOR.
 
 ## Deadlock Detection in Multi-Agent Workflows
 
