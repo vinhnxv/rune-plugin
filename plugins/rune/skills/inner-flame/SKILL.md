@@ -45,6 +45,12 @@ Verify that every claim, reference, and output is grounded in actual evidence.
    - If reporting 90+ confidence but only read 2 files, recalibrate.
    - Confidence should reflect evidence strength, not task completion desire.
 
+6. **Fresh evidence**: For every completion claim, can I cite the specific command output, test result, or file:line from THIS session?
+   - "Tests pass" requires: which test command, which tests ran, what was the exit code
+   - "No type errors" requires: which type-checker, what was the output
+   - "Build succeeds" requires: which build command, what was the exit code
+   - For every claim using qualifying language ("should", "probably", "appears"), did I also cite specific evidence? If not, either add evidence or remove the claim.
+
 ## Layer 2: Completeness & Correctness (Role-Adapted)
 
 ### For ALL roles:
@@ -113,9 +119,9 @@ Append this to your output or include in your Seal message:
 ## Seal Enhancement
 
 Add these fields to your Seal message:
-- `Inner-flame: pass` — all 3 layers passed
-- `Inner-flame: partial` — items were revised/deleted but issues resolved
-- `Inner-flame: fail` — grounding failure or post-review confidence below 60
+- `Inner-flame: pass` — all 3 layers passed, with fresh evidence cited for every completion claim
+- `Inner-flame: partial` — items were revised/deleted but issues resolved, or evidence incomplete due to timeout
+- `Inner-flame: fail` — grounding failure, missing fresh evidence for completion claims, or post-review confidence below 60
 - `Revised: N` — total items changed (confirmed: X, revised: Y, deleted: Z)
 
 If post-review confidence drops below 60, do NOT mark task complete — report blocker.

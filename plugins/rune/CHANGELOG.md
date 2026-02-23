@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.75.0] - 2026-02-23
+
+### Added
+- **Skill Testing Framework** (`skill-testing` skill): TDD methodology for documentation — write a failing pressure scenario first, then write the skill to address it. Includes Iron Law (SKT-001: "NO SKILL WITHOUT A FAILING TEST FIRST"), RED/GREEN/REFACTOR cycle for skills, rationalization table template, pressure scenarios for roundtable-circle/rune-smith/mend-fixer, and meta-testing checklist. Set `disable-model-invocation: true` to avoid CSO collision with `testing` skill.
+  - New: `skills/skill-testing/SKILL.md` — main skill with TDD cycle and priority targets
+  - New: `skills/skill-testing/references/pressure-scenarios.md` — 9 detailed scenario scripts (3 per target skill)
+  - New: `skills/skill-testing/references/rationalization-tables.md` — observed patterns by agent type and severity
+
+### Enhanced
+- **Inner Flame fresh evidence verification**: Added item #6 to Layer 1 (Grounding Check) requiring fresh evidence for every completion claim. Agents must now cite specific command output, test results, or file:line references from the current session — not just claim "tests pass." Replaces the originally proposed keyword-banning approach with a self-check question that avoids false positives. Preserves the existing 3-layer model (zero changes to agent prompts, hooks, or CLAUDE.md).
+  - Enhanced: `skills/inner-flame/SKILL.md` — fresh evidence item #6 in Layer 1, updated Seal Enhancement descriptions
+  - Enhanced: `skills/inner-flame/references/role-checklists.md` — per-role evidence items for Worker (3 items), Fixer (3 items), and Reviewer (1 item)
+
 ## [1.74.1] - 2026-02-23
 
 ### Fixed
