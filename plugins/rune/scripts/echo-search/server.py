@@ -982,14 +982,243 @@ def get_stats(conn):
 
 
 # ---------------------------------------------------------------------------
+# Observations auto-promotion
+# ---------------------------------------------------------------------------
+#
+# Observations entries auto-promote to Inscribed after reaching 3 access_count
+# references in echo_access_log (C1 concern: depends on Task 2).
+# Promotion rewrites the H2 header in the source MEMORY.md file from
+# "## Observations" to "## Inscribed".
+#
+# C3 concern (CRITICAL): Atomic file rewrite — read full file -> modify
+# in-memory -> write to temp file -> os.replace(tmp, original). os.replace()
+# is POSIX-atomic (rename syscall), so readers never see a partial write.
+
+_PROMOTION_THRESHOLD = 3  # access_count >= 3 triggers promotion
+_OBSERVATIONS_HEADER_RE = re.compile(
+    r"^(##\s+)Observations(\s*[\u2014\-\u2013]+\s*.+)$"
+)
+
+
+def _promote_observations_in_file(
+    memory_file: str,
+    entry_ids_to_promote: set,
+    entry_line_map: Dict[str, int],
+) -> int:
+    """Rewrite Observations headers to Inscribed in a single MEMORY.md file.
+
+    Uses atomic file rewrite (C3 concern): read -> modify in-memory ->
+    write to temp file -> os.replace().
+
+    Args:
+        memory_file: Absolute path to the MEMORY.md file.
+        entry_ids_to_promote: Set of entry IDs that qualify for promotion.
+        entry_line_map: Mapping of entry_id -> line_number in this file.
+
+    Returns:
+        Number of entries promoted in this file.
+    """
+    # Collect line numbers that need promotion in this file
+    promote_lines = set()  # type: set
+    for eid in entry_ids_to_promote:
+        line_num = entry_line_map.get(eid)
+        if line_num is not None:
+            promote_lines.add(line_num)
+
+    if not promote_lines:
+        return 0
+
+    # EDGE-023: Check writability before attempting
+    if not os.access(memory_file, os.W_OK):
+        print(
+            "Warning: Observations promotion skipped — file not writable: %s"
+            % memory_file,
+            file=sys.stderr,
+        )
+        return 0
+
+    try:
+        with open(memory_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError as exc:
+        print(
+            "Warning: Observations promotion — cannot read %s: %s"
+            % (memory_file, exc),
+            file=sys.stderr,
+        )
+        return 0
+
+    promoted = 0
+    for i, line in enumerate(lines):
+        line_num = i + 1  # 1-indexed to match entry_line_map
+        if line_num not in promote_lines:
+            continue
+        match = _OBSERVATIONS_HEADER_RE.match(line.rstrip("\n"))
+        if match:
+            # EDGE-022: Only match layer="observations" headers — skip
+            # if already rewritten to Inscribed (idempotent).
+            lines[i] = match.group(1) + "Inscribed" + match.group(2) + "\n"
+            promoted += 1
+
+    if promoted == 0:
+        return 0
+
+    # C3: Atomic rewrite — write to temp file in same directory, then
+    # os.replace() which is a POSIX-atomic rename syscall.
+    file_dir = os.path.dirname(memory_file)
+    try:
+        fd, tmp_path = tempfile.mkstemp(
+            dir=file_dir, prefix=".promote-", suffix=".md"
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp_f:
+                tmp_f.writelines(lines)
+            os.replace(tmp_path, memory_file)
+        except BaseException:
+            # Clean up temp file on any failure
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+    except OSError as exc:
+        print(
+            "Warning: Observations promotion — atomic write failed for %s: %s"
+            % (memory_file, exc),
+            file=sys.stderr,
+        )
+        return 0
+
+    return promoted
+
+
+def _check_promotions(echo_dir: str, db_path: str) -> int:
+    """Check for Observations entries eligible for promotion to Inscribed.
+
+    Called from do_reindex() BEFORE discover_and_parse() so that promoted
+    entries are re-indexed with their new layer name.
+
+    Promotion criteria: access_count >= _PROMOTION_THRESHOLD (3) in
+    echo_access_log (C1 concern: requires Task 2 schema).
+    EDGE-022: Only promotes entries with layer='observations'
+    (skips already-promoted entries for idempotency).
+
+    Args:
+        echo_dir: Path to .claude/echoes/ directory.
+        db_path: Path to SQLite database.
+
+    Returns:
+        Number of entries promoted. Returns 0 on any failure (non-fatal).
+    """
+    if not echo_dir or not db_path:
+        return 0
+
+    conn = get_db(db_path)
+    try:
+        ensure_schema(conn)
+
+        # Find all Observations entries.
+        # EDGE-022: Filter by layer='observations' only — already-promoted
+        # entries have layer='inscribed' and won't match.
+        cursor = conn.execute(
+            """SELECT e.id, e.file_path, e.line_number
+               FROM echo_entries e
+               WHERE e.layer = 'observations'"""
+        )
+        obs_entries = cursor.fetchall()
+        if not obs_entries:
+            return 0
+
+        # Batch-fetch access counts from echo_access_log (Task 2).
+        # Uses _get_access_counts() added by Task 2. If the table doesn't
+        # exist yet, the OperationalError catch below handles it gracefully.
+        entry_ids = [row["id"] for row in obs_entries]
+        capped_ids = entry_ids[:200]
+        placeholders = ",".join(["?"] * len(capped_ids))
+        count_cursor = conn.execute(
+            """SELECT entry_id, COUNT(*) AS cnt
+               FROM echo_access_log
+               WHERE entry_id IN (%s)
+               GROUP BY entry_id""" % placeholders,
+            capped_ids,
+        )
+        access_counts = {
+            row["entry_id"]: row["cnt"] for row in count_cursor.fetchall()
+        }  # type: Dict[str, int]
+
+        # Build promotion candidates per file
+        promote_by_file = {}  # type: Dict[str, tuple]
+        for row in obs_entries:
+            eid = row["id"]
+            fpath = row["file_path"]
+            line_num = row["line_number"]
+            count = access_counts.get(eid, 0)
+
+            if count >= _PROMOTION_THRESHOLD:
+                if fpath not in promote_by_file:
+                    promote_by_file[fpath] = (set(), {})
+                promote_by_file[fpath][0].add(eid)
+                promote_by_file[fpath][1][eid] = line_num
+
+        total_promoted = 0
+        for fpath, (ids_to_promote, line_map) in promote_by_file.items():
+            promoted = _promote_observations_in_file(fpath, ids_to_promote, line_map)
+            total_promoted += promoted
+
+        # EDGE-021: Trigger dirty signal after promotion so FTS re-indexes
+        # on the next search call (if not already in a reindex cycle).
+        if total_promoted > 0:
+            sig_path = _signal_path(echo_dir)
+            if sig_path:
+                try:
+                    sig_dir = os.path.dirname(sig_path)
+                    os.makedirs(sig_dir, exist_ok=True)
+                    with open(sig_path, "w") as f:
+                        f.write("promoted")
+                except OSError:
+                    pass  # Non-fatal: signal write failure doesn't break promotion
+
+    except sqlite3.OperationalError as exc:
+        # Non-fatal: promotion failure should not break reindex.
+        # This also gracefully handles the case where echo_access_log
+        # table doesn't exist yet (before Task 2 schema migration).
+        print(
+            "Warning: Observations promotion check failed: %s" % exc,
+            file=sys.stderr,
+        )
+        return 0
+    finally:
+        conn.close()
+
+    return total_promoted
+
+
+# ---------------------------------------------------------------------------
 # Reindex helper (used by both CLI and MCP tool)
 # ---------------------------------------------------------------------------
 
-def do_reindex(echo_dir, db_path):
-    # type: (str, str) -> Dict
+def do_reindex(echo_dir: str, db_path: str) -> Dict[str, Any]:
+    """Re-parse all MEMORY.md files and rebuild the FTS index.
+
+    Runs auto-promotion of Observations to Inscribed BEFORE parsing,
+    so promoted entries are indexed with their new layer name.
+
+    Args:
+        echo_dir: Path to .claude/echoes/ directory.
+        db_path: Path to SQLite database file.
+
+    Returns:
+        Dict with entries_indexed, time_ms, roles, and optionally
+        observations_promoted count.
+    """
     from indexer import discover_and_parse
 
     start_ms = int(time.time() * 1000)
+
+    # Auto-promote eligible Observations to Inscribed BEFORE parsing.
+    # This ensures promoted entries are indexed with their new layer name.
+    promotions = _check_promotions(echo_dir, db_path)
+
     entries = discover_and_parse(echo_dir)
     conn = get_db(db_path)
     try:
@@ -1001,11 +1230,15 @@ def do_reindex(echo_dir, db_path):
 
     roles = sorted(set(e["role"] for e in entries))
 
-    return {
+    result = {
         "entries_indexed": count,
         "time_ms": elapsed_ms,
         "roles": roles,
-    }
+    }  # type: Dict[str, Any]
+    if promotions > 0:
+        result["observations_promoted"] = promotions
+
+    return result
 
 
 # ---------------------------------------------------------------------------
