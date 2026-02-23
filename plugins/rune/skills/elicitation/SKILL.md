@@ -250,9 +250,10 @@ When an orchestrator (plan, forge, arc) selects a method with a non-empty `codex
    })
 5. EXECUTE: Teammate runs codex exec with SEC-003 temp file pattern:
    - Write prompt to tmp/{workflow}/{id}/elicitation/codex-prompt-{method_slug}.txt
-   - timeout {elicitTimeout} codex exec -m "{codexModel}" --sandbox read-only --full-auto
-     --config model_reasoning_effort="{codexReasoning}"
-     --skip-git-repo-check "$(cat {prompt_file})" 2>/dev/null
+   - SEC-009: Use codex-exec.sh wrapper for stdin pipe, model validation, error classification
+     "${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+       -m "{codexModel}" -r "{codexReasoning}" -t {elicitTimeout} -g \
+       "{prompt_file}"
 6. OUTPUT: Write result to tmp/{workflow}/{id}/elicitation/codex-{method_slug}.md
 7. CLEANUP: Shutdown codex teammate, delete prompt temp file
 8. SAGE READS: The elicitation-sage reads the Codex output file and synthesizes

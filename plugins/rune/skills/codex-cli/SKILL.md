@@ -252,6 +252,44 @@ the global `codex.reasoning` for that specific feature only.
 | [circle-registry.md](../roundtable-circle/references/circle-registry.md) | Codex Oracle's place in Ash registry |
 | `talisman.example.yml` (codex section) | All configurable options with comments |
 
+## Script Wrapper (v1.81.0+)
+
+**`scripts/codex-exec.sh`** is the canonical invocation method for all Rune Codex calls.
+It encapsulates SEC-009 stdin pipe, model allowlist, timeout clamping, and error classification
+in a single script — replacing raw `Bash()` commands that the LLM might improvise incorrectly.
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" [OPTIONS] PROMPT_FILE
+
+Options:
+  -m MODEL          Model (default: gpt-5.3-codex, validated against allowlist)
+  -r REASONING      high|medium|low (default: high)
+  -t TIMEOUT        Seconds, clamped to [30, 900] (default: 600)
+  -s STREAM_IDLE    Stream idle timeout ms (default: 540000)
+  -j                Enable --json + jq JSONL parsing
+  -g                Pass --skip-git-repo-check
+  -k KILL_AFTER     Kill-after grace period seconds (default: 30, 0=disable)
+```
+
+**Exit codes**: 0=success, 1=missing codex CLI, 2=pre-flight failure (.codexignore, invalid file), 124=timeout, 137=killed
+
+**Key behaviors**:
+- Reads prompt via stdin pipe (SEC-009) — never `$(cat)`
+- Validates model against `CODEX_MODEL_ALLOWLIST` regex
+- Validates reasoning against `[high, medium, low]`
+- Clamps timeout to `[30, 900]`
+- Rejects symlink prompt files and paths with `..`
+- Caps prompt file at 1MB (SEC-2 DoS prevention)
+- Classifies errors to structured `CODEX_ERROR[CODE]` format on stderr
+- Falls back gracefully (no jq → raw mode, no timeout → unwrapped)
+
+**Example** (arc Phase 2.8 semantic verification):
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+  -m "${codexModel}" -r "${codexReasoning}" -t ${semanticTimeout} -g \
+  "tmp/arc/${id}/codex-semantic-${aspect.name}-prompt.txt"
+```
+
 ## Quick Reference
 
 | Task | Pattern |
@@ -259,7 +297,9 @@ the global `codex.reasoning` for that specific feature only.
 | Check if Codex available | `command -v codex >/dev/null 2>&1` |
 | Check version | `codex --version` |
 | Check auth | `codex login status` |
-| Review files (read-only) | `codex exec -m gpt-5.3-codex --sandbox read-only --full-auto --json "Review: ..."` |
+| Run via wrapper (preferred) | `"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m gpt-5.3-codex -r high -t 600 -g PROMPT.txt` |
+| Run with JSON parsing | `"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -j -g PROMPT.txt` |
+| Review files (legacy) | `codex exec -m gpt-5.3-codex --sandbox read-only --full-auto --json "Review: ..."` |
 | Resume session | `echo "continue" \| codex exec resume --last` |
 | Check jq available | `command -v jq >/dev/null 2>&1` |
 | Disable entirely | `codex.disabled: true` in talisman.yml |

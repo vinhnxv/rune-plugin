@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.81.0] - 2026-02-23
+
+### Added
+- **Codex Exec Helper Script** (`scripts/codex-exec.sh`) — canonical Codex CLI wrapper enforcing SEC-009 (stdin pipe), model allowlist, timeout clamping [30, 900], .codexignore pre-flight, symlink/path-traversal rejection, 1MB prompt cap, and structured error classification
+- New "Script Wrapper" section in `codex-cli/SKILL.md` documenting `codex-exec.sh` as the canonical invocation method
+- New "Wrapper Invocation (v1.81.0+)" section in `codex-execution.md` as the preferred pattern
+
+### Security
+- **SEC-009**: Eliminated 6 `$(cat ...)` shell expansion vulnerabilities across devise (research-phase, solution-arena, plan-review), rune-echoes, elicitation, and forge-enrichment-protocol
+- All Codex invocations now use stdin pipe via wrapper script instead of raw shell expansion
+- Model parameter injection prevented by `CODEX_MODEL_ALLOWLIST` regex enforcement in wrapper
+
+### Changed
+- Arc Phase 2.8 (semantic verification) and Phase 5.6 (gap analysis) now use `codex-exec.sh` wrapper
+- Removed inline `.codexignore` checks from arc-codex-phases.md (handled by wrapper, exit code 2 = skip)
+- Simplified model/reasoning/timeout validation in arc phases (delegated to wrapper script)
+
 ## [1.80.0] - 2026-02-23
 
 ### Added

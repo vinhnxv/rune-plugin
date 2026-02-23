@@ -8,6 +8,41 @@ Canonical invocation patterns, error handling, and output verification for `code
 **Consumers**: codex-cli/SKILL.md stubs, arc-codex-phases.md, codex-oracle.md
 **Prerequisites**: Detection passed (see SKILL.md § Detection), .codexignore exists
 
+## Wrapper Invocation (v1.81.0+ — Preferred)
+
+The **`scripts/codex-exec.sh`** wrapper is the preferred invocation method. It encapsulates
+all security patterns (SEC-009 stdin pipe, model allowlist, timeout clamping, error classification)
+in a single script. Use this instead of crafting raw `codex exec` commands.
+
+```bash
+# Standard invocation (raw output)
+"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
+  -r "${CODEX_REASONING:-high}" \
+  -t ${CODEX_TIMEOUT:-600} \
+  -s ${CODEX_STREAM_IDLE_MS:-540000} \
+  -g \
+  "path/to/prompt-file.txt"
+
+# With JSON parsing (--json + jq)
+"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
+  -r "${CODEX_REASONING:-high}" \
+  -t ${CODEX_TIMEOUT:-600} \
+  -j -g \
+  "path/to/prompt-file.txt"
+```
+
+**Exit codes**: `0`=success, `1`=missing codex CLI, `2`=pre-flight failure, `124`=timeout, `137`=killed.
+
+The wrapper handles: model validation (CODEX_MODEL_ALLOWLIST), reasoning validation,
+timeout clamping [30, 900], .codexignore check, symlink/path-traversal rejection, 1MB prompt cap,
+stderr capture, and error classification. All security patterns from the sections below are
+enforced automatically.
+
+**When to use wrapper vs raw**: Always prefer the wrapper. Raw invocation patterns below
+are kept as legacy reference for understanding the underlying `codex exec` flags.
+
 ## Standard Invocation (with jq)
 
 ```bash

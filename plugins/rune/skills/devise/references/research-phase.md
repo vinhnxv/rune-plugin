@@ -324,19 +324,12 @@ if (codexAvailable && !codexDisabled) {
              "Provide concrete examples where applicable.\\n" +
              "Confidence threshold: only include findings with >= 80% confidence.")
            // Timeouts resolved via resolveCodexTimeouts() — see codex-detection.md
-           // Security pattern: CODEX_TIMEOUT_ALLOWLIST — see security-patterns.md
-           Bash: timeout ${killAfterFlag} ${codexTimeout} codex exec \\
-             -m "${codexModel}" \\
-             --config model_reasoning_effort="${codexReasoning}" \\
-             --config stream_idle_timeout_ms="${codexStreamIdleMs}" \\
-             --sandbox read-only \\
-             --full-auto \\
-             --skip-git-repo-check \\
-             --json \\
-             "$(cat tmp/plans/{timestamp}/research/codex-prompt.txt)" 2>"${stderrFile}" | \\
-             jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
+           // SEC-009: Use codex-exec.sh wrapper for stdin pipe, model validation, error classification
+           Bash: "${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \\
+             -m "${codexModel}" -r "${codexReasoning}" -t ${codexTimeout} \\
+             -s ${codexStreamIdleMs} -j -g \\
+             "tmp/plans/{timestamp}/research/codex-prompt.txt"
            CODEX_EXIT=$?
-           if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${stderrFile}")"; fi
         4. Parse and reformat Codex output
         5. Write findings to tmp/plans/{timestamp}/research/codex-analysis.md
 

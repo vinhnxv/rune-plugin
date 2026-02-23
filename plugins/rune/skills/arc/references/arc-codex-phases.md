@@ -41,22 +41,10 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan")) {
     // SEC: enrichedPlanPath pre-validated at arc init via arc-preflight.md path guards
     const planFilePath = enrichedPlanPath
 
-    // SEC-002 FIX: .codexignore pre-flight check before --full-auto
-    // CDX-001 FIX: Use if/else to prevent fall-through when .codexignore is missing
-    const codexignoreExists = Bash(`test -f .codexignore && echo "yes" || echo "no"`).trim() === "yes"
-    if (!codexignoreExists) {
-      warn("Phase 2.8: .codexignore missing — skipping Codex semantic verification (--full-auto requires .codexignore)")
-      Write(`tmp/arc/${id}/codex-semantic-verification.md`, "Skipped: .codexignore not found.")
-    } else {
-    // SEC-006 FIX: Validate reasoning against allowlist before shell interpolation
-    const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
-    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.semantic_verification?.reasoning ?? "")
-      ? talisman.codex.semantic_verification.reasoning : "medium"
-
-    // SEC-004 FIX: Validate and clamp timeout before shell interpolation
-    // Clamp range: 30s min, 900s max (phase budget allows talisman override up to 15 min)
+    // Reasoning + timeout — validated by codex-exec.sh (SEC-006, SEC-004)
+    const codexReasoning = talisman?.codex?.semantic_verification?.reasoning ?? "medium"
     const rawSemanticTimeout = Number(talisman?.codex?.semantic_verification?.timeout)
-    const semanticTimeoutValidated = Math.max(30, Math.min(900, Number.isFinite(rawSemanticTimeout) ? rawSemanticTimeout : 420))
+    const semanticTimeoutValidated = Number.isFinite(rawSemanticTimeout) ? rawSemanticTimeout : 420
 
     // CTX-002: Split into focused aspects and run in parallel.
     // Each aspect has a smaller prompt → faster, more resilient (1 timeout doesn't lose all results).
@@ -102,16 +90,15 @@ If no contradictions found, output: "No scope/timeline contradictions detected."
     }
 
     // Run all aspects in PARALLEL (separate Bash tool calls)
-    // SEC-009 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion
+    // SEC-009: codex-exec.sh wrapper handles stdin pipe, model validation, timeout clamping
     const aspectResults = aspects.map(aspect => {
-      return Bash(`cat "tmp/arc/${id}/codex-semantic-${aspect.name}-prompt.txt" | timeout ${semanticTimeoutValidated} codex exec \
-        -m "${codexModel}" \
-        --config model_reasoning_effort="${codexReasoning}" \
-        --sandbox read-only --full-auto --skip-git-repo-check \
-        - 2>/dev/null`)
+      return Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+        -m "${codexModel}" -r "${codexReasoning}" -t ${semanticTimeoutValidated} -g \
+        "tmp/arc/${id}/codex-semantic-${aspect.name}-prompt.txt"`)
     })
     // NOTE: The orchestrator MUST issue these Bash calls as PARALLEL tool calls (not sequential).
     // Claude Code supports multiple tool calls in a single response — use that.
+    // Exit code 2 from codex-exec.sh = pre-flight failure (e.g., .codexignore missing) — treat as skip.
 
     // Aggregate results from all aspects
     const outputParts = []
@@ -119,7 +106,9 @@ If no contradictions found, output: "No scope/timeline contradictions detected."
       const aspect = aspects[i]
       const result = aspectResults[i]
       outputParts.push(`## ${aspect.title}`)
-      if (result.exitCode === 0 && result.stdout.trim().length > 0) {
+      if (result.exitCode === 2) {
+        outputParts.push(`_Skipped: codex-exec.sh pre-flight failure (exit 2)._`)
+      } else if (result.exitCode === 0 && result.stdout.trim().length > 0) {
         outputParts.push(result.stdout.trim())
       } else if (result.exitCode === 124) {
         outputParts.push(`_Codex timed out for this aspect (${semanticTimeoutValidated}s)._`)
@@ -139,7 +128,6 @@ If no contradictions found, output: "No scope/timeline contradictions detected."
     for (const aspect of aspects) {
       Bash(`rm -f "tmp/arc/${id}/codex-semantic-${aspect.name}-prompt.txt" 2>/dev/null`)
     }
-    } // CDX-001: close .codexignore else block
   } else {
     Write(`tmp/arc/${id}/codex-semantic-verification.md`, "Codex semantic verification disabled via talisman.")
   }
@@ -205,27 +193,11 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("work")) {
     const safeGitSha = GIT_SHA_PATTERN.test(rawGitSha ?? '') ? rawGitSha : null
     const gitDiffRange = safeGitSha ? `${safeGitSha}..HEAD` : 'HEAD~5..HEAD'
 
-    // SEC-002 FIX: .codexignore pre-flight check before --full-auto
-    // CDX-001 FIX: Use if/else to prevent fall-through when .codexignore is missing
-    const codexignoreExists = Bash(`test -f .codexignore && echo "yes" || echo "no"`).trim() === "yes"
-    if (!codexignoreExists) {
-      warn("Phase 5.6: .codexignore missing — skipping Codex gap analysis (--full-auto requires .codexignore)")
-      Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Skipped: .codexignore not found.")
-    } else {
-    // Security pattern: CODEX_MODEL_ALLOWLIST — see security-patterns.md
-    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
-    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-      ? talisman.codex.model : "gpt-5.3-codex"
-
-    // SEC-006 FIX: Validate reasoning against allowlist before shell interpolation
-    const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
-    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.gap_analysis?.reasoning ?? "")
-      ? talisman.codex.gap_analysis.reasoning : "high"
-
-    // SEC-004 FIX: Validate and clamp timeout before shell interpolation
-    // Clamp range: 30s min, 900s max (phase budget allows talisman override up to 15 min)
+    // Model, reasoning, timeout — validated by codex-exec.sh (SEC-006, SEC-004, CODEX_MODEL_ALLOWLIST)
+    const codexModel = talisman?.codex?.model ?? "gpt-5.3-codex"
+    const codexReasoning = talisman?.codex?.gap_analysis?.reasoning ?? "high"
     const rawGapTimeout = Number(talisman?.codex?.gap_analysis?.timeout)
-    const perAspectTimeout = Math.max(30, Math.min(900, Number.isFinite(rawGapTimeout) ? rawGapTimeout : 900))
+    const perAspectTimeout = Number.isFinite(rawGapTimeout) ? rawGapTimeout : 900
 
     // Define focused gap aspects for parallel Codex calls
     const gapAspects = [
@@ -273,16 +245,15 @@ If no issues found, output: "No integrity gaps detected."`
     }
 
     // Run all aspects in PARALLEL (separate Bash tool calls)
-    // SEC-009 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion
+    // SEC-009: codex-exec.sh wrapper handles stdin pipe, model validation, timeout clamping
     const aspectResults = gapAspects.map(aspect => {
-      return Bash(`cat "tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt" | timeout ${perAspectTimeout} codex exec \
-        -m "${codexModel}" \
-        --config model_reasoning_effort="${codexReasoning}" \
-        --sandbox read-only --full-auto --skip-git-repo-check \
-        - 2>/dev/null`)
+      return Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+        -m "${codexModel}" -r "${codexReasoning}" -t ${perAspectTimeout} -g \
+        "tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt"`)
     })
     // NOTE: The orchestrator MUST issue these Bash calls as PARALLEL tool calls (not sequential).
     // Claude Code supports multiple tool calls in a single response — use that.
+    // Exit code 2 from codex-exec.sh = pre-flight failure (e.g., .codexignore missing) — treat as skip.
 
     // Aggregate results from all aspects
     const outputParts = ["# Codex Gap Analysis (Parallel Aspects)\n"]
@@ -290,7 +261,9 @@ If no issues found, output: "No integrity gaps detected."`
       const aspect = gapAspects[i]
       const result = aspectResults[i]
       outputParts.push(`## ${aspect.title}`)
-      if (result.exitCode === 0 && result.stdout.trim().length > 0) {
+      if (result.exitCode === 2) {
+        outputParts.push(`_Skipped: codex-exec.sh pre-flight failure (exit 2)._`)
+      } else if (result.exitCode === 0 && result.stdout.trim().length > 0) {
         outputParts.push(result.stdout.trim())
       } else if (result.exitCode === 124) {
         outputParts.push(`_Codex timed out for this aspect (${perAspectTimeout}s)._`)
@@ -305,7 +278,6 @@ If no issues found, output: "No integrity gaps detected."`
     for (const aspect of gapAspects) {
       Bash(`rm -f "tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt" 2>/dev/null`)
     }
-    } // CDX-001: close .codexignore else block
   } else {
     Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Codex gap analysis disabled via talisman.")
   }

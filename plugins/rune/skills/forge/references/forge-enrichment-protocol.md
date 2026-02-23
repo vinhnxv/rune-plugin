@@ -64,16 +64,12 @@ Provide: best practices, performance considerations, edge cases, security implic
 Confidence threshold: only include findings >= 80%.`
 Write(`tmp/forge/${timestamp}/codex-prompt.txt`, codexPrompt)
 
-// Codex Oracle forge agent uses codex exec with file-based prompt input
+// Codex Oracle forge agent uses codex-exec.sh wrapper (v1.81.0+)
 // Timeouts resolved via resolveCodexTimeouts() from talisman.yml (see codex-detection.md)
-// Security pattern: CODEX_TIMEOUT_ALLOWLIST — see security-patterns.md
-// Bash: timeout ${killAfterFlag} ${codexTimeout} codex exec \
-//   -m gpt-5.3-codex --config model_reasoning_effort="high" \
-//   --config stream_idle_timeout_ms="${codexStreamIdleMs}" \
-//   --sandbox read-only --full-auto --skip-git-repo-check --json \
-//   "$(cat tmp/forge/${timestamp}/codex-prompt.txt)" 2>"${stderrFile}" | \
-//   jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text'
-// CODEX_EXIT=$?; if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError ...; fi
+// SEC-009: Use codex-exec.sh wrapper for stdin pipe, model validation, error classification
+// Bash: "${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+//   -m "${codexModel}" -r "high" -t ${codexTimeout} -s ${codexStreamIdleMs} -j -g \
+//   "tmp/forge/${timestamp}/codex-prompt.txt"
 ```
 
 ## Inscription Schema
