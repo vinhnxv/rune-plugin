@@ -80,7 +80,7 @@ Every echo entry must include evidence-based metadata:
 
 ```markdown
 ### [YYYY-MM-DD] Pattern: {short description}
-- **layer**: etched | inscribed | traced
+- **layer**: etched | notes | inscribed | observations | traced
 - **source**: rune:{workflow} {context}
 - **confidence**: 0.0-1.0
 - **evidence**: `{file}:{lines}` — {what was found}

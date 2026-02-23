@@ -79,7 +79,7 @@ To find todos by current status, parse frontmatter:
 
 ```bash
 # Find all in-progress todos (zsh-safe)
-for f in todos/[0-9][0-9][0-9]-*.md(N); do
+for f in todos/*/[0-9][0-9][0-9]-*.md(N); do
   if grep -q '^status: in_progress' "$f"; then
     echo "$f"
   fi

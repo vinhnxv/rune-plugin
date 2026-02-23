@@ -50,10 +50,10 @@ See [codex-detection.md](../roundtable-circle/references/codex-detection.md) for
 ```
 
 Note: Model validation (CODEX_MODEL_ALLOWLIST) happens at Codex invocation time in each
-workflow command, not during detection. See security-patterns.md for the allowlist regex.
+workflow command, not during detection. See [security-patterns.md](../roundtable-circle/references/security-patterns.md) for the allowlist regex.
 
-Detection is fast — CLI presence checks (steps 2-3) are <100ms with no network calls.
-Full detection including auth check (step 4) may take longer.
+Detection is fast — CLI presence checks (steps 3-4) are <100ms with no network calls.
+Full detection including auth check (step 5) may take longer.
 
 ## Talisman Configuration
 
@@ -100,7 +100,7 @@ codex:
 | `gpt-5.2-codex` | Stable fallback | Previous default |
 | `gpt-5-codex` | Simpler analysis, faster | Lower cost |
 
-**Only `gpt-5.x-codex` models are supported.** Other model families (o1-o4, gpt-4o, non-codex) fail with ChatGPT accounts. The `CODEX_MODEL_ALLOWLIST` regex in security-patterns.md enforces this at validation time.
+**Only `gpt-5.x-codex` models are supported.** Other model families (o1-o4, gpt-4o, non-codex) fail with ChatGPT accounts. The `CODEX_MODEL_ALLOWLIST` regex in [security-patterns.md](../roundtable-circle/references/security-patterns.md) enforces this at validation time.
 
 ## Security Prerequisites
 
@@ -250,7 +250,7 @@ the global `codex.reasoning` for that specific feature only.
 | [codex-detection.md](../roundtable-circle/references/codex-detection.md) | Canonical 9-step detection algorithm |
 | [codex-oracle.md](../roundtable-circle/references/ash-prompts/codex-oracle.md) | Full Ash prompt template with hallucination guard |
 | [circle-registry.md](../roundtable-circle/references/circle-registry.md) | Codex Oracle's place in Ash registry |
-| `talisman.example.yml` (codex section) | All configurable options with comments |
+| [talisman.example.yml](../../talisman.example.yml) (codex section) | All configurable options with comments |
 
 ## Script Wrapper (v1.81.0+)
 

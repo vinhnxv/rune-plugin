@@ -207,10 +207,10 @@ For full expansion examples, see [references/examples.md](references/examples.md
 |----------|-------------|-------------|----------------|
 | collaboration | 4 | 2 | plan:0, forge:3, work:5 |
 | advanced | 2 | 0 | forge:3, work:5, plan:4, arc:7.5 |
-| competitive | 1 | 1 | review:6, arc:8 |
-| technical | 1 | 1 | forge:3, plan:2, review:6, arc:8 |
+| competitive | 1 | 1 | review:6 |
+| technical | 2 | 1 | forge:3, plan:2, plan:4, review:6 |
 | research | 1 | 0 | plan:1, forge:3 |
-| risk | 2 | 1 | plan:2.5, plan:4, review:6, arc:5.5, arc:8 |
+| risk | 3 | 1 | plan:2.5, plan:4, forge:3, review:6, arc:5.5 |
 | core | 3 | 0 | plan:0, forge:3, plan:4, work:5, review:6, arc:7, arc:7.5 |
 | creative | 0 | 2 | plan:2, plan:2.5 |
 | philosophical | 0 | 1 | forge:3, review:6 |

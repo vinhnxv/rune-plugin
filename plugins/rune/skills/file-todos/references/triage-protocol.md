@@ -10,7 +10,7 @@ Triage is the process of reviewing pending todos and deciding their disposition:
 
 ```bash
 # zsh-safe glob
-pending_files=(todos/[0-9][0-9][0-9]-*.md(N))
+pending_files=(todos/*/[0-9][0-9][0-9]-*.md(N))
 ```
 
 Filter to only those with frontmatter `status: pending`.

@@ -9,7 +9,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **rune-orchestration** | Core coordination patterns, file-based handoff, output formats, conflict resolution |
 | **context-weaving** | Unified context management (overflow prevention, rot, compression, offloading) |
 | **roundtable-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
-| **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
+| **rune-echoes** | Smart Memory Lifecycle — 5-tier project memory (Etched/Notes/Inscribed/Observations/Traced) |
 | **ash-guide** | Agent invocation reference and Ash selection guide |
 | **elicitation** | BMAD-derived structured reasoning methods — Deep integration via elicitation-sage across plan, forge, review, and mend phases |
 | **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config, 9-point deep integration (elicitation, mend verification, arena, semantic check, gap analysis, trial forger, rune smith advisory, shatter scoring, echo validation) |
@@ -220,7 +220,7 @@ echo "Commands: $(find plugins/rune/commands -name '*.md' -not -path '*/referenc
 
 ## References
 
-- [Agent registry](references/agent-registry.md) — 23 review + 5 research + 2 work + 11 utility + 23 investigation + 4 testing agents
+- [Agent registry](references/agent-registry.md) — 23 review + 5 research + 2 work + 10 utility + 23 investigation + 4 testing agents
 - [Key concepts](references/key-concepts.md) — Tarnished, Ash, TOME, Arc, Mend, Forge Gaze, Echoes
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow
