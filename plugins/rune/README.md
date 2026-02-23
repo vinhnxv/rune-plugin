@@ -75,6 +75,16 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:arc-batch plans/*.md --no-merge   # PRs created but not merged
 /rune:arc-batch --resume                # Resume interrupted batch
 
+# GitHub Issues-driven batch arc execution (issues → plans → arc → PRs → close)
+/rune:arc-issues --label "rune:ready"                   # Process all issues with label (FIFO)
+/rune:arc-issues --label "rune:ready" --all             # Page through ALL matching issues
+/rune:arc-issues --label "rune:ready" --dry-run         # Preview issues without running
+/rune:arc-issues --label "rune:ready" --all --page-size 5  # Custom page size (default 10)
+/rune:arc-issues issues-queue.txt                       # File-based queue (URLs, #N, bare numbers)
+/rune:arc-issues 42 55 78                               # Inline issue numbers
+/rune:arc-issues --resume                               # Resume from batch-progress.json
+/rune:arc-issues --cleanup-labels                       # Remove orphaned rune:in-progress labels
+
 # Inspect plan vs implementation (deep audit)
 /rune:inspect plans/my-plan.md          # Inspect a plan file
 /rune:inspect "Add JWT auth with rate limiting"  # Inspect inline description
@@ -90,6 +100,7 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:cancel-review
 /rune:cancel-audit
 /rune:cancel-arc
+/rune:cancel-arc-issues    # Cancel arc-issues batch and optionally cleanup orphaned labels
 
 # Clean up tmp/ artifacts from completed workflows
 /rune:rest
@@ -146,6 +157,33 @@ When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan f
 5. **Progress tracking** — `batch-progress.json` enables `--resume` for interrupted batches
 
 Batch mode runs headless with `--dangerously-skip-permissions`. Ensure all plans are trusted.
+
+## GitHub Issues Mode (Issues → Plans → PRs)
+
+When you run `/rune:arc-issues`, Rune processes a GitHub Issues backlog end-to-end:
+
+1. **Fetch issues** — by label (`--label "rune:ready"`), file queue, or inline numbers
+2. **Generate plans** — each issue body becomes a plan file in `tmp/gh-plans/`
+3. **Run arc** — full 18-phase arc pipeline per issue (forge → work → review → mend → ship → merge)
+4. **Post results** — success comment + `rune:done` label on issue after arc completes
+5. **Close issues** — PR body includes `Fixes #N` for auto-close on merge
+6. **Human escalation** — failed issues get `rune:failed` label + error comment; quality-gate failures get `rune:needs-review`
+
+### Rune Status Labels
+
+| Label | Meaning | Re-process |
+|-------|---------|------------|
+| `rune:ready` | Issue is ready for Rune to process | (trigger label) |
+| `rune:in-progress` | Currently being processed | Wait, or `--cleanup-labels` if orphaned (> 2h) |
+| `rune:done` | Completed — PR linked via `Fixes #N` | Issue auto-closes on PR merge |
+| `rune:failed` | Arc failed, needs human fix | Fix issue body → remove label → re-run |
+| `rune:needs-review` | Plan quality low or conflicts detected | Add detail → remove label → re-run |
+
+### Cancel an Active Issues Run
+
+```bash
+/rune:cancel-arc-issues
+```
 
 ## Hierarchical Plans
 
