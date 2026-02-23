@@ -68,12 +68,28 @@ Every discipline-enforcing skill should include a rationalization table:
 
 | Rationalization | Why It's Wrong | Counter |
 |----------------|----------------|---------|
-| "{exact phrase agent used}" | {why this leads to failure} | {explicit rule that blocks it} |
+| "The rule is self-evident, no scenario needed" | Self-evident rules get bypassed under pressure — the scenario proves resilience, not existence | SKT-001: No skill without a failing test first |
+| "I'll write the scenario after the skill is working" | Post-hoc scenarios confirm bias, not catch blind spots — RED must precede GREEN | TDD cycle: RED phase comes first, always |
+| "This skill is too meta to need testing" | Meta-skills define the testing standard — if they fail their own checklist, no other skill will pass | Meta-Testing Checklist: applies to all skills including this one |
+| "The agent already follows this rule without the skill" | Agents follow rules in calm conditions; pressure scenarios reveal the gap between calm compliance and stressed compliance | RED Phase step 3: Run WITHOUT the skill loaded |
+| "One pressure is enough to prove resilience" | Single-pressure tests miss combinatorial failures — agents rationalize differently under compound pressure | RED Phase step 2: Apply 3+ pressures simultaneously |
+| "We already know what rationalizations look like" | Each agent category produces unique evasion patterns — assumed knowledge misses novel rationalizations | REFACTOR Phase: Ask "How could you rationalize bypassing this skill?" |
 
 Populate by:
 1. Running RED phase scenarios
 2. Reviewing agent message history for evasion patterns
 3. Asking "How could the skill have been clearer?" meta-question
+
+## Red Flags
+
+Patterns that signal a skill author is about to violate the TDD cycle:
+
+- **Writing the skill before the scenario** — "I already know what the skill needs" (violates RED-first)
+- **Skipping RED phase because the rule seems obvious** — "This rule is too simple to need a failing test"
+- **Using a single weak pressure** — "Time pressure alone is enough to test this"
+- **Copying another skill's rationalization table without running scenarios** — the table must come from observed failures, not imagination
+- **Declaring the skill done after GREEN without REFACTOR** — "It passes, so it's complete" (skips iteration)
+- **Testing with the skill already loaded** — RED phase requires running WITHOUT the skill to observe natural failure
 
 ## Priority Targets for Testing
 
