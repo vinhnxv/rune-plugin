@@ -343,7 +343,9 @@ When a task fails repeatedly, follow this graduated response:
 |---------|--------|-------------|
 | 1st-2nd | Retry with careful error analysis | Read exact error, check recent changes |
 | 3rd | Load `systematic-debugging` skill, execute 4-phase protocol | Phase 1-4 |
+| 4th | Continue debugging if progress made; escalate if stuck | Phase 2-3 (narrowing) |
 | 5th | Escalate to Tarnished with complete debug log | — |
+| 6th | Continue only if Tarnished provides new direction | — |
 | 7th | Create blocking task for human intervention | — |
 
 Report debugging progress in Seal message:

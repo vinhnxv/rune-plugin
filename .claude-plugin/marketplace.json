@@ -71,6 +71,7 @@
         "./skills/rune-orchestration",
         "./skills/skill-testing",
         "./skills/strive",
+        "./skills/systematic-debugging",
         "./skills/testing",
         "./skills/using-rune",
         "./skills/zsh-compat"
