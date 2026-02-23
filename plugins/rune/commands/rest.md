@@ -35,6 +35,8 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/inspect/{id}/` | Inspection outputs, VERDICT.md | Yes (if completed) |
 | `tmp/arc/{id}/` | Arc pipeline artifacts (enriched plans, TOME, reports) | Yes (if completed) |
 | `tmp/arc-batch/` | Batch progress, logs, config | Yes (if no active batch) |
+| `tmp/gh-issues/` | GitHub Issues batch progress, issue list JSON | Yes (if no active arc-issues loop) |
+| `tmp/gh-plans/` | Auto-generated plan files from GitHub Issues | Yes (if no active arc-issues loop) |
 | `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional, symlink-guarded) |
 | `~/.claude/teams/{rune-*/arc-*}/` (or `$CLAUDE_CONFIG_DIR/teams/` if set) | Orphaned team configs from crashed workflows | `--heal` only |
 | `~/.claude/tasks/{rune-*/arc-*}/` (or `$CLAUDE_CONFIG_DIR/tasks/` if set) | Orphaned task lists from crashed workflows | `--heal` only |
@@ -206,6 +208,20 @@ for f in tmp/.rune-batch-*.json(N); do
 done
 if [ -z "$active_batch" ]; then
   rm -rf tmp/arc-batch/
+fi
+
+# Remove arc-issues artifacts (only if no active arc-issues loop)
+# State file is .claude/arc-issues-loop.local.md (not tmp/)
+arc_issues_state=".claude/arc-issues-loop.local.md"
+if [ -f "$arc_issues_state" ] && ! [[ -L "$arc_issues_state" ]]; then
+  active_issues=$(grep "^active:" "$arc_issues_state" 2>/dev/null | head -1 | sed 's/^active:[[:space:]]*//' || echo "")
+  if [[ "$active_issues" == "true" ]]; then
+    echo "SKIP: tmp/gh-issues/ tmp/gh-plans/ — active arc-issues loop detected"
+  else
+    rm -rf tmp/gh-issues/ tmp/gh-plans/
+  fi
+else
+  rm -rf tmp/gh-issues/ tmp/gh-plans/
 fi
 
 # Remove scratch files (unconditional — no state file)

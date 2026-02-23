@@ -12,9 +12,18 @@
   - `extractAcceptanceCriteria` with defense-in-depth sanitization
   - Progress file schema v2 with `pr_created` field for crash-resume dedup
   - Session isolation: `config_dir` + `owner_pid` in state file
-  - Stop hook loop driver via `arc-issues-stop-hook.sh` (Phase 3 — implemented alongside shared library)
+  - Stop hook loop driver via `arc-issues-stop-hook.sh` — GH API calls deferred to next arc turn (CC-2/BACK-008), uses `--body-file` for all comment posting (SEC-001), `Fixes #N` injection
+- **Shared stop hook library** — `scripts/lib/stop-hook-common.sh` extracts common guard functions from arc-batch and arc-hierarchy stop hooks (`parse_input`, `resolve_cwd`, `check_state_file`, `reject_symlink`, `parse_frontmatter`, `get_field`, `validate_session_ownership`, `validate_paths`). Both `arc-batch-stop-hook.sh` and `arc-hierarchy-stop-hook.sh` refactored to source the library.
+- **Pre-flight validation script** — `scripts/arc-issues-preflight.sh` validates gh CLI version (>= 2.4.0), authentication, issue number format, issue existence/open state, and Rune status labels with 5s per-gh-call timeout
 - **`/rune:cancel-arc-issues`** — Cancel active arc-issues batch loop and remove state file
 - New algorithm reference: `skills/arc-issues/references/arc-issues-algorithm.md`
+
+### Changed
+- `on-session-stop.sh`: Guard 5c added — defers to `arc-issues-stop-hook.sh` when arc-issues loop is active and owned by current session
+- `pre-compact-checkpoint.sh`: Captures `arc_issues_state` alongside `arc_batch_state` before compaction
+- `session-compact-recovery.sh`: Re-injects arc-issues loop context after compaction (iteration/total_plans)
+- `skills/using-rune/SKILL.md`: Added arc-issues routing row and Quick Reference table entry
+- `commands/rest.md`: Added `tmp/gh-issues/` and `tmp/gh-plans/` to cleanup table with active-loop guard
 
 ## [1.82.0] - 2026-02-23
 
