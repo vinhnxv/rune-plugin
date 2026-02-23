@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.77.0] - 2026-02-23
+
+### Added
+- **Mend-Fixer Bidirectional Review Protocol**: Added "Receiving Review Findings — Bidirectional Protocol" section to `mend-fixer.md`. Includes "Actions > Words" principle (no performative agreement), 5-step Technical Pushback Protocol, "Never Blindly Fix" section with 4 anti-patterns, and Commitment section. Extends existing FALSE_POSITIVE handling without modifying existing content.
+  - Enhanced: `agents/utility/mend-fixer.md` — new section before RE-ANCHOR
+- **Condition-Based Waiting Patterns**: Created `skills/polling-guard/references/condition-based-waiting.md` reference file with 4 pattern categories: Wait-Until (with timeout fallback), Exponential Backoff (with jitter formula), Deadlock Detection (4 scenarios + recovery checklist), and Polling vs Push comparison table. Linked from polling-guard SKILL.md.
+  - New: `skills/polling-guard/references/condition-based-waiting.md`
+  - Enhanced: `skills/polling-guard/SKILL.md` — added "Additional Patterns" section before Reference
+- **Creation Log Template and Seed Logs**: Added `references/creation-log-template.md` with 5 required sections (Problem, Alternatives, Decisions, Rationalizations, History). Created 3 seed CREATION-LOG.md files for inner-flame, roundtable-circle, and context-weaving skills — each with 2+ alternatives, 2+ key decisions, and iteration history from CHANGELOG.md.
+  - New: `references/creation-log-template.md` — template for per-skill creation logs
+  - New: `skills/inner-flame/CREATION-LOG.md` — 3-layer design decisions, fresh evidence gate history
+  - New: `skills/roundtable-circle/CREATION-LOG.md` — 7-phase lifecycle, inscription contracts, multi-wave history
+  - New: `skills/context-weaving/CREATION-LOG.md` — unified overflow model, glyph budget system
+  - Enhanced: `CLAUDE.md` — added creation-log-template link in Skill Compliance section
+
 ## [1.76.0] - 2026-02-23
 
 ### Added
