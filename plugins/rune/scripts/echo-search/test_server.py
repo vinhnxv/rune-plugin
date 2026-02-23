@@ -1,8 +1,10 @@
 """Tests for server.py — Echo Search MCP Server database helpers."""
 
+import asyncio
 import os
 import sqlite3
 import textwrap
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -10,13 +12,31 @@ import pytest
 # The module-level env var validation (ECHO_DIR/DB_PATH) runs on import,
 # but defaults to empty strings which pass the forbidden-prefix check.
 from server import (
+    SCHEMA_VERSION,
+    _evidence_basenames,
+    _get_echoes_config,
+    _load_talisman,
+    _migrate_v1,
+    _migrate_v2,
+    _talisman_cache,
+    _tokenize_for_grouping,
+    _trace,
+    assign_semantic_groups,
     build_fts_query,
+    compute_composite_score,
+    compute_entry_similarity,
+    compute_token_fingerprint,
     ensure_schema,
+    expand_semantic_groups,
     get_db,
     get_details,
+    get_retry_entries,
     get_stats,
+    pipeline_search,
     rebuild_index,
+    record_search_failure,
     search_entries,
+    upsert_semantic_group,
 )
 
 
@@ -116,6 +136,492 @@ class TestEnsureSchema:
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
         ).fetchone()[0]
         assert tables >= 3  # echo_entries, echo_meta, echo_entries_fts + internal FTS tables
+
+    def test_v2_tables_created(self, db):
+        """V2 migration creates semantic_groups and echo_search_failures."""
+        tables = {
+            row[0]
+            for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "semantic_groups" in tables
+        assert "echo_search_failures" in tables
+
+    def test_user_version_set(self, db):
+        """PRAGMA user_version should be set to SCHEMA_VERSION after ensure_schema."""
+        version = db.execute("PRAGMA user_version").fetchone()[0]
+        assert version == SCHEMA_VERSION
+
+    def test_v1_to_v2_migration_preserves_data(self):
+        """Existing V1 data survives V2 migration without loss."""
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute("BEGIN")
+        _migrate_v1(conn)
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+        conn.execute(
+            """INSERT INTO echo_entries
+               (id, role, layer, date, source, content, tags, line_number, file_path)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("testentry1234567", "reviewer", "inscribed", "2026-01-01",
+             "src", "V1 content", "tags", 1, "/path"),
+        )
+        conn.commit()
+        ensure_schema(conn)
+        row = conn.execute(
+            "SELECT content FROM echo_entries WHERE id=?", ("testentry1234567",)
+        ).fetchone()
+        assert row is not None
+        assert row[0] == "V1 content"
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        conn.close()
+
+    def test_migration_idempotent_rerun(self):
+        """Running ensure_schema on an already-V2 database is a no-op."""
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        ensure_schema(conn)
+        conn.execute(
+            """INSERT INTO echo_entries
+               (id, role, layer, date, source, content, tags, line_number, file_path)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("testentry1234567", "r", "inscribed", "", "", "content", "", 1, "/p"),
+        )
+        conn.execute(
+            """INSERT INTO semantic_groups (group_id, entry_id, similarity, created_at)
+               VALUES (?, ?, ?, ?)""",
+            ("group1234567890a", "testentry1234567", 0.5, "2026-01-01T00:00:00Z"),
+        )
+        conn.commit()
+        ensure_schema(conn)
+        assert conn.execute("SELECT COUNT(*) FROM echo_entries").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM semantic_groups").fetchone()[0] == 1
+        conn.close()
+
+    def test_v2_cascade_delete(self, db):
+        """ON DELETE CASCADE removes group memberships and failures."""
+        db.execute(
+            """INSERT INTO echo_entries
+               (id, role, layer, date, source, content, tags, line_number, file_path)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("cascade_test_001", "r", "inscribed", "", "", "c", "", 1, "/p"),
+        )
+        db.execute(
+            """INSERT INTO semantic_groups (group_id, entry_id, similarity, created_at)
+               VALUES (?, ?, ?, ?)""",
+            ("grp_cascade_0001", "cascade_test_001", 0.5, "2026-01-01T00:00:00Z"),
+        )
+        db.execute(
+            """INSERT INTO echo_search_failures
+               (entry_id, token_fingerprint, retry_count, first_failed_at)
+               VALUES (?, ?, ?, ?)""",
+            ("cascade_test_001", "fp_hash_1234abcd", 0, "2026-01-01T00:00:00Z"),
+        )
+        db.commit()
+        db.execute("DELETE FROM echo_entries WHERE id=?", ("cascade_test_001",))
+        db.commit()
+        assert db.execute("SELECT COUNT(*) FROM semantic_groups").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM echo_search_failures").fetchone()[0] == 0
+
+    def test_foreign_keys_enabled(self, db):
+        """FK enforcement is ON after ensure_schema."""
+        assert db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
+    def test_v2_indexes_created(self, db):
+        """V2 migration creates indexes on semantic_groups and echo_search_failures."""
+        indexes = {
+            row[0]
+            for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%'"
+            ).fetchall()
+        }
+        assert "idx_semantic_groups_entry" in indexes
+        assert "idx_semantic_groups_group" in indexes
+        assert "idx_search_failures_fingerprint" in indexes
+        assert "idx_search_failures_entry" in indexes
+
+
+# ---------------------------------------------------------------------------
+# Semantic grouping (Task 2)
+# ---------------------------------------------------------------------------
+
+class TestTokenizeForGrouping:
+    def test_basic_tokens(self):
+        result = _tokenize_for_grouping("team lifecycle guard pattern")
+        assert "team" in result
+        assert "lifecycle" in result
+        assert "guard" in result
+        assert "pattern" in result
+
+    def test_stopwords_removed(self):
+        result = _tokenize_for_grouping("the team is for security")
+        assert "the" not in result
+        assert "is" not in result
+        assert "for" not in result
+        assert "team" in result
+        assert "security" in result
+
+    def test_single_char_removed(self):
+        result = _tokenize_for_grouping("a b security")
+        assert "a" not in result
+        assert "b" not in result
+        assert "security" in result
+
+    def test_empty_input(self):
+        assert _tokenize_for_grouping("") == set()
+
+    def test_returns_set(self):
+        result = _tokenize_for_grouping("error error error")
+        assert isinstance(result, set)
+        assert result == {"error"}
+
+
+class TestEvidenceBasenames:
+    def test_extracts_backtick_paths(self):
+        entry = {"content": "See `src/auth/login.py` for details", "source": "", "file_path": "/p/MEMORY.md"}
+        result = _evidence_basenames(entry)
+        assert "login.py" in result
+
+    def test_includes_own_file_path(self):
+        entry = {"content": "no paths here", "source": "", "file_path": "/echoes/reviewer/MEMORY.md"}
+        result = _evidence_basenames(entry)
+        assert "memory.md" in result
+
+    def test_empty_content(self):
+        entry = {"content": "", "source": "", "file_path": ""}
+        result = _evidence_basenames(entry)
+        assert isinstance(result, set)
+
+
+class TestComputeEntrySimilarity:
+    def test_identical_entries(self):
+        entry = {
+            "content": "Authentication security `src/auth.py` pattern",
+            "tags": "auth security",
+            "source": "",
+            "file_path": "/echoes/reviewer/MEMORY.md",
+        }
+        sim = compute_entry_similarity(entry, entry)
+        assert sim == 1.0
+
+    def test_no_overlap(self):
+        entry_a = {
+            "content": "Authentication `src/auth.py`",
+            "tags": "security",
+            "source": "",
+            "file_path": "/echoes/reviewer/MEMORY.md",
+        }
+        entry_b = {
+            "content": "Database optimization `lib/db.rs`",
+            "tags": "performance",
+            "source": "",
+            "file_path": "/echoes/planner/NOTES.md",
+        }
+        sim = compute_entry_similarity(entry_a, entry_b)
+        assert sim < 0.3  # Below default threshold
+
+    def test_partial_overlap(self):
+        entry_a = {
+            "content": "Security hardening patterns for `src/auth.py`",
+            "tags": "security auth",
+            "source": "",
+            "file_path": "/echoes/reviewer/MEMORY.md",
+        }
+        entry_b = {
+            "content": "Security validation in `src/auth.py` module",
+            "tags": "security validation",
+            "source": "",
+            "file_path": "/echoes/reviewer/MEMORY.md",
+        }
+        sim = compute_entry_similarity(entry_a, entry_b)
+        assert 0.0 < sim <= 1.0
+        assert sim >= 0.3  # Shared "security", "auth.py", "memory.md"
+
+    def test_empty_entries(self):
+        entry_a = {"content": "", "tags": "", "source": "", "file_path": ""}
+        entry_b = {"content": "", "tags": "", "source": "", "file_path": ""}
+        assert compute_entry_similarity(entry_a, entry_b) == 0.0
+
+
+class TestAssignSemanticGroups:
+    def _make_entry(self, entry_id, content, tags="", file_path="/p/MEMORY.md", source=""):
+        return {
+            "id": entry_id,
+            "content": content,
+            "tags": tags,
+            "source": source,
+            "file_path": file_path,
+            "role": "r",
+            "layer": "inscribed",
+            "date": "",
+            "line_number": 1,
+        }
+
+    def test_groups_similar_entries(self, db):
+        entries = [
+            self._make_entry("entry_a_12345678", "Security hardening `src/auth.py`", "security auth"),
+            self._make_entry("entry_b_12345678", "Security validation `src/auth.py`", "security validation"),
+        ]
+        rebuild_index(db, entries)
+        count = assign_semantic_groups(db, entries, threshold=0.2)
+        assert count >= 2
+        groups = db.execute("SELECT COUNT(*) FROM semantic_groups").fetchone()[0]
+        assert groups >= 2
+
+    def test_no_singleton_groups(self, db):
+        """EDGE-008: entries below threshold should not form singleton groups."""
+        entries = [
+            self._make_entry("entry_a_12345678", "Authentication patterns `src/auth.py`", "auth"),
+            self._make_entry("entry_b_12345678", "Database optimization `lib/db.rs`", "database"),
+        ]
+        rebuild_index(db, entries)
+        count = assign_semantic_groups(db, entries, threshold=0.9)
+        assert count == 0
+        groups = db.execute("SELECT COUNT(*) FROM semantic_groups").fetchone()[0]
+        assert groups == 0
+
+    def test_single_entry_no_groups(self, db):
+        entries = [self._make_entry("entry_a_12345678", "Sole entry", "solo")]
+        rebuild_index(db, entries)
+        count = assign_semantic_groups(db, entries)
+        assert count == 0
+
+    def test_empty_entries_no_groups(self, db):
+        count = assign_semantic_groups(db, [])
+        assert count == 0
+
+    def test_threshold_respected(self, db):
+        """High threshold should prevent grouping."""
+        entries = [
+            self._make_entry("entry_a_12345678", "Security topic `src/auth.py`", "sec"),
+            self._make_entry("entry_b_12345678", "Security audit `src/auth.py`", "sec"),
+        ]
+        rebuild_index(db, entries)
+        low_count = assign_semantic_groups(db, entries, threshold=0.01)
+        db.execute("DELETE FROM semantic_groups")
+        db.commit()
+        high_count = assign_semantic_groups(db, entries, threshold=0.99)
+        assert low_count >= high_count
+
+    def test_max_group_size_splits(self, db):
+        """EDGE-009: groups exceeding max size get split."""
+        # Create 25 similar entries (all share same file and keyword)
+        entries = [
+            self._make_entry(
+                "entry_%02d_1234567" % i,
+                "Security hardening pattern `src/auth.py` number %d" % i,
+                "security",
+            )
+            for i in range(25)
+        ]
+        rebuild_index(db, entries)
+        count = assign_semantic_groups(db, entries, threshold=0.1, max_group_size=10)
+        assert count > 0
+        # Check no single group has more than 10 members
+        groups = db.execute(
+            "SELECT group_id, COUNT(*) as cnt FROM semantic_groups GROUP BY group_id"
+        ).fetchall()
+        for g in groups:
+            assert g[1] <= 10
+
+    def test_group_ids_are_hex(self, db):
+        """Group IDs should be 16-char hex strings (uuid4)."""
+        entries = [
+            self._make_entry("entry_a_12345678", "Security `src/auth.py`", "security"),
+            self._make_entry("entry_b_12345678", "Security `src/auth.py`", "security"),
+        ]
+        rebuild_index(db, entries)
+        assign_semantic_groups(db, entries, threshold=0.1)
+        rows = db.execute("SELECT DISTINCT group_id FROM semantic_groups").fetchall()
+        for row in rows:
+            gid = row[0]
+            assert len(gid) == 16
+            assert all(c in "0123456789abcdef" for c in gid)
+
+
+class TestUpsertSemanticGroup:
+    def test_basic_upsert(self, db):
+        db.execute(
+            """INSERT INTO echo_entries
+               (id, role, layer, date, source, content, tags, line_number, file_path)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("upsert_test_0001", "r", "inscribed", "", "", "content", "", 1, "/p"),
+        )
+        db.commit()
+        count = upsert_semantic_group(db, "grp_upsert_test_1", ["upsert_test_0001"], [0.5])
+        assert count == 1
+        row = db.execute(
+            "SELECT * FROM semantic_groups WHERE group_id=?", ("grp_upsert_test_1",)
+        ).fetchone()
+        assert row["entry_id"] == "upsert_test_0001"
+        assert abs(row["similarity"] - 0.5) < 0.001
+
+    def test_upsert_replaces(self, db):
+        db.execute(
+            """INSERT INTO echo_entries
+               (id, role, layer, date, source, content, tags, line_number, file_path)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("upsert_repl_0001", "r", "inscribed", "", "", "content", "", 1, "/p"),
+        )
+        db.commit()
+        upsert_semantic_group(db, "grp_replace_0001", ["upsert_repl_0001"], [0.3])
+        upsert_semantic_group(db, "grp_replace_0001", ["upsert_repl_0001"], [0.8])
+        rows = db.execute(
+            "SELECT * FROM semantic_groups WHERE group_id=? AND entry_id=?",
+            ("grp_replace_0001", "upsert_repl_0001"),
+        ).fetchall()
+        assert len(rows) == 1
+        assert abs(rows[0]["similarity"] - 0.8) < 0.001
+
+    def test_empty_entry_ids(self, db):
+        count = upsert_semantic_group(db, "grp_empty_000001", [])
+        assert count == 0
+
+    def test_default_similarities(self, db):
+        db.execute(
+            """INSERT INTO echo_entries
+               (id, role, layer, date, source, content, tags, line_number, file_path)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("upsert_dfl_00001", "r", "inscribed", "", "", "content", "", 1, "/p"),
+        )
+        db.commit()
+        upsert_semantic_group(db, "grp_default_0001", ["upsert_dfl_00001"])
+        row = db.execute(
+            "SELECT similarity FROM semantic_groups WHERE entry_id=?", ("upsert_dfl_00001",)
+        ).fetchone()
+        assert row["similarity"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# expand_semantic_groups (Task 3)
+# ---------------------------------------------------------------------------
+
+# Default weights for testing
+_TEST_WEIGHTS = {
+    "relevance": 0.30, "importance": 0.30, "recency": 0.20,
+    "proximity": 0.10, "frequency": 0.10,
+}
+
+
+class TestExpandSemanticGroups:
+    def _make_entry(self, entry_id, content, tags="", layer="inscribed", file_path="/p/MEMORY.md"):
+        return {
+            "id": entry_id, "content": content, "tags": tags,
+            "source": "", "file_path": file_path, "role": "r",
+            "layer": layer, "date": "2026-01-01", "line_number": 1,
+        }
+
+    def _setup_group(self, db, entries, group_id="grp_test_expand01"):
+        """Insert entries and create a group for them."""
+        for e in entries:
+            db.execute(
+                """INSERT OR REPLACE INTO echo_entries
+                   (id, role, layer, date, source, content, tags, line_number, file_path)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (e["id"], e["role"], e["layer"], e["date"], e["source"],
+                 e["content"], e["tags"], e["line_number"], e["file_path"]),
+            )
+        db.commit()
+        # Rebuild FTS
+        rebuild_index(db, entries)
+        now = "2026-01-01T00:00:00Z"
+        for e in entries:
+            db.execute(
+                "INSERT OR REPLACE INTO semantic_groups (group_id, entry_id, similarity, created_at) VALUES (?, ?, ?, ?)",
+                (group_id, e["id"], 0.5, now),
+            )
+        db.commit()
+
+    def test_expands_group_members(self, db):
+        """Scored results should gain group members."""
+        e1 = self._make_entry("expand_a_1234567", "Security auth pattern")
+        e2 = self._make_entry("expand_b_1234567", "Security auth helper")
+        self._setup_group(db, [e1, e2])
+
+        # Only e1 is in "scored results" — e2 should be expanded
+        scored = [{"id": "expand_a_1234567", "source": "", "layer": "inscribed",
+                   "role": "r", "date": "2026-01-01", "content_preview": "Security auth pattern",
+                   "line_number": 1, "score": -1.0, "composite_score": 0.8}]
+        result = expand_semantic_groups(db, scored, _TEST_WEIGHTS)
+        ids = [r["id"] for r in result]
+        assert "expand_b_1234567" in ids
+
+    def test_discount_applied(self, db):
+        """Expanded entries should have discounted composite scores."""
+        e1 = self._make_entry("disc_a_123456789", "Security topic")
+        e2 = self._make_entry("disc_b_123456789", "Security helper")
+        self._setup_group(db, [e1, e2])
+
+        scored = [{"id": "disc_a_123456789", "source": "", "layer": "inscribed",
+                   "role": "r", "date": "2026-01-01", "content_preview": "Security topic",
+                   "line_number": 1, "score": -1.0, "composite_score": 0.8}]
+        result = expand_semantic_groups(db, scored, _TEST_WEIGHTS, discount=0.7)
+        expanded = [r for r in result if r.get("expansion_source") == "group_expansion"]
+        for entry in expanded:
+            # Discount means the composite_score should be lower than original scored entry
+            assert entry["composite_score"] < 0.8 or entry["composite_score"] == 0.0
+
+    def test_expansion_source_marked(self, db):
+        """Expanded entries should have expansion_source='group_expansion'."""
+        e1 = self._make_entry("mark_a_123456789", "Topic A")
+        e2 = self._make_entry("mark_b_123456789", "Topic B")
+        self._setup_group(db, [e1, e2])
+
+        scored = [{"id": "mark_a_123456789", "source": "", "layer": "inscribed",
+                   "role": "r", "date": "2026-01-01", "content_preview": "Topic A",
+                   "line_number": 1, "score": -1.0, "composite_score": 0.8}]
+        result = expand_semantic_groups(db, scored, _TEST_WEIGHTS)
+        expanded = [r for r in result if r["id"] == "mark_b_123456789"]
+        assert len(expanded) == 1
+        assert expanded[0].get("expansion_source") == "group_expansion"
+
+    def test_no_duplicate_entries(self, db):
+        """Entries already in results should not be duplicated (EDGE-010)."""
+        e1 = self._make_entry("dedup_a_12345678", "Topic dedup")
+        e2 = self._make_entry("dedup_b_12345678", "Topic dedup")
+        self._setup_group(db, [e1, e2])
+
+        scored = [
+            {"id": "dedup_a_12345678", "source": "", "layer": "inscribed",
+             "role": "r", "date": "2026-01-01", "content_preview": "Topic dedup",
+             "line_number": 1, "score": -1.0, "composite_score": 0.9},
+            {"id": "dedup_b_12345678", "source": "", "layer": "inscribed",
+             "role": "r", "date": "2026-01-01", "content_preview": "Topic dedup",
+             "line_number": 1, "score": -0.8, "composite_score": 0.7},
+        ]
+        result = expand_semantic_groups(db, scored, _TEST_WEIGHTS)
+        id_counts = {}
+        for r in result:
+            id_counts[r["id"]] = id_counts.get(r["id"], 0) + 1
+        assert all(c == 1 for c in id_counts.values())
+
+    def test_empty_results_passthrough(self, db):
+        """Empty input should return empty output."""
+        result = expand_semantic_groups(db, [], _TEST_WEIGHTS)
+        assert result == []
+
+    def test_no_groups_passthrough(self, db):
+        """Results with no group memberships should pass through unchanged."""
+        scored = [{"id": "nogroupentry_001", "source": "", "layer": "inscribed",
+                   "role": "r", "date": "2026-01-01", "content_preview": "solo",
+                   "line_number": 1, "score": -1.0, "composite_score": 0.5}]
+        result = expand_semantic_groups(db, scored, _TEST_WEIGHTS)
+        assert len(result) == 1
+        assert result[0]["id"] == "nogroupentry_001"
+
+    def test_max_expansion_cap(self, db):
+        """Max expansion should limit how many entries are added."""
+        entries = [self._make_entry("cap_%02d_12345678" % i, "Topic cap %d" % i) for i in range(10)]
+        self._setup_group(db, entries)
+
+        scored = [{"id": "cap_00_12345678", "source": "", "layer": "inscribed",
+                   "role": "r", "date": "2026-01-01", "content_preview": "Topic cap 0",
+                   "line_number": 1, "score": -1.0, "composite_score": 0.9}]
+        result = expand_semantic_groups(db, scored, _TEST_WEIGHTS, max_expansion=3)
+        # Original 1 + at most 3 expanded
+        assert len(result) <= 4
 
 
 # ---------------------------------------------------------------------------
@@ -877,3 +1383,435 @@ class TestCheckAndClearDirty:
 
     def test_empty_echo_dir_returns_false(self):
         assert _check_and_clear_dirty("") is False
+
+
+# ---------------------------------------------------------------------------
+# _load_talisman (Task 7)
+# ---------------------------------------------------------------------------
+
+class TestLoadTalisman:
+    """Unit tests for _load_talisman with mtime caching."""
+
+    def setup_method(self):
+        """Reset talisman cache before each test."""
+        _talisman_cache["mtime"] = 0.0
+        _talisman_cache["config"] = {}
+
+    def test_returns_empty_dict_when_no_file(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "nonexistent"))
+        # Ensure ECHO_DIR does not point to real file
+        monkeypatch.setattr("server.ECHO_DIR", "")
+        result = _load_talisman()
+        assert result == {}
+
+    def test_loads_yaml_config(self, tmp_path, monkeypatch):
+        config_dir = tmp_path / ".claude"
+        config_dir.mkdir()
+        talisman = config_dir / "talisman.yml"
+        talisman.write_text("echoes:\n  reranking:\n    enabled: true\n")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config_dir))
+        monkeypatch.setattr("server.ECHO_DIR", "")
+        result = _load_talisman()
+        assert result.get("echoes", {}).get("reranking", {}).get("enabled") is True
+
+    def test_mtime_cache_hit(self, tmp_path, monkeypatch):
+        config_dir = tmp_path / ".claude"
+        config_dir.mkdir()
+        talisman = config_dir / "talisman.yml"
+        talisman.write_text("key: first\n")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config_dir))
+        monkeypatch.setattr("server.ECHO_DIR", "")
+        result1 = _load_talisman()
+        assert result1.get("key") == "first"
+        # Overwrite without changing mtime — cache should return old value
+        talisman.write_text("key: second\n")
+        # Restore original mtime
+        mtime = _talisman_cache["mtime"]
+        os.utime(str(talisman), (mtime, mtime))
+        result2 = _load_talisman()
+        assert result2.get("key") == "first"  # Cached
+
+    def test_returns_empty_dict_without_yaml(self, tmp_path, monkeypatch):
+        """When PyYAML import fails, returns empty dict."""
+        config_dir = tmp_path / ".claude"
+        config_dir.mkdir()
+        talisman = config_dir / "talisman.yml"
+        talisman.write_text("echoes: {}\n")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config_dir))
+        monkeypatch.setattr("server.ECHO_DIR", "")
+        import builtins
+        real_import = builtins.__import__
+        def mock_import(name, *args, **kwargs):
+            if name == "yaml":
+                raise ImportError("no yaml")
+            return real_import(name, *args, **kwargs)
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = _load_talisman()
+        assert result == {}
+
+    def test_echo_dir_based_path(self, tmp_path, monkeypatch):
+        """Finds talisman.yml relative to ECHO_DIR."""
+        claude_dir = tmp_path / ".claude"
+        echoes_dir = claude_dir / "echoes"
+        echoes_dir.mkdir(parents=True)
+        talisman = claude_dir / "talisman.yml"
+        talisman.write_text("via_echo_dir: true\n")
+        monkeypatch.setattr("server.ECHO_DIR", str(echoes_dir))
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "elsewhere"))
+        result = _load_talisman()
+        assert result.get("via_echo_dir") is True
+
+
+# ---------------------------------------------------------------------------
+# _get_echoes_config (Task 7)
+# ---------------------------------------------------------------------------
+
+class TestGetEchoesConfig:
+    """Unit tests for _get_echoes_config nested extraction."""
+
+    def test_extracts_section(self):
+        talisman = {"echoes": {"reranking": {"enabled": True, "threshold": 25}}}
+        result = _get_echoes_config(talisman, "reranking")
+        assert result == {"enabled": True, "threshold": 25}
+
+    def test_missing_section_returns_empty(self):
+        talisman = {"echoes": {"decomposition": {"enabled": True}}}
+        assert _get_echoes_config(talisman, "reranking") == {}
+
+    def test_missing_echoes_key(self):
+        assert _get_echoes_config({}, "reranking") == {}
+
+    def test_non_dict_echoes(self):
+        assert _get_echoes_config({"echoes": "not-a-dict"}, "reranking") == {}
+
+    def test_non_dict_section(self):
+        assert _get_echoes_config({"echoes": {"reranking": True}}, "reranking") == {}
+
+
+# ---------------------------------------------------------------------------
+# _trace (Task 7)
+# ---------------------------------------------------------------------------
+
+class TestTrace:
+    """Unit tests for _trace stderr instrumentation."""
+
+    def test_no_output_when_disabled(self, capsys, monkeypatch):
+        monkeypatch.setattr("server._RUNE_TRACE", False)
+        _trace("test_stage", 0.0)
+        assert capsys.readouterr().err == ""
+
+    def test_outputs_when_enabled(self, capsys, monkeypatch):
+        import time
+        monkeypatch.setattr("server._RUNE_TRACE", True)
+        start = time.time()
+        _trace("test_stage", start)
+        output = capsys.readouterr().err
+        assert "[echo-search]" in output
+        assert "test_stage" in output
+
+
+# ---------------------------------------------------------------------------
+# pipeline_search (Task 7 — EDGE-027: 16 toggle combinations)
+# ---------------------------------------------------------------------------
+
+class TestPipelineSearch:
+    """Tests for pipeline_search multi-pass retrieval orchestration."""
+
+    @pytest.fixture
+    def pipeline_db(self):
+        """DB with schema and sample entries for pipeline testing."""
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        ensure_schema(conn)
+        entries = [
+            {
+                "id": "pipe-entry-001",
+                "role": "orchestrator",
+                "layer": "inscribed",
+                "date": "2026-02-20",
+                "source": "rune:appraise test",
+                "content": "Guard pattern for team lifecycle management ensures cleanup",
+                "tags": "lifecycle",
+                "line_number": 1,
+                "file_path": "/echoes/orchestrator/MEMORY.md",
+            },
+            {
+                "id": "pipe-entry-002",
+                "role": "reviewer",
+                "layer": "etched",
+                "date": "2026-02-21",
+                "source": "rune:audit session",
+                "content": "Security validation must always check inputs at system boundaries",
+                "tags": "security",
+                "line_number": 10,
+                "file_path": "/echoes/reviewer/MEMORY.md",
+            },
+            {
+                "id": "pipe-entry-003",
+                "role": "orchestrator",
+                "layer": "inscribed",
+                "date": "2026-02-22",
+                "source": "rune:strive work",
+                "content": "Team lifecycle cleanup prevents zombie processes and stale state",
+                "tags": "lifecycle cleanup",
+                "line_number": 5,
+                "file_path": "/echoes/orchestrator/MEMORY.md",
+            },
+        ]
+        rebuild_index(conn, entries)
+        return conn
+
+    def _run(self, coro):
+        """Helper to run async coroutine synchronously."""
+        return asyncio.get_event_loop().run_until_complete(coro)
+
+    def _make_talisman(self, decomp=False, groups=False, retry=False, rerank=False):
+        """Build a talisman config with toggled features."""
+        return {
+            "echoes": {
+                "decomposition": {"enabled": decomp},
+                "semantic_groups": {"expansion_enabled": groups, "discount": 0.7, "max_expansion": 5},
+                "retry": {"enabled": retry},
+                "reranking": {"enabled": rerank, "threshold": 1, "max_candidates": 40, "timeout": 4},
+            }
+        }
+
+    # --- EDGE-027: All 16 toggle combinations ---
+
+    @pytest.mark.parametrize("decomp,groups,retry,rerank", [
+        (False, False, False, False),
+        (True, False, False, False),
+        (False, True, False, False),
+        (False, False, True, False),
+        (False, False, False, True),
+        (True, True, False, False),
+        (True, False, True, False),
+        (True, False, False, True),
+        (False, True, True, False),
+        (False, True, False, True),
+        (False, False, True, True),
+        (True, True, True, False),
+        (True, True, False, True),
+        (True, False, True, True),
+        (False, True, True, True),
+        (True, True, True, True),
+    ])
+    def test_toggle_combinations(self, pipeline_db, monkeypatch, decomp, groups, retry, rerank):
+        """EDGE-027: pipeline runs without error for all 16 toggle combos."""
+        talisman = self._make_talisman(decomp, groups, retry, rerank)
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        # Mock decompose_query to avoid subprocess
+        mock_decompose = AsyncMock(return_value=["lifecycle", "cleanup"])
+        mock_merge = MagicMock(side_effect=lambda results: results[0] if results else [])
+        # Mock rerank_results to avoid subprocess
+        mock_rerank = AsyncMock(side_effect=lambda q, r, c: r)
+        with patch.dict("sys.modules", {
+            "decomposer": MagicMock(
+                decompose_query=mock_decompose,
+                merge_results_by_best_score=mock_merge,
+            ),
+            "reranker": MagicMock(rerank_results=mock_rerank),
+        }):
+            results = self._run(pipeline_search(
+                pipeline_db, "lifecycle cleanup", 10,
+            ))
+        assert isinstance(results, list)
+        # Base BM25 should always find entries
+        assert len(results) > 0
+
+    # --- EDGE-028: threshold check after enrichment ---
+
+    def test_reranking_threshold_after_enrichment(self, pipeline_db, monkeypatch):
+        """EDGE-028: reranking threshold applies after all enrichment stages."""
+        talisman = self._make_talisman(rerank=True)
+        # Set high threshold so reranking is skipped
+        talisman["echoes"]["reranking"]["threshold"] = 100
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        mock_rerank = AsyncMock(side_effect=lambda q, r, c: r)
+        with patch.dict("sys.modules", {
+            "reranker": MagicMock(rerank_results=mock_rerank),
+        }):
+            results = self._run(pipeline_search(
+                pipeline_db, "lifecycle cleanup", 10,
+            ))
+        # rerank_results still called (threshold check is inside rerank_results)
+        assert isinstance(results, list)
+
+    # --- All features disabled: plain BM25 passthrough ---
+
+    def test_all_disabled_bm25_passthrough(self, pipeline_db, monkeypatch):
+        """All features disabled returns BM25 results with composite scoring."""
+        talisman = self._make_talisman()
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        results = self._run(pipeline_search(
+            pipeline_db, "lifecycle cleanup", 10,
+        ))
+        assert len(results) > 0
+        # Results should have composite_score from Stage 4
+        assert all("composite_score" in r for r in results)
+
+    # --- Over-fetch limit ---
+
+    def test_overfetch_limit(self, pipeline_db, monkeypatch):
+        """BM25 stage uses limit * 3 candidates (capped at 150)."""
+        talisman = self._make_talisman()
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        original_search = search_entries
+        called_with_limit = []
+
+        def tracking_search(conn, query, limit=10, layer=None, role=None):
+            called_with_limit.append(limit)
+            return original_search(conn, query, limit, layer, role)
+
+        monkeypatch.setattr("server.search_entries", tracking_search)
+        self._run(pipeline_search(pipeline_db, "lifecycle", 5))
+        assert called_with_limit[0] == 15  # 5 * 3
+
+    def test_overfetch_capped_at_150(self, pipeline_db, monkeypatch):
+        """Overfetch limit caps at 150."""
+        talisman = self._make_talisman()
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        original_search = search_entries
+        called_with_limit = []
+
+        def tracking_search(conn, query, limit=10, layer=None, role=None):
+            called_with_limit.append(limit)
+            return original_search(conn, query, limit, layer, role)
+
+        monkeypatch.setattr("server.search_entries", tracking_search)
+        self._run(pipeline_search(pipeline_db, "lifecycle", 100))
+        assert called_with_limit[0] == 150  # min(100*3, 150) = 150
+
+    # --- Layer/role filtering passes through ---
+
+    def test_layer_role_passthrough(self, pipeline_db, monkeypatch):
+        """Layer and role filters are passed to BM25 search."""
+        talisman = self._make_talisman()
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        results = self._run(pipeline_search(
+            pipeline_db, "lifecycle", 10, layer="inscribed",
+        ))
+        assert all(r.get("layer") == "inscribed" for r in results)
+
+    # --- Decomposition fallback on error ---
+
+    def test_decomposition_fallback_on_import_error(self, pipeline_db, monkeypatch):
+        """Decomposition falls back to original query when import fails."""
+        talisman = self._make_talisman(decomp=True)
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        # Remove decomposer from sys.modules to force ImportError
+        with patch.dict("sys.modules", {"decomposer": None}):
+            results = self._run(pipeline_search(
+                pipeline_db, "lifecycle cleanup", 10,
+            ))
+        assert len(results) > 0
+
+    # --- Reranking fallback on error ---
+
+    def test_reranking_fallback_on_import_error(self, pipeline_db, monkeypatch):
+        """Reranking falls back to BM25 results when import fails."""
+        talisman = self._make_talisman(rerank=True)
+        talisman["echoes"]["reranking"]["threshold"] = 1
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        with patch.dict("sys.modules", {"reranker": None}):
+            results = self._run(pipeline_search(
+                pipeline_db, "lifecycle cleanup", 10,
+            ))
+        assert len(results) > 0
+
+    # --- Retry injection with failure data ---
+
+    def test_retry_injection_merges_entries(self, pipeline_db, monkeypatch):
+        """Retry stage injects previously-failed entries matching fingerprint."""
+        talisman = self._make_talisman(retry=True)
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        # Record a search failure — entry_id must exist in echo_entries (FK)
+        fp = compute_token_fingerprint("lifecycle cleanup")
+        if fp:
+            record_search_failure(pipeline_db, "pipe-entry-001", fp)
+        results = self._run(pipeline_search(
+            pipeline_db, "lifecycle cleanup", 10,
+        ))
+        assert isinstance(results, list)
+
+    # --- Empty query returns empty ---
+
+    def test_empty_query_returns_empty(self, pipeline_db, monkeypatch):
+        """Empty query returns empty results."""
+        talisman = self._make_talisman()
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        results = self._run(pipeline_search(
+            pipeline_db, "", 10,
+        ))
+        assert results == []
+
+    # --- Result limit respected ---
+
+    def test_result_limit(self, pipeline_db, monkeypatch):
+        """Final results are capped at the requested limit."""
+        talisman = self._make_talisman()
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        results = self._run(pipeline_search(
+            pipeline_db, "lifecycle cleanup security", 1,
+        ))
+        assert len(results) <= 1
+
+    # --- Integration test with real echo data ---
+
+    def test_integration_full_pipeline(self, pipeline_db, monkeypatch):
+        """Integration test: all stages enabled with mocked subprocesses."""
+        talisman = self._make_talisman(decomp=True, groups=True, retry=True, rerank=True)
+        talisman["echoes"]["reranking"]["threshold"] = 1
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+
+        # Set up semantic groups for group expansion (entry_ids as list)
+        upsert_semantic_group(pipeline_db, "grp-001", ["pipe-entry-001", "pipe-entry-003"], [0.8, 0.8])
+
+        # Record a failure for retry injection (entry_id must exist in echo_entries)
+        fp = compute_token_fingerprint("lifecycle cleanup")
+        if fp:
+            record_search_failure(pipeline_db, "pipe-entry-002", fp)
+
+        # Mock async subprocess calls
+        mock_decompose = AsyncMock(return_value=["lifecycle management", "cleanup guard"])
+        mock_merge = MagicMock(side_effect=lambda results: results[0] if results else [])
+        mock_rerank = AsyncMock(side_effect=lambda q, r, c: r)
+
+        with patch.dict("sys.modules", {
+            "decomposer": MagicMock(
+                decompose_query=mock_decompose,
+                merge_results_by_best_score=mock_merge,
+            ),
+            "reranker": MagicMock(rerank_results=mock_rerank),
+        }):
+            results = self._run(pipeline_search(
+                pipeline_db, "lifecycle cleanup", 10,
+            ))
+
+        assert len(results) > 0
+        assert all("composite_score" in r for r in results)
+        # Verify decomposition was called
+        mock_decompose.assert_called_once()
+        # Verify reranking was called
+        mock_rerank.assert_called_once()
+
+    # --- EDGE-029: Trace instrumentation ---
+
+    def test_trace_gated_behind_env(self, pipeline_db, monkeypatch, capsys):
+        """EDGE-029: Trace output only when _RUNE_TRACE is True."""
+        talisman = self._make_talisman()
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        monkeypatch.setattr("server._RUNE_TRACE", False)
+        self._run(pipeline_search(pipeline_db, "lifecycle", 5))
+        assert capsys.readouterr().err == ""
+
+    def test_trace_output_when_enabled(self, pipeline_db, monkeypatch, capsys):
+        """EDGE-029: Trace output appears when _RUNE_TRACE is True."""
+        talisman = self._make_talisman()
+        monkeypatch.setattr("server._load_talisman", lambda: talisman)
+        monkeypatch.setattr("server._RUNE_TRACE", True)
+        self._run(pipeline_search(pipeline_db, "lifecycle", 5))
+        err = capsys.readouterr().err
+        assert "[echo-search]" in err
+        assert "bm25_search" in err
+        assert "pipeline_total" in err

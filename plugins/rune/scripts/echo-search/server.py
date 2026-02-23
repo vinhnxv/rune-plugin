@@ -32,6 +32,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -40,6 +41,7 @@ import sqlite3
 import sys
 import tempfile
 import time
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -754,53 +756,317 @@ def get_db(db_path):
     return conn
 
 
-def ensure_schema(conn):
-    # type: (sqlite3.Connection) -> None
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS echo_entries (
-            id TEXT PRIMARY KEY,
-            role TEXT NOT NULL,
-            layer TEXT NOT NULL,
-            date TEXT,
-            source TEXT,
-            content TEXT NOT NULL,
-            tags TEXT DEFAULT '',
-            line_number INTEGER,
-            file_path TEXT NOT NULL
-        );
+SCHEMA_VERSION = 2
 
-        CREATE TABLE IF NOT EXISTS echo_meta (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        );
 
-        CREATE TABLE IF NOT EXISTS echo_access_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            entry_id TEXT NOT NULL,
-            accessed_at TEXT NOT NULL,
-            query TEXT DEFAULT ''
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_access_log_entry_id
-            ON echo_access_log(entry_id);
-        CREATE INDEX IF NOT EXISTS idx_access_log_accessed_at
-            ON echo_access_log(accessed_at);
-    """)
-
-    # Check if FTS table exists
-    cursor = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='echo_entries_fts'"
-    )
+def _migrate_v1(conn: sqlite3.Connection) -> None:
+    """Apply V1 schema: core echo tables, access log, and FTS index."""
+    conn.execute("""CREATE TABLE IF NOT EXISTS echo_entries (
+        id TEXT PRIMARY KEY, role TEXT NOT NULL, layer TEXT NOT NULL,
+        date TEXT, source TEXT, content TEXT NOT NULL,
+        tags TEXT DEFAULT '', line_number INTEGER, file_path TEXT NOT NULL)""")
+    conn.execute("CREATE TABLE IF NOT EXISTS echo_meta (key TEXT PRIMARY KEY, value TEXT)")
+    conn.execute("""CREATE TABLE IF NOT EXISTS echo_access_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, entry_id TEXT NOT NULL,
+        accessed_at TEXT NOT NULL, query TEXT DEFAULT '')""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_access_log_entry_id ON echo_access_log(entry_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_access_log_accessed_at ON echo_access_log(accessed_at)")
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='echo_entries_fts'")
     if cursor.fetchone() is None:
-        conn.executescript("""
-            CREATE VIRTUAL TABLE echo_entries_fts USING fts5(
-                content, tags, source,
-                content=echo_entries,
-                tokenize='porter unicode61'
-            );
-        """)
+        conn.execute("""CREATE VIRTUAL TABLE echo_entries_fts USING fts5(
+            content, tags, source, content=echo_entries, tokenize='porter unicode61')""")
 
+
+def _migrate_v2(conn: sqlite3.Connection) -> None:
+    """Apply V2 schema: semantic groups and search failure tracking (EDGE-011)."""
+    conn.execute("""CREATE TABLE IF NOT EXISTS semantic_groups (
+        group_id TEXT NOT NULL, entry_id TEXT NOT NULL,
+        similarity REAL NOT NULL DEFAULT 0.0, created_at TEXT NOT NULL,
+        PRIMARY KEY (group_id, entry_id),
+        FOREIGN KEY (entry_id) REFERENCES echo_entries(id) ON DELETE CASCADE)""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_semantic_groups_entry ON semantic_groups(entry_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_semantic_groups_group ON semantic_groups(group_id)")
+    conn.execute("""CREATE TABLE IF NOT EXISTS echo_search_failures (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, entry_id TEXT NOT NULL,
+        token_fingerprint TEXT NOT NULL, retry_count INTEGER NOT NULL DEFAULT 0,
+        first_failed_at TEXT NOT NULL, last_retried_at TEXT,
+        FOREIGN KEY (entry_id) REFERENCES echo_entries(id) ON DELETE CASCADE)""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_search_failures_fingerprint ON echo_search_failures(token_fingerprint)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_search_failures_entry ON echo_search_failures(entry_id)")
+
+
+def ensure_schema(conn: sqlite3.Connection) -> None:
+    """Ensure database schema is at the current version via PRAGMA user_version."""
+    conn.execute("PRAGMA foreign_keys = ON")
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version < SCHEMA_VERSION:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+            if version < 1:
+                _migrate_v1(conn)
+            if version < 2:
+                _migrate_v2(conn)
+            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def _tokenize_for_grouping(text: str) -> set[str]:
+    """Extract lowercased, stopword-filtered tokens for Jaccard similarity."""
+    tokens = re.findall(r"[a-zA-Z0-9_]+", text.lower())
+    return {t for t in tokens if t not in STOPWORDS and len(t) >= 2}
+
+
+def _evidence_basenames(entry: Dict[str, Any]) -> set[str]:
+    """Extract basenames of evidence file paths from an entry."""
+    basenames = set()  # type: set[str]
+    content = entry.get("content", "") or entry.get("content_preview", "") or ""
+    for match in _EVIDENCE_PATH_RE.finditer(content):
+        candidate = match.group(1)
+        if "/" in candidate or os.sep in candidate:
+            basenames.add(os.path.basename(candidate).lower())
+    source = entry.get("source", "") or ""
+    for token in source.split():
+        if "/" in token and ":" not in token:
+            basenames.add(os.path.basename(token).lower())
+    file_path = entry.get("file_path", "") or ""
+    if file_path:
+        basenames.add(os.path.basename(file_path).lower())
+    return basenames
+
+
+def compute_entry_similarity(entry_a: Dict[str, Any], entry_b: Dict[str, Any]) -> float:
+    """Compute Jaccard similarity between two echo entries (EDGE-007)."""
+    features_a = _evidence_basenames(entry_a) | _tokenize_for_grouping(
+        (entry_a.get("content", "") or "") + " " + (entry_a.get("tags", "") or ""))
+    features_b = _evidence_basenames(entry_b) | _tokenize_for_grouping(
+        (entry_b.get("content", "") or "") + " " + (entry_b.get("tags", "") or ""))
+    if not features_a and not features_b:
+        return 0.0
+    union = features_a | features_b
+    return len(features_a & features_b) / len(union) if union else 0.0
+
+
+def assign_semantic_groups(
+    conn: sqlite3.Connection, entries: list[Dict[str, Any]],
+    threshold: float = 0.3, max_group_size: int = 20,
+) -> int:
+    """Assign entries to semantic groups based on Jaccard similarity."""
+    if len(entries) < 2:
+        return 0
+    entry_map = {e["id"]: e for e in entries}
+    entry_ids = list(entry_map.keys())
+    groups = []  # type: list[tuple[str, set[str], dict[str, float]]]
+    for i in range(len(entry_ids)):
+        for j in range(i + 1, len(entry_ids)):
+            id_a, id_b = entry_ids[i], entry_ids[j]
+            sim = compute_entry_similarity(entry_map[id_a], entry_map[id_b])
+            if sim < threshold:
+                continue
+            group_a = group_b = None
+            for g in groups:
+                if id_a in g[1]:
+                    group_a = g
+                if id_b in g[1]:
+                    group_b = g
+            if group_a is None and group_b is None:
+                groups.append((uuid.uuid4().hex[:16], {id_a, id_b}, {id_a: sim, id_b: sim}))
+            elif group_a is not None and group_b is None:
+                group_a[1].add(id_b)
+                group_a[2][id_b] = max(group_a[2].get(id_b, 0.0), sim)
+            elif group_a is None and group_b is not None:
+                group_b[1].add(id_a)
+                group_b[2][id_a] = max(group_b[2].get(id_a, 0.0), sim)
+            elif group_a is not None and group_b is not None and group_a is not group_b:
+                group_a[1].update(group_b[1])
+                for eid, s in group_b[2].items():
+                    group_a[2][eid] = max(group_a[2].get(eid, 0.0), s)
+                groups.remove(group_b)
+            elif group_a is group_b and group_a is not None:
+                group_a[2][id_a] = max(group_a[2].get(id_a, 0.0), sim)
+                group_a[2][id_b] = max(group_a[2].get(id_b, 0.0), sim)
+    groups = [g for g in groups if len(g[1]) >= 2]
+    final_groups = []  # type: list[tuple[str, set[str], dict[str, float]]]
+    for gid, members, sims in groups:
+        if len(members) <= max_group_size:
+            final_groups.append((gid, members, sims))
+        else:
+            sorted_m = sorted(members, key=lambda eid: sims.get(eid, 0.0), reverse=True)
+            for cs in range(0, len(sorted_m), max_group_size):
+                chunk = set(sorted_m[cs:cs + max_group_size])
+                if len(chunk) >= 2:
+                    final_groups.append(
+                        (gid if cs == 0 else uuid.uuid4().hex[:16], chunk,
+                         {eid: sims.get(eid, 0.0) for eid in chunk}))
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    count = 0
+    for gid, members, sims in final_groups:
+        for eid in members:
+            conn.execute(
+                "INSERT OR REPLACE INTO semantic_groups (group_id, entry_id, similarity, created_at) VALUES (?, ?, ?, ?)",
+                (gid, eid, sims.get(eid, 0.0), now))
+            count += 1
     conn.commit()
+    return count
+
+
+def upsert_semantic_group(
+    conn: sqlite3.Connection, group_id: str,
+    entry_ids: list[str], similarities: list[float] | None = None,
+) -> int:
+    """Insert or update a semantic group with the given entry memberships."""
+    if not entry_ids:
+        return 0
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    if similarities is None:
+        similarities = [0.0] * len(entry_ids)
+    count = 0
+    for eid, sim in zip(entry_ids, similarities):
+        conn.execute(
+            "INSERT OR REPLACE INTO semantic_groups (group_id, entry_id, similarity, created_at) VALUES (?, ?, ?, ?)",
+            (group_id, eid, sim, now))
+        count += 1
+    conn.commit()
+    return count
+
+
+def expand_semantic_groups(
+    conn: sqlite3.Connection,
+    scored_results: list[Dict[str, Any]],
+    weights: Dict[str, float],
+    context_files: Optional[List[str]] = None,
+    discount: float = 0.7,
+    max_expansion: int = 5,
+) -> list[Dict[str, Any]]:
+    """Expand search results by fetching semantic group members.
+
+    Runs AFTER composite scoring, BEFORE retry injection. For each
+    result, looks up its group memberships, fetches other members not
+    already in results, computes their composite scores, applies a
+    discount factor, and appends them.
+
+    Pipeline position rationale:
+    - After composite: expanded entries need their OWN composite scores
+    - Before retry: retry entries should NOT trigger group expansion
+    - Before reranking: expanded entries must be in reranking candidate set
+
+    Args:
+        conn: Database connection with V2 schema.
+        scored_results: Results with composite_score from compute_composite_score().
+        weights: Scoring weights dict for composite score computation.
+        context_files: Optional file paths for proximity scoring.
+        discount: Multiplier for expanded entry scores (default 0.7).
+        max_expansion: Max expanded entries to add per group (default 5).
+
+    Returns:
+        Combined list: original results + expanded entries (deduped by
+        highest score per entry ID, EDGE-010).
+    """
+    if not scored_results:
+        return scored_results
+
+    # Collect entry IDs already in results
+    existing_ids = {r.get("id", "") for r in scored_results if r.get("id")}
+
+    # Batch-fetch group_ids for all result entries
+    if not existing_ids:
+        return scored_results
+
+    placeholders = ",".join(["?"] * len(existing_ids))
+    id_list = list(existing_ids)
+    try:
+        group_rows = conn.execute(
+            "SELECT DISTINCT group_id FROM semantic_groups WHERE entry_id IN (%s)" % placeholders,
+            id_list,
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return scored_results  # Table may not exist (pre-V2)
+
+    group_ids = [r[0] for r in group_rows]
+    if not group_ids:
+        return scored_results
+
+    # Batch-fetch all members of those groups NOT already in results
+    gid_placeholders = ",".join(["?"] * len(group_ids))
+    eid_placeholders = ",".join(["?"] * len(existing_ids))
+    try:
+        expanded_rows = conn.execute(
+            """SELECT sg.group_id, e.id, e.source, e.layer, e.role, e.date,
+                      substr(e.content, 1, 200) AS content_preview,
+                      e.line_number, e.tags
+               FROM semantic_groups sg
+               JOIN echo_entries e ON e.id = sg.entry_id
+               WHERE sg.group_id IN (%s)
+                 AND sg.entry_id NOT IN (%s)""" % (gid_placeholders, eid_placeholders),
+            group_ids + id_list,
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return scored_results
+
+    if not expanded_rows:
+        return scored_results
+
+    # Build expanded entry dicts
+    expanded_entries = []  # type: list[Dict[str, Any]]
+    for row in expanded_rows:
+        expanded_entries.append({
+            "id": row["id"],
+            "source": row["source"],
+            "layer": row["layer"],
+            "role": row["role"],
+            "date": row["date"],
+            "content_preview": row["content_preview"],
+            "line_number": row["line_number"],
+            "tags": row["tags"],
+            "score": 0.0,  # No BM25 score for expanded entries
+            "expansion_source": "group_expansion",
+        })
+
+    # Dedup expanded entries (keep first occurrence per ID)
+    seen = set()  # type: set[str]
+    unique_expanded = []  # type: list[Dict[str, Any]]
+    for entry in expanded_entries:
+        eid = entry["id"]
+        if eid not in seen and eid not in existing_ids:
+            seen.add(eid)
+            unique_expanded.append(entry)
+
+    # Cap at max_expansion per group (apply globally since groups may overlap)
+    unique_expanded = unique_expanded[:max_expansion * len(group_ids)]
+
+    if not unique_expanded:
+        return scored_results
+
+    # Compute composite scores for expanded entries
+    scored_expanded = compute_composite_score(
+        unique_expanded, weights, conn=conn, context_files=context_files,
+    )
+
+    # Apply discount to composite scores
+    for entry in scored_expanded:
+        original_score = entry.get("composite_score", 0.0)
+        entry["composite_score"] = round(original_score * discount, 4)
+        entry["expansion_source"] = "group_expansion"
+
+    # Merge: combine original + expanded, dedup by highest composite_score (EDGE-010)
+    combined = {}  # type: dict[str, Dict[str, Any]]
+    for entry in scored_results:
+        eid = entry.get("id", "")
+        if eid:
+            combined[eid] = entry
+
+    for entry in scored_expanded:
+        eid = entry.get("id", "")
+        if eid and (eid not in combined or
+                    entry.get("composite_score", 0.0) > combined[eid].get("composite_score", 0.0)):
+            combined[eid] = entry
+
+    # Sort by composite score descending
+    result = sorted(combined.values(), key=lambda x: x.get("composite_score", 0.0), reverse=True)
+    return result
 
 
 def rebuild_index(conn, entries):
@@ -851,6 +1117,25 @@ def rebuild_index(conn, entries):
             (cutoff,),
         )
 
+        # EDGE-020: Cleanup aged-out search failures at reindex time.
+        # Removes entries whose first_failed_at is older than 30 days,
+        # and orphaned failures referencing deleted entries.
+        failure_cutoff = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ",
+            time.gmtime(time.time() - 30 * 86400),
+        )
+        try:
+            conn.execute(
+                "DELETE FROM echo_search_failures WHERE first_failed_at < ?",
+                (failure_cutoff,),
+            )
+            conn.execute("""
+                DELETE FROM echo_search_failures
+                WHERE entry_id NOT IN (SELECT id FROM echo_entries)
+            """)
+        except sqlite3.OperationalError:
+            pass  # Table may not exist yet (pre-V2 schema)
+
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         conn.execute(
             "INSERT OR REPLACE INTO echo_meta (key, value) VALUES ('last_indexed', ?)",
@@ -861,6 +1146,424 @@ def rebuild_index(conn, entries):
         conn.rollback()
         raise
     return len(entries)
+
+
+# ---------------------------------------------------------------------------
+# Failed entry retry with token fingerprinting (Task 6)
+# ---------------------------------------------------------------------------
+
+_FAILURE_MAX_RETRIES = 3
+_FAILURE_MAX_AGE_DAYS = 30
+_FAILURE_SCORE_BOOST = 1.2  # Multiply BM25 score by 1.2 (more negative = better)
+
+
+def compute_token_fingerprint(query: str) -> str:
+    """Compute a stable token fingerprint for a search query.
+
+    Uses the same tokenization as build_fts_query(): extract alphanumeric
+    tokens, filter stopwords and short tokens, then sort and deduplicate.
+    The sorted unique tokens are joined and hashed with SHA-256 (EDGE-016).
+
+    Args:
+        query: Raw search query string.
+
+    Returns:
+        Hex SHA-256 digest of the normalized token set. Returns empty string
+        for queries with no usable tokens.
+    """
+    tokens = re.findall(r"[a-zA-Z0-9_]+", query.lower()[:500])
+    filtered = sorted(set(t for t in tokens if t not in STOPWORDS and len(t) >= 2))
+    if not filtered:
+        return ""
+    return hashlib.sha256(" ".join(filtered).encode("utf-8")).hexdigest()
+
+
+def record_search_failure(
+    conn: sqlite3.Connection,
+    entry_id: str,
+    token_fingerprint: str,
+) -> None:
+    """Record a failed match for an entry against a query fingerprint.
+
+    Inserts a new failure record or increments retry_count for an existing
+    one. Respects max retry limit (_FAILURE_MAX_RETRIES). Ages from
+    first failure timestamp, not last retry (EDGE-018).
+
+    Args:
+        conn: SQLite database connection.
+        entry_id: The echo entry ID that was not matched.
+        token_fingerprint: SHA-256 hex digest of query tokens.
+    """
+    if not entry_id or not token_fingerprint:
+        return
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    try:
+        existing = conn.execute(
+            """SELECT id, retry_count FROM echo_search_failures
+               WHERE entry_id = ? AND token_fingerprint = ?""",
+            (entry_id, token_fingerprint),
+        ).fetchone()
+        if existing is None:
+            conn.execute(
+                """INSERT INTO echo_search_failures
+                   (entry_id, token_fingerprint, retry_count, first_failed_at, last_retried_at)
+                   VALUES (?, ?, 0, ?, NULL)""",
+                (entry_id, token_fingerprint, now),
+            )
+        elif existing["retry_count"] < _FAILURE_MAX_RETRIES:
+            conn.execute(
+                """UPDATE echo_search_failures
+                   SET retry_count = retry_count + 1, last_retried_at = ?
+                   WHERE id = ?""",
+                (now, existing["id"]),
+            )
+        # If retry_count >= MAX, don't update (entry is exhausted)
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Table may not exist (pre-V2)
+
+
+def reset_failure_on_match(
+    conn: sqlite3.Connection,
+    entry_id: str,
+    token_fingerprint: str,
+) -> None:
+    """Reset failure tracking when an entry is successfully matched.
+
+    Removes the failure record for the entry+fingerprint pair, allowing
+    future re-discovery (EDGE-017).
+
+    Args:
+        conn: SQLite database connection.
+        entry_id: The echo entry ID that was matched.
+        token_fingerprint: SHA-256 hex digest of query tokens.
+    """
+    if not entry_id or not token_fingerprint:
+        return
+    try:
+        conn.execute(
+            """DELETE FROM echo_search_failures
+               WHERE entry_id = ? AND token_fingerprint = ?""",
+            (entry_id, token_fingerprint),
+        )
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # Table may not exist (pre-V2)
+
+
+def get_retry_entries(
+    conn: sqlite3.Connection,
+    token_fingerprint: str,
+    matched_ids: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """Retrieve entries eligible for retry based on a query fingerprint.
+
+    Returns entries that previously failed to match a similar query
+    (same token fingerprint), haven't exceeded max retries, and aren't
+    older than 30 days. Applies a 20% score boost (EDGE-019).
+
+    Args:
+        conn: SQLite database connection.
+        token_fingerprint: SHA-256 hex digest of query tokens.
+        matched_ids: Entry IDs already in results (to skip duplicates).
+
+    Returns:
+        List of result dicts with boosted scores, ready to merge with
+        primary search results.
+    """
+    if not token_fingerprint:
+        return []
+
+    age_cutoff = time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ",
+        time.gmtime(time.time() - _FAILURE_MAX_AGE_DAYS * 86400),
+    )
+
+    try:
+        sql = """
+            SELECT
+                f.entry_id,
+                e.source, e.layer, e.role, e.date,
+                substr(e.content, 1, 200) AS content_preview,
+                e.line_number,
+                f.retry_count
+            FROM echo_search_failures f
+            JOIN echo_entries e ON e.id = f.entry_id
+            WHERE f.token_fingerprint = ?
+              AND f.retry_count < ?
+              AND f.first_failed_at >= ?
+        """
+        params: List[Any] = [token_fingerprint, _FAILURE_MAX_RETRIES, age_cutoff]
+
+        if matched_ids:
+            placeholders = ",".join(["?"] * len(matched_ids))
+            sql += " AND f.entry_id NOT IN (%s)" % placeholders
+            params.extend(matched_ids)
+
+        cursor = conn.execute(sql, params)
+        results = []
+        for row in cursor.fetchall():
+            # EDGE-019: Score boost — use a base BM25-like score and multiply
+            # by 1.2 to make it more negative (better rank).
+            # Base score: -1.0 (reasonable default for retry entries)
+            base_score = -1.0
+            boosted_score = round(base_score * _FAILURE_SCORE_BOOST, 4)
+            results.append({
+                "id": row["entry_id"],
+                "source": row["source"],
+                "layer": row["layer"],
+                "role": row["role"],
+                "date": row["date"],
+                "content_preview": row["content_preview"],
+                "score": boosted_score,
+                "line_number": row["line_number"],
+                "retry_source": True,
+            })
+        return results
+    except sqlite3.OperationalError:
+        return []  # Table may not exist (pre-V2)
+
+
+def cleanup_aged_failures(conn: sqlite3.Connection) -> int:
+    """Remove search failure entries older than 30 days.
+
+    Probability-based: called from search handler with 1% chance to
+    avoid running on every query (EDGE-020). Also called unconditionally
+    during reindex.
+
+    Args:
+        conn: SQLite database connection.
+
+    Returns:
+        Number of rows deleted.
+    """
+    cutoff = time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ",
+        time.gmtime(time.time() - _FAILURE_MAX_AGE_DAYS * 86400),
+    )
+    try:
+        cursor = conn.execute(
+            "DELETE FROM echo_search_failures WHERE first_failed_at < ?",
+            (cutoff,),
+        )
+        conn.commit()
+        return cursor.rowcount
+    except sqlite3.OperationalError:
+        return 0  # Table may not exist (pre-V2)
+
+
+# ---------------------------------------------------------------------------
+# Talisman config with mtime caching (Task 7)
+# ---------------------------------------------------------------------------
+
+_talisman_cache = {"mtime": 0.0, "config": {}}  # type: Dict[str, Any]
+_RUNE_TRACE = os.environ.get("RUNE_TRACE", "") == "1"
+
+
+def _trace(stage: str, start: float) -> None:
+    """Log pipeline stage timing to stderr when RUNE_TRACE=1 (EDGE-029)."""
+    if _RUNE_TRACE:
+        elapsed_ms = (time.time() - start) * 1000
+        print("[echo-search] %s: %.1fms" % (stage, elapsed_ms), file=sys.stderr)
+
+
+def _load_talisman() -> Dict[str, Any]:
+    """Load talisman.yml config with file mtime caching.
+
+    Lazy-imports PyYAML inside the function. If PyYAML is not installed
+    or talisman.yml doesn't exist, returns empty dict (all features disabled).
+    Config is cached and only re-read when file mtime changes.
+
+    Returns:
+        Parsed talisman config dict, or empty dict on any failure.
+    """
+    # Find talisman.yml: project-level (.claude/talisman.yml)
+    # Fall back to CLAUDE_CONFIG_DIR/talisman.yml
+    talisman_paths = []
+    if ECHO_DIR:
+        # ECHO_DIR is <project>/.claude/echoes — go up 2 levels for .claude/
+        claude_dir = os.path.dirname(ECHO_DIR.rstrip(os.sep))
+        talisman_paths.append(os.path.join(claude_dir, "talisman.yml"))
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude"))
+    talisman_paths.append(os.path.join(config_dir, "talisman.yml"))
+
+    for talisman_path in talisman_paths:
+        try:
+            mtime = os.path.getmtime(talisman_path)
+        except OSError:
+            continue
+
+        if mtime == _talisman_cache["mtime"] and _talisman_cache["config"]:
+            return _talisman_cache["config"]
+
+        try:
+            import yaml  # Lazy import — zero cost if file absent
+        except ImportError:
+            return {}
+
+        try:
+            with open(talisman_path, "r") as f:
+                config = yaml.safe_load(f)
+            if isinstance(config, dict):
+                _talisman_cache["mtime"] = mtime
+                _talisman_cache["config"] = config
+                return config
+        except (OSError, ValueError):
+            pass
+
+    return {}
+
+
+def _get_echoes_config(talisman: Dict[str, Any], key: str) -> Dict[str, Any]:
+    """Extract a nested echoes config section from talisman.
+
+    Args:
+        talisman: Full talisman config dict.
+        key: Config key under 'echoes' (e.g., 'decomposition', 'reranking').
+
+    Returns:
+        Config dict for the section, or empty dict if not found.
+    """
+    echoes = talisman.get("echoes", {})
+    if not isinstance(echoes, dict):
+        return {}
+    section = echoes.get(key, {})
+    return section if isinstance(section, dict) else {}
+
+
+# ---------------------------------------------------------------------------
+# Multi-pass retrieval pipeline (Task 7)
+# ---------------------------------------------------------------------------
+
+async def pipeline_search(
+    conn: sqlite3.Connection,
+    query: str,
+    limit: int,
+    layer: Optional[str] = None,
+    role: Optional[str] = None,
+    context_files: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """Multi-pass retrieval pipeline wiring all enhancement stages.
+
+    Pipeline: Query -> decomposition -> per-facet BM25 -> merge ->
+    composite scoring -> group expansion -> retry injection ->
+    reranking -> top N
+
+    Each stage is independently toggleable via talisman.yml config.
+    Config is re-read per call (mtime-cached) for hot-reload support.
+
+    Args:
+        conn: Database connection with V2 schema.
+        query: Search query string.
+        limit: Max results to return.
+        layer: Optional layer filter.
+        role: Optional role filter.
+        context_files: Optional file paths for proximity scoring.
+
+    Returns:
+        Final ranked list of search result dicts, capped at limit.
+    """
+    talisman = _load_talisman()
+    overfetch_limit = min(limit * 3, 150)
+    pipeline_start = time.time()
+
+    # Stage 1: Query decomposition (async subprocess, 3s timeout)
+    decomp_config = _get_echoes_config(talisman, "decomposition")
+    facets = [query]
+    if decomp_config.get("enabled", False):
+        t0 = time.time()
+        try:
+            from decomposer import decompose_query
+            facets = await decompose_query(query)
+            if not facets:
+                facets = [query]
+        except (ImportError, OSError) as e:
+            if _RUNE_TRACE:
+                print("[echo-search] decomposition error: %s" % e, file=sys.stderr)
+            facets = [query]
+        _trace("decomposition", t0)
+
+    # Stage 2: Per-facet BM25 search
+    t0 = time.time()
+    all_facet_results = []  # type: list[list[Dict[str, Any]]]
+    for facet in facets:
+        results = search_entries(conn, facet, overfetch_limit, layer, role)
+        all_facet_results.append(results)
+    _trace("bm25_search (%d facets)" % len(facets), t0)
+
+    # Stage 3: Merge multi-facet results (EDGE-013: most-negative = best)
+    t0 = time.time()
+    if len(all_facet_results) == 1:
+        candidates = all_facet_results[0]
+    else:
+        try:
+            from decomposer import merge_results_by_best_score
+            candidates = merge_results_by_best_score(all_facet_results)
+        except ImportError:
+            candidates = all_facet_results[0] if all_facet_results else []
+    _trace("merge", t0)
+
+    # Stage 4: Composite scoring
+    t0 = time.time()
+    scored = compute_composite_score(
+        candidates, _SCORING_WEIGHTS, conn=conn, context_files=context_files,
+    )
+    _trace("composite_scoring", t0)
+
+    # Stage 5: Group expansion (after composite, before retry)
+    groups_config = _get_echoes_config(talisman, "semantic_groups")
+    if groups_config.get("expansion_enabled", False):
+        t0 = time.time()
+        discount = groups_config.get("discount", 0.7)
+        max_expansion = groups_config.get("max_expansion", 5)
+        scored = expand_semantic_groups(
+            conn, scored, _SCORING_WEIGHTS,
+            context_files=context_files,
+            discount=discount, max_expansion=max_expansion,
+        )
+        _trace("group_expansion", t0)
+
+    # Stage 6: Retry injection (after group expansion, before reranking)
+    retry_config = _get_echoes_config(talisman, "retry")
+    if retry_config.get("enabled", False):
+        t0 = time.time()
+        fingerprint = compute_token_fingerprint(query)
+        if fingerprint:
+            matched_ids = [r.get("id", "") for r in scored if r.get("id")]
+            retry_entries = get_retry_entries(conn, fingerprint, matched_ids)
+            if retry_entries:
+                # Score retry entries and merge
+                retry_scored = compute_composite_score(
+                    retry_entries, _SCORING_WEIGHTS, conn=conn, context_files=context_files,
+                )
+                for entry in retry_scored:
+                    entry["retry_source"] = True
+                # Dedup: keep best composite_score per entry ID
+                combined = {r.get("id", ""): r for r in scored if r.get("id")}
+                for entry in retry_scored:
+                    eid = entry.get("id", "")
+                    if eid and (eid not in combined or
+                                entry.get("composite_score", 0.0) > combined[eid].get("composite_score", 0.0)):
+                        combined[eid] = entry
+                scored = sorted(combined.values(), key=lambda x: x.get("composite_score", 0.0), reverse=True)
+        _trace("retry_injection", t0)
+
+    # Stage 7: Haiku reranking (async subprocess, 4s timeout)
+    # EDGE-028: threshold check happens AFTER all enrichment stages
+    rerank_config = _get_echoes_config(talisman, "reranking")
+    if rerank_config.get("enabled", False):
+        t0 = time.time()
+        try:
+            from reranker import rerank_results
+            scored = await rerank_results(query, scored, rerank_config)
+        except (ImportError, OSError) as e:
+            if _RUNE_TRACE:
+                print("[echo-search] reranking error: %s" % e, file=sys.stderr)
+        _trace("reranking", t0)
+
+    _trace("pipeline_total", pipeline_start)
+
+    return scored[:limit]
 
 
 def build_fts_query(raw_query):
@@ -1368,6 +2071,33 @@ def run_mcp_server():
                     "required": ["entry_ids"],
                 },
             ),
+            types.Tool(
+                name="echo_upsert_group",
+                description=(
+                    "Create or update a semantic group of echo entries. "
+                    "Groups cluster related entries for expanded retrieval."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "group_id": {
+                            "type": "string",
+                            "description": "Group identifier (16-char hex). Auto-generated if omitted.",
+                        },
+                        "entry_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of echo entry IDs to include in the group",
+                        },
+                        "similarities": {
+                            "type": "array",
+                            "items": {"type": "number"},
+                            "description": "Optional similarity scores per entry (default 0.0)",
+                        },
+                    },
+                    "required": ["entry_ids"],
+                },
+            ),
         ]
 
     # -- call_tool ---------------------------------------------------------
@@ -1386,6 +2116,8 @@ def run_mcp_server():
                 return await _handle_stats()
             elif name == "echo_record_access":
                 return await _handle_record_access(arguments)
+            elif name == "echo_upsert_group":
+                return await _handle_upsert_group(arguments)
             else:
                 return [
                     types.TextContent(
@@ -1445,47 +2177,27 @@ def run_mcp_server():
             limit = 10
         limit = min(limit, 50)
 
-        # Over-fetch for composite re-ranking: retrieve a larger candidate
-        # pool from BM25, then re-rank and truncate to the requested limit.
-        overfetch_limit = min(limit * 3, 150)
-
         conn = get_db(DB_PATH)
         try:
             ensure_schema(conn)
 
             # Auto-reindex when DB is empty OR dirty signal is present.
-            # SEC-NEW-002: This close-reindex-reopen pattern is safe because:
-            # 1. MCP stdio transport is single-threaded asyncio — no concurrent calls overlap
-            # 2. If do_reindex() raises, finally calls conn.close() on the already-closed
-            #    original conn. CPython's sqlite3.Connection.close() is a no-op on closed conns.
             count = conn.execute("SELECT COUNT(*) FROM echo_entries").fetchone()[0]
             is_dirty = _check_and_clear_dirty(ECHO_DIR)
             if (count == 0 or is_dirty) and ECHO_DIR:
-                conn.close()  # QUAL-1: close before reindex opens its own conn
+                conn.close()
                 do_reindex(ECHO_DIR, DB_PATH)
                 conn = get_db(DB_PATH)
 
-            # Fetch expanded candidate pool for re-ranking
-            candidates = search_entries(conn, query, overfetch_limit, layer, role)
-
-            # Re-rank using 5-factor composite scoring, then truncate
-            # C2 concern: compute_composite_score is SYNCHRONOUS — safe for
-            # single-threaded asyncio MCP server. No fire-and-forget tasks.
-            ranked = compute_composite_score(
-                candidates, _SCORING_WEIGHTS, conn=conn,
-                context_files=context_files,
+            # Multi-pass retrieval pipeline (Task 7)
+            results = await pipeline_search(
+                conn, query, limit, layer, role, context_files,
             )
-            results = ranked[:limit]
-
-            # Dual-mode validation: compare BM25-only vs composite rankings
-            if ECHO_VALIDATION_MODE and candidates:
-                _log_validation_divergence(query, candidates, ranked)
 
             # C2 concern: Record access SYNCHRONOUSLY before returning.
-            # No asyncio.create_task() — single-threaded MCP server.
             _record_access(conn, results, query)
         finally:
-            conn.close()  # QUAL-8: always close on any path
+            conn.close()
 
         return [
             types.TextContent(
@@ -1618,6 +2330,68 @@ def run_mcp_server():
                 type="text",
                 text=json.dumps({
                     "recorded": len(entry_ids),
+                    "entry_ids": entry_ids,
+                }),
+            )
+        ]
+
+    async def _handle_upsert_group(arguments):
+        # type: (Dict) -> List[types.TextContent]
+        """Handle echo_upsert_group tool — create or update a semantic group."""
+        entry_ids = arguments.get("entry_ids", [])
+        group_id = arguments.get("group_id", "")
+        similarities = arguments.get("similarities")
+
+        # SEC-3: Type validation
+        if not isinstance(entry_ids, list):
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps({"error": "entry_ids must be a list"}),
+                    isError=True,
+                )
+            ]
+        if not entry_ids:
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps({"error": "entry_ids is required"}),
+                    isError=True,
+                )
+            ]
+
+        # Coerce and cap
+        entry_ids = [str(eid) for eid in entry_ids if eid is not None][:50]
+
+        if not isinstance(group_id, str) or not group_id:
+            group_id = uuid.uuid4().hex[:16]
+
+        # Validate similarities if provided
+        if similarities is not None:
+            if not isinstance(similarities, list):
+                similarities = None
+            else:
+                # Ensure same length as entry_ids, pad or truncate
+                similarities = [
+                    float(s) if isinstance(s, (int, float)) else 0.0
+                    for s in similarities[:len(entry_ids)]
+                ]
+                if len(similarities) < len(entry_ids):
+                    similarities.extend([0.0] * (len(entry_ids) - len(similarities)))
+
+        conn = get_db(DB_PATH)
+        try:
+            ensure_schema(conn)
+            count = upsert_semantic_group(conn, group_id, entry_ids, similarities)
+        finally:
+            conn.close()
+
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "group_id": group_id,
+                    "memberships": count,
                     "entry_ids": entry_ids,
                 }),
             )
