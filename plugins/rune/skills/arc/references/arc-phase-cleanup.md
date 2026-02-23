@@ -26,7 +26,7 @@ const PHASE_PREFIX_MAP = {
   plan_review:            ["arc-plan-review-"],
   work:                   ["rune-work-"],
   gap_analysis:           ["rune-inspect-", "arc-inspect-"],    // both prefix variants
-  codex_gap_analysis:     ["arc-gap-"],                         // CC-1 FIX: actual prefix is arc-gap- (arc-codex-phases.md L256)
+  // codex_gap_analysis removed in v1.74.0 — Phase 5.6 no longer creates teams (inline Bash pattern)
   gap_remediation:        ["arc-gap-fix-"],
   goldmask_verification:  ["goldmask-"],
   code_review:            ["rune-review-"],
@@ -100,7 +100,8 @@ function postPhaseCleanup(checkpoint, phaseName) {
         warn(`postPhaseCleanup: Cleaning orphan team ${orphanName} from phase ${phaseName}`)
         // SEC: Atomic symlink guard + rm-rf in single Bash call (closes TOCTOU window)
         // orphanName validated above with /^[a-zA-Z0-9_-]+$/ — shell injection not possible
-        Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && [[ ! -L "$CHOME/teams/${orphanName}" ]] && rm -rf "$CHOME/teams/${orphanName}/" "$CHOME/tasks/${orphanName}/" 2>/dev/null`)
+        // ZSH-FIX: Avoid [[ ! ]] — use positive symlink check with || (history expansion safe)
+        Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && { [[ -L "$CHOME/teams/${orphanName}" ]] || rm -rf "$CHOME/teams/${orphanName}/" "$CHOME/tasks/${orphanName}/" 2>/dev/null; }`)
       }
     }
 

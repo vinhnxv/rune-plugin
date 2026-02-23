@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.74.0] - 2026-02-23
+
+### Changed
+- **Refactor Phase 5.6 (Codex Gap Analysis) to inline Bash pattern**: Removed team lifecycle overhead (~20-30s savings per arc run) by switching from spawning `arc-gap-{id}` team with teammates to orchestrator-direct `Bash("codex exec")` calls, matching the proven Phase 2.8 pattern.
+  - Rewritten: `arc-codex-phases.md` Phase 5.6 section (primary implementation)
+  - Rewritten: `gap-analysis.md` STEP 4+5 (secondary implementation)
+  - Removed: `codex_gap_analysis` entry from `PHASE_PREFIX_MAP` in `arc-phase-cleanup.md`
+  - Removed: `"arc-gap-"` prefix from `ARC_TEAM_PREFIXES` in `arc-preflight.md`
+  - Added: Phase 5.6 entries to `phase-tool-matrix.md` (tool restrictions + time budget)
+  - Updated: SKILL.md Phase 5.6 stub and timeout comment
+
 ## [1.73.0] - 2026-02-23
 
 ### Added
