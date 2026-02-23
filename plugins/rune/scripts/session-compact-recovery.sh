@@ -62,6 +62,31 @@ CHECKPOINT_DATA=$(jq -c '.' "$CHECKPOINT_FILE" 2>/dev/null) || {
   exit 0
 }
 
+# ── GUARD 7: Ownership verification (session isolation) ──
+# If checkpoint includes config_dir/owner_pid, verify this session owns it.
+# Fail-open: missing fields = legacy checkpoint → allow recovery.
+CHKPT_CFG=$(echo "$CHECKPOINT_DATA" | jq -r '.config_dir // empty' 2>/dev/null || true)
+CHKPT_PID=$(echo "$CHECKPOINT_DATA" | jq -r '.owner_pid // empty' 2>/dev/null || true)
+CURRENT_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+CURRENT_CFG=$(cd "$CURRENT_CFG" 2>/dev/null && pwd -P || echo "$CURRENT_CFG")
+
+if [[ -n "$CHKPT_CFG" ]]; then
+  CHKPT_CFG_RESOLVED=$(cd "$CHKPT_CFG" 2>/dev/null && pwd -P || echo "$CHKPT_CFG")
+  if [[ "$CHKPT_CFG_RESOLVED" != "$CURRENT_CFG" ]]; then
+    _trace "Ownership mismatch: checkpoint config_dir=${CHKPT_CFG} != current=${CURRENT_CFG}"
+    rm -f "$CHECKPOINT_FILE" 2>/dev/null
+    exit 0
+  fi
+fi
+if [[ -n "$CHKPT_PID" && "$CHKPT_PID" =~ ^[0-9]+$ && "$CHKPT_PID" != "${PPID:-0}" ]]; then
+  if kill -0 "$CHKPT_PID" 2>/dev/null; then
+    # Checkpoint belongs to another live session — do not consume it
+    _trace "Ownership mismatch: checkpoint owner_pid=${CHKPT_PID} is alive, our PPID=${PPID:-0}"
+    exit 0
+  fi
+  # Dead PID = orphaned checkpoint from crashed session → allow recovery
+fi
+
 # ── EXTRACT: team name from checkpoint ──
 TEAM_NAME=$(echo "$CHECKPOINT_DATA" | jq -r '.team_name // empty' 2>/dev/null || true)
 
