@@ -90,6 +90,32 @@ _capture_arc_batch_state() {
   fi
 }
 
+# ── Arc-issues state extractor (parallel to _capture_arc_batch_state) ──
+# Sets arc_issues_state global. Reads ISSUES_STATE_FILE path from caller (must be set before calling).
+_capture_arc_issues_state() {
+  arc_issues_state="{}"
+  [[ -z "${CWD:-}" ]] && return 0
+  [[ ! -f "$ISSUES_STATE_FILE" ]] && return 0
+  [[ -L "$ISSUES_STATE_FILE" ]] && return 0
+  local _issues_frontmatter
+  _issues_frontmatter=$(sed -n '/^---$/,/^---$/p' "$ISSUES_STATE_FILE" 2>/dev/null | sed '1d;$d')
+  [[ -z "$_issues_frontmatter" ]] && return 0
+  local _issues_iter _issues_total _issues_active
+  _issues_iter=$(echo "$_issues_frontmatter" | grep '^iteration:' | head -1 | sed 's/^iteration:[[:space:]]*//')
+  _issues_total=$(echo "$_issues_frontmatter" | grep '^total_plans:' | head -1 | sed 's/^total_plans:[[:space:]]*//')
+  _issues_active=$(echo "$_issues_frontmatter" | grep '^active:' | head -1 | sed 's/^active:[[:space:]]*//')
+  if [[ "$_issues_active" == "true" ]] && [[ "$_issues_iter" =~ ^[0-9]+$ ]] && [[ "$_issues_total" =~ ^[0-9]+$ ]]; then
+    arc_issues_state=$(jq -n \
+      --arg iter "$_issues_iter" \
+      --arg total "$_issues_total" \
+      '{
+        iteration: ($iter | tonumber),
+        total_plans: ($total | tonumber)
+      }' 2>/dev/null || echo '{}')
+    _trace "Arc-issues state captured: iter=${_issues_iter} total=${_issues_total}"
+  fi
+}
+
 # ── GUARD 1: jq dependency ──
 if ! command -v jq &>/dev/null; then
   echo "WARN: jq not found — compact checkpoint will not be written" >&2
@@ -147,8 +173,12 @@ if [[ -z "$active_team" ]]; then
   BATCH_STATE_FILE="${CWD}/.claude/arc-batch-loop.local.md"
   _capture_arc_batch_state
 
-  # If we captured batch state, write a minimal checkpoint with it
-  if [[ "$arc_batch_state" != "{}" ]]; then
+  # ── Arc-issues state capture (teamless — parallel to arc-batch) ──
+  ISSUES_STATE_FILE="${CWD}/.claude/arc-issues-loop.local.md"
+  _capture_arc_issues_state
+
+  # If we captured batch or issues state, write a minimal checkpoint with it
+  if [[ "$arc_batch_state" != "{}" ]] || [[ "$arc_issues_state" != "{}" ]]; then
     CHECKPOINT_FILE="${CWD}/tmp/.rune-compact-checkpoint.json"
     # SEC-102 FIX: use mktemp instead of PID-based temp file; add symlink guard
     CHECKPOINT_TMP=$(mktemp "${CHECKPOINT_FILE}.XXXXXX" 2>/dev/null) || { exit 0; }
@@ -158,6 +188,7 @@ if [[ -z "$active_team" ]]; then
       --arg team "" \
       --arg ts "$TIMESTAMP" \
       --argjson batch "$arc_batch_state" \
+      --argjson issues "$arc_issues_state" \
       '{
         team_name: $team,
         saved_at: $ts,
@@ -165,17 +196,21 @@ if [[ -z "$active_team" ]]; then
         tasks: [],
         workflow_state: {},
         arc_checkpoint: {},
-        arc_batch_state: $batch
+        arc_batch_state: $batch,
+        arc_issues_state: $issues
       }' > "$CHECKPOINT_TMP" 2>/dev/null; then
       mv -f "$CHECKPOINT_TMP" "$CHECKPOINT_FILE" 2>/dev/null || rm -f "$CHECKPOINT_TMP" 2>/dev/null
       CHECKPOINT_TMP=""
     else
       rm -f "$CHECKPOINT_TMP" 2>/dev/null
     fi
-    jq -n '{
+    _context_msg="No active Rune team but loop state captured in compact checkpoint."
+    [[ "$arc_batch_state" != "{}" ]] && _context_msg="No active Rune team but arc-batch state captured in compact checkpoint."
+    [[ "$arc_issues_state" != "{}" ]] && _context_msg="No active Rune team but arc-issues state captured in compact checkpoint."
+    jq -n --arg ctx "$_context_msg" '{
       hookSpecificOutput: {
         hookEventName: "PreCompact",
-        additionalContext: "No active Rune team but arc-batch state captured in compact checkpoint."
+        additionalContext: $ctx
       }
     }'
     exit 0
@@ -249,6 +284,10 @@ fi
 BATCH_STATE_FILE="${CWD}/.claude/arc-batch-loop.local.md"
 _capture_arc_batch_state
 
+# 6. Arc-issues state if active (parallel to arc-batch)
+ISSUES_STATE_FILE="${CWD}/.claude/arc-issues-loop.local.md"
+_capture_arc_issues_state
+
 # ── WRITE CHECKPOINT (atomic) ──
 CHECKPOINT_FILE="${CWD}/tmp/.rune-compact-checkpoint.json"
 # SEC-102 FIX: use mktemp instead of PID-based temp file; add symlink guard
@@ -264,6 +303,7 @@ if ! jq -n \
   --argjson workflow "$workflow_state" \
   --argjson arc "$arc_checkpoint" \
   --argjson batch "$arc_batch_state" \
+  --argjson issues "$arc_issues_state" \
   '{
     team_name: $team,
     saved_at: $ts,
@@ -271,7 +311,8 @@ if ! jq -n \
     tasks: $tasks,
     workflow_state: $workflow,
     arc_checkpoint: $arc,
-    arc_batch_state: $batch
+    arc_batch_state: $batch,
+    arc_issues_state: $issues
   }' > "$CHECKPOINT_TMP" 2>/dev/null; then
   echo "WARN: Failed to write compact checkpoint" >&2
   rm -f "$CHECKPOINT_TMP" 2>/dev/null
