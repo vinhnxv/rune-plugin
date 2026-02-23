@@ -309,11 +309,16 @@ if (generateTodos) {
     // Pre-existing P1 findings ARE kept (critical regardless of scope)
   )
 
-  // 4. Ensure todos/ directory exists
-  const todosDir = talisman?.file_todos?.dir || "todos/"
+  // 4. Resolve source-qualified directory (per-source subdirectory convention)
+  // Uses resolveTodosDir() from integration-guide.md — inline implementation
+  // Priority: --todos-dir flag > talisman.file_todos.dir > "todos/"
+  const todosDir = resolveTodosDir($ARGUMENTS, talisman, workflowType)
+  //   standalone appraise: "todos/review/"
+  //   standalone audit:    "todos/audit/"
+  //   arc appraise:        "tmp/arc/{id}/todos/review/"  (via --todos-dir)
   Bash(`mkdir -p "${todosDir}"`)
 
-  // 5. Get next sequential ID (zsh-safe — uses Glob() not shell glob)
+  // 5. Get next sequential ID — scoped to source subdirectory (independent per source)
   const existingFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
   let nextId = 1
   if (existingFiles.length > 0) {
@@ -326,8 +331,8 @@ if (generateTodos) {
   // 6. Idempotency check + write todo files
   let createdCount = 0
   for (const finding of todoableFindings) {
-    // Dedup: check if todo already exists for this finding
-    const existingTodos = Glob(`${todosDir}*.md`)
+    // Dedup: check if todo already exists for this finding (scoped to source subdirectory)
+    const existingTodos = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
     const isDuplicate = existingTodos.some(f => {
       const fm = parseFrontmatter(Read(f))
       return fm.finding_id === finding.id && fm.source_ref === tomePath
