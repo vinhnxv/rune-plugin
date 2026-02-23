@@ -167,11 +167,12 @@ fi
 if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
   INSCRIPTION_PATH=""
   # Discover inscription.json from team output directory
-  for candidate in "tmp/reviews/"*/inscription.json "tmp/audit/"*/inscription.json; do
+  # Fix: Use ${CWD} prefix — hook cwd may differ from project root (P1 fix)
+  for candidate in "${CWD}/tmp/reviews/"*/inscription.json "${CWD}/tmp/audit/"*/inscription.json; do
     [[ -f "$candidate" ]] || continue
     [[ -L "$candidate" ]] && continue
-    # Match team name inside inscription
-    if grep -qF "\"$TEAM_NAME\"" "$candidate" 2>/dev/null; then
+    # Match team name via structured jq lookup (not substring grep — P2 fix)
+    if jq -e --arg tn "$TEAM_NAME" '.team_name == $tn' "$candidate" >/dev/null 2>/dev/null; then
       INSCRIPTION_PATH="$candidate"
       break
     fi
@@ -179,8 +180,9 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
 
   if [[ -n "$INSCRIPTION_PATH" ]]; then
     # Extract required_sections for this teammate (simplified jq per EC-2)
+    # Fix: Use .teammates[] to match inscription schema (not .ashes[] — P2 fix)
     REQ_SECTIONS=$(jq -r --arg name "$TEAMMATE_NAME" \
-      '.ashes[]? | select(.name == $name) | .required_sections // [] | .[]' \
+      '.teammates[]? | select(.name == $name) | .required_sections // [] | .[]' \
       "$INSCRIPTION_PATH" 2>/dev/null || true)
 
     if [[ -n "$REQ_SECTIONS" ]]; then
@@ -209,7 +211,7 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
         _trace "WARN missing ${MISSING_COUNT} required sections for $TEAMMATE_NAME"
         # Advisory only — output to stderr but exit 0 (do not block)
         echo "Warning: ${MISSING_COUNT} required section(s) missing from ${TEAMMATE_NAME} output${EXTRA}:" >&2
-        echo -e "$MISSING_SECTIONS" >&2
+        printf '%b' "$MISSING_SECTIONS" >&2
       fi
     fi
   fi

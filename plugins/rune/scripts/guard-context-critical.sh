@@ -111,6 +111,8 @@ fi
 
 # --- Validate remaining_percentage ---
 [[ -z "$REM_INT" || ! "$REM_INT" =~ ^[0-9]+$ ]] && exit 0
+# Clamp to valid range (bogus bridge data → fail-open)
+[[ "$REM_INT" -gt 100 ]] && exit 0
 
 # --- Threshold check ---
 # Default: 25% remaining. Configurable via talisman (not read here — hooks are fast).
@@ -129,7 +131,7 @@ fi
 USED_PCT=$(( 100 - REM_INT ))
 
 jq -n \
-  --arg reason "Context at ${USED_PCT}% (${REM_INT}% remaining). Spawning new agents risks session freeze. Finish current work, then start fresh. Bridge: ${BRIDGE_FILE}" \
+  --arg reason "Context at ${USED_PCT}% (${REM_INT}% remaining). Spawning new agents risks session freeze. Finish current work, then start fresh." \
   --arg ctx "BLOCKED by guard-context-critical.sh. Escape hatches: (1) /rune:rest to free artifacts, (2) talisman: context_monitor.pretooluse_guard.enabled: false, (3) Explore/Plan agents remain available for read-only research." \
   '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $reason, additionalContext: $ctx}}' 2>/dev/null || true
 

@@ -40,7 +40,10 @@ if [[ ! "$SESSION_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
 fi
 
 # --- CWD canonicalization ---
-CWD=$(cd "$CWD" 2>/dev/null && pwd -P || echo "$CWD")
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || exit 0
+if [[ -z "$CWD" || "$CWD" != /* ]]; then
+  exit 0
+fi
 
 # --- Session identity ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -109,7 +112,8 @@ fi
 
 # --- Write debounce flag (atomic mktemp + mv per EC-H4) ---
 TEMP_FLAG=$(mktemp "/tmp/rune-postcomp-XXXXXX" 2>/dev/null) || exit 0
-echo "{\"config_dir\":\"${RUNE_CURRENT_CFG}\",\"owner_pid\":\"${PPID}\",\"created_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > "$TEMP_FLAG"
+jq -n --arg cfg "$RUNE_CURRENT_CFG" --arg pid "$PPID" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  '{config_dir: $cfg, owner_pid: $pid, created_at: $ts}' > "$TEMP_FLAG" 2>/dev/null || exit 0
 mv "$TEMP_FLAG" "$FLAG_FILE" 2>/dev/null || { rm -f "$TEMP_FLAG" 2>/dev/null; exit 0; }
 
 # --- Advisory output (NEVER deny) ---
