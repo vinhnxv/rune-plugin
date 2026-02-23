@@ -1,10 +1,14 @@
 ---
 name: rune-orchestration
 description: |
-  Use when choosing between supervisor, swarm, or pipeline coordination for multi-agent
-  workflows, when defining agent output formats, or when resolving conflicting findings
-  from multiple agents. Covers file-based handoff, inscription contracts, and TOME merging.
-  For context overflow prevention, use context-weaving instead.
+  Use when choosing between supervisor, swarm, or pipeline coordination for
+  multi-agent workflows, when two agents produce conflicting findings and
+  deduplication is needed, when TOME aggregation fails or produces duplicate
+  prefixes, or when output format mismatch causes downstream parse errors.
+  Use when defining inscription contracts for file-based handoff, or when
+  detecting which Ash type to use for a given review dimension.
+  Keywords: orchestration, conflict detection, TOME aggregation, inscription,
+  output format mismatch, file-based handoff, supervisor, swarm, pipeline.
 
   <example>
   Context: Running multi-agent code review

@@ -1,10 +1,15 @@
 ---
 name: arc
 description: |
-  Use when you want to go from plan to merged PR in one command, when running
-  the full development pipeline (forge + work + review + mend + ship + merge),
-  or when resuming a previously interrupted pipeline. 17-phase automated pipeline
-  with checkpoint resume, convergence loops, cross-model verification, Goldmask risk analysis, and auto gap remediation.
+  Use when running the full plan-to-merged-PR pipeline, when resuming an
+  interrupted arc with --resume, or when any named phase fails (forge,
+  plan-review, plan-refinement, verification, semantic-verification, work,
+  gap-analysis, codex-gap-analysis, gap-remediation, goldmask-verification,
+  code-review, goldmask-correlation, mend, verify-mend, test, ship, merge).
+  Use when checkpoint resume is needed after a crash or session end.
+  17-phase pipeline with convergence loops, Goldmask risk analysis, and
+  cross-model verification. Keywords: arc, pipeline, --resume, checkpoint,
+  convergence, forge, mend, ship, merge, 17 phases.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"

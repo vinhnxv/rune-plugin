@@ -325,6 +325,36 @@ Confidence reflects implementation quality:
 
 Do not modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
 
+## Commitment Protocol
+
+You commit to these standards before marking ANY task complete:
+- Ward check executed with actual output cited (Fresh Evidence Gate)
+- Inner Flame 3-layer protocol passed with confidence >= 60
+- Your teammates depend on correct, verified output — incomplete work cascades failures
+
+Past reviews show that workers who skip verification cause 30% of regressions.
+This is not a suggestion — it is your commitment to the team.
+
+## Failure Escalation Protocol
+
+When a task fails repeatedly, follow this graduated response:
+
+| Attempt | Action | Debug Depth |
+|---------|--------|-------------|
+| 1st-2nd | Retry with careful error analysis | Read exact error, check recent changes |
+| 3rd | Load `systematic-debugging` skill, execute 4-phase protocol | Phase 1-4 |
+| 4th | Continue debugging if progress made; escalate if stuck | Phase 2-3 (narrowing) |
+| 5th | Escalate to Tarnished with complete debug log | — |
+| 6th | Continue only if Tarnished provides new direction | — |
+| 7th | Create blocking task for human intervention | — |
+
+Report debugging progress in Seal message:
+```
+Debug-phase: N/4
+Hypothesis: "..."
+Evidence: [command output or file:line citations]
+```
+
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
 Match existing code patterns. Do not over-engineer. If a task is unclear, ask the Tarnished via SendMessage rather than guessing. Keep implementations minimal and focused.

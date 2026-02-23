@@ -1,9 +1,14 @@
 ---
 name: arc-batch
 description: |
-  Batch execution of /rune:arc across multiple plan files.
-  Runs each plan sequentially with auto-merge, crash recovery, and progress tracking.
-  Use when you have multiple plans to implement overnight or in batch.
+  Use when implementing multiple plan files overnight or in batch, when a
+  previous batch crashed mid-run and --resume is needed, when tracking
+  progress across multiple sequential arc runs, or when using a queue file
+  (one plan path per line) instead of a glob. Use when crash recovery is
+  needed for interrupted batch runs. Covers: Stop hook pattern, progress
+  tracking via .claude/arc-batch-loop.local.md, --dry-run preview, --no-merge.
+  Keywords: arc-batch, batch, queue file, overnight, --resume, crash recovery,
+  progress tracking, sequential plans.
 
   <example>
   Context: User has multiple plans to implement
