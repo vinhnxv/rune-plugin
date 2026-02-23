@@ -140,7 +140,7 @@ Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates 
 When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan files sequentially:
 
 1. **Pre-flight** — Validate all plan files exist, no duplicates or symlinks
-2. **For each plan** — Full 20-phase arc pipeline (forge through merge)
+2. **For each plan** — Full 18-phase arc pipeline (forge through merge)
 3. **Inter-run cleanup** — Checkout main, pull latest, clean state
 4. **Retry on failure** — Up to 3 `--resume` attempts per plan, then skip
 5. **Progress tracking** — `batch-progress.json` enables `--resume` for interrupted batches
@@ -482,9 +482,9 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | git-worktree | Worktree isolation for /rune:strive (experimental `--worktree` flag) |
 | goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers). Shared data discovery + risk context template reused by forge, mend, inspect, and devise for risk-aware workflows |
 | inner-flame | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
-| inspect | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories). Goldmask Lore Layer (Phase 0.3) for risk-aware gap prioritization |
+| inspect | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories). Goldmask Lore Layer (Phase 1.3) for risk-aware gap prioritization |
 | mend | Parallel finding resolution from TOME. Goldmask data passthrough (risk overlay + quick check) |
-| devise | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask 6-agent mode for pre-implementation risk assessment |
+| devise | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask (2-8 agents, basic default) for pre-implementation risk assessment |
 | polling-guard | Monitoring loop fidelity — correct waitForCompletion translation |
 | appraise | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |

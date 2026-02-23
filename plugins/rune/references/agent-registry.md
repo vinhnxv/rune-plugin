@@ -81,7 +81,7 @@ Used by `/rune:goldmask`, `/rune:arc` Phase 5.7, and `/rune:devise` predictive m
 | event-message-tracer | Impact | Impact tracing across event buses, message queues, pub/sub, and async pipelines |
 | config-dependency-tracer | Impact | Impact tracing across configuration, environment variables, feature flags, and deployment settings |
 | wisdom-sage | Wisdom | Git archaeology — commit intent classification, caution scoring via git blame analysis |
-| lore-analyst | Lore | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration. Used in: goldmask, appraise, audit, devise, forge (Phase 1.5), inspect (Phase 0.3) |
+| lore-analyst | Lore | Quantitative git history analysis — churn metrics, co-change clustering, ownership concentration. Used in: goldmask, appraise, audit, devise, forge (Phase 1.5), inspect (Phase 1.3) |
 | goldmask-coordinator | Synthesis | Three-layer synthesis — merges Impact + Wisdom + Lore findings into unified GOLDMASK.md report |
 
 ### Inspector Agents (Plan-vs-Implementation)

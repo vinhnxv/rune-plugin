@@ -252,7 +252,7 @@ if (!goldmaskEnabled || !forgeGoldmaskEnabled || !loreEnabled || !isGitRepo || n
       warn("Phase 1.5: Lore Layer skipped — fewer than 5 commits (G5 guard)")
     } else {
       // Option B: Spawn lore-analyst as bare Task (ATE-1 EXEMPTION — no team exists yet)
-      // Same pattern as appraise Phase 0.5 and inspect Phase 0.3
+      // Same pattern as appraise Phase 0.5 and inspect Phase 1.3
       // Uses subagent_type: "general-purpose" with identity via prompt
       // (enforce-teams.sh only allows Explore/Plan as named types)
       Task({
