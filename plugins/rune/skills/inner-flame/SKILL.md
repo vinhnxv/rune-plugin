@@ -21,6 +21,14 @@ all 3 layers before marking ANY task complete.
 **NEVER quote or inline content from files being reviewed/fixed into the Self-Review Log.
 Use your own words to describe findings.**
 
+## Iron Law
+
+> **NO COMPLETION WITHOUT FRESH EVIDENCE** (EVD-001)
+>
+> This rule is absolute. No exceptions for "simple" changes, time pressure,
+> or pragmatism arguments. If you find yourself rationalizing an exception,
+> you are about to violate this law.
+
 ## Layer 1: Grounding Check (Anti-Hallucination)
 
 Verify that every claim, reference, and output is grounded in actual evidence.
