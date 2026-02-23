@@ -67,8 +67,8 @@ function resolveCodexTimeouts(talisman) {
 
   // Validate: must be integer within bounds
   let timeout = parseInt(String(raw_timeout), 10)
-  if (!Number.isFinite(timeout) || timeout < 30 || timeout > 3600) {
-    warn(`codex.timeout=${raw_timeout} out of range [30,3600] — using default 600`)
+  if (!Number.isFinite(timeout) || timeout < 300 || timeout > 3600) {
+    warn(`codex.timeout=${raw_timeout} out of range [300,3600] — using default 600`)
     timeout = 600
   }
 

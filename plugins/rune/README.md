@@ -75,6 +75,16 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:arc-batch plans/*.md --no-merge   # PRs created but not merged
 /rune:arc-batch --resume                # Resume interrupted batch
 
+# GitHub Issues-driven batch arc execution (issues → plans → arc → PRs → close)
+/rune:arc-issues --label "rune:ready"                   # Process all issues with label (FIFO)
+/rune:arc-issues --label "rune:ready" --all             # Page through ALL matching issues
+/rune:arc-issues --label "rune:ready" --dry-run         # Preview issues without running
+/rune:arc-issues --label "rune:ready" --all --page-size 5  # Custom page size (default 10)
+/rune:arc-issues issues-queue.txt                       # File-based queue (URLs, #N, bare numbers)
+/rune:arc-issues 42 55 78                               # Inline issue numbers
+/rune:arc-issues --resume                               # Resume from batch-progress.json
+/rune:arc-issues --cleanup-labels                       # Remove orphaned rune:in-progress labels
+
 # Inspect plan vs implementation (deep audit)
 /rune:inspect plans/my-plan.md          # Inspect a plan file
 /rune:inspect "Add JWT auth with rate limiting"  # Inspect inline description
@@ -90,6 +100,7 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:cancel-review
 /rune:cancel-audit
 /rune:cancel-arc
+/rune:cancel-arc-issues    # Cancel arc-issues batch and optionally cleanup orphaned labels
 
 # Clean up tmp/ artifacts from completed workflows
 /rune:rest
@@ -106,7 +117,7 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## Arc Mode (End-to-End Pipeline)
 
-When you run `/rune:arc`, Rune chains 20 phases into one automated pipeline:
+When you run `/rune:arc`, Rune chains 18 phases into one automated pipeline:
 
 1. **FORGE** — Research agents enrich the plan with best practices, codebase patterns, and past echoes
 2. **PLAN REVIEW** — 3 parallel reviewers evaluate the plan (circuit breaker halts on BLOCK)
@@ -146,6 +157,33 @@ When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan f
 5. **Progress tracking** — `batch-progress.json` enables `--resume` for interrupted batches
 
 Batch mode runs headless with `--dangerously-skip-permissions`. Ensure all plans are trusted.
+
+## GitHub Issues Mode (Issues → Plans → PRs)
+
+When you run `/rune:arc-issues`, Rune processes a GitHub Issues backlog end-to-end:
+
+1. **Fetch issues** — by label (`--label "rune:ready"`), file queue, or inline numbers
+2. **Generate plans** — each issue body becomes a plan file in `tmp/gh-plans/`
+3. **Run arc** — full 18-phase arc pipeline per issue (forge → work → review → mend → ship → merge)
+4. **Post results** — success comment + `rune:done` label on issue after arc completes
+5. **Close issues** — PR body includes `Fixes #N` for auto-close on merge
+6. **Human escalation** — failed issues get `rune:failed` label + error comment; quality-gate failures get `rune:needs-review`
+
+### Rune Status Labels
+
+| Label | Meaning | Re-process |
+|-------|---------|------------|
+| `rune:ready` | Issue is ready for Rune to process | (trigger label) |
+| `rune:in-progress` | Currently being processed | Wait, or `--cleanup-labels` if orphaned (> 2h) |
+| `rune:done` | Completed — PR linked via `Fixes #N` | Issue auto-closes on PR merge |
+| `rune:failed` | Arc failed, needs human fix | Fix issue body → remove label → re-run |
+| `rune:needs-review` | Plan quality low or conflicts detected | Add detail → remove label → re-run |
+
+### Cancel an Active Issues Run
+
+```bash
+/rune:cancel-arc-issues
+```
 
 ## Hierarchical Plans
 
@@ -337,8 +375,8 @@ Codex findings go through a verification layer before entering the TOME:
 # .claude/talisman.yml
 codex:
   disabled: false                   # Set true to disable Codex Oracle entirely
-  model: "gpt-5.3-codex"           # Codex model (gpt-5-codex, gpt-5.2-codex, gpt-5.3-codex)
-  reasoning: "high"                 # Reasoning effort (high, medium, low)
+  model: "gpt-5.3-codex-spark"     # Codex model (gpt-5-codex, gpt-5.3-codex, gpt-5.3-codex-spark)
+  reasoning: "xhigh"               # Reasoning effort (xhigh, high, medium, low)
   sandbox: "read-only"              # Sandbox mode (always read-only for review)
   context_budget: 20                # Max files to review (default: 20)
   confidence_threshold: 80          # Min confidence to report finding (default: 80)
@@ -469,7 +507,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | Skill | Purpose |
 |-------|---------|
 | agent-browser | Browser automation knowledge injection for E2E testing (non-invocable) |
-| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 20 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → audit-mend → audit-verify → ship → merge) |
+| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 18 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → audit → audit-mend → audit-verify → ship → merge) |
 | arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
 | ash-guide | Agent invocation reference |
 | audit | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation |
@@ -582,7 +620,7 @@ High-confidence learnings from Rune Echoes can be promoted to human-readable sol
 
 **TOME** — The unified review summary after deduplication and prioritization.
 
-**Arc Pipeline** — End-to-end orchestration across 20 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, diff-scoped testing (unit/integration/E2E), auto PR creation (ship), and auto merge with pre-merge checklist. Phase 5.5 uses Inspector Ashes (9-dimension scoring), Phase 5.8 auto-remediates FIXABLE gaps.
+**Arc Pipeline** — End-to-end orchestration across 18 phases with checkpoint-based resume, per-phase tool restrictions, convergence gate (regression detection + retry loop), time budgets, diff-scoped testing (unit/integration/E2E), auto PR creation (ship), and auto merge with pre-merge checklist. Phase 5.5 uses Inspector Ashes (9-dimension scoring), Phase 5.8 auto-remediates FIXABLE gaps.
 
 **Mend** — Parallel finding resolution from TOME with restricted fixers, centralized ward check, and post-ward doc-consistency scan that fixes drift between source-of-truth files and their downstream targets.
 
@@ -607,20 +645,25 @@ plugins/rune/
 │   ├── work/                # 2 swarm workers (work pipeline)
 │   └── utility/             # 11 utility agents: Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan, horizon-sage, gap-fixer (prompt-template)
 ├── commands/
-│   ├── cancel-arc.md        # /rune:cancel-arc
-│   ├── cancel-arc-batch.md  # /rune:cancel-arc-batch
-│   ├── cancel-review.md     # /rune:cancel-review
-│   ├── cancel-audit.md      # /rune:cancel-audit
-│   ├── elicit.md            # /rune:elicit
-│   ├── echoes.md            # /rune:echoes
-│   ├── plan-review.md       # /rune:plan-review
-│   └── rest.md              # /rune:rest
+│   ├── cancel-arc.md           # /rune:cancel-arc
+│   ├── cancel-arc-batch.md     # /rune:cancel-arc-batch
+│   ├── cancel-arc-hierarchy.md # /rune:cancel-arc-hierarchy
+│   ├── cancel-arc-issues.md    # /rune:cancel-arc-issues
+│   ├── cancel-review.md        # /rune:cancel-review
+│   ├── cancel-audit.md         # /rune:cancel-audit
+│   ├── elicit.md               # /rune:elicit
+│   ├── echoes.md               # /rune:echoes
+│   ├── plan-review.md          # /rune:plan-review
+│   └── rest.md                 # /rune:rest
 ├── skills/
 │   ├── agent-browser/       # Browser automation knowledge (non-invocable)
 │   ├── arc/                 # /rune:arc (end-to-end pipeline)
 │   │   ├── SKILL.md
 │   │   └── references/      # Arc-specific phase refs, delegation checklist
 │   ├── arc-batch/           # /rune:arc-batch (sequential multi-plan)
+│   ├── arc-hierarchy/       # /rune:arc-hierarchy (hierarchical plan execution)
+│   ├── arc-issues/          # /rune:arc-issues (GitHub Issues-driven batch arc)
+│   │   └── references/      # arc-issues-algorithm.md
 │   ├── ash-guide/           # Agent reference
 │   ├── audit/               # /rune:audit (full codebase audit, --deep mode)
 │   │   └── references/      # deep-mode.md
@@ -672,6 +715,11 @@ plugins/rune/
 │   ├── on-session-stop.sh           # STOP-001: Active workflow detection on session end
 │   ├── arc-batch-stop-hook.sh       # ARC-BATCH-STOP: Stop hook loop driver for arc-batch
 │   ├── arc-batch-preflight.sh       # Arc batch pre-flight validation
+│   ├── arc-hierarchy-stop-hook.sh   # ARC-HIERARCHY-LOOP: Stop hook loop driver for arc-hierarchy
+│   ├── arc-issues-stop-hook.sh      # ARC-ISSUES-LOOP: Stop hook loop driver for arc-issues
+│   ├── arc-issues-preflight.sh      # Arc issues pre-flight validation
+│   ├── lib/
+│   │   └── stop-hook-common.sh      # Shared Stop hook utilities
 │   └── echo-search/                 # Echo Search MCP server + hooks
 ├── talisman.example.yml
 ├── CLAUDE.md
@@ -746,7 +794,7 @@ Rune uses Elden Ring-inspired theming:
 - `.gitignore` excludes `.claude/echoes/` by default (opt-in to version control)
 - Sensitive data filter rejects API keys, passwords, tokens from echo entries
 - All findings require verified evidence from source code
-- **Hook-based enforcement**: 17 event-driven hook scripts provide deterministic guardrails (9 enforcement + 4 quality/lifecycle + 2 compaction resilience + 2 session stop):
+- **Hook-based enforcement**: 19 event-driven hook scripts provide deterministic guardrails (9 enforcement + 4 quality/lifecycle + 2 compaction resilience + 4 session stop):
 
 | Hook | Event | Purpose |
 |------|-------|---------|
@@ -766,6 +814,8 @@ Rune uses Elden Ring-inspired theming:
 | — | PreCompact:manual\|auto | Team state checkpoint before compaction |
 | — | SessionStart:compact | Team state re-injection after compaction |
 | ARC-BATCH-STOP | Stop | Drives arc-batch loop via Stop hook pattern — reads state file, marks plan completed, re-injects next arc prompt |
+| ARC-HIERARCHY-LOOP | Stop | Drives arc-hierarchy loop via Stop hook pattern — reads state file, verifies child provides() contracts, re-injects next child arc prompt |
+| ARC-ISSUES-LOOP | Stop | Drives arc-issues loop via Stop hook pattern — reads state file, posts GitHub comment, updates labels, re-injects next arc prompt |
 | STOP-001 | Stop | Detects active workflows on session end, blocks exit with cleanup instructions |
 
 ## Requirements

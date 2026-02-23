@@ -121,6 +121,40 @@ if [[ -f "${CWD}/.claude/arc-hierarchy-loop.local.md" ]] && [[ ! -L "${CWD}/.cla
   # Not our hierarchy (or cleaned up) — proceed with normal cleanup for THIS session
 fi
 
+# ── GUARD 5c: Defer to arc-issues stop hook (with ownership check) ──
+# When arc-issues loop is active AND belongs to THIS session, arc-issues-stop-hook.sh
+# handles the Stop event. Only defer if we're the owning session.
+# If the issues batch belongs to another session, proceed with normal cleanup for THIS session.
+if [[ -f "${CWD}/.claude/arc-issues-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-issues-loop.local.md" ]]; then
+  _ISSUES_FM=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null | sed '1d;$d')
+  _ISSUES_CFG=$(echo "$_ISSUES_FM" | grep "^config_dir:" | sed 's/^config_dir:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+  _ISSUES_PID=$(echo "$_ISSUES_FM" | grep "^owner_pid:" | sed 's/^owner_pid:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+  _ISSUES_ACTIVE=$(echo "$_ISSUES_FM" | grep "^active:" | sed 's/^active:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+
+  _is_issues_owner=true
+  # Check config_dir
+  if [[ -n "$_ISSUES_CFG" && "$_ISSUES_CFG" != "$RUNE_CURRENT_CFG" ]]; then
+    _is_issues_owner=false
+  fi
+  # Check PID (liveness)
+  if [[ "$_is_issues_owner" == "true" && -n "$_ISSUES_PID" && "$_ISSUES_PID" =~ ^[0-9]+$ && "$_ISSUES_PID" != "$PPID" ]]; then
+    if kill -0 "$_ISSUES_PID" 2>/dev/null; then
+      _is_issues_owner=false
+    fi
+  fi
+
+  if [[ "$_is_issues_owner" == "true" ]]; then
+    if [[ "$_ISSUES_ACTIVE" == "true" ]]; then
+      # This session owns an active issues batch — defer to arc-issues-stop-hook.sh
+      exit 0
+    else
+      # State file exists but not active (completed/cancelled) — clean up orphaned file
+      rm -f "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null
+    fi
+  fi
+  # Not our issues batch (or cleaned up) — proceed with normal cleanup for THIS session
+fi
+
 # ── CHOME resolution ──
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 if [[ -z "$CHOME" ]] || [[ "$CHOME" != /* ]]; then

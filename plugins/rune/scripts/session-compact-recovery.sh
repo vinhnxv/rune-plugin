@@ -62,39 +62,79 @@ CHECKPOINT_DATA=$(jq -c '.' "$CHECKPOINT_FILE" 2>/dev/null) || {
   exit 0
 }
 
+# ── GUARD 7: Ownership verification (session isolation) ──
+# If checkpoint includes config_dir/owner_pid, verify this session owns it.
+# Fail-open: missing fields = legacy checkpoint → allow recovery.
+CHKPT_CFG=$(echo "$CHECKPOINT_DATA" | jq -r '.config_dir // empty' 2>/dev/null || true)
+CHKPT_PID=$(echo "$CHECKPOINT_DATA" | jq -r '.owner_pid // empty' 2>/dev/null || true)
+CURRENT_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+CURRENT_CFG=$(cd "$CURRENT_CFG" 2>/dev/null && pwd -P || echo "$CURRENT_CFG")
+
+if [[ -n "$CHKPT_CFG" ]]; then
+  CHKPT_CFG_RESOLVED=$(cd "$CHKPT_CFG" 2>/dev/null && pwd -P || echo "$CHKPT_CFG")
+  if [[ "$CHKPT_CFG_RESOLVED" != "$CURRENT_CFG" ]]; then
+    _trace "Ownership mismatch: checkpoint config_dir=${CHKPT_CFG} != current=${CURRENT_CFG}"
+    rm -f "$CHECKPOINT_FILE" 2>/dev/null
+    exit 0
+  fi
+fi
+if [[ -n "$CHKPT_PID" && "$CHKPT_PID" =~ ^[0-9]+$ && "$CHKPT_PID" != "${PPID:-0}" ]]; then
+  if kill -0 "$CHKPT_PID" 2>/dev/null; then
+    # Checkpoint belongs to another live session — do not consume it
+    _trace "Ownership mismatch: checkpoint owner_pid=${CHKPT_PID} is alive, our PPID=${PPID:-0}"
+    exit 0
+  fi
+  # Dead PID = orphaned checkpoint from crashed session → allow recovery
+fi
+
 # ── EXTRACT: team name from checkpoint ──
 TEAM_NAME=$(echo "$CHECKPOINT_DATA" | jq -r '.team_name // empty' 2>/dev/null || true)
 
 # Check for arc-batch state (v1.72.0) — may exist even without an active team
 HAS_BATCH_STATE=$(echo "$CHECKPOINT_DATA" | jq -r 'if .arc_batch_state and .arc_batch_state != {} and (.arc_batch_state | has("iteration")) then "true" else "false" end' 2>/dev/null || echo "false")
+# Check for arc-issues state — may exist even without an active team
+HAS_ISSUES_STATE=$(echo "$CHECKPOINT_DATA" | jq -r 'if .arc_issues_state and .arc_issues_state != {} and (.arc_issues_state | has("iteration")) then "true" else "false" end' 2>/dev/null || echo "false")
 
 if [[ -z "$TEAM_NAME" ]]; then
-  # No team — but if arc-batch state exists, still inject batch context
-  if [[ "$HAS_BATCH_STATE" == "true" ]]; then
-    _trace "Recovery: teamless checkpoint with arc-batch state"
+  # No team — but if arc-batch or arc-issues state exists, still inject loop context
+  if [[ "$HAS_BATCH_STATE" == "true" ]] || [[ "$HAS_ISSUES_STATE" == "true" ]]; then
+    _trace "Recovery: teamless checkpoint with loop state (batch=${HAS_BATCH_STATE} issues=${HAS_ISSUES_STATE})"
     SAVED_AT=$(echo "$CHECKPOINT_DATA" | jq -r '.saved_at // "unknown"' 2>/dev/null || echo "unknown")
 
-    # Extract arc-batch fields
-    BATCH_ITER=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.iteration // empty' 2>/dev/null || true)
-    BATCH_TOTAL=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.total_plans // empty' 2>/dev/null || true)
-    BATCH_SUMMARY=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.latest_summary // empty' 2>/dev/null || true)
+    LOOP_INFO=""
 
-    BATCH_INFO=""
-    if [[ -n "$BATCH_ITER" ]] && [[ "$BATCH_ITER" =~ ^[0-9]+$ ]]; then
-      if [[ ! "$BATCH_TOTAL" =~ ^[0-9]+$ ]]; then BATCH_TOTAL="unknown"; fi
-      BATCH_INFO="Arc-batch iteration ${BATCH_ITER}/${BATCH_TOTAL}."
-      # SEC-008: Validate summary path before injecting into context message
-      if [[ -n "$BATCH_SUMMARY" ]] && [[ "$BATCH_SUMMARY" != "none" ]]; then
-        if [[ "$BATCH_SUMMARY" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
-          BATCH_INFO="${BATCH_INFO} Latest summary: ${BATCH_SUMMARY}."
-        else
-          _trace "Rejected invalid batch summary path: ${BATCH_SUMMARY}"
-          BATCH_SUMMARY=""
+    # Arc-batch info
+    if [[ "$HAS_BATCH_STATE" == "true" ]]; then
+      BATCH_ITER=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.iteration // empty' 2>/dev/null || true)
+      BATCH_TOTAL=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.total_plans // empty' 2>/dev/null || true)
+      BATCH_SUMMARY=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.latest_summary // empty' 2>/dev/null || true)
+      if [[ -n "$BATCH_ITER" ]] && [[ "$BATCH_ITER" =~ ^[0-9]+$ ]]; then
+        if [[ ! "$BATCH_TOTAL" =~ ^[0-9]+$ ]]; then BATCH_TOTAL="unknown"; fi
+        LOOP_INFO="${LOOP_INFO} Arc-batch iteration ${BATCH_ITER}/${BATCH_TOTAL}."
+        # SEC-008: Validate summary path before injecting into context message
+        if [[ -n "$BATCH_SUMMARY" ]] && [[ "$BATCH_SUMMARY" != "none" ]]; then
+          if [[ "$BATCH_SUMMARY" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
+            LOOP_INFO="${LOOP_INFO} Latest summary: ${BATCH_SUMMARY}."
+          else
+            _trace "Rejected invalid batch summary path: ${BATCH_SUMMARY}"
+          fi
         fi
+        LOOP_INFO="${LOOP_INFO} Re-read .claude/arc-batch-loop.local.md to resume batch."
       fi
     fi
 
-    CONTEXT_MSG="RUNE COMPACT RECOVERY (saved at ${SAVED_AT}): No active team at compaction time. ${BATCH_INFO} Re-read .claude/arc-batch-loop.local.md to resume batch coordination."
+    # Arc-issues info
+    if [[ "$HAS_ISSUES_STATE" == "true" ]]; then
+      ISSUES_ITER=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_issues_state.iteration // empty' 2>/dev/null || true)
+      ISSUES_TOTAL=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_issues_state.total_plans // empty' 2>/dev/null || true)
+      if [[ -n "$ISSUES_ITER" ]] && [[ "$ISSUES_ITER" =~ ^[0-9]+$ ]]; then
+        if [[ ! "$ISSUES_TOTAL" =~ ^[0-9]+$ ]]; then ISSUES_TOTAL="unknown"; fi
+        LOOP_INFO="${LOOP_INFO} Arc-issues iteration ${ISSUES_ITER}/${ISSUES_TOTAL}."
+        LOOP_INFO="${LOOP_INFO} Re-read .claude/arc-issues-loop.local.md to resume issues batch."
+      fi
+    fi
+
+    CONTEXT_MSG="RUNE COMPACT RECOVERY (saved at ${SAVED_AT}): No active team at compaction time.${LOOP_INFO}"
     jq -n --arg ctx "$CONTEXT_MSG" '{
       hookSpecificOutput: {
         hookEventName: "SessionStart",
@@ -201,8 +241,17 @@ if [[ -n "$BATCH_ITER" ]] && [[ "$BATCH_ITER" =~ ^[0-9]+$ ]]; then
   fi
 fi
 
+# Arc-issues state if present
+ISSUES_INFO=""
+ISSUES_ITER=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_issues_state.iteration // empty' 2>/dev/null || true)
+ISSUES_TOTAL=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_issues_state.total_plans // empty' 2>/dev/null || true)
+if [[ -n "$ISSUES_ITER" ]] && [[ "$ISSUES_ITER" =~ ^[0-9]+$ ]]; then
+  if [[ ! "$ISSUES_TOTAL" =~ ^[0-9]+$ ]]; then ISSUES_TOTAL="unknown"; fi
+  ISSUES_INFO=" Arc-issues iteration ${ISSUES_ITER}/${ISSUES_TOTAL}. Re-read .claude/arc-issues-loop.local.md to resume."
+fi
+
 # Build the context message — point to full file for detailed Read
-CONTEXT_MSG="RUNE COMPACT RECOVERY: Team '${TEAM_NAME}' state restored (saved at ${SAVED_AT}). Members: ${MEMBER_COUNT}. Tasks: ${TASK_SUMMARY}. Workflow: ${WORKFLOW_TYPE} (${WORKFLOW_STATUS}).${ARC_INFO}${BATCH_INFO} Re-read team config and task list to resume coordination."
+CONTEXT_MSG="RUNE COMPACT RECOVERY: Team '${TEAM_NAME}' state restored (saved at ${SAVED_AT}). Members: ${MEMBER_COUNT}. Tasks: ${TASK_SUMMARY}. Workflow: ${WORKFLOW_TYPE} (${WORKFLOW_STATUS}).${ARC_INFO}${BATCH_INFO}${ISSUES_INFO} Re-read team config and task list to resume coordination."
 
 # ── OUTPUT: hookSpecificOutput with hookEventName ──
 # PW-008 FIX: Output JSON first, THEN delete checkpoint. If jq fails, checkpoint is preserved.

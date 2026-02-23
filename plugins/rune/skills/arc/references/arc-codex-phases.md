@@ -10,7 +10,7 @@ nonce-bounded prompt, codex exec, checkpoint update.
 
 ## Phase 2.8: Semantic Verification (Codex cross-model, v1.39.0)
 
-Codex-powered semantic contradiction detection on the enriched plan. Runs AFTER the deterministic Phase 2.7 as a separate phase with its own time budget. Phase 2.7 has a strict 30-second timeout — Codex exec takes 60-600s and cannot fit within it.
+Codex-powered semantic contradiction detection on the enriched plan. Runs AFTER the deterministic Phase 2.7 as a separate phase with its own time budget. Phase 2.7 has a strict 30-second timeout — Codex exec takes 300-900s and cannot fit within it.
 
 **Team**: None (orchestrator-only, inline codex exec)
 **Inputs**: enrichedPlanPath, verification-report.md from Phase 2.7
@@ -32,9 +32,9 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan")) {
 
   if (semanticEnabled) {
     // Security pattern: CODEX_MODEL_ALLOWLIST — see security-patterns.md
-    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-      ? talisman.codex.model : "gpt-5.3-codex"
+      ? talisman.codex.model : "gpt-5.3-codex-spark"
 
     // CTX-001: Pass file PATH to Codex instead of inlining content to avoid context overflow.
     // Codex runs with --sandbox read-only and CAN read local files by path.
@@ -42,7 +42,7 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan")) {
     const planFilePath = enrichedPlanPath
 
     // Reasoning + timeout — validated by codex-exec.sh (SEC-006, SEC-004)
-    const codexReasoning = talisman?.codex?.semantic_verification?.reasoning ?? "medium"
+    const codexReasoning = talisman?.codex?.semantic_verification?.reasoning ?? "xhigh"
     const rawSemanticTimeout = Number(talisman?.codex?.semantic_verification?.timeout)
     const semanticTimeoutValidated = Number.isFinite(rawSemanticTimeout) ? rawSemanticTimeout : 420
 
@@ -147,7 +147,7 @@ updateCheckpoint({
 
 ## Phase 5.6: Codex Gap Analysis (Codex cross-model, v1.39.0)
 
-Codex-powered cross-model gap detection that compares the plan against the actual implementation. Runs AFTER the deterministic Phase 5.5 as a separate phase. Phase 5.5 has a 60-second timeout — Codex exec takes 60-600s and cannot fit within it.
+Codex-powered cross-model gap detection that compares the plan against the actual implementation. Runs AFTER the deterministic Phase 5.5 as a separate phase. Phase 5.5 has a 60-second timeout — Codex exec takes 300-900s and cannot fit within it.
 
 <!-- v1.57.0: Phase 5.6 batched claim enhancement planned — when CLI-backed Ashes
      are configured, their gap findings can be batched with Codex gap findings
@@ -194,8 +194,8 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("work")) {
     const gitDiffRange = safeGitSha ? `${safeGitSha}..HEAD` : 'HEAD~5..HEAD'
 
     // Model, reasoning, timeout — validated by codex-exec.sh (SEC-006, SEC-004, CODEX_MODEL_ALLOWLIST)
-    const codexModel = talisman?.codex?.model ?? "gpt-5.3-codex"
-    const codexReasoning = talisman?.codex?.gap_analysis?.reasoning ?? "high"
+    const codexModel = talisman?.codex?.model ?? "gpt-5.3-codex-spark"
+    const codexReasoning = talisman?.codex?.gap_analysis?.reasoning ?? "xhigh"
     const rawGapTimeout = Number(talisman?.codex?.gap_analysis?.timeout)
     const perAspectTimeout = Number.isFinite(rawGapTimeout) ? rawGapTimeout : 900
 

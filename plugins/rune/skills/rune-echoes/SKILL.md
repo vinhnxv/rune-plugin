@@ -270,9 +270,9 @@ that don't transfer to future sessions.
 ```
 if codexAvailable AND NOT codexDisabled AND talisman.codex.echo_validation.enabled !== false:
   // BACK-006 FIX: Initialize codexModel with CODEX_MODEL_ALLOWLIST validation
-  const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
+  const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
   const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-    ? talisman.codex.model : "gpt-5.3-codex"
+    ? talisman.codex.model : "gpt-5.3-codex-spark"
 
   learningText = newEchoEntry.content[0..2000]
 
@@ -320,8 +320,8 @@ REMINDER: Classify the learning above. Return JSON only."""
 
 **Talisman config** (`codex.echo_validation`):
 - `enabled: true` — learning generalizability check (default: true)
-- `timeout: 60` — very quick check
-- `reasoning: "low"` — low reasoning for simple classification
+- `timeout: 300` — 5 min minimum for xhigh reasoning
+- `reasoning: "xhigh"` — xhigh reasoning for maximum quality
 
 ## Echo Schema Versioning
 

@@ -123,12 +123,12 @@ if (codexAvailable && !codexDisabled) {
     const rawMaxDiff = Number(talisman?.codex?.work_advisory?.max_diff_size)
     const maxDiffSize = Math.max(1000, Math.min(50000, Number.isFinite(rawMaxDiff) ? rawMaxDiff : 15000))
 
-    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
-    const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
+    const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-      ? talisman.codex.model : "gpt-5.3-codex"
+      ? talisman.codex.model : "gpt-5.3-codex-spark"
     const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning ?? "")
-      ? talisman.codex.reasoning : "high"
+      ? talisman.codex.reasoning : "xhigh"
 
     // Validate inputs before passing to teammate prompt
     if (!/^[a-zA-Z0-9._\/-]+$/.test(defaultBranch)) { warn("Codex Advisory: invalid defaultBranch -- skipping"); return }

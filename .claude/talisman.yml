@@ -162,12 +162,12 @@ plan:
 # ──────────────────────────────────────────────
 codex:
   disabled: false
-  model: "gpt-5.3-codex"
-  reasoning: "high"
+  model: "gpt-5.3-codex-spark"
+  reasoning: "xhigh"
   sandbox: "read-only"
   context_budget: 20
   confidence_threshold: 80
-  timeout: 600                    # Outer GNU timeout in seconds (default: 600, range: 30-3600)
+  timeout: 600                    # Outer GNU timeout in seconds (default: 600, range: 300-3600)
   stream_idle_timeout: 540        # Inner stream idle timeout in seconds (default: timeout - 60s)
   workflows: [review, audit, plan, forge, work]
   work_advisory:
@@ -184,7 +184,7 @@ codex:
     cross_model_bonus: 0.15
   semantic_verification:
     enabled: true
-    reasoning: "medium"
+    reasoning: "xhigh"
     timeout: 420                    # Phase 2.8 codex exec timeout in seconds (default: 120, increased to 7 min)
   gap_analysis:
     timeout: 900                    # Phase 5.6 codex exec timeout in seconds (default: 600, increased to 15 min)

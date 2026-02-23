@@ -232,15 +232,15 @@ When an orchestrator (plan, forge, arc) selects a method with a non-empty `codex
      SKIP cross-model steps below
 3. VALIDATE: Apply security allowlists before spawning:
    // SEC-001 FIX: CODEX_MODEL_ALLOWLIST validation
-   const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
+   const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-     ? talisman.codex.model : "gpt-5.3-codex"
+     ? talisman.codex.model : "gpt-5.3-codex-spark"
    // SEC-010 FIX: CODEX_REASONING_ALLOWLIST validation
-   const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+   const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning ?? "")
-     ? talisman.codex.reasoning : "medium"
+     ? talisman.codex.reasoning : "xhigh"
    const rawElicitTimeout = Number(talisman?.codex?.elicitation?.timeout)
-   const elicitTimeout = Math.max(60, Math.min(660, Number.isFinite(rawElicitTimeout) ? rawElicitTimeout : 300))
+   const elicitTimeout = Math.max(300, Math.min(900, Number.isFinite(rawElicitTimeout) ? rawElicitTimeout : 300))
 4. SPAWN: Create codex teammate in the workflow's existing team:
    Task({
      team_name: "{current_team}",

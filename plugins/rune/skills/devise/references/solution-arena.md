@@ -198,15 +198,15 @@ const arenaRole = talisman?.codex?.arena?.role ?? "judge"  // "judge" | "generat
 
 if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan") && arenaEnabled) {
   // Security: CODEX_MODEL_ALLOWLIST
-  const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
+  const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
   const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-    ? talisman.codex.model : "gpt-5.3-codex"
-  const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+    ? talisman.codex.model : "gpt-5.3-codex-spark"
+  const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
   const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning ?? "")
-    ? talisman.codex.reasoning : "high"
+    ? talisman.codex.reasoning : "xhigh"
   // QUAL-002 FIX: Read arena timeout from talisman instead of hardcoding
   const rawArenaTimeout = Number(talisman?.codex?.arena?.timeout)
-  const arenaTimeout = Math.max(60, Math.min(660, Number.isFinite(rawArenaTimeout) ? rawArenaTimeout : 300))
+  const arenaTimeout = Math.max(300, Math.min(900, Number.isFinite(rawArenaTimeout) ? rawArenaTimeout : 300))
 
   // SEC-003: Write prompt to temp file
   const nonce = Bash("head -c 4 /dev/urandom | xxd -p").trim()

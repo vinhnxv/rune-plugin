@@ -10,9 +10,9 @@
 # Usage: codex-exec.sh [OPTIONS] PROMPT_FILE
 #
 # Options:
-#   -m MODEL          Model (default: gpt-5.3-codex, validated against allowlist)
-#   -r REASONING      high|medium|low (default: high)
-#   -t TIMEOUT        Seconds, clamped to [30, 900] (default: 600)
+#   -m MODEL          Model (default: gpt-5.3-codex-spark, validated against allowlist)
+#   -r REASONING      xhigh|high|medium|low (default: xhigh)
+#   -t TIMEOUT        Seconds, clamped to [300, 900] (default: 600)
 #   -s STREAM_IDLE    Stream idle timeout ms (default: 540000)
 #   -j                Enable --json + jq JSONL parsing
 #   -g                Pass --skip-git-repo-check
@@ -44,8 +44,8 @@ _trace() {
 }
 
 # ─── Defaults ─────────────────────────────────────────────────────────────────
-MODEL="gpt-5.3-codex"
-REASONING="high"
+MODEL="gpt-5.3-codex-spark"
+REASONING="xhigh"
 TIMEOUT=600
 STREAM_IDLE=540000
 JSON_MODE=0
@@ -113,29 +113,31 @@ if [[ "$PROMPT_SIZE" -gt 1048576 ]]; then
 fi
 
 # ─── Validation: model allowlist ──────────────────────────────────────────────
-CODEX_MODEL_ALLOWLIST='^gpt-5(\.[0-9]+)?-codex$'
+CODEX_MODEL_ALLOWLIST='^gpt-5(\.[0-9]+)?-codex(-spark)?$'
 if [[ ! "$MODEL" =~ $CODEX_MODEL_ALLOWLIST ]]; then
-  _trace "WARN: Model '$MODEL' rejected by allowlist — falling back to gpt-5.3-codex"
-  echo "WARN: Model '$MODEL' not in allowlist — using gpt-5.3-codex" >&2
-  MODEL="gpt-5.3-codex"
+  _trace "WARN: Model '$MODEL' rejected by allowlist — falling back to gpt-5.3-codex-spark"
+  echo "WARN: Model '$MODEL' not in allowlist — using gpt-5.3-codex-spark" >&2
+  MODEL="gpt-5.3-codex-spark"
 fi
 
 # ─── Validation: reasoning allowlist ──────────────────────────────────────────
 case "$REASONING" in
-  high|medium|low) ;;
+  xhigh|high|medium|low) ;;
   *)
-    _trace "WARN: Reasoning '$REASONING' invalid — falling back to high"
-    echo "WARN: Reasoning '$REASONING' not in [high, medium, low] — using high" >&2
-    REASONING="high"
+    _trace "WARN: Reasoning '$REASONING' invalid — falling back to xhigh"
+    echo "WARN: Reasoning '$REASONING' not in [xhigh, high, medium, low] — using xhigh" >&2
+    REASONING="xhigh"
     ;;
 esac
 
-# ─── Validation: timeout clamping [30, 900] ──────────────────────────────────
+# ─── Validation: timeout clamping [300, 900] ─────────────────────────────────
 # Strip non-numeric characters first
+# Minimum 300s (5 min) ensures xhigh reasoning has sufficient time.
+# Maximum 900s (15 min) prevents runaway Codex sessions.
 TIMEOUT=$(echo "$TIMEOUT" | tr -cd '0-9')
 TIMEOUT=${TIMEOUT:-600}
-if [[ "$TIMEOUT" -lt 30 ]]; then
-  TIMEOUT=30
+if [[ "$TIMEOUT" -lt 300 ]]; then
+  TIMEOUT=300
 elif [[ "$TIMEOUT" -gt 900 ]]; then
   TIMEOUT=900
 fi

@@ -804,7 +804,7 @@ updateCheckpoint({
 
 ## Phase 5.6: Codex Gap Analysis (v1.39.0)
 
-Cross-model gap detection using Codex to compare plan expectations against actual implementation. Runs AFTER the deterministic Phase 5.5 as a separate phase with its own time budget. Phase 5.5 has a 60-second timeout — Codex exec takes 60-600s and cannot reliably fit within it.
+Cross-model gap detection using Codex to compare plan expectations against actual implementation. Runs AFTER the deterministic Phase 5.5 as a separate phase with its own time budget. Phase 5.5 has a 60-second timeout — Codex exec takes 300-900s and cannot reliably fit within it.
 
 **Team**: None (orchestrator-only, inline codex exec — matching Phase 2.8 pattern)
 **Tools**: Read, Write, Bash (codex exec)
@@ -927,12 +927,12 @@ Confidence thresholds:
 
   // SEC-003: Validate codex model from talisman allowlist
   const claimCodexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-    ? talisman.codex.model : "gpt-5.3-codex"
+    ? talisman.codex.model : "gpt-5.3-codex-spark"
 
   const claimTimeout = Math.min(talisman?.codex?.gap_analysis?.claim_timeout ?? 300, 600)
   // SEC-R1-001 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion on prompt content
   const claimResult = Bash(`cat "${claimPromptPath}" | timeout ${claimTimeout} codex exec \
-    -m "${claimCodexModel}" --config model_reasoning_effort="medium" \
+    -m "${claimCodexModel}" --config model_reasoning_effort="xhigh" \
     --sandbox read-only --full-auto --skip-git-repo-check \
     - 2>/dev/null; echo "EXIT:$?"`)
 
@@ -998,12 +998,12 @@ Confidence thresholds:
 ```javascript
 // NOTE: CODEX_MODEL_ALLOWLIST already declared in STEP 3.5 via claimCodexModel (reused here)
 const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-  ? talisman.codex.model : "gpt-5.3-codex"
+  ? talisman.codex.model : "gpt-5.3-codex-spark"
 
 // SEC-006 FIX: Validate reasoning against allowlist before shell interpolation
-const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
 const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.gap_analysis?.reasoning ?? "")
-  ? talisman.codex.gap_analysis.reasoning : "high"
+  ? talisman.codex.gap_analysis.reasoning : "xhigh"
 
 // SEC-008 FIX: Verify .codexignore exists before --full-auto
 const codexIgnoreCheck = Bash("test -f .codexignore && echo yes || echo no").trim()
@@ -1017,7 +1017,7 @@ if (codexIgnoreCheck !== "yes") {
 // SEC-004 FIX: Validate and clamp timeout before shell interpolation
 // Clamp range: 30s min, 900s max (phase budget allows talisman override up to 15 min)
 const rawGapTimeout = Number(talisman?.codex?.gap_analysis?.timeout)
-const perAspectTimeout = Math.max(30, Math.min(900, Number.isFinite(rawGapTimeout) ? rawGapTimeout : 900))
+const perAspectTimeout = Math.max(300, Math.min(900, Number.isFinite(rawGapTimeout) ? rawGapTimeout : 900))
 
 // Define focused gap aspects for parallel Codex calls (matching arc-codex-phases.md pattern)
 const gapAspects = [

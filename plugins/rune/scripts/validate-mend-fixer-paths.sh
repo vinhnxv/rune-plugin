@@ -62,7 +62,7 @@ CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
 shopt -s nullglob
 MEND_STATE_FILE=""
 for f in "${CWD}"/tmp/.rune-mend-*.json; do
-  if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
+  if [[ -f "$f" ]] && jq -e '.status == "active"' "$f" >/dev/null 2>&1; then
     MEND_STATE_FILE="$f"
     break
   fi

@@ -163,7 +163,7 @@ SEAL: {
 | `{finding_prefix}` | `ashes.custom[].finding_prefix` — validated 2-5 uppercase chars |
 | `{output_format}` | `ashes.custom[].output_format` — validated against OUTPUT_FORMAT_ALLOWLIST |
 | `{ignore_file_flag}` | `--ignore-file {ignore_file}` if set, empty otherwise |
-| `{timeout}` | `ashes.custom[].timeout` — validated against CLI_TIMEOUT_PATTERN, bounds 30-3600 |
+| `{timeout}` | `ashes.custom[].timeout` — validated against CLI_TIMEOUT_PATTERN, bounds 300-3600 |
 | `{nonce}` | Generated at runtime: 16 random alphanumeric characters. Used to bound untrusted content injection |
 | `{sanitized_diff_or_files}` | Output of `sanitizePlanContent()` applied to diff/file content |
 | `{name}` | `ashes.custom[].name` |
