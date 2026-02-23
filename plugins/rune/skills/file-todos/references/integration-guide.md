@@ -28,6 +28,9 @@ All todo-producing and todo-consuming skills resolve the target directory throug
 
 ### resolveTodosBase(args, talisman)
 
+> **NOTE**: Callers that inline this function MUST include the `SAFE_PATH_PATTERN` validation.
+> Omitting it creates a path traversal vulnerability. See SEC-002 for checkpoint-specific guidance.
+
 Resolves the **base** todos directory (without source subdirectory). Used by cross-source consumers like mend that scan all subdirectories.
 
 **Priority**: `--todos-dir` CLI flag > `talisman.file_todos.dir` > `"todos/"`
@@ -44,6 +47,11 @@ function resolveTodosBase(args, talisman) {
   if (todosFlag && todosFlag.trim() !== '' && SAFE_PATH_PATTERN.test(todosFlag) && !todosFlag.includes('..')) {
     return todosFlag.endsWith('/') ? todosFlag : todosFlag + '/'
   }
+
+  // SEC: On --resume, checkpoint.todos_base MUST be re-validated:
+  //   1. SAFE_PATH_PATTERN.test(checkpoint.todos_base)
+  //   2. checkpoint.todos_base.startsWith(`tmp/arc/${checkpoint.id}/`)
+  // This prevents tampered checkpoint files from injecting arbitrary paths.
 
   // 2. Talisman config
   const talismanDir = talisman?.file_todos?.dir
@@ -120,6 +128,9 @@ When running inside `/rune:arc`, all todo-producing phases receive `--todos-dir 
 | Phase 5 (WORK) | `/rune:strive` | `--todos-dir tmp/arc/{id}/todos/` | `tmp/arc/{id}/todos/work/` |
 | Phase 6 (CODE REVIEW) | `/rune:appraise` | `--todos-dir tmp/arc/{id}/todos/` | `tmp/arc/{id}/todos/review/` |
 | Phase 7 (MEND) | `/rune:mend` | `--todos-dir tmp/arc/{id}/todos/` | `tmp/arc/{id}/todos/` (base, cross-source scan) |
+
+> **Arc exception**: In arc context, only `work/` and `review/` subdirectories are created.
+> `audit/` is NOT created because arc Phase 6 uses `/rune:appraise` (source=review), not `/rune:audit`.
 
 **Key design points**:
 - Arc passes the **base** directory; each sub-skill appends its own source subdirectory via `resolveTodosDir()`

@@ -79,7 +79,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | TOME path resolution | **ADAPT** | Arc provides TOME path from Phase 6 artifact |
 | Parse TOME findings | **RUN** | Mend needs to group findings by file |
 | Custom Ash for mend | **SKIP** | No custom Ash workflow for mend |
-| `--todos-dir` flag | **ADAPT** | Arc scopes todos to `tmp/arc/{id}/todos/`. Mend uses `resolveTodosBase(args, talisman)` to scan all subdirectories (`{base}*/[0-9]*.md`) for cross-source `finding_id` matching. Only passed when `fileTodosEnabled && checkpoint.todos_base` |
+| `--todos-dir` flag | **ADAPT** | Arc scopes todos to `tmp/arc/{id}/todos/`. Mend uses `resolveTodosBase(args, talisman)` to scan all subdirectories (`{base}*/[0-9][0-9][0-9]-*.md`) for cross-source `finding_id` matching. Only passed when `fileTodosEnabled && checkpoint.todos_base` |
 
 ## Phase 5.7: GOLDMASK VERIFICATION → `/rune:goldmask`
 

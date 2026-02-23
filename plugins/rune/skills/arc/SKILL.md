@@ -413,6 +413,10 @@ if (fileTodosEnabled) {
 
 **Checkpoint field**: `todos_base` — stores the arc todos base directory for resume safety. On `--resume`, `checkpoint.todos_base` takes precedence over recomputation (prevents path divergence).
 
+> **Note**: `--todos-dir` is an internal flag — NOT exposed at the `/rune:arc` CLI level.
+> Arc passes it internally from `checkpoint.todos_base` to sub-skills (strive, appraise, mend).
+> Users should not pass `--todos-dir` to `/rune:arc` directly.
+
 ## Phase 5: WORK
 
 See [arc-phase-work.md](references/arc-phase-work.md) for the full algorithm.

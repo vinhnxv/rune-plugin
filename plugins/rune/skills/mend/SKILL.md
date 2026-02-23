@@ -55,7 +55,7 @@ Parses a TOME file for structured findings, groups them by file to prevent concu
 |------|-------------|---------|
 | `--output-dir <path>` | Custom output directory for resolution report | `tmp/mend/{id}/` |
 | `--timeout <ms>` | Outer time budget in milliseconds. Inner polling timeout is derived: `timeout - SETUP_BUDGET(5m) - MEND_EXTRA_BUDGET(3m)`, minimum 120,000ms. Used by arc to propagate phase budgets. | `900_000` (15 min standalone) |
-| `--todos-dir <path>` | Base directory for file-todos. Arc passes `tmp/arc/{id}/todos/`. Mend scans all subdirectories (`{base}*/[0-9]*.md`) for cross-source `finding_id` matching. | `talisman.file_todos.dir` or `"todos/"` |
+| `--todos-dir <path>` | Base directory for file-todos. Arc passes `tmp/arc/{id}/todos/`. Mend scans all subdirectories (`{base}*/[0-9][0-9][0-9]-*.md`) for cross-source `finding_id` matching. | `talisman.file_todos.dir` or `"todos/"` |
 
 ## Pipeline Overview
 

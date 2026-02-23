@@ -10,7 +10,7 @@ Invoke `/rune:appraise --deep` on the implemented changes. Multi-wave review (Wa
 **Error handling**: Does not halt — review always produces findings or a clean report. Timeout → partial results collected. Team creation failure → cleanup fallback via `rm -rf` (see [team-lifecycle-guard.md](team-lifecycle-guard.md)).
 **Consumers**: SKILL.md (Phase 6 stub)
 
-> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
+> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, `warn()`, and `parseFrontmatter()` (from file-todos/references/subcommands.md Common Helpers) are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
 ## Progressive Focus (Re-Review Rounds)
 

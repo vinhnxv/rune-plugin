@@ -30,7 +30,17 @@ for f in todos/*/[0-9][0-9][0-9]-*.md(N); do
 done
 ```
 
-**ensureTodosDir(source)**: Create source subdirectory if it does not exist: `mkdir -p todos/${source}`
+**ensureTodosDir(source)**: Create source subdirectory if it does not exist:
+
+```javascript
+function ensureTodosDir(source) {
+  // SEC: Validate source against allowlist before shell interpolation
+  // (defense-in-depth — resolveTodosDir already validates via VALID_SOURCES Set check at line 68 of integration-guide.md)
+  const SOURCE_PATTERN = /^(review|work|pr-comment|tech-debt|audit)$/
+  if (!SOURCE_PATTERN.test(source)) throw new Error('Invalid todo source: ' + source)
+  Bash(`mkdir -p "todos/${source}"`)
+}
+```
 
 **getTitle(content)**: Extract the first H1 heading from the markdown body (after frontmatter).
 
