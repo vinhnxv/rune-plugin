@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.73.0] - 2026-02-23
+
+### Added
+- **Arc-scoped file-todos with per-source subdirectories**: Todos organized into `work/`, `review/`, `audit/` subdirectories instead of flat `todos/` directory. Independent ID sequences per subdirectory.
+  - New: `resolveTodosBase()` and `resolveTodosDir()` pseudo-functions in integration-guide.md
+  - New: `--todos-dir` flag for strive, appraise, audit, and mend (arc passes `tmp/arc/{id}/todos/`)
+  - New: Arc todos scaffolding creates `work/` and `review/` subdirectories before Phase 5
+  - New: Post-phase verification (Phase 5, 6, 7) with spot-check and `todos_summary` in checkpoint
+  - New: File-Todos Summary section in ship phase PR body
+  - Enhanced: Mend cross-source scan via `Glob(\`${base}*/[0-9][0-9][0-9]-*.md\`)` for finding_id matching
+  - Enhanced: file-todos subcommands updated for per-source subdirectory awareness
+  - New: `file_todos` section in talisman.yml (enabled: true, auto_generate: work/review/audit)
+
 ## [1.72.0] - 2026-02-23
 
 ### Added
