@@ -107,6 +107,23 @@ The scope parameter determines the file collection strategy. It is an internal o
 5. Files beyond budget → "Coverage Gaps" in TOME.md
 ```
 
+### Incremental Audit (`/rune:audit --incremental`)
+
+When `--incremental` flag is set, the file list is pre-filtered by the incremental layer (Phase 0.1-0.4) before reaching Smart Selection:
+
+```
+1. Phase 0.1-0.4 produces a priority-scored batch (default 30 files)
+2. The batch replaces all_files — Smart Selection operates on the batch only
+3. Classify batch files by extension (same as standard audit)
+4. Sort by priority score (from incremental scoring), then by importance
+5. Cap per Ash by context budget
+6. Files beyond budget → recorded in audit state as coverage_gaps
+```
+
+**IMPORTANT**: This incremental pre-filtering ONLY activates when `--incremental` flag is set. Without the flag, Smart Selection operates identically to the standard audit path. This is gated at the parameter level to prevent any behavioral change to default audits (Concern 1: regression safety).
+
+**Audit-history-aware budget**: When `--incremental` is active, prefer assigning files to Ashes that have NOT previously audited them (from `state.json.files[path].audited_by`). This increases reviewer diversity across sessions.
+
 ## Wave Assignment
 
 After Rune Gaze selects Ashes based on file classification, wave scheduling determines execution order for `depth=deep` mode. Standard depth bypasses wave scheduling entirely.

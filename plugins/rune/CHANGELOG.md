@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.84.0] - 2026-02-24
+
+### Added
+- **Incremental Stateful Audit System** — 3-tier incremental auditing with persistent state, priority scoring, and coverage tracking. Activated via `--incremental` flag. Default `/rune:audit` behavior is completely unchanged (Concern 1: regression safety).
+  - **Tier 1 — File-Level**: Codebase manifest generation via batch git plumbing (4 commands instead of N*7 per-file calls), 6-factor composite priority scoring (staleness sigmoid, recency exponential, risk from Lore Layer, complexity, novelty, role heuristic), batch selection with composition rules (20% never-audited minimum, gap carry-forward, always_audit patterns)
+  - **Tier 2 — Workflow-Level**: Cross-file workflow discovery via import graph tracing, route-handler chains, convention-based fallback, and manual definitions. Workflow priority scoring with file-change detection and criticality heuristics. WF-* finding prefixes for cross-boundary analysis (DATAFLOW, ERROR, STATE, SEC, CONTRACT, TX, RACE, TRACE, ORDER)
+  - **Tier 3 — API-Level**: Multi-framework endpoint discovery (Express, FastAPI, Spring, Go, Rails, Django, Flask, Gin), endpoint type classification with security boosts (GraphQL +3, WebSocket +3, File Upload +2), OWASP API Security Top 10 aligned audit checklist, contract drift detection, cross-tier security feedback (P1 API findings boost file risk scores)
+  - **State Persistence**: `.claude/audit-state/` directory with manifest.json, state.json, workflows.json, apis.json, checkpoint.json (crash resume), session history snapshots, and coverage-report.md. TOCTOU-hardened mkdir-based advisory locking. Atomic write protocol (temp-file-then-rename). Schema migration mechanism for forward compatibility.
+  - **Coverage Report**: Human-readable dashboard with overall progress, freshness distribution (FRESH/RECENT/STALE/ANCIENT), directory coverage treemap with blind spot detection, top-10 priority unaudited items per tier, session progress log, estimated sessions to target coverage
+  - **Session Isolation**: All state files include config_dir, owner_pid, session_id. PID liveness check via `kill -0` with `node` process name verification (Concern 3: Claude Code runs as node)
+  - **Warm-Run Optimization**: Stores last_commit_hash in manifest; subsequent runs scan only `git log <cached-hash>..HEAD` (<500ms for 5K-file repos with no new commits)
+  - New flags: `--incremental`, `--resume`, `--status`, `--reset`, `--tier <file|workflow|api|all>`, `--force-files <glob>`
+  - New reference files: `incremental-state-schema.md`, `codebase-mapper.md`, `priority-scoring.md`, `workflow-discovery.md`, `workflow-audit.md`, `api-discovery.md`, `api-audit.md`, `coverage-report.md`
+  - Talisman configuration: `audit.incremental.*` section with batch_size, weights, always_audit, extra_skip_patterns, coverage_target, staleness_window_days, tier-specific settings
+  - Git batch metadata uses `--since="1 year"` ceiling by default (Concern 2: not deferred)
+  - Extension point contract formalized: Phase 0.1-0.4 insertion with documented input/output types (Concern 5)
+  - Migration guide with recovery paths for state corruption (Concern 6)
+
+### Changed
+- `audit/SKILL.md`: Added Phase 0.1-0.4 incremental layer (gated behind `--incremental` flag — zero overhead when not set), Phase 7.5 result write-back, expanded error handling table, 8 new reference links
+- `talisman.example.yml`: Added `audit.incremental.*` configuration section (commented out, opt-in)
+
 ## [1.83.0] - 2026-02-24
 
 ### Added

@@ -209,6 +209,47 @@ audit:
   always_deep: false              # When true, all audits run deep pass without --deep flag
   # audit_mend: Removed in v1.67.0 (audit phases unified into Phase 6 --deep)
 
+  # ── Incremental Stateful Audit (v1.84.0+) ──────
+  # Opt-in incremental auditing with persistent state, priority scoring,
+  # and 3-tier coverage tracking (file, workflow, API).
+  # Activated via --incremental flag. Default /rune:audit behavior unchanged.
+  # incremental:
+  #   enabled: true                        # Feature gate (default: false — opt-in)
+  #   batch_size: 30                       # Files per batch (10-100, default: 30)
+  #   min_batch_size: 10                   # Minimum batch size (default: 10)
+  #   weights:                             # Priority scoring weights (must sum to 1.0)
+  #     staleness: 0.30                    # Days since last audit
+  #     recency: 0.25                      # Inverse days since last git modification
+  #     risk: 0.20                         # From Lore Layer risk-map.json
+  #     complexity: 0.10                   # Line count normalized
+  #     novelty: 0.10                      # File creation recency
+  #     role: 0.05                         # File role heuristic
+  #   always_audit:                        # Glob patterns always included in every batch
+  #     - "CLAUDE.md"
+  #     - ".claude/**/*.md"
+  #     - "**/auth/**"
+  #   extra_skip_patterns:                 # Additional exclusions beyond .gitignore
+  #     - "**/generated/**"
+  #     - "**/*.snapshot.*"
+  #   coverage_target: 0.80               # Reporting threshold (0.0-1.0)
+  #   staleness_window_days: 90           # Days before an audit is considered stale
+  #   version_controlled: false           # Track audit state in git (default: gitignored)
+  #   max_history_sessions: 50            # Session snapshots to retain
+  #   tiers:
+  #     workflows:
+  #       enabled: true                    # Enable Tier 2 workflow audit
+  #       max_per_batch: 3                 # Max workflows per audit session
+  #       discovery_methods:               # Which discovery methods to use
+  #         - "import-graph"
+  #         - "route-handler"
+  #         - "convention"
+  #     apis:
+  #       enabled: true                    # Enable Tier 3 API audit
+  #       max_per_batch: 5                 # Max API endpoints per audit session
+  #       frameworks:                      # Hint for framework-specific detection
+  #         - "express"
+  #         - "fastapi"
+
 # ──────────────────────────────────────────────
 # Defaults — Disable built-in Ash
 # ──────────────────────────────────────────────
