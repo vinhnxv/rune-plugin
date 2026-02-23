@@ -42,7 +42,9 @@ const parentPlanMatch = content.match(/parent_plan:\s*(.+)/)
 const configDirMatch = content.match(/config_dir:\s*(.+)/)
 const ownerPidMatch = content.match(/owner_pid:\s*(\d+)/)
 
-const parentPlan = parentPlanMatch ? parentPlanMatch[1].trim() : "unknown"
+// SEC-009 FIX: Validate parentPlan path to prevent display injection
+const parentPlanRaw = parentPlanMatch ? parentPlanMatch[1].trim() : "unknown"
+const parentPlan = /^[a-zA-Z0-9._\/-]+$/.test(parentPlanRaw) ? parentPlanRaw : "unknown"
 const storedConfigDir = configDirMatch ? configDirMatch[1].trim() : null
 const ownerPid = ownerPidMatch ? ownerPidMatch[1].trim() : null
 
@@ -55,7 +57,8 @@ let foreignSession = false
 if (storedConfigDir && storedConfigDir !== currentConfigDir) {
   foreignSession = true
 } else if (ownerPid && /^\d+$/.test(ownerPid) && ownerPid !== currentPid) {
-  const alive = Bash(`kill -0 ${ownerPid} 2>/dev/null && echo "alive" || echo "dead"`).trim()
+  // SEC-002 FIX: Quote ownerPid to prevent shell injection (already regex-validated above)
+  const alive = Bash(`kill -0 "${ownerPid}" 2>/dev/null && echo "alive" || echo "dead"`).trim()
   if (alive === "alive") {
     foreignSession = true
   }

@@ -112,7 +112,8 @@ When `verifyPrerequisites` returns `passed: false`, the orchestrator invokes `ha
 - `skip` — skip this child and continue to next executable
 
 ```javascript
-async function handlePrerequisiteFailure(child, prereqResult, contractMatrix) {
+// BACK-004 FIX: Added planPath parameter — required for Read/Write of parent plan
+async function handlePrerequisiteFailure(child, prereqResult, contractMatrix, planPath) {
   log(`Prerequisite verification failed for child [${child.seq}]: ${child.path}`)
   for (const f of prereqResult.failures) {
     log(`  MISSING: ${f.artifact.type}:${f.artifact.name} — ${f.reason}`)
@@ -147,9 +148,9 @@ async function handlePrerequisiteFailure(child, prereqResult, contractMatrix) {
 
   switch (userChoice) {
     case "Self-heal — inject missing work into predecessor":
-      return await selfHeal(child, prereqResult, contractMatrix)
+      return await selfHeal(child, prereqResult, contractMatrix, planPath)
     case "Backtrack — reset predecessor and re-run":
-      return await backtrack(child, prereqResult, contractMatrix)
+      return await backtrack(child, prereqResult, contractMatrix, planPath)
     case "Skip this child":
       return "skip"
     default: // Pause
@@ -166,7 +167,8 @@ Inject missing artifact generation tasks into the predecessor plan that was supp
 **Constraint (SEC-4)**: If the predecessor plan has no `## Acceptance Criteria` section, use Write-append fallback to create one rather than failing.
 
 ```javascript
-async function selfHeal(child, prereqResult, contractMatrix) {
+// BACK-004 FIX: Added planPath parameter to replace placeholder comments
+async function selfHeal(child, prereqResult, contractMatrix, planPath) {
   // Find which predecessor was supposed to provide the missing artifacts
   const missingArtifacts = prereqResult.failures.map(f => f.artifact)
 
@@ -184,8 +186,8 @@ async function selfHeal(child, prereqResult, contractMatrix) {
   }
 
   for (const predecessor of predecessorChildren) {
-    // Find the plan path for this predecessor
-    const executionTable = parseExecutionTable(Read(/* current parent plan path */))
+    // BACK-004 FIX: Use planPath parameter instead of placeholder comment
+    const executionTable = parseExecutionTable(Read(planPath))
     const predEntry = executionTable.find(e => extractChildId(e.path) === predecessor.child)
     if (!predEntry) continue
 
@@ -204,31 +206,35 @@ async function selfHeal(child, prereqResult, contractMatrix) {
     if (!healTasks) continue
 
     // SEC-4: Append to ## Acceptance Criteria if exists, else create the section
+    // BACK-010 FIX: Replace \Z with $ (JS-compatible end-of-string anchor)
     if (predContent.includes("## Acceptance Criteria")) {
       const updated = predContent.replace(
-        /(## Acceptance Criteria[\s\S]*?)(\n## |\Z)/,
+        /(## Acceptance Criteria[\s\S]*?)(\n## |$)/,
         `$1\n\n**[SELF-HEAL] Missing Artifact Tasks:**\n${healTasks}\n$2`
       )
       Write(predEntry.path, updated)
     } else {
-      // Write-append fallback (SEC-4): create the section at end of file
       const appendContent = `\n\n## Acceptance Criteria\n\n**[SELF-HEAL] Missing Artifact Tasks (auto-injected):**\n${healTasks}\n`
-      // Use Write with full content + appended section
       Write(predEntry.path, predContent + appendContent)
       warn(`Self-heal: Created "## Acceptance Criteria" section in ${predEntry.path} (section was absent)`)
     }
 
     // Reset predecessor status to pending so it re-runs
-    const parentContent = Read(/* parent plan path */)
-    const updated = updateExecutionTable(parentContent, predEntry.seq, {
+    const parentContent = Read(planPath)
+    let updated = updateExecutionTable(parentContent, predEntry.seq, {
       status: "pending",
       started: "—",
       completed: "—"
     })
-    Write(/* parent plan path */, updated)
+    // BACK-006 FIX: Also reset child N back to pending (was left in "in_progress")
+    updated = updateExecutionTable(updated, child.seq, {
+      status: "pending",
+      started: "—"
+    })
+    Write(planPath, updated)
 
     log(`Self-heal: Injected ${healTasks.split("\n").length} task(s) into ${predEntry.path}`)
-    log(`Self-heal: Reset predecessor [${predEntry.seq}] to pending.`)
+    log(`Self-heal: Reset predecessor [${predEntry.seq}] and child [${child.seq}] to pending.`)
   }
 
   return "retry"  // Loop will pick up predecessor next
@@ -243,7 +249,8 @@ Reset the predecessor to `pending`, append `[BACKTRACK]` repair tasks. Max one b
 // Track backtrack counts per child seq to enforce max 1
 const backtrackCounts = {}
 
-async function backtrack(child, prereqResult, contractMatrix) {
+// BACK-004 FIX: Added planPath parameter to replace placeholder comments
+async function backtrack(child, prereqResult, contractMatrix, planPath) {
   // Enforce max 1 backtrack per child
   const childKey = child.seq
   backtrackCounts[childKey] = (backtrackCounts[childKey] || 0) + 1
@@ -261,7 +268,7 @@ async function backtrack(child, prereqResult, contractMatrix) {
     return "abort"
   }
 
-  const parentContent = Read(/* parent plan path */)
+  const parentContent = Read(planPath)
   const executionTable = parseExecutionTable(parentContent)
 
   for (const depSeq of deps) {
@@ -276,27 +283,31 @@ async function backtrack(child, prereqResult, contractMatrix) {
       .map(f => `- [BACKTRACK] Repair missing: ${f.artifact.type}:${f.artifact.name}`)
       .join("\n")
 
-    // Append to plan
+    // Append to plan — BACK-010 FIX: Replace \Z with $ (JS-compatible)
     if (predContent.includes("## Acceptance Criteria")) {
       const updated = predContent.replace(
-        /(## Acceptance Criteria[\s\S]*?)(\n## |\Z)/,
+        /(## Acceptance Criteria[\s\S]*?)(\n## |$)/,
         `$1\n\n**[BACKTRACK] Repair Tasks:**\n${backtrackTasks}\n$2`
       )
       Write(predEntry.path, updated)
     } else {
-      // SEC-4: Write-append fallback
       Write(predEntry.path, predContent + `\n\n## Acceptance Criteria\n\n**[BACKTRACK] Repair Tasks (auto-injected):**\n${backtrackTasks}\n`)
     }
 
     // Reset predecessor to pending
-    const updated = updateExecutionTable(parentContent, predEntry.seq, {
+    let updated = updateExecutionTable(parentContent, predEntry.seq, {
       status: "pending",
       started: "—",
       completed: "—"
     })
-    Write(/* parent plan path */, updated)
+    // BACK-005 FIX: Also reset child N back to pending (was left in "in_progress")
+    updated = updateExecutionTable(updated, child.seq, {
+      status: "pending",
+      started: "—"
+    })
+    Write(planPath, updated)
 
-    log(`Backtrack: Injected repair tasks into [${predEntry.seq}]. Reset to pending.`)
+    log(`Backtrack: Injected repair tasks into [${predEntry.seq}]. Reset predecessor and child [${child.seq}] to pending.`)
   }
 
   return "retry"

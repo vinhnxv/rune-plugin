@@ -6,7 +6,8 @@ Git branch management pseudocode for the `arc-hierarchy` skill. Covers feature b
 
 ## Branch Name Validation
 
-All branch names MUST be validated before shell interpolation (SEC-2).
+All branch names MUST be validated via `validateBranchName()` before shell interpolation (SEC-2).
+This is the single security gate for all git branch operations — every function below calls it before any `Bash()` invocation.
 
 ```javascript
 // Allowlist: alphanumeric, dot, slash, hyphen, underscore — must start with alphanumeric

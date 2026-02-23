@@ -13,7 +13,7 @@
   - Strive child context injection — completed sibling artifacts, prerequisites, self-heal task prioritization
   - Dedicated stop hook (`arc-hierarchy-stop-hook.sh`) separate from arc-batch
   - `/rune:cancel-arc-hierarchy` command for graceful loop cancellation
-  - Talisman `work.hierarchy.*` configuration (12 new keys: enabled, max_children, max_backtracks, missing_prerequisite, conflict_resolution, integration_failure, sync_main_before_pr, cleanup_child_branches, require_all_children, test_timeout_ms, merge_strategy)
+  - Talisman `work.hierarchy.*` configuration (11 new keys: enabled, max_children, max_backtracks, missing_prerequisite, conflict_resolution, integration_failure, sync_main_before_pr, cleanup_child_branches, require_all_children, test_timeout_ms, merge_strategy)
   - Coherence check output: `tmp/plans/{timestamp}/coherence-check.md`
   - Migration note: hierarchical is fully opt-in — existing strive/arc workflows are unaffected
 

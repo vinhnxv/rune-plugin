@@ -80,7 +80,8 @@ Parse the markdown execution table from a parent plan document.
 ```javascript
 function parseExecutionTable(planContent) {
   // Find the execution table by header row
-  const tableRegex = /\|\s*Seq\s*\|.*?Child Plan.*?\|.*?Status.*?\|.*?Dependencies.*?\|[\s\S]*?(?=\n\n|\n#|\Z)/i
+  // BACK-010 FIX: Replace \Z with $ (JS-compatible end-of-string anchor)
+  const tableRegex = /\|\s*Seq\s*\|.*?Child Plan.*?\|.*?Status.*?\|.*?Dependencies.*?\|[\s\S]*?(?=\n\n|\n#|$)/i
   const tableMatch = planContent.match(tableRegex)
   if (!tableMatch) {
     warn("parseExecutionTable: No execution table found in plan content")
@@ -164,7 +165,8 @@ function updateExecutionTable(planContent, seq, updates) {
     if (rowSeq !== seq.trim()) return line
 
     found = true
-    // Rebuild with updates
+    // BACK-012: Column index mapping for the execution table:
+    // cols[0]=empty, [1]=Seq, [2]=Child Plan, [3]=Status, [4]=Dependencies, [5]=Started, [6]=Completed
     if (updates.status !== undefined) cols[3] = updates.status
     if (updates.started !== undefined) cols[5] = updates.started
     if (updates.completed !== undefined) cols[6] = updates.completed
@@ -206,10 +208,11 @@ function findNextExecutable(executionTable) {
   )
 
   // Skip already-terminal entries
-  const terminalStatuses = new Set(["completed", "failed", "skipped", "in-progress"])
+  // BACK-011 FIX: "in_progress" (underscore) matches QUAL-004 convention
+  const terminalStatuses = new Set(["completed", "failed", "skipped", "in_progress"])
 
   for (const entry of executionTable) {
-    if (terminalStatuses.has(entry.status)) continue
+    // Only process "pending" entries — all other statuses are terminal or unknown
     if (entry.status !== "pending") continue
 
     // Check all dependencies are completed
@@ -244,7 +247,13 @@ function findNextExecutable(executionTable) {
 // Normalize seq strings: "01" -> "1", "02" -> "2" for comparison
 // But preserve original for display
 function normalizeSeq(seq) {
-  return String(parseInt(seq, 10))
+  // BACK-018 FIX: Guard against NaN from non-numeric seq values
+  const parsed = parseInt(seq, 10)
+  if (isNaN(parsed)) {
+    warn(`normalizeSeq: Non-numeric seq "${seq}" — returning as-is`)
+    return String(seq).trim()
+  }
+  return String(parsed)
 }
 ```
 
@@ -269,7 +278,8 @@ Parse the requires/provides contract table from a parent plan document.
 
 ```javascript
 function parseDependencyContractMatrix(planContent) {
-  const tableRegex = /\|\s*Child\s*\|.*?Requires.*?\|.*?Provides.*?\|[\s\S]*?(?=\n\n|\n#|\Z)/i
+  // BACK-010 FIX: Replace \Z with $ (JS-compatible end-of-string anchor)
+  const tableRegex = /\|\s*Child\s*\|.*?Requires.*?\|.*?Provides.*?\|[\s\S]*?(?=\n\n|\n#|$)/i
   const tableMatch = planContent.match(tableRegex)
   if (!tableMatch) {
     warn("parseDependencyContractMatrix: No contract matrix table found")
@@ -284,8 +294,16 @@ function parseDependencyContractMatrix(planContent) {
     if (cols.length < 3) return null
 
     const [child, requiresRaw, providesRaw] = cols
+
+    // SEC-006: Validate child name — block path traversal / injection via child column
+    const childTrimmed = child.trim()
+    if (!childTrimmed || /[<>;"'`$\\]/.test(childTrimmed)) {
+      warn(`parseDependencyContractMatrix: Skipping row with suspicious child name "${childTrimmed}"`)
+      return null
+    }
+
     return {
-      child: child.trim(),
+      child: childTrimmed,
       requires: parseArtifactList(requiresRaw),
       provides: parseArtifactList(providesRaw)
     }
@@ -351,16 +369,17 @@ function verifyExportArtifact(artifact) {
   try {
     // Pattern 1: Direct named export
     const directPattern = `export\\s+(const|class|function|interface|type|enum)\\s+${escapeRegex(exportName)}`
-    const directResult = Grep(directPattern, { path: "src/", glob: "**/*.{ts,js,tsx,jsx}" })
+    // BACK-013 FIX: Search from project root "." — not all projects use src/
+    const directResult = Grep(directPattern, { path: ".", glob: "**/*.{ts,js,tsx,jsx}" })
 
     // Pattern 2: Re-export from barrel: export { X } from / export { X, Y }
     const barrelPattern = `export\\s*\\{[^}]*\\b${escapeRegex(exportName)}\\b[^}]*\\}`
-    const barrelResult = Grep(barrelPattern, { path: "src/", glob: "**/*.{ts,js,tsx,jsx}" })
+    const barrelResult = Grep(barrelPattern, { path: ".", glob: "**/*.{ts,js,tsx,jsx}" })
 
     const found = (directResult && directResult.length > 0) || (barrelResult && barrelResult.length > 0)
     return {
       verified: found,
-      reason: found ? undefined : `Export "${exportName}" not found in src/ (checked direct + barrel patterns)`
+      reason: found ? undefined : `Export "${exportName}" not found (checked direct + barrel patterns)`
     }
   } catch (e) {
     return { verified: false, reason: `Grep error: ${e.message}` }
@@ -372,7 +391,7 @@ function verifyTypeArtifact(artifact) {
   const typeName = artifact.name
   try {
     const pattern = `(type|interface)\\s+${escapeRegex(typeName)}[\\s<{]`
-    const result = Grep(pattern, { path: "src/", glob: "**/*.{ts,tsx}" })
+    const result = Grep(pattern, { path: ".", glob: "**/*.{ts,tsx}" })
     const found = result && result.length > 0
     return { verified: found, reason: found ? undefined : `Type "${typeName}" not found` }
   } catch (e) {
@@ -389,8 +408,8 @@ function verifyEndpointArtifact(artifact) {
     // Check for route registration patterns: router.get('/users'), app.get('/users'), @Get('/users')
     const routePattern = `(app|router|Router)\\.(${method.toLowerCase()}|all|use)\\(['"](${escapeRegex(path)})`
     const decoratorPattern = `@(Get|Post|Put|Delete|Patch|All)\\(['"]${escapeRegex(path)}`
-    const routeResult = Grep(routePattern, { path: "src/", glob: "**/*.{ts,js}" })
-    const decoratorResult = Grep(decoratorPattern, { path: "src/", glob: "**/*.{ts,js}" })
+    const routeResult = Grep(routePattern, { path: ".", glob: "**/*.{ts,js}" })
+    const decoratorResult = Grep(decoratorPattern, { path: ".", glob: "**/*.{ts,js}" })
     const found = (routeResult && routeResult.length > 0) || (decoratorResult && decoratorResult.length > 0)
     return { verified: found, reason: found ? undefined : `Endpoint "${endpoint}" registration not found` }
   } catch (e) {
@@ -401,6 +420,10 @@ function verifyEndpointArtifact(artifact) {
 // migration: Database migration applied (checks migration file exists)
 function verifyMigrationArtifact(artifact) {
   const migrationName = artifact.name
+  // SEC-007: Sanitize migrationName — block path traversal and glob metacharacters
+  if (!migrationName || migrationName.includes("..") || /[*?[\]{}]/.test(migrationName)) {
+    return { verified: false, reason: `Migration name "${migrationName}" contains disallowed characters` }
+  }
   try {
     const result = Glob(`**/migrations/**/*${migrationName}*`)
     const found = result && result.length > 0

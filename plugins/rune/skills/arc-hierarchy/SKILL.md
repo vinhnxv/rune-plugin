@@ -4,7 +4,7 @@ description: |
   Hierarchical plan execution — orchestrates parent/child plan decomposition with
   dependency DAGs, requires/provides contracts, and feature branch strategy.
   Use when a plan has been decomposed into child plans via /rune:devise Phase 2.5
-  (shatter command) and frontmatter shows `hierarchical: true` with a `children_dir`.
+  (Hierarchical option) and frontmatter shows `hierarchical: true` with a `children_dir`.
   Handles: topological sequencing, contract verification, partial failure recovery,
   and per-child feature branch management.
   Keywords: hierarchical, parent plan, child plan, decomposition, DAG, dependency,
@@ -22,8 +22,20 @@ description: |
   assistant: "Resuming hierarchy execution. Found 2/5 children completed. Next executable: 03-permissions..."
   </example>
 user-invocable: true
-disable-model-invocation: false
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, TeamCreate, TeamDelete, SendMessage, AskUserQuestion, TodoWrite
+disable-model-invocation: true
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+  - Task
+  - TeamCreate
+  - TeamDelete
+  - SendMessage
+  - AskUserQuestion
+  - TodoWrite
 argument-hint: "<parent-plan-path> [--resume] [--dry-run] [--no-merge]"
 ---
 
@@ -82,15 +94,16 @@ const resumeMode = args.includes('--resume')
 const dryRun = args.includes('--dry-run')
 const noMerge = args.includes('--no-merge')
 
+// Guard: empty path check BEFORE validation (BACK-001 fix)
+if (!planPath) {
+  error("Usage: /rune:arc-hierarchy <parent-plan-path>")
+  return
+}
+
 // SEC-1: validate path before any file operations
 const pathValidation = validatePlanPath(planPath)
 if (!pathValidation.valid) {
   error(`Invalid plan path: ${pathValidation.reason}`)
-  return
-}
-
-if (!planPath) {
-  error("Usage: /rune:arc-hierarchy <parent-plan-path>")
   return
 }
 ```
@@ -182,7 +195,7 @@ if (coherenceResult.errors.length > 0) {
 
   const hasBlockingErrors = coherenceResult.errors.some(e => e.severity === "error")
   if (hasBlockingErrors) {
-    AskUserQuestion({
+    const userChoice = AskUserQuestion({
       questions: [{
         question: "Coherence check found blocking errors. How to proceed?",
         header: "Coherence",
@@ -193,6 +206,13 @@ if (coherenceResult.errors.length > 0) {
         multiSelect: false
       }]
     })
+
+    // BACK-002 FIX: Handle user response — abort if user chooses to fix first
+    if (userChoice !== "Continue anyway (risky)") {
+      error("Aborting due to coherence check blocking errors. Fix parent plan and re-run.")
+      return
+    }
+    warn("User chose to continue despite blocking errors.")
   }
 }
 ```
@@ -209,7 +229,7 @@ const stateFile = ".claude/arc-hierarchy-loop.local.md"
 
 // Check for existing session
 const existingState = Read(stateFile)  // null if not found — SDK Read() is safe
-if (existingState && existingState.includes("active: true")) {
+if (existingState && /^active:\s*true$/m.test(existingState)) {
   const existingPid = existingState.match(/owner_pid:\s*(\d+)/)?.[1]
   const existingCfg = existingState.match(/config_dir:\s*(.+)/)?.[1]?.trim()
 
@@ -232,10 +252,17 @@ if (existingState && existingState.includes("active: true")) {
 }
 
 // Write state file with session isolation (all three fields required per CLAUDE.md §11)
+// BACK-007 FIX: Include `status: active` for stop hook Guard 7 compatibility
+// BACK-008 FIX: Include current_child, feature_branch, execution_table_path for stop hook
+// These fields are updated as the loop progresses (current_child set before each child arc)
 Write(stateFile, `---
 active: true
+status: active
 parent_plan: ${planPath}
 children_dir: ${childrenDir}
+current_child: ""
+feature_branch: ""
+execution_table_path: ""
 no_merge: ${noMerge}
 config_dir: ${configDir}
 owner_pid: ${ownerPid}
@@ -261,6 +288,8 @@ log(`Feature branch created: ${featureBranch}`)
 ```javascript
 let iteration = 0
 const MAX_ITERATIONS = executionTable.length + 10  // Safety cap
+// BACK-016 FIX: Track per-child prerequisite failure counts for cycle detection
+const prereqFailureCounts = {}
 
 while (true) {
   iteration++
@@ -294,27 +323,61 @@ while (true) {
   // See prerequisite-verification.md for full pseudocode
   const prereqResult = verifyPrerequisites(next, contractMatrix)
   if (!prereqResult.passed) {
-    const resolution = await handlePrerequisiteFailure(next, prereqResult, contractMatrix)
+    // BACK-016 FIX: Track per-child failure counts for cycle detection
+    prereqFailureCounts[next.seq] = (prereqFailureCounts[next.seq] || 0) + 1
+    if (prereqFailureCounts[next.seq] > 2) {
+      warn(`Child [${next.seq}] has failed prerequisites ${prereqFailureCounts[next.seq]} times. Automated recovery exhausted.`)
+      error("Execution paused. Fix prerequisites manually and run /rune:arc-hierarchy --resume")
+      break
+    }
+
+    const resolution = await handlePrerequisiteFailure(next, prereqResult, contractMatrix, planPath)
     if (resolution === "abort") break
     if (resolution === "skip") {
-      // Update table to skipped
       const updated = updateExecutionTable(Read(planPath), next.seq, { status: "skipped" })
       Write(planPath, updated)
       continue
     }
-    // resolution === "retry" or "self-heal" — loop continues naturally
+    // resolution === "retry" — loop continues (BACK-005/006: child reset to pending by handler)
     continue
   }
 
   // Phase 7b: Create child branch
   const childBranch = createChildBranch(featureBranch, next.seq, next.path.split("/").pop().replace(".md", ""))
 
-  // Phase 7c: Update table to in-progress
+  // Phase 7c: Update table to in_progress (QUAL-004 FIX: underscore, not hyphen)
   let updatedContent = updateExecutionTable(Read(planPath), next.seq, {
-    status: "in-progress",
+    status: "in_progress",
     started: new Date().toISOString()
   })
   Write(planPath, updatedContent)
+
+  // Phase 7c.1: Update state file with current child info for stop hook (BACK-008 FIX)
+  const childFilename = next.path.split("/").pop()
+  const stateContent = Read(stateFile)
+  const updatedState = stateContent
+    .replace(/^current_child:.*$/m, `current_child: ${childFilename}`)
+    .replace(/^feature_branch:.*$/m, `feature_branch: ${featureBranch}`)
+    .replace(/^execution_table_path:.*$/m, `execution_table_path: ${planPath}`)
+  Write(stateFile, updatedState)
+
+  // Phase 7c.2: Write JSON sidecar for stop hook execution table parsing (BACK-009 FIX)
+  // The stop hook uses jq for topological sort — it needs JSON, not the Markdown table.
+  // This sidecar is the machine-readable version; the Markdown table in the plan is human-readable.
+  const jsonTable = {
+    updated_at: new Date().toISOString(),
+    children: parseExecutionTable(Read(planPath)).map(e => ({
+      seq: e.seq,
+      plan: e.path.split("/").pop(),
+      status: e.status,
+      depends_on: e.dependencies,
+      started_at: e.started,
+      completed_at: e.completed,
+      provides: (contractMatrix.find(c => c.child === extractChildId(e.path))?.provides || [])
+        .map(a => `${a.name}`)
+    }))
+  }
+  Write(".claude/arc-hierarchy-exec-table.json", JSON.stringify(jsonTable, null, 2))
 
   // Phase 7d: Invoke arc for child plan
   const mergeFlag = noMerge ? " --no-merge" : ""
@@ -335,7 +398,8 @@ while (true) {
     })
     Write(planPath, updatedContent)
 
-    AskUserQuestion({
+    // BACK-003 FIX: Capture response and implement all 4 branches
+    const providesChoice = AskUserQuestion({
       questions: [{
         question: `Child [${next.seq}] has ${providesResult.failures.length} missing provides. How to proceed?`,
         header: "Provides Verification Failed",
@@ -348,8 +412,40 @@ while (true) {
         multiSelect: false
       }]
     })
-    // Based on user response, handle accordingly
-    continue
+
+    if (providesChoice === "Mark as completed anyway") {
+      updatedContent = updateExecutionTable(Read(planPath), next.seq, {
+        status: "completed",
+        completed: new Date().toISOString()
+      })
+      Write(planPath, updatedContent)
+      warn(`Child [${next.seq}] force-marked as completed despite missing provides.`)
+      continue
+    } else if (providesChoice === "Re-run child arc") {
+      // Reset to pending so it gets picked up again
+      updatedContent = updateExecutionTable(Read(planPath), next.seq, {
+        status: "pending",
+        started: "—",
+        completed: "—"
+      })
+      Write(planPath, updatedContent)
+      continue
+    } else if (providesChoice === "Skip dependents") {
+      // Find all children that depend on this child and mark them skipped
+      const freshTable = parseExecutionTable(Read(planPath))
+      for (const entry of freshTable) {
+        if (entry.dependencies.some(d => normalizeSeq(d) === normalizeSeq(next.seq))) {
+          const skipUpdate = updateExecutionTable(Read(planPath), entry.seq, { status: "skipped" })
+          Write(planPath, skipUpdate)
+          warn(`Skipped dependent child [${entry.seq}]: ${entry.path}`)
+        }
+      }
+      continue
+    } else {
+      // "Abort hierarchy" or any other response
+      error("Hierarchy execution aborted by user due to provides verification failure.")
+      break
+    }
   }
 
   // Phase 7f: Merge child branch to feature branch
@@ -391,8 +487,8 @@ if (completedCount === totalChildren) {
   log(`Feature branch: ${featureBranch}`)
 }
 
-// Clean up state file
-Bash(`rm -f "${stateFile}"`)
+// Clean up state file and JSON sidecar
+Bash(`rm -f "${stateFile}" ".claude/arc-hierarchy-exec-table.json"`)
 ```
 
 ---
@@ -404,8 +500,12 @@ Bash(`rm -f "${stateFile}"`)
 ```yaml
 ---
 active: true
+status: active
 parent_plan: plans/2026-02-23-feature-auth-plan.md
 children_dir: plans/children/
+current_child: 02-api-plan.md
+feature_branch: feat/hierarchical-auth
+execution_table_path: plans/2026-02-23-feature-auth-plan.md
 no_merge: false
 config_dir: /Users/user/.claude
 owner_pid: 12345
@@ -416,6 +516,8 @@ started_at: "2026-02-23T00:00:00Z"
 Arc hierarchy loop state. Do not edit manually.
 Use /rune:cancel-arc-hierarchy to stop execution.
 ```
+
+**JSON Sidecar**: `.claude/arc-hierarchy-exec-table.json` — machine-readable execution table for the stop hook (jq-based parsing). Updated by the orchestrator at Phase 7c before each child arc. The Markdown table in the parent plan remains the human-readable source of truth.
 
 **Session isolation fields** (CLAUDE.md §11 — CRITICAL):
 - `config_dir` — resolved CLAUDE_CONFIG_DIR. Isolates different Claude Code installations.

@@ -85,7 +85,7 @@ When a plan is a child plan (has `parent` and `sequence` in frontmatter), inject
 
 **Inputs**: frontmatter (object, parsed from plan YAML), tasks (Task[], extracted from plan), workerContext (string, mutable — passed to Phase 2 worker spawn prompts)
 **Outputs**: workerContext (string, enriched with sibling artifacts and prerequisites)
-**Preconditions**: `frontmatter.parent` is a valid relative path; parent plan file exists
+**Preconditions**: `frontmatter.parent` is a valid relative path (validated inline below); parent plan file exists
 **Error handling**: Read(parentPlan) failure → log warning, skip context injection; parseExecutionTable failure → skip context injection; missing `requires`/`provides` → treat as empty arrays
 
 ```javascript
@@ -106,7 +106,8 @@ if (isChildPlan) {
 
     if (parentContent) {
       // Parse execution table from parent plan to find completed siblings
-      // Expected table format: | N | [name](path) | status | ... |
+      // BACK-014: This regex assumes Markdown link format: | N | [name](path) | status | ... |
+      // The hierarchy-parser.md uses plain text format. This function only handles strive's table format.
       const executionTableRows = []
       const tableRegex = /\|\s*(\d+)\s*\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|\s*(\w[\w-]*)\s*\|/g
       for (const match of parentContent.matchAll(tableRegex)) {
