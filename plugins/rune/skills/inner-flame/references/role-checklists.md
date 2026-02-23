@@ -16,6 +16,9 @@ In addition to the universal 3-layer protocol:
 - [ ] **Ward checks actually passed**: if I claim wards are clean, did I see the output?
 - [ ] **Pattern followed**: which existing codebase pattern did I replicate? (cite specific file)
 - [ ] **No new patterns introduced**: am I following existing conventions or inventing new ones?
+- [ ] **Fresh evidence cited**: Ward check command + exit code + last 20 lines of output
+- [ ] **Test evidence**: Test commands run + pass/fail counts (not just "tests pass")
+- [ ] **Type checker evidence**: Output shown if applicable to language
 
 ## Fixer Checklist (mend-fixer)
 
@@ -30,6 +33,9 @@ In addition to the universal 3-layer protocol:
 - [ ] **Constants/defaults valid**: if I changed a value, is it valid in all contexts?
 - [ ] **Security finding extra scrutiny**: SEC-prefix findings require EVIDENCE that the fix works
 - [ ] **False positive evidence**: if flagging as false positive, is evidence concrete (not "I think")?
+- [ ] **Before/after shown**: Diff or line comparison for each fix
+- [ ] **Verification cited**: Command that confirms the fix works + output
+- [ ] **Regression check**: Test run output proving no regression (not just "no regression")
 
 ## Reviewer Checklist (all review Ashes)
 
@@ -42,6 +48,7 @@ Inner Flame SUPPLEMENTS but does NOT replace these. It adds:
 - [ ] **False positive consideration**: for each finding, did I check if context makes it valid?
 - [ ] **Adversarial: what's my weakest finding?** — identify and either strengthen or remove it
 - [ ] **Value check: would a developer act on each finding?** — remove noise findings
+- [ ] **Evidence for qualifying language**: Every "appears", "seems", "probably" backed by evidence or removed
 
 ## Researcher Checklist (repo-surveyor, echo-reader, git-miner, practice-seeker, lore-scholar)
 
