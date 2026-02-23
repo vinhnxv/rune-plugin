@@ -160,6 +160,63 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
   fi
 fi
 
+# --- Quality Gate: Required sections check (inscription-driven) ---
+# If the inscription contract specifies required_sections for this Ash,
+# verify those section headings appear in the output file.
+# Advisory only — warns but does NOT block (exit 0, not exit 2).
+if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
+  INSCRIPTION_PATH=""
+  # Discover inscription.json from team output directory
+  # Fix: Use ${CWD} prefix — hook cwd may differ from project root (P1 fix)
+  for candidate in "${CWD}/tmp/reviews/"*/inscription.json "${CWD}/tmp/audit/"*/inscription.json; do
+    [[ -f "$candidate" ]] || continue
+    [[ -L "$candidate" ]] && continue
+    # Match team name via structured jq lookup (not substring grep — P2 fix)
+    if jq -e --arg tn "$TEAM_NAME" '.team_name == $tn' "$candidate" >/dev/null 2>/dev/null; then
+      INSCRIPTION_PATH="$candidate"
+      break
+    fi
+  done
+
+  if [[ -n "$INSCRIPTION_PATH" ]]; then
+    # Extract required_sections for this teammate (simplified jq per EC-2)
+    # Fix: Use .teammates[] to match inscription schema (not .ashes[] — P2 fix)
+    REQ_SECTIONS=$(jq -r --arg name "$TEAMMATE_NAME" \
+      '.teammates[]? | select(.name == $name) | .required_sections // [] | .[]' \
+      "$INSCRIPTION_PATH" 2>/dev/null || true)
+
+    if [[ -n "$REQ_SECTIONS" ]]; then
+      MISSING_SECTIONS=""
+      MISSING_COUNT=0
+      TOTAL_COUNT=0
+
+      while IFS= read -r section; do
+        [[ -z "$section" ]] && continue
+        TOTAL_COUNT=$((TOTAL_COUNT + 1))
+        # Sanity check: skip if inscription has >20 required sections (likely corrupted)
+        [[ "$TOTAL_COUNT" -gt 20 ]] && break
+        # EC-1: Use grep -qiF for fixed-string case-insensitive matching
+        if ! grep -qiF "$section" "$FULL_OUTPUT_PATH" 2>/dev/null; then
+          MISSING_COUNT=$((MISSING_COUNT + 1))
+          # Truncate to first 5 missing sections for readable warnings
+          if [[ "$MISSING_COUNT" -le 5 ]]; then
+            MISSING_SECTIONS="${MISSING_SECTIONS}  - ${section}\n"
+          fi
+        fi
+      done <<< "$REQ_SECTIONS"
+
+      if [[ "$MISSING_COUNT" -gt 0 ]]; then
+        EXTRA=""
+        [[ "$MISSING_COUNT" -gt 5 ]] && EXTRA=" (and $((MISSING_COUNT - 5)) more)"
+        _trace "WARN missing ${MISSING_COUNT} required sections for $TEAMMATE_NAME"
+        # Advisory only — output to stderr but exit 0 (do not block)
+        echo "Warning: ${MISSING_COUNT} required section(s) missing from ${TEAMMATE_NAME} output${EXTRA}:" >&2
+        printf '%b' "$MISSING_SECTIONS" >&2
+      fi
+    fi
+  fi
+fi
+
 _trace "PASS all gates for $TEAMMATE_NAME"
 # All gates passed — allow idle
 exit 0

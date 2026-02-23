@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.85.0] - 2026-02-24
+
+### Added
+- **Post-Completion Advisory Hook** (`advise-post-completion.sh`) — PreToolUse advisory that detects completed arc pipelines and warns when heavy tools (Write/Edit/Task/TeamCreate) are used in the same session. Debounced once per session via `/tmp` flag file. Fail-open design. Session-isolated via `resolve-session-identity.sh`. Skips when active workflows are running (negative logic per EC-6). Atomic flag creation via `mktemp + mv` (EC-H4).
+- **Context Critical Guard Hook** (`guard-context-critical.sh`) — PreToolUse guard that blocks TeamCreate and Task calls when context is at critical levels (default: 25% remaining). Reads statusline bridge file (`/tmp/rune-ctx-{SESSION_ID}.json`). Explore/Plan agents exempt for Task tool only (NOT TeamCreate per EC-4). OS-level UID check (EC-H5). 30-second bridge freshness window (EC-1). Fail-open on missing data. Escape hatches: `/rune:rest`, talisman kill switch, Explore/Plan agents.
+- **Required Sections Validation** in `on-teammate-idle.sh` — Inscription-driven quality gate that checks if teammate output contains required section headings specified in `inscription.json`. Advisory only (warns but does not block). Uses `grep -qiF` for fixed-string matching (EC-1). Sanity check: skips if >20 required sections. Truncates warnings to first 5 missing sections.
+
+### Changed
+- `hooks/hooks.json`: Added 2 new PreToolUse entries — `advise-post-completion.sh` (matcher: `Write|Edit|NotebookEdit|Task|TeamCreate`) and `guard-context-critical.sh` (matcher: `TeamCreate|Task`)
+- `scripts/on-teammate-idle.sh`: Extended with required sections validation after SEAL check (line 161+)
+
 ## [1.84.0] - 2026-02-24
 
 ### Added
