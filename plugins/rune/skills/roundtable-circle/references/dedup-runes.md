@@ -53,7 +53,7 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
   ```
 - Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
 - Prefix format: 2-5 uppercase alphanumeric characters (A-Z, 0-9)
-- Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `DOUBT`, `QUAL`, `FRONT`, `DOC`, `CDX` — cannot be used by custom Ash
+- Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `DOUBT`, `QUAL`, `FRONT`, `DOC`, `CDX`, `PY`, `TSR`, `RST`, `PHP`, `FAPI`, `DJG`, `LARV`, `SQLA`, `TDD`, `DDD`, `DI` — cannot be used by custom Ash
 - Reserved deep-audit prefixes (active only when `/rune:audit --deep`): `DEBT`, `INTG`, `BIZL`, `EDGE`, `CORR`, `FAIL`, `DSEC`, `DSGN`, `RSRC`, `OBSV`, `MTNB`
 - **Note:** `CDX-DRIFT` is an internal Phase 5.6 finding ID used by the Codex gap analysis — it is NOT a custom Ash prefix
 
