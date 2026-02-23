@@ -34,7 +34,7 @@ Unified context management combining overflow prevention, compression strategies
 
 Agents can write unlimited detail to files. The overflow comes from what they _return_ to the caller. This skill ensures returns are minimal (file path + 1-sentence summary).
 
-## Four Layers of Context Management
+## Six Layers of Context Management
 
 | Layer | Problem | Solution | When |
 |-------|---------|----------|------|
@@ -42,6 +42,8 @@ Agents can write unlimited detail to files. The overflow comes from what they _r
 | **Context Rot** | Attention degrades in long contexts | Instruction anchoring, re-anchoring signals | Always (in prompts) |
 | **Compression** | Session grows beyond 50+ messages | Anchored iterative summarization | During long sessions |
 | **Filesystem Offloading** | Tool outputs consume 83.9% of context | Write outputs to files, read on demand | During any workflow |
+| **Compaction Recovery** | Auto-compaction truncates earlier context | PreCompact checkpoint + SessionStart recovery | During long arc/arc-batch sessions |
+| **Runtime Context Monitoring** | Context exhaustion during active workflows | Statusline bridge + PostToolUse warnings | Any session with monitoring enabled |
 
 ## Layer 1: Overflow Prevention (Glyph Budget)
 
@@ -340,6 +342,46 @@ The compact recovery message includes batch iteration number, total plans, and t
 ### Relationship to Rule #5
 
 This layer automates what Rule #5 ("On compaction or session resume: re-read team config, task list, and inscription contract") previously required manually. The PreCompact hook captures state proactively, and the SessionStart:compact hook re-injects it — ensuring Rule #5 compliance even when compaction truncates the original context.
+
+## Layer 6: Runtime Context Monitoring (v1.78.0)
+
+### The Problem
+
+Even with overflow prevention and compression, a session can creep toward context exhaustion during long workflows without visible feedback. By the time the model notices degraded output quality, significant context has already been lost.
+
+### Components
+
+- **Statusline Bridge** — A statusline script that writes context metrics (percentage used, token counts) to a shared bridge file at `/tmp/rune-ctx-{session_id}.json`. Runs as a color-coded statusline with git branch and active workflow detection. The bridge file is the producer half of a producer/consumer pattern.
+- **Context Monitor** — A `PostToolUse` hook (`scripts/context-monitor.sh`) that reads the bridge file and injects agent-visible warnings when context usage crosses thresholds. Non-blocking (exits 0). Only injects when the bridge file is fresh (staleness guard: 5 minutes). The monitor is the consumer half of the pattern.
+- **Plan Budget** — An optional `session_budget` frontmatter field in plan files that caps simultaneous agent spawning (`max_concurrent_agents`). Validated silently by `strive`/`arc` worker orchestration to prevent context saturation from large teams.
+
+### Setup
+
+Enable in `.claude/talisman.yml`:
+
+```yaml
+context_monitor:
+  enabled: true                    # Master toggle for context monitoring
+  warning_threshold: 35            # Warn when remaining% <= this (default: 35)
+  critical_threshold: 25           # Critical stop when remaining% <= this (default: 25)
+  stale_seconds: 60                # Bridge file max age before ignoring (default: 60)
+  debounce_calls: 5                # Tool uses between repeated warnings (default: 5)
+  workflows: [review, audit, work, mend, arc, devise]  # Which workflows emit warnings
+```
+
+### Thresholds
+
+| Level | Context Remaining | Injected Message |
+|-------|------------------|-----------------|
+| WARNING | ≤ 35% | "Context at {pct}% remaining. Consider compacting or reducing agent scope." |
+| CRITICAL | ≤ 25% | "Context CRITICAL at {pct}% remaining. Compact now or risk truncation." |
+
+### Architecture Notes
+
+- **Producer/Consumer pattern**: statusline writes, monitor reads via `/tmp/` bridge file. No shared memory — pure filesystem.
+- **Session-isolated**: bridge files are keyed by `session_id` with `config_dir` + `owner_pid` ownership fields.
+- **Non-blocking**: all errors exit 0 — the monitor never blocks tool execution.
+- **Bridge file cleanup**: `on-session-stop.sh` scans `/tmp/rune-ctx-*.json` and removes files matching the current session's ownership markers.
 
 ## References
 

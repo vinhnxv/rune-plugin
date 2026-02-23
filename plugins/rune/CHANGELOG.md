@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.78.0] - 2026-02-23
+
+### Added
+- **Context Monitor Hook** — PostToolUse hook that injects agent-visible warnings when context usage exceeds thresholds (WARNING at 35% remaining, CRITICAL at 25%)
+- **Statusline Bridge** — Statusline script that writes context metrics to bridge file for monitor consumption. Color-coded progress bar, git branch, workflow detection
+- **Session Budget in Plans** — Optional `session_budget` frontmatter for strive/arc worker cap validation (`max_concurrent_agents` only in v1.78.0)
+- **Talisman config** — New `context_monitor` section with configurable thresholds, debounce, staleness, and per-workflow enable/disable
+- **Bridge file cleanup** — Automatic cleanup of context bridge files on session end via ownership-scan pattern in `on-session-stop.sh`
+
+### Architecture
+- Producer/Consumer pattern: statusline writes, monitor reads (via `/tmp/` bridge file)
+- Inspired by GSD's context monitoring approach
+- Non-blocking: all errors exit 0, monitor never blocks tool execution
+- Session-isolated: bridge files keyed by `session_id` with `config_dir` + `owner_pid`
+
 ## [1.77.0] - 2026-02-23
 
 ### Added
