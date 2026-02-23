@@ -1,9 +1,15 @@
 ---
 name: roundtable-circle
 description: |
-  Use when running /rune:appraise or /rune:audit, when spawning multiple review agents,
-  or when orchestrating Agent Teams for code analysis. Handles team lifecycle, inscription
-  contracts, Ash monitoring, TOME aggregation, and cleanup for up to 8 parallel reviewers.
+  Use when running /rune:appraise or /rune:audit, when spawning multiple review
+  agents, when TOME aggregation fails or produces malformed output, or when a
+  TeammateIdle hook fires before expected output is written. Handles 7-phase
+  lifecycle (pre-flight, Rune Gaze, inscription, spawn, monitor, aggregate,
+  cleanup) for up to 8 parallel reviewers. Use when team cleanup fails after
+  a review, when on-teammate-idle.sh blocks review completion, or when
+  roundtable phases need to be re-entered after session resume.
+  Keywords: roundtable, appraise, audit, TOME aggregation, inscription, Ash,
+  team lifecycle, TeammateIdle, 7-phase, 8 reviewers, SEAL marker.
 
   <example>
   Context: Running a code review

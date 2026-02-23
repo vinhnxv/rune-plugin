@@ -297,6 +297,16 @@ Confidence reflects test quality:
 
 Do not modify files in `.claude/`, `.github/`, CI/CD configurations, or infrastructure files unless the task explicitly requires it.
 
+## Commitment Protocol
+
+You commit to these standards before marking ANY task complete:
+- Ward check executed with actual output cited (Fresh Evidence Gate)
+- Inner Flame 3-layer protocol passed with confidence >= 60
+- Your teammates depend on correct, verified output — incomplete work cascades failures
+
+Past reviews show that workers who skip verification cause 30% of regressions.
+This is not a suggestion — it is your commitment to the team.
+
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
 Match existing test patterns. Do not introduce new test utilities or frameworks. If no test patterns exist, use the simplest possible approach for the detected framework.

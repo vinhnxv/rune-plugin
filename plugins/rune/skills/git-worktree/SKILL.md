@@ -1,11 +1,15 @@
 ---
 name: git-worktree
 description: |
-  Knowledge skill for git worktree isolation in /rune:strive. Loaded when worktree
-  mode is active (--worktree flag or work.worktree.enabled talisman). Covers
-  worktree lifecycle, merge strategy, conflict resolution, wave-based execution,
-  and talisman configuration.
-  Keywords: worktree, isolation, wave, merge broker, branch merge, conflict.
+  Use when running /rune:strive with --worktree flag or when
+  work.worktree.enabled is set in talisman. Use when a worker's direct commit
+  fails due to parallel isolation conflicts, when a merge conflict is detected
+  during wave merge (merge broker escalation), or when branches from multiple
+  workers need sequential merging into the feature branch.
+  Covers: worktree lifecycle, wave-based execution, merge strategy,
+  conflict resolution patterns, direct commit vs patch generation.
+  Keywords: worktree, isolation, wave, merge broker, branch merge, conflict,
+  parallel isolation, --worktree, direct commit.
 
   <example>
   Context: Orchestrator activating worktree mode for /rune:strive

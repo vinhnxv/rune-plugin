@@ -16,6 +16,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **chome-pattern** | CLAUDE_CONFIG_DIR resolution pattern for multi-account support |
 | **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
 | **skill-testing** | TDD methodology for skills — pressure testing, rationalization counters, Iron Law (SKT-001). `disable-model-invocation: true` |
+| **systematic-debugging** | 4-phase debugging methodology (Observe → Narrow → Hypothesize → Fix) for workers hitting repeated failures. Iron Law: no fixes without root cause investigation (DBG-001) |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
 | **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 17 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend → test → ship → merge) |
 | **testing** | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
@@ -219,3 +220,5 @@ echo "Commands: $(find plugins/rune/commands -name '*.md' -not -path '*/referenc
 - [Configuration](references/configuration-guide.md) — talisman.yml schema and defaults
 - [Session handoff](references/session-handoff.md) — Session state template for compaction and resume
 - [Delegation checklist](skills/arc/references/arc-delegation-checklist.md) — Arc phase delegation contracts (RUN/SKIP/ADAPT)
+- [Persuasion guide](references/persuasion-guide.md) — Principle mapping for 5 agent categories, anti-patterns, evasion red flags
+- [CSO guide](references/cso-guide.md) — Trigger-focused skill description writing for Claude auto-discovery

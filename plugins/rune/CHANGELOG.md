@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.76.0] - 2026-02-23
+
+### Added
+- Systematic Debugging skill — 4-phase methodology (Observe → Narrow → Hypothesize → Fix) with Iron Law DBG-001
+- Persuasion Principles reference guide — principle mapping for 5 agent categories
+- CSO (Claude Search Optimization) reference guide — trigger-focused description writing
+- Commitment Protocol sections added to work agents (rune-smith, trial-forger)
+- Authority & Evidence sections added to review agents (ward-sentinel, ember-oracle, flaw-hunter, void-analyzer)
+- Authority & Unity section added to mend-fixer agent
+- Consistency section added to pattern-seer agent
+
+### Changed
+- 7 skill descriptions CSO-optimized for better auto-discovery
+- Failure Escalation Protocol added to rune-smith agent
+
 ## [1.75.0] - 2026-02-23
 
 ### Added

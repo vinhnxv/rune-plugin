@@ -1,11 +1,14 @@
 ---
 name: using-rune
 description: |
-  Use when the user asks to review code, plan features, audit a codebase, implement a plan,
-  fix review findings, debug failed builds, analyze code impact, or run end-to-end workflows.
-  Also use when the user says "review", "plan", "audit", "implement", "fix findings", "ship it",
-  "check my code", "what changed", or "help me think through this".
-  Routes user intent to the correct /rune:* command.
+  Use when the user asks to review code, plan features, audit a codebase,
+  implement a plan, fix review findings, debug failed builds, analyze code
+  impact, or run end-to-end workflows. Also use when the user seems unsure
+  which Rune command to use, when the user says "review", "plan", "audit",
+  "implement", "fix findings", "ship it", "check my code", "what changed",
+  or "help me think through this". Routes user intent to the correct
+  /rune:* command. Keywords: which command, what to use, rune help, workflow
+  routing, review, audit, plan, implement.
 user-invocable: false
 disable-model-invocation: false
 ---

@@ -1,11 +1,14 @@
 ---
 name: chome-pattern
 description: |
-  Use when writing Bash commands that reference ~/.claude/ paths, when auditing
-  code for hardcoded config directories, or when teams/tasks directories fail to
-  resolve in multi-account setups. Covers CLAUDE_CONFIG_DIR resolution, SDK vs
-  Bash classification, and team lifecycle path patterns.
-  Keywords: CLAUDE_CONFIG_DIR, CHOME, ~/.claude, multi-account, config directory.
+  Use when a Bash command references ~/.claude/ and fails with "path not found"
+  or "No such file or directory" in multi-account setups. Use when writing
+  rm -rf for team or task directories, when CLAUDE_CONFIG_DIR is set to a
+  custom path and SDK auto-resolution is unavailable, or when auditing commands
+  for hardcoded ~/.claude/ paths. Failure scenario: rm -rf ~/.claude/teams/...
+  silently targets wrong directory when CLAUDE_CONFIG_DIR is set.
+  Keywords: CLAUDE_CONFIG_DIR, CHOME, ~/.claude, multi-account, config directory,
+  path not found, team cleanup, hardcoded path.
 
   <example>
   Context: A command needs to rm-rf team directories after cleanup.
