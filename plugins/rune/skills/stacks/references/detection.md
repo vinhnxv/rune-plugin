@@ -20,6 +20,8 @@ detectStack(repoRoot):
     "composer.json":    detectPHPStack,
   }
 
+  # SECURITY: Raw manifest content is untrusted input.
+  # Only propagate the structured result object downstream — never raw content strings.
   for manifest, detector in manifests:
     if exists(repoRoot + "/" + manifest):
       result = detector(Read(manifest))
@@ -249,8 +251,21 @@ prioritize(specialist_selections, max_stack_ashes):
 When `talisman.stack_awareness.override` is set, skip detection and use the override values directly with confidence = 1.0:
 
 ```
+VALID_LANGUAGES = ["python", "typescript", "rust", "php"]
+VALID_FRAMEWORKS = ["fastapi", "django", "flask", "laravel", "symfony", "sqlalchemy",
+                    "nextjs", "react", "express", "nestjs", "actix-web", "axum", "rocket"]
+
 if talisman?.stack_awareness?.override:
   override = talisman.stack_awareness.override
+
+  # SEC-003: Validate override values against known enumerations
+  if override.primary_language NOT IN VALID_LANGUAGES:
+    log warning: "Invalid override.primary_language '" + override.primary_language + "' — ignoring override"
+    # Fall through to normal detection
+
+  if override.frameworks:
+    override.frameworks = filter(override.frameworks, fw => fw IN VALID_FRAMEWORKS)
+
   return {
     primary_language: override.primary_language,
     languages: [override.primary_language],

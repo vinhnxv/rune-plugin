@@ -133,6 +133,8 @@ if stack.confidence >= confidence_threshold:
   inscription.specialist_ashes = specialist_selections
 
 # Always-on Ash (regardless of file types)
+# NOTE: pattern-weaver (always-on quality Ash) is distinct from pattern-seer
+# (cross-cutting consistency specialist, triggered by file patterns in review)
 ash_selections.add("ward-sentinel")   # Security: always
 ash_selections.add("pattern-weaver")  # Quality: always
 ash_selections.add("veil-piercer")    # Truth: always

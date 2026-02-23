@@ -11,7 +11,7 @@
     - Language reviewers: `python-reviewer` (PY), `typescript-reviewer` (TSR), `rust-reviewer` (RST), `php-reviewer` (PHP)
     - Framework reviewers: `fastapi-reviewer` (FAPI), `django-reviewer` (DJG), `laravel-reviewer` (LARV), `sqlalchemy-reviewer` (SQLA)
     - Pattern reviewers: `tdd-compliance-reviewer` (TDD), `ddd-reviewer` (DDD), `di-reviewer` (DI)
-  - New skill: `stacks/` with SKILL.md + 4 reference algorithms (detection.md, stack-registry.md, context-router.md) + 16 technology reference docs
+  - New skill: `stacks/` with SKILL.md + 3 reference algorithms (detection.md, stack-registry.md, context-router.md) + 16 technology reference docs
   - Rune Gaze Phase 1A: Stack Detection integrated before Ash selection — specialist Ashes added based on detected stack
   - Forge Gaze: Stack affinity bonus scoring for technology-relevant enrichment agents
   - Inscription schema: New `detected_stack`, `context_manifest`, and `specialist_ashes` fields

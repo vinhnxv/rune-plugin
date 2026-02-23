@@ -166,11 +166,12 @@ settings:
 
   # Extended dedup hierarchy — higher = wins on conflict
   # Must include ALL active prefixes (built-in + custom)
-  # Built-in prefixes: SEC, BACK, VEIL, PY, TSR, RST, PHP, FAPI, DJG, LARV, SQLA, TDD, DDD, DI, DOC, QUAL, FRONT, CDX
+  # Built-in prefixes: SEC, BACK, VEIL, DOUBT, PY, TSR, RST, PHP, FAPI, DJG, LARV, SQLA, TDD, DDD, DI, DOC, QUAL, FRONT, CDX
   dedup_hierarchy:
     - SEC          # Ward Sentinel (always highest)
     - BACK         # Forge Warden
     - VEIL         # Veil Piercer (truth-telling)
+    - DOUBT        # Doubt Seer (meta-findings, non-deduplicable)
     - PY           # Python Reviewer (stack specialist, v1.86.0+)
     - TSR          # TypeScript Reviewer (stack specialist, v1.86.0+)
     - RST          # Rust Reviewer (stack specialist, v1.86.0+)

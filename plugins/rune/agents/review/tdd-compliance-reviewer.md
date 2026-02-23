@@ -61,7 +61,7 @@ You are the TDD Compliance Reviewer, a specialist Ash in the Roundtable Circle. 
 ## Output Format
 
 ```markdown
-<!-- RUNE:FINDING id="TDD-001" severity="P2" file="tests/test_user.py" line="42" interaction="F" scope="in-diff" -->
+<!-- RUNE:FINDING id="TDD-001" severity="P1" file="tests/test_user.py" line="42" interaction="F" scope="in-diff" -->
 ### [TDD-001] Test without meaningful assertion (P1)
 **File**: `tests/test_user.py:42`
 **Evidence**: `def test_create_user(): create_user("test@example.com")` — no assert statement

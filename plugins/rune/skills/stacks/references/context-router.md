@@ -118,6 +118,12 @@ computeContextManifest(task_type, file_scope, detected_stack, task_description):
   # Step 6: Load custom rules from talisman
   custom_rules = talisman?.stack_awareness?.custom_rules ?? []
   for rule in custom_rules:
+    # SEC-001: Validate custom rule path against path traversal
+    if NOT rule.path matches /^[a-zA-Z0-9_.\/\-]+$/ OR rule.path contains "..":
+      log warning: "Skipping custom_rule with invalid path: " + rule.path
+      manifest.skills_excluded[rule.path] = "Rejected: invalid path characters or traversal"
+      continue
+
     rule_domains = rule.domains ?? ["all"]
     if "all" in rule_domains OR domains intersects rule_domains:
       rule_workflows = rule.workflows ?? ["all"]
