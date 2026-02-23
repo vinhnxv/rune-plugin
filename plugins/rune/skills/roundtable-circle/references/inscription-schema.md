@@ -46,6 +46,25 @@
     "max_reverify_agents": "integer — max re-verify agents to summon"
   },
 
+  "detected_stack": {
+    "primary_language": "string — python | typescript | rust | php | null",
+    "frameworks": ["array of detected framework strings"],
+    "libraries": ["array of detected library strings"],
+    "databases": ["array of detected database strings"],
+    "tooling": ["array of detected tooling strings"],
+    "patterns": ["array of detected pattern strings — tdd, ddd, di"],
+    "confidence": "number — 0.0-1.0 detection confidence"
+  },
+
+  "context_manifest": {
+    "domains": ["array of domain strings — backend, frontend, infra, docs, config"],
+    "skills_to_load": ["array of skill paths to load for this context"],
+    "agents_to_summon": ["array of stack-specialist agent names"],
+    "reference_docs": ["array of reference doc paths relevant to detected stack"]
+  },
+
+  "specialist_ashes": ["array of stack-specialist Ash names selected by Phase 1A"],
+
   "diff_scope": {
     "enabled": "boolean — whether diff-scope tagging is active (default: true)",
     "base": "string — base branch for diff (e.g., 'main')",

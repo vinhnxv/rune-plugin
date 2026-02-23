@@ -447,7 +447,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 
 ### Review Agents
 
-23 specialized agents that Ash embed as perspectives:
+34 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -474,6 +474,17 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 | entropy-prophet | Long-term consequence truth-telling |
 | naming-intent-analyzer | Naming intent quality, name-behavior mismatch |
 | doubt-seer | Evidence quality challenger, unproven claim detection |
+| python-reviewer | Python 3.10+ patterns, type safety, async, dataclass idioms (PY) |
+| typescript-reviewer | TypeScript strict mode, discriminated unions, Zod schemas (TSR) |
+| rust-reviewer | Rust ownership, lifetime, unsafe blocks, error handling (RST) |
+| php-reviewer | PHP 8.1+ patterns, type declarations, named args, enums (PHP) |
+| fastapi-reviewer | FastAPI dependency injection, Pydantic models, async handlers (FAPI) |
+| django-reviewer | Django ORM, middleware, signals, template safety (DJG) |
+| laravel-reviewer | Laravel Eloquent, service container, request validation (LARV) |
+| sqlalchemy-reviewer | SQLAlchemy session lifecycle, N+1 queries, relationship loading (SQLA) |
+| tdd-compliance-reviewer | TDD cycle compliance, test-first discipline, coverage quality (TDD) |
+| ddd-reviewer | DDD aggregate boundaries, value objects, domain events (DDD) |
+| di-reviewer | Dependency injection patterns, container config, scope management (DI) |
 
 ### Research Agents
 
@@ -539,6 +550,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
 | rune-orchestration | Multi-agent coordination patterns |
 | skill-testing | TDD methodology for skills — pressure testing, rationalization counters, Iron Law (SKT-001). `disable-model-invocation: true` |
+| stacks | Stack-aware intelligence — 4-layer detection engine with 11 specialist reviewers (Python, TypeScript, Rust, PHP, FastAPI, Django, Laravel, SQLAlchemy, TDD, DDD, DI). Auto-loaded by Rune Gaze Phase 1A (non-invocable) |
 | systematic-debugging | 4-phase debugging methodology (Observe → Narrow → Hypothesize → Fix) for workers hitting repeated failures. Iron Law: no fixes without root cause investigation (DBG-001) |
 | testing | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | using-rune | Workflow discovery and intent routing |
@@ -648,7 +660,7 @@ plugins/rune/
 │   └── plugin.json
 ├── agents/
 │   ├── investigation/       # 23 investigation agents (Goldmask + Inspect)
-│   ├── review/              # 23 review agents
+│   ├── review/              # 34 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
 │   ├── testing/             # 4 testing agents (arc Phase 7.7)
@@ -701,6 +713,8 @@ plugins/rune/
 │   ├── rune-echoes/         # Smart Memory Lifecycle
 │   ├── rune-orchestration/  # Core coordination
 │   │   └── references/      # e.g. team-lifecycle-guard.md
+│   ├── stacks/              # Stack-aware intelligence (non-invocable)
+│   │   └── references/      # detection.md, stack-registry.md, context-router.md, languages/, frameworks/, databases/, libraries/, patterns/
 │   ├── testing/             # Test orchestration pipeline (non-invocable)
 │   │   └── references/      # test-discovery.md, service-startup.md, etc.
 │   ├── using-rune/          # Workflow discovery and intent routing

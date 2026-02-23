@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.86.0] - 2026-02-24
+
+### Added
+- **Stack-Aware Intelligence System** — 4-layer architecture for technology-specific review quality:
+  - **Layer 0: Context Router** (`computeContextManifest()`) — Maps detected domains and stacks to skills, agents, and reference docs for loading
+  - **Layer 1: Detection Engine** (`detectStack()`) — Scans manifest files (package.json, pyproject.toml, Cargo.toml, composer.json) for evidence-based stack classification with confidence scoring
+  - **Layer 2: Knowledge Skills** — 16+ reference docs organized by language (Python, TypeScript, Rust, PHP), framework (FastAPI, Django, Laravel, SQLAlchemy), database (PostgreSQL, MySQL), library (Pydantic, Returns, Dishka), and pattern (TDD, DDD, DI)
+  - **Layer 3: Enforcement Agents** — 11 specialist review agents with unique finding prefixes:
+    - Language reviewers: `python-reviewer` (PY), `typescript-reviewer` (TSR), `rust-reviewer` (RST), `php-reviewer` (PHP)
+    - Framework reviewers: `fastapi-reviewer` (FAPI), `django-reviewer` (DJG), `laravel-reviewer` (LARV), `sqlalchemy-reviewer` (SQLA)
+    - Pattern reviewers: `tdd-compliance-reviewer` (TDD), `ddd-reviewer` (DDD), `di-reviewer` (DI)
+  - New skill: `stacks/` with SKILL.md + 4 reference algorithms (detection.md, stack-registry.md, context-router.md) + 16 technology reference docs
+  - Rune Gaze Phase 1A: Stack Detection integrated before Ash selection — specialist Ashes added based on detected stack
+  - Forge Gaze: Stack affinity bonus scoring for technology-relevant enrichment agents
+  - Inscription schema: New `detected_stack`, `context_manifest`, and `specialist_ashes` fields
+  - Custom Ashes: New `trigger.languages` and `trigger.frameworks` fields for stack-conditional activation
+  - Talisman: `stack_awareness` section (enabled, confidence_threshold, max_stack_ashes) + `forge.stack_affinity_bonus` + 11 new prefixes in `dedup_hierarchy`
+
+### Changed
+- `plugin.json` / `marketplace.json`: Version 1.85.0 → 1.86.0, description updated (23 → 34 review agents, 30 → 31 skills)
+- `talisman.example.yml`: Added stack_awareness section, dedup_hierarchy updated with 11 stack specialist prefixes, forge.stack_affinity_bonus added
+- `CLAUDE.md`: Added stacks skill to Skills table, updated agent count references (23 → 34 review)
+- `README.md`: Updated component counts, added 11 stack specialist agents to Review Agents table, added stacks skill to Skills table, updated file tree
+
+### Migration Notes
+- **11 new reserved finding prefixes**: PY, TSR, RST, PHP, FAPI, DJG, LARV, SQLA, TDD, DDD, DI. If you have custom Ashes using any of these prefixes in your `talisman.yml`, rename them to avoid dedup collisions. The built-in stack specialist prefixes take priority in the dedup hierarchy.
+- **No breaking changes**: Stack detection is opt-out (enabled by default). Set `stack_awareness.enabled: false` in talisman.yml to disable. Existing reviews without detected stacks continue unchanged.
+
 ## [1.85.0] - 2026-02-24
 
 ### Added

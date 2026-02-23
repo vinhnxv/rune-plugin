@@ -45,6 +45,8 @@ Define custom Ash in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml
 | `trigger.extensions` | list | Yes* | File extensions that activate this Ash. Use `["*"]` for all files. *Required for review/audit workflows |
 | `trigger.paths` | list | No | Directory prefixes to match. If set, file must match BOTH extension AND path |
 | `trigger.topics` | list | No* | Topic keywords for Forge Gaze matching. *Required if `forge` is in `workflows` |
+| `trigger.languages` | list | No | Primary languages that activate this Ash (e.g., `["python", "typescript"]`). Matches against `detected_stack.primary_language`. (v1.86.0+) |
+| `trigger.frameworks` | list | No | Frameworks that activate this Ash (e.g., `["fastapi", "django"]`). Matches against `detected_stack.frameworks`. (v1.86.0+) |
 | `trigger.min_files` | int | No | Minimum matching files required to summon. Default: 1 |
 | `trigger.always` | bool | No | When true, Ash is always summoned (skip file matching). Useful for CLI-backed Ashes |
 | `context_budget` | int | Yes | Maximum files this Ash reads. Recommended: 15-30 |
