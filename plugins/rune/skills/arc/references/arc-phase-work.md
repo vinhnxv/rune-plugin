@@ -5,7 +5,7 @@ Invoke `/rune:strive` logic on the enriched plan. Swarm workers implement tasks 
 **Team**: `arc-work-{id}` (delegated to `/rune:strive` — manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Full access (Read, Write, Edit, Bash, Glob, Grep)
 **Timeout**: 35 min (PHASE_TIMEOUTS.work = 2_100_000 — inner 30m + 5m setup)
-**Inputs**: id (string), enriched plan path (`tmp/arc/{id}/enriched-plan.md`), concern context (optional: `tmp/arc/{id}/concern-context.md`), verification report (optional: `tmp/arc/{id}/verification-report.md`), `--approve` flag
+**Inputs**: id (string), enriched plan path (`tmp/arc/{id}/enriched-plan.md`), concern context (optional: `tmp/arc/{id}/concern-context.md`), verification report (optional: `tmp/arc/{id}/verification-report.md`), `--approve` flag, `--todos-dir` flag (from `checkpoint.todos_base`, conditional on `fileTodosEnabled`)
 **Outputs**: `tmp/arc/{id}/work-summary.md` + committed code on feature branch
 **Error handling**: Halt if <50% tasks complete. Partial work is committed via incremental commits (E5).
 **Consumers**: SKILL.md (Phase 5 stub)
@@ -48,6 +48,13 @@ workContext += `\n\n## Quality Contract\nAll code must include:\n- Type annotati
 // PRE-DELEGATION: Record phase as in_progress with null team name.
 // Actual team name will be discovered post-delegation from state file (see below).
 updateCheckpoint({ phase: "work", status: "in_progress", phase_sequence: 5, team_name: null })
+
+// ADDED: Pass --todos-dir for arc-scoped file-todos
+// Strive internally calls resolveTodosDir(args, talisman, "work")
+//   → parses --todos-dir → appends "work/" → "tmp/arc/{id}/todos/work/"
+const arcTodosBase = checkpoint.todos_base  // set in Arc Todos Scaffolding (pre-Phase 5)
+const todosFlag = fileTodosEnabled && arcTodosBase ? `--todos-dir ${arcTodosBase}` : ''
+// Thread todosFlag in the /rune:strive invocation alongside other flags (--approve, etc.)
 
 // STEP 4: After work completes, produce work summary
 // CDX-003 FIX: Assign workSummary to a variable so sha256() in STEP 5 can reference it.

@@ -89,6 +89,9 @@ review:
 # Ward commands validate markdown structure and cross-file consistency.
 work:
   # SEC: ward_commands are executed as raw shell. Changes to this file should be reviewed for command injection.
+  # SEC: ward_commands are validated at runtime by SAFE_WARD regex and SAFE_EXECUTABLES allowlist
+  # (see roundtable-circle/references/ward-check.md). sh/bash are intentionally excluded.
+  # Only allowlisted executables (jq, python, npm, etc.) may appear as the first token.
   ward_commands:
     # NOTE: This command uses Bash command substitution ($(...)). Ensure jq is available.
     - "echo 'ward: checking plugin.json sync' && [ \"$(jq -r .version plugins/rune/.claude-plugin/plugin.json)\" = \"$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)\" ]"
@@ -109,6 +112,21 @@ inner_flame:
   confidence_floor: 60
   # Simplified schema (v1.46.0): enforce_hook and require_log_section merged into block_on_fail.
   # Per-role overrides deferred — all roles use global enabled/block_on_fail for now.
+
+# ──────────────────────────────────────────────
+# File Todos — Structured todo tracking (v1.73.0+)
+# ──────────────────────────────────────────────
+file_todos:
+  enabled: true
+  # SEC: dir value must match SAFE_PATH_PATTERN (/^[a-zA-Z0-9._\-\/]+$/) and must not contain '..'
+  # (see integration-guide.md resolveTodosBase() for validation contract)
+  dir: "todos/"
+  auto_generate:
+    work: true
+    review: true
+    audit: true
+  #  triage:
+  #    auto_approve_p1: false   # Auto-approve P1 findings during triage (skip interactive)
 
 # ──────────────────────────────────────────────
 # Forge — Forge Gaze selection overrides

@@ -50,6 +50,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | Environment setup (work Phase 0.5) | **ADAPT** | Branch already created by arc pre-flight; work detects and uses existing branch |
 | Forge team (work Phase 1) | **RUN** | Work creates its own team |
 | Codex Oracle detection | **RUN** | Per `codex-detection.md`, if `work` in `talisman.codex.workflows` |
+| `--todos-dir` flag | **ADAPT** | Arc scopes todos to `tmp/arc/{id}/todos/`. Strive resolves to `{base}/work/` via `resolveTodosDir(args, talisman, "work")`. Only passed when `fileTodosEnabled && checkpoint.todos_base` |
 
 ## Phase 6: CODE REVIEW (deep) → `/rune:appraise --deep`
 
@@ -62,6 +63,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | Abort conditions check | **RUN** | If no changed files, review should no-op gracefully |
 | Custom Ash loading | **RUN** | `ashes.custom[]` filtered by `workflows: [review]` (no-op if none configured) |
 | Codex Oracle detection | **RUN** | Per `codex-detection.md`, if `review` in `talisman.codex.workflows` |
+| `--todos-dir` flag | **ADAPT** | Arc scopes todos to `tmp/arc/{id}/todos/`. Appraise threads to roundtable-circle Phase 5.4 which resolves to `{base}/review/` via `resolveTodosDir(args, talisman, "review")`. Only passed when `fileTodosEnabled && checkpoint.todos_base` |
 
 ### Arc context adaptations for Phase 6
 
@@ -77,6 +79,7 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | TOME path resolution | **ADAPT** | Arc provides TOME path from Phase 6 artifact |
 | Parse TOME findings | **RUN** | Mend needs to group findings by file |
 | Custom Ash for mend | **SKIP** | No custom Ash workflow for mend |
+| `--todos-dir` flag | **ADAPT** | Arc scopes todos to `tmp/arc/{id}/todos/`. Mend uses `resolveTodosBase(args, talisman)` to scan all subdirectories (`{base}*/[0-9][0-9][0-9]-*.md`) for cross-source `finding_id` matching. Only passed when `fileTodosEnabled && checkpoint.todos_base` |
 
 ## Phase 5.7: GOLDMASK VERIFICATION → `/rune:goldmask`
 

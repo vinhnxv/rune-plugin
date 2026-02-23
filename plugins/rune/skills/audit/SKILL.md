@@ -12,7 +12,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[--deep] [--focus <area>] [--max-agents <N>] [--dry-run] [--no-lore] [--deep-lore] [--standard]"
+argument-hint: "[--deep] [--focus <area>] [--max-agents <N>] [--dry-run] [--no-lore] [--deep-lore] [--standard] [--todos-dir <path>]"
 allowed-tools:
   - Task
   - TaskCreate
@@ -50,6 +50,7 @@ Thin wrapper that sets audit-specific parameters, then delegates to the shared R
 | `--deep-lore` | Run Lore Layer on ALL files (default: Tier 1 only) | Off |
 | `--deep` | Run multi-wave deep audit with deep investigation Ashes | On (default for audit) |
 | `--standard` | Override default deep mode — run single-wave standard audit | Off |
+| `--todos-dir <path>` | Override base todos directory (used by arc to scope todos to `tmp/arc/{id}/todos/`). Threaded to roundtable-circle Phase 5.4 | None |
 
 **Note:** Unlike `/rune:appraise`, there is no `--partial` flag. Audit always scans the full project.
 

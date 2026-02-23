@@ -21,7 +21,7 @@ Invoke `/rune:mend` logic on the TOME. Parallel fixers resolve findings from the
 > Results are included in the resolution report. All non-fatal — mend continues without Codex on any error.
 > See `mend.md` Phase 5.8 for full pseudocode.
 
-> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
+> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, `warn()`, and `parseFrontmatter()` (from file-todos/references/subcommands.md Common Helpers) are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
 
 > **Note**: This phase may be invoked multiple times by the convergence gate (Phase 7.5). On retry, the TOME source changes to `tome-round-{N}.md` and the timeout shrinks to MEND_RETRY_TIMEOUT. See [verify-mend.md](verify-mend.md) for the convergence protocol.
 
@@ -144,8 +144,13 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
 // - Timeout propagation (--timeout ${mendTimeout})
 // - Team name prefix: arc-mend-{id}
 // - Root cause context: if elicitation-root-cause.md exists, pass to fixers
+// - Arc-scoped todos: --todos-dir so Phase 5.9 scans tmp/arc/{id}/todos/*/
 // Delegation pattern: /rune:mend creates its own team (e.g., rune-mend-{id}).
 // Arc reads the team name from the mend state file or teammate idle notification.
+const fileTodosEnabled = talisman?.file_todos?.enabled === true
+const arcTodosBase = checkpoint.todos_base  // set by arc scaffolding (pre-Phase 5)
+const todosFlag = (fileTodosEnabled && arcTodosBase) ? `--todos-dir ${arcTodosBase}` : ''
+// Invoke: /rune:mend {tomeSource} --timeout ${innerPolling} {todosFlag}
 ```
 
 ## Post-Delegation Team Name Discovery
@@ -205,6 +210,22 @@ updateCheckpoint({
   phase: "mend", status: failedCount > 3 ? "failed" : "completed",
   artifact: resolutionReportPath, artifact_hash: sha256(resolutionReport), phase_sequence: 7
 })
+
+// Post-Phase 7 todos verification (non-blocking)
+if (fileTodosEnabled && arcTodosBase) {
+  const allTodos = Glob(`${arcTodosBase}*/[0-9][0-9][0-9]-*.md`)
+  let completeCount = 0, pendingCount = 0
+  for (const f of allTodos) {
+    const fm = parseFrontmatter(Read(f))
+    if (fm.status === 'complete') completeCount++
+    else if (fm.status === 'pending') pendingCount++
+  }
+  log(`Todos verification post-mend: ${completeCount} complete, ${pendingCount} pending`)
+  // Store in checkpoint for ship phase summary
+  updateCheckpoint({
+    todos_summary: { complete: completeCount, pending: pendingCount, total: allTodos.length }
+  })
+}
 ```
 
 **Halt condition**: If more than 3 findings remain in FAILED state after mend, the pipeline halts. The user must manually fix the remaining issues and run `/rune:arc --resume` to continue.

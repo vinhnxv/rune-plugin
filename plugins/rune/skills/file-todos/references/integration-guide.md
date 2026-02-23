@@ -22,6 +22,122 @@ The Rune `.gitignore` includes `todos/` on line 21, which prevents todo files fr
 
 **Namespace note**: `inscription.todos.dir` (relative to `output_dir`, used by strive per-worker logs) and `talisman.file_todos.dir` (relative to project root, used by file-todos skill) both default to `"todos/"` but resolve to different absolute paths. Do not confuse them.
 
+## Directory Resolution
+
+All todo-producing and todo-consuming skills resolve the target directory through two shared pseudo-functions. These are defined **inline** — not as a shared module (per plugin convention).
+
+### resolveTodosBase(args, talisman)
+
+> **NOTE**: Callers that inline this function MUST include the `SAFE_PATH_PATTERN` validation.
+> Omitting it creates a path traversal vulnerability. See SEC-002 for checkpoint-specific guidance.
+
+Resolves the **base** todos directory (without source subdirectory). Used by cross-source consumers like mend that scan all subdirectories.
+
+**Priority**: `--todos-dir` CLI flag > `talisman.file_todos.dir` > `"todos/"`
+
+```javascript
+// resolveTodosBase(): Returns base directory for todos
+// Used by: mend (cross-source scan), arc scaffolding
+function resolveTodosBase(args, talisman) {
+  const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\-\/]+$/
+
+  // 1. CLI flag override (arc-scoped) — use args.match(), NOT parseFlagValue()
+  const flagMatch = args.match(/--todos-dir\s+([^\s]+)/)
+  const todosFlag = flagMatch ? flagMatch[1] : null
+  if (todosFlag && todosFlag.trim() !== '' && SAFE_PATH_PATTERN.test(todosFlag) && !todosFlag.includes('..')) {
+    return todosFlag.endsWith('/') ? todosFlag : todosFlag + '/'
+  }
+
+  // SEC: On --resume, checkpoint.todos_base MUST be re-validated:
+  //   1. SAFE_PATH_PATTERN.test(checkpoint.todos_base)
+  //   2. checkpoint.todos_base.startsWith(`tmp/arc/${checkpoint.id}/`)
+  // This prevents tampered checkpoint files from injecting arbitrary paths.
+
+  // 2. Talisman config
+  const talismanDir = talisman?.file_todos?.dir
+  if (talismanDir) return talismanDir.endsWith('/') ? talismanDir : talismanDir + '/'
+
+  // 3. Default
+  return "todos/"
+}
+```
+
+### resolveTodosDir(args, talisman, source)
+
+Resolves a **source-qualified** todos path for a specific workflow. Appends the source subdirectory to the base.
+
+```javascript
+// resolveTodosDir(): Returns source-qualified path for a specific workflow
+// source: "work" | "review" | "audit"
+// Used by: strive (source="work"), roundtable Phase 5.4 (source="review"|"audit")
+const VALID_SOURCES = new Set(["work", "review", "audit"])
+
+function resolveTodosDir(args, talisman, source) {
+  if (!VALID_SOURCES.has(source)) throw new Error(`Invalid todo source: ${source}`)
+  const base = resolveTodosBase(args, talisman)
+  return `${base}${source}/`
+  // Examples:
+  //   standalone strive: "todos/work/"
+  //   standalone appraise: "todos/review/"
+  //   arc strive (--todos-dir tmp/arc/{id}/todos/): "tmp/arc/{id}/todos/work/"
+  //   arc appraise (--todos-dir tmp/arc/{id}/todos/): "tmp/arc/{id}/todos/review/"
+}
+```
+
+### Directory Layout Convention
+
+```
+{base}/                    # resolveTodosBase() → "todos/" or "tmp/arc/{id}/todos/"
+├── work/                  # source: work (from strive)
+├── review/                # source: review (from appraise)
+├── audit/                 # source: audit (from audit)
+└── archive/               # completed todos (via /rune:file-todos archive)
+```
+
+- **ID sequences are per-subdirectory** — `work/001-*`, `review/001-*` are independent
+- **Mend scans all subdirs** — `Glob(\`${base}*/[0-9][0-9][0-9]-*.md\`)` then filters by `finding_id`
+- **Archive preserves source** — `review/003-*.md` → `archive/review-003-*.md`
+
+### Cross-Source Scanning (Mend Pattern)
+
+Mend is a **cross-source consumer** — it does NOT create its own subdirectory. Instead, it scans all subdirectories to find matching `finding_id` values:
+
+```javascript
+// Mend cross-source scan — inline the glob, no resolveTodosAll() wrapper needed
+const base = resolveTodosBase($ARGUMENTS, talisman)
+const allTodoFiles = Glob(`${base}*/[0-9][0-9][0-9]-*.md`)
+// Matches: todos/work/001-*.md, todos/review/002-*.md, todos/audit/001-*.md
+```
+
+## Arc-Scoped Todos
+
+When running inside `/rune:arc`, all todo-producing phases receive `--todos-dir tmp/arc/{id}/todos/` from the arc orchestrator. This scopes all generated todos to the arc artifact directory, maintaining arc isolation (every arc artifact lives in `tmp/arc/{id}/`).
+
+**Three-tier directory hierarchy**:
+
+| Context | Base Directory | Lifecycle |
+|---------|---------------|-----------|
+| Per-worker session | `tmp/work/{timestamp}/todos/` | Ephemeral, session-scoped |
+| Project-level standalone | `todos/{source}/` | Persistent, project-scoped |
+| Arc-scoped | `tmp/arc/{id}/todos/{source}/` | Ephemeral, arc-scoped (cleaned by `/rune:rest`) |
+
+**Arc phase delegation**:
+
+| Phase | Skill | Flag Passed | Resolved Directory |
+|-------|-------|-------------|-------------------|
+| Phase 5 (WORK) | `/rune:strive` | `--todos-dir tmp/arc/{id}/todos/` | `tmp/arc/{id}/todos/work/` |
+| Phase 6 (CODE REVIEW) | `/rune:appraise` | `--todos-dir tmp/arc/{id}/todos/` | `tmp/arc/{id}/todos/review/` |
+| Phase 7 (MEND) | `/rune:mend` | `--todos-dir tmp/arc/{id}/todos/` | `tmp/arc/{id}/todos/` (base, cross-source scan) |
+
+> **Arc exception**: In arc context, only `work/` and `review/` subdirectories are created.
+> `audit/` is NOT created because arc Phase 6 uses `/rune:appraise` (source=review), not `/rune:audit`.
+
+**Key design points**:
+- Arc passes the **base** directory; each sub-skill appends its own source subdirectory via `resolveTodosDir()`
+- `--todos-dir` with `file_todos.enabled !== true`: flag is accepted, directory is NOT created, no error raised
+- On `--resume`, `checkpoint.todos_base` takes precedence over any `--todos-dir` flag (prevents path divergence)
+- `/rune:rest` cleans up `tmp/arc/{id}/` — no special handling needed for todos
+
 ## Integration: /rune:appraise (Review)
 
 **Direction**: Review TOME -> File-Todos (producer)
@@ -37,12 +153,13 @@ The Rune `.gitignore` includes `todos/` on line 21, which prevents todo files fr
    - Exclude `interaction="nit"` findings
    - Exclude `FALSE_POSITIVE` findings
    - Skip pre-existing scope P2/P3 findings (keep pre-existing P1)
-3. Get next sequential ID from `todos/`
-4. For each actionable finding:
+3. Resolve directory via `resolveTodosDir($ARGUMENTS, talisman, "review")` → `todos/review/` or `tmp/arc/{id}/todos/review/`
+4. Get next sequential ID from resolved directory (per-subdirectory sequence)
+5. For each actionable finding:
    - Compute slug from finding title
    - Check for existing todo with matching `finding_id` + `source_ref` (idempotency)
    - Write todo file with `source: review` template
-5. Report count of generated todos
+6. Report count of generated todos
 
 **Frontmatter mapping**:
 ```yaml
@@ -98,7 +215,9 @@ priority: p1                               # mapped from finding severity
 
 **Flow**:
 1. After fixer completes a finding, look up corresponding todo:
-   - Search `todos/` for file with matching `finding_id` in frontmatter
+   - Resolve base via `resolveTodosBase($ARGUMENTS, talisman)` → `todos/` or `tmp/arc/{id}/todos/`
+   - Scan all subdirectories: `Glob(\`${base}*/[0-9][0-9][0-9]-*.md\`)`
+   - Search for file with matching `finding_id` in frontmatter (cross-source)
    - If no match found, skip (todo generation may not have been active)
 2. Update todo frontmatter: `status: complete`
 3. Update `updated` date

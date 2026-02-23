@@ -392,6 +392,31 @@ See [arc-codex-phases.md](references/arc-codex-phases.md) § Phase 2.8 for the f
 
 Read and execute the arc-codex-phases.md § Phase 2.8 algorithm. Update checkpoint on completion.
 
+### Arc Todos Scaffolding (pre-Phase 5)
+
+After semantic verification completes, before the first todos-producing phase (Phase 5 WORK), create the base directory structure for arc-scoped file-todos. This ensures all subdirectories exist regardless of which phases run or fail.
+
+```javascript
+// Arc Todos Scaffolding — create base structure once
+const fileTodosEnabled = talisman?.file_todos?.enabled === true
+const arcTodosBase = `tmp/arc/${id}/todos/`
+
+if (fileTodosEnabled) {
+  Bash(`mkdir -p "${arcTodosBase}work/" "${arcTodosBase}review/"`)
+  // audit/ not created — arc Phase 6 uses appraise (source=review), not audit
+  updateCheckpoint({ todos_base: arcTodosBase })
+}
+
+// On --resume, checkpoint.todos_base is read from checkpoint (set above).
+// If missing (pre-refactor checkpoint), fallback: arcTodosBase = `tmp/arc/${id}/todos/`
+```
+
+**Checkpoint field**: `todos_base` — stores the arc todos base directory for resume safety. On `--resume`, `checkpoint.todos_base` takes precedence over recomputation (prevents path divergence).
+
+> **Note**: `--todos-dir` is an internal flag — NOT exposed at the `/rune:arc` CLI level.
+> Arc passes it internally from `checkpoint.todos_base` to sub-skills (strive, appraise, mend).
+> Users should not pass `--todos-dir` to `/rune:arc` directly.
+
 ## Phase 5: WORK
 
 See [arc-phase-work.md](references/arc-phase-work.md) for the full algorithm.

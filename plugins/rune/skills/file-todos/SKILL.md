@@ -36,15 +36,23 @@ Persistent, source-aware todo tracking across all Rune workflows. Each todo is a
 
 ### Directory Structure
 
+Todos are organized into per-source subdirectories under the base directory:
+
 ```
 todos/
-├── 001-pending-p1-fix-sql-injection.md      # source: review
-├── 002-ready-p2-implement-auth-flow.md      # source: work
-├── 003-pending-p2-update-api-docs.md        # source: pr-comment
-├── 004-pending-p1-add-input-validation.md   # source: audit
-├── 005-complete-p3-clean-up-imports.md      # source: tech-debt
+├── work/                                     # source: work (from strive)
+│   ├── 001-ready-p2-implement-auth-flow.md
+│   └── 002-ready-p3-add-validation.md
+├── review/                                   # source: review (from appraise)
+│   ├── 001-pending-p1-fix-sql-injection.md
+│   └── 002-pending-p2-missing-docs.md
+├── audit/                                    # source: audit (from audit)
+│   └── 001-pending-p3-dead-code.md
 └── archive/                                  # completed todos (via archive command)
+    └── review-003-complete-p2-old-finding.md # source prefix preserved
 ```
+
+**ID sequences are per-subdirectory** — `work/001-*` and `review/001-*` are independent.
 
 ### File Naming Convention
 
@@ -77,13 +85,16 @@ slugify(s):
 
 ### ID Generation
 
-Sequential 3-digit padded IDs. Use zsh-safe glob for counting existing files:
+Sequential 3-digit padded IDs, **independent per source subdirectory**. Use zsh-safe glob for counting existing files:
 
 ```bash
 # zsh-safe: (N) prevents NOMATCH error on empty directory
-existing=(todos/[0-9][0-9][0-9]-*.md(N))
+# source = "work" | "review" | "audit"
+existing=(todos/${source}/[0-9][0-9][0-9]-*.md(N))
 next_id=$(printf "%03d" $(( ${#existing[@]} + 1 )))
 ```
+
+This means `work/001-*` and `review/001-*` are independent sequences.
 
 **Sole-orchestrator pattern**: Only the orchestrator creates todo files. Workers send completion signals; the orchestrator writes. This eliminates TOCTOU race conditions in ID generation.
 
@@ -190,12 +201,13 @@ TODO_ID_PATTERN = /^[0-9]{3,4}$/
 /rune:file-todos create
 ```
 
-1. Ensure `todos/` exists, prompt for title/priority/source/files via AskUserQuestion
-2. Generate next sequential ID (zsh-safe `(N)` glob)
-3. Compute slug, write file using [todo-template.md](references/todo-template.md)
-4. Report: "Created `todos/{filename}`"
+1. Prompt for title/priority/source/files via AskUserQuestion (source selection determines subdirectory)
+2. Ensure source subdirectory exists: `mkdir -p todos/{source}/`
+3. Generate next sequential ID from source subdirectory (zsh-safe `(N)` glob, per-subdirectory sequence)
+4. Compute slug, write file using [todo-template.md](references/todo-template.md)
+5. Report: "Created `todos/{source}/{filename}`"
 
-**Zero-state**: Auto-creates `todos/` if missing.
+**Zero-state**: Auto-creates `todos/{source}/` if missing.
 
 ### triage — Batch Triage Pending Items
 
@@ -203,7 +215,7 @@ TODO_ID_PATTERN = /^[0-9]{3,4}$/
 /rune:file-todos triage
 ```
 
-Process pending todos sorted by priority (P1 first), capped at 10 per session. See [triage-protocol.md](references/triage-protocol.md) for the full workflow.
+Scan all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`). Process pending todos sorted by priority (P1 first), capped at 10 per session. See [triage-protocol.md](references/triage-protocol.md) for the full workflow.
 
 Options per item: Approve (ready), Defer (keep pending), Reject (wont_fix), Reprioritize.
 
@@ -217,7 +229,7 @@ If `talisman.file_todos.triage.auto_approve_p1 === true`, P1 items auto-approve.
 /rune:file-todos status
 ```
 
-Scan `todos/` and display counts by status, priority, and source. Output is PLAIN TEXT with no emoji.
+Scan all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`) and display counts grouped by source subdirectory, status, and priority. Output is PLAIN TEXT with no emoji.
 
 ```
 File-Todos Status
@@ -233,12 +245,15 @@ File-Todos Status
  P2:  1 pending, 3 ready
  P3:  0 pending, 1 ready
 ------------------------------
- By Source:
-   review:     8 (5 complete)
-   work:       7 (4 complete)
-   pr-comment: 3 (2 complete)
-   tech-debt:  2 (1 complete)
+ By Source Subdirectory:
+   work/       7 (4 complete, 2 ready, 1 in_progress)
+   review/     8 (5 complete, 2 pending, 1 blocked)
+   audit/      3 (2 pending, 1 complete)
+   pr-comment/ 2 (1 complete, 1 pending)
+------------------------------
 ```
+
+**Scan pattern**: `Glob(\`${base}*/[0-9][0-9][0-9]-*.md\`)` where `base` is `resolveTodosBase($ARGUMENTS, talisman)`. Only scans the project-level `todos/` base — NOT `tmp/arc/*/todos/` (arc todos are ephemeral and excluded from CLI).
 
 **Zero-state**: "No todos found. Run `/rune:file-todos create` or enable `file_todos.auto_generate` in talisman.yml."
 
@@ -248,7 +263,7 @@ File-Todos Status
 /rune:file-todos list [--status=pending] [--priority=p1] [--source=review] [--tags=security,api]
 ```
 
-Filters compose as intersection. Invalid filter values produce a clear error, not an empty list. Sort: priority (P1 first), then issue_id ascending. See [subcommands.md](references/subcommands.md) for filter parsing and intersection logic.
+Scans all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`). Filters compose as intersection. The `--source` filter restricts to a specific subdirectory (e.g., `--source=review` scans only `todos/review/`). Invalid filter values produce a clear error, not an empty list. Sort: priority (P1 first), then issue_id ascending. See [subcommands.md](references/subcommands.md) for filter parsing and intersection logic.
 
 **Zero-state**: "No todos match the given filters." or "No todos found."
 
@@ -258,7 +273,7 @@ Filters compose as intersection. Invalid filter values produce a clear error, no
 /rune:file-todos next [--auto]
 ```
 
-Show highest-priority unblocked todo with `status: ready` and no `assigned_to`. Checks `dependencies` against non-complete todos.
+Scans all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`). Show highest-priority unblocked todo with `status: ready` and no `assigned_to`. Checks `dependencies` against non-complete todos.
 
 **`--auto` flag**: Output JSON, claim atomically via lockfile guard (temp-file-then-rename, NOT flock). Sets `assigned_to`, `claimed_at`, `status: in_progress` in frontmatter. See [subcommands.md](references/subcommands.md) for atomic claim protocol.
 
@@ -275,23 +290,23 @@ Show highest-priority unblocked todo with `status: ready` and no `assigned_to`. 
 /rune:file-todos search <query>
 ```
 
-Case-insensitive search across todo titles, problem statements, and work logs. Validates query length (2-200 chars), sanitizes regex metacharacters before Grep. Results grouped by file with metadata. See [subcommands.md](references/subcommands.md) for sanitization and display details.
+Case-insensitive search across all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`). Searches todo titles, problem statements, and work logs. Validates query length (2-200 chars), sanitizes regex metacharacters before Grep. Results grouped by file with metadata, showing source subdirectory. See [subcommands.md](references/subcommands.md) for sanitization and display details.
 
 **Zero-state**: "No matches found for '{query}' in todos/."
 
 ### archive — Move Completed Todos
 
 ```
-/rune:file-todos archive [--all] [--id=NNN]
+/rune:file-todos archive [--all] [--id=NNN] [--source=review]
 ```
 
-Move `status: complete` and `status: wont_fix` todos to `todos/archive/`. Supports `--all` (batch, no confirmation), `--id=NNN` (specific, with confirmation), or interactive confirmation. Uses `mv` (atomic on same filesystem). Marks index dirty for cache rebuild. See [subcommands.md](references/subcommands.md) for full protocol.
+Scan all source subdirectories for `status: complete` and `status: wont_fix` todos. Move to `todos/archive/` with source prefix preserved in the filename: `review/003-*.md` becomes `archive/review-003-*.md`. Supports `--all` (batch, no confirmation), `--id=NNN` (specific, with confirmation), `--source` (filter to one subdirectory), or interactive confirmation. Uses `mv` (atomic on same filesystem). Marks index dirty for cache rebuild. See [subcommands.md](references/subcommands.md) for full protocol.
 
 **Zero-state**: "No completed or rejected todos to archive."
 
 ## Performance: Todo Index Cache
 
-For projects with >100 todos, `.todo-index.json` cache avoids re-parsing all frontmatter. Dirty-signal invalidation: any modifying sub-command writes `todos/.dirty`; next read rebuilds via temp-file-then-rename (atomic). Cache is optional — fallback to direct parsing on missing or corrupt cache. See [subcommands.md](references/subcommands.md) for cache schema and rebuild protocol.
+For projects with >100 todos, `.todo-index.json` cache avoids re-parsing all frontmatter. Cache rebuild glob scans all subdirectories: `todos/*/[0-9][0-9][0-9]-*.md(N)`. Dirty-signal invalidation: any modifying sub-command writes `todos/.dirty`; next read rebuilds via temp-file-then-rename (atomic). Cache is optional — fallback to direct parsing on missing or corrupt cache. See [subcommands.md](references/subcommands.md) for cache schema and rebuild protocol.
 
 ## Integration Points
 

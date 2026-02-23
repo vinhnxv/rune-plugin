@@ -16,7 +16,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[tome-path] [--output-dir <path>] [--timeout <ms>]"
+argument-hint: "[tome-path] [--output-dir <path>] [--timeout <ms>] [--todos-dir <path>]"
 allowed-tools:
   - Task
   - TaskCreate
@@ -55,6 +55,7 @@ Parses a TOME file for structured findings, groups them by file to prevent concu
 |------|-------------|---------|
 | `--output-dir <path>` | Custom output directory for resolution report | `tmp/mend/{id}/` |
 | `--timeout <ms>` | Outer time budget in milliseconds. Inner polling timeout is derived: `timeout - SETUP_BUDGET(5m) - MEND_EXTRA_BUDGET(3m)`, minimum 120,000ms. Used by arc to propagate phase budgets. | `900_000` (15 min standalone) |
+| `--todos-dir <path>` | Base directory for file-todos. Arc passes `tmp/arc/{id}/todos/`. Mend scans all subdirectories (`{base}*/[0-9][0-9][0-9]-*.md`) for cross-source `finding_id` matching. | `talisman.file_todos.dir` or `"todos/"` |
 
 ## Pipeline Overview
 
@@ -420,22 +421,32 @@ See [resolution-report.md](references/resolution-report.md) for Codex verificati
 
 ## Phase 5.9: Todo Update (Conditional)
 
-After all fixes are applied and verified, update corresponding file-todos for resolved findings. Runs only when `file_todos.enabled === true` in talisman AND `todos/` directory exists with matching `finding_id` values.
+After all fixes are applied and verified, update corresponding file-todos for resolved findings. Runs only when `file_todos.enabled === true` in talisman AND todo files exist with matching `finding_id` values.
 
-**Skip conditions**: `talisman.file_todos.enabled` is not `=== true` (opt-in gate) OR `todos/` directory does not exist OR no todo files match any resolved finding IDs.
+**Skip conditions**: `talisman.file_todos.enabled` is not `=== true` (opt-in gate) OR no todo files found in any subdirectory OR no todo files match any resolved finding IDs.
 
 ```javascript
 // Phase 5.9: Update file-todos for resolved findings
 const fileTodosEnabled = talisman?.file_todos?.enabled === true  // opt-in gate (must match strive/orchestration-phases)
-const todosDir = talisman?.file_todos?.dir || "todos/"
-const todosExist = fileTodosEnabled && Glob(`${todosDir}*.md`).length > 0
+
+// CHANGED: Use resolveTodosBase (not resolveTodosDir) — mend scans ALL source subdirectories
+// See integration-guide.md "Cross-Source Scanning (Mend Pattern)" for canonical pattern
+const base = resolveTodosBase($ARGUMENTS, talisman)
+//   standalone: "todos/"
+//   arc:        "tmp/arc/{id}/todos/"  (via --todos-dir)
+
+// CHANGED: Scan ALL subdirectories — mend is a cross-source consumer
+const allTodoFiles = Glob(`${base}*/[0-9][0-9][0-9]-*.md`)
+//   Matches: todos/work/001-*.md, todos/review/002-*.md, todos/audit/001-*.md
+//   Or:      tmp/arc/{id}/todos/work/001-*.md, tmp/arc/{id}/todos/review/001-*.md
+const todosExist = fileTodosEnabled && allTodoFiles.length > 0
 
 if (todosExist) {
   const today = new Date().toISOString().slice(0, 10)
 
-  // Build index: finding_id → todo file path (O(N) scan, cached for batch use)
+  // Build index: finding_id → todo file path (O(N) scan across ALL subdirectories)
   const todoIndex = new Map()
-  for (const todoFile of Glob(`${todosDir}*.md`)) {
+  for (const todoFile of allTodoFiles) {
     const fm = parseFrontmatter(Read(todoFile))
     if (fm.finding_id) {
       todoIndex.set(fm.finding_id, { file: todoFile, frontmatter: fm })
@@ -637,19 +648,19 @@ Aggregates fixer SEAL messages, cross-file fixes, and doc-consistency fixes into
 
 **P1 Escalation**: If any P1 finding ends in FAILED or SKIPPED, present escalation warning prominently before next-steps.
 
-**Todo cross-references**: When `todos/` directory contains matching todo files, add a `Todo` column to the resolution table:
+**Todo cross-references**: When todo files exist in source subdirectories, add a `Todo` column to the resolution table. Scan cross-source via `Glob(\`${base}*/[0-9][0-9][0-9]-*.md\`)`:
 
 ```markdown
 ## Resolution Summary
 
 | Finding | Status | Todo |
 |---------|--------|------|
-| SEC-001 | FIXED | `todos/001-pending-p1-fix-sql-injection.md` (complete) |
-| BACK-002 | SKIPPED | `todos/002-pending-p2-add-validation.md` (unchanged) |
+| SEC-001 | FIXED | `todos/review/001-pending-p1-fix-sql-injection.md` (complete) |
+| BACK-002 | SKIPPED | `todos/review/002-pending-p2-add-validation.md` (unchanged) |
 | QUAL-003 | FIXED | (no todo) |
 ```
 
-Only include the `Todo` column when at least one finding has a corresponding todo file. Use an existence check (`Glob`) before rendering each row — do not emit dangling paths.
+Only include the `Todo` column when at least one finding has a corresponding todo file. Use the cross-source glob (`${base}*/[0-9][0-9][0-9]-*.md`) before rendering each row — do not emit dangling paths.
 
 ### Goldmask Section in Resolution Report
 
