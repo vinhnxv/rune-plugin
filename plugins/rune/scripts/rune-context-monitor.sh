@@ -82,6 +82,8 @@ USED_PCT=$(echo "$BRIDGE" | jq -r '.used_pct // empty' 2>/dev/null || true)
 TIMESTAMP=$(echo "$BRIDGE" | jq -r '.timestamp // 0' 2>/dev/null || true)
 
 [[ -z "$REMAINING" || -z "$USED_PCT" ]] && exit 0
+# P2-4 FIX: Validate USED_PCT is numeric before interpolation into warning message
+[[ ! "$USED_PCT" =~ ^[0-9]+$ ]] && exit 0
 
 # P1-3 FIX: Session isolation — verify bridge ownership (Core Rule 11)
 # GAP-1 FIX: $RUNE_CURRENT_CFG from resolve-session-identity.sh (resolved with pwd -P)

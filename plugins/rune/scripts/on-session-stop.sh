@@ -248,7 +248,8 @@ for f in /tmp/rune-ctx-*-warned.json /tmp/rune-ctx-*.json; do
     kill -0 "$B_PID" 2>/dev/null && [[ "$B_PID" != "${PPID:-0}" ]] && continue
   fi
   rm -f "$f" 2>/dev/null
-  _trace "CLEANUP: removed bridge file $f"
+  # NOTE: _trace may not be defined in on-session-stop.sh — use inline trace
+  [[ "${RUNE_TRACE:-}" == "1" ]] && printf '[%s] on-session-stop: CLEANUP: removed bridge file %s\n' "$(date +%H:%M:%S)" "$f" >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" 2>/dev/null || true
 done
 shopt -u nullglob
 

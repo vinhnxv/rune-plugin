@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.78.0 — Context Rot Prevention System
+## [1.78.0] - 2026-02-23
 
 ### Added
 - **Context Monitor Hook** — PostToolUse hook that injects agent-visible warnings when context usage exceeds thresholds (WARNING at 35% remaining, CRITICAL at 25%)

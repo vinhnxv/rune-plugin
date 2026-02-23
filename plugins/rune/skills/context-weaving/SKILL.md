@@ -361,16 +361,12 @@ Enable in `.claude/talisman.yml`:
 
 ```yaml
 context_monitor:
-  enabled: true
-  thresholds:
-    warning_pct: 35      # Inject WARNING when context remaining drops below 35%
-    critical_pct: 25     # Inject CRITICAL when context remaining drops below 25%
-  debounce_seconds: 60   # Minimum seconds between injections (prevents spam)
-  staleness_seconds: 300 # Bridge file age limit — skip if older than 5 minutes
-  workflows:
-    arc: true
-    strive: true
-    appraise: false      # Off by default for review workflows
+  enabled: true                    # Master toggle for context monitoring
+  warning_threshold: 35            # Warn when remaining% <= this (default: 35)
+  critical_threshold: 25           # Critical stop when remaining% <= this (default: 25)
+  stale_seconds: 60                # Bridge file max age before ignoring (default: 60)
+  debounce_calls: 5                # Tool uses between repeated warnings (default: 5)
+  workflows: [review, audit, work, mend, arc, devise]  # Which workflows emit warnings
 ```
 
 ### Thresholds

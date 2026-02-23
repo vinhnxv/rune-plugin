@@ -86,9 +86,12 @@ BRANCH=""
 if [[ -d "${DIR}/.git" ]] || git -C "$DIR" rev-parse --git-dir &>/dev/null 2>&1; then
   if [[ ! -f "$CACHE_FILE" ]] || [[ $(($(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0))) -gt $CACHE_MAX_AGE ]]; then
     BRANCH=$(git -C "$DIR" branch --show-current 2>/dev/null || true)
+    # P2-1 FIX: Symlink guard before cache write
+    [[ -L "$CACHE_FILE" ]] && rm -f "$CACHE_FILE" 2>/dev/null
     echo "$BRANCH" > "$CACHE_FILE" 2>/dev/null || true
   else
-    BRANCH=$(cat "$CACHE_FILE" 2>/dev/null || true)
+    # P2-1 FIX: Symlink guard before cache read
+    [[ -L "$CACHE_FILE" ]] && { rm -f "$CACHE_FILE" 2>/dev/null; BRANCH=""; } || BRANCH=$(cat "$CACHE_FILE" 2>/dev/null || true)
   fi
 fi
 
@@ -99,6 +102,7 @@ COST_FMT=$(printf '$%.2f' "$COST" 2>/dev/null || echo '$0.00')
 WORKFLOW=""
 for f in "${DIR}"/tmp/.rune-*.json; do
   [[ -f "$f" ]] || continue
+  [[ -L "$f" ]] && continue   # P2-2 FIX: symlink guard on workflow detection
   STATUS=$(jq -r '.status // empty' "$f" 2>/dev/null || true)
   if [[ "$STATUS" == "active" ]]; then
     WF_TYPE=$(jq -r '.workflow // empty' "$f" 2>/dev/null || true)
