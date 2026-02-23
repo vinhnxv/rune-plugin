@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.83.0] - 2026-02-24
+
+### Added
+- **`/rune:arc-issues`** — GitHub Issues-driven batch arc execution. Processes GitHub Issues as a work queue: fetches issue content → generates plans → runs `/rune:arc` for each → posts summary comments → closes issues via `Fixes #N` in PR body.
+  - 4 input methods: label-driven (`--label`), file-based queue, inline args, resume (`--resume`)
+  - Paging loop (`--all`) with label-driven cursor and MAX_PAGES=50 safety cap — re-run = resume (label-based exclusion)
+  - 4 Rune status labels: `rune:in-progress`, `rune:done`, `rune:failed`, `rune:needs-review`
+  - Plan quality gate: skip issues with body < 50 chars (human escalation via GitHub comment + `rune:needs-review` label)
+  - Title sanitization: blocklist approach preserving Unicode (not ASCII-only regex)
+  - `extractAcceptanceCriteria` with defense-in-depth sanitization
+  - Progress file schema v2 with `pr_created` field for crash-resume dedup
+  - Session isolation: `config_dir` + `owner_pid` in state file
+  - Stop hook loop driver via `arc-issues-stop-hook.sh` (Phase 3 — implemented alongside shared library)
+- **`/rune:cancel-arc-issues`** — Cancel active arc-issues batch loop and remove state file
+- New algorithm reference: `skills/arc-issues/references/arc-issues-algorithm.md`
+
 ## [1.82.0] - 2026-02-23
 
 ### Added

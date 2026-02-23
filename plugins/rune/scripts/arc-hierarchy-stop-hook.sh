@@ -34,31 +34,21 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-# ── GUARD 2: Input size cap (SEC-2: 1MB DoS prevention) ──
-INPUT=$(head -c 1048576 2>/dev/null || true)
+# ── Source shared stop hook library (Guards 2-3, parse_frontmatter, get_field, session isolation) ──
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/stop-hook-common.sh
+source "${SCRIPT_DIR}/lib/stop-hook-common.sh"
 
-# ── GUARD 3: CWD extraction ──
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
-if [[ -z "$CWD" ]]; then
-  exit 0
-fi
-CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
-if [[ -z "$CWD" || "$CWD" != /* ]]; then
-  exit 0
-fi
+# ── GUARD 2: Input size cap + GUARD 3: CWD extraction ──
+parse_input
+resolve_cwd
 
 # ── GUARD 4: State file existence ──
 STATE_FILE="${CWD}/.claude/arc-hierarchy-loop.local.md"
-if [[ ! -f "$STATE_FILE" ]]; then
-  # No active hierarchy — allow stop
-  exit 0
-fi
+check_state_file "$STATE_FILE"
 
 # ── GUARD 5: Symlink rejection (SEC-MEND-001 defense pattern) ──
-if [[ -L "$STATE_FILE" ]]; then
-  rm -f "$STATE_FILE" 2>/dev/null
-  exit 0
-fi
+reject_symlink "$STATE_FILE"
 
 # ── GUARD 6: STOP-001 one-shot guard ──
 # If stop_hook_active is set in INPUT, we re-entered from a previous hook call on this
@@ -73,21 +63,8 @@ if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then
 fi
 
 # ── Parse YAML frontmatter from state file ──
-# Format: --- ... --- with key: value pairs
-FRONTMATTER=$(sed -n '/^---$/,/^---$/p' "$STATE_FILE" 2>/dev/null | sed '1d;$d')
-if [[ -z "$FRONTMATTER" ]]; then
-  # Corrupted state file — fail-safe: remove and allow stop
-  rm -f "$STATE_FILE" 2>/dev/null
-  exit 0
-fi
-
-# Extract fields using grep+sed (portable, no awk dependency)
-# SEC-2: Validate field name to prevent regex metachar injection via grep/sed
-get_field() {
-  local field="$1"
-  [[ "$field" =~ ^[a-z_]+$ ]] || return 1
-  echo "$FRONTMATTER" | grep "^${field}:" | sed "s/^${field}:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' | head -1
-}
+# get_field() and parse_frontmatter() provided by lib/stop-hook-common.sh
+parse_frontmatter "$STATE_FILE"
 
 STATUS=$(get_field "status")
 ACTIVE=$(get_field "active")
@@ -135,36 +112,10 @@ if [[ ! "$FEATURE_BRANCH" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ ]]; then
 fi
 
 # ── GUARD 10: Session isolation (cross-session safety) ──
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=resolve-session-identity.sh
-source "${SCRIPT_DIR}/resolve-session-identity.sh"
-
+# validate_session_ownership() provided by lib/stop-hook-common.sh.
+# Mode "skip": on orphan, just removes state file (no progress file to update in hierarchy).
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-
-STORED_CONFIG_DIR=$(get_field "config_dir")
-STORED_PID=$(get_field "owner_pid")
-
-# Layer 1: Config-dir isolation (different Claude Code installations)
-if [[ -n "$STORED_CONFIG_DIR" && "$STORED_CONFIG_DIR" != "$RUNE_CURRENT_CFG" ]]; then
-  _trace "config_dir mismatch — not our hierarchy (stored=${STORED_CONFIG_DIR} current=${RUNE_CURRENT_CFG})"
-  exit 0
-fi
-
-# Layer 2: PID isolation (same config dir, different session)
-# $PPID = Claude Code process PID (hook runs as child of Claude Code)
-if [[ -n "$STORED_PID" && "$STORED_PID" =~ ^[0-9]+$ ]]; then
-  if [[ "$STORED_PID" != "$PPID" ]]; then
-    if kill -0 "$STORED_PID" 2>/dev/null; then
-      # Owner is alive and it's a different session — not our hierarchy
-      _trace "PID ${STORED_PID} still alive — not our hierarchy"
-      exit 0
-    fi
-    # Owner died — orphaned hierarchy. Clean up.
-    _trace "PID ${STORED_PID} dead — orphaned hierarchy, cleaning up"
-    rm -f "$STATE_FILE" 2>/dev/null
-    exit 0
-  fi
-fi
+validate_session_ownership "$STATE_FILE" "" "skip"
 
 # ── Extract session_id for prompt Truthbinding ──
 HOOK_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)

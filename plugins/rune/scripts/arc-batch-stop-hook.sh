@@ -30,31 +30,21 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-# ── GUARD 2: Input size cap (SEC-2: 1MB DoS prevention) ──
-INPUT=$(head -c 1048576 2>/dev/null || true)
+# ── Source shared stop hook library (Guards 2-3, parse_frontmatter, get_field, session isolation) ──
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/stop-hook-common.sh
+source "${SCRIPT_DIR}/lib/stop-hook-common.sh"
 
-# ── GUARD 3: CWD extraction ──
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
-if [[ -z "$CWD" ]]; then
-  exit 0
-fi
-CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
-if [[ -z "$CWD" || "$CWD" != /* ]]; then
-  exit 0
-fi
+# ── GUARD 2: Input size cap + GUARD 3: CWD extraction ──
+parse_input
+resolve_cwd
 
 # ── GUARD 4: State file existence ──
 STATE_FILE="${CWD}/.claude/arc-batch-loop.local.md"
-if [[ ! -f "$STATE_FILE" ]]; then
-  # No active batch — allow stop
-  exit 0
-fi
+check_state_file "$STATE_FILE"
 
 # ── GUARD 5: Symlink rejection ──
-if [[ -L "$STATE_FILE" ]]; then
-  rm -f "$STATE_FILE" 2>/dev/null
-  exit 0
-fi
+reject_symlink "$STATE_FILE"
 
 # NOTE: This hook deliberately does NOT check stop_hook_active (unlike on-session-stop.sh).
 # The arc-batch loop re-injects prompts via decision=block, which triggers new Claude turns.
@@ -62,21 +52,8 @@ fi
 # Checking stop_hook_active would break the loop by exiting early on re-entry.
 
 # ── Parse YAML frontmatter from state file ──
-# Format: --- ... --- with key: value pairs
-FRONTMATTER=$(sed -n '/^---$/,/^---$/p' "$STATE_FILE" 2>/dev/null | sed '1d;$d')
-if [[ -z "$FRONTMATTER" ]]; then
-  # Corrupted state file — fail-safe: remove and allow stop
-  rm -f "$STATE_FILE" 2>/dev/null
-  exit 0
-fi
-
-# Extract fields using grep+sed (portable, no awk dependency)
-get_field() {
-  local field="$1"
-  # SEC-2: Validate field name to prevent regex metachar injection via grep/sed
-  [[ "$field" =~ ^[a-z_]+$ ]] || return 1
-  echo "$FRONTMATTER" | grep "^${field}:" | sed "s/^${field}:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' | head -1
-}
+# get_field() and parse_frontmatter() provided by lib/stop-hook-common.sh
+parse_frontmatter "$STATE_FILE"
 
 ACTIVE=$(get_field "active")
 ITERATION=$(get_field "iteration")
@@ -105,56 +82,9 @@ fi
 HOOK_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 
 # ── GUARD 5.7: Session isolation (cross-session safety) ──
-# The state file is project-scoped (.claude/arc-batch-loop.local.md).
-# Multiple Claude Code sessions may share the same CWD.
-# Only the session that created the batch should process it.
-# Two-layer isolation:
-#   Layer 1: config_dir — isolates different Claude Code installations
-#   Layer 2: owner_pid — isolates different sessions with the same config dir
-# QUAL-1: Source shared session identity helper (DRY with other 4 hook scripts)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=resolve-session-identity.sh
-source "${SCRIPT_DIR}/resolve-session-identity.sh"
-
-STORED_CONFIG_DIR=$(get_field "config_dir")
-STORED_PID=$(get_field "owner_pid")
-
-# Layer 1: Config-dir isolation
-if [[ -n "$STORED_CONFIG_DIR" && "$STORED_CONFIG_DIR" != "$RUNE_CURRENT_CFG" ]]; then
-  # Not our batch — another Claude Code installation owns it.
-  exit 0
-fi
-
-# Layer 2: PID isolation (same config dir, different session)
-# $PPID = Claude Code process PID (hook runs as child of Claude Code)
-if [[ -n "$STORED_PID" && "$STORED_PID" =~ ^[0-9]+$ ]]; then
-  if [[ "$STORED_PID" != "$PPID" ]]; then
-    # Different process — check if owner is still alive
-    if kill -0 "$STORED_PID" 2>/dev/null; then
-      # Owner is alive and it's a different session → not our batch
-      exit 0
-    fi
-    # Owner died → orphaned batch. Mark in-progress plan as failed, then clean up.
-    # BACK-1: Prevents batch-progress.json from retaining stale "in_progress" status
-    if [[ -n "$PROGRESS_FILE" && -f "${CWD}/${PROGRESS_FILE}" ]]; then
-      _ORPHAN_PROGRESS=$(jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
-        (.plans[] | select(.status == "in_progress")) |= (
-          .status = "failed" |
-          .failed_at = $ts |
-          .failure_reason = "orphaned: owner session died"
-        )
-      ' "${CWD}/${PROGRESS_FILE}" 2>/dev/null || true)
-      if [[ -n "$_ORPHAN_PROGRESS" ]]; then
-        _TMPFILE=$(mktemp "${CWD}/${PROGRESS_FILE}.XXXXXX" 2>/dev/null) || true
-        if [[ -n "$_TMPFILE" ]]; then
-          printf '%s\n' "$_ORPHAN_PROGRESS" > "$_TMPFILE" && mv -f "$_TMPFILE" "${CWD}/${PROGRESS_FILE}" 2>/dev/null || rm -f "$_TMPFILE" 2>/dev/null
-        fi
-      fi
-    fi
-    rm -f "$STATE_FILE" 2>/dev/null
-    exit 0
-  fi
-fi
+# validate_session_ownership() provided by lib/stop-hook-common.sh.
+# Mode "batch": on orphan, updates plans[] in progress file before cleanup.
+validate_session_ownership "$STATE_FILE" "$PROGRESS_FILE" "batch"
 
 # ── GUARD 6: Validate active flag ──
 if [[ "$ACTIVE" != "true" ]]; then
