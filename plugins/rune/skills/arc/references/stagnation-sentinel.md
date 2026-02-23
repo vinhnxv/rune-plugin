@@ -171,7 +171,15 @@ function updateFileVelocity(mendRound: number, checkpoint: object): void {
 // because it's based on already-consumed budget, not a projection
 function checkBudgetForecast(checkpoint: object, currentPhaseIndex: number): string {
   const startedAt = checkpoint.started_at ?? checkpoint.created_at
+  if (!startedAt) {
+    warn('checkBudgetForecast: Missing checkpoint timestamps (started_at and created_at both absent)')
+    return "on_track"  // Fail-open: no timestamp data → cannot forecast, assume on_track
+  }
   const elapsed = Date.now() - new Date(startedAt).getTime()
+  if (isNaN(elapsed)) {
+    warn('checkBudgetForecast: Invalid timestamp produced NaN elapsed time')
+    return "on_track"  // Fail-open: corrupted timestamp → cannot forecast
+  }
   const budget = calculateDynamicTimeout(checkpoint.convergence.tier)
 
   const completedPhases = Object.values(checkpoint.phases)
