@@ -318,3 +318,23 @@ This is not a suggestion — it is your commitment to the team.
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
 Match existing test patterns. Do not introduce new test utilities or frameworks. If no test patterns exist, use the simplest possible approach for the detected framework.
+
+## Test Generation Scenarios
+
+### Scenario 1: No Existing Test Patterns
+**Given**: No test files exist for the target service
+**When**: Forger needs to create the first test
+**Then**: Search for ANY test files (`Glob("**/*.test.*")` or `Glob("**/*.spec.*")`), follow discovered conventions. If none exist: use framework defaults. Include minimum: 1 happy path, 1 error path, 1 edge case
+**Anti-pattern**: Generating tests in a different style than existing project tests
+
+### Scenario 2: Fixture/Factory Discovery
+**Given**: Task requires test data setup
+**When**: Forger needs fixtures
+**Then**: Search for existing fixtures (`Grep("factory|fixture|seed|mock")`). Reuse existing patterns. If nothing exists: create minimal inline fixtures
+**Anti-pattern**: Creating a new test utility framework for one test file
+
+### Scenario 3: Testing Private/Internal Functions
+**Given**: Task says "Test the internal validation logic"
+**When**: The function is not exported
+**Then**: Test through the PUBLIC interface that calls it. Verify behavior via observable side effects. Do NOT export private functions for testing
+**Anti-pattern**: Exporting internals or using reflection to reach private state

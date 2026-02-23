@@ -238,6 +238,16 @@ if (verdict === 'converged') {
 }
 ```
 
+### File Velocity Integration (v1.80.0)
+
+After each mend round completes, the dispatcher calls `updateFileVelocity(mendRound, checkpoint)` from [stagnation-sentinel.md](stagnation-sentinel.md). This enriches convergence decisions with per-file velocity classification:
+
+- **improving**: Findings decreasing between rounds (healthy)
+- **stagnant**: Touched 2+ rounds with <10% improvement (concern)
+- **regressing**: Findings increasing between rounds (alarm)
+
+The convergence controller can use `checkpoint.stagnation.file_velocity` to detect files that are consuming mend cycles without progress.
+
 ## Helper: countP2Findings
 
 ```javascript

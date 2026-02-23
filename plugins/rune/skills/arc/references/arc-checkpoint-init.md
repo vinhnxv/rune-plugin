@@ -132,7 +132,12 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 ```
 
-## Checkpoint Schema v14
+## Checkpoint Schema v15
+
+Schema v15 adds `stagnation` field for the Stagnation Sentinel (v1.80.0+). Tracks error pattern
+fingerprints, file-change velocity across mend rounds, and budget forecast status. Non-blocking
+diagnostics emitted after each phase. See [stagnation-sentinel.md](stagnation-sentinel.md).
+Backward compatible: v14 checkpoints get `stagnation: null` on migration (resume path).
 
 Schema v14 adds `parent_plan` metadata for hierarchical execution (v1.79.0+). When an arc runs
 as a child in a `/rune:arc-hierarchy` session, `parent_plan` carries hierarchy context so phases
@@ -164,7 +169,7 @@ const parentPlanMeta = {
 // The arc-hierarchy SKILL.md documents the injection protocol.
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 14, plan_file: planFile,
+  id, schema_version: 15, plan_file: planFile,
   config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
@@ -173,6 +178,13 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
   session_nonce: sessionNonce, phase_sequence: 0,
   // Schema v14 addition (v1.79.0): parent_plan metadata for hierarchical execution
   parent_plan: parentPlanMeta,
+  // Schema v15 addition (v1.80.0): stagnation sentinel state — error patterns, file velocity, budget
+  // See references/stagnation-sentinel.md for full algorithm
+  stagnation: {
+    error_patterns: [],
+    file_velocity: [],
+    budget: null
+  },
   phases: {
     forge:        { status: arcConfig.no_forge ? "skipped" : "pending", artifact: null, artifact_hash: null, team_name: null },
     plan_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
@@ -187,6 +199,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     test:         { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false },
+    pre_ship_validation: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     ship:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     merge:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
   },
@@ -215,6 +228,12 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 //   // v13→v14: Add parent_plan field (null = standalone arc, not part of hierarchy)
 //   checkpoint.parent_plan = null
 //   checkpoint.schema_version = 14
+//   Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
+// }
+// if (checkpoint.schema_version < 15) {
+//   // v14→v15: Add stagnation field for Stagnation Sentinel (v1.80.0+)
+//   checkpoint.stagnation = { error_patterns: [], file_velocity: [], budget: null }
+//   checkpoint.schema_version = 15
 //   Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
 // }
 ```
