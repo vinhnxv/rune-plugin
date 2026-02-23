@@ -21,7 +21,14 @@ testpaths = ["."]
 markers = [
     "expensive: marks tests that invoke Claude CLI (deselect with '-m \"not expensive\"')",
     "unit: marks fast unit tests with no API cost",
+    "pressure: multi-turn arc run under cognitive-load scenarios (cap $0.50/test)",
+    "stress: multi-agent coordination test; requires --run-stress to execute (cap $2.00/test)",
+    "soak: long-running pipeline endurance test (cap $5.00/test)",
+    "requires_jq: test requires jq binary",
+    "security: security-critical test",
+    "session_isolation: cross-session safety test",
 ]
+addopts = "-m 'not stress'"
 
 [tool.ruff]
 target-version = "py311"

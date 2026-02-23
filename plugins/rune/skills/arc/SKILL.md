@@ -218,7 +218,7 @@ const PHASE_TIMEOUTS = {
 // LIGHT (2 cycles):    156 + 42 + 1×26 = 224 min
 // STANDARD (3 cycles): 156 + 42 + 2×26 = 250 min → hard cap at 240 min
 // THOROUGH (5 cycles): 156 + 42 + 4×26 = 302 min → hard cap at 240 min
-const ARC_TOTAL_TIMEOUT_DEFAULT = 13_410_000  // 223.5 min fallback (LIGHT tier minimum — used before tier selection)
+const ARC_TOTAL_TIMEOUT_DEFAULT = 13_440_000  // 224 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 14_400_000  // 240 min (4 hours) — absolute hard cap
 const STALE_THRESHOLD = 300_000      // 5 min
 const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward/cross-file)
@@ -310,7 +310,7 @@ Read(references/arc-phase-cleanup.md)
 See [arc-checkpoint-init.md](references/arc-checkpoint-init.md) for the full initialization.
 
 **Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check above
-**Outputs**: checkpoint object (schema v13), resolved arc config
+**Outputs**: checkpoint object (schema v15), resolved arc config
 **Error handling**: fail arc if plan file missing or config invalid
 
 // NOTE: Requires `freshnessResult` from the Freshness Check step (inline above).
@@ -716,11 +716,11 @@ Catches zombie teammates from the last delegated phase. Uses 3-strategy cleanup:
 | >3 FAILED mend findings | Halt, resolution report available |
 | Worker crash mid-phase | Phase team cleanup, checkpoint preserved |
 | Branch conflict | Warn user, suggest manual resolution |
-| Total pipeline timeout (dynamic: 162-240 min based on tier) | Halt, preserve checkpoint, suggest `--resume` |
+| Total pipeline timeout (dynamic: 156-240 min based on tier) | Halt, preserve checkpoint, suggest `--resume` |
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
-| Schema v1-v12 checkpoint on --resume | Auto-migrate to v13 (marks removed audit phases as skipped) |
+| Schema v1-v14 checkpoint on --resume | Auto-migrate to v15 (marks removed audit phases as skipped, adds parent_plan, stagnation, no_test flag) |
 | Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |
 | Convergence evaluation timeout (>4 min) | Skip convergence check, proceed to test with warning |
 | TOME missing or malformed after re-review | Default to "halted" (fail-closed) |

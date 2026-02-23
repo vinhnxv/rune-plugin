@@ -1,4 +1,4 @@
-# Worker Prompts — work.md Phase 2 Reference
+# Worker Prompts — strive Phase 2 Reference
 
 Templates for summoning rune-smith and trial-forger swarm workers.
 

@@ -32,7 +32,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **git-worktree** | Use when running /rune:strive with --worktree flag or when work.worktree.enabled is set in talisman. Covers worktree lifecycle, wave-based execution, merge strategy, and conflict resolution patterns |
 | **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories). Goldmask Lore Layer integration (Phase 0.3) for risk-aware gap prioritization |
 | **mend** | Parallel finding resolution from TOME. Goldmask data passthrough (risk-overlaid severity, risk context injection) + quick check (Phase 5.95) |
-| **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask 6-agent mode for pre-implementation risk assessment |
+| **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask (2-8 agents, basic default) for pre-implementation risk assessment |
 | **appraise** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml). Default: standard. Use `--deep` for multi-wave deep review. |
 | **strive** | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 

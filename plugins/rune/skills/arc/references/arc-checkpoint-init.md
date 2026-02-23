@@ -1,7 +1,7 @@
 # Initialize Checkpoint (ARC-2) — Full Algorithm
 
 Checkpoint initialization: config resolution (3-layer), session identity,
-checkpoint schema v14 creation, and initial state write.
+checkpoint schema v15 creation, and initial state write.
 
 **Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check
 **Outputs**: checkpoint object (schema v15), resolved arc config (`arcConfig`)
@@ -47,6 +47,7 @@ function resolveArcConfig(talisman, inlineFlags) {
     approve: false,
     skip_freshness: false,
     confirm: false,
+    no_test: false,
     ship: {
       auto_pr: true,
       auto_merge: false,
@@ -69,6 +70,7 @@ function resolveArcConfig(talisman, inlineFlags) {
     approve:         talismanDefaults.approve ?? defaults.approve,
     skip_freshness:  talismanDefaults.skip_freshness ?? defaults.skip_freshness,
     confirm:         talismanDefaults.confirm ?? defaults.confirm,
+    no_test:         talismanDefaults.no_test ?? defaults.no_test,
     ship: {
       auto_pr:       talismanShip.auto_pr ?? defaults.ship.auto_pr,
       auto_merge:    talismanShip.auto_merge ?? defaults.ship.auto_merge,
@@ -100,6 +102,7 @@ function resolveArcConfig(talisman, inlineFlags) {
   if (inlineFlags.approve !== undefined) config.approve = inlineFlags.approve
   if (inlineFlags.skip_freshness !== undefined) config.skip_freshness = inlineFlags.skip_freshness
   if (inlineFlags.confirm !== undefined) config.confirm = inlineFlags.confirm
+  if (inlineFlags.no_test !== undefined) config.no_test = inlineFlags.no_test
   // Ship flags can also be overridden inline
   if (inlineFlags.no_pr !== undefined) config.ship.auto_pr = !inlineFlags.no_pr
   if (inlineFlags.no_merge !== undefined) config.ship.auto_merge = !inlineFlags.no_merge
@@ -114,6 +117,7 @@ const inlineFlags = {
   approve: args.includes('--approve') ? true : undefined,
   skip_freshness: args.includes('--skip-freshness') ? true : undefined,
   confirm: args.includes('--confirm') ? true : undefined,
+  no_test: args.includes('--no-test') ? true : undefined,
   no_pr: args.includes('--no-pr') ? true : undefined,
   no_merge: args.includes('--no-merge') ? true : undefined,
   draft: args.includes('--draft') ? true : undefined,
@@ -171,7 +175,7 @@ const parentPlanMeta = {
 Write(`.claude/arc/${id}/checkpoint.json`, {
   id, schema_version: 15, plan_file: planFile,
   config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
-  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
+  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test },
   arc_config: arcConfig,
   pr_url: null,
   freshness: freshnessResult || null,
@@ -195,7 +199,9 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     codex_gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     gap_remediation: { status: "pending", artifact: null, artifact_hash: null, team_name: null, fixed_count: null, deferred_count: null },
+    goldmask_verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     code_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    goldmask_correlation: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     test:         { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false },
@@ -218,22 +224,6 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
   updated_at: new Date().toISOString()
 })
 
-// Schema migration (in --resume checkpoint loading, see arc-resume.md)
-// if (checkpoint.schema_version < 13) {
-//   // v12→v13: Remove audit phases, mark as skipped
-//   checkpoint.schema_version = 13
-//   Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
-// }
-// if (checkpoint.schema_version < 14) {
-//   // v13→v14: Add parent_plan field (null = standalone arc, not part of hierarchy)
-//   checkpoint.parent_plan = null
-//   checkpoint.schema_version = 14
-//   Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
-// }
-// if (checkpoint.schema_version < 15) {
-//   // v14→v15: Add stagnation field for Stagnation Sentinel (v1.80.0+)
-//   checkpoint.stagnation = { error_patterns: [], file_velocity: [], budget: null }
-//   checkpoint.schema_version = 15
-//   Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
-// }
+// Schema migration is handled in arc-resume.md (steps 3a through 3n).
+// Migrations v1→v15 are defined there. See arc-resume.md for the full chain.
 ```

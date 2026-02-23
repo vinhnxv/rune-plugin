@@ -1,6 +1,6 @@
 # Post-Arc — Full Algorithm
 
-Post-pipeline lifecycle steps that run after all 20 phases complete (or after the last non-skipped phase). Covers echo persistence, completion report display, and final zombie teammate sweep.
+Post-pipeline lifecycle steps that run after all 18 phases complete (or after the last non-skipped phase). Covers echo persistence, completion report display, and final zombie teammate sweep.
 
 **Inputs**: completed checkpoint, plan path, echo config, `arcStart` timestamp
 **Outputs**: echoes persisted, completion report displayed to user, stale teams cleaned
@@ -65,9 +65,8 @@ Phases:
   6.5  GOLDMASK CORR:   {status} — goldmask-correlation.md ({correlation_count} correlations, {human_review_count} human review)
   7.   MEND:            {status} — {fixed}/{total} findings resolved
   7.5  VERIFY MEND:     {status} — {convergence_verdict} (cycle {convergence.round + 1}/{convergence.tier.maxCycles})
-  8.   AUDIT:           {status} — audit-report.md
-  8.5  AUDIT MEND:      {status} — audit-mend-report.md ({fixed_count} fixed)
-  8.7  AUDIT VERIFY:    {status} — audit-verify.md ({convergence_verdict})
+  7.7  TEST:            {status} — test-report.md ({pass_rate}% pass rate, tiers: {tiers_run})
+  8.5  PRE-SHIP:        {status} — pre-ship-report.md ({verdict})
   9.   SHIP:            {status} — PR: {pr_url || "skipped"}
   9.5  MERGE:           {status} — {merge_strategy} {wait_ci ? "(auto-merge pending)" : "(merged)"}
 
@@ -89,7 +88,7 @@ Artifacts: tmp/arc/{id}/
 Checkpoint: .claude/arc/{id}/checkpoint.json
 
 Next steps:
-1. Review audit report: tmp/arc/{id}/audit-report.md
+1. Review TOME findings: tmp/arc/{id}/tome.md
 2. git log --oneline — Review commits
 3. {pr_url ? "Review PR: " + pr_url : "Create PR for branch " + branch_name}
 4. /rune:rest — Clean up tmp/ artifacts when done

@@ -1,4 +1,4 @@
-# Parse Plan — work.md Phase 0 Reference
+# Parse Plan — strive Phase 0 Reference
 
 Task extraction and parsing from plan files.
 
