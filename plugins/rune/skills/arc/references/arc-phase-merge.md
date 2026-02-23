@@ -51,6 +51,10 @@ function runPreMergeChecklist(currentBranch, defaultBranch, arcConfig) {
       return true
     })
 
+    // FIX-2: Guard against empty globs (all entries filtered by SAFE_GLOB_RE)
+    if (migrationGlobs.length === 0) {
+      warn("Pre-merge: No valid migration paths after filtering — skipping migration conflict check")
+    } else {
     const migrationPathArgs = migrationGlobs.map(g => `"${g}"`).join(' ')
 
     // Check if both main and feature branch have new migration files
@@ -86,6 +90,7 @@ function runPreMergeChecklist(currentBranch, defaultBranch, arcConfig) {
         })
       }
     }
+    } // end FIX-2 migrationGlobs guard
   }
 
   // 2. Schema file conflict detection (CHECK-DECREE-001: toggleable)
@@ -224,9 +229,10 @@ if (highIssues.length > 0) {
       multiSelect: false
     }]
   })
-  // Check if user chose "Abort merge"
-  if (userResponse?.answers?.["Pre-merge found"] === "Abort merge" ||
-      JSON.stringify(userResponse).includes("Abort merge")) {
+  // FIX-3: Standardize answer check — use includes() pattern consistent with
+  // freshness-gate.md (startsWith) and arc-phase-plan-refine.md (includes)
+  const userAnswer = typeof userResponse === 'string' ? userResponse : JSON.stringify(userResponse)
+  if (!userResponse || userAnswer.includes("Abort")) {
     warn("User chose to abort merge due to HIGH severity pre-merge issues.")
     const abortReport = `# Merge Report\n\nStatus: ABORTED\nReason: User aborted due to ${highIssues.length} HIGH severity issue(s).\n\n## Issues\n${highIssues.map(i => `- **${i.type}**: ${i.message}`).join('\n')}`
     Write(`tmp/arc/${id}/merge-report.md`, abortReport)
