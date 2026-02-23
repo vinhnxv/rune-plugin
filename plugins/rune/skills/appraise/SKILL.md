@@ -24,9 +24,11 @@ allowed-tools:
   - SendMessage
   - Read
   - Write
+  - Edit
   - Bash
   - Glob
   - Grep
+  - AskUserQuestion
 ---
 
 **Runtime context** (preprocessor snapshot):

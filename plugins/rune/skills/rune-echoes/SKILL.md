@@ -2,9 +2,10 @@
 name: rune-echoes
 description: |
   Use when agents need to read or write project memory, when persisting learnings from
-  reviews or audits, when managing echo lifecycle (prune, reset), or when a pattern keeps
-  recurring across sessions. Stores knowledge in .claude/echoes/ with 3-layer lifecycle
-  (Etched/Inscribed/Traced) and multi-factor pruning.
+  reviews or audits, when managing echo lifecycle (prune, reset), when a user wants to
+  remember something explicitly, or when a pattern keeps recurring across sessions.
+  Stores knowledge in .claude/echoes/ with 5-tier lifecycle
+  (Etched/Notes/Inscribed/Observations/Traced) and multi-factor pruning.
 
   <example>
   Context: After a review, Ash persist patterns to echoes
@@ -45,21 +46,31 @@ Project-level agent memory that compounds knowledge across sessions. Each workfl
 │   └── archive/
 ├── auditor/
 │   └── MEMORY.md
+├── notes/
+│   └── MEMORY.md              # User-explicit memories (never auto-pruned)
+├── observations/
+│   └── MEMORY.md              # Agent-observed patterns (auto-promoted)
 └── team/
     └── MEMORY.md              # Cross-role learnings (lead writes post-workflow)
 ```
 
-### 3-Layer Lifecycle
+### 5-Tier Lifecycle
 
-| Layer | Rune Name | Max Age | Trigger | Pruning |
-|-------|-----------|---------|---------|---------|
-| Structural | **Etched** | Never expires | Manual only | User confirmation required |
-| Tactical | **Inscribed** | 90 days unreferenced | MEMORY.md > 150 lines | Multi-factor scoring, archive bottom 20% |
-| Session | **Traced** | 30 days | MEMORY.md > 150 lines | Utility-based, compress middle 30% |
+| Tier | Rune Name | Weight | Max Age | Trigger | Pruning |
+|------|-----------|--------|---------|---------|---------|
+| Structural | **Etched** | 1.0 | Never expires | Manual only | User confirmation required |
+| User-Explicit | **Notes** | 0.9 | Never expires | `/rune:echoes remember` | Never auto-pruned |
+| Tactical | **Inscribed** | 0.7 | 90 days unreferenced | MEMORY.md > 150 lines | Multi-factor scoring, archive bottom 20% |
+| Agent-Observed | **Observations** | 0.5 | 60 days last access | Agent echo-writer protocol | Auto-promoted to Inscribed after 3 references |
+| Session | **Traced** | 0.3 | 30 days | MEMORY.md > 150 lines | Utility-based, compress middle 30% |
 
 **Etched** entries are permanent project knowledge (architecture decisions, tech stack, key conventions). Only the user can add or remove them.
 
+**Notes** entries are user-explicit memories created via `/rune:echoes remember <text>`. They represent things the user wants agents to remember across sessions. Weight=0.9 (highest after Etched). Never auto-pruned — only the user can remove them. Stored in `.claude/echoes/notes/MEMORY.md` with `role="notes"`.
+
 **Inscribed** entries are tactical patterns discovered during reviews, audits, and work (e.g., "this codebase has N+1 query tendency in service layers"). They persist across sessions and get pruned when stale.
+
+**Observations** entries are agent-observed patterns written via the echo-writer protocol. Weight=0.5. Auto-pruned when `days_since_last_access > 60` (EDGE-025). Auto-promoted to Inscribed after 3 access_count references in echo_access_log. Promotion rewrites the H2 header in the source MEMORY.md from `## Observations` to `## Inscribed` using atomic file rewrite (C3 concern: `os.replace()`). Stored in `.claude/echoes/observations/MEMORY.md` with `role="observations"`.
 
 **Traced** entries are session-specific observations (e.g., "PR #42 had 3 unused imports"). They compress or archive quickly.
 
@@ -69,7 +80,7 @@ Every echo entry must include evidence-based metadata:
 
 ```markdown
 ### [YYYY-MM-DD] Pattern: {short description}
-- **layer**: etched | inscribed | traced
+- **layer**: etched | notes | inscribed | observations | traced
 - **source**: rune:{workflow} {context}
 - **confidence**: 0.0-1.0
 - **evidence**: `{file}:{lines}` — {what was found}
@@ -93,6 +104,14 @@ Every echo entry must include evidence-based metadata:
   Domain layer has no framework imports. DI container manages dependencies.
 ```
 
+**Notes (user-explicit):**
+```markdown
+## Notes — Always use bun instead of npm (2026-02-11)
+**Source**: user:remember
+- User-explicit memory. Always use bun for package management in this project.
+  Never suggest npm install or npm run — use bun install and bun run instead.
+```
+
 **Inscribed (tactical):**
 ```markdown
 ### [2026-02-11] Pattern: Unused imports in new files
@@ -104,6 +123,15 @@ Every echo entry must include evidence-based metadata:
 - **supersedes**: none
 - Codebase tends to leave unused imports in newly created files.
   Reviewers should flag import hygiene in new files specifically.
+```
+
+**Observations (agent-observed):**
+```markdown
+## Observations — Service layer tends to miss error handling (2026-02-11)
+**Source**: rune:appraise PR #45
+- Agent-observed pattern. Service layer methods often lack try/catch for
+  external API calls. Seen in 3 recent reviews. Will auto-promote to
+  Inscribed after 3 search references.
 ```
 
 **Traced (session):**
@@ -126,7 +154,7 @@ When MEMORY.md exceeds 150 lines, calculate Echo Score for each entry:
 Echo Score = (Importance × 0.4) + (Relevance × 0.3) + (Recency × 0.3)
 
 Where:
-  Importance = layer weight (etched=1.0, inscribed=0.7, traced=0.3)
+  Importance = layer weight (etched=1.0, notes=0.9, inscribed=0.7, observations=0.5, traced=0.3)
   Relevance  = times referenced in recent workflows / total workflows (0.0-1.0)
   Recency    = 1.0 - (days_since_verified / max_age_for_layer)
 ```
@@ -134,7 +162,9 @@ Where:
 ### Pruning Rules
 
 - **Etched**: Score locked at 1.0 — never pruned automatically
+- **Notes**: Score locked at 0.9 — never auto-pruned (user-created = permanent)
 - **Inscribed**: Archive if score < 0.3 AND age > 90 days unreferenced
+- **Observations**: Auto-prune when days_since_last_access > 60 (EDGE-025). Auto-promote to Inscribed when access_count >= 3
 - **Traced**: Archive if score < 0.2 AND age > 30 days
 - Prune ONLY between workflows, never during active phases
 - Always backup before pruning: copy MEMORY.md to `archive/MEMORY-{date}.md`
@@ -265,12 +295,11 @@ REMINDER: Classify the learning above. Return JSON only."""
   const { codexTimeout, codexStreamIdleMs, killAfterFlag } = resolveCodexTimeouts(talisman)
   const stderrFile = Bash("mktemp ${TMPDIR:-/tmp}/codex-stderr-XXXXXX").stdout.trim()
 
-  result = Bash(`timeout ${killAfterFlag} ${codexTimeout} codex exec \
-    -m ${codexModel} --config model_reasoning_effort='low' \
-    --config stream_idle_timeout_ms="${codexStreamIdleMs}" \
-    --sandbox read-only --full-auto --skip-git-repo-check \
-    "$(cat tmp/${workflow}/${id}/codex-echo-prompt.txt)" 2>"${stderrFile}"`)
-  // If exit code 124: classifyCodexError(stderrFile) — see codex-detection.md
+  // SEC-009: Use codex-exec.sh wrapper for stdin pipe, model validation, error classification
+  result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+    -m "${codexModel}" -r low -t ${codexTimeout} -s ${codexStreamIdleMs} -g \
+    "tmp/${workflow}/${id}/codex-echo-prompt.txt"`)
+  // Exit code 2 = pre-flight failure, 124 = timeout — both non-fatal
 
   Bash(`rm -f tmp/${workflow}/${id}/codex-echo-prompt.txt "${stderrFile}" 2>/dev/null`)
 
@@ -393,12 +422,30 @@ Before implementing fixes, agents SHOULD check `docs/solutions/` for existing so
 
 ### Remembrance Commands
 
-The `/rune:echoes` command includes Remembrance subcommands:
+The `/rune:echoes` command includes Notes and Remembrance subcommands:
 
 ```
-/rune:echoes remembrance [category|search]   # Query Remembrance documents
+/rune:echoes remember <text>                   # Create a Notes entry (user-explicit memory)
+/rune:echoes remembrance [category|search]     # Query Remembrance documents
 /rune:echoes promote <echo-ref> --category <cat>  # Promote echo to Remembrance
-/rune:echoes migrate                          # Migrate echoes with old naming
+/rune:echoes migrate                           # Migrate echoes with old naming
+```
+
+**remember** — Create a Notes entry from user-provided text. Writes to `.claude/echoes/notes/MEMORY.md` (creates directory and file on demand). Notes are user-explicit memories that agents should always respect. They are never auto-pruned.
+
+**Protocol:**
+1. Read `.claude/echoes/notes/MEMORY.md` (or create with `<!-- echo-schema: v1 -->` header if missing)
+2. Generate H2 entry: `## Notes — <title> (YYYY-MM-DD)` where title is extracted or summarized from user text
+3. Add `**Source**: user:remember` metadata line
+4. Append user-provided content as the entry body
+5. Write back to `.claude/echoes/notes/MEMORY.md`
+6. Confirm to user what was remembered
+
+**Examples:**
+```
+/rune:echoes remember always use bun instead of npm
+/rune:echoes remember the auth service requires Redis to be running locally
+/rune:echoes remember PR reviews should check for N+1 queries in service layers
 ```
 
 **remembrance** — Query existing Remembrance documents by category or search term. Returns matching documents with their frontmatter metadata.
@@ -428,4 +475,4 @@ When agent or concept names change across versions, existing echoes may referenc
 
 ## Commands
 
-See `/rune:echoes` command for user-facing echo management (show, prune, reset, remembrance, promote, migrate).
+See `/rune:echoes` command for user-facing echo management (show, prune, reset, remember, remembrance, promote, migrate).

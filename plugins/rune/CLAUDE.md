@@ -9,7 +9,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **rune-orchestration** | Core coordination patterns, file-based handoff, output formats, conflict resolution |
 | **context-weaving** | Unified context management (overflow prevention, rot, compression, offloading) |
 | **roundtable-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
-| **rune-echoes** | Smart Memory Lifecycle — 3-layer project memory (Etched/Inscribed/Traced) |
+| **rune-echoes** | Smart Memory Lifecycle — 5-tier project memory (Etched/Notes/Inscribed/Observations/Traced) |
 | **ash-guide** | Agent invocation reference and Ash selection guide |
 | **elicitation** | BMAD-derived structured reasoning methods — Deep integration via elicitation-sage across plan, forge, review, and mend phases |
 | **codex-cli** | Canonical Codex CLI integration — detection, execution, error handling, talisman config, 9-point deep integration (elicitation, mend verification, arena, semantic check, gap analysis, trial forger, rune smith advisory, shatter scoring, echo validation) |
@@ -30,9 +30,9 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **file-todos** | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Gated by `talisman.file_todos.enabled` |
 | **forge** | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer integration (Phase 1.5) for risk-aware section prioritization |
 | **git-worktree** | Use when running /rune:strive with --worktree flag or when work.worktree.enabled is set in talisman. Covers worktree lifecycle, wave-based execution, merge strategy, and conflict resolution patterns |
-| **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories). Goldmask Lore Layer integration (Phase 0.3) for risk-aware gap prioritization |
+| **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories). Goldmask Lore Layer integration (Phase 1.3) for risk-aware gap prioritization |
 | **mend** | Parallel finding resolution from TOME. Goldmask data passthrough (risk-overlaid severity, risk context injection) + quick check (Phase 5.95) |
-| **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask 6-agent mode for pre-implementation risk assessment |
+| **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask (2-8 agents, basic default) for pre-implementation risk assessment |
 | **appraise** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml). Default: standard. Use `--deep` for multi-wave deep review. |
 | **strive** | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 
@@ -175,13 +175,15 @@ All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL h
 
 | Server | Tools | Purpose |
 |--------|-------|---------|
-| `echo-search` | `echo_search`, `echo_details`, `echo_reindex`, `echo_stats` | Full-text search over Rune Echoes (`.claude/echoes/*/MEMORY.md`) using SQLite FTS5 with BM25 ranking. Requires Python 3.7+. Launched via `scripts/echo-search/start.sh`. |
+| `echo-search` | `echo_search`, `echo_details`, `echo_reindex`, `echo_stats`, `echo_record_access`, `echo_upsert_group` | Full-text search over Rune Echoes (`.claude/echoes/*/MEMORY.md`) using SQLite FTS5 with BM25 ranking. 5-factor composite scoring, access frequency tracking, file proximity, semantic grouping, query decomposition, retry tracking, Haiku reranking. Requires Python 3.7+. Launched via `scripts/echo-search/start.sh`. |
 
 **echo-search tools:**
-- `echo_search(query, limit?, layer?, role?)` — BM25-ranked search with optional layer/role filters. Returns content previews (200 chars).
+- `echo_search(query, limit?, layer?, role?)` — Multi-pass retrieval pipeline: query decomposition, BM25 search, composite scoring, semantic group expansion, retry injection, Haiku reranking. Each stage toggleable via `talisman.yml` echoes config. Returns content previews (200 chars).
 - `echo_details(ids)` — Fetch full content for specific echo entries by ID.
 - `echo_reindex()` — Rebuild FTS5 index from MEMORY.md source files.
 - `echo_stats()` — Index statistics (entry count, layer/role breakdown, last indexed timestamp).
+- `echo_record_access(entry_id, context?)` — Record access for frequency-based scoring. Powers auto-promotion of Observations tier entries.
+- `echo_upsert_group(group_id, entry_ids, similarities?)` — Create or update a semantic group with the given entry memberships.
 
 **Dirty-signal auto-reindex:** The `annotate-hook.sh` PostToolUse hook writes `tmp/.rune-signals/.echo-dirty` when echo files are modified. On next `echo_search` call, the server detects the signal and auto-reindexes before returning results.
 
@@ -218,7 +220,7 @@ echo "Commands: $(find plugins/rune/commands -name '*.md' -not -path '*/referenc
 
 ## References
 
-- [Agent registry](references/agent-registry.md) — 23 review + 5 research + 2 work + 11 utility + 23 investigation + 4 testing agents
+- [Agent registry](references/agent-registry.md) — 23 review + 5 research + 2 work + 10 utility + 23 investigation + 4 testing agents
 - [Key concepts](references/key-concepts.md) — Tarnished, Ash, TOME, Arc, Mend, Forge Gaze, Echoes
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow

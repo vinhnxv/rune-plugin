@@ -1,4 +1,4 @@
-# Worktree Merge Broker — work.md Phase 3.5 Reference
+# Worktree Merge Broker — strive Phase 3.5 Reference
 
 Merge broker for worktree mode. Called between waves and after the final wave to merge worktree branches into the feature branch. Coexists with the existing commit broker — selected by `worktreeMode` flag.
 

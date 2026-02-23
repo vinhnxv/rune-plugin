@@ -36,6 +36,7 @@ allowed-tools:
   - SendMessage
   - AskUserQuestion
   - TodoWrite
+  - Skill
 argument-hint: "<parent-plan-path> [--resume] [--dry-run] [--no-merge]"
 ---
 

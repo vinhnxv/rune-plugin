@@ -253,11 +253,10 @@ Report as: [CDX-ARENA-NNN] {solution_name}: {score}/10 — {brief assessment}`
       YOUR TASK:
       1. TaskList() -> claim the "Codex Arena Judge" task
       2. Check codex availability
-      3. Run codex exec with the prompt file (SEC-003):
-         Bash(\`timeout ${arenaTimeout} codex exec -m "${codexModel}" \\
-           --config model_reasoning_effort="${codexReasoning}" \\
-           --sandbox read-only --full-auto --skip-git-repo-check \\
-           "$(cat tmp/plans/${timestamp}/arena/codex-judge-prompt.txt)" 2>/dev/null\`)
+      3. Run codex exec with the prompt file (SEC-009: wrapper script):
+         Bash(\`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \\
+           -m "${codexModel}" -r "${codexReasoning}" -t ${arenaTimeout} -g \\
+           "tmp/plans/${timestamp}/arena/codex-judge-prompt.txt"\`)
       4. Write results to tmp/plans/${timestamp}/arena/codex-arena-judge.md
          Format: [CDX-ARENA-NNN] {solution_name}: {verdict}
       5. Cleanup: Bash(\`rm -f tmp/plans/${timestamp}/arena/codex-judge-prompt.txt 2>/dev/null\`)

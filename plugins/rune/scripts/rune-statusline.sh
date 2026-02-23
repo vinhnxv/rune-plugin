@@ -100,6 +100,7 @@ COST_FMT=$(printf '$%.2f' "$COST" 2>/dev/null || echo '$0.00')
 
 # Active Rune workflow detection
 WORKFLOW=""
+shopt -s nullglob
 for f in "${DIR}"/tmp/.rune-*.json; do
   [[ -f "$f" ]] || continue
   [[ -L "$f" ]] && continue   # P2-2 FIX: symlink guard on workflow detection
@@ -110,6 +111,7 @@ for f in "${DIR}"/tmp/.rune-*.json; do
     break
   fi
 done
+shopt -u nullglob
 
 # Output
 BRANCH_DISPLAY=""

@@ -8,6 +8,7 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 | Phase 2 (PLAN REVIEW) | Read, Glob, Grep, Write (own output file only) | Review -- no codebase modification |
 | Phase 2.5 (PLAN REFINEMENT) | Read, Write, Glob, Grep | Orchestrator-only -- extraction, no team |
 | Phase 2.7 (VERIFICATION) | Read, Glob, Grep, Write, Bash (git history) | Orchestrator-only -- deterministic checks |
+| Phase 2.8 (SEMANTIC VERIFICATION) | Read, Write, Bash (codex exec) | Orchestrator-only — inline codex exec, no team |
 | Phase 5 (WORK) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Implementation requires all tools |
 | Phase 5.5 (GAP ANALYSIS) | Read, Glob, Grep, Write (VERDICT.md only) | Team: `arc-inspect-{id}` — Inspector Ashes (enhanced with 9-dimension scoring) |
 | Phase 5.6 (CODEX GAP ANALYSIS) | Read, Write, Bash (codex exec) | Orchestrator-only — inline codex exec, no team |
@@ -17,6 +18,10 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 | Phase 6.5 (GOLDMASK CORRELATION) | Read, Write, Glob, Grep | Orchestrator-only -- deterministic correlation |
 | Phase 7 (MEND) | Orchestrator: full. Fixers: restricted (see mend-fixer) | Least privilege for fixers |
 | Phase 7.5 (VERIFY MEND) | Read, Glob, Grep, Write, Bash (git diff) | Orchestrator-only — convergence controller (no team) |
+| Phase 7.7 (TEST) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Team: `arc-test-{id}` — diff-scoped test execution |
+| Phase 8.5 (PRE-SHIP VALIDATION) | Read, Write, Grep | Orchestrator-only — deterministic dual-gate check |
+| Phase 9 (SHIP) | Read, Write, Bash (git push, gh pr create) | Orchestrator-only — push + PR creation |
+| Phase 9.5 (MERGE) | Read, Write, Bash (git rebase, gh pr merge) | Orchestrator-only — rebase + merge + CI wait |
 
 Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`". Only the arc orchestrator writes to checkpoint.json.
 
@@ -28,6 +33,7 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 | PLAN REVIEW | 15 min | Inner 10m + 5m setup budget |
 | PLAN REFINEMENT | 3 min | Orchestrator-only, no agents |
 | VERIFICATION | 30 sec | Deterministic checks, no LLM |
+| SEMANTIC VERIFICATION | 3 min | Orchestrator-only, inline codex exec (no team overhead) |
 | WORK | 35 min | Inner 30m + 5m setup budget |
 | GAP ANALYSIS | 12 min | Enhanced with Inspector Ashes (arc-inspect-{id} team) |
 | CODEX GAP ANALYSIS | 11 min | Orchestrator-only, inline codex exec (no team overhead) |
@@ -38,9 +44,10 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 | MEND | 23 min | Inner 15m + 5m setup + 3m ward/cross-file |
 | VERIFY MEND | 4 min | Convergence evaluation (orchestrator-only); re-review cycles run as separate Phase 6+7 |
 | TEST | 15 min | Inner 10m + 5m setup; dynamic 40 min with E2E (arc-test-{id} team) |
+| PRE-SHIP VALIDATION | 30 sec | Orchestrator-only, deterministic dual-gate check |
 | SHIP | 5 min | Orchestrator-only, push + PR creation |
 | MERGE | 10 min | Orchestrator-only, rebase + merge + CI wait |
 
-**Total pipeline hard ceiling**: Dynamic (155-240 min based on tier; hard cap 240 min). See `calculateDynamicTimeout()` in SKILL.md.
+**Total pipeline hard ceiling**: Dynamic (156-240 min based on tier; hard cap 240 min). See `calculateDynamicTimeout()` in SKILL.md.
 
 Delegated phases use inner-timeout + 60s buffer so the delegated command handles its own timeout first; the arc timeout is a safety net only.

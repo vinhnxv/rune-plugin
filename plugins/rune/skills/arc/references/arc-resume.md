@@ -1,6 +1,6 @@
 # Resume (`--resume`) — Full Algorithm
 
-Full `--resume` logic: checkpoint discovery, validation, schema migration (v1→v13),
+Full `--resume` logic: checkpoint discovery, validation, schema migration (v1→v15),
 hash integrity verification, orphan cleanup, and phase demotion.
 
 > Requires familiarity with checkpoint schema from [arc-checkpoint-init.md](arc-checkpoint-init.md).
@@ -102,7 +102,21 @@ On resume, validate checkpoint integrity before proceeding:
    b. Remove audit_convergence (no longer used):
       delete checkpoint.audit_convergence
    c. Set schema_version: 13
-3m. Resume freshness re-check:
+3m. If schema_version < 14, migrate v13 → v14:
+   a. Add parent_plan field (null = standalone arc, not part of hierarchy):
+      checkpoint.parent_plan = checkpoint.parent_plan ?? null
+      // Default null — pre-v14 arcs are standalone; safe to proceed without hierarchy context.
+   b. Set schema_version: 14
+3n. If schema_version < 15, migrate v14 → v15:
+   a. Add stagnation field for Stagnation Sentinel (v1.80.0+):
+      checkpoint.stagnation = checkpoint.stagnation ?? { error_patterns: [], file_velocity: [], budget: null }
+      // Default empty state — pre-v15 arcs had no stagnation tracking.
+      // The sentinel checks for this field at runtime and throws if missing (schema v15 required).
+   b. Add no_test flag if missing from checkpoint.flags:
+      checkpoint.flags = checkpoint.flags ?? {}
+      checkpoint.flags.no_test = checkpoint.flags.no_test ?? false
+   c. Set schema_version: 15
+3p. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)

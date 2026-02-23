@@ -190,7 +190,7 @@ settings:
 audit:
   deep:
     enabled: true
-    ashes:
+   ashes:
       - rot-seeker
       - strand-tracer
       - decree-auditor
@@ -439,6 +439,54 @@ elicitation:
 # ──────────────────────────────────────────────
 echoes:
   version_controlled: false    # Set true to track .claude/echoes/ in git
+
+  # ── Scoring — Composite re-ranking (v1.81.0+) ──
+  # 5-factor composite scoring blends BM25 relevance with importance, recency,
+  # file proximity, and access frequency. Weights are configurable via env vars
+  # (ECHO_WEIGHT_RELEVANCE, ECHO_WEIGHT_IMPORTANCE, ECHO_WEIGHT_RECENCY,
+  # ECHO_WEIGHT_PROXIMITY, ECHO_WEIGHT_FREQUENCY) with defaults summing to 1.0.
+  # scoring:
+  #   validation_mode: false       # Set true or ECHO_VALIDATION_MODE=1 to enable dual scoring
+  #                                # Runs both BM25-only and composite in parallel, logging divergence
+  #                                # to tmp/.rune-signals/.echo-scoring-validation.log
+  #   # Exit criteria (switch to composite-only when ALL met):
+  #   #   - Kendall tau > 0.2 in < 5% of queries
+  #   #   - No Etched entry drops > 0.15 in composite score
+  #   #   - No original top-5 entry falls below top-20
+
+  # ── Semantic Groups — Automatic entry clustering (v1.82.0+) ──
+  # Clusters related echo entries via Jaccard similarity and single-linkage
+  # clustering. Group expansion retrieves sibling entries from the same group
+  # during search, with a configurable score discount.
+  # semantic_groups:
+  #   expansion_enabled: false       # Enable group expansion in search pipeline (default: false)
+  #   discount: 0.7                  # Composite score discount for expanded entries (0.0-1.0, default: 0.7)
+  #   max_expansion: 5               # Max additional entries from group expansion (default: 5)
+
+  # ── Query Decomposition — Multi-facet BM25 search (v1.82.0+) ──
+  # Uses an LLM subprocess (claude CLI) to decompose complex queries into
+  # 1-4 keyword-rich facets. Each facet runs a separate BM25 search; results
+  # are merged by best score. Simple queries (<=3 non-stopword tokens) bypass
+  # decomposition automatically. 3-second timeout with fallback.
+  # decomposition:
+  #   enabled: false                 # Enable query decomposition (default: false)
+
+  # ── Failed Entry Retry — Token fingerprint matching (v1.82.0+) ──
+  # Tracks queries that returned zero results and injects previously-failed
+  # entries into future searches with matching token fingerprints. Entries
+  # that later match successfully have their failure records cleared.
+  # retry:
+  #   enabled: false                 # Enable retry injection in search pipeline (default: false)
+
+  # ── Haiku Reranking — Semantic re-scoring (v1.82.0+) ──
+  # Uses Claude Haiku (via claude CLI subprocess) to re-score BM25 results
+  # by semantic relevance. Only activates when result count exceeds threshold.
+  # 4-second timeout with fallback to BM25 order.
+  # reranking:
+  #   enabled: false                 # Enable Haiku reranking (default: false)
+  #   threshold: 25                  # Min BM25 results before reranking kicks in (default: 25)
+  #   max_candidates: 40             # Cost cap — max entries sent to Haiku (default: 40)
+  #   timeout: 4                     # Subprocess timeout in seconds (default: 4)
 
 # ──────────────────────────────────────────────
 # Review — Context Intelligence, Linter Awareness, and convergence (v1.35.0+)

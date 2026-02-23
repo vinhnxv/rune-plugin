@@ -533,9 +533,11 @@ ${GIT_INSTRUCTIONS}
 4. Clean stale teams (session-scoped — only remove teams owned by this session):
    CHOME=\"\${CLAUDE_CONFIG_DIR:-\$HOME/.claude}\"
    MY_SESSION=\"${HOOK_SESSION_ID}\"
+   setopt nullglob 2>/dev/null || shopt -s nullglob 2>/dev/null || true
    for dir in \"\$CHOME/teams/\"rune-* \"\$CHOME/teams/\"arc-*; do
      [[ -d \"\$dir\" ]] || continue; [[ -L \"\$dir\" ]] && continue
-     if [[ -n \"\$MY_SESSION\" ]] && [[ -f \"\$dir/.session\" ]] && [[ ! -L \"\$dir/.session\" ]]; then
+     if [[ -n \"\$MY_SESSION\" ]] && [[ -f \"\$dir/.session\" ]]; then
+       [[ -L \"\$dir/.session\" ]] && continue
        owner=\$(head -c 256 \"\$dir/.session\" 2>/dev/null | tr -d '[:space:]' || true)
        [[ -n \"\$owner\" ]] && [[ \"\$owner\" != \"\$MY_SESSION\" ]] && continue
      fi

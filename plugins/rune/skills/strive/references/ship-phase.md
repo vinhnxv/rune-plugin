@@ -1,4 +1,4 @@
-# Ship Phase — work.md Phase 6.5 Reference
+# Ship Phase — strive Phase 6.5 Reference
 
 Push branch and create PR after work completion.
 

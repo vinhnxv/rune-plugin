@@ -153,7 +153,7 @@ After the plan is synthesized but before shatter assessment, runs a predictive G
 
 **Note**: Phase 2.3 runs AFTER Phase 1, which creates the plan team (`rune-plan-{timestamp}`). All Task calls MUST use `team_name` (ATE-1 compliance — unlike Phase 0 sages which run before team creation).
 
-**Timeout inheritance**: Arc timeouts (from `talisman.arc.timeouts`) are NOT automatically propagated to Phase 2.3 devise agents. Phase 2.3 uses its own internal ceiling (`PHASE_23_TOTAL_CEILING_MS = 300_000`). If arc timeout is tighter than 5 min, Phase 2.3 agents may outlive the arc phase budget — ensure arc `forge` timeout accounts for Phase 2.3's contribution.
+**Timeout inheritance**: Arc timeouts (from `talisman.arc.timeouts`) are NOT automatically propagated to Phase 2.3 devise agents. Phase 2.3 uses its own internal ceiling (`PHASE_23_TOTAL_CEILING_MS = 360_000`). If arc timeout is tighter than 6 min, Phase 2.3 agents may outlive the arc phase budget — ensure arc `forge` timeout accounts for Phase 2.3's contribution.
 
 **Non-blocking**: If any agent fails, the pipeline continues with partial data. All failures are recoverable.
 
@@ -162,8 +162,8 @@ After the plan is synthesized but before shatter assessment, runs a predictive G
 | Mode | Agents | Time | When to use |
 |------|--------|------|-------------|
 | `basic` (default) | 2 (lore + wisdom) | 50-170s | Standard planning — opt-in to enhanced for richer analysis |
-| `enhanced` | 6 (lore + 3 tracers + wisdom + coordinator) | 2.5-4.5 min | Explicit opt-in: `goldmask.devise.depth: enhanced` |
-| `full` | 8 (lore + 5 tracers + wisdom + coordinator) | 3-5 min | Major architectural changes — explicit opt-in only |
+| `enhanced` | 6 (lore + 3 tracers + wisdom + coordinator) | 2.5-5.5 min | Explicit opt-in: `goldmask.devise.depth: enhanced`. Budget ceiling: 6 min |
+| `full` | 8 (lore + 5 tracers + wisdom + coordinator) | 3-6 min | Major architectural changes — explicit opt-in only |
 
 **Talisman config**: `goldmask.devise.depth` — `basic` (default) | `enhanced` | `full`
 
@@ -286,16 +286,19 @@ YOUR LIFECYCLE:
   } else if (effectiveDepth === "enhanced") {
     // Phase 2.3a: 4 agents in parallel (lore + 3 Impact tracers)
     const PHASE_23A_TIMEOUT_MS: number = 90_000  // 90s for parallel phase
-    const PHASE_23_TOTAL_CEILING_MS: number = 300_000  // 5 min hard ceiling
+    const PHASE_23_TOTAL_CEILING_MS: number = 360_000  // 6 min hard ceiling
     // PER_AGENT_TIMEOUT_MS: lore=120s, each tracer=90s, wisdom=120s, coordinator=120s
-    // Total sequential-worst-case: 90s (2.3a) + 120s (wisdom) + 120s (coordinator) = 330s
+    // Total sequential-worst-case: 90s (2.3a) + 120s (wisdom) + 120s (coordinator) = 330s < 360s ceiling
     // BACK-003: Enforce timeout budget before spawning 6 agents
     const phaseStartMs: number = Date.now()
     const perAgentTimeout: number = 120_000  // 2 min per agent (conservative upper bound)
     const estimatedTotalMs: number = PHASE_23A_TIMEOUT_MS + perAgentTimeout + perAgentTimeout  // 2.3a + wisdom + coordinator
     if (estimatedTotalMs > PHASE_23_TOTAL_CEILING_MS) {
       warn(`Phase 2.3: Enhanced mode estimated time (${Math.round(estimatedTotalMs / 1000)}s) exceeds hard ceiling (${Math.round(PHASE_23_TOTAL_CEILING_MS / 1000)}s) — falling back to basic mode`)
-      // Fall through to basic mode
+      // Explicit fallback: run basic mode agents (lore + wisdom) instead of doing nothing
+      TaskCreate({ subject: "Lore analysis — risk scoring for predicted files" })
+      TaskCreate({ subject: "Wisdom analysis — design intent for CRITICAL/HIGH files" })
+      // ... spawn basic-mode lore-analyst and wisdom-sage (same as basic mode above)
     } else {
 
     TaskCreate({ subject: "Lore analysis — risk scoring for predicted files" })
@@ -989,7 +992,16 @@ Read and execute when user selects "Create issue".
 | Research agent timeout (>5 min) | Proceed with partial research |
 | No git history (git-miner) | Skip, report gap |
 | No echoes (echo-reader) | Skip, proceed without history |
+| Solution Arena: all solutions killed | Recovery protocol — relax constraints, re-evaluate (see solution-arena.md) |
+| Solution Arena: sparse research (<2 approaches) | Skip Arena, proceed to synthesize |
+| Forge agent timeout (>5 min) | Proceed with partial enrichment |
+| Forge: no agent above threshold | Use inline generic Task prompt for standard enrichment |
+| Predictive Goldmask agent failure | Non-blocking — proceed with partial data or skip injection |
+| Predictive Goldmask: enhanced budget exceeded | Fallback to basic mode (2 agents) |
+| TeamCreate failure ("Already leading") | Catch-and-recover via teamTransition protocol |
+| TeamDelete failure (cleanup) | Retry-with-backoff (3 attempts), filesystem fallback |
 | Scroll review finds critical gaps | Address before presenting |
+| Plan review BLOCK verdict | Address blocking issues before presenting plan |
 
 ## Guardrails
 

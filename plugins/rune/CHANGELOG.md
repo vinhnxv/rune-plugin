@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.82.0] - 2026-02-23
+
+### Added
+- **5-Factor Composite Scoring** — Echo search now uses BM25 relevance, recency decay, importance weighting, access frequency, and file proximity for context-aware ranking
+- **Access Frequency Tracking** — New `echo_access_log` SQLite table and `echo_record_access` MCP tool for usage-based scoring signals
+- **File Proximity Scoring** — Evidence path extraction from echo content for workspace-relative proximity weighting
+- **Dual-Mode Scoring Validation** — Kendall tau distance comparison between legacy BM25 and composite scoring with configurable toggle via `ECHO_SCORING_MODE` env var
+- **Notes Tier** — User-explicit memories (`/rune:echoes remember`) with weight=0.9, stored in `.claude/echoes/notes/`
+- **Observations Tier** — Agent-observed patterns with weight=0.5, auto-promotion to Inscribed after 3 access hits via atomic `os.replace()` file rewrite
+- **Extended Indexer** — `header_re` now matches Notes and Observations tiers (5 total). EDGE-018 stateful parser prevents content H2 headers from splitting entries
+- New test suites: `test_echo_scoring.py`, `test_echo_access.py`, `test_echo_proximity.py`, `test_echo_tiers.py` (33+ tests each)
+
+### Changed
+- Echo search server version bumped to 1.54.0
+- MCP tools expanded from 4 to 5 (added `echo_record_access`)
+- SKILL.md updated to 5-tier lifecycle: Etched / Notes / Inscribed / Observations / Traced
+- Scoring weights configurable via environment variables (`ECHO_WEIGHT_BM25`, `ECHO_WEIGHT_RECENCY`, etc.)
+- `talisman.example.yml` includes commented-out scoring configuration section
+
+## [1.81.0] - 2026-02-23
+
+### Added
+- **Codex Exec Helper Script** (`scripts/codex-exec.sh`) — canonical Codex CLI wrapper enforcing SEC-009 (stdin pipe), model allowlist, timeout clamping [30, 900], .codexignore pre-flight, symlink/path-traversal rejection, 1MB prompt cap, and structured error classification
+- New "Script Wrapper" section in `codex-cli/SKILL.md` documenting `codex-exec.sh` as the canonical invocation method
+- New "Wrapper Invocation (v1.81.0+)" section in `codex-execution.md` as the preferred pattern
+
+### Security
+- **SEC-009**: Eliminated 6 `$(cat ...)` shell expansion vulnerabilities across devise (research-phase, solution-arena, plan-review), rune-echoes, elicitation, and forge-enrichment-protocol
+- All Codex invocations now use stdin pipe via wrapper script instead of raw shell expansion
+- Model parameter injection prevented by `CODEX_MODEL_ALLOWLIST` regex enforcement in wrapper
+
+### Changed
+- Arc Phase 2.8 (semantic verification) and Phase 5.6 (gap analysis) now use `codex-exec.sh` wrapper
+- Removed inline `.codexignore` checks from arc-codex-phases.md (handled by wrapper, exit code 2 = skip)
+- Simplified model/reasoning/timeout validation in arc phases (delegated to wrapper script)
+
 ## [1.80.0] - 2026-02-23
 
 ### Added

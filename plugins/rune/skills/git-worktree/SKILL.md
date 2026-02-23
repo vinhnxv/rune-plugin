@@ -111,7 +111,7 @@ Worktree mode uses **sequential merge with `--no-ff`** for clear, revertable his
 
 ### Merge Broker Algorithm
 
-See [worktree-merge.md](../work/references/worktree-merge.md) for the
+See [worktree-merge.md](../strive/references/worktree-merge.md) for the
 complete merge broker algorithm, including:
 - Branch validation against `BRANCH_RE`
 - Deduplication guard (`mergedBranches` Set)
@@ -236,6 +236,6 @@ includes additional fields:
 
 ## References
 
-- [worktree-merge.md](../work/references/worktree-merge.md) — Merge broker algorithm, conflict handling, cleanup
-- [worker-prompts.md](../work/references/worker-prompts.md) — Worker prompt templates (patch + worktree modes)
-- [parse-plan.md](../work/references/parse-plan.md) — Task extraction and dependency parsing
+- [worktree-merge.md](../strive/references/worktree-merge.md) — Merge broker algorithm, conflict handling, cleanup
+- [worker-prompts.md](../strive/references/worker-prompts.md) — Worker prompt templates (patch + worktree modes)
+- [parse-plan.md](../strive/references/parse-plan.md) — Task extraction and dependency parsing

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Iterator
 
@@ -14,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pytest
 
 TESTS_DIR = Path(__file__).parent
+
 FIXTURES_DIR = TESTS_DIR / "fixtures"
 CHALLENGE_DIR = TESTS_DIR / "challenge"
 PLUGIN_DIR = TESTS_DIR.parent / "plugins" / "rune"
@@ -21,14 +23,49 @@ SCRIPTS_DIR = PLUGIN_DIR / "scripts"
 
 
 # ---------------------------------------------------------------------------
-# Custom markers
+# Custom markers + CLI option
 # ---------------------------------------------------------------------------
 
 
-def pytest_configure(config):
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register custom pytest CLI options."""
+    parser.addoption(
+        "--run-stress",
+        action="store_true",
+        default=False,
+        help="Run stress tests (excluded by default due to high API cost).",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "requires_jq: test requires jq binary")
     config.addinivalue_line("markers", "security: security-critical test")
     config.addinivalue_line("markers", "session_isolation: cross-session safety test")
+    config.addinivalue_line(
+        "markers",
+        "pressure: multi-turn arc run under cognitive-load scenarios (cap $0.50/test)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "stress: multi-agent coordination test; requires --run-stress to execute (cap $2.00/test)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "soak: long-running pipeline endurance test (cap $5.00/test)",
+    )
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config,
+    items: list[pytest.Item],
+) -> None:
+    """Skip stress-marked tests unless --run-stress was passed."""
+    if config.getoption("--run-stress", default=False):
+        return
+    skip_stress = pytest.mark.skip(reason="pass --run-stress to run stress tests")
+    for item in items:
+        if item.get_closest_marker("stress"):
+            item.add_marker(skip_stress)
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +170,26 @@ def project_env() -> Iterator[tuple[Path, Path]]:
             (config / "teams").mkdir()
             (config / "tasks").mkdir()
             yield project, config
+
+
+@pytest.fixture
+def pressure_config_dir() -> Iterator[Path]:
+    """Temporary CLAUDE_CONFIG_DIR for a single pressure test.
+
+    Provides an isolated config directory with standard Rune state
+    sub-directories pre-created.  Cleaned up automatically after the test.
+
+    This root-level fixture is available to any test in the suite, not just
+    tests inside ``tests/pressure/``.
+
+    Yields:
+        Path to the isolated config directory.
+    """
+    with tempfile.TemporaryDirectory(prefix="rune-pressure-") as tmpdir:
+        config = Path(tmpdir)
+        for subdir in ("teams", "tasks", "projects", "agent-memory"):
+            (config / subdir).mkdir()
+        yield config
 
 
 @pytest.fixture

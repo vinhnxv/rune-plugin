@@ -193,8 +193,8 @@ You are the sole git writer in this phase. Report what was actually changed.
 | Variable | Source | Example |
 |----------|--------|---------|
 | `{verdict_path}` | From inspect Phase 7.5.2 | `tmp/inspect/lz5k8m2/VERDICT.md` |
-| `{output_dir}` | From inspect Phase 0.3 | `tmp/inspect/lz5k8m2` |
-| `{identifier}` | From inspect Phase 0.3 | `lz5k8m2` |
+| `{output_dir}` | From inspect Phase 1.3 | `tmp/inspect/lz5k8m2` |
+| `{identifier}` | From inspect Phase 1.3 | `lz5k8m2` |
 | `{context}` | From caller | `inspect` or `arc-gap-remediation` |
 | `{gaps}` | From parseFixableGaps() | List of `- [ ] **[ID]** desc — \`file:line\`` |
 | `{timestamp}` | ISO-8601 current time | `2026-02-20T10:00:00Z` |

@@ -205,9 +205,9 @@ const sessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
 const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
 const ownerPid = Bash("echo $PPID").trim()
 if (!/^[0-9]+$/.test(ownerPid)) { warn("goldmask: invalid PPID — using fallback"); }
-Write(`tmp/.rune-goldmask-${sessionId}.json`, JSON.stringify({
+Write(`tmp/.rune-goldmask-${session_id}.json`, JSON.stringify({
   status: "active",
-  team_name: sessionId,  // sessionId already contains "goldmask-" prefix
+  team_name: session_id,  // session_id = "goldmask-{timestamp}" (workflow ID)
   started: new Date().toISOString(),
   config_dir: configDir,
   owner_pid: /^[0-9]+$/.test(ownerPid) ? ownerPid : "0",

@@ -162,6 +162,7 @@ fi
 cleaned_teams=()
 if [[ -d "$CHOME/teams/" ]]; then
   NOW=$(date +%s)
+  shopt -s nullglob
   for dir in "$CHOME/teams/"*/; do
     [[ ! -d "$dir" ]] && continue
     [[ -L "$dir" ]] && continue
@@ -201,6 +202,7 @@ if [[ -d "$CHOME/teams/" ]]; then
       fi
     fi
   done
+  shopt -u nullglob
 fi
 
 # ── AUTO-CLEAN PHASE 2: State files (set active → stopped) ──

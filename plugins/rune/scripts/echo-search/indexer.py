@@ -39,20 +39,25 @@ def parse_memory_file(file_path, role):
     with open(file_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    # QUAL-008: Match all 3 echo layers (Inscribed, Etched, Traced)
+    # QUAL-008: Match all 5 echo tiers (Inscribed, Etched, Traced, Notes, Observations)
     header_re = re.compile(
-        r"^##\s+(Inscribed|Etched|Traced)\s*[\u2014\-\u2013]+\s*(.+?)\s*\((\d{4}-\d{2}-\d{2})\)"
+        r"^##\s+(Inscribed|Etched|Traced|Notes|Observations)\s*[\u2014\-\u2013]+\s*(.+?)\s*\((\d{4}-\d{2}-\d{2})\)"
     )
     source_re = re.compile(r"^\*\*Source\*\*:\s*`?([^`\n]+)`?")
 
     current_entry = None  # type: Optional[Dict]
     content_lines = []  # type: List[str]
+    # EDGE-018: Only match tier headers when previous line was blank (or start of file).
+    # This prevents content H2 lines like "## Notes — inline note (2026-01-01)"
+    # from being misinterpreted as new entry boundaries.
+    prev_line_blank = True  # treat start-of-file as blank
 
     for i, line in enumerate(lines):
         line_num = i + 1  # 1-indexed
         stripped = line.rstrip("\n")
 
-        header_match = header_re.match(stripped)
+        # EDGE-018: Only attempt header match after a blank line
+        header_match = header_re.match(stripped) if prev_line_blank else None
         if header_match:
             # Save previous entry
             if current_entry is not None:
@@ -86,6 +91,9 @@ def parse_memory_file(file_path, role):
                 continue
 
             content_lines.append(stripped)
+
+        # EDGE-018: Track blank lines for stateful header detection
+        prev_line_blank = stripped.strip() == ""
 
     # Flush last entry
     if current_entry is not None:
