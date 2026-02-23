@@ -256,18 +256,22 @@ After manifest diff, reconcile with state.json:
 
 ## Extension Point Contract
 
-The incremental layer inserts between Phase 0 and Phase 0.5:
+The incremental layer inserts between Phase 0 and Phase 0.5 with 8 sub-phases:
 
 ```
-Phase 0:   all_files = find(.)                          # Existing
-Phase 0.1: manifest = buildManifest(all_files)          # NEW - file inventory
-Phase 0.2: scored = priorityScore(manifest, state)      # NEW - composite scoring
-Phase 0.3: batch = selectBatch(scored, config)          # NEW - top-N selection
-Phase 0.4: writeFocusFile(batch, tmp/focus-files.json)  # NEW - pass to engine
-Phase 0.5: Lore Layer (operates on batch, not all)      # Existing (scoped)
+Phase 0:     all_files = find(.)                          # Existing
+Phase 0.0:   statusOnlyExit(flags)                        # NEW - report only (--status)
+Phase 0.0.5: resetIfRequested(flags)                      # NEW - state reset (--reset)
+Phase 0.1:   acquireLock + initStateDir                   # NEW - TOCTOU-hardened lock
+Phase 0.1.5: resumeCheck(flags)                           # NEW - crash resume (--resume)
+Phase 0.2:   manifest = buildManifest(all_files)          # NEW - file inventory
+Phase 0.3:   diffManifest + reconcileState                # NEW - state reconciliation
+Phase 0.3.5: scored = priorityScore(manifest, state)      # NEW - 6-factor composite scoring
+Phase 0.4:   batch = selectBatch(scored, config)          # NEW - top-N selection, Tier 2/3 integration
+Phase 0.5:   Lore Layer (operates on batch, not all)      # Existing (scoped)
 
 Input:  all_files: string[]
-Output: batch: string[]
+Output: batch: string[] (filtered all_files array passed to orchestration)
 Side effect: state.json updated with manifest diff
 ```
 
