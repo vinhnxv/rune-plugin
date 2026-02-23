@@ -37,6 +37,14 @@ allowed-tools:
 
 Orchestrates multi-agent code reviews using Claude Code Agent Teams. Each Ash teammate gets its own 200k context window, eliminating single-context bottlenecks.
 
+## Iron Law
+
+> **NO REVIEW WITHOUT INSCRIPTION** (SEC-001)
+>
+> This rule is absolute. No exceptions for "simple" changes, time pressure,
+> or pragmatism arguments. If you find yourself rationalizing an exception,
+> you are about to violate this law.
+
 ## Architecture
 
 ### 7-Phase Lifecycle
@@ -509,6 +517,18 @@ if (!cleanupSucceeded) {
 | ALL Ash fail | Abort review, notify user |
 | Concurrent review running | Warn user, offer to cancel previous |
 | Inscription validation fails | Report gaps, proceed with available results |
+
+## Rationalization Red Flags
+
+If you catch yourself thinking any of these, STOP — you're about to violate the protocol:
+
+| Rationalization | Why It's Wrong | Counter |
+|----------------|----------------|---------|
+| "Only 2 files changed, skip the full Circle" | Small changes cause big bugs. The v1.53 regression was a 3-line change. | ALL reviews use full Circle regardless of diff size. |
+| "This Ash is taking too long, skip it" | Partial review is worse than slow review — missed findings become production bugs. | Wait for timeout, then proceed with findings so far. Never dismiss an Ash early. |
+| "The changes are obvious, no need for deep review" | "Obvious" changes hide subtle regressions. Confidence without evidence is the #1 failure mode. | Ashes review ALL changes. Perception of simplicity is not evidence of safety. |
+| "We already ran a review yesterday" | Code changed since yesterday. Yesterday's review covers yesterday's code. | Every diff gets its own review. Stale reviews are worse than no review. |
+| "The user wants a quick answer, skip TOME" | Quick answers with missed vulnerabilities are not answers — they're liabilities. | Always aggregate to TOME. Speed is not a valid reason to skip aggregation. |
 
 ## Cancellation
 
