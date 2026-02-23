@@ -1566,6 +1566,7 @@ async def pipeline_search(
     return scored[:limit]
 
 
+
 def build_fts_query(raw_query):
     # type: (str) -> str
     raw_query = raw_query[:500]  # SEC-7: cap input length
