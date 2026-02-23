@@ -1,7 +1,7 @@
 # Initialize Checkpoint (ARC-2) — Full Algorithm
 
 Checkpoint initialization: config resolution (3-layer), session identity,
-checkpoint schema v13 creation, and initial state write.
+checkpoint schema v14 creation, and initial state write.
 
 **Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check
 **Outputs**: checkpoint object (schema v13), resolved arc config (`arcConfig`)
@@ -132,7 +132,12 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 ```
 
-## Checkpoint Schema v13
+## Checkpoint Schema v14
+
+Schema v14 adds `parent_plan` metadata for hierarchical execution (v1.79.0+). When an arc runs
+as a child in a `/rune:arc-hierarchy` session, `parent_plan` carries hierarchy context so phases
+can skip branch creation and PR creation (the parent manages the single feature branch and PR).
+Backward compatible: v13 checkpoints get `parent_plan: null` on migration (resume path).
 
 Schema v13 removes audit/audit_mend/audit_verify phases (v1.67.0+). Phase 6 now invokes
 `/rune:appraise --deep` which covers audit-depth analysis via multi-wave review.
@@ -143,14 +148,31 @@ Backward compatible: v12 checkpoints are migrated by marking removed audit phase
 const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
 const ownerPid = Bash(`echo $PPID`).trim()
 
+// ── Resolve parent_plan context (v1.79.0+: hierarchical execution) ──
+// When arc is invoked as a child under arc-hierarchy, this context is passed via the
+// arc-hierarchy SKILL.md. For standalone arcs, all fields remain null / false.
+const parentPlanMeta = {
+  path: null,           // Parent plan path (null if not a child arc)
+  children_dir: null,   // Children directory from parent frontmatter
+  child_seq: null,      // This child's sequence number (1-indexed)
+  feature_branch: null, // Parent's feature branch name (child stays on this branch)
+  skip_branch: false,   // Skip branch creation (parent manages the feature branch)
+  skip_ship_pr: false   // Skip PR creation (parent creates single PR after all children)
+}
+// If invoked via arc-hierarchy stop hook, the injected prompt sets these fields.
+// Detection: check for --hierarchy-child flag or HIERARCHY_CONTEXT env override in args.
+// The arc-hierarchy SKILL.md documents the injection protocol.
+
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 13, plan_file: planFile,
+  id, schema_version: 14, plan_file: planFile,
   config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test ?? false },
   arc_config: arcConfig,
   pr_url: null,
   freshness: freshnessResult || null,
   session_nonce: sessionNonce, phase_sequence: 0,
+  // Schema v14 addition (v1.79.0): parent_plan metadata for hierarchical execution
+  parent_plan: parentPlanMeta,
   phases: {
     forge:        { status: arcConfig.no_forge ? "skipped" : "pending", artifact: null, artifact_hash: null, team_name: null },
     plan_review:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
@@ -187,6 +209,12 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
 // if (checkpoint.schema_version < 13) {
 //   // v12→v13: Remove audit phases, mark as skipped
 //   checkpoint.schema_version = 13
+//   Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
+// }
+// if (checkpoint.schema_version < 14) {
+//   // v13→v14: Add parent_plan field (null = standalone arc, not part of hierarchy)
+//   checkpoint.parent_plan = null
+//   checkpoint.schema_version = 14
 //   Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
 // }
 ```

@@ -25,6 +25,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **inner-flame** | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
 | **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
 | **arc-batch** | Sequential batch arc execution — runs /rune:arc across multiple plans with crash recovery and progress tracking |
+| **arc-hierarchy** | Hierarchical plan execution — orchestrates parent/child plan decomposition with dependency DAGs, requires/provides contracts, and feature branch strategy. Use when a plan has been decomposed into child plans via /rune:devise --shatter |
 | **audit** | Full codebase audit — thin wrapper that sets scope=full, depth=deep, then delegates to shared Roundtable Circle orchestration phases. Default: deep. Use `--standard` to override. |
 | **file-todos** | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Gated by `talisman.file_todos.enabled` |
 | **forge** | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer integration (Phase 1.5) for risk-aware section prioritization |
@@ -46,6 +47,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | `/rune:plan-review` | Review plan code samples for implementation correctness (thin wrapper for /rune:inspect --mode plan) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:cancel-arc-batch` | Cancel active arc-batch loop and remove state file |
+| `/rune:cancel-arc-hierarchy` | Cancel active arc-hierarchy execution loop and mark state as cancelled |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:elicit` | Interactive elicitation method selection |
 | `/rune:file-todos` | Manage file-based todos (create, triage, status, list, next, search, archive) |

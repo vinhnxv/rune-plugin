@@ -79,6 +79,145 @@ if (shardMatch) {
 }
 ```
 
+## Child Plan Context Injection (Hierarchical Plans)
+
+When a plan is a child plan (has `parent` and `sequence` in frontmatter), inject completed sibling context into worker prompts. This gives workers awareness of what prior children produced so they can reuse artifacts and avoid duplication.
+
+**Inputs**: frontmatter (object, parsed from plan YAML), tasks (Task[], extracted from plan), workerContext (string, mutable — passed to Phase 2 worker spawn prompts)
+**Outputs**: workerContext (string, enriched with sibling artifacts and prerequisites)
+**Preconditions**: `frontmatter.parent` is a valid relative path; parent plan file exists
+**Error handling**: Read(parentPlan) failure → log warning, skip context injection; parseExecutionTable failure → skip context injection; missing `requires`/`provides` → treat as empty arrays
+
+```javascript
+// Detect child plan via frontmatter discriminator
+const isChildPlan = !!(frontmatter.parent && frontmatter.sequence)
+
+if (isChildPlan) {
+  // Validate parent path (path traversal guard)
+  if (!/^[a-zA-Z0-9._\/-]+$/.test(frontmatter.parent) || frontmatter.parent.includes('..')) {
+    warn("Child plan: invalid parent path — skipping sibling context injection")
+  } else {
+    let parentContent = null
+    try {
+      parentContent = Read(frontmatter.parent)
+    } catch (e) {
+      warn(`Child plan: could not read parent plan at "${frontmatter.parent}" — skipping context injection`)
+    }
+
+    if (parentContent) {
+      // Parse execution table from parent plan to find completed siblings
+      // Expected table format: | N | [name](path) | status | ... |
+      const executionTableRows = []
+      const tableRegex = /\|\s*(\d+)\s*\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|\s*(\w[\w-]*)\s*\|/g
+      for (const match of parentContent.matchAll(tableRegex)) {
+        executionTableRows.push({
+          sequence: parseInt(match[1]),
+          name: match[2],
+          path: match[3],
+          status: match[4]   // pending | in-progress | completed | partial | failed | skipped
+        })
+      }
+
+      const mySequence = parseInt(frontmatter.sequence)
+      const completedSiblings = executionTableRows.filter(row =>
+        row.sequence < mySequence && row.status === 'completed'
+      )
+
+      // Collect provides from completed siblings (what artifacts are available)
+      const availableArtifacts = []
+      for (const sibling of completedSiblings) {
+        if (!/^[a-zA-Z0-9._\/-]+$/.test(sibling.path) || sibling.path.includes('..')) continue
+        try {
+          const siblingContent = Read(sibling.path)
+          // Parse "## Provides" section from sibling frontmatter
+          const providesMatch = siblingContent.match(/^provides:\n([\s\S]*?)(?=^\w|\n---)/m)
+          if (providesMatch) {
+            for (const line of providesMatch[1].split('\n')) {
+              const m = line.match(/\s*-\s*type:\s*(\w+)/)
+              const n = line.match(/\s*name:\s*"([^"]+)"/)
+              if (m && n) availableArtifacts.push({ type: m[1], name: n[1], from: sibling.name })
+            }
+          }
+        } catch (e) {
+          // Non-blocking: skip sibling if unreadable
+          warn(`Child plan: could not read sibling "${sibling.path}" — skipping its provides`)
+        }
+      }
+
+      // Extract requires from this child's frontmatter
+      const prerequisites = Array.isArray(frontmatter.requires) ? frontmatter.requires : []
+
+      // Identify self-heal tasks (prepended with [SELF-HEAL] marker)
+      // Self-heal tasks fix prerequisite failures discovered at runtime
+      const selfHealTasks = tasks.filter(t =>
+        typeof t.subject === 'string' && t.subject.startsWith('[SELF-HEAL]')
+      )
+
+      // Build enriched worker context string
+      // This is injected into each worker's spawn prompt in Phase 2
+      let childWorkerContext = `\n## Hierarchical Plan — Child Context\n`
+      childWorkerContext += `This is child ${mySequence} of a hierarchical parent plan.\n`
+      childWorkerContext += `Parent plan: ${frontmatter.parent}\n\n`
+
+      if (completedSiblings.length > 0) {
+        childWorkerContext += `### Completed Siblings (${completedSiblings.length})\n`
+        for (const s of completedSiblings) {
+          childWorkerContext += `- Child ${s.sequence}: ${s.name} — status: ${s.status}\n`
+        }
+        childWorkerContext += '\n'
+      } else {
+        childWorkerContext += `### Completed Siblings\nNo prior siblings completed — this is the first child.\n\n`
+      }
+
+      if (availableArtifacts.length > 0) {
+        // DOC-3: Inline comment explaining artifact injection logic
+        // Available artifacts = provides from ALL completed prior siblings.
+        // Workers should import/use these rather than re-implementing them.
+        childWorkerContext += `### Available Artifacts (from completed siblings)\n`
+        childWorkerContext += `The following artifacts were produced by prior children and are available to use:\n`
+        for (const a of availableArtifacts) {
+          childWorkerContext += `- **${a.type}**: \`${a.name}\` (from: ${a.from})\n`
+        }
+        childWorkerContext += `\nDo NOT re-implement these — import or reference them directly.\n\n`
+      }
+
+      if (prerequisites.length > 0) {
+        childWorkerContext += `### Prerequisites (this child requires)\n`
+        childWorkerContext += `These artifacts MUST exist before this child's tasks run.\n`
+        for (const r of prerequisites) {
+          const satisfied = availableArtifacts.some(a => a.type === r.type && a.name === r.name)
+          childWorkerContext += `- **${r.type}**: \`${r.name}\` — ${satisfied ? 'AVAILABLE' : 'MISSING (check prior siblings)'}\n`
+        }
+        childWorkerContext += '\n'
+
+        // Prerequisite verification — warn if required artifacts are missing
+        const missingPrereqs = prerequisites.filter(r =>
+          !availableArtifacts.some(a => a.type === r.type && a.name === r.name)
+        )
+        if (missingPrereqs.length > 0) {
+          const missingList = missingPrereqs.map(r => `${r.type}:${r.name}`).join(', ')
+          warn(`Child plan: ${missingPrereqs.length} prerequisite(s) missing: ${missingList}`)
+          warn(`Child plan: missing prerequisites may indicate a prior sibling failed or was skipped.`)
+          warn(`Child plan: resolve via talisman work.hierarchy.missing_prerequisite strategy (pause | self-heal | backtrack)`)
+        }
+      }
+
+      if (selfHealTasks.length > 0) {
+        childWorkerContext += `### Self-Heal Tasks (elevated priority)\n`
+        childWorkerContext += `These tasks repair prerequisite failures from prior siblings. Complete them FIRST:\n`
+        for (const t of selfHealTasks) {
+          childWorkerContext += `- ${t.subject}\n`
+        }
+        childWorkerContext += '\n'
+      }
+
+      // Append to workerContext (prepended to all worker spawn prompts in Phase 2)
+      workerContext = childWorkerContext + (workerContext || '')
+    }
+  }
+}
+```
+
 ## Identify Ambiguities
 
 After extracting tasks, scan for potential issues before asking the user to confirm:

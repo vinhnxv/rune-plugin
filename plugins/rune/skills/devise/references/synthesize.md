@@ -382,6 +382,95 @@ Files that must be updated when this feature ships:
 - Issues: #{numbers}
 ```
 
+## Hierarchical Plan Frontmatter
+
+Used when a plan has been decomposed into parent + children via Phase 2.5 "Hierarchical" option.
+
+### Parent Plan Additional Fields
+
+Add these fields to the Standard or Comprehensive frontmatter after hierarchical generation completes:
+
+```yaml
+---
+# ... standard frontmatter fields ...
+hierarchical: true                          # Marks this as a parent of child plans
+children_dir: "plans/children/"            # Relative path to child plans directory
+---
+```
+
+### Child Plan Frontmatter Template
+
+Each child plan generated in `plans/children/` uses this frontmatter:
+
+```yaml
+---
+title: "{type}: {phase name} (child {N}/{total})"
+type: feat | fix | refactor                 # Inherited from parent plan
+date: YYYY-MM-DD
+parent: "plans/YYYY-MM-DD-{type}-{name}-plan.md"   # Relative path to parent plan
+sequence: {N}                               # 1-indexed position in execution order
+depends_on:                                 # Child plan paths this must wait for (empty = can start immediately)
+  - "plans/children/YYYY-MM-DD-{type}-{name}-child-1-{phase}-plan.md"
+requires:                                   # Artifacts needed from prior children
+  - type: file                              # file | export | type | endpoint | migration
+    name: "src/models/User.ts"
+  - type: export
+    name: "UserDTO"
+  - type: endpoint
+    name: "GET /api/users"
+provides:                                   # Artifacts produced by this child (consumed by later children)
+  - type: file
+    name: "src/services/UserService.ts"
+  - type: export
+    name: "UserService"
+status: pending                             # pending | in-progress | completed | partial | failed | skipped
+branch_suffix: "child-{N}-{phase-slug}"    # Appended to feature branch: feature/{id}/{branch_suffix}
+---
+```
+
+### Parent Execution Table Template
+
+Injected into the parent plan before the References section after hierarchical generation:
+
+```markdown
+## Child Execution Table
+
+| # | Child Plan | Status | Depends On | Branch |
+|---|-----------|--------|------------|--------|
+| 1 | [Foundation](plans/children/...-child-1-foundation-plan.md) | pending | — | feature/{id}/child-1-foundation |
+| 2 | [Core Implementation](plans/children/...-child-2-core-plan.md) | pending | child-1 | feature/{id}/child-2-core |
+| 3 | [Polish & Hardening](plans/children/...-child-3-polish-plan.md) | pending | child-2 | feature/{id}/child-3-polish |
+
+## Dependency Contract Matrix
+
+| Child | Requires | Provides |
+|-------|---------|---------|
+| Foundation | — | file:src/models/User.ts, export:UserDTO |
+| Core Implementation | file:src/models/User.ts, export:UserDTO | file:src/services/UserService.ts, export:UserService, endpoint:GET /api/users |
+| Polish & Hardening | export:UserService, endpoint:GET /api/users | — |
+```
+
+### Artifact Type Reference
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `file` | A source file produced by a child | `src/models/User.ts` |
+| `export` | A named export (class, interface, function, constant) | `UserDTO`, `createUser` |
+| `type` | A TypeScript/Flow type definition | `UserRecord` |
+| `endpoint` | An HTTP API endpoint | `POST /api/users` |
+| `migration` | A database migration file | `20240201_create_users` |
+
+### Status Values for Child Plans
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Not started — waiting for prerequisites |
+| `in-progress` | Currently running in arc-hierarchy |
+| `completed` | Successfully finished with all acceptance criteria met |
+| `partial` | Finished but some tasks failed or were skipped |
+| `failed` | Arc run failed — may need manual intervention |
+| `skipped` | Deliberately excluded from this run |
+
 ## How to Fill New Header Fields
 
 During Phase 2 Synthesize, after consolidating research:
