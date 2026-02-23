@@ -86,6 +86,41 @@ if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/
   # Not our batch — proceed with normal cleanup for THIS session
 fi
 
+# ── GUARD 5b: Defer to arc-hierarchy stop hook (with ownership check) ──
+# When arc-hierarchy loop is active AND belongs to THIS session, arc-hierarchy-stop-hook.sh
+# handles the Stop event. Only defer if we're the owning session.
+# If the hierarchy belongs to another session, proceed with normal cleanup for THIS session.
+# NOTE: arc-hierarchy state is .claude/arc-hierarchy-loop.local.md (not .arc-batch-loop)
+if [[ -f "${CWD}/.claude/arc-hierarchy-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-hierarchy-loop.local.md" ]]; then
+  _HIER_FM=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-hierarchy-loop.local.md" 2>/dev/null | sed '1d;$d')
+  _HIER_CFG=$(echo "$_HIER_FM" | grep "^config_dir:" | sed 's/^config_dir:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+  _HIER_PID=$(echo "$_HIER_FM" | grep "^owner_pid:" | sed 's/^owner_pid:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+  _HIER_STATUS=$(echo "$_HIER_FM" | grep "^status:" | sed 's/^status:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+
+  _is_hier_owner=true
+  # Check config_dir
+  if [[ -n "$_HIER_CFG" && "$_HIER_CFG" != "$RUNE_CURRENT_CFG" ]]; then
+    _is_hier_owner=false
+  fi
+  # Check PID (liveness)
+  if [[ "$_is_hier_owner" == "true" && -n "$_HIER_PID" && "$_HIER_PID" =~ ^[0-9]+$ && "$_HIER_PID" != "$PPID" ]]; then
+    if kill -0 "$_HIER_PID" 2>/dev/null; then
+      _is_hier_owner=false
+    fi
+  fi
+
+  if [[ "$_is_hier_owner" == "true" ]]; then
+    if [[ "$_HIER_STATUS" == "active" ]]; then
+      # This session owns an active hierarchy — defer to arc-hierarchy-stop-hook.sh
+      exit 0
+    else
+      # Hierarchy state file exists but not active (completed/cancelled) — clean up orphaned file
+      rm -f "${CWD}/.claude/arc-hierarchy-loop.local.md" 2>/dev/null
+    fi
+  fi
+  # Not our hierarchy (or cleaned up) — proceed with normal cleanup for THIS session
+fi
+
 # ── CHOME resolution ──
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 if [[ -z "$CHOME" ]] || [[ "$CHOME" != /* ]]; then

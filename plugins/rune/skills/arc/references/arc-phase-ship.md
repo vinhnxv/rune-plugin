@@ -20,6 +20,7 @@ Orchestrator-only phase (no team). Creates a GitHub PR after test completes.
 
 ## Pre-checks
 
+0. Check `checkpoint.parent_plan.skip_ship_pr` -- if true, skip phase (child arc, parent manages PR)
 1. Check `arcConfig.ship.auto_pr` -- if false, skip phase entirely
 2. Verify `gh` CLI availability and authentication (`gh auth status`)
 3. Verify current branch is not main/master (detached HEAD also skipped)
@@ -34,6 +35,16 @@ updateCheckpoint({ phase: "ship", status: "in_progress", phase_sequence: 9, team
 // ENV: Disable gh interactive prompts in automation (SEC-DECREE-003 / concern C-7)
 // Set before ALL gh commands in this phase
 const GH_ENV = 'GH_PROMPT_DISABLED=1'
+
+// 0. Child arc guard (v1.79.0+): Skip PR creation when running as child under hierarchy
+// The parent arc-hierarchy session manages the single feature PR after all children complete.
+// This prevents N spurious PRs (one per child) when running a hierarchical plan.
+if (checkpoint?.parent_plan?.skip_ship_pr === true) {
+  warn("Ship phase: Skipping PR creation — child arc delegates to parent hierarchy")
+  warn(`Parent hierarchy will create the feature PR on branch: ${checkpoint.parent_plan.feature_branch ?? "unknown"}`)
+  updateCheckpoint({ phase: "ship", status: "skipped" })
+  return
+}
 
 // 1. Pre-checks
 if (!arcConfig.ship.auto_pr) {
@@ -275,6 +286,7 @@ updateCheckpoint({
 
 | Condition | Action |
 |-----------|--------|
+| `parent_plan.skip_ship_pr` true | Phase skipped -- child arc, parent hierarchy creates single PR |
 | `auto_pr` disabled | Phase skipped -- proceed to merge (also skipped) or completion |
 | gh CLI missing/unauthenticated | Phase skipped -- warn user, proceed to completion |
 | On default branch | Phase skipped -- no PR needed |

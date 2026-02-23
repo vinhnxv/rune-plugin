@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.79.0] - 2026-02-23
+
+### Added
+- **Hierarchical Plans** — Parent/child plan decomposition with dependency DAGs
+  - New `/rune:arc-hierarchy` skill for orchestrating multi-plan execution in dependency order
+  - Devise Phase 2.5 "Hierarchical" option for plan decomposition (complexity >= 0.65)
+  - Cross-child coherence check (Phase 2.5D) — task coverage, contract dedup, circular dependency detection
+  - Requires/provides contract system — supports artifact types: file, export, type, endpoint, migration
+  - Pre-execution prerequisite verification with 3 resolution strategies: pause / self-heal / backtrack
+  - Feature branch + child sub-branch strategy (`feature/{id}/child-N-{slug}`) with single PR to main
+  - Strive child context injection — completed sibling artifacts, prerequisites, self-heal task prioritization
+  - Dedicated stop hook (`arc-hierarchy-stop-hook.sh`) separate from arc-batch
+  - `/rune:cancel-arc-hierarchy` command for graceful loop cancellation
+  - Talisman `work.hierarchy.*` configuration (11 new keys: enabled, max_children, max_backtracks, missing_prerequisite, conflict_resolution, integration_failure, sync_main_before_pr, cleanup_child_branches, require_all_children, test_timeout_ms, merge_strategy)
+  - Coherence check output: `tmp/plans/{timestamp}/coherence-check.md`
+  - Migration note: hierarchical is fully opt-in — existing strive/arc workflows are unaffected
+
+### Architecture
+- Arc checkpoint schema v14: `parent_plan` metadata for hierarchical execution tracking
+- Hierarchy-specific stop hook with STOP-001 one-shot guard pattern
+- Session isolation for hierarchy state files (config_dir + owner_pid fields)
+- Auto-generate requires/provides from task analysis (file references, exports, API routes, imports)
+- DAG validation via topological sort to detect cycles before generation completes
+- synthesize.md: hierarchical frontmatter templates, parent execution table template, dependency contract matrix template, artifact type reference, status value reference
+
 ## [1.78.0] - 2026-02-23
 
 ### Added

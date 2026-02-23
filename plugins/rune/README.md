@@ -147,6 +147,70 @@ When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan f
 
 Batch mode runs headless with `--dangerously-skip-permissions`. Ensure all plans are trusted.
 
+## Hierarchical Plans
+
+For complex features that decompose into multiple dependent sub-plans, use hierarchical mode. Each child plan gets its own full arc pipeline run in dependency order, producing a single PR to main when all children complete.
+
+> **Migration note**: Hierarchical plans are fully opt-in. All existing `/rune:strive`, `/rune:arc`, and `/rune:arc-batch` workflows are unaffected.
+
+### When to Use
+
+Use hierarchical plans when a feature has:
+- Multiple implementation phases that must run in strict order
+- Cross-phase artifact dependencies (one phase produces types/files that another consumes)
+- Tasks too large for a single arc run but too coupled for fully independent shards
+
+### Workflow
+
+1. **Plan** — run `/rune:devise` and select "Hierarchical" at Phase 2.5 (appears when complexity >= 0.65)
+2. **Review** — inspect the parent plan's execution table and dependency contract matrix
+3. **Execute** — run `/rune:arc-hierarchy plans/parent-plan.md` to orchestrate all children
+4. **Each child** runs its own full arc pipeline (forge → work → review → mend → test → ship)
+5. **Single PR** to main is created after all children complete
+
+### Child Plan Awareness
+
+Workers running a child plan automatically receive context about prior siblings:
+
+- **Available artifacts** — exports, files, endpoints produced by completed prior children
+- **Prerequisites** — artifacts this child declared as required (with AVAILABLE/MISSING status)
+- **Self-heal tasks** — tasks marked `[SELF-HEAL]` run first to recover from missing prerequisites
+
+### Prerequisite Strategies
+
+When a required artifact is missing, the resolution strategy is configured via `work.hierarchy.missing_prerequisite`:
+
+| Strategy | Behavior |
+|----------|----------|
+| `pause` | Halt and prompt user (default — safest) |
+| `self-heal` | Inject `[SELF-HEAL]` tasks to recreate the missing artifact |
+| `backtrack` | Re-run the sibling that should have provided it |
+
+### Cancel an Active Hierarchy Run
+
+```bash
+/rune:cancel-arc-hierarchy
+```
+
+### Configure
+
+```yaml
+# .claude/talisman.yml
+work:
+  hierarchy:
+    enabled: true                    # Enable hierarchical plan support
+    max_children: 12                 # Maximum children per parent plan
+    max_backtracks: 1                # Max backtrack attempts per child
+    missing_prerequisite: "pause"    # pause | self-heal | backtrack
+    conflict_resolution: "pause"     # Merge conflict: pause | child-wins | feature-wins
+    integration_failure: "pause"     # Test failure: pause | skip | retry
+    sync_main_before_pr: true        # Merge main into feature before PR
+    cleanup_child_branches: true     # Delete child branches after merge
+    require_all_children: true       # Block PR if any child failed/partial
+    test_timeout_ms: 300000          # Integration test timeout (5 min default)
+    merge_strategy: "merge"          # Final PR: merge | squash
+```
+
 ## Mend Mode (Finding Resolution)
 
 When you run `/rune:mend`, Rune parses structured findings from a TOME and fixes them in parallel:

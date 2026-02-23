@@ -535,6 +535,33 @@ work:
   # consistency:                   # Doc-consistency checks for Phase 4.3 (v1.19.0+)
   #   checks: []                   # Same schema as arc.consistency.checks. If empty, falls back to arc checks, then defaults.
 
+  # ── Hierarchical Plan Support (v1.79.0+) ──────────────
+  # Controls behavior when running /rune:arc-hierarchy (parent + child plans).
+  # Opt-in feature — existing strive/arc workflows are unaffected.
+  # hierarchy:
+  #   enabled: true                    # Enable hierarchical plan support (default: true)
+  #   max_children: 12                 # Maximum children per parent plan (default: 12, range: 2-30)
+  #   max_backtracks: 1               # Max backtrack attempts per child on prerequisite failure (default: 1, range: 0-3)
+  #   missing_prerequisite: "pause"   # Strategy when a required artifact is missing:
+  #                                   #   pause      — halt and ask user (default, safest)
+  #                                   #   self-heal  — inject [SELF-HEAL] tasks to recreate the artifact
+  #                                   #   backtrack  — re-run the sibling that should have provided it
+  #   conflict_resolution: "pause"    # Merge conflict strategy when integrating child branch:
+  #                                   #   pause      — halt and ask user (default)
+  #                                   #   child-wins — accept all child branch changes
+  #                                   #   feature-wins — accept all feature branch changes
+  #   integration_failure: "pause"    # Strategy when post-child integration tests fail:
+  #                                   #   pause      — halt and ask user (default)
+  #                                   #   skip       — mark child as partial and continue
+  #                                   #   retry      — retry the child arc run (once)
+  #   sync_main_before_pr: true       # Merge main into feature branch before creating PR (default: true)
+  #   cleanup_child_branches: true    # Delete child sub-branches after they merge to feature (default: true)
+  #   require_all_children: true      # Block PR creation if any child has status failed or partial (default: true)
+  #   test_timeout_ms: 300000         # Timeout for integration tests run between children (default: 300000 = 5 min)
+  #   merge_strategy: "merge"         # Strategy for merging child branches into feature branch:
+  #                                   #   merge  — standard merge commit (default, preserves child history)
+  #                                   #   squash — squash child commits into one commit per child
+
 # ──────────────────────────────────────────────
 # Horizon — Strategic depth assessment (v1.47.0+)
 # ──────────────────────────────────────────────
