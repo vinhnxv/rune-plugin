@@ -20,15 +20,17 @@ Invalid values produce a clear error message, NOT an empty list.
 
 **parseFrontmatter(content)**: Extract YAML frontmatter from todo file content. Returns object with all frontmatter fields. Matches `^---\n([\s\S]*?)\n---` at the start of the file.
 
-**readTodoDir()**: Scan `todos/` for todo files. Returns list of `{ path, frontmatter, title }` objects. Uses zsh-safe glob `(N)` qualifier:
+**readTodoDir()**: Scan all source subdirectories for todo files. Returns list of `{ path, source, frontmatter, title }` objects. Uses zsh-safe glob `(N)` qualifier:
 
 ```bash
-for f in todos/[0-9][0-9][0-9]-*.md(N); do
+# Scan all source subdirectories (work/, review/, audit/)
+for f in todos/*/[0-9][0-9][0-9]-*.md(N); do
   # parse frontmatter from each file
+  # derive source from parent directory name: source=$(basename "$(dirname "$f")")
 done
 ```
 
-**ensureTodosDir()**: Create `todos/` directory if it does not exist: `mkdir -p todos`
+**ensureTodosDir(source)**: Create source subdirectory if it does not exist: `mkdir -p todos/${source}`
 
 **getTitle(content)**: Extract the first H1 heading from the markdown body (after frontmatter).
 
@@ -36,8 +38,8 @@ done
 
 Interactive workflow for creating a new todo file.
 
-1. Ensure `todos/` directory exists (create if missing)
-2. Prompt user for todo details via AskUserQuestion:
+1. Prompt user for todo details via AskUserQuestion (source determines subdirectory):
+2. Ensure source subdirectory exists: `mkdir -p todos/${source}/`
 
 ```javascript
 AskUserQuestion({
@@ -76,25 +78,26 @@ AskUserQuestion({
 })
 ```
 
-3. Generate next sequential ID:
+3. Generate next sequential ID (per-subdirectory sequence):
 
 ```bash
-existing=(todos/[0-9][0-9][0-9]-*.md(N))
+# ID sequence is independent per source subdirectory
+existing=(todos/${source}/[0-9][0-9][0-9]-*.md(N))
 next_id=$(printf "%03d" $(( ${#existing[@]} + 1 )))
 ```
 
 4. Compute slug from title using the canonical slugify algorithm
-5. Write file using the todo template
+5. Write file to source subdirectory using the todo template
 6. Set frontmatter fields: `status: pending`, `priority`, `source`, `files`, `created`, `updated` (today's date)
-7. Report: "Created `todos/{filename}`"
+7. Report: "Created `todos/${source}/{filename}`"
 
-**Zero-state**: If `todos/` does not exist, create it automatically and report the creation.
+**Zero-state**: If `todos/${source}/` does not exist, create it automatically and report the creation.
 
 ## triage — Full Implementation
 
 Process pending todos in batch (capped at 10 per session).
 
-1. Scan `todos/` for all todo files
+1. Scan all source subdirectories: `Glob("todos/*/[0-9][0-9][0-9]-*.md")`
 2. Filter to `status: pending` (from frontmatter, NOT filename)
 3. Sort by priority (P1 first), then by `issue_id` (oldest first)
 4. If `talisman.file_todos.triage.auto_approve_p1 === true`:
@@ -157,7 +160,7 @@ List todos with optional filters composing as intersection.
    ```
    Do NOT return an empty list for invalid filters.
 
-3. Scan `todos/` and parse frontmatter from each file
+3. Scan all source subdirectories: `Glob("todos/*/[0-9][0-9][0-9]-*.md")`. When `--source` is specified, narrow to `Glob("todos/${sourceFilter}/[0-9][0-9][0-9]-*.md")`
 
 4. Apply filters as intersection:
    ```javascript
@@ -176,13 +179,13 @@ List todos with optional filters composing as intersection.
 ```
 File-Todos List (filter: status=pending, priority=p1)
 -----------------------------------------------------
- #001 [P1] fix-sql-injection          pending   review
- #004 [P1] add-input-validation       pending   audit
+ review/001 [P1] fix-sql-injection          pending   review
+ audit/001  [P1] add-input-validation       pending   audit
 -----------------------------------------------------
  2 todos found
 ```
 
-**Zero-state**: "No todos match the given filters." (when todos exist but none match) or "No todos found." (when `todos/` is empty or missing).
+**Zero-state**: "No todos match the given filters." (when todos exist but none match) or "No todos found." (when source subdirectories are empty or missing).
 
 ## next --auto — Atomic Claim Protocol
 
@@ -220,7 +223,7 @@ When `--auto` is passed, output JSON instead of human-readable text. Also claim 
      "issue_id": "002",
      "priority": "p2",
      "title": "implement-auth-flow",
-     "file": "todos/002-ready-p2-implement-auth-flow.md",
+     "file": "todos/work/002-ready-p2-implement-auth-flow.md",
      "source": "work",
      "source_ref": "plans/feat-auth-plan.md",
      "files": ["src/auth.ts", "src/middleware.ts"]
@@ -241,13 +244,13 @@ Search across todo titles, problem statements, and work logs for matching text.
    - Escape regex metacharacters: `[`, `]`, `(`, `)`, `{`, `}`, `*`, `+`, `?`, `.`, `^`, `$`, `|`, `\`
    - Use the escaped pattern for case-insensitive literal search
 
-3. Search using Grep across all todo files:
+3. Search using Grep across all source subdirectories:
 
 ```javascript
 Grep({
   pattern: sanitizedQuery,
   path: "todos/",
-  glob: "[0-9][0-9][0-9]-*.md",
+  glob: "*/[0-9][0-9][0-9]-*.md",
   output_mode: "content",
   context: 2,
   "-i": true  // case-insensitive
@@ -278,35 +281,39 @@ Search: "sql injection" (3 matches in 2 files)
 
 ## archive — Full Implementation
 
-Move completed (and wont_fix) todos to `todos/archive/` for a cleaner working set.
+Move completed (and wont_fix) todos to `todos/archive/` with source prefix preserved in the filename.
 
-1. Scan `todos/` for todo files with `status: complete` or `status: wont_fix` in frontmatter
+1. Scan all source subdirectories for todo files with `status: complete` or `status: wont_fix` in frontmatter: `Glob("todos/*/[0-9][0-9][0-9]-*.md")`
 2. If `--id=NNN` specified:
    - Validate NNN against `TODO_ID_PATTERN`
-   - Find the specific todo file matching that ID
+   - Search across all subdirectories for file matching that ID
    - If not found: "Todo #NNN not found."
    - Archive that specific todo (regardless of status, with confirmation)
 3. If `--all` specified:
    - Archive all complete + wont_fix todos without individual confirmation
-4. If neither flag:
+4. If `--source` specified:
+   - Filter candidates to that source subdirectory only
+5. If no flag:
    - Display candidates and ask for confirmation via AskUserQuestion
 
-5. Create `todos/archive/` if it does not exist:
+6. Create `todos/archive/` if it does not exist:
    ```bash
    mkdir -p todos/archive
    ```
 
-6. Move files using Bash (mv is atomic on same filesystem):
+7. Move files with source prefix preserved in archive filename:
    ```bash
-   mv "todos/${filename}" "todos/archive/${filename}"
+   # source = basename of parent directory (e.g., "review", "work")
+   # review/003-complete-p2-old-finding.md → archive/review-003-complete-p2-old-finding.md
+   mv "todos/${source}/${filename}" "todos/archive/${source}-${filename}"
    ```
 
-7. Mark index as dirty if cache exists:
+8. Mark index as dirty if cache exists:
    ```bash
    touch todos/.dirty
    ```
 
-8. Report:
+9. Report:
 
 ```
 Archive Complete
@@ -340,7 +347,7 @@ For projects with >100 todos, implement `.todo-index.json` cache to avoid re-par
 **Dirty signal**: Any sub-command that modifies a todo file writes `todos/.dirty` marker. On next read operation, if `.dirty` exists, rebuild the index from source files and remove `.dirty`.
 
 **Rebuild protocol**:
-1. Parse all `todos/[0-9][0-9][0-9]-*.md(N)` files
+1. Parse all `todos/*/[0-9][0-9][0-9]-*.md(N)` files (scan all source subdirectories)
 2. Extract frontmatter fields
 3. Write to temp file: `todos/.todo-index.json.tmp`
 4. Atomic rename: `mv todos/.todo-index.json.tmp todos/.todo-index.json`
