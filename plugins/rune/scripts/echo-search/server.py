@@ -1633,7 +1633,7 @@ def run_mcp_server():
                 write_stream,
                 InitializationOptions(
                     server_name="echo-search",
-                    server_version="1.53.4",
+                    server_version="1.54.0",
                     capabilities=server.get_capabilities(
                         notification_options=NotificationOptions(),
                         experimental_capabilities={},

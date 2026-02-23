@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.82.0] - 2026-02-23
+
+### Added
+- **5-Factor Composite Scoring** — Echo search now uses BM25 relevance, recency decay, importance weighting, access frequency, and file proximity for context-aware ranking
+- **Access Frequency Tracking** — New `echo_access_log` SQLite table and `echo_record_access` MCP tool for usage-based scoring signals
+- **File Proximity Scoring** — Evidence path extraction from echo content for workspace-relative proximity weighting
+- **Dual-Mode Scoring Validation** — Kendall tau distance comparison between legacy BM25 and composite scoring with configurable toggle via `ECHO_SCORING_MODE` env var
+- **Notes Tier** — User-explicit memories (`/rune:echoes remember`) with weight=0.9, stored in `.claude/echoes/notes/`
+- **Observations Tier** — Agent-observed patterns with weight=0.5, auto-promotion to Inscribed after 3 access hits via atomic `os.replace()` file rewrite
+- **Extended Indexer** — `header_re` now matches Notes and Observations tiers (5 total). EDGE-018 stateful parser prevents content H2 headers from splitting entries
+- New test suites: `test_echo_scoring.py`, `test_echo_access.py`, `test_echo_proximity.py`, `test_echo_tiers.py` (33+ tests each)
+
+### Changed
+- Echo search server version bumped to 1.54.0
+- MCP tools expanded from 4 to 5 (added `echo_record_access`)
+- SKILL.md updated to 5-tier lifecycle: Etched / Notes / Inscribed / Observations / Traced
+- Scoring weights configurable via environment variables (`ECHO_WEIGHT_BM25`, `ECHO_WEIGHT_RECENCY`, etc.)
+- `talisman.example.yml` includes commented-out scoring configuration section
+
 ## [1.81.0] - 2026-02-23
 
 ### Added
