@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.74.1] - 2026-02-23
+
+### Fixed
+- **ZSH eval history expansion inside `[[ ]]`**: Fixed `(eval):1: parse error: condition expected: \!` errors in arc-batch team cleanup. In zsh eval context, `!` inside `[[ ]]` (e.g., `[[ ! -L path ]]`, `[[ "$a" != "$b" ]]`) triggers history expansion before the conditional parser processes it.
+  - Restructured `arc-batch-stop-hook.sh` ARC_PROMPT template to avoid `!` entirely: `[[ ! -L ]]` → `[[ -L ]] && continue`, `!= ` → `case ... esac`
+  - Fixed same pattern in `post-arc.md` and `arc-phase-cleanup.md` pseudocode: `[[ ! -L ]] &&` → `{ [[ -L ]] || action; }`
+  - Fixed `commands/rest.md` signal cleanup: restructured `[[ ! -L ]]` conditional
+  - Added **Check D** to `enforce-zsh-compat.sh`: detects `!` inside `[[ ]]` and auto-fixes with `setopt no_banghist;`
+  - Refactored hook auto-fixes to be **cumulative** — Checks B, C, D can all apply to the same command (previously each check exited early, so only the first fix was applied)
+  - Added **Pitfall 7** documentation to `zsh-compat` skill: `!` inside `[[ ]]` in eval context
+  - Updated quick reference table with `!`-free patterns for eval-safe conditionals
+
 ## [1.74.0] - 2026-02-23
 
 ### Changed
@@ -10,6 +22,7 @@
   - Removed: `"arc-gap-"` prefix from `ARC_TEAM_PREFIXES` in `arc-preflight.md`
   - Added: Phase 5.6 entries to `phase-tool-matrix.md` (tool restrictions + time budget)
   - Updated: SKILL.md Phase 5.6 stub and timeout comment
+  - Fixed: ZSH-FIX in `arc-phase-cleanup.md` `postPhaseCleanup` — symlink guard changed from `[[ ! -L ]] && rm` to `[[ -L ]] || rm` to avoid `!` history expansion in zsh eval context
 
 ## [1.73.0] - 2026-02-23
 

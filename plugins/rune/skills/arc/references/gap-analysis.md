@@ -996,10 +996,14 @@ Confidence thresholds:
 ### STEP 4: Run Codex Gap Analysis (inline)
 
 ```javascript
-// Security pattern: CODEX_MODEL_ALLOWLIST — see security-patterns.md
-const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
+// NOTE: CODEX_MODEL_ALLOWLIST already declared in STEP 3.5 via claimCodexModel (reused here)
 const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
   ? talisman.codex.model : "gpt-5.3-codex"
+
+// SEC-006 FIX: Validate reasoning against allowlist before shell interpolation
+const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.gap_analysis?.reasoning ?? "")
+  ? talisman.codex.gap_analysis.reasoning : "high"
 
 // SEC-008 FIX: Verify .codexignore exists before --full-auto
 const codexIgnoreCheck = Bash("test -f .codexignore && echo yes || echo no").trim()
@@ -1010,36 +1014,70 @@ if (codexIgnoreCheck !== "yes") {
   return
 }
 
-// Clamp timeout to sane range (30s - 900s)
-const perAspectTimeout = Math.max(30, Math.min(900, talisman?.codex?.gap_analysis?.timeout ?? 900))
+// SEC-004 FIX: Validate and clamp timeout before shell interpolation
+// Clamp range: 30s min, 900s max (phase budget allows talisman override up to 15 min)
+const rawGapTimeout = Number(talisman?.codex?.gap_analysis?.timeout)
+const perAspectTimeout = Math.max(30, Math.min(900, Number.isFinite(rawGapTimeout) ? rawGapTimeout : 900))
 
-// Run codex exec INLINE (matching Phase 2.8 / STEP 3.5 pattern)
+// Define focused gap aspects for parallel Codex calls (matching arc-codex-phases.md pattern)
+const gapAspects = [
+  { name: "completeness", prompt: codexGapPromptCompleteness },  // From STEP 3 prompt construction
+  { name: "integrity", prompt: codexGapPromptIntegrity }          // From STEP 3 prompt construction
+]
+
+// Write aspect prompts to temp files
+for (const aspect of gapAspects) {
+  Write(`tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt`, aspect.prompt)
+}
+
+// Run all aspects in PARALLEL (separate Bash tool calls, matching arc-codex-phases.md pattern)
 // SEC-R1-001 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion on prompt content
 // CTX-001: Prompt uses file PATHS not inline content — Codex reads files itself.
-const codexResult = Bash(`cat "tmp/arc/${id}/codex-gap-prompt.txt" | timeout ${perAspectTimeout} codex exec \
-  -m "${codexModel}" --config model_reasoning_effort="high" \
-  --sandbox read-only --full-auto --skip-git-repo-check \
-  - 2>/dev/null; echo "EXIT:$?"`)
-// NOTE: The orchestrator runs this Bash call directly (no team, no teammate).
+const aspectResults = gapAspects.map(aspect => {
+  return Bash(`cat "tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt" | timeout ${perAspectTimeout} codex exec \
+    -m "${codexModel}" \
+    --config model_reasoning_effort="${codexReasoning}" \
+    --sandbox read-only --full-auto --skip-git-repo-check \
+    - 2>/dev/null`)
+})
+// NOTE: The orchestrator MUST issue these Bash calls as PARALLEL tool calls (not sequential).
 ```
 
 ### STEP 5: Process Results and Cleanup
 
 ```javascript
-// Cleanup temp file
-Bash(`rm -f "tmp/arc/${id}/codex-gap-prompt.txt" 2>/dev/null`)
-
-// Parse exit code from appended EXIT: marker
-const exitMatch = codexResult.stdout.match(/EXIT:(\d+)$/)
-const codexExitCode = exitMatch ? parseInt(exitMatch[1]) : 1
-const codexOutput = codexResult.stdout.replace(/EXIT:\d+$/, '').trim()
-
-// Write results (always produce output file)
-if (codexExitCode === 0 && codexOutput.length > 0) {
-  Write(`tmp/arc/${id}/codex-gap-analysis.md`, codexOutput)
-} else {
-  Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Codex gap analysis timed out or produced no output.")
+// Aggregate results from all aspects
+const outputParts = ["# Codex Gap Analysis (Parallel Aspects)\n"]
+for (let i = 0; i < gapAspects.length; i++) {
+  const aspect = gapAspects[i]
+  const result = aspectResults[i]
+  outputParts.push(`## ${aspect.name}`)
+  if (result.exitCode === 0 && result.stdout.trim().length > 0) {
+    outputParts.push(result.stdout.trim())
+  } else if (result.exitCode === 124) {
+    outputParts.push(`_Codex timed out for this aspect (${perAspectTimeout}s)._`)
+  } else {
+    outputParts.push("No gaps detected.")
+  }
+  outputParts.push("")
 }
+Write(`tmp/arc/${id}/codex-gap-analysis.md`, outputParts.join('\n'))
+
+// Cleanup temp prompt files
+for (const aspect of gapAspects) {
+  Bash(`rm -f "tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt" 2>/dev/null`)
+}
+
+// Compute codex_needs_remediation from aggregated gap findings
+// Only actionable findings count (MISSING/INCOMPLETE/DRIFT — EXTRA excluded)
+const codexGapContent = Read(`tmp/arc/${id}/codex-gap-analysis.md`)
+const codexWasSkipped = codexGapContent.startsWith("Codex gap analysis skipped") || codexGapContent.startsWith("Skipped:")
+const completenessFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\d+\]\s+MISSING\b/g) || [])
+const incompleteFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\d+\]\s+INCOMPLETE\b/g) || [])
+const driftFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\d+\]\s+DRIFT\b/g) || [])
+const codexFindingCount = completenessFindings.length + incompleteFindings.length + driftFindings.length
+const codexThreshold = Math.max(1, Math.min(20, talisman?.codex?.gap_analysis?.remediation_threshold ?? 5))
+const codexNeedsRemediation = !codexWasSkipped && codexFindingCount >= codexThreshold
 
 updateCheckpoint({
   phase: "codex_gap_analysis",
@@ -1047,7 +1085,10 @@ updateCheckpoint({
   artifact: `tmp/arc/${id}/codex-gap-analysis.md`,
   artifact_hash: sha256(Read(`tmp/arc/${id}/codex-gap-analysis.md`)),
   phase_sequence: 5.6,
-  team_name: null
+  team_name: null,
+  codex_needs_remediation: codexNeedsRemediation,
+  codex_finding_count: codexFindingCount,
+  codex_threshold: codexThreshold
 })
 ```
 

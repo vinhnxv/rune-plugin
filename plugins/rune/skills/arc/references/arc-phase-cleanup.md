@@ -33,7 +33,7 @@ const PHASE_PREFIX_MAP = {
   mend:                   ["rune-mend-"],
   test:                   ["arc-test-"],
 }
-// NOTE: 10 delegated phases. Phases removed in v1.67.0 (audit, audit_mend) are NOT listed.
+// NOTE: 9 delegated phases. Phases removed in v1.67.0 (audit, audit_mend) are NOT listed.
 // Orchestrator-only phases (plan_refine, verification, semantic_verification,
 // goldmask_correlation, verify_mend, ship, merge) do not create teams — no entries needed.
 ```

@@ -464,7 +464,7 @@ See [arc-codex-phases.md](references/arc-codex-phases.md) § Phase 5.6 for the f
 // Phase 5.6 is orchestrator-only (inline codex exec) — no prePhaseCleanup needed (no team to clean)
 
 Read and execute the arc-codex-phases.md § Phase 5.6 algorithm. Update checkpoint on completion.
-postPhaseCleanup(checkpoint, "codex_gap_analysis")
+postPhaseCleanup(checkpoint, "codex_gap_analysis")  // defense-in-depth — no-op since codex_gap_analysis removed from PHASE_PREFIX_MAP (v1.74.0)
 
 ## Phase 5.8: GAP REMEDIATION (conditional, v1.51.0)
 
