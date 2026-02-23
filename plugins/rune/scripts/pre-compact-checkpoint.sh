@@ -187,11 +187,15 @@ if [[ -z "$active_team" ]]; then
     if jq -n \
       --arg team "" \
       --arg ts "$TIMESTAMP" \
+      --arg cfg "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" \
+      --arg pid "${PPID:-}" \
       --argjson batch "$arc_batch_state" \
       --argjson issues "$arc_issues_state" \
       '{
         team_name: $team,
         saved_at: $ts,
+        config_dir: $cfg,
+        owner_pid: $pid,
         team_config: {},
         tasks: [],
         workflow_state: {},
@@ -298,6 +302,8 @@ TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 if ! jq -n \
   --arg team "$active_team" \
   --arg ts "$TIMESTAMP" \
+  --arg cfg "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" \
+  --arg pid "${PPID:-}" \
   --argjson config "$team_config" \
   --argjson tasks "$tasks_json" \
   --argjson workflow "$workflow_state" \
@@ -307,6 +313,8 @@ if ! jq -n \
   '{
     team_name: $team,
     saved_at: $ts,
+    config_dir: $cfg,
+    owner_pid: $pid,
     team_config: $config,
     tasks: $tasks,
     workflow_state: $workflow,

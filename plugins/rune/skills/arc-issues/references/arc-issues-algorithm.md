@@ -345,8 +345,13 @@ if (validated.exitCode !== 0) {
   return
 }
 
-// Parse validated issue numbers (script outputs JSON array)
-const validatedNumbers = JSON.parse(validated.stdout.trim())
+// Parse validated issue numbers (script outputs JSON object: { ok: bool, valid: number[] })
+const result = JSON.parse(validated.stdout.trim())
+if (!result.ok) {
+  error('Pre-flight validation returned not-ok. Fix errors above and retry.')
+  return
+}
+const validatedNumbers = result.valid
 issueRefs = issueRefs.filter(r => validatedNumbers.includes(r.number))
 ```
 
@@ -372,6 +377,11 @@ for (const ref of issueRefs) {
   Write(`tmp/gh-issues/issue-${issueNum}.json`, issueJson)
   const issueData = JSON.parse(issueJson)
 
+  // SEC-003: Claim lock — immediately label as in-progress to prevent concurrent
+  // session conflicts (TOCTOU race). Another session fetching the same issue will
+  // see the rune:in-progress label and skip it via RUNE_LABEL_EXCLUSION.
+  Bash(`${GH_ENV} gh issue edit ${issueNum} --add-label "rune:in-progress" 2>/dev/null || true`)
+
   // 2. Resolve canonical GitHub issue URL
   const issueUrl = issueData.url
     || `https://github.com/${issueData.owner || 'owner'}/${issueData.repo || 'repo'}/issues/${issueNum}`
@@ -379,6 +389,10 @@ for (const ref of issueRefs) {
   // 3. Sanitize issue body using codebase standard sanitizer
   // sanitizeUntrustedText() is defined in security-patterns.md — handles 8 attack vectors
   // See plugins/rune/skills/roundtable-circle/references/security-patterns.md
+  // <!-- KNOWN-LIMITATION: sanitizeUntrustedText is pseudocode, not enforced at runtime.
+  //    This algorithm is a reference document — the actual sanitization depends on Claude
+  //    following these instructions. Consider implementing as a deterministic shell script
+  //    (e.g., scripts/sanitize-issue-body.sh) for defense-in-depth. -->
   const safeBody = sanitizeUntrustedText(issueData.body || '', 4000)
     .replace(/<\/?issue-content[^>]*>/gi, '')           // Strip wrapper-breaking tags
     .replace(/<\/?acceptance-criteria[^>]*>/gi, '')     // Strip AC wrapper tags
@@ -764,5 +778,7 @@ for (const plan of progress.plans) {
 - `path` field (not `plan_path`)
 - `max_iterations` in state file (equals `total_plans`)
 - `schema_version: 2` (distinguishes arc-issues from arc-batch v1)
+
+**QUAL-009 Schema version disambiguation**: `arc-issues` uses `schema_version: 2` while `arc-batch` uses `schema_version: 1`. Both share the same `batch-progress.json` file structure and field names (plans[], path, total_plans), but the schema version allows consumers (stop hooks, resume logic, reporting) to distinguish which skill generated the progress file and apply the correct parsing rules. When reading a progress file, always check `schema_version` before assuming field semantics.
 
 **CC-8 `pr_created` field**: Intermediate status for crash-resume dedup. If arc completes SHIP phase (PR created) then crashes before updating progress, resume detects `pr_created: true` and skips re-running arc (avoiding duplicate PRs).

@@ -80,6 +80,11 @@ fi
 
 # ── EXTRACT: session_id for session-scoped cleanup in injected prompts ──
 HOOK_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+# SEC-004: Validate HOOK_SESSION_ID against UUID/alphanumeric pattern
+if [[ -n "$HOOK_SESSION_ID" ]] && [[ ! "$HOOK_SESSION_ID" =~ ^[a-zA-Z0-9_-]{1,128}$ ]]; then
+  _trace "Invalid session_id format — sanitizing to empty"
+  HOOK_SESSION_ID=""
+fi
 
 # ── GUARD 5.7: Session isolation (cross-session safety) ──
 # validate_session_ownership() provided by lib/stop-hook-common.sh.

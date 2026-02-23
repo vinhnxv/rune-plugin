@@ -124,6 +124,20 @@ Phase 6 writes `.claude/arc-issues-loop.local.md` (state file) and invokes the f
 9. Repeat until all issues done
 10. On final iteration: removes state file, injects summary prompt
 
+## Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| `gh` CLI not installed | Pre-flight check fails with actionable message: `brew install gh` or `apt install gh` |
+| API rate limiting (`gh api` 403/429) | Exponential backoff (3 retries, 5s/15s/45s). After exhaustion, mark issue as `rune:failed` with rate-limit note |
+| Issue not found (404) or already closed | Skip issue, log warning, mark as SKIPPED in `batch-progress.json` |
+| Issue body too short (< 50 chars) | Block by default (plan quality gate). Override with `--force` flag |
+| Stop hook timeout cascade (> 15s) | GH API calls deferred to beginning of next arc turn. If still timing out, state file persists for `--resume` |
+| Crash recovery via `--resume` | Reads `tmp/gh-issues/batch-progress.json`, skips completed/failed issues, resumes from next pending |
+| Orphaned `rune:in-progress` labels (> 2h) | Run `--cleanup-labels` to sweep stale labels from aborted runs |
+| Concurrent session conflict | Session isolation guard in stop hook filters by `owner_pid`; second session skips state file belonging to first |
+| Plan generation fails (issue body unparseable) | Mark issue as `rune:needs-review`, post error comment, continue to next issue |
+
 ## Known Limitations
 
 1. **Sequential only**: No parallel arc execution (SDK one-team-per-session constraint).

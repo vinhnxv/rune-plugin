@@ -66,6 +66,11 @@ else
 fi
 
 # ── Output builder ──
+# Array type contract:
+#   valid[]   — numbers (issue IDs that passed validation)
+#   skipped[] — numbers (issue IDs with existing Rune status labels)
+#   invalid[] — strings (issue number + implicit reason: bad format, not found, or closed)
+#   errors[]  — strings (fatal error messages: gh missing, auth failed, etc.)
 ERRORS_JSON="[]"
 VALID_JSON="[]"
 SKIPPED_JSON="[]"
@@ -85,11 +90,18 @@ _add_skipped() {
   SKIPPED_JSON=$(echo "$SKIPPED_JSON" | jq --argjson n "$1" '. += [$n]' 2>/dev/null || echo '[]')
 }
 
+# NOTE: invalid[] uses strings (via --argjson with quoted value) while valid[]/skipped[]
+# use numbers. This is intentional — invalid entries carry the raw input which may not be
+# numeric (e.g. "abc", "99999999"), so string type preserves the original value for diagnostics.
 _add_invalid() {
   INVALID_JSON=$(echo "$INVALID_JSON" | jq --argjson n "\"$1\"" '. += [$n]' 2>/dev/null || echo '[]')
 }
 
 # ── Output JSON and exit ──
+# Output contract: JSON object (NOT array) to stdout.
+# Schema: { valid: number[], skipped: number[], invalid: string[], errors: string[], ok: boolean }
+# Consumers (e.g. arc-issues-algorithm.md) parse this as an object and access fields by name.
+# The .ok field is false when: fatal errors occurred OR no valid issues remain.
 _output_and_exit() {
   # If no valid issues and no errors, set ok=false
   local valid_count
