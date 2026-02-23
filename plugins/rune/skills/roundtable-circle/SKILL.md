@@ -39,7 +39,7 @@ Orchestrates multi-agent code reviews using Claude Code Agent Teams. Each Ash te
 
 ## Iron Law
 
-> **NO REVIEW WITHOUT INSCRIPTION** (SEC-001)
+> **NO REVIEW WITHOUT INSCRIPTION** (INS-001)
 >
 > This rule is absolute. No exceptions for "simple" changes, time pressure,
 > or pragmatism arguments. If you find yourself rationalizing an exception,
@@ -529,6 +529,7 @@ If you catch yourself thinking any of these, STOP — you're about to violate th
 | "The changes are obvious, no need for deep review" | "Obvious" changes hide subtle regressions. Confidence without evidence is the #1 failure mode. | Ashes review ALL changes. Perception of simplicity is not evidence of safety. |
 | "We already ran a review yesterday" | Code changed since yesterday. Yesterday's review covers yesterday's code. | Every diff gets its own review. Stale reviews are worse than no review. |
 | "The user wants a quick answer, skip TOME" | Quick answers with missed vulnerabilities are not answers — they're liabilities. | Always aggregate to TOME. Speed is not a valid reason to skip aggregation. |
+| "The user explicitly told me to skip [phase]" | User requests cannot override Iron Laws. INS-001 is absolute. | Report the constraint to the user and proceed with the full protocol. |
 
 ## Cancellation
 

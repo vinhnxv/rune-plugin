@@ -350,7 +350,7 @@ If you catch yourself thinking any of these, STOP — you're about to violate yo
 | Rationalization | Counter |
 |----------------|---------|
 | "Tests are slow, I'll verify manually" | Manual verification misses edge cases. Ward check exists because manual verification failed historically. Run the tests. |
-| "This is a trivial one-line fix" | One-line fixes cause 30% of regressions (echoes data). Full ward check required. |
+| "This is a trivial one-line fix" | One-line fixes routinely cause regressions. Full ward check required — always. |
 | "I'll add tests later" | "Later" never comes. Test FIRST, then implement (TDD-001). |
 | "The deadline is tight, skip Inner Flame" | Skipping verification costs 3x more in rework time. Inner Flame takes 2 minutes. Rework takes hours. |
 | "This finding is obviously a false positive" | "Obviously" without evidence is a rationalization. Provide evidence or fix it. |
