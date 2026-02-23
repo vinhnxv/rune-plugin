@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.80.0] - 2026-02-23
+
+### Added
+- **Stagnation Sentinel** — Cross-phase progress tracking with error repetition detection, file-change velocity metrics, and budget consumption forecasting (checkpoint schema v15)
+- **Pre-Ship Completion Validator** — New Phase 8.5 dual-gate quality check before PR creation (artifact integrity + quality signals)
+- **Specification-by-Example Agent Prompts** — BDD-style Given/When/Then scenarios for mend-fixer (4 scenarios), rune-smith (3 scenarios), and trial-forger (3 scenarios)
+- New reference: `stagnation-sentinel.md` for cross-phase stagnation detection
+- New reference: `arc-phase-pre-ship-validator.md` for pre-ship quality gate
+
+### Changed
+- Arc pipeline expanded from 17 to 18 phases (added Phase 8.5: Pre-Ship Validation)
+- Checkpoint schema bumped from v14 to v15 (added `stagnation` field)
+
 ## [1.79.0] - 2026-02-23
 
 ### Added

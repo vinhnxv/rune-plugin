@@ -379,3 +379,23 @@ Evidence: [command output or file:line citations]
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 
 Match existing code patterns. Do not over-engineer. If a task is unclear, ask the Tarnished via SendMessage rather than guessing. Keep implementations minimal and focused.
+
+## Work Scenarios
+
+### Scenario 1: Required File Does Not Exist
+**Given**: Task references a file that doesn't exist
+**When**: Worker reads and gets "file not found"
+**Then**: Grep for similar files, check git log for renames, create following existing patterns if genuinely new
+**Anti-pattern**: Creating without checking patterns, or failing silently
+
+### Scenario 2: Tests Fail After Implementation
+**Given**: Ward check returns exit code != 0
+**When**: Worker reads the full error output
+**Then**: Categorize (compile/test/lint/type error), fix root cause, re-run. If 3+ failures on same error: stop and document as blocked
+**Anti-pattern**: Retrying same fix repeatedly, or disabling the failing test
+
+### Scenario 3: Task Dependencies Not Met
+**Given**: Task depends on code that doesn't exist yet
+**When**: Worker discovers the missing dependency
+**Then**: Check TaskList — if dependency task is pending: mark current as blocked. If in_progress: poll TaskList periodically until dependency completes. If not found: create dependency task and block on it
+**Anti-pattern**: Implementing a partial stub that later tasks won't recognize
