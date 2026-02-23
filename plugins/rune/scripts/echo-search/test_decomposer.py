@@ -323,7 +323,7 @@ class TestDecomposeQuery:
     @pytest.mark.asyncio
     async def test_whitespace_query(self) -> None:
         result = await decompose_query("   ")
-        assert result == [""]  # empty after normalize, still returned
+        assert result == []  # whitespace-only treated same as empty
 
     @pytest.mark.asyncio
     async def test_complex_query_with_successful_decomposition(self) -> None:

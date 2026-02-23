@@ -748,6 +748,15 @@ def _log_validation_divergence(
 # ---------------------------------------------------------------------------
 
 def get_db(db_path):
+    """Open a SQLite connection with WAL mode and Row factory.
+
+    Args:
+        db_path: Absolute path to the SQLite database file.
+
+    Returns:
+        Connection with row_factory=sqlite3.Row, journal_mode=WAL,
+        and busy_timeout=5000ms.
+    """
     # type: (str) -> sqlite3.Connection
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -854,7 +863,22 @@ def assign_semantic_groups(
     conn: sqlite3.Connection, entries: list[Dict[str, Any]],
     threshold: float = 0.3, max_group_size: int = 20,
 ) -> int:
-    """Assign entries to semantic groups based on Jaccard similarity."""
+    """Assign entries to semantic groups based on Jaccard similarity.
+
+    Computes pairwise Jaccard similarity between all entries using tokenized
+    content+tags features. Entries with similarity >= threshold are merged into
+    groups using union-find logic. Groups exceeding max_group_size are chunked.
+    Results are written atomically to the semantic_groups table.
+
+    Args:
+        conn: SQLite database connection with V2 schema.
+        entries: List of entry dicts, each with at least 'id', 'content', 'tags'.
+        threshold: Minimum Jaccard similarity to consider two entries related.
+        max_group_size: Maximum number of entries per semantic group chunk.
+
+    Returns:
+        Total number of group membership rows inserted or replaced.
+    """
     if len(entries) < 2:
         return 0
     entry_map = {e["id"]: e for e in entries}
@@ -903,13 +927,18 @@ def assign_semantic_groups(
                          {eid: sims.get(eid, 0.0) for eid in chunk}))
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     count = 0
-    for gid, members, sims in final_groups:
-        for eid in members:
-            conn.execute(
-                "INSERT OR REPLACE INTO semantic_groups (group_id, entry_id, similarity, created_at) VALUES (?, ?, ?, ?)",
-                (gid, eid, sims.get(eid, 0.0), now))
-            count += 1
-    conn.commit()
+    conn.execute("BEGIN")
+    try:
+        for gid, members, sims in final_groups:
+            for eid in members:
+                conn.execute(
+                    "INSERT OR REPLACE INTO semantic_groups (group_id, entry_id, similarity, created_at) VALUES (?, ?, ?, ?)",
+                    (gid, eid, sims.get(eid, 0.0), now))
+                count += 1
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return count
 
 
@@ -917,7 +946,21 @@ def upsert_semantic_group(
     conn: sqlite3.Connection, group_id: str,
     entry_ids: list[str], similarities: list[float] | None = None,
 ) -> int:
-    """Insert or update a semantic group with the given entry memberships."""
+    """Insert or update a semantic group with the given entry memberships.
+
+    Writes one row per entry_id into the semantic_groups table using
+    INSERT OR REPLACE semantics. Timestamps are set to the current UTC time.
+
+    Args:
+        conn: SQLite database connection with V2 schema.
+        group_id: Unique identifier for the semantic group (hex string).
+        entry_ids: List of echo entry IDs to include in the group.
+        similarities: Optional per-entry similarity scores (parallel to entry_ids).
+            Defaults to 0.0 for all entries if not provided.
+
+    Returns:
+        Number of group membership rows inserted or replaced.
+    """
     if not entry_ids:
         return 0
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -1035,7 +1078,7 @@ def expand_semantic_groups(
             unique_expanded.append(entry)
 
     # Cap at max_expansion per group (apply globally since groups may overlap)
-    unique_expanded = unique_expanded[:max_expansion * len(group_ids)]
+    unique_expanded = unique_expanded[:min(max_expansion * len(group_ids), 50)]
 
     if not unique_expanded:
         return scored_results
@@ -1315,6 +1358,8 @@ def get_retry_entries(
                 "role": row["role"],
                 "date": row["date"],
                 "content_preview": row["content_preview"],
+                "tags": row["tags"] if "tags" in row.keys() else "",
+                "content": row["content_preview"] if "content_preview" in row.keys() else "",
                 "score": boosted_score,
                 "line_number": row["line_number"],
                 "retry_source": True,
@@ -1356,7 +1401,7 @@ def cleanup_aged_failures(conn: sqlite3.Connection) -> int:
 # Talisman config with mtime caching (Task 7)
 # ---------------------------------------------------------------------------
 
-_talisman_cache = {"mtime": 0.0, "config": {}}  # type: Dict[str, Any]
+_talisman_cache = {"mtime": 0.0, "path": "", "config": {}}  # type: Dict[str, Any]
 _RUNE_TRACE = os.environ.get("RUNE_TRACE", "") == "1"
 
 
@@ -1393,7 +1438,7 @@ def _load_talisman() -> Dict[str, Any]:
         except OSError:
             continue
 
-        if mtime == _talisman_cache["mtime"] and _talisman_cache["config"]:
+        if mtime == _talisman_cache["mtime"] and talisman_path == _talisman_cache["path"] and _talisman_cache["config"]:
             return _talisman_cache["config"]
 
         try:
@@ -1406,9 +1451,10 @@ def _load_talisman() -> Dict[str, Any]:
                 config = yaml.safe_load(f)
             if isinstance(config, dict):
                 _talisman_cache["mtime"] = mtime
+                _talisman_cache["path"] = talisman_path
                 _talisman_cache["config"] = config
                 return config
-        except (OSError, ValueError):
+        except Exception:
             pass
 
     return {}
@@ -1514,8 +1560,8 @@ async def pipeline_search(
     groups_config = _get_echoes_config(talisman, "semantic_groups")
     if groups_config.get("expansion_enabled", False):
         t0 = time.time()
-        discount = groups_config.get("discount", 0.7)
-        max_expansion = groups_config.get("max_expansion", 5)
+        discount = max(0.0, min(1.0, groups_config.get("discount", 0.7)))
+        max_expansion = max(1, min(50, groups_config.get("max_expansion", 5)))
         scored = expand_semantic_groups(
             conn, scored, _SCORING_WEIGHTS,
             context_files=context_files,

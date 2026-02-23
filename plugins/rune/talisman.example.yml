@@ -190,7 +190,7 @@ settings:
 audit:
   deep:
     enabled: true
-    ashes:
+   ashes:
       - rot-seeker
       - strand-tracer
       - decree-auditor

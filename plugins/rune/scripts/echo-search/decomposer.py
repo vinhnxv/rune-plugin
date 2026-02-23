@@ -303,10 +303,8 @@ async def decompose_query(query: str) -> List[str]:
     Returns:
         List of 1-4 facet strings. Always returns at least the original query.
     """
-    if not query:
+    if not query or not query.strip():
         return []
-    if not query.strip():
-        return [query.strip()]
 
     normalized = _normalize_query(query)
 

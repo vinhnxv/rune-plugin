@@ -113,18 +113,18 @@ class TestBuildRerankPrompt:
         ]
         prompt = build_rerank_prompt("test query", entries)
         assert "test query" in prompt
-        assert "[abc]: Hello world" in prompt
-        assert "[def]: Goodbye world" in prompt
+        assert '<entry id="abc">Hello world</entry>' in prompt
+        assert '<entry id="def">Goodbye world</entry>' in prompt
 
     def test_missing_content_preview_falls_back_to_content(self) -> None:
         entries = [{"id": "abc", "content": "Fallback content"}]
         prompt = build_rerank_prompt("query", entries)
-        assert "[abc]: Fallback content" in prompt
+        assert '<entry id="abc">Fallback content</entry>' in prompt
 
     def test_missing_id_uses_unknown(self) -> None:
         entries = [{"content_preview": "No ID entry"}]
         prompt = build_rerank_prompt("query", entries)
-        assert "[unknown]: No ID entry" in prompt
+        assert '<entry id="unknown">No ID entry</entry>' in prompt
 
     def test_empty_entries(self) -> None:
         prompt = build_rerank_prompt("query", [])
