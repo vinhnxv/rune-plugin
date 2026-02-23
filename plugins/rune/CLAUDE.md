@@ -28,6 +28,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **audit** | Full codebase audit — thin wrapper that sets scope=full, depth=deep, then delegates to shared Roundtable Circle orchestration phases. Default: deep. Use `--standard` to override. |
 | **file-todos** | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Gated by `talisman.file_todos.enabled` |
 | **forge** | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer integration (Phase 1.5) for risk-aware section prioritization |
+| **git-worktree** | Use when running /rune:strive with --worktree flag or when work.worktree.enabled is set in talisman. Covers worktree lifecycle, wave-based execution, merge strategy, and conflict resolution patterns |
 | **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories). Goldmask Lore Layer integration (Phase 0.3) for risk-aware gap prioritization |
 | **mend** | Parallel finding resolution from TOME. Goldmask data passthrough (risk-overlaid severity, risk context injection) + quick check (Phase 5.95) |
 | **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask 6-agent mode for pre-implementation risk assessment |
@@ -192,6 +193,7 @@ When adding or modifying skills, verify:
 ### Reference Links
 - [ ] Files in `references/` linked as `[file.md](references/file.md)` — not backtick paths
 - [ ] zsh glob compatibility: `(N)` qualifier on all `for ... in GLOB; do` loops (applies to `skills/*/SKILL.md` AND `commands/*.md` — the `enforce-zsh-compat.sh` hook enforces at runtime)
+- [ ] New skills have CREATION-LOG.md (see [creation-log-template.md](references/creation-log-template.md))
 
 ### Validation Commands
 

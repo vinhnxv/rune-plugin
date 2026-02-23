@@ -108,6 +108,12 @@ The `enforce-polling.sh` PreToolUse hook blocks sleep+echo anti-patterns at runt
 
 If this skill is loaded correctly, the hook should rarely fire — the skill teaches the correct pattern before mistakes happen. The hook catches failures as a safety net.
 
+## Additional Patterns
+
+For advanced waiting patterns beyond TaskList polling (condition-based waiting,
+exponential backoff, deadlock detection), see
+[condition-based-waiting.md](references/condition-based-waiting.md).
+
 ## Reference
 
 - [monitor-utility.md](../roundtable-circle/references/monitor-utility.md) — full monitoring utility specification, per-command config table, and Phase 2 event-driven fast path
