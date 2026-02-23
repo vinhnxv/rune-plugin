@@ -188,7 +188,7 @@ const PHASE_TIMEOUTS = {
   semantic_verification: talismanTimeouts.semantic_verification ?? 180_000,  //  3 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
   work:          talismanTimeouts.work ?? 2_100_000,    // 35 min (inner 30m + 5m setup)
   gap_analysis:  talismanTimeouts.gap_analysis ?? 720_000,   // 12 min (inner 8m + 2m setup + 2m aggregate — hybrid: deterministic + Inspector Ashes)
-  codex_gap_analysis: talismanTimeouts.codex_gap_analysis ?? 660_000,  // 11 min (orchestrator-only, codex teammate — Architecture Rule #1 lightweight inline exception)
+  codex_gap_analysis: talismanTimeouts.codex_gap_analysis ?? 660_000,  // 11 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
   gap_remediation: talismanTimeouts.gap_remediation ?? 900_000,  // 15 min (inner 10m + 5m setup — spawns gap-fixer Ash)
   code_review:   talismanTimeouts.code_review ?? 900_000,    // 15 min (inner 10m + 5m setup)
   mend:          talismanTimeouts.mend ?? 1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
@@ -453,7 +453,7 @@ postPhaseCleanup(checkpoint, "gap_analysis")
 
 See [arc-codex-phases.md](references/arc-codex-phases.md) § Phase 5.6 for the full algorithm.
 
-**Team**: `arc-gap-{id}` | **Output**: `tmp/arc/{id}/codex-gap-analysis.md`
+**Team**: None (orchestrator-only, inline codex exec) | **Output**: `tmp/arc/{id}/codex-gap-analysis.md`
 **Failure**: warn and continue — gap analysis is advisory. Writes `codex_needs_remediation` flag to checkpoint when actionable findings exceed `codex.gap_analysis.remediation_threshold` (default: 5).
 
 <!-- v1.57.0: Phase 5.6 batched claim enhancement planned — when CLI-backed Ashes
@@ -461,11 +461,10 @@ See [arc-codex-phases.md](references/arc-codex-phases.md) § Phase 5.6 for the f
      into a unified cross-model gap report. CDX-DRIFT is an internal finding ID
      for semantic drift detection, not a custom Ash prefix. -->
 
-// ARC-6: Clean stale teams before phase
-prePhaseCleanup(checkpoint)
+// Phase 5.6 is orchestrator-only (inline codex exec) — no prePhaseCleanup needed (no team to clean)
 
 Read and execute the arc-codex-phases.md § Phase 5.6 algorithm. Update checkpoint on completion.
-postPhaseCleanup(checkpoint, "codex_gap_analysis")
+postPhaseCleanup(checkpoint, "codex_gap_analysis")  // defense-in-depth — no-op since codex_gap_analysis removed from PHASE_PREFIX_MAP (v1.74.0)
 
 ## Phase 5.8: GAP REMEDIATION (conditional, v1.51.0)
 

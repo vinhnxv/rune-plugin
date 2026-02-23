@@ -10,6 +10,7 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 | Phase 2.7 (VERIFICATION) | Read, Glob, Grep, Write, Bash (git history) | Orchestrator-only -- deterministic checks |
 | Phase 5 (WORK) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Implementation requires all tools |
 | Phase 5.5 (GAP ANALYSIS) | Read, Glob, Grep, Write (VERDICT.md only) | Team: `arc-inspect-{id}` — Inspector Ashes (enhanced with 9-dimension scoring) |
+| Phase 5.6 (CODEX GAP ANALYSIS) | Read, Write, Bash (codex exec) | Orchestrator-only — inline codex exec, no team |
 | Phase 5.8 (GAP REMEDIATION) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Team: `arc-gap-fix-{id}` — fix FIXABLE gaps before code review |
 | Phase 5.7 (GOLDMASK VERIFICATION) | Delegated to `/rune:goldmask` (manages own team + tools) | Risk validation -- delegates to standalone skill |
 | Phase 6 (CODE REVIEW, deep) | Read, Glob, Grep, Write (own output file only). Codex Oracle (if detected) additionally requires Bash for `codex exec`. Deep mode runs multi-wave (Wave 1-3). | Review -- no codebase modification |
@@ -29,6 +30,7 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 | VERIFICATION | 30 sec | Deterministic checks, no LLM |
 | WORK | 35 min | Inner 30m + 5m setup budget |
 | GAP ANALYSIS | 12 min | Enhanced with Inspector Ashes (arc-inspect-{id} team) |
+| CODEX GAP ANALYSIS | 11 min | Orchestrator-only, inline codex exec (no team overhead) |
 | GAP REMEDIATION | 15 min | New phase — gap auto-fix team (arc-gap-fix-{id}) |
 | GOLDMASK VERIFICATION | 15 min | Delegated to /rune:goldmask skill (manages own team) |
 | CODE REVIEW (deep) | 15 min | Inner 10m + 5m setup budget. Deep mode extends internally via wave timeout distribution |
