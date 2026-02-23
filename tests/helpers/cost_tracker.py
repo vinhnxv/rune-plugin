@@ -76,9 +76,21 @@ class CostTracker:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._session_budget_usd: float = float(
-            os.environ.get(BUDGET_ENV_VAR, DEFAULT_SESSION_BUDGET_USD)
-        )
+        # SEC-002 FIX: Guard against non-numeric RUNE_TEST_MAX_BUDGET values.
+        raw_budget = os.environ.get(BUDGET_ENV_VAR)
+        if raw_budget is not None:
+            try:
+                self._session_budget_usd: float = float(raw_budget)
+            except (ValueError, TypeError):
+                import warnings
+                warnings.warn(
+                    f"{BUDGET_ENV_VAR}={raw_budget!r} is not numeric; "
+                    f"falling back to default ${DEFAULT_SESSION_BUDGET_USD:.2f}",
+                    stacklevel=2,
+                )
+                self._session_budget_usd = DEFAULT_SESSION_BUDGET_USD
+        else:
+            self._session_budget_usd = DEFAULT_SESSION_BUDGET_USD
         self._tiers: dict[str, TierSpend] = {
             tier: TierSpend(tier=tier, cap_per_test_usd=cap)
             for tier, cap in self.TIER_CAPS.items()

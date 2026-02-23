@@ -154,12 +154,15 @@ class PressureResult:
 # ---------------------------------------------------------------------------
 
 
-class CostTracker:
+class ScenarioCostAccumulator:
     """Accumulate API cost across multiple ClaudeRunner calls within a scenario.
 
     Why: A single scenario may issue several Claude invocations (e.g. generate
     → review → fix).  Tracking cumulative cost prevents run-away spend even
     when each individual call stays under budget.
+
+    Note: This is distinct from helpers.cost_tracker.CostTracker (session-scoped,
+    tier-aware, thread-safe).  This class is scenario-scoped and simpler.
     """
 
     def __init__(self, budget_usd: float) -> None:
@@ -172,8 +175,8 @@ class CostTracker:
             self._total += float(run_result.token_usage["cost_usd"])
 
     def exceeded(self) -> bool:
-        """Return True if cumulative cost has exceeded the budget."""
-        return self._total > self._budget
+        """Return True if cumulative cost has met or exceeded the budget."""
+        return self._total >= self._budget
 
     @property
     def total(self) -> float:
@@ -229,10 +232,14 @@ def _run_with_process_group(
         # Why: killpg sends the signal to the entire process group, not just
         # proc.pid.  Without this, orphaned Node workers would continue running
         # and accumulating API cost after the test harness gives up.
+        # FLAW-001 FIX: Save PGID once before any signal — the process leader
+        # may exit between SIGTERM and SIGKILL, causing os.getpgid() to raise
+        # ProcessLookupError and silently skip SIGKILL for zombie children.
         try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            pgid = os.getpgid(proc.pid)
+            os.killpg(pgid, signal.SIGTERM)
             time.sleep(2)
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            os.killpg(pgid, signal.SIGKILL)
         except ProcessLookupError:
             pass  # Process already dead — no-op
         # Capture whatever partial stdout/stderr was buffered before timeout.
@@ -244,6 +251,10 @@ def _run_with_process_group(
             stderr_chunks.append(remaining_stderr)
         except subprocess.TimeoutExpired:
             proc.kill()
+            # FLAW-002 FIX: Drain pipes after final kill to prevent fd leak.
+            remaining_stdout, remaining_stderr = proc.communicate()
+            stdout_chunks.append(remaining_stdout)
+            stderr_chunks.append(remaining_stderr)
 
     duration = time.monotonic() - start
     stdout = b"".join(stdout_chunks).decode("utf-8", errors="replace")
@@ -305,13 +316,16 @@ class PressureScenario:
         config: PressureConfig | None = None,
         workspace_dir: Path | None = None,
     ) -> None:
-        self.name = name
+        # SEC-006 FIX: Sanitize scenario name to prevent path traversal in
+        # tempdir prefix and report file paths (e.g. name="../../etc/cron.d/x").
+        import re
+        self.name = re.sub(r"[^a-zA-Z0-9_-]", "_", name)
         self.pressure_type = pressure_type
         self.prompt = prompt
         self.runner = runner
         self.config = config or PressureConfig()
-        self.workspace_dir = workspace_dir or Path(tempfile.mkdtemp(prefix=f"pressure-{name}-"))
-        self._cost_tracker = CostTracker(self.config.max_budget_usd)
+        self.workspace_dir = workspace_dir or Path(tempfile.mkdtemp(prefix=f"pressure-{self.name}-"))
+        self._cost_tracker = ScenarioCostAccumulator(self.config.max_budget_usd)
 
     # ------------------------------------------------------------------
     # Public API

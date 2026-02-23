@@ -37,7 +37,7 @@ from uuid import uuid4
 import pytest
 
 from helpers.claude_runner import ClaudeRunner, RunResult
-from helpers.cost_tracker import CostTracker
+# PAT-013 FIX: Removed unused CostTracker import.
 
 logger = logging.getLogger(__name__)
 
@@ -221,8 +221,10 @@ def test_multi_agent_no_double_claiming(tmp_path: Path) -> None:
     result = _run_claude(prompt, config_dir, workspace)
 
     # Structural check: run must complete without timeout
-    assert not (result.exit_code == -1 and "TIMEOUT" in result.stderr), (
-        f"Test timed out after {SCENARIO_TIMEOUT_SECONDS}s"
+    # FLAW-010 FIX: After process kill, exit_code is -9/-15, not -1.
+    # "TIMEOUT" string is never written to stderr.  Use exit_code < 0 instead.
+    assert result.exit_code >= 0, (
+        f"Test timed out or was killed (exit_code={result.exit_code})"
     )
 
     # Verify the result text does not mention double-claiming
@@ -271,8 +273,9 @@ def test_multi_agent_file_conflict_detection(tmp_path: Path) -> None:
 
     result = _run_claude(prompt, config_dir, workspace)
 
-    assert result.exit_code != -1 or "TIMEOUT" not in result.stderr, (
-        "Test timed out"
+    # FLAW-010 FIX: Use exit_code >= 0 for timeout detection.
+    assert result.exit_code >= 0, (
+        f"Test timed out or was killed (exit_code={result.exit_code})"
     )
 
     # The file must still exist and not be empty after the run
@@ -315,7 +318,10 @@ def test_multi_agent_dependency_ordering(tmp_path: Path) -> None:
 
     result = _run_claude(prompt, config_dir, workspace)
 
-    assert result.exit_code != -1 or "TIMEOUT" not in result.stderr, "Test timed out"
+    # FLAW-010 FIX: Use exit_code >= 0 for timeout detection.
+    assert result.exit_code >= 0, (
+        f"Test timed out or was killed (exit_code={result.exit_code})"
+    )
 
     text = result.result_text.lower()
     # A crude ordering check: 'a' must appear before 'b' and 'b' before 'c'
@@ -371,7 +377,10 @@ def test_multi_agent_graceful_degradation(tmp_path: Path) -> None:
 
     result = _run_claude(prompt, config_dir, workspace)
 
-    assert result.exit_code != -1 or "TIMEOUT" not in result.stderr, "Test timed out"
+    # FLAW-010 FIX: Use exit_code >= 0 for timeout detection.
+    assert result.exit_code >= 0, (
+        f"Test timed out or was killed (exit_code={result.exit_code})"
+    )
 
     text = result.result_text.lower()
     # The agent should not report all tasks as permanently abandoned
@@ -415,7 +424,10 @@ def test_multi_agent_broadcast_delivery(tmp_path: Path) -> None:
 
     result = _run_claude(prompt, config_dir, workspace)
 
-    assert result.exit_code != -1 or "TIMEOUT" not in result.stderr, "Test timed out"
+    # FLAW-010 FIX: Use exit_code >= 0 for timeout detection.
+    assert result.exit_code >= 0, (
+        f"Test timed out or was killed (exit_code={result.exit_code})"
+    )
 
     # Count acknowledgement files as a filesystem-level delivery check
     ack_files = list(workspace.glob("ack-*.txt"))
@@ -429,6 +441,8 @@ def test_multi_agent_broadcast_delivery(tmp_path: Path) -> None:
     # Soft assertion: at least 6/8 delivered (broadcast may be eventually consistent)
     # Why 6/8: We allow 2 misses for network/timing variance in the test environment
     # while still catching complete delivery failure (0 acks).
-    assert len(ack_files) >= 6 or result.result_text, (
+    # FLAW-011 FIX: Changed `or` to `and` — result.result_text is always non-empty
+    # when Claude responds, so the original assertion always passed trivially.
+    assert len(ack_files) >= 6 and result.result_text, (
         f"Broadcast delivery severely degraded: only {len(ack_files)}/8 ack files found"
     )

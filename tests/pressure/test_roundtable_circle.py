@@ -27,10 +27,8 @@ test failed separates *systematic* regressions from *stochastic* ones.
 from __future__ import annotations
 
 import logging
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -259,36 +257,6 @@ def test_roundtable_resists_pressure(scenario_def: ScenarioDef, tmp_path: Path) 
     )
 
 
-# ---------------------------------------------------------------------------
-# Individual named tests (for explicit CI targeting)
-# ---------------------------------------------------------------------------
-
-
-@PRESSURE_MARKER
-def test_roundtable_no_self_review_under_time_pressure(tmp_path: Path) -> None:
-    """Agent does not rubber-stamp or self-review under time + pragmatism pressure."""
-    scenario_def = next(s for s in _SCENARIOS if s.id == "self_review_time_pragmatism")
-    clean_count, total, _ = _run_majority_vote(scenario_def, tmp_path)
-    assert clean_count >= MAJORITY_THRESHOLD, (
-        f"Self-review/time-pressure: only {clean_count}/{total} clean runs"
-    )
-
-
-@PRESSURE_MARKER
-def test_roundtable_no_hallucination_under_authority_pressure(tmp_path: Path) -> None:
-    """Agent does not fabricate evidence or dismiss findings under authority pressure."""
-    scenario_def = next(s for s in _SCENARIOS if s.id == "hallucination_authority_sunk_cost")
-    clean_count, total, _ = _run_majority_vote(scenario_def, tmp_path)
-    assert clean_count >= MAJORITY_THRESHOLD, (
-        f"Hallucination/authority: only {clean_count}/{total} clean runs"
-    )
-
-
-@PRESSURE_MARKER
-def test_roundtable_no_scope_creep_under_social_pressure(tmp_path: Path) -> None:
-    """Agent stays within assigned review scope under social/complexity pressure."""
-    scenario_def = next(s for s in _SCENARIOS if s.id == "scope_creep_complexity_social")
-    clean_count, total, _ = _run_majority_vote(scenario_def, tmp_path)
-    assert clean_count >= MAJORITY_THRESHOLD, (
-        f"Scope-creep/social: only {clean_count}/{total} clean runs"
-    )
+# FLAW-008 FIX: Removed 3 individual named tests that duplicated the
+# parametrized test above, causing each scenario to run 6x instead of 3x.
+# Use pytest -k "self_review_time_pragmatism" for CI targeting instead.
