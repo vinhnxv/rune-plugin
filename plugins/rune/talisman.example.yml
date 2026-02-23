@@ -166,11 +166,23 @@ settings:
 
   # Extended dedup hierarchy — higher = wins on conflict
   # Must include ALL active prefixes (built-in + custom)
-  # Built-in prefixes: SEC, BACK, VEIL, DOC, QUAL, FRONT, CDX
+  # Built-in prefixes: SEC, BACK, VEIL, DOUBT, PY, TSR, RST, PHP, FAPI, DJG, LARV, SQLA, TDD, DDD, DI, DOC, QUAL, FRONT, CDX
   dedup_hierarchy:
     - SEC          # Ward Sentinel (always highest)
     - BACK         # Forge Warden
     - VEIL         # Veil Piercer (truth-telling)
+    - DOUBT        # Doubt Seer (meta-findings, non-deduplicable)
+    - PY           # Python Reviewer (stack specialist, v1.86.0+)
+    - TSR          # TypeScript Reviewer (stack specialist, v1.86.0+)
+    - RST          # Rust Reviewer (stack specialist, v1.86.0+)
+    - PHP          # PHP Reviewer (stack specialist, v1.86.0+)
+    - FAPI         # FastAPI Reviewer (stack specialist, v1.86.0+)
+    - DJG          # Django Reviewer (stack specialist, v1.86.0+)
+    - LARV         # Laravel Reviewer (stack specialist, v1.86.0+)
+    - SQLA         # SQLAlchemy Reviewer (stack specialist, v1.86.0+)
+    - TDD          # TDD Compliance Reviewer (stack specialist, v1.86.0+)
+    - DDD          # DDD Reviewer (stack specialist, v1.86.0+)
+    - DI           # DI Reviewer (stack specialist, v1.86.0+)
     - API          # Custom: api-contract-reviewer
     - DOM          # Custom: domain-logic-reviewer
     - PERF         # Custom: perf-deep-scan
@@ -268,6 +280,7 @@ defaults:
 #   threshold: 0.30          # Score threshold for agent selection (0.0-1.0)
 #   max_per_section: 3       # Max agents per plan section (upper bound: 5)
 #   max_total_agents: 8      # Max total agents across all sections (upper bound: 15)
+#   stack_affinity_bonus: 0.2  # Score bonus for agents matching detected stack (v1.86.0+)
 
 # ──────────────────────────────────────────────
 # Plan — Verification gate patterns
@@ -967,3 +980,13 @@ context_monitor:
 #     wisdom_passthrough: true           # Inject wisdom from prior Goldmask into inspector prompts (default: true)
 #                                        # When available, wisdom advisories are passed through to inspectors
 #                                        # with inspector-specific guidance notes.
+
+# ── Stack-Aware Intelligence (v1.86.0+) ──
+# Controls stack detection engine behavior and specialist reviewer selection.
+# stack_awareness:
+#   enabled: true                          # Master switch — disables all stack detection when false (default: true)
+#   confidence_threshold: 0.6              # Minimum confidence for stack detection to activate (0.0-1.0, default: 0.6)
+#                                          # Below this threshold, no specialist Ashes are summoned.
+#   max_stack_ashes: 3                     # Maximum stack specialist Ashes per review session (default: 3)
+#                                          # Controls how many language/framework/pattern specialists are added.
+#                                          # Does not affect core Ashes (Ward Sentinel, Pattern Weaver, etc.).

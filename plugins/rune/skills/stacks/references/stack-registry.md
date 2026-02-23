@@ -1,0 +1,109 @@
+# Stack Registry
+
+Complete registry of supported languages, frameworks, databases, libraries, and patterns. Used by `detectStack()` and `computeContextManifest()` for evidence-based stack detection.
+
+## Languages
+
+| Language | Manifest Files | Config Files | Lock Files | Extensions |
+|----------|---------------|--------------|------------|------------|
+| Python | `pyproject.toml`, `setup.py`, `requirements.txt`, `Pipfile` | `mypy.ini`, `pyrightconfig.json`, `.flake8` | `poetry.lock`, `Pipfile.lock` | `.py`, `.pyi` |
+| TypeScript | `package.json`, `tsconfig.json` | `.eslintrc.*`, `biome.json` | `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml` | `.ts`, `.tsx`, `.js`, `.jsx` |
+| Rust | `Cargo.toml` | `rustfmt.toml`, `clippy.toml`, `.cargo/config.toml` | `Cargo.lock` | `.rs` |
+| PHP | `composer.json` | `phpstan.neon`, `psalm.xml`, `.php-cs-fixer.php` | `composer.lock` | `.php` |
+
+## Frameworks
+
+| Framework | Language | Detection Signal | Knowledge Skill | Agent |
+|-----------|----------|-----------------|-----------------|-------|
+| FastAPI | Python | `fastapi` in deps | `frameworks/fastapi.md` | `fastapi-reviewer` (FAPI) |
+| Django | Python | `django` in deps | `frameworks/django.md` | `django-reviewer` (DJG) |
+| Flask | Python | `flask` in deps | (none — covered by python profile) | (none) |
+| SQLAlchemy | Python | `sqlalchemy` in deps | `frameworks/sqlalchemy.md` | `sqlalchemy-reviewer` (SQLA) |
+| Next.js | TypeScript | `next` in deps | (none — covered by typescript profile) | (none) |
+| React | TypeScript | `react` in deps | (none — covered by typescript profile) | (none) |
+| Express | TypeScript | `express` in deps | (none — covered by typescript profile) | (none) |
+| NestJS | TypeScript | `nestjs` or `@nestjs` in deps | (none — covered by typescript profile) | (none) |
+| Actix-web | Rust | `actix` in deps | (none — covered by rust profile) | (none) |
+| Axum | Rust | `axum` in deps | (none — covered by rust profile) | (none) |
+| Rocket | Rust | `rocket` in deps | (none — covered by rust profile) | (none) |
+| Laravel | PHP | `laravel` in deps | `frameworks/laravel.md` | `laravel-reviewer` (LARV) |
+| Symfony | PHP | `symfony` in deps | (none — covered by php profile) | (none) |
+
+## Databases
+
+| Database | Detection Signal | Knowledge Skill |
+|----------|-----------------|-----------------|
+| PostgreSQL | `psycopg`, `asyncpg`, `pg` in deps | `databases/postgres.md` |
+| MySQL | `mysqlclient`, `aiomysql`, `mysql2` in deps | `databases/mysql.md` |
+| Prisma | `prisma` in deps | (ORM, not DB — covered by typescript profile) |
+| Diesel | `diesel` in deps | (ORM — covered by rust profile) |
+| SQLx | `sqlx` in deps | (covered by rust profile) |
+| Doctrine | `doctrine` in deps | (covered by php profile) |
+
+## Libraries
+
+| Library | Language | Detection Signal | Knowledge Skill |
+|---------|----------|-----------------|-----------------|
+| Pydantic | Python | `pydantic` in deps | `libraries/pydantic.md` |
+| dry-python/returns | Python | `"returns"` or `dry-python` in deps | `libraries/returns.md` |
+| Dishka | Python | `dishka` in deps | `libraries/dishka.md` |
+| dependency-injector | Python | `dependency-injector` in deps | (covered by di pattern) |
+| Zod | TypeScript | `zod` in deps | (covered by typescript profile) |
+| tsyringe | TypeScript | `tsyringe` in deps | (covered by di pattern) |
+| inversify | TypeScript | `inversify` in deps | (covered by di pattern) |
+| Serde | Rust | `serde` in deps | (covered by rust profile) |
+| Tokio | Rust | `tokio` in deps | (covered by rust profile) |
+| thiserror | Rust | `thiserror` in deps | (covered by rust profile) |
+| anyhow | Rust | `anyhow` in deps | (covered by rust profile) |
+
+## Cross-Cutting Patterns
+
+| Pattern | Trigger Condition | Knowledge Skill | Agent |
+|---------|------------------|-----------------|-------|
+| TDD | Test files present in changed files | `patterns/tdd.md` | `tdd-compliance-reviewer` (TDD) |
+| DDD | `domain/`, `src/domain/`, `entities/`, `bounded_contexts/`, `app/Domain/`, `src/Domain/` directory exists | `patterns/ddd.md` | `ddd-reviewer` (DDD) |
+| DI | `dishka`, `dependency-injector`, `tsyringe`, `inversify`, or `php-di` in detected libraries | `patterns/di.md` | `di-reviewer` (DI) |
+
+## Finding Prefixes
+
+All specialist agents produce findings with unique prefixes to enable dedup:
+
+| Prefix | Agent | Category |
+|--------|-------|----------|
+| PY | python-reviewer | Language |
+| TSR | typescript-reviewer | Language |
+| RST | rust-reviewer | Language |
+| PHP | php-reviewer | Language |
+| FAPI | fastapi-reviewer | Framework |
+| DJG | django-reviewer | Framework |
+| LARV | laravel-reviewer | Framework |
+| SQLA | sqlalchemy-reviewer | Framework |
+| TDD | tdd-compliance-reviewer | Pattern |
+| DDD | ddd-reviewer | Pattern |
+| DI | di-reviewer | Pattern |
+
+**Dedup hierarchy position**: Stack specialist prefixes are positioned BELOW the core Roundtable Circle prefixes:
+
+```
+SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > PY > TSR > RST > PHP > FAPI > DJG > LARV > SQLA > TDD > DDD > DI
+```
+
+When a stack specialist and a core Ash find the same issue, the core Ash's finding takes priority.
+
+## Skill-to-Agent Mapping
+
+```
+SKILL_TO_AGENT_MAP = {
+  "languages/python":     "python-reviewer",
+  "languages/typescript":  "typescript-reviewer",
+  "languages/rust":        "rust-reviewer",
+  "languages/php":         "php-reviewer",
+  "frameworks/fastapi":    "fastapi-reviewer",
+  "frameworks/django":     "django-reviewer",
+  "frameworks/laravel":    "laravel-reviewer",
+  "frameworks/sqlalchemy": "sqlalchemy-reviewer",
+  "patterns/tdd":          "tdd-compliance-reviewer",
+  "patterns/ddd":          "ddd-reviewer",
+  "patterns/di":           "di-reviewer",
+}
+```

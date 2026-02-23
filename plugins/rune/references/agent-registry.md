@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 68 agents** (23 review + 5 research + 2 work + 11 utility* + 23 investigation + 4 testing)
+**Total: 79 agents** (34 review + 5 research + 2 work + 11 utility* + 23 investigation + 4 testing)
 
 \* 11 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 
@@ -33,6 +33,17 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | refactor-guardian | Refactoring completeness, orphaned callers, broken import paths |
 | reference-validator | Cross-file reference integrity, config path validation, frontmatter schema |
 | doubt-seer | Cross-agent claim verification through adversarial interrogation |
+| python-reviewer | Python type safety, async correctness, modern idioms (PY-001 through PY-010) |
+| typescript-reviewer | TypeScript type system, strict mode, generics patterns (TSR-001 through TSR-010) |
+| rust-reviewer | Rust ownership, lifetimes, unsafe blocks (RST-001 through RST-010) |
+| php-reviewer | PHP type system, namespacing, security patterns (PHP-001 through PHP-010) |
+| fastapi-reviewer | FastAPI route design, Pydantic validation, dependency injection (FAPI-001 through FAPI-010) |
+| django-reviewer | Django ORM, security, middleware patterns (DJG-001 through DJG-010) |
+| laravel-reviewer | Eloquent, Blade security, authorization (LARV-001 through LARV-010) |
+| sqlalchemy-reviewer | Session management, N+1 detection, migration safety (SQLA-001 through SQLA-010) |
+| tdd-compliance-reviewer | Test-first development, coverage, assertion quality (TDD-001 through TDD-010) |
+| ddd-reviewer | Domain-Driven Design patterns and bounded contexts (DDD-001 through DDD-010) |
+| di-reviewer | Dependency injection patterns and wiring validation (DI-001 through DI-010) |
 
 ## Research Agents (`agents/research/`)
 

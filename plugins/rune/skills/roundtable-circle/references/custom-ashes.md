@@ -45,6 +45,8 @@ Define custom Ash in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml
 | `trigger.extensions` | list | Yes* | File extensions that activate this Ash. Use `["*"]` for all files. *Required for review/audit workflows |
 | `trigger.paths` | list | No | Directory prefixes to match. If set, file must match BOTH extension AND path |
 | `trigger.topics` | list | No* | Topic keywords for Forge Gaze matching. *Required if `forge` is in `workflows` |
+| `trigger.languages` | list | No | Primary languages that activate this Ash (e.g., `["python", "typescript"]`). Matches against `detected_stack.primary_language`. (v1.86.0+) |
+| `trigger.frameworks` | list | No | Frameworks that activate this Ash (e.g., `["fastapi", "django"]`). Matches against `detected_stack.frameworks`. (v1.86.0+) |
 | `trigger.min_files` | int | No | Minimum matching files required to summon. Default: 1 |
 | `trigger.always` | bool | No | When true, Ash is always summoned (skip file matching). Useful for CLI-backed Ashes |
 | `context_budget` | int | Yes | Maximum files this Ash reads. Recommended: 15-30 |
@@ -238,7 +240,7 @@ Run these checks at Phase 0 before summoning any agents:
 | CLI path safe | When `cli:` present: resolved binary path must NOT be within project directory | "CLI binary '{cli}' resolves to project directory — rejected for safety" |
 | CLI count cap | Total CLI-backed Ashes ≤ `settings.max_cli_ashes` (default: 2) | "Too many CLI-backed Ashes ({count}). Max: {max}" |
 | Valid workflows | Each entry is `review`, `audit`, or `forge` | "Invalid workflow '{value}' in Ash '{name}'. Must be 'review', 'audit', or 'forge'" |
-| Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, VEIL, QUAL, FRONT, DOC, CDX, DOUBT. Also reserved in deep-audit mode (`/rune:audit --deep`): DEBT, INTG, BIZL, EDGE | "Prefix '{prefix}' is reserved for built-in/deep-audit Ash '{name}'" |
+| Reserved prefixes | Custom prefix doesn't collide with built-ins: SEC, BACK, VEIL, QUAL, FRONT, DOC, CDX, DOUBT, PY, TSR, RST, PHP, FAPI, DJG, LARV, SQLA, TDD, DDD, DI. Also reserved in deep-audit mode (`/rune:audit --deep`): DEBT, INTG, BIZL, EDGE | "Prefix '{prefix}' is reserved for built-in/deep-audit Ash '{name}'" |
 | Agent name safe | `agent` field matches `^[a-zA-Z0-9_:-]+$` (no path separators or `..`) | "Invalid agent name '{agent}': must contain only alphanumeric, hyphen, underscore, or colon characters" |
 | Forge fields | If `forge` in workflows: `trigger.topics` (≥2), `forge.subsection`, `forge.perspective`, `forge.budget` required | "Ash '{name}' has 'forge' workflow but missing required forge fields" |
 | Forge budget value | `forge.budget` must be `enrichment` or `research` | "Invalid forge budget '{value}' in Ash '{name}'. Must be 'enrichment' or 'research'" |

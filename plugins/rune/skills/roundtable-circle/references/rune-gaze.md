@@ -84,7 +84,57 @@ for each file in changed_files:
     ash_selections.add("ward-sentinel")  # Already always-on, but marks priority
     ash_selections.add("knowledge-keeper")  # .claude/*.md are both docs AND security
 
+# ── Phase 1A: Stack Detection (v1.86.0+) ──
+# Runs before generic classification. Adds stack-specialist Ashes
+# based on detected project stack (language, framework, patterns).
+# See skills/stacks/references/detection.md for detectStack() algorithm.
+# See skills/stacks/references/context-router.md for computeContextManifest().
+
+stack = detectStack(repoRoot)
+confidence_threshold = talisman.stack_awareness.confidence_threshold ?? 0.6
+max_stack_ashes = talisman.stack_awareness.max_stack_ashes ?? 3
+
+if stack.confidence >= confidence_threshold:
+  specialist_selections = []
+
+  # 1. Language specialist (max 1)
+  lang_map = { "python": "python-reviewer", "typescript": "typescript-reviewer",
+               "rust": "rust-reviewer", "php": "php-reviewer" }
+  if stack.primary_language in lang_map:
+    lang_reviewer = lang_map[stack.primary_language]
+    if any(file.ext matches lang_reviewer.extensions for file in changed_files):
+      specialist_selections.add(lang_reviewer)
+
+  # 2. Framework specialists (max 2, priority order)
+  fw_priority = ["fastapi", "django", "laravel", "sqlalchemy"]
+  selected_fw = 0
+  for fw in fw_priority:
+    if fw in stack.frameworks AND selected_fw < 2:
+      specialist_selections.add(fw + "-reviewer")
+      selected_fw++
+
+  # 3. Pattern specialists (conditional)
+  if any(file.path matches "test*" OR file.path matches "*_test*" for file in changed_files):
+    specialist_selections.add("tdd-compliance-reviewer")
+  if has_ddd_structure(repoRoot):
+    specialist_selections.add("ddd-reviewer")
+  if stack.libraries intersects ["dishka", "dependency-injector", "tsyringe"]:
+    specialist_selections.add("di-reviewer")
+
+  # 4. Enforce cap
+  specialist_selections = specialist_selections[:max_stack_ashes]
+
+  # 5. Add to ash_selections
+  for specialist in specialist_selections:
+    ash_selections.add(specialist)
+
+  # 6. Store stack context in inscription
+  inscription.detected_stack = stack
+  inscription.specialist_ashes = specialist_selections
+
 # Always-on Ash (regardless of file types)
+# NOTE: pattern-weaver (always-on quality Ash) is distinct from pattern-seer
+# (cross-cutting consistency specialist, triggered by file patterns in review)
 ash_selections.add("ward-sentinel")   # Security: always
 ash_selections.add("pattern-weaver")  # Quality: always
 ash_selections.add("veil-piercer")    # Truth: always

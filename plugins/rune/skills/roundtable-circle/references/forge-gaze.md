@@ -68,6 +68,19 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 | flow-seer | user-flow, ux, interaction, workflow, requirements, gaps, completeness | User Flow Analysis | user flow completeness and requirement gaps |
 | horizon-sage | strategy, sustainability, long-term, root-cause, future-risk, tech-debt, innovation, resilience, maintainability-trajectory, depth, viability, quick-fix, temporal-horizon | Strategic Depth Analysis | strategic viability, long-term sustainability, and root-cause depth |
 
+### Stack Specialist Agents (Enrichment Budget, v1.86.0+)
+
+> Stack specialist agents participate in Forge Gaze when the project stack is detected. They provide stack-specific enrichment with affinity-boosted scoring. See `skills/stacks/references/detection.md` for detection logic.
+
+| Agent | Topics | Stack Affinities | Subsection | Perspective |
+|-------|--------|-----------------|------------|-------------|
+| python-reviewer | python, type-hints, async, protocols, dataclass | [python] | Python Patterns | Python-specific type safety, async correctness, and modern idioms |
+| fastapi-reviewer | fastapi, pydantic, depends, openapi, idor, api-routes | [fastapi, python] | FastAPI Patterns | FastAPI route design, Pydantic validation, and dependency injection |
+| django-reviewer | django, orm, csrf, admin, signals, middleware | [django, python] | Django Patterns | Django ORM optimization, security, and middleware patterns |
+| laravel-reviewer | laravel, eloquent, blade, middleware, gates, artisan | [laravel, php] | Laravel Patterns | Laravel Eloquent, Blade security, and authorization patterns |
+| sqlalchemy-reviewer | sqlalchemy, orm, session, migration, eager-loading, n-plus-one | [sqlalchemy, python] | SQLAlchemy Patterns | SQLAlchemy session management, N+1 detection, and migration safety |
+| tdd-compliance-reviewer | testing, tdd, coverage, test-first, assertion, pytest | [python, typescript, rust, php] | TDD Compliance | Test-first development, coverage thresholds, and assertion quality |
+
 ### Elicitation Methods (Agent Budget — elicitation-sage)
 
 > **Architecture change (v1.31)**: Methods are now executed by a dedicated `elicitation-sage` agent instead of prompt modifiers. The sage is summoned per section where elicitation keywords match. Sage runs in parallel with forge agents.
@@ -129,7 +142,7 @@ Stopwords to filter: `the, a, an, and, or, of, for, in, to, with, is, are, this,
 For each plan section, score every agent in the topic registry:
 
 ```
-score(section, agent):
+score(section, agent, detected_stack=null):
   section_topics = extract_topics(section.title, section.content)
 
   # Keyword overlap: how many agent topics appear in section topics
@@ -140,8 +153,20 @@ score(section, agent):
   # Title match bonus: agent's top-3 topics appearing in section title
   title_bonus = 0.3 if any(topic in section.title.lower() for topic in agent.topics[:3]) else 0.0
 
+  # Stack affinity bonus (v1.86.0+): boost agents whose stack_affinities
+  # match the detected project stack. Configurable via talisman forge.stack_affinity_bonus.
+  stack_bonus = 0.0
+  if agent.stack_affinities AND detected_stack:
+    stack_affinity_bonus = talisman.forge.stack_affinity_bonus ?? 0.2
+    for affinity in agent.stack_affinities:
+      if affinity in detected_stack.frameworks \
+         OR affinity in detected_stack.libraries \
+         OR affinity == detected_stack.primary_language:
+        stack_bonus = stack_affinity_bonus
+        break
+
   # Combined score (capped at 1.0)
-  return min(keyword_score + title_bonus, 1.0)
+  return min(keyword_score + title_bonus + stack_bonus, 1.0)
 ```
 
 ### Selection
