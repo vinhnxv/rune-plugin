@@ -134,6 +134,12 @@ if (exists(verdictPath)) {
 // Actual team name will be discovered post-delegation from state file (see STEP 4.5 below).
 updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 6, team_name: null })
 
+// Arc-scoped todos: pass --todos-dir so Phase 5.4 writes to tmp/arc/{id}/todos/review/
+const fileTodosEnabled = talisman?.file_todos?.enabled === true
+const arcTodosBase = checkpoint.todos_base  // set by arc scaffolding (pre-Phase 5)
+const todosFlag = (fileTodosEnabled && arcTodosBase) ? `--todos-dir ${arcTodosBase}` : ''
+// Invoke: /rune:appraise --deep {todosFlag} {scopeFileFlag} {reviewContext}
+
 // BACK-5 FIX: Pass gap analysis context and review context to /rune:appraise
 // so reviewers can focus on areas where implementation may be incomplete.
 // reviewContext was built in STEP 1 from gap-analysis.md.
@@ -206,6 +212,19 @@ updateCheckpoint({
   phase: "code_review", status: "completed",
   artifact: tomeTarget, artifact_hash: sha256(tomeContent), phase_sequence: 6
 })
+
+// STEP 5.5: Post-Phase 6 todos verification (non-blocking)
+if (fileTodosEnabled && arcTodosBase) {
+  const reviewTodos = Glob(`${arcTodosBase}review/[0-9][0-9][0-9]-*.md`)
+  log(`Todos verification: ${reviewTodos.length} review todos generated from TOME`)
+  // Spot-check first todo frontmatter schema
+  if (reviewTodos.length > 0) {
+    const fm = parseFrontmatter(Read(reviewTodos[0]))
+    if (fm.schema_version !== 1 || !fm.source || !fm.status) {
+      warn(`Todos verification: invalid frontmatter in ${reviewTodos[0]}`)
+    }
+  }
+}
 ```
 
 **Output**: `tmp/arc/{id}/tome.md`
