@@ -429,6 +429,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | testing | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | using-rune | Workflow discovery and intent routing |
 | strive | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
+| skill-testing | TDD methodology for skills — pressure testing, rationalization counters, Iron Law (SKT-001) |
 | zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
 
 ## Configuration
