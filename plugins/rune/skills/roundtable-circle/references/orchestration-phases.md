@@ -76,6 +76,28 @@ Write(`${stateFilePrefix}-${identifier}.json`, {
 })
 ```
 
+### Extension Point: Incremental Audit (Phase 0.1-0.4)
+
+When `flags['--incremental']` is set in the audit workflow, the following phases run between Phase 0 (find) and Phase 0.5 (Lore Layer):
+
+```
+Phase 0:   all_files = find(.)                          # Existing
+Phase 0.1: acquireLock + initStateDir                   # NEW
+Phase 0.2: manifest = buildManifest(all_files)          # NEW
+Phase 0.3: diffManifest + reconcileState                # NEW
+Phase 0.3.5: scored = priorityScore(manifest, state)    # NEW
+Phase 0.4: batch = selectBatch(scored)                  # NEW
+Phase 0.5: Lore Layer (operates on batch, not all)      # Existing (scoped)
+
+Input:  all_files: string[]     (from Phase 0 find)
+Output: batch: string[]         (filtered + prioritized subset)
+Side effect: state.json updated with manifest diff
+```
+
+**Non-incremental early return**: When `--incremental` is NOT set, these phases are skipped with zero overhead. The conditional is checked at the parameter level: `if (!flags['--incremental']) return { batch: allFiles }`.
+
+See `audit/SKILL.md` Phase 0.1-0.4 and `audit/references/incremental-state-schema.md` for full details.
+
 ## Phase 2: Forge Team
 
 Create team, inscription, signal directory, and tasks.
