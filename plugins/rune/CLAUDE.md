@@ -192,6 +192,7 @@ When adding or modifying skills, verify:
 ### Reference Links
 - [ ] Files in `references/` linked as `[file.md](references/file.md)` — not backtick paths
 - [ ] zsh glob compatibility: `(N)` qualifier on all `for ... in GLOB; do` loops (applies to `skills/*/SKILL.md` AND `commands/*.md` — the `enforce-zsh-compat.sh` hook enforces at runtime)
+- [ ] New skills have CREATION-LOG.md (see [creation-log-template.md](references/creation-log-template.md))
 
 ### Validation Commands
 
