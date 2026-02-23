@@ -175,14 +175,15 @@ All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL h
 
 | Server | Tools | Purpose |
 |--------|-------|---------|
-| `echo-search` | `echo_search`, `echo_details`, `echo_reindex`, `echo_stats`, `echo_record_access` | Full-text search over Rune Echoes (`.claude/echoes/*/MEMORY.md`) using SQLite FTS5 with BM25 ranking. 5-factor composite scoring, access frequency tracking, file proximity. Requires Python 3.7+. Launched via `scripts/echo-search/start.sh`. |
+| `echo-search` | `echo_search`, `echo_details`, `echo_reindex`, `echo_stats`, `echo_record_access`, `echo_upsert_group` | Full-text search over Rune Echoes (`.claude/echoes/*/MEMORY.md`) using SQLite FTS5 with BM25 ranking. 5-factor composite scoring, access frequency tracking, file proximity, semantic grouping, query decomposition, retry tracking, Haiku reranking. Requires Python 3.7+. Launched via `scripts/echo-search/start.sh`. |
 
 **echo-search tools:**
-- `echo_search(query, limit?, layer?, role?)` — BM25-ranked search with optional layer/role filters. 5-factor composite scoring (BM25, recency, importance, access frequency, file proximity). Returns content previews (200 chars).
+- `echo_search(query, limit?, layer?, role?)` — Multi-pass retrieval pipeline: query decomposition, BM25 search, composite scoring, semantic group expansion, retry injection, Haiku reranking. Each stage toggleable via `talisman.yml` echoes config. Returns content previews (200 chars).
 - `echo_details(ids)` — Fetch full content for specific echo entries by ID.
 - `echo_reindex()` — Rebuild FTS5 index from MEMORY.md source files.
 - `echo_stats()` — Index statistics (entry count, layer/role breakdown, last indexed timestamp).
 - `echo_record_access(entry_id, context?)` — Record access for frequency-based scoring. Powers auto-promotion of Observations tier entries.
+- `echo_upsert_group(group_id, entry_ids, similarities?)` — Create or update a semantic group with the given entry memberships.
 
 **Dirty-signal auto-reindex:** The `annotate-hook.sh` PostToolUse hook writes `tmp/.rune-signals/.echo-dirty` when echo files are modified. On next `echo_search` call, the server detects the signal and auto-reindexes before returning results.
 

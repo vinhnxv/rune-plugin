@@ -681,7 +681,7 @@ plugins/rune/
 
 ## Echo Search MCP Server
 
-Rune includes an MCP server (`echo-search`) for full-text search over Rune Echoes using SQLite FTS5 with BM25 ranking.
+Rune includes an MCP server (`echo-search`) for full-text search over Rune Echoes using SQLite FTS5 with BM25 ranking. Features a multi-pass retrieval pipeline with query decomposition, semantic group expansion, retry injection, and Haiku reranking — each stage independently toggleable via `talisman.yml`.
 
 **Requirements:** Python 3.7+ (uses stdlib `sqlite3` with FTS5 support)
 
@@ -689,10 +689,22 @@ Rune includes an MCP server (`echo-search`) for full-text search over Rune Echoe
 
 | Tool | Description |
 |------|-------------|
-| `echo_search` | BM25-ranked search with optional `layer`/`role` filters. Returns content previews. |
+| `echo_search` | Multi-pass retrieval: decomposition, BM25, composite scoring, group expansion, retry, reranking. |
 | `echo_details` | Fetch full content for specific echo entries by ID. |
 | `echo_reindex` | Rebuild the FTS5 index from `.claude/echoes/*/MEMORY.md` source files. |
 | `echo_stats` | Index statistics: entry count, layer/role breakdown, last indexed timestamp. |
+| `echo_record_access` | Record access for frequency-based scoring. Powers auto-promotion. |
+| `echo_upsert_group` | Create or update a semantic group with entry memberships. |
+
+**Retrieval Pipeline (configurable via `talisman.yml` under `echoes:`):**
+
+1. **Query Decomposition** — LLM breaks complex queries into 1-4 keyword facets (`echoes.decomposition.enabled`)
+2. **BM25 Search** — Per-facet FTS5 search with 3x over-fetch (always on)
+3. **Merge** — Best-score dedup across facets (automatic when decomposition active)
+4. **Composite Scoring** — 5-factor blend: BM25, recency, importance, proximity, frequency (always on)
+5. **Group Expansion** — Sibling entries from semantic clusters (`echoes.semantic_groups.expansion_enabled`)
+6. **Retry Injection** — Previously-failed entries matching token fingerprints (`echoes.retry.enabled`)
+7. **Haiku Reranking** — Semantic re-scoring via Claude Haiku subprocess (`echoes.reranking.enabled`)
 
 The `annotate-hook.sh` PostToolUse hook marks the index as dirty when echo files are modified. On next search, the server auto-reindexes before returning results. Configuration lives in `.mcp.json`.
 
