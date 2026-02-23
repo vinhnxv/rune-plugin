@@ -371,10 +371,10 @@ if (codexAvailable && !codexDisabled) {
   const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
   if (codexWorkflows.includes("plan")) {
     // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST -- see security-patterns.md
-    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
-    const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
-    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
-    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "high"
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
+    const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
+    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex-spark"
+    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "xhigh"
 
     // Validate planPath before shell interpolation (BACK-002)
     if (!/^[a-zA-Z0-9._\-\/]+$/.test(planPath)) {

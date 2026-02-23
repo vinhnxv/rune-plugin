@@ -288,12 +288,12 @@ if (codexAvailable && !codexDisabled) {
   if (codexWorkflows.includes("plan")) {
     // SEC-002: Validate talisman codex config before shell interpolation
     // Security patterns: CODEX_MODEL_ALLOWLIST, CODEX_REASONING_ALLOWLIST -- see security-patterns.md
-    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
-    const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
+    const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
     // Security pattern: SAFE_FEATURE_PATTERN -- see security-patterns.md
     const SAFE_FEATURE_PATTERN = /^[a-zA-Z0-9 ._\-]+$/
-    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
-    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "high"
+    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex-spark"
+    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "xhigh"
     const safeFeature = SAFE_FEATURE_PATTERN.test(feature) ? feature : feature.replace(/[^a-zA-Z0-9 ._\-]/g, "").slice(0, 200)
 
     TaskCreate({ subject: "Codex research", description: "Cross-model research via codex exec" })

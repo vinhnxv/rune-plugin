@@ -125,16 +125,16 @@ if (codexAvailable && !codexDisabled && trialForgerEnabled) {
   const functionCode = Read(targetFile).slice(0, 5000)
 
   // Security pattern: CODEX_MODEL_ALLOWLIST — see security-patterns.md
-  const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex$/
+  const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
   const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-    ? talisman.codex.model : "gpt-5.3-codex"
+    ? talisman.codex.model : "gpt-5.3-codex-spark"
   // BACK-008 FIX: Validate reasoning against allowlist
-  const CODEX_REASONING_ALLOWLIST = ["high", "medium", "low"]
+  const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
   const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.trial_forger?.reasoning ?? "")
-    ? talisman.codex.trial_forger.reasoning : "medium"
+    ? talisman.codex.trial_forger.reasoning : "xhigh"
   // BACK-005 FIX: Bounds-check timeout
   const rawTimeout = Number(talisman?.codex?.trial_forger?.timeout)
-  const codexTimeout = Math.max(30, Math.min(300, Number.isFinite(rawTimeout) ? rawTimeout : 120))
+  const codexTimeout = Math.max(300, Math.min(900, Number.isFinite(rawTimeout) ? rawTimeout : 300))
 
   // SEC-003: Write prompt to temp file — NEVER inline interpolation (CC-4)
   // MC-1: Nonce boundary around untrusted code content
@@ -190,7 +190,7 @@ Return a numbered list. Each entry: brief description + why it matters.`
 }
 ```
 
-**Talisman config**: `codex.trial_forger.enabled` (default: `true`), `codex.trial_forger.timeout` (default: `120`), `codex.trial_forger.reasoning` (default: `"medium"`).
+**Talisman config**: `codex.trial_forger.enabled` (default: `true`), `codex.trial_forger.timeout` (default: `300`), `codex.trial_forger.reasoning` (default: `"xhigh"`).
 
 ## Echo Integration (Past Test Patterns)
 

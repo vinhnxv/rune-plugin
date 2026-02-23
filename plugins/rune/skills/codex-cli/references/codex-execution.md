@@ -17,8 +17,8 @@ in a single script. Use this instead of crafting raw `codex exec` commands.
 ```bash
 # Standard invocation (raw output)
 "${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
-  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
-  -r "${CODEX_REASONING:-high}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  -r "${CODEX_REASONING:-xhigh}" \
   -t ${CODEX_TIMEOUT:-600} \
   -s ${CODEX_STREAM_IDLE_MS:-540000} \
   -g \
@@ -26,8 +26,8 @@ in a single script. Use this instead of crafting raw `codex exec` commands.
 
 # With JSON parsing (--json + jq)
 "${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
-  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
-  -r "${CODEX_REASONING:-high}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  -r "${CODEX_REASONING:-xhigh}" \
   -t ${CODEX_TIMEOUT:-600} \
   -j -g \
   "path/to/prompt-file.txt"
@@ -36,7 +36,7 @@ in a single script. Use this instead of crafting raw `codex exec` commands.
 **Exit codes**: `0`=success, `1`=missing codex CLI, `2`=pre-flight failure, `124`=timeout, `137`=killed.
 
 The wrapper handles: model validation (CODEX_MODEL_ALLOWLIST), reasoning validation,
-timeout clamping [30, 900], .codexignore check, symlink/path-traversal rejection, 1MB prompt cap,
+timeout clamping [300, 900], .codexignore check, symlink/path-traversal rejection, 1MB prompt cap,
 stderr capture, and error classification. All security patterns from the sections below are
 enforced automatically.
 
@@ -48,13 +48,13 @@ are kept as legacy reference for understanding the underlying `codex exec` flags
 ```bash
 # Pre-execution setup (resolve timeouts + initialize stderr capture)
 # Timeouts: { CODEX_TIMEOUT, CODEX_STREAM_IDLE_MS, KILL_AFTER_FLAG } = resolveCodexTimeouts(talisman)
-# See codex-detection.md § "Timeout Resolution" for bounds: 30–3600s timeout, 10–(timeout-1) stream_idle
+# See codex-detection.md § "Timeout Resolution" for bounds: 300–3600s timeout, 10–(timeout-1) stream_idle
 # Security pattern: CODEX_TIMEOUT_ALLOWLIST — see security-patterns.md
 STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
 trap 'rm -f "${STDERR_FILE}"' EXIT
 timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
-  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
-  --config model_reasoning_effort="${CODEX_REASONING:-high}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  --config model_reasoning_effort="${CODEX_REASONING:-xhigh}" \
   --config stream_idle_timeout_ms="${CODEX_STREAM_IDLE_MS:-540000}" \
   --sandbox read-only \
   --full-auto \
@@ -73,8 +73,8 @@ if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${STDE
 STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
 trap 'rm -f "${STDERR_FILE}"' EXIT
 timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
-  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
-  --config model_reasoning_effort="${CODEX_REASONING:-high}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  --config model_reasoning_effort="${CODEX_REASONING:-xhigh}" \
   --config stream_idle_timeout_ms="${CODEX_STREAM_IDLE_MS:-540000}" \
   --sandbox read-only \
   --full-auto \
@@ -130,11 +130,11 @@ nonce = random_hex(4)  # Unique boundary per invocation (SEC-004)
 
 # 4. Invoke with diff-focused prompt
 # Pre-execution setup (same as Standard Invocation above — STDERR_FILE via mktemp)
-# Timeouts resolved via resolveCodexTimeouts() — bounds: 30–3600s timeout, 10–(timeout-1) stream_idle
+# Timeouts resolved via resolveCodexTimeouts() — bounds: 300–3600s timeout, 10–(timeout-1) stream_idle
 STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
 timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
-  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
-  --config model_reasoning_effort="${CODEX_REASONING:-high}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  --config model_reasoning_effort="${CODEX_REASONING:-xhigh}" \
   --config stream_idle_timeout_ms="${CODEX_STREAM_IDLE_MS:-540000}" \
   --sandbox read-only \
   --full-auto \

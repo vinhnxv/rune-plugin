@@ -141,7 +141,7 @@ ashes:
     #   model: "gemini-2.5-pro"            # Model name (must match model_pattern)
     #   output_format: "json"              # jsonl | text | json
     #   finding_prefix: "GEM"              # Unique 2-5 uppercase prefix
-    #   timeout: 300                       # CLI timeout in seconds (30-3600, default: 300)
+    #   timeout: 300                       # CLI timeout in seconds (300-3600, default: 300)
     #   ignore_file: ".geminiignore"       # Optional ignore file
     #   detection_steps: ["version_check"] # Optional: version_check, auth_check, jq_check, ignore_file_check
     #   model_pattern: "^gemini-"          # Optional regex to validate model name (default: MODEL_NAME_PATTERN)
@@ -694,8 +694,8 @@ doubt_seer:
 # This is the runtime kill switch — no code changes needed.
 codex:
   disabled: false                    # Set true to disable Codex Oracle entirely
-  model: "gpt-5.3-codex"            # Codex model — only gpt-5.x-codex supported (e.g., gpt-5-codex, gpt-5.2-codex, gpt-5.3-codex)
-  reasoning: "high"                  # Reasoning effort (high, medium, low)
+  model: "gpt-5.3-codex-spark"      # Codex model — only gpt-5.x-codex(-spark) supported (e.g., gpt-5-codex, gpt-5.3-codex, gpt-5.3-codex-spark)
+  reasoning: "xhigh"                # Reasoning effort (xhigh, high, medium, low)
   # NOTE: sandbox is currently ignored — codex always uses --sandbox read-only. Reserved for future use.
   sandbox: "read-only"               # Sandbox mode (always read-only for review — do NOT change)
   context_budget: 20                 # Max files to review per session (default: 20)
@@ -704,7 +704,7 @@ codex:
   # "mend" added in v1.39.0 for post-fix verification.
   # ── Timeout Configuration (v1.45.0+) ──
   # Outer GNU timeout for codex exec invocations (seconds).
-  # Range: 30-3600. Default: 600.
+  # Range: 300-3600. Default: 600. Minimum 5 min ensures xhigh reasoning has time.
   timeout: 600
   # Inner stream idle timeout — fires when model stops streaming (seconds).
   # Default: timeout - 60s. Must be < timeout.
@@ -750,8 +750,8 @@ codex:
   # NOTE: Key is "semantic_verification" (not "verification_gate") to distinguish from Phase 2.7 (MC-2)
   semantic_verification:
     enabled: true                    # Enable semantic contradiction detection (default: true)
-    timeout: 120                     # Shorter timeout for inline check (default: 120s)
-    reasoning: "medium"              # Overrides global codex.reasoning for this feature
+    timeout: 300                     # 5 min minimum for xhigh reasoning (default: 300s)
+    reasoning: "xhigh"              # Overrides global codex.reasoning for this feature
   # Cross-model gap detection in /rune:arc Phase 5.6
   gap_analysis:
     enabled: true                    # Enable cross-model gap detection (default: true)
@@ -759,13 +759,13 @@ codex:
   # Edge case suggestions for /rune:strive trial-forger
   trial_forger:
     enabled: true                    # Enable edge case suggestions before test writing (default: true)
-    timeout: 120                     # Quick check — 2 min max
-    reasoning: "medium"              # Overrides global codex.reasoning for this feature
+    timeout: 300                     # 5 min minimum for xhigh reasoning (default: 300s)
+    reasoning: "xhigh"              # Overrides global codex.reasoning for this feature
   # Rune Smith inline advisory during implementation
   rune_smith:
     enabled: false                   # DISABLED by default — opt-in only (cost-intensive per worker per task)
-    timeout: 120                     # Quick check — 2 min max
-    reasoning: "low"                 # Low reasoning for speed
+    timeout: 300                     # 5 min minimum for xhigh reasoning (default: 300s)
+    reasoning: "xhigh"              # xhigh reasoning for maximum quality
     min_diff_size: 100               # Skip for trivial changes below this char count
     confidence_threshold: 90         # Only report CRITICAL findings (>= 90% confidence)
   # Cross-model complexity scoring in /rune:devise Phase 2.5 (Shatter)
@@ -775,8 +775,8 @@ codex:
   # Echo learning generalizability validation before persist
   echo_validation:
     enabled: true                    # Enable learning generalizability check (default: true)
-    timeout: 60                      # Very quick check (default: 60s)
-    reasoning: "low"                 # Low reasoning for simple classification
+    timeout: 300                     # 5 min minimum for xhigh reasoning (default: 300s)
+    reasoning: "xhigh"              # xhigh reasoning for maximum quality
 
 # ──────────────────────────────────────────────
 # Context Monitor — Runtime context rot prevention (v1.78.0+)

@@ -37,7 +37,7 @@ Define custom Ash in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml
 | `cli` | string | No | CLI binary name for external model Ash. When present, marks this entry as CLI-backed (discriminated union). Must match `CLI_BINARY_PATTERN` (`/^[a-zA-Z0-9_-]+$/`). Resolved path must NOT be within the project directory |
 | `model` | string | No* | Model name for CLI-backed Ash (e.g., `gemini-2.5-pro`). Must match `model_pattern`. *Required when `cli:` is present |
 | `output_format` | enum | No* | Output format: `jsonl`, `text`, or `json`. *Required when `cli:` is present |
-| `timeout` | int | No | CLI execution timeout in seconds. Must match `CLI_TIMEOUT_PATTERN` (`/^\d{1,5}$/`) with bounds 30-3600. Default: 300 |
+| `timeout` | int | No | CLI execution timeout in seconds. Must match `CLI_TIMEOUT_PATTERN` (`/^\d{1,5}$/`) with bounds 300-3600. Default: 300 |
 | `ignore_file` | string | No | Ignore file name (e.g., `.geminiignore`). Must match `SAFE_PATH_PATTERN`. Resolved path must be within project root |
 | `detection_steps` | list | No | Optional detection steps: `version_check`, `auth_check`, `jq_check`, `ignore_file_check` |
 | `model_pattern` | regex | No | Regex to validate model name. Default: `/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/` (MODEL_NAME_PATTERN) |
@@ -234,7 +234,7 @@ Run these checks at Phase 0 before summoning any agents:
 | CLI binary safe | When `cli:` present: must match `CLI_BINARY_PATTERN` (`/^[a-zA-Z0-9_-]+$/`) | "Invalid CLI binary '{cli}': must match CLI_BINARY_PATTERN" |
 | CLI model valid | When `cli:` present: `model` must match `model_pattern` (default: `MODEL_NAME_PATTERN`) | "Invalid model '{model}' for CLI Ash '{name}': must match model_pattern" |
 | CLI output format | When `cli:` present: `output_format` must be in `OUTPUT_FORMAT_ALLOWLIST` | "Invalid output_format '{value}' in CLI Ash '{name}'. Must be 'jsonl', 'text', or 'json'" |
-| CLI timeout range | When `cli:` present and `timeout` set: must match `CLI_TIMEOUT_PATTERN` + bounds 30-3600 | "Invalid timeout '{value}' in CLI Ash '{name}': must be 30-3600" |
+| CLI timeout range | When `cli:` present and `timeout` set: must match `CLI_TIMEOUT_PATTERN` + bounds 300-3600 | "Invalid timeout '{value}' in CLI Ash '{name}': must be 300-3600" |
 | CLI path safe | When `cli:` present: resolved binary path must NOT be within project directory | "CLI binary '{cli}' resolves to project directory — rejected for safety" |
 | CLI count cap | Total CLI-backed Ashes ≤ `settings.max_cli_ashes` (default: 2) | "Too many CLI-backed Ashes ({count}). Max: {max}" |
 | Valid workflows | Each entry is `review`, `audit`, or `forge` | "Invalid workflow '{value}' in Ash '{name}'. Must be 'review', 'audit', or 'forge'" |

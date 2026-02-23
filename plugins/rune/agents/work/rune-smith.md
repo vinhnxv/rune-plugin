@@ -268,13 +268,13 @@ REMINDER: Resume your reviewer role. Report CRITICAL bugs only."""
 
 **Talisman config** (`codex.rune_smith`):
 - `enabled: false` — DISABLED by default (opt-in only, cost-intensive)
-- `timeout: 120` — 2 min max
-- `reasoning: "low"` — low reasoning for speed
+- `timeout: 300` — 5 min minimum
+- `reasoning: "xhigh"` — xhigh reasoning for maximum quality
 - `min_diff_size: 100` — skip for trivial changes
 - `confidence_threshold: 90` — only CRITICAL findings
 
 **Note on timeout budget (MC-6)**: When `codex.rune_smith.enabled: true`, each worker task
-adds ~2 min of codex overhead. With 3 workers x 5 tasks = up to 30 min additional time.
+adds ~5 min of codex overhead. With 3 workers x 5 tasks = up to 75 min additional time.
 Consider this when setting arc total timeout.
 
 ## Worktree Mode Lifecycle

@@ -63,8 +63,8 @@ All values have sensible defaults — Codex works zero-config if the CLI is inst
 ```yaml
 codex:
   disabled: false                      # Kill switch — skip Codex entirely
-  model: "gpt-5.3-codex"              # Model for codex exec
-  reasoning: "high"                    # Reasoning effort (high | medium | low)
+  model: "gpt-5.3-codex-spark"        # Model for codex exec
+  reasoning: "xhigh"                  # Reasoning effort (xhigh | high | medium | low)
   sandbox: "read-only"                 # Always read-only (reserved for future use)
   context_budget: 20                   # Max files per session
   confidence_threshold: 80             # Min confidence % to report findings
@@ -96,11 +96,12 @@ codex:
 
 | Model | Best For | Notes |
 |-------|----------|-------|
-| `gpt-5.3-codex` | Code review, complex reasoning | **Default, recommended** |
-| `gpt-5.2-codex` | Stable fallback | Previous default |
+| `gpt-5.3-codex-spark` | Code review, complex reasoning | **Default, recommended** |
+| `gpt-5.3-codex` | Stable alternative | Previous default |
+| `gpt-5.2-codex` | Stable fallback | Legacy |
 | `gpt-5-codex` | Simpler analysis, faster | Lower cost |
 
-**Only `gpt-5.x-codex` models are supported.** Other model families (o1-o4, gpt-4o, non-codex) fail with ChatGPT accounts. The `CODEX_MODEL_ALLOWLIST` regex in [security-patterns.md](../roundtable-circle/references/security-patterns.md) enforces this at validation time.
+**Only `gpt-5.x-codex` and `gpt-5.x-codex-spark` models are supported.** Other model families (o1-o4, gpt-4o, non-codex) fail with ChatGPT accounts. The `CODEX_MODEL_ALLOWLIST` regex in [security-patterns.md](../roundtable-circle/references/security-patterns.md) enforces this at validation time.
 
 ## Security Prerequisites
 
@@ -230,17 +231,17 @@ With all 9 deep integration points enabled, a full `/rune:arc` run adds up to 7 
 | Elicitation Sage | 300s | Plan brainstorm |
 | Mend Verification | 660s | Post-mend |
 | Arena Judge | 300s | Plan arena |
-| Semantic Verification | 120s | Arc Phase 2.8 |
+| Semantic Verification | 300s | Arc Phase 2.8 |
 | Gap Analysis | 600s | Arc Phase 5.6 |
-| Trial Forger | 120s | Work (per test task) |
-| Rune Smith | 120s | Work (per worker task, opt-in) |
-| Shatter | 120s | Plan Phase 2.5 |
-| Echo Validation | 60s | Post-workflow |
+| Trial Forger | 300s | Work (per test task) |
+| Rune Smith | 300s | Work (per worker task, opt-in) |
+| Shatter | 300s | Plan Phase 2.5 |
+| Echo Validation | 300s | Post-workflow |
 
-**Default** (`rune_smith.enabled: false`): ~2100s (~35 min) additional overhead.
-**All enabled** (`rune_smith.enabled: true` + 3 workers x 5 tasks): ~5700s (~95 min).
+**Default** (`rune_smith.enabled: false`): ~2700s (~45 min) additional overhead.
+**All enabled** (`rune_smith.enabled: true` + 3 workers x 5 tasks): ~7200s (~120 min).
 
-Per-feature `reasoning` keys (e.g., `codex.semantic_verification.reasoning: "medium"`) override
+Per-feature `reasoning` keys (e.g., `codex.semantic_verification.reasoning: "xhigh"`) override
 the global `codex.reasoning` for that specific feature only.
 
 ## Cross-References
@@ -262,9 +263,9 @@ in a single script — replacing raw `Bash()` commands that the LLM might improv
 "${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" [OPTIONS] PROMPT_FILE
 
 Options:
-  -m MODEL          Model (default: gpt-5.3-codex, validated against allowlist)
-  -r REASONING      high|medium|low (default: high)
-  -t TIMEOUT        Seconds, clamped to [30, 900] (default: 600)
+  -m MODEL          Model (default: gpt-5.3-codex-spark, validated against allowlist)
+  -r REASONING      xhigh|high|medium|low (default: xhigh)
+  -t TIMEOUT        Seconds, clamped to [300, 900] (default: 600)
   -s STREAM_IDLE    Stream idle timeout ms (default: 540000)
   -j                Enable --json + jq JSONL parsing
   -g                Pass --skip-git-repo-check
@@ -277,7 +278,7 @@ Options:
 - Reads prompt via stdin pipe (SEC-009) — never `$(cat)`
 - Validates model against `CODEX_MODEL_ALLOWLIST` regex
 - Validates reasoning against `[high, medium, low]`
-- Clamps timeout to `[30, 900]`
+- Clamps timeout to `[300, 900]`
 - Rejects symlink prompt files and paths with `..`
 - Caps prompt file at 1MB (SEC-2 DoS prevention)
 - Classifies errors to structured `CODEX_ERROR[CODE]` format on stderr
@@ -297,9 +298,9 @@ Options:
 | Check if Codex available | `command -v codex >/dev/null 2>&1` |
 | Check version | `codex --version` |
 | Check auth | `codex login status` |
-| Run via wrapper (preferred) | `"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m gpt-5.3-codex -r high -t 600 -g PROMPT.txt` |
+| Run via wrapper (preferred) | `"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m gpt-5.3-codex-spark -r xhigh -t 600 -g PROMPT.txt` |
 | Run with JSON parsing | `"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -j -g PROMPT.txt` |
-| Review files (legacy) | `codex exec -m gpt-5.3-codex --sandbox read-only --full-auto --json "Review: ..."` |
+| Review files (legacy) | `codex exec -m gpt-5.3-codex-spark --sandbox read-only --full-auto --json "Review: ..."` |
 | Resume session | `echo "continue" \| codex exec resume --last` |
 | Check jq available | `command -v jq >/dev/null 2>&1` |
 | Disable entirely | `codex.disabled: true` in talisman.yml |

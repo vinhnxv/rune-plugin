@@ -38,9 +38,9 @@ forge:                                 # Forge Gaze selection overrides
 
 codex:                                 # Codex CLI integration (see codex-cli skill for full details)
   disabled: false                      # Kill switch — skip Codex entirely
-  model: "gpt-5.3-codex"              # Model for codex exec
-  reasoning: "high"                    # Reasoning effort (high | medium | low)
-  timeout: 600                         # Outer GNU timeout in seconds for codex exec (default: 600, range: 30-3600)
+  model: "gpt-5.3-codex-spark"        # Model for codex exec
+  reasoning: "xhigh"                  # Reasoning effort (xhigh | high | medium | low)
+  timeout: 600                         # Outer GNU timeout in seconds for codex exec (default: 600, range: 300-3600)
   stream_idle_timeout: 540             # Inner stream idle timeout — kills codex if no output for this duration (default: 540, range: 10-timeout)
   workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex — "mend" added in v1.39.0 for post-fix verification
   work_advisory:
