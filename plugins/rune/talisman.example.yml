@@ -440,6 +440,20 @@ elicitation:
 echoes:
   version_controlled: false    # Set true to track .claude/echoes/ in git
 
+  # ── Scoring — Composite re-ranking (v1.81.0+) ──
+  # 5-factor composite scoring blends BM25 relevance with importance, recency,
+  # file proximity, and access frequency. Weights are configurable via env vars
+  # (ECHO_WEIGHT_RELEVANCE, ECHO_WEIGHT_IMPORTANCE, ECHO_WEIGHT_RECENCY,
+  # ECHO_WEIGHT_PROXIMITY, ECHO_WEIGHT_FREQUENCY) with defaults summing to 1.0.
+  # scoring:
+  #   validation_mode: false       # Set true or ECHO_VALIDATION_MODE=1 to enable dual scoring
+  #                                # Runs both BM25-only and composite in parallel, logging divergence
+  #                                # to tmp/.rune-signals/.echo-scoring-validation.log
+  #   # Exit criteria (switch to composite-only when ALL met):
+  #   #   - Kendall tau > 0.2 in < 5% of queries
+  #   #   - No Etched entry drops > 0.15 in composite score
+  #   #   - No original top-5 entry falls below top-20
+
 # ──────────────────────────────────────────────
 # Review — Context Intelligence, Linter Awareness, and convergence (v1.35.0+)
 # ──────────────────────────────────────────────
