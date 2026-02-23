@@ -48,6 +48,8 @@ strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
+session_budget:
+  max_concurrent_agents: 3      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
 
 # {Feature Title}
@@ -85,6 +87,8 @@ strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
+session_budget:
+  max_concurrent_agents: 5      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
 
 # {Feature Title}
@@ -195,6 +199,8 @@ strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
 branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
+session_budget:
+  max_concurrent_agents: 8      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
 
 # {Feature Title}
@@ -402,6 +408,22 @@ During Phase 2 Synthesize, after consolidating research:
 6. **impact**: Score 1-10. Anchor points: 1 = cosmetic, 5 = useful improvement, 10 = critical blocker.
 
 7. **strategic_intent**: Declare the plan's strategic intent. Options: `"long-term"` (default — build correctly, minimize future debt), `"quick-win"` (ship fast, accept trade-offs), `"auto"` (let horizon-sage infer from type + complexity + scope). When in doubt, leave as `"long-term"`.
+
+8. **session_budget** (optional): Cap on simultaneous agent teammates spawned during `strive`/`arc` execution. Set `max_concurrent_agents` based on plan effort using the sizing guide below. The cap is applied silently — workers respect it without surfacing it to the user.
+
+```yaml
+session_budget:
+  max_concurrent_agents: 8       # Cap on simultaneous teammates (applied silently)
+```
+
+**Sizing guide for `max_concurrent_agents`:**
+
+| Plan Effort | max_concurrent_agents |
+|-------------|----------------------|
+| S (<200 LOC) | 3 |
+| M (200-800 LOC) | 5 |
+| L (800-2000 LOC) | 8 |
+| XL (>2000 LOC) | 12 (with shatter, per shard) |
 
 ## Formatting Best Practices
 

@@ -233,6 +233,25 @@ if [[ -d "${CWD}/.claude/arc/" ]]; then
   shopt -u nullglob
 fi
 
+# ── Bridge file cleanup (context monitor) ──
+# Ownership-scan pattern — session_id not available in Stop hook
+# NOTE: $RUNE_CURRENT_CFG is already available (sourced at top of script)
+shopt -s nullglob
+for f in /tmp/rune-ctx-*-warned.json /tmp/rune-ctx-*.json; do
+  [[ -f "$f" ]] || continue
+  [[ -L "$f" ]] && { rm -f "$f" 2>/dev/null; continue; }  # symlink guard
+  B_CFG=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+  B_PID=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+  # Only clean if: our config_dir AND (our PID or dead PID)
+  [[ -n "$B_CFG" && "$B_CFG" != "$RUNE_CURRENT_CFG" ]] && continue
+  if [[ -n "$B_PID" && "$B_PID" =~ ^[0-9]+$ ]]; then
+    kill -0 "$B_PID" 2>/dev/null && [[ "$B_PID" != "${PPID:-0}" ]] && continue
+  fi
+  rm -f "$f" 2>/dev/null
+  _trace "CLEANUP: removed bridge file $f"
+done
+shopt -u nullglob
+
 # ── REPORT ──
 total=$((${#cleaned_teams[@]} + ${#cleaned_states[@]} + ${#cleaned_arcs[@]}))
 
