@@ -79,6 +79,28 @@
             "statusMessage": "Validating team lifecycle..."
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit|Task|TeamCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/advise-post-completion.sh",
+            "timeout": 5,
+            "statusMessage": "Checking post-completion context..."
+          }
+        ]
+      },
+      {
+        "matcher": "TeamCreate|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/guard-context-critical.sh",
+            "timeout": 5,
+            "statusMessage": "Checking context budget..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
