@@ -32,6 +32,7 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
+  - AskUserQuestion
 ---
 
 # /rune:inspect — Plan-vs-Implementation Deep Audit

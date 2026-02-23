@@ -506,7 +506,7 @@ if (todosExist) {
     const workLogEntry = `
 ### ${today} - Mend Resolution
 
-**By**: ${fixerName}
+**By**: ${phaseFixerName}
 
 **Actions**:
 - Resolution: ${finding.resolution}

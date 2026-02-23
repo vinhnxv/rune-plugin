@@ -97,7 +97,7 @@ function checkTaskCoverage(planContent, executionTable) {
   const autoFixed = []
 
   // Extract ACs from parent plan: lines starting with "- [ ]" or "- [x]" under ## Acceptance Criteria
-  const acSection = planContent.match(/## Acceptance Criteria([\s\S]*?)(?=\n##|\Z)/i)?.[1] || ""
+  const acSection = planContent.match(/## Acceptance Criteria([\s\S]*?)(?=\n##|$)/i)?.[1] || ""
   const parentACs = acSection
     .split("\n")
     .filter(line => line.trim().match(/^-\s+\[[ x]\]/))
@@ -118,7 +118,7 @@ function checkTaskCoverage(planContent, executionTable) {
     try {
       const childContent = Read(entry.path)
       if (!childContent) continue
-      const childAcSection = childContent.match(/## Acceptance Criteria([\s\S]*?)(?=\n##|\Z)/i)?.[1] || ""
+      const childAcSection = childContent.match(/## Acceptance Criteria([\s\S]*?)(?=\n##|$)/i)?.[1] || ""
       const acs = childAcSection
         .split("\n")
         .filter(line => line.trim().match(/^-\s+\[[ x]\]/))
@@ -239,7 +239,7 @@ function checkDuplicateTasks(executionTable) {
       const content = Read(entry.path)
       if (!content) continue
       const title = content.match(/^#\s+(.+)/m)?.[1] || entry.path
-      const acSection = content.match(/## Acceptance Criteria([\s\S]*?)(?=\n##|\Z)/i)?.[1] || ""
+      const acSection = content.match(/## Acceptance Criteria([\s\S]*?)(?=\n##|$)/i)?.[1] || ""
       childSummaries.push({ seq: entry.seq, path: entry.path, title, acSection })
     } catch (e) {
       // Skip unreadable files

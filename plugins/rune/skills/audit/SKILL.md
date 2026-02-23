@@ -27,6 +27,7 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
+  - AskUserQuestion
 ---
 
 **Runtime context** (preprocessor snapshot):

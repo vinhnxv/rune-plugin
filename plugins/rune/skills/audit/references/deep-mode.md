@@ -66,8 +66,8 @@ if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
         const riskMap = JSON.parse(riskMapContent)
         const TIER_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4 }
         const fileRiskMap = {}
-        for (const [filePath, risk] of Object.entries(riskMap.files ?? {})) {
-          fileRiskMap[filePath] = { score: risk.risk, tier: risk.tier }
+        for (const entry of (riskMap.files ?? [])) {
+          fileRiskMap[entry.path] = { score: entry.risk_score, tier: entry.tier }
         }
         // Re-sort all_files: tier-then-score composite sort
         all_files.sort((a, b) => {
@@ -78,8 +78,8 @@ if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
           return (riskB?.score ?? 0) - (riskA?.score ?? 0)
         })
         auditRiskMap = fileRiskMap
-        const scoredCount = Object.keys(riskMap.files ?? {}).length
-        const criticalCount = Object.values(riskMap.files ?? {}).filter(f => f.tier === 'CRITICAL').length
+        const scoredCount = (riskMap.files ?? []).length
+        const criticalCount = (riskMap.files ?? []).filter(f => f.tier === 'CRITICAL').length
         log(`Lore Layer: ${scoredCount} files scored, ${criticalCount} CRITICAL`)
       } catch (e) {
         warn(`Lore Layer: Failed to read risk-map — falling back to static prioritization`)
