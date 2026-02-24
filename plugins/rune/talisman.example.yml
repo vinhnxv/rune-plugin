@@ -273,6 +273,21 @@ audit:
   #         - "express"
   #         - "fastapi"
 
+  # ── Directory Scoping (v1.90.0+) ──────────────
+  # Restrict audit to one or more directories instead of scanning the whole repo.
+  # Equivalent to passing --dir on the CLI; talisman sets the project default.
+  # Glob patterns (relative to repo root). Accepts a single string or a list.
+  # dir_scope:
+  #   - "src/"                             # Audit only the src/ tree (default: null = full repo)
+  #   - "lib/"                             # Add additional directories as needed
+
+  # ── Custom Prompt Override (v1.90.0+) ─────────
+  # Load a Markdown file as an additional system-level instruction injected into
+  # every Ash prompt during this audit. Useful for project-specific audit focus.
+  # custom_prompt:
+  #   active: true                         # Enable prompt injection (default: false)
+  #   prompt_file: ".claude/audit-prompt.md"  # Path to prompt file (relative to repo root)
+
 # ──────────────────────────────────────────────
 # Defaults — Disable built-in Ash
 # ──────────────────────────────────────────────
