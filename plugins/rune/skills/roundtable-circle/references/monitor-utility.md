@@ -230,7 +230,7 @@ Each command passes its own `opts` to `waitForCompletion`:
 
 When `depth=deep` activates wave scheduling, `waitForCompletion` is called once per wave with that wave's timeout allocation (from `distributeTimeouts`). The orchestrator manages the wave loop externally — `waitForCompletion` itself is unchanged.
 
-**Per-wave signal directory:** Each wave uses the same signal directory (`tmp/.rune-signals/{teamName}/`) but the directory is reset between waves. Signal files are cleared, `.expected` is rewritten with the new wave's agent count, and done files use the pattern `{ash-slug}-w{N}.done` to prevent cross-wave signal contamination.
+**Per-wave signal directory:** Each wave uses the same signal directory (`tmp/.rune-signals/{teamName}/`) but the directory is reset between waves. Signal files are cleared, `.expected` is rewritten with the new wave's agent count, and done files use the pattern `{task_id}.done` (matching on-task-completed.sh runtime). Each wave uses its own signal directory (`tmp/.rune-signals/{teamName}-w{N}/`) to prevent cross-wave signal contamination.
 
 ```javascript
 // Wave-aware signal setup (between waves)
@@ -283,7 +283,7 @@ const result = waitForCompletion(teamName, taskCount, {
 
 ## Notes
 
-- **Timeout is optional**: When `timeoutMs` is `undefined`, the loop runs until all tasks complete. This matches `devise` and `forge` which have no hard timeout.
+- **Timeout is optional**: When `timeoutMs` is `undefined`, the loop runs until all tasks complete. This matches `devise` which has no hard timeout.
 - **Auto-release is optional**: When `autoReleaseMs` is `undefined`, stale tasks only produce warnings. This matches `appraise` and `audit` where Ash findings are non-fungible.
 - **No retry logic**: `TaskList()` errors propagate naturally. Retry logic is out of scope for Phase 1.
 - **Final sweep**: On timeout, a final `TaskList()` call captures any tasks that completed during the last poll interval. This matches the existing pattern in `appraise.md`, `audit.md`, `strive.md`, and `mend.md`.

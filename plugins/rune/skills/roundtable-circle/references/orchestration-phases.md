@@ -28,6 +28,9 @@ Both appraise and audit set these parameters before invoking shared phases:
 | 16 | `focusArea` | string | `"full"` (appraise has no focus flag) | From `--focus` or `"full"` |
 | 17 | `flags` | object | Parsed CLI flags | Parsed CLI flags |
 | 18 | `talisman` | object | Parsed talisman.yml config | Parsed talisman.yml config |
+| 19 | `sessionNonce` | string | `crypto.randomUUID().slice(0,8)` | `crypto.randomUUID().slice(0,8)` |
+
+> **Note on `sessionNonce`**: Generated once at orchestrator startup. Written as `session_nonce` (snake_case) in inscription.json and ash prompts. Referenced as `sessionNonce` (camelCase) in orchestrator pseudocode. Both forms refer to the same value.
 
 ### Session Isolation (Parameters 11-13)
 
@@ -110,6 +113,8 @@ Write(`${outputDir}inscription.json`, {
   scope,
   depth,
   output_dir: outputDir,
+  team_name: teamName,
+  session_nonce: sessionNonce,
   teammates: selectedAsh.map(r => ({
     name: r,
     output_file: `${r}.md`,
@@ -131,6 +136,7 @@ Write(`${signalDir}/inscription.json`, JSON.stringify({
   workflow,
   timestamp,
   output_dir: outputDir,
+  team_name: teamName,
   teammates: selectedAsh.map(name => ({ name, output_file: `${name}.md` }))
 }))
 
@@ -178,10 +184,16 @@ for (const wave of waves) {
     // Inter-wave team reset
     TeamCreate({ team_name: `${teamName}-w${wave.waveNumber}` })
 
-    // Reset signal directory for new wave
-    Bash(`find "${signalDir}" -mindepth 1 -delete`)
-    Write(`${signalDir}/.expected`, String(wave.agents.length))
-    Write(`${signalDir}/.readonly-active`, "active")
+    // Create per-wave signal directory (matches hook TEAM_NAME for Wave 2+ agents)
+    const waveSignalDir = `tmp/.rune-signals/${teamName}-w${wave.waveNumber}`
+    Bash(`mkdir -p "${waveSignalDir}" && find "${waveSignalDir}" -mindepth 1 -delete`)
+    Write(`${waveSignalDir}/.expected`, String(wave.agents.length))
+    Write(`${waveSignalDir}/.readonly-active`, "active")
+    Write(`${waveSignalDir}/inscription.json`, JSON.stringify({
+      workflow, timestamp, output_dir: outputDir,
+      team_name: `${teamName}-w${wave.waveNumber}`,
+      teammates: wave.agents.map(ash => ({ name: ash.slug, output_file: `${ash.slug}.md` }))
+    }))
 
     // Create tasks for this wave's agents
     for (const ash of wave.agents) {
@@ -240,7 +252,8 @@ for (const wave of waves) {
       }
     }
     if (!waveCleanupOk) {
-      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+      const cleanupTeamName = wave.waveNumber === 1 ? teamName : `${teamName}-w${wave.waveNumber}`
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${cleanupTeamName}/" "$CHOME/tasks/${cleanupTeamName}/" 2>/dev/null`)
     }
 
     // Collect findings for next wave context (file:line + severity ONLY)

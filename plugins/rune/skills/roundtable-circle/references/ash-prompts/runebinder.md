@@ -131,36 +131,6 @@ If doubt-seer output exists, create a `## Doubt Seer Challenges` section contain
 - Ash completed: {completed}/{summoned}
 ```
 
-## COMPLETION.JSON FORMAT
-
-After writing TOME.md, write completion.json:
-
-```json
-{
-  "workflow": "{workflow_type}",
-  "identifier": "{identifier}",
-  "completed_at": "{ISO-8601 timestamp}",
-  "ash": {
-    "{name}": {
-      "status": "complete|partial|timeout|missing",
-      "findings": {total_count},
-      "p1": {count},
-      "p2": {count},
-      "p3": {count},
-      "q": {count},
-      "n": {count},
-      "confidence": {float_from_seal}
-    }
-  },
-  "aggregation": {
-    "tome_path": "{output_dir}/TOME.md",
-    "total_findings": {count},
-    "pre_dedup_total": {count},
-    "dedup_removed": {count}
-  }
-}
-```
-
 ## RULES
 
 1. **Copy findings exactly** — do NOT rewrite, rephrase, or improve Rune Trace blocks
@@ -178,7 +148,7 @@ If an Ash's output file:
 
 ## GLYPH BUDGET
 
-After writing TOME.md and completion.json, send a SINGLE message to the Tarnished:
+After writing TOME.md, send a SINGLE message to the Tarnished:
 
   "Runebinder complete. Path: {output_dir}/TOME.md.
   {total} findings ({p1} P1, {p2} P2, {p3} P3, {q} Q, {n} N). {dedup_removed} deduplicated.
