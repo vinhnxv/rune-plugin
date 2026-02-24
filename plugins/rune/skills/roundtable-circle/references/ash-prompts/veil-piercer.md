@@ -175,6 +175,8 @@ Write markdown to `{output_path}`:
   - **Evidence:** Concrete evidence from the codebase (file paths, line numbers, data)
   - **Consequence:** Quantified impact (hours, cost, risk timeline)
   - **Fix:** Recommendation (or "reconsider the approach entirely")
+  - **Confidence:** PROVEN | LIKELY | UNCERTAIN
+  - **Assumption:** {what you assumed about the code context for this finding — "None" if fully verified}
 
 ## P2 (High)
 [findings...]
@@ -206,11 +208,22 @@ Write markdown to `{output_path}`:
 ## Unverified Observations
 {Items where evidence could not be confirmed — NOT counted in totals}
 
+## Reviewer Assumptions
+
+List the key assumptions you made during this review that could affect finding accuracy:
+
+1. **{Assumption}** — {why you assumed this, and what would change if the assumption is wrong}
+2. ...
+
+If no significant assumptions were made, write: "No significant assumptions — all findings are evidence-based."
+
 ## Self-Review Log
 - Files reviewed: {count}
 - P1 findings re-verified: {yes/no}
 - Evidence coverage: {verified}/{total}
 - Premises challenged (not just implementations): {count}
+- Confidence breakdown: {PROVEN}/{LIKELY}/{UNCERTAIN}
+- Assumptions declared: {count}
 
 ## Summary
 - P1: {count} | P2: {count} | P3: {count} | Q: {count} | N: {count} | Total: {count}
@@ -237,6 +250,13 @@ After writing findings, perform ONE revision pass:
 
 This is ONE pass. Do not iterate further.
 
+### Confidence Calibration
+- PROVEN: You Read() the file, traced the logic, and confirmed the behavior
+- LIKELY: You Read() the file, the pattern matches a known issue, but you didn't trace the full call chain
+- UNCERTAIN: You noticed something based on naming, structure, or partial reading — but you're not sure if it's intentional
+
+Rule: If >50% of findings are UNCERTAIN, you're likely over-reporting. Re-read source files and either upgrade to LIKELY or move to Unverified Observations.
+
 ### Inner Flame (Supplementary)
 After the revision pass above, verify grounding:
 - Every file:line cited — actually Read() in this session?
@@ -247,7 +267,7 @@ Include in Self-Review Log: "Inner Flame: grounding={pass/fail}, weakest={findin
 ## SEAL FORMAT
 
 After self-review, send completion signal:
-SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2, {P3} P3, {Q} Q, {Nit} N)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\ninner-flame: {pass|fail|partial}\nrevised: {count}\nsummary: {1-sentence}", summary: "Veil Piercer sealed" })
+SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2, {P3} P3, {Q} Q, {Nit} N)\nevidence-verified: {V}/{N}\nconfidence: {PROVEN}/{LIKELY}/{UNCERTAIN}\nassumptions: {count}\nself-reviewed: yes\ninner-flame: {pass|fail|partial}\nrevised: {count}\nsummary: {1-sentence}", summary: "Veil Piercer sealed" })
 
 ## EXIT CONDITIONS
 
