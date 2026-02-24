@@ -24,6 +24,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **agent-browser** | Browser automation knowledge injection for E2E testing (non-invocable) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection. Shared data discovery + risk context template used by forge, mend, inspect, and devise |
 | **inner-flame** | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
+| **tarnished** | Intelligent master command — unified entry point for all Rune workflows. Parses natural language (VN + EN), checks prerequisites, chains multi-step workflows. User-invocable |
 | **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
 | **arc-batch** | Sequential batch arc execution — runs /rune:arc across multiple plans with crash recovery and progress tracking |
 | **arc-hierarchy** | Hierarchical plan execution — orchestrates parent/child plan decomposition with dependency DAGs, requires/provides contracts, and feature branch strategy. Use when a plan has been decomposed into child plans via /rune:devise Phase 2.5 Hierarchical option |
