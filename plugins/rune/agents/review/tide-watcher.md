@@ -7,10 +7,14 @@ description: |
   sequential await/waterfall detection, unbounded concurrency detection, structured
   concurrency enforcement (TaskGroup, JoinSet, Promise.allSettled), cancellation handling
   verification, race condition detection (TOCTOU, shared mutable state), timer/resource
-  cleanup, blocking calls in async context, frontend timing and DOM lifecycle issues.
+  cleanup, blocking calls in async context, frontend timing and DOM lifecycle issues,
+  framework-specific race conditions (React hooks, Vue composition API, Hotwire/Turbo/Stimulus),
+  browser API synchronization (IndexedDB, localStorage cross-tab, IntersectionObserver),
+  state machine enforcement for UI state.
   Named for Elden Ring's tides — concurrent operations that ebb and flow, overwhelming
   systems when uncontrolled.
-  Triggers: Async code, concurrent operations, event handlers, timers, promises, channels.
+  Triggers: Async code, concurrent operations, event handlers, timers, promises, channels,
+  frontend lifecycle, DOM races, state machine patterns.
 
   <example>
   user: "Check the async handlers for concurrency issues"
@@ -127,6 +131,47 @@ Specific patterns for frontend async code that interacts with DOM and rendering.
 **Flag as P2 if**: Boolean flags for mutually exclusive UI states (use state machine)
 **Flag as P3 if**: Missing requestAnimationFrame cancellation on re-trigger
 
+### 9. Framework-Specific DOM Lifecycle Races
+
+For detailed framework patterns, see [frontend-race-patterns.md](references/frontend-race-patterns.md).
+
+**Hotwire/Turbo/Stimulus:**
+- `initialize()` vs `connect()`: State set in `initialize()` persists across Turbo navigations; state set in `connect()` resets. Using wrong lifecycle = stale state race.
+- All event listeners added in `connect()` MUST be removed in `disconnect()`. Failure = memory leak + ghost handlers.
+- Turbo Stream DOM replacement restarts CSS animations mid-sequence.
+
+**React Hooks:**
+- useEffect cleanup runs BOTH before the next effect execution AND on component unmount. Missing cleanup = stale closures and leaked subscriptions.
+- Concurrent mode `startTransition` can interleave renders — state updates may not be sequential.
+
+**Vue Composition API:**
+- `watch` (lazy) vs `watchEffect` (eager): wrong choice = missed first value or unnecessary initial fire.
+- `onUnmounted` fires after DOM removal — don't query DOM in cleanup.
+
+**Flag as P1 if**: Missing `disconnect()`/cleanup for listeners added in `connect()`/`useEffect`/`onMounted`.
+**Flag as P2 if**: Stale closure in useEffect capturing outdated state without ref or abort.
+
+### 10. Browser API Synchronization
+
+- **localStorage**: Synchronous but NOT thread-safe across tabs. Use `storage` event for cross-tab coordination.
+- **IndexedDB transactions**: Auto-commit when all requests complete AND control returns to event loop. Long operations cause unexpected transaction closure.
+- **requestAnimationFrame batching**: Multiple independent rAF calls in same frame execute fine. Batch them into a single callback for efficiency. Note: recursive rAF for animation loops is the correct standard pattern.
+- **Image/iframe loading**: Set `onload`/`onerror` BEFORE setting `src`. Cached images fire `load` synchronously before handler attached.
+- **IntersectionObserver**: Callbacks are async and batched — element may have scrolled away by callback time. Always verify element state in callback.
+
+**Flag as P1 if**: IndexedDB transaction used across async boundaries (auto-commit race).
+**Flag as P2 if**: Missing `storage` event handling for cross-tab localStorage state.
+
+### 11. State Machine Enforcement
+
+For components with >2 boolean state flags controlling the same UI flow, require state machine pattern:
+
+- BAD: `isLoading`, `hasError`, `isComplete` → 8 combinations, most invalid
+- GOOD: `state: 'idle' | 'loading' | 'error' | 'complete'` → 4 valid states only
+
+**Flag as P2 if**: >=3 boolean state variables controlling the same UI flow.
+**Flag as P3 if**: 2 boolean state variables that are mutually exclusive.
+
 ## Review Checklist
 
 ### Analysis Todo
@@ -138,6 +183,9 @@ Specific patterns for frontend async code that interacts with DOM and rendering.
 6. [ ] Verify **timer/resource cleanup** — intervals cleared, tasks cancelled on shutdown
 7. [ ] Check for **blocking calls in async** — time.sleep, std::fs, readFileSync
 8. [ ] Review **frontend timing** — stale responses, animation races, state machines
+9. [ ] Check **framework lifecycle races** — Hotwire disconnect, React cleanup, Vue unmount timing
+10. [ ] Verify **browser API sync** — IndexedDB transactions, localStorage cross-tab, image load ordering
+11. [ ] Check **state machine enforcement** — >=3 boolean flags → require state machine pattern
 
 ### Self-Review
 After completing analysis, verify:

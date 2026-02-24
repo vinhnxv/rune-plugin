@@ -593,3 +593,30 @@ type State = 'idle' | 'loading' | 'success' | 'error';
 const [state, setState] = useState<State>('idle');
 // Mutually exclusive by construction
 ```
+
+---
+
+## 9. WebSocket/SSE Reconnection Races
+
+Messages can arrive out of order during reconnection. Clear local state and re-sync.
+
+**TypeScript**
+```typescript
+// BAD: Reconnect without state reset — stale data persists
+ws.onclose = () => {
+  setTimeout(() => { ws = new WebSocket(url); }, 1000);
+};
+
+// GOOD: Clear state and request full sync on reconnect
+ws.onclose = () => {
+  clearLocalState();
+  setTimeout(() => {
+    ws = new WebSocket(url);
+    ws.onopen = () => ws.send(JSON.stringify({ type: 'sync' }));
+  }, 1000);
+};
+```
+
+**Detection**: WebSocket `onclose`/`onerror` handlers that reconnect without clearing cached state or requesting full re-sync.
+
+For detailed frontend-specific patterns (Hotwire, React, Vue), see [frontend-race-patterns.md](frontend-race-patterns.md).
