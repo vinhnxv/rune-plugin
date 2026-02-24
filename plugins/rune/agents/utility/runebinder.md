@@ -64,7 +64,7 @@ When two Ash flag the same file within a 5-line range:
 |-----------|--------|
 | Same file + same 5-line window | Keep higher-priority Ash's finding |
 | Same severity | Keep by hierarchy: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX |
-| Same severity + same hierarchy level | **Within-tier tiebreaker**: keep finding with higher `confidence_score` |
+| Same severity + same hierarchy level | **Within-tier tiebreaker**: keep finding with higher `confidence_score`. Applied AFTER the Ash-priority rule — only when both Ash priority AND hierarchy level are identical |
 | Different severity | Keep highest severity (P1 > P2 > P3) |
 | Different perspectives | Keep both (different value) |
 

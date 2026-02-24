@@ -151,6 +151,9 @@ if [[ -z "$ALLOWED_FILES" && -z "$ALLOWED_DIRS" && -z "$TALISMAN_SHARED" ]]; the
 fi
 
 # Normalize the target file path (resolve relative to CWD, strip ./)
+# NOTE: Absolute paths outside CWD (e.g., /tmp/scratch.txt) intentionally remain
+# absolute after prefix strip — they will never match relative allowlist entries,
+# effectively denying writes outside the project directory (security by design).
 if [[ "$FILE_PATH" == /* ]]; then
   # Absolute path — make relative to CWD for comparison
   REL_FILE_PATH="${FILE_PATH#"${CWD}/"}"
