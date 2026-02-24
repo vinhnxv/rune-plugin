@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.91.0] - 2026-02-24
+
+### Added
+- **Directory-Scoped Audit** — `/rune:audit` gains `--dirs <path,...>` and `--exclude-dirs <path,...>` flags for pre-filtering the Phase 0 `find` command before files reach Rune Gaze, the incremental layer, or the Lore Layer (those components receive a smaller `all_files` array and require zero changes):
+  - `--dirs` restricts the audit to comma-separated relative directory paths (overrides talisman `audit.dirs`; talisman value used as fallback)
+  - `--exclude-dirs` excludes directories from the scan (merged with talisman `audit.exclude_dirs`; flag values take precedence)
+  - Security: `SAFE_PATH_PATTERN` validation, path traversal rejection (`..`), absolute path rejection, symlink guard via `realpath -m` + project-root containment check
+  - Robustness: `Array.isArray()` guard on talisman arrays, overlapping dir deduplication (subdirs covered by a parent removed), warn+skip on missing dirs, abort if ALL provided dirs are missing
+  - `dirScope` threaded as Parameter Contract #20 to orchestration-phases.md and inscription metadata
+  - Talisman config: `audit.dirs` and `audit.exclude_dirs` arrays supported
+- **Custom Prompt-Based Audit** — `/rune:audit` gains `--prompt <text>` and `--prompt-file <path>` flags for injecting project-specific instructions into every Ash prompt during an audit session:
+  - `--prompt` (inline string) > `--prompt-file` (file path) > `talisman.audit.default_prompt_file` priority chain
+  - New Phase 0.5B resolves, validates, loads, and sanitizes the custom prompt block before Rune Gaze
+  - `sanitizePromptContent()` strips: YAML frontmatter, HTML/XML comments, null bytes, zero-width chars, BiDi overrides, ANSI escapes, RUNE nonce markers, ANCHOR/RE-ANCHOR lines, reserved Rune headers — `RESERVED_HEADERS` regex declared inside function (prevents `/g` flag reuse bug)
+  - Post-sanitization whitespace-only guard aborts with a clear error rather than injecting an empty block
+  - Absolute `--prompt-file` paths must be within project root OR `~/.claude/`; relative paths are validated via `SAFE_PROMPT_PATH` pattern
+  - Injection point: sanitized block appended to each Ash prompt before the RE-ANCHOR Truthbinding boundary (`customPromptBlock = null` default is CRITICAL — preserves all existing audit calls)
+  - Finding attribution: standard prefixes (SEC, BACK, etc.) with `source="custom"` attribute — no CUSTOM- compound prefix
+  - `customPromptBlock` threaded as Parameter Contract #21 to orchestration-phases.md
+  - Talisman config: `audit.default_prompt_file` string supported
+- New reference file: `skills/audit/references/prompt-audit.md` — prompt file format spec, sanitization rules table, HIPAA/OWASP/team-convention examples, edge cases table, finding attribution notes
+
+### Changed
+- `audit/SKILL.md`: `argument-hint` updated with `--dirs`, `--exclude-dirs`, `--prompt`, `--prompt-file`
+- `audit/SKILL.md`: Flags table expanded with 4 new rows and updated flag interaction notes
+- `audit/SKILL.md`: Phase 0 pseudocode split into directory scope resolution block (JS) + scoped `find` command (bash)
+- `audit/SKILL.md`: Phase 0.5B added between Lore Layer and Rune Gaze for custom prompt resolution
+- `audit/SKILL.md`: Error Handling table extended with 3 new `--prompt-file` error rows
+- `orchestration-phases.md`: Parameter Contract table extended with `dirScope` (#20) and `customPromptBlock` (#21)
+- `talisman.example.yml`: New `audit.dirs`, `audit.exclude_dirs`, `audit.default_prompt_file` config keys
+- `inscription-schema.md`: `dir_scope` and `custom_prompt_block` fields added to inscription metadata schema
+- `plugin.json` / `marketplace.json`: Version 1.90.0 → 1.91.0
+
 ## [1.90.0] - 2026-02-24
 
 ### Added
