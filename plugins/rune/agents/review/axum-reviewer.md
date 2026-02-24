@@ -76,7 +76,7 @@ rg 'axum\s*=' Cargo.toml
 
 - `tx.begin()` without matching `tx.commit()` or explicit rollback path
 - Side effects (email sends, HTTP calls, cache writes) INSIDE the transaction block — must occur AFTER commit
-- Detection: `rg "tx\.commit\(\)" --type rust -B 10 | rg "send_email\|reqwest\|redis"`
+- Detection: `rg "tx\.commit\(\)" --type rust -B 10 | rg "send_email\|reqwest\|redis"` (catches side effects in 10 lines BEFORE commit, not inside transaction block)
 - Note: SQLx `Drop` on uncommitted `Transaction` auto-rollbacks — no explicit rollback needed on `?`
 
 ### 6. Extractor Rejection Handling
@@ -89,7 +89,7 @@ rg 'axum\s*=' Cargo.toml
 
 - `Extension<T>` for app-wide state (legacy 0.5 API — runtime 500 on missing, not compile error)
 - Fix: `State<T>` is type-safe at compile time; `from_fn_with_state` for middleware access
-- Detection: `rg "Extension<(?!Request)" --type rust`
+- Detection: `rg -P "Extension<(?!Request)" --type rust` (requires `-P` for PCRE lookahead)
 - `from_fn` middleware without `from_fn_with_state` when State access is needed
 - Detection: `rg "from_fn\b" --type rust`
 - Tower `ServiceBuilder` with fallible layers without `HandleErrorLayer`

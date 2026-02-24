@@ -69,14 +69,14 @@
 
 ## Async Safety Patterns
 
-| Pattern | When | Why | Fix |
-|---------|------|-----|-----|
-| Timing-safe comparison | Token/secret `==` | Side-channel attack | `subtle::ConstantTimeEq` or `mac.verify_slice()` |
-| Cancel safety | `select!` branches | Partial data loss | Stream merging / cancel-safe wrappers |
-| Arc cycles | Self-referential Arc | Memory leak | Use `Weak` for back-refs |
-| Unbounded channels | `unbounded_channel()` | OOM under load | Bounded channels + backpressure |
-| Interior mutability | RefCell in async | Runtime panic / not Send | `tokio::sync::Mutex<T>` or `RwLock<T>` |
-| Arc bounds | `Arc<dyn Trait>` | Data race | Add `+ Send + Sync` to trait definition |
+| ID | Pattern | When | Why | Fix |
+|----|---------|------|-----|-----|
+| RST-011 | Timing-safe comparison | Token/secret `==` | Side-channel attack | `subtle::ConstantTimeEq` or `mac.verify_slice()` |
+| RST-012 | Cancel safety | `select!` branches | Partial data loss | Stream merging / cancel-safe wrappers |
+| RST-013 | Arc cycles | Self-referential Arc | Memory leak | Use `Weak` for back-refs |
+| RST-014 | Unbounded channels | `unbounded_channel()` | OOM under load | Bounded channels + backpressure |
+| RST-015 | Interior mutability | RefCell in async | Runtime panic / not Send | `tokio::sync::Mutex<T>` or `RwLock<T>` |
+| RST-016 | Arc bounds | `Arc<dyn Trait>` | Data race | Add `+ Send + Sync` to trait definition |
 
 ## Audit Commands
 

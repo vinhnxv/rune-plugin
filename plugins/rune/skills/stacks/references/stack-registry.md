@@ -26,7 +26,7 @@ Complete registry of supported languages, frameworks, databases, libraries, and 
 | Express | TypeScript | `express` in deps | (none — covered by typescript profile) | (none) |
 | NestJS | TypeScript | `nestjs` or `@nestjs` in deps | (none — covered by typescript profile) | (none) |
 | Actix-web | Rust | `actix` in deps | (none — covered by rust profile) | (none) |
-| Axum | Rust | `axum` in deps | `frameworks/axum.md` | `axum-reviewer` (AXUM) |
+| Axum | Rust | `axum` or `axum-extra` in deps (tower, sqlx corroborate) | `frameworks/axum.md` | `axum-reviewer` (AXUM) |
 | Rocket | Rust | `rocket` in deps | (none — covered by rust profile) | (none) |
 | Laravel | PHP | `laravel` in deps | `frameworks/laravel.md` | `laravel-reviewer` (LARV) |
 | Symfony | PHP | `symfony` in deps | (none — covered by php profile) | (none) |
