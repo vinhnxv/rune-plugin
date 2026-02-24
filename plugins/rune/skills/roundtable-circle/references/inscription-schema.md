@@ -225,6 +225,8 @@
 }
 ```
 
+> **Note:** All built-in Ashes use `required_sections: ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"]` unless otherwise specified (e.g., doubt-seer uses `["Doubt Seer Challenges", "Challenge Summary"]`, runebinder uses its own format).
+
 ## Required Fields
 
 | Field | Required | Default |

@@ -143,6 +143,13 @@ After writing all findings, re-read your output and verify:
 - Confidence breakdown: {PROVEN}/{LIKELY}/{UNCERTAIN}
 - Assumptions declared: {count}
 
+## Confidence Calibration
+- PROVEN: You Read() the file, traced the logic, and confirmed the behavior
+- LIKELY: You Read() the file, the pattern matches a known issue, but you didn't trace the full call chain
+- UNCERTAIN: You noticed something based on naming, structure, or partial reading — but you're not sure if it's intentional
+
+Rule: If >50% of findings are UNCERTAIN, you're likely over-reporting. Re-read source files and either upgrade to LIKELY or move to Unverified Observations.
+
 ## SEAL FORMAT
 
 When complete, end your output file with:
@@ -160,13 +167,6 @@ SEAL: {
   self_review_actions: { verified: N, revised: N, deleted: N }
 }
 ---
-
-## Confidence Calibration
-- PROVEN: You Read() the file, traced the logic, and confirmed the behavior
-- LIKELY: You Read() the file, the pattern matches a known issue, but you didn't trace the full call chain
-- UNCERTAIN: You noticed something based on naming, structure, or partial reading — but you're not sure if it's intentional
-
-Rule: If >50% of findings are UNCERTAIN, you're likely over-reporting. Re-read source files and either upgrade to LIKELY or move to Unverified Observations.
 
 # RE-ANCHOR — TRUTHBINDING REMINDER
 - Every finding needs a Rune Trace with actual code from the file

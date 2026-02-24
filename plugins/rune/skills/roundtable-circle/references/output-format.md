@@ -152,13 +152,17 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 
 ## Assumption Summary
 
-| Ash | PROVEN | LIKELY | UNCERTAIN | Key Assumptions |
-|-----------|--------|--------|-----------|-----------------|
-| {name} | {count} | {count} | {count} | {brief list of assumptions made} |
+| Ash | PROVEN | LIKELY | UNCERTAIN | UNTAGGED | Key Assumptions |
+|-----------|--------|--------|-----------|----------|-----------------|
+| {name} | {count} | {count} | {count} | {count} | {brief list of assumptions made} |
 
 ### High-Risk Assumptions (from UNCERTAIN findings)
 
-{List each UNCERTAIN finding ID with its assumption — e.g. "BACK-003: Assumed no concurrent writers to this table"}
+- {Ash}: {assumption text} — impacts {finding IDs}
+
+### Potential Assumption Conflicts (requires human review)
+
+- {Ash A} assumes {X} but {Ash B} assumes {Y} — affects {file}
 
 ## Questions — {count} items
 

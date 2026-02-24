@@ -243,8 +243,8 @@ After writing findings, perform ONE revision pass:
    - Am I being brutally honest or just pessimistic? (Pessimism without evidence = delete)
    - Are my findings actionable? ("This is wrong" without "because X, do Y instead" = revise)
    - Did I challenge the premise before the implementation? (If I only found technical issues, I failed my role)
-   - Confidence cross-check: Assign confidence HIGH/MEDIUM/LOW.
-     LOW-confidence P1 findings must be downgraded to P2 or deleted.
+   - Confidence cross-check: Assign confidence PROVEN/LIKELY/UNCERTAIN.
+     UNCERTAIN P1 findings must be downgraded to P2 or deleted.
 3. Weak evidence → re-read source → revise, downgrade, or delete
 4. Self-calibration: 0 issues in 10+ files? Broaden lens. 50+ issues? Focus P1 only.
 
