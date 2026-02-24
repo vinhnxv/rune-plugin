@@ -1687,17 +1687,46 @@ def _promote_observations_in_file(
         )
         return 0
 
+    # TOME-004 FIX: Build set of already-promoted line indices to avoid
+    # double-promoting when drift scan finds a nearby match.
     promoted = 0
-    for i, line in enumerate(lines):
-        line_num = i + 1  # 1-indexed to match entry_line_map
-        if line_num not in promote_lines:
-            continue
-        match = _OBSERVATIONS_HEADER_RE.match(line.rstrip("\n"))
-        if match:
-            # EDGE-022: Only match layer="observations" headers — skip
-            # if already rewritten to Inscribed (idempotent).
-            lines[i] = match.group(1) + "Inscribed" + match.group(2) + "\n"
-            promoted += 1
+    promoted_indices = set()  # type: set
+
+    for target_line in sorted(promote_lines):
+        idx = target_line - 1  # 0-indexed
+        # Try exact line first
+        if 0 <= idx < len(lines):
+            match = _OBSERVATIONS_HEADER_RE.match(lines[idx].rstrip("\n"))
+            if match and idx not in promoted_indices:
+                lines[idx] = match.group(1) + "Inscribed" + match.group(2) + "\n"
+                promoted += 1
+                promoted_indices.add(idx)
+                continue
+
+        # TOME-004: Line-number drift fallback — scan nearby lines (within
+        # +/-10 lines) for an Observations header that may have shifted due
+        # to file edits since last reindex.
+        _DRIFT_WINDOW = 10
+        found = False
+        for offset in range(1, _DRIFT_WINDOW + 1):
+            for candidate_idx in (idx - offset, idx + offset):
+                if candidate_idx < 0 or candidate_idx >= len(lines):
+                    continue
+                if candidate_idx in promoted_indices:
+                    continue
+                match = _OBSERVATIONS_HEADER_RE.match(
+                    lines[candidate_idx].rstrip("\n")
+                )
+                if match:
+                    lines[candidate_idx] = (
+                        match.group(1) + "Inscribed" + match.group(2) + "\n"
+                    )
+                    promoted += 1
+                    promoted_indices.add(candidate_idx)
+                    found = True
+                    break
+            if found:
+                break
 
     if promoted == 0:
         return 0

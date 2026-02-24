@@ -665,6 +665,16 @@ prePhaseCleanup(checkpoint)
 Read and execute the arc-phase-code-review.md algorithm. Update checkpoint on completion.
 postPhaseCleanup(checkpoint, "code_review")
 
+## Phase 6.5: GOLDMASK CORRELATION (orchestrator-only)
+
+See [arc-phase-goldmask-correlation.md](references/arc-phase-goldmask-correlation.md) for the full algorithm.
+
+**Team**: None — orchestrator-only (deterministic correlation, no agents)
+**Output**: `tmp/arc/{id}/goldmask-correlation.md`
+**Failure**: Non-blocking. Missing prerequisites → status "skipped".
+
+Read and execute the arc-phase-goldmask-correlation.md algorithm. Update checkpoint on completion.
+
 ## Phase 7: MEND
 
 See [arc-phase-mend.md](references/arc-phase-mend.md) for the full algorithm.
