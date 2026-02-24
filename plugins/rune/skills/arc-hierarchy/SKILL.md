@@ -81,6 +81,8 @@ Parse with `extractYamlFrontmatter(content)`. If frontmatter is missing either f
 - [branch-strategy.md](references/branch-strategy.md) — feature branch creation, child branch management, merge, cleanup
 - [prerequisite-verification.md](references/prerequisite-verification.md) — `verifyPrerequisites`, `verifyProvides`, resolution strategies
 - [coherence-check.md](references/coherence-check.md) — pre-execution contract coherence validation
+- [session-state.md](references/session-state.md) — session identity resolution, state file schema, liveness check
+- [main-loop.md](references/main-loop.md) — 7 sub-phases (7a-7g): prerequisite verification, branch management, arc invocation, provides verification, merge
 
 ---
 
@@ -220,61 +222,9 @@ if (coherenceResult.errors.length > 0) {
 
 ### Phase 5: Session Identity + State File
 
-```javascript
-// CHOME pattern: SDK Read() resolves CLAUDE_CONFIG_DIR automatically
-// Bash rm/find must use explicit CHOME. See chome-pattern skill.
-const configDir = Bash(`CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && cd "$CHOME" 2>/dev/null && pwd -P`).trim()
-const ownerPid = Bash(`echo $PPID`).trim()
+Resolves CHOME, PID, and session ID. Checks for conflicting sessions (abort if another session owns the state file, unless `--resume`). Writes `.claude/arc-hierarchy-loop.local.md` with all session isolation fields.
 
-const stateFile = ".claude/arc-hierarchy-loop.local.md"
-
-// Check for existing session
-const existingState = Read(stateFile)  // null if not found — SDK Read() is safe
-if (existingState && /^active:\s*true$/m.test(existingState)) {
-  const existingPid = existingState.match(/owner_pid:\s*(\d+)/)?.[1]
-  const existingCfg = existingState.match(/config_dir:\s*(.+)/)?.[1]?.trim()
-
-  let ownedByOther = false
-  if (existingCfg && existingCfg !== configDir) {
-    ownedByOther = true
-  } else if (existingPid && /^\d+$/.test(existingPid) && existingPid !== ownerPid) {
-    const alive = Bash(`kill -0 ${existingPid} 2>/dev/null && echo "alive" || echo "dead"`).trim()
-    if (alive === "alive") ownedByOther = true
-  }
-
-  if (ownedByOther && !resumeMode) {
-    error("Another session is already executing arc-hierarchy on this repo.")
-    error("Cancel it with /rune:cancel-arc-hierarchy, or use --resume to continue your own session.")
-    return
-  }
-  if (!ownedByOther) {
-    warn("Found existing state file from this session. Overwriting (use --resume to continue from current table state).")
-  }
-}
-
-// Write state file with session isolation (all three fields required per CLAUDE.md §11)
-// BACK-007 FIX: Include `status: active` for stop hook Guard 7 compatibility
-// BACK-008 FIX: Include current_child, feature_branch, execution_table_path for stop hook
-// These fields are updated as the loop progresses (current_child set before each child arc)
-Write(stateFile, `---
-active: true
-status: active
-parent_plan: ${planPath}
-children_dir: ${childrenDir}
-current_child: ""
-feature_branch: ""
-execution_table_path: ""
-no_merge: ${noMerge}
-config_dir: ${configDir}
-owner_pid: ${ownerPid}
-session_id: ${CLAUDE_SESSION_ID}
-started_at: "${new Date().toISOString()}"
----
-
-Arc hierarchy loop state. Do not edit manually.
-Use /rune:cancel-arc-hierarchy to stop execution.
-`)
-```
+See [session-state.md](references/session-state.md) for the full protocol.
 
 ### Phase 6: Feature Branch Setup
 
@@ -286,182 +236,16 @@ log(`Feature branch created: ${featureBranch}`)
 
 ### Phase 7: Main Execution Loop
 
-```javascript
-let iteration = 0
-const MAX_ITERATIONS = executionTable.length + 10  // Safety cap
-// BACK-016 FIX: Track per-child prerequisite failure counts for cycle detection
-const prereqFailureCounts = {}
+Iterates through child plans in topological order. Each iteration: find next executable child, verify prerequisites, create child branch, update execution table, invoke `/rune:arc`, verify provides contracts, merge child branch, mark completed. Safety cap prevents infinite loops. Sub-phases:
+- **7a**: Prerequisite verification (cycle detection after 2 failures)
+- **7b**: Child branch creation
+- **7c**: Execution table + state file + JSON sidecar updates
+- **7d**: Arc invocation for child plan
+- **7e**: Provides contract verification (4-branch user choice on failure)
+- **7f**: Merge child branch to feature branch
+- **7g**: Mark completed in execution table
 
-while (true) {
-  iteration++
-  if (iteration > MAX_ITERATIONS) {
-    error(`Safety cap reached (${MAX_ITERATIONS} iterations). Possible infinite loop. Aborting.`)
-    break
-  }
-
-  // Re-read plan to get fresh execution table state
-  const freshContent = Read(planPath)
-  const freshTable = parseExecutionTable(freshContent)
-
-  const next = findNextExecutable(freshTable)
-  if (!next) {
-    const allDone = freshTable.every(e => ["completed", "failed", "skipped"].includes(e.status))
-    if (allDone) {
-      log("All children have terminal status. Execution complete.")
-    } else {
-      const blocked = freshTable.filter(e => e.status === "pending")
-      warn(`No executable children found. ${blocked.length} children remain blocked (circular dependency or failed predecessor).`)
-      for (const b of blocked) {
-        warn(`  Blocked: [${b.seq}] ${b.path} (deps: ${b.dependencies.join(", ")})`)
-      }
-    }
-    break
-  }
-
-  log(`\n── Executing child [${next.seq}]: ${next.path} ──`)
-
-  // Phase 7a: Verify prerequisites (requires contracts)
-  // See prerequisite-verification.md for full pseudocode
-  const prereqResult = verifyPrerequisites(next, contractMatrix)
-  if (!prereqResult.passed) {
-    // BACK-016 FIX: Track per-child failure counts for cycle detection
-    prereqFailureCounts[next.seq] = (prereqFailureCounts[next.seq] || 0) + 1
-    if (prereqFailureCounts[next.seq] > 2) {
-      warn(`Child [${next.seq}] has failed prerequisites ${prereqFailureCounts[next.seq]} times. Automated recovery exhausted.`)
-      error("Execution paused. Fix prerequisites manually and run /rune:arc-hierarchy --resume")
-      break
-    }
-
-    const resolution = await handlePrerequisiteFailure(next, prereqResult, contractMatrix, planPath)
-    if (resolution === "abort") break
-    if (resolution === "skip") {
-      const updated = updateExecutionTable(Read(planPath), next.seq, { status: "skipped" })
-      Write(planPath, updated)
-      continue
-    }
-    // resolution === "retry" — loop continues (BACK-005/006: child reset to pending by handler)
-    continue
-  }
-
-  // Phase 7b: Create child branch
-  const childBranch = createChildBranch(featureBranch, next.seq, next.path.split("/").pop().replace(".md", ""))
-
-  // Phase 7c: Update table to in_progress (QUAL-004 FIX: underscore, not hyphen)
-  let updatedContent = updateExecutionTable(Read(planPath), next.seq, {
-    status: "in_progress",
-    started: new Date().toISOString()
-  })
-  Write(planPath, updatedContent)
-
-  // Phase 7c.1: Update state file with current child info for stop hook (BACK-008 FIX)
-  const childFilename = next.path.split("/").pop()
-  const stateContent = Read(stateFile)
-  const updatedState = stateContent
-    .replace(/^current_child:.*$/m, `current_child: ${childFilename}`)
-    .replace(/^feature_branch:.*$/m, `feature_branch: ${featureBranch}`)
-    .replace(/^execution_table_path:.*$/m, `execution_table_path: ${planPath}`)
-  Write(stateFile, updatedState)
-
-  // Phase 7c.2: Write JSON sidecar for stop hook execution table parsing (BACK-009 FIX)
-  // The stop hook uses jq for topological sort — it needs JSON, not the Markdown table.
-  // This sidecar is the machine-readable version; the Markdown table in the plan is human-readable.
-  const jsonTable = {
-    updated_at: new Date().toISOString(),
-    children: parseExecutionTable(Read(planPath)).map(e => ({
-      seq: e.seq,
-      plan: e.path.split("/").pop(),
-      status: e.status,
-      depends_on: e.dependencies,
-      started_at: e.started,
-      completed_at: e.completed,
-      provides: (contractMatrix.find(c => c.child === extractChildId(e.path))?.provides || [])
-        .map(a => `${a.name}`)
-    }))
-  }
-  Write(".claude/arc-hierarchy-exec-table.json", JSON.stringify(jsonTable, null, 2))
-
-  // Phase 7d: Invoke arc for child plan
-  const mergeFlag = noMerge ? " --no-merge" : ""
-  Skill("arc", `${next.path}${mergeFlag}`)
-
-  // Phase 7e: Verify provides contracts
-  const providesResult = verifyProvides(next, contractMatrix)
-  if (!providesResult.passed) {
-    warn(`Child [${next.seq}] completed but provides verification failed:`)
-    for (const failure of providesResult.failures) {
-      warn(`  MISSING: ${failure.type}:${failure.name} — ${failure.reason}`)
-    }
-
-    // Mark as partial — does not unblock dependents (BUG-1)
-    updatedContent = updateExecutionTable(Read(planPath), next.seq, {
-      status: "partial",
-      completed: new Date().toISOString()
-    })
-    Write(planPath, updatedContent)
-
-    // BACK-003 FIX: Capture response and implement all 4 branches
-    const providesChoice = AskUserQuestion({
-      questions: [{
-        question: `Child [${next.seq}] has ${providesResult.failures.length} missing provides. How to proceed?`,
-        header: "Provides Verification Failed",
-        options: [
-          { label: "Mark as completed anyway", description: "Unblocks dependent children (risky)" },
-          { label: "Re-run child arc", description: "Try to fix the missing artifacts" },
-          { label: "Skip dependents", description: "Mark dependent children as skipped" },
-          { label: "Abort hierarchy", description: "Stop execution here" }
-        ],
-        multiSelect: false
-      }]
-    })
-
-    if (providesChoice === "Mark as completed anyway") {
-      updatedContent = updateExecutionTable(Read(planPath), next.seq, {
-        status: "completed",
-        completed: new Date().toISOString()
-      })
-      Write(planPath, updatedContent)
-      warn(`Child [${next.seq}] force-marked as completed despite missing provides.`)
-      continue
-    } else if (providesChoice === "Re-run child arc") {
-      // Reset to pending so it gets picked up again
-      updatedContent = updateExecutionTable(Read(planPath), next.seq, {
-        status: "pending",
-        started: "—",
-        completed: "—"
-      })
-      Write(planPath, updatedContent)
-      continue
-    } else if (providesChoice === "Skip dependents") {
-      // Find all children that depend on this child and mark them skipped
-      const freshTable = parseExecutionTable(Read(planPath))
-      for (const entry of freshTable) {
-        if (entry.dependencies.some(d => normalizeSeq(d) === normalizeSeq(next.seq))) {
-          const skipUpdate = updateExecutionTable(Read(planPath), entry.seq, { status: "skipped" })
-          Write(planPath, skipUpdate)
-          warn(`Skipped dependent child [${entry.seq}]: ${entry.path}`)
-        }
-      }
-      continue
-    } else {
-      // "Abort hierarchy" or any other response
-      error("Hierarchy execution aborted by user due to provides verification failure.")
-      break
-    }
-  }
-
-  // Phase 7f: Merge child branch to feature branch
-  mergeChildToFeature(childBranch, featureBranch)
-
-  // Phase 7g: Mark completed in execution table
-  updatedContent = updateExecutionTable(Read(planPath), next.seq, {
-    status: "completed",
-    completed: new Date().toISOString()
-  })
-  Write(planPath, updatedContent)
-
-  log(`Child [${next.seq}] completed successfully.`)
-}
-```
+See [main-loop.md](references/main-loop.md) for the full protocol.
 
 ### Phase 8: Finalize
 
