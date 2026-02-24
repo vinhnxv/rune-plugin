@@ -155,12 +155,16 @@ Before writing output file, confirm:
 ### P1 (Critical) — Measurable Impact
 - [ ] **[PERF-001] N+1 Query** in `user_service.py:35`
   - **Evidence:** Loop with individual DB queries inside
+  - **Confidence**: HIGH (90)
+  - **Assumption**: Loop iterates over unbounded collection (no LIMIT clause)
   - **Impact:** O(n) queries where O(1) is possible
   - **Fix:** Use eager loading or batch query
 
 ### P2 (High) — Scalability Risk
 - [ ] **[PERF-002] O(n^2) Search** in `matcher.py:78`
   - **Evidence:** Nested list comprehension for lookup
+  - **Confidence**: MEDIUM (65)
+  - **Assumption**: Input size is large enough to matter (>100 elements)
   - **Fix:** Use set or dictionary for O(1) lookups
 ```
 
@@ -173,6 +177,10 @@ cross-check for every finding.
 If evidence is insufficient, downgrade confidence — never inflate it.
 Your findings directly inform fix priorities. Inflated confidence wastes
 team effort on false positives.
+
+## Boundary
+
+This agent covers **performance checklist review**: N+1 query detection, O(n^2) algorithmic complexity, blocking calls in async contexts, missing pagination, memory allocation patterns, and caching opportunities. It does NOT cover resource lifecycle tracing (pool exhaustion, connection management, unbounded caches), gradual degradation patterns, or async correctness analysis (missing awaits, backpressure) — that dimension is handled by **ember-seer**. When both agents review the same file, ember-oracle flags algorithmic hotspots and query patterns while ember-seer traces resource lifetimes and pool management.
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

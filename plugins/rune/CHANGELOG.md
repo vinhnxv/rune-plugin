@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.95.0] - 2026-02-25
+
+### Added
+- **`hypothesis-investigator` agent** — ACH-based hypothesis investigation agent for `/rune:debug` skill. Uses structured Analysis of Competing Hypotheses with 4 evidence tiers (DIRECT/CORRELATIONAL/TESTIMONIAL/ABSENCE) and consistency matrix scoring. Model: sonnet, maxTurns: 30.
+- **`/rune:debug` skill** — Structured debugging workflow using hypothesis investigation. 4-phase protocol (Observe → Narrow → Hypothesize → Fix) with ACH matrix, reproduction scripts, and fix verification. Integrates with echo-search MCP for past debugging context.
+- **Evidence standards in 10 review/investigation agents** — Added structured `confidence_score` (0.0–1.0) and `assumptions` list to finding output format across: flaw-hunter, depth-seer, tide-watcher, void-analyzer, truth-seeker, fringe-watcher, ruin-watcher, ember-seer, signal-watcher, decree-auditor. Enables downstream confidence-aware prioritization.
+- **Runebinder confidence/assumption tracking** — Aggregation now preserves per-finding `confidence_score` and `assumptions` from Ash outputs. Tiebreaker rule clarified: confidence-based tiebreaker applies AFTER Ash-priority rule, only when both priority AND hierarchy level are identical.
+- **Strive file ownership enforcement** — `validate-strive-worker-paths.sh` hook (SEC-WORK-001) blocks workers from writing files outside their assigned task targets. Documentation clarifies absolute-path security-by-design behavior.
+
+### Fixed
+- **Debug skill preprocessor** — Fixed active workflow counter to use `find` with proper JSON content matching instead of fragile `ls | grep` pipeline
+- **Debug skill shutdown loop** — Changed Phase 4 shutdown from generic `for each teammate` to explicit `for N in 1..hypothesisCount` with 15-second grace period between shutdown and TeamDelete
+- **Strive worker path validator docs** — Added documentation comment explaining absolute-path-outside-CWD denial behavior (security by design)
+- **Runebinder tiebreaker rule** — Clarified that confidence-based tiebreaker only applies when both Ash priority AND hierarchy level are already identical
+
 ## [1.94.0] - 2026-02-25
 
 ### Added

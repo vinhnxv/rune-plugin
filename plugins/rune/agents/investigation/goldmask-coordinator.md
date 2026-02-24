@@ -14,7 +14,7 @@ description: |
   </example>
 tools:
   - Read
-  - Write
+  - Write  # Write: required for GOLDMASK.md synthesis output (tmp/ only)
   - Grep
   - Glob
   - SendMessage
