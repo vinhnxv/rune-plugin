@@ -123,6 +123,8 @@ detectTypeScriptStack(content):
   # Framework detection
   if contains(content, "next"):        result.frameworks.push("nextjs")
   if contains(content, "react"):       result.frameworks.push("react")
+  if contains(content, "vue"):         result.frameworks.push("vuejs")
+  if contains(content, "nuxt"):        result.frameworks.push("nuxt")
   if contains(content, "express"):     result.frameworks.push("express")
   if contains(content, "nestjs") OR contains(content, "@nestjs"):
     result.frameworks.push("nestjs")
@@ -134,10 +136,14 @@ detectTypeScriptStack(content):
 
   # Library detection
   if contains(content, "zod"):         result.libraries.push("zod")
+  if contains(content, "pinia"):       result.libraries.push("pinia")
+  if contains(content, "vue-router"):  result.libraries.push("vue-router")
   if contains(content, "tsyringe"):    result.libraries.push("tsyringe")
   if contains(content, "inversify"):   result.libraries.push("inversify")
 
   # Tooling detection
+  if contains(content, "vite") OR contains(content, "@vitejs"):
+    result.tooling.push("vite")
   if contains(content, "vitest"):      result.tooling.push("vitest")
   if contains(content, "jest"):        result.tooling.push("jest")
   if contains(content, "eslint"):      result.tooling.push("eslint")
@@ -253,7 +259,8 @@ When `talisman.stack_awareness.override` is set, skip detection and use the over
 ```
 VALID_LANGUAGES = ["python", "typescript", "rust", "php"]
 VALID_FRAMEWORKS = ["fastapi", "django", "flask", "laravel", "symfony", "sqlalchemy",
-                    "nextjs", "react", "express", "nestjs", "actix-web", "axum", "rocket"]
+                    "nextjs", "react", "vuejs", "nuxt", "express", "nestjs",
+                    "actix-web", "axum", "rocket"]
 
 if talisman?.stack_awareness?.override:
   override = talisman.stack_awareness.override

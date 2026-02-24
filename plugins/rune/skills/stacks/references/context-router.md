@@ -83,6 +83,17 @@ computeContextManifest(task_type, file_scope, detected_stack, task_description):
           manifest.skills_to_load.push(skill_path)
         else:
           manifest.skills_excluded[skill_path] = "No matching domain files"
+      elif fw in ["vuejs", "nuxt"]:
+        if domains.frontend:
+          manifest.skills_to_load.push(skill_path)
+        else:
+          manifest.skills_excluded[skill_path] = "No frontend files in scope"
+      elif fw == "vite":
+        # Vite is a build tool — load when frontend OR infra (build config) is in scope
+        if domains.frontend OR domains.infra:
+          manifest.skills_to_load.push(skill_path)
+        else:
+          manifest.skills_excluded[skill_path] = "No frontend/infra files in scope"
       else:
         manifest.skills_excluded[skill_path] = "Domain mismatch"
 
