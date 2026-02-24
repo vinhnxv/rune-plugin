@@ -237,13 +237,17 @@ for (const wave of waves) {
     for (const ash of wave.agents) {
       SendMessage({ type: "shutdown_request", recipient: ash.slug })
     }
+    // Grace period — let wave teammates deregister
+    if (wave.agents.length > 0) {
+      Bash(`sleep 15`)
+    }
     // Force-delete remaining tasks to prevent zombie contamination
     const remaining = TaskList().filter(t => t.status !== "completed")
     for (const task of remaining) {
       TaskUpdate({ taskId: task.id, status: "deleted" })
     }
-    // Inter-wave TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
-    const WAVE_CLEANUP_DELAYS = [0, 3000, 8000]
+    // Inter-wave TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+    const WAVE_CLEANUP_DELAYS = [0, 5000, 10000]
     let waveCleanupOk = false
     for (let attempt = 0; attempt < WAVE_CLEANUP_DELAYS.length; attempt++) {
       if (attempt > 0) Bash(`sleep ${WAVE_CLEANUP_DELAYS[attempt] / 1000}`)
