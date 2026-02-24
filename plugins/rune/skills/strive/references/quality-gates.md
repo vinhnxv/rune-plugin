@@ -169,7 +169,7 @@ if (codexAvailable && !codexDisabled) {
     const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
     const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-      ? talisman.codex.model : "gpt-5.3-codex-spark"
+      ? talisman.codex.model : "gpt-5.3-codex"
     const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning ?? "")
       ? talisman.codex.reasoning : "xhigh"
 

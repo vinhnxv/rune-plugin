@@ -5,7 +5,12 @@ description: |
   Reviews scope management, protocol binding, circular dependencies, container lifecycle,
   and service locator anti-patterns. Activated when DI framework detected.
   Keywords: dependency injection, dishka, tsyringe, container, scope, provide, inject.
-tools: Read, Glob, Grep
+tools:
+  - Read
+  - Glob
+  - Grep
+mcpServers:
+  - echo-search
 ---
 
 # DI Reviewer — Stack Specialist Ash

@@ -14,7 +14,7 @@ source "${SCRIPT_DIR}/resolve-session-identity.sh"
 RUNE_TRACE_LOG="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
 _trace() { [[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "$RUNE_TRACE_LOG" ]] && printf '[%s] rune-statusline: %s\n' "$(date +%H:%M:%S)" "$*" >> "$RUNE_TRACE_LOG"; return 0; }
 
-input=$(cat)
+input=$(head -c 1048576)
 
 # Extract fields with jq, fallback if unavailable
 if ! command -v jq &>/dev/null; then

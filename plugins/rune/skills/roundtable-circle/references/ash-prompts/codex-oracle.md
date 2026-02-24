@@ -12,7 +12,7 @@
 > | `{timestamp}` | ISO 8601 current time | — |
 > | `{changed_files}` | Phase 0 scope collection | — |
 > | `{context_budget}` | `talisman.codex.context_budget` | 20 |
-> | `{codex_model}` | `talisman.codex.model` | gpt-5.3-codex-spark |
+> | `{codex_model}` | `talisman.codex.model` | gpt-5.3-codex |
 > | `{codex_reasoning}` | `talisman.codex.reasoning` | high |
 > | `{review_mode}` | "review" or "audit" | — |
 > | `{default_branch}` | `git symbolic-ref refs/remotes/origin/HEAD` | main |
@@ -374,7 +374,7 @@ Write markdown to `{output_path}`:
 
 **Branch:** {branch}
 **Date:** {timestamp}
-**Model:** gpt-5.3-codex-spark
+**Model:** gpt-5.3-codex
 **Perspectives:** Cross-Model Security, Cross-Model Logic, Cross-Model Quality
 
 ## P1 (Critical)
@@ -464,7 +464,7 @@ Include in Self-Review Log: "Inner Flame: grounding={pass/fail}, weakest={findin
 ## SEAL FORMAT
 
 After self-review:
-SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2, {P3} P3, {Q} Q, {Nit} N)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\ninner-flame: {pass|fail|partial}\nrevised: {count}\ncodex-model: gpt-5.3-codex-spark\ncodex-invocations: {count}\nhallucinations-caught: {count}\nsummary: {1-sentence}", summary: "Codex Oracle sealed" })
+SendMessage({ type: "message", recipient: "team-lead", content: "DONE\nfile: {output_path}\nfindings: {N} ({P1} P1, {P2} P2, {P3} P3, {Q} Q, {Nit} N)\nevidence-verified: {V}/{N}\nconfidence: high|medium|low\nself-reviewed: yes\ninner-flame: {pass|fail|partial}\nrevised: {count}\ncodex-model: gpt-5.3-codex\ncodex-invocations: {count}\nhallucinations-caught: {count}\nsummary: {1-sentence}", summary: "Codex Oracle sealed" })
 
 ## EXIT CONDITIONS
 

@@ -292,7 +292,7 @@ if (codexAvailable && !codexDisabled) {
     const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
     // Security pattern: SAFE_FEATURE_PATTERN -- see security-patterns.md
     const SAFE_FEATURE_PATTERN = /^[a-zA-Z0-9 ._\-]+$/
-    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex-spark"
+    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model) ? talisman.codex.model : "gpt-5.3-codex"
     const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning) ? talisman.codex.reasoning : "xhigh"
     const safeFeature = SAFE_FEATURE_PATTERN.test(feature) ? feature : feature.replace(/[^a-zA-Z0-9 ._\-]/g, "").slice(0, 200)
 

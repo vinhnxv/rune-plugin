@@ -5,7 +5,12 @@ description: |
   Reviews ORM queries, CSRF protection, admin security, signals, migration safety,
   and Django-specific patterns. Activated when Django is detected.
   Keywords: django, orm, csrf, admin, migration, drf, serializer.
-tools: Read, Glob, Grep
+tools:
+  - Read
+  - Glob
+  - Grep
+mcpServers:
+  - echo-search
 ---
 
 # Django Reviewer — Stack Specialist Ash

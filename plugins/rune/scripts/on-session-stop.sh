@@ -55,104 +55,60 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=resolve-session-identity.sh
 source "${SCRIPT_DIR}/resolve-session-identity.sh"
 
-# ── GUARD 5: Defer to arc-batch stop hook (with ownership check) ──
-# When arc-batch loop is active AND belongs to THIS session, arc-batch-stop-hook.sh
-# handles the Stop event. Only defer if we're the owning session.
-# If the batch belongs to another session, proceed with normal cleanup for THIS session.
-if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
-  # QUAL-6: Intentional duplication of YAML field extraction (vs arc-batch-stop-hook.sh get_field).
-  # This script only needs 2 fields from one specific file. Adding a sourced helper dependency
-  # for 3 lines would increase complexity in a time-sensitive Stop hook (5s timeout).
-  _BATCH_FM=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null | sed '1d;$d')
-  _BATCH_CFG=$(echo "$_BATCH_FM" | grep "^config_dir:" | sed 's/^config_dir:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
-  _BATCH_PID=$(echo "$_BATCH_FM" | grep "^owner_pid:" | sed 's/^owner_pid:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
+# ── Helper: Extract a YAML frontmatter field value (single-line, simple values only) ──
+_get_fm_field() {
+  local fm="$1" field="$2"
+  echo "$fm" | grep "^${field}:" | sed "s/^${field}:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' | head -1
+}
 
-  _is_owner=true
+# ── Helper: Check if this session owns a loop state file ──
+# Returns 0 (true) if owned, 1 (false) if not. Sets _LOOP_FM for caller to extract extra fields.
+_check_loop_ownership() {
+  local state_file="$1"
+  [[ -f "$state_file" ]] && [[ ! -L "$state_file" ]] || return 1
+  _LOOP_FM=$(sed -n '/^---$/,/^---$/p' "$state_file" 2>/dev/null | sed '1d;$d')
+  local cfg pid
+  cfg=$(_get_fm_field "$_LOOP_FM" "config_dir")
+  pid=$(_get_fm_field "$_LOOP_FM" "owner_pid")
   # Check config_dir (uses RUNE_CURRENT_CFG from resolve-session-identity.sh)
-  if [[ -n "$_BATCH_CFG" && "$_BATCH_CFG" != "$RUNE_CURRENT_CFG" ]]; then
-    _is_owner=false
+  if [[ -n "$cfg" && "$cfg" != "$RUNE_CURRENT_CFG" ]]; then
+    return 1
   fi
-  # Check PID
-  if [[ "$_is_owner" == "true" && -n "$_BATCH_PID" && "$_BATCH_PID" =~ ^[0-9]+$ && "$_BATCH_PID" != "$PPID" ]]; then
-    if kill -0 "$_BATCH_PID" 2>/dev/null; then
-      _is_owner=false
+  # Check PID (EPERM-safe: rune_pid_alive from resolve-session-identity.sh)
+  if [[ -n "$pid" && "$pid" =~ ^[0-9]+$ && "$pid" != "$PPID" ]]; then
+    if rune_pid_alive "$pid"; then
+      return 1
     fi
   fi
+  return 0
+}
 
-  if [[ "$_is_owner" == "true" ]]; then
-    # This session owns the batch — defer to arc-batch-stop-hook.sh
-    exit 0
-  fi
-  # Not our batch — proceed with normal cleanup for THIS session
+# ── GUARD 5: Defer to arc-batch stop hook (with ownership check) ──
+if _check_loop_ownership "${CWD}/.claude/arc-batch-loop.local.md"; then
+  # This session owns the batch — defer to arc-batch-stop-hook.sh
+  exit 0
 fi
 
 # ── GUARD 5b: Defer to arc-hierarchy stop hook (with ownership check) ──
-# When arc-hierarchy loop is active AND belongs to THIS session, arc-hierarchy-stop-hook.sh
-# handles the Stop event. Only defer if we're the owning session.
-# If the hierarchy belongs to another session, proceed with normal cleanup for THIS session.
-# NOTE: arc-hierarchy state is .claude/arc-hierarchy-loop.local.md (not .arc-batch-loop)
-if [[ -f "${CWD}/.claude/arc-hierarchy-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-hierarchy-loop.local.md" ]]; then
-  _HIER_FM=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-hierarchy-loop.local.md" 2>/dev/null | sed '1d;$d')
-  _HIER_CFG=$(echo "$_HIER_FM" | grep "^config_dir:" | sed 's/^config_dir:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
-  _HIER_PID=$(echo "$_HIER_FM" | grep "^owner_pid:" | sed 's/^owner_pid:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
-  _HIER_STATUS=$(echo "$_HIER_FM" | grep "^status:" | sed 's/^status:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
-
-  _is_hier_owner=true
-  # Check config_dir
-  if [[ -n "$_HIER_CFG" && "$_HIER_CFG" != "$RUNE_CURRENT_CFG" ]]; then
-    _is_hier_owner=false
+if _check_loop_ownership "${CWD}/.claude/arc-hierarchy-loop.local.md"; then
+  _hier_status=$(_get_fm_field "$_LOOP_FM" "status")
+  if [[ "$_hier_status" == "active" ]]; then
+    exit 0
+  else
+    # Not active (completed/cancelled) — clean up orphaned file
+    rm -f "${CWD}/.claude/arc-hierarchy-loop.local.md" 2>/dev/null
   fi
-  # Check PID (liveness)
-  if [[ "$_is_hier_owner" == "true" && -n "$_HIER_PID" && "$_HIER_PID" =~ ^[0-9]+$ && "$_HIER_PID" != "$PPID" ]]; then
-    if kill -0 "$_HIER_PID" 2>/dev/null; then
-      _is_hier_owner=false
-    fi
-  fi
-
-  if [[ "$_is_hier_owner" == "true" ]]; then
-    if [[ "$_HIER_STATUS" == "active" ]]; then
-      # This session owns an active hierarchy — defer to arc-hierarchy-stop-hook.sh
-      exit 0
-    else
-      # Hierarchy state file exists but not active (completed/cancelled) — clean up orphaned file
-      rm -f "${CWD}/.claude/arc-hierarchy-loop.local.md" 2>/dev/null
-    fi
-  fi
-  # Not our hierarchy (or cleaned up) — proceed with normal cleanup for THIS session
 fi
 
 # ── GUARD 5c: Defer to arc-issues stop hook (with ownership check) ──
-# When arc-issues loop is active AND belongs to THIS session, arc-issues-stop-hook.sh
-# handles the Stop event. Only defer if we're the owning session.
-# If the issues batch belongs to another session, proceed with normal cleanup for THIS session.
-if [[ -f "${CWD}/.claude/arc-issues-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-issues-loop.local.md" ]]; then
-  _ISSUES_FM=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null | sed '1d;$d')
-  _ISSUES_CFG=$(echo "$_ISSUES_FM" | grep "^config_dir:" | sed 's/^config_dir:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
-  _ISSUES_PID=$(echo "$_ISSUES_FM" | grep "^owner_pid:" | sed 's/^owner_pid:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
-  _ISSUES_ACTIVE=$(echo "$_ISSUES_FM" | grep "^active:" | sed 's/^active:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//' | head -1)
-
-  _is_issues_owner=true
-  # Check config_dir
-  if [[ -n "$_ISSUES_CFG" && "$_ISSUES_CFG" != "$RUNE_CURRENT_CFG" ]]; then
-    _is_issues_owner=false
+if _check_loop_ownership "${CWD}/.claude/arc-issues-loop.local.md"; then
+  _issues_active=$(_get_fm_field "$_LOOP_FM" "active")
+  if [[ "$_issues_active" == "true" ]]; then
+    exit 0
+  else
+    # Not active (completed/cancelled) — clean up orphaned file
+    rm -f "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null
   fi
-  # Check PID (liveness)
-  if [[ "$_is_issues_owner" == "true" && -n "$_ISSUES_PID" && "$_ISSUES_PID" =~ ^[0-9]+$ && "$_ISSUES_PID" != "$PPID" ]]; then
-    if kill -0 "$_ISSUES_PID" 2>/dev/null; then
-      _is_issues_owner=false
-    fi
-  fi
-
-  if [[ "$_is_issues_owner" == "true" ]]; then
-    if [[ "$_ISSUES_ACTIVE" == "true" ]]; then
-      # This session owns an active issues batch — defer to arc-issues-stop-hook.sh
-      exit 0
-    else
-      # State file exists but not active (completed/cancelled) — clean up orphaned file
-      rm -f "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null
-    fi
-  fi
-  # Not our issues batch (or cleaned up) — proceed with normal cleanup for THIS session
 fi
 
 # ── CHOME resolution ──
@@ -180,7 +136,7 @@ if [[ -d "${CWD}/tmp/" ]]; then
       sf_pid=$(jq -r '.owner_pid // empty' "$sf" 2>/dev/null || true)
       if [[ -n "$sf_cfg" && "$sf_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$sf_pid" && "$sf_pid" =~ ^[0-9]+$ && "$sf_pid" != "$PPID" ]]; then
-        kill -0 "$sf_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$sf_pid" && continue  # alive = different session
       fi
       state_team_names+=("$tname")
     fi
@@ -258,7 +214,7 @@ if [[ -d "${CWD}/tmp/" ]]; then
       f_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
       if [[ -n "$f_cfg" && "$f_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$f_pid" && "$f_pid" =~ ^[0-9]+$ && "$f_pid" != "$PPID" ]]; then
-        kill -0 "$f_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$f_pid" && continue  # alive = different session
       fi
       # Update status to "stopped" (not "completed" — distinguishes clean exit from crash)
       jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '.status = "stopped" | .stopped_by = "STOP-001" | .stopped_at = $ts' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null
@@ -292,7 +248,7 @@ if [[ -d "${CWD}/.claude/arc/" ]]; then
       f_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
       if [[ -n "$f_cfg" && "$f_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$f_pid" && "$f_pid" =~ ^[0-9]+$ && "$f_pid" != "$PPID" ]]; then
-        kill -0 "$f_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$f_pid" && continue  # alive = different session
       fi
       # Cancel all in_progress phases
       jq '.phases |= with_entries(if .value.status == "in_progress" then .value.status = "cancelled" else . end)' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null
@@ -315,8 +271,8 @@ for f in /tmp/rune-ctx-*-warned.json /tmp/rune-ctx-*.json; do
   B_PID=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
   # Only clean if: our config_dir AND (our PID or dead PID)
   [[ -n "$B_CFG" && "$B_CFG" != "$RUNE_CURRENT_CFG" ]] && continue
-  if [[ -n "$B_PID" && "$B_PID" =~ ^[0-9]+$ ]]; then
-    kill -0 "$B_PID" 2>/dev/null && [[ "$B_PID" != "${PPID:-0}" ]] && continue
+  if [[ -n "$B_PID" && "$B_PID" =~ ^[0-9]+$ && "$B_PID" != "${PPID:-0}" ]]; then
+    rune_pid_alive "$B_PID" && continue
   fi
   rm -f "$f" 2>/dev/null
   # NOTE: _trace may not be defined in on-session-stop.sh — use inline trace

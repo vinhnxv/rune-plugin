@@ -132,7 +132,7 @@ validate_session_ownership() {
   # Layer 2: PID isolation (same config dir, different session)
   if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ ]]; then
     if [[ "$stored_pid" != "$PPID" ]]; then
-      if kill -0 "$stored_pid" 2>/dev/null; then
+      if rune_pid_alive "$stored_pid"; then
         # Owner is alive and it's a different session — not ours
         exit 0
       fi

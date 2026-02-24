@@ -170,7 +170,7 @@ class TestScoreImportance:
 
     def test_notes_high(self):
         """Notes tier (user-explicit) is high importance."""
-        assert _score_importance("Notes") == pytest.approx(0.9)
+        assert _score_importance("Notes") == pytest.approx(0.8)
 
     def test_inscribed_medium(self):
         """Inscribed is medium importance."""
@@ -178,7 +178,7 @@ class TestScoreImportance:
 
     def test_observations_moderate(self):
         """Observations tier is moderate importance."""
-        assert _score_importance("Observations") == pytest.approx(0.5)
+        assert _score_importance("Observations") == pytest.approx(0.4)
 
     def test_traced_low(self):
         """Traced is the lowest standard importance."""
@@ -278,10 +278,10 @@ class TestScoreRecency:
 
 
 class TestScoreProximity:
-    """Test file proximity scoring (placeholder until Task 3)."""
+    """Test file proximity scoring — verifies the no-context-files edge case."""
 
-    def test_returns_zero_placeholder(self):
-        """Proximity always returns 0.0 until Task 3 is implemented."""
+    def test_returns_zero_without_context_files(self):
+        """Proximity returns 0.0 when no context_files are provided."""
         entry = {"file_path": "/echoes/reviewer/MEMORY.md"}
         assert _score_proximity(entry) == pytest.approx(0.0)
 

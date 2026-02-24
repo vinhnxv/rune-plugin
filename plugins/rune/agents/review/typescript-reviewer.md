@@ -5,7 +5,12 @@ description: |
   Reviews type safety, discriminated unions, exhaustive matching, async patterns,
   and TS-specific security issues. Activated when TypeScript stack is detected.
   Keywords: typescript, tsx, type safety, strict mode, zod, discriminated union.
-tools: Read, Glob, Grep
+tools:
+  - Read
+  - Glob
+  - Grep
+mcpServers:
+  - echo-search
 ---
 
 # TypeScript Reviewer — Stack Specialist Ash

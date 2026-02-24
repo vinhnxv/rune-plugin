@@ -35,8 +35,6 @@ allowed-tools:
   - AskUserQuestion
   - WebSearch
   - WebFetch
-  - mcp__plugin_compound-engineering_context7__resolve-library-id
-  - mcp__plugin_compound-engineering_context7__query-docs
 ---
 
 # /rune:devise — Multi-Agent Planning Workflow
@@ -1031,7 +1029,7 @@ Forge runs by default. Uses **Forge Gaze** (topic-aware agent matching) to selec
 
 **Truthbinding**: All forge prompts include ANCHOR/RE-ANCHOR blocks. Plan content sanitized before injection (strip HTML comments, code fences, headings, HTML entities, zero-width chars).
 
-See `roundtable-circle/references/forge-gaze.md` for the full topic registry and matching algorithm.
+See [forge-gaze.md](../roundtable-circle/references/forge-gaze.md) for the full topic registry and matching algorithm.
 
 ## Phase 4: Plan Review (Iterative)
 

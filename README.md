@@ -2,7 +2,7 @@
 
 **Multi-agent engineering orchestration for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).**
 
-Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own 200k context window.
+Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own dedicated context window.
 
 [![Version](https://img.shields.io/badge/version-1.91.0-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -32,7 +32,7 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## How It Works
 
-Rune orchestrates **multi-agent workflows** where specialized AI teammates collaborate through shared task lists and file-based communication. Instead of one agent doing everything in a single context window, Rune splits work across purpose-built agents — each with its own full 200k context.
+Rune orchestrates **multi-agent workflows** where specialized AI teammates collaborate through shared task lists and file-based communication. Instead of one agent doing everything in a single context window, Rune splits work across purpose-built agents — each with its own full context window.
 
 ```
 You ──► /rune:devise ──► Plan
@@ -196,7 +196,7 @@ Compares a plan against its implementation across 9 quality dimensions:
 
 ### <a name="elicit"></a> `/rune:elicit` — Structured Reasoning
 
-24 BMAD-derived methods for structured thinking: Tree of Thoughts, Pre-mortem Analysis, Red Team vs Blue Team, 5 Whys, ADR, and more.
+24 curated methods for structured thinking: Tree of Thoughts, Pre-mortem Analysis, Red Team vs Blue Team, 5 Whys, ADR, and more.
 
 ```bash
 /rune:elicit
@@ -463,7 +463,7 @@ rune-plugin/
 - **Claude Max ($200/month) or higher recommended**
 
 > [!WARNING]
-> **Rune is token-intensive.** Each workflow spawns multiple agents with their own 200k context windows. A single `/rune:arc` run can consume a significant portion of your weekly usage. Use `--dry-run` where available to preview scope before committing.
+> **Rune is token-intensive.** Each workflow spawns multiple agents with their own dedicated context windows. A single `/rune:arc` run can consume a significant portion of your weekly usage. Use `--dry-run` where available to preview scope before committing.
 
 ---
 
@@ -474,6 +474,12 @@ rune-plugin/
 - [Hướng dẫn Rune (Tiếng Việt): arc + arc-batch](docs/guides/rune-arc-and-batch-guide.vi.md) — hướng dẫn vận hành kèm use case greenfield/brownfield
 - [Rune planning guide (English): devise + forge + plan-review + inspect](docs/guides/rune-planning-and-plan-quality-guide.en.md) — how to write and validate plan files correctly
 - [Hướng dẫn planning Rune (Tiếng Việt): devise + forge + plan-review + inspect](docs/guides/rune-planning-and-plan-quality-guide.vi.md) — cách lập plan và review plan đúng chuẩn
+- [Rune code review and audit guide (English): appraise + audit + mend](docs/guides/rune-code-review-and-audit-guide.en.md) — multi-agent review, codebase audit, and finding resolution
+- [Hướng dẫn review và audit Rune (Tiếng Việt): appraise + audit + mend](docs/guides/rune-code-review-and-audit-guide.vi.md) — review đa agent, audit codebase, và xử lý finding
+- [Rune work execution guide (English): strive + goldmask](docs/guides/rune-work-execution-guide.en.md) — swarm implementation and impact analysis
+- [Hướng dẫn thực thi Rune (Tiếng Việt): strive + goldmask](docs/guides/rune-work-execution-guide.vi.md) — implementation swarm và phân tích tác động
+- [Rune advanced workflows guide (English): arc-hierarchy + arc-issues + echoes](docs/guides/rune-advanced-workflows-guide.en.md) — hierarchical execution, GitHub Issues batch, and agent memory
+- [Hướng dẫn workflow nâng cao Rune (Tiếng Việt): arc-hierarchy + arc-issues + echoes](docs/guides/rune-advanced-workflows-guide.vi.md) — thực thi phân cấp, batch GitHub Issues, và bộ nhớ agent
 - [Changelog](plugins/rune/CHANGELOG.md) — release history
 - [Configuration guide](plugins/rune/talisman.example.yml) — full talisman schema
 

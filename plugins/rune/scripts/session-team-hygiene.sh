@@ -39,6 +39,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=resolve-session-identity.sh
 source "${SCRIPT_DIR}/resolve-session-identity.sh"
 
+# Extract session_id from hook input JSON (same pattern as enforce-team-lifecycle.sh)
+HOOK_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+
 # Count orphaned team dirs (older than 30 min)
 orphan_count=0
 orphan_names=()
@@ -93,7 +96,7 @@ stale_state_count=$(
           sf_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
           if [[ -n "$sf_cfg" && "$sf_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
           if [[ -n "$sf_pid" && "$sf_pid" =~ ^[0-9]+$ && "$sf_pid" != "$PPID" ]]; then
-            kill -0 "$sf_pid" 2>/dev/null && continue  # alive = different session
+            rune_pid_alive "$sf_pid" && continue  # alive = different session
           fi
           count=$((count + 1))
         fi

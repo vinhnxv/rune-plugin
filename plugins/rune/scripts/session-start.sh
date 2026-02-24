@@ -3,6 +3,7 @@
 # Ensures Rune workflow routing is available from the very first message.
 # Runs synchronously (async: false) so content is present before user's first prompt.
 set -euo pipefail
+umask 077
 
 # ── Opt-in trace logging ──
 _trace() {
@@ -42,18 +43,24 @@ while IFS= read -r line; do
   fi
 done < "$SKILL_FILE"
 
-# JSON-escape the content
-json_escape() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\"/\\\"}"
-  s="${s//$'\n'/\\n}"
-  s="${s//$'\r'/\\r}"
-  s="${s//$'\t'/\\t}"
-  printf '%s' "$s"
-}
-
-ESCAPED_CONTENT=$(json_escape "$CONTENT")
+# JSON-escape the content (jq handles all control chars per RFC 8259)
+if command -v jq &>/dev/null; then
+  ESCAPED_CONTENT=$(printf '%s' "$CONTENT" | jq -Rs '.' | sed 's/^"//;s/"$//')
+else
+  # Fallback: manual escaping for named control chars
+  json_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    s="${s//$'\b'/\\b}"
+    s="${s//$'\f'/\\f}"
+    printf '%s' "$s"
+  }
+  ESCAPED_CONTENT=$(json_escape "$CONTENT")
+fi
 
 # Output as hookSpecificOutput with additionalContext
 # This injects the skill routing table into Claude's context

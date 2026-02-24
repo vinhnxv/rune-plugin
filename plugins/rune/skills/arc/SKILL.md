@@ -66,9 +66,9 @@ Chains twenty-three phases into a single automated pipeline: forge, plan review,
 
 **NEVER DO:**
 - `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely. No shared task list, no SendMessage, no context isolation. This is the root cause of context explosion.
-- Using named `subagent_type` values (e.g., `"rune:utility:scroll-reviewer"`, `"compound-engineering:research:best-practices-researcher"`, `"rune:review:ward-sentinel"`) — these resolve to non-general-purpose agents. Always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
+- Using named `subagent_type` values (e.g., `"rune:utility:scroll-reviewer"`, `"other-plugin:some-agent-type"`, `"rune:review:ward-sentinel"`) — these resolve to non-general-purpose agents. Always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
 
-**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 23 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
+**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window. With 23 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own dedicated context window. The orchestrator only reads artifact files.
 
 **ENFORCEMENT:** The `enforce-teams.sh` PreToolUse hook blocks bare Task calls when a Rune workflow is active. If your Task call is blocked, add `team_name` to it.
 
@@ -664,6 +664,16 @@ prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-code-review.md algorithm. Update checkpoint on completion.
 postPhaseCleanup(checkpoint, "code_review")
+
+## Phase 6.5: GOLDMASK CORRELATION (orchestrator-only)
+
+See [arc-phase-goldmask-correlation.md](references/arc-phase-goldmask-correlation.md) for the full algorithm.
+
+**Team**: None — orchestrator-only (deterministic correlation, no agents)
+**Output**: `tmp/arc/{id}/goldmask-correlation.md`
+**Failure**: Non-blocking. Missing prerequisites → status "skipped".
+
+Read and execute the arc-phase-goldmask-correlation.md algorithm. Update checkpoint on completion.
 
 ## Phase 7: MEND
 

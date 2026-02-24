@@ -185,7 +185,7 @@ After aggregation, read ONLY the TOME.md file. Do NOT also read raw files.
 | Each agent return (without budget) | 3-5k | The overflow source |
 | Each agent return (with budget) | ~100-200 | File path + 50-word summary |
 | TOME.md (aggregated) | ~1k | Replaces reading all raw files |
-| Context window | 200k | Claude's limit |
+| Context window | Full | Claude's per-session limit |
 
 ## Layer 2: Context Rot Prevention
 

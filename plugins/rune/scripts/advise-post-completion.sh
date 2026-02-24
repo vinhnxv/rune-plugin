@@ -9,6 +9,7 @@
 # BD-2 doc: This hook is purely advisory. It will NEVER emit permissionDecision: "deny".
 
 set -euo pipefail
+umask 077
 
 # --- Fail-open wrapper ---
 _fail_open() { exit 0; }
@@ -65,6 +66,7 @@ fi
 
 # --- Guard: Check for active state files (arc running NOW) ---
 # If any rune workflow is active, do NOT advise — let it finish.
+shopt -s nullglob
 for sf in "${CWD}"/tmp/.rune-*.json; do
   [[ -f "$sf" ]] || continue
   [[ -L "$sf" ]] && continue
@@ -74,10 +76,12 @@ for sf in "${CWD}"/tmp/.rune-*.json; do
     exit 0
   fi
 done
+shopt -u nullglob
 
 # --- Detection: Scan for completed arc checkpoints ---
 FOUND_COMPLETED=false
 
+shopt -s nullglob
 for f in "${CWD}/.claude/arc/"*/checkpoint.json; do
   [[ -f "$f" ]] || continue
   [[ -L "$f" ]] && continue  # Symlink guard
@@ -91,7 +95,7 @@ for f in "${CWD}/.claude/arc/"*/checkpoint.json; do
 
   # Layer 2: PID mismatch + alive → different session (skip)
   if [[ -n "$f_pid" && "$f_pid" =~ ^[0-9]+$ && "$f_pid" != "$PPID" ]]; then
-    kill -0 "$f_pid" 2>/dev/null && continue
+    rune_pid_alive "$f_pid" && continue
   fi
 
   # Check if any phase is still active (negative logic per EC-6)
@@ -104,6 +108,7 @@ for f in "${CWD}/.claude/arc/"*/checkpoint.json; do
   # Sort by started_at (not mtime) per EC-1 — just need to find ANY completed
   FOUND_COMPLETED=true
 done
+shopt -u nullglob
 
 # No completed arc found — nothing to advise about
 if [[ "$FOUND_COMPLETED" != "true" ]]; then

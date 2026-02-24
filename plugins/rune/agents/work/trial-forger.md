@@ -127,7 +127,7 @@ if (codexAvailable && !codexDisabled && trialForgerEnabled) {
   // Security pattern: CODEX_MODEL_ALLOWLIST — see security-patterns.md
   const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
   const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-    ? talisman.codex.model : "gpt-5.3-codex-spark"
+    ? talisman.codex.model : "gpt-5.3-codex"
   // BACK-008 FIX: Validate reasoning against allowlist
   const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
   const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.trial_forger?.reasoning ?? "")

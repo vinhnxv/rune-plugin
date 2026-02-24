@@ -6,7 +6,7 @@ Code review with a single agent missed perspective diversity — a security spec
 ## Alternatives Considered
 | Alternative | Why Rejected |
 |-------------|--------------|
-| Single large agent with all review knowledge | Context overflow — a single agent cannot hold 23 review perspectives plus the full diff in one 200k window. Quality degrades as context fills. |
+| Single large agent with all review knowledge | Context overflow — a single agent cannot hold 23 review perspectives plus the full diff in one context window. Quality degrades as context fills. |
 | Sequential review (one agent after another) | Too slow — 7 agents running sequentially at 2-3 minutes each = 15-20 minutes. Parallel execution cuts this to 3-5 minutes. |
 | Manual agent selection by user | User burden — requires knowledge of which agents exist and which are relevant to the current diff. Rune Gaze automates this via file extension classification. |
 | Unstructured parallel agents | No aggregation — agents would produce 7 separate reports with duplicate findings. The Runebinder aggregation phase (Phase 5) deduplicates by priority hierarchy. |

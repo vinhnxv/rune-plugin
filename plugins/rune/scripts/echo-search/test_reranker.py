@@ -596,7 +596,7 @@ class TestInvokeHaiku:
         """EDGE-004: Timeout must kill and wait for the subprocess."""
         mock_proc = AsyncMock()
         mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
-        mock_proc.kill = AsyncMock()
+        mock_proc.kill = MagicMock()  # kill() is synchronous (os.kill), not a coroutine
         mock_proc.wait = AsyncMock()
 
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):

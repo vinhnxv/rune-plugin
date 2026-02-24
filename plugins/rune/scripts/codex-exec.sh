@@ -10,7 +10,7 @@
 # Usage: codex-exec.sh [OPTIONS] PROMPT_FILE
 #
 # Options:
-#   -m MODEL          Model (default: gpt-5.3-codex-spark, validated against allowlist)
+#   -m MODEL          Model (default: gpt-5.3-codex, validated against allowlist)
 #   -r REASONING      xhigh|high|medium|low (default: xhigh)
 #   -t TIMEOUT        Seconds, clamped to [300, 900] (default: 600)
 #   -s STREAM_IDLE    Stream idle timeout ms (default: 540000)
@@ -44,7 +44,7 @@ _trace() {
 }
 
 # ─── Defaults ─────────────────────────────────────────────────────────────────
-MODEL="gpt-5.3-codex-spark"
+MODEL="gpt-5.3-codex"
 REASONING="xhigh"
 TIMEOUT=600
 STREAM_IDLE=540000
@@ -113,11 +113,12 @@ if [[ "$PROMPT_SIZE" -gt 1048576 ]]; then
 fi
 
 # ─── Validation: model allowlist ──────────────────────────────────────────────
+MODEL=$(echo "$MODEL" | tr '[:upper:]' '[:lower:]')
 CODEX_MODEL_ALLOWLIST='^gpt-5(\.[0-9]+)?-codex(-spark)?$'
 if [[ ! "$MODEL" =~ $CODEX_MODEL_ALLOWLIST ]]; then
-  _trace "WARN: Model '$MODEL' rejected by allowlist — falling back to gpt-5.3-codex-spark"
-  echo "WARN: Model '$MODEL' not in allowlist — using gpt-5.3-codex-spark" >&2
-  MODEL="gpt-5.3-codex-spark"
+  _trace "WARN: Model '$MODEL' rejected by allowlist — falling back to gpt-5.3-codex"
+  echo "WARN: Model '$MODEL' not in allowlist — using gpt-5.3-codex" >&2
+  MODEL="gpt-5.3-codex"
 fi
 
 # ─── Validation: reasoning allowlist ──────────────────────────────────────────

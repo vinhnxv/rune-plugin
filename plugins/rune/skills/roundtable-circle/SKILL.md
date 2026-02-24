@@ -35,7 +35,7 @@ allowed-tools:
 
 # Roundtable Circle Skill
 
-Orchestrates multi-agent code reviews using Claude Code Agent Teams. Each Ash teammate gets its own 200k context window, eliminating single-context bottlenecks.
+Orchestrates multi-agent code reviews using Claude Code Agent Teams. Each Ash teammate gets its own dedicated context window, eliminating single-context bottlenecks.
 
 ## Iron Law
 

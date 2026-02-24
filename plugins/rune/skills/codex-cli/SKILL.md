@@ -63,7 +63,7 @@ All values have sensible defaults — Codex works zero-config if the CLI is inst
 ```yaml
 codex:
   disabled: false                      # Kill switch — skip Codex entirely
-  model: "gpt-5.3-codex-spark"        # Model for codex exec
+  model: "gpt-5.3-codex"        # Model for codex exec
   reasoning: "xhigh"                  # Reasoning effort (xhigh | high | medium | low)
   sandbox: "read-only"                 # Always read-only (reserved for future use)
   context_budget: 20                   # Max files per session
@@ -96,8 +96,8 @@ codex:
 
 | Model | Best For | Notes |
 |-------|----------|-------|
-| `gpt-5.3-codex-spark` | Code review, complex reasoning | **Default, recommended** |
-| `gpt-5.3-codex` | Stable alternative | Previous default |
+| `gpt-5.3-codex` | Code review, complex reasoning | **Default, recommended** |
+| `gpt-5.3-codex-spark` | Spark variant | Alternative |
 | `gpt-5.2-codex` | Stable fallback | Legacy |
 | `gpt-5-codex` | Simpler analysis, faster | Lower cost |
 
@@ -310,7 +310,7 @@ in a single script — replacing raw `Bash()` commands that the LLM might improv
 "${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" [OPTIONS] PROMPT_FILE
 
 Options:
-  -m MODEL          Model (default: gpt-5.3-codex-spark, validated against allowlist)
+  -m MODEL          Model (default: gpt-5.3-codex, validated against allowlist)
   -r REASONING      xhigh|high|medium|low (default: xhigh)
   -t TIMEOUT        Seconds, clamped to [300, 900] (default: 600)
   -s STREAM_IDLE    Stream idle timeout ms (default: 540000)
@@ -345,9 +345,9 @@ Options:
 | Check if Codex available | `command -v codex >/dev/null 2>&1` |
 | Check version | `codex --version` |
 | Check auth | `codex login status` |
-| Run via wrapper (preferred) | `"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m gpt-5.3-codex-spark -r xhigh -t 600 -g PROMPT.txt` |
+| Run via wrapper (preferred) | `"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m gpt-5.3-codex -r xhigh -t 600 -g PROMPT.txt` |
 | Run with JSON parsing | `"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -j -g PROMPT.txt` |
-| Review files (legacy) | `codex exec -m gpt-5.3-codex-spark --sandbox read-only --full-auto --json "Review: ..."` |
+| Review files (legacy) | `codex exec -m gpt-5.3-codex --sandbox read-only --full-auto --json "Review: ..."` |
 | Resume session | `echo "continue" \| codex exec resume --last` |
 | Check jq available | `command -v jq >/dev/null 2>&1` |
 | Disable entirely | `codex.disabled: true` in talisman.yml |

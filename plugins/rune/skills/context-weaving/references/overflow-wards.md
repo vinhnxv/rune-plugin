@@ -41,7 +41,7 @@ This works for ALL agent types because it's part of the prompt, not the agent de
 | With Glyph Budget | 100-200 | 1,000-2,000 |
 | **Savings** | **2,800-4,800** | **28,000-48,000** |
 
-With a 200k context window and ~30k base context, Glyph Budget is the difference between fitting 10 agents comfortably and overflowing at 7.
+With a finite context window and ~30k base context, Glyph Budget is the difference between fitting 10 agents comfortably and overflowing at 7.
 
 ## Runebinder Invocation
 
@@ -94,7 +94,7 @@ Base teammate context cost:  ~30,000 tokens (system prompt + instructions)
 × 5 teammates:              = 175,000 tokens (just overhead, before any work)
 ```
 
-With a 200k context window, heavy MCP usage can consume 85%+ of available context before agents start working.
+With a finite context window, heavy MCP usage can consume 85%+ of available context before agents start working.
 
 ### Mitigation Guidelines
 

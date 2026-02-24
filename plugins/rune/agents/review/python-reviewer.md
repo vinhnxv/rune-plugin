@@ -5,7 +5,12 @@ description: |
   Reviews type hints, async correctness, Result patterns, modern idioms,
   and Python-specific security issues. Activated when Python stack is detected.
   Keywords: python, type hints, async, asyncio, pydantic, pytest.
-tools: Read, Glob, Grep
+tools:
+  - Read
+  - Glob
+  - Grep
+mcpServers:
+  - echo-search
 ---
 
 # Python Reviewer — Stack Specialist Ash

@@ -90,14 +90,19 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
   if [[ -d "${CWD}/.claude/arc" ]]; then
     while IFS= read -r f; do
       # SEC-4 FIX: Use jq for precise field extraction instead of grep substring match
-      phase_status=$(jq -r '.phase_status // .status // empty' "$f" 2>/dev/null || true)
-      if [[ "$phase_status" == "in_progress" ]]; then
+      # FIX: Check both legacy flat schema (.phase_status/.status) AND v4 nested schema (phases.*.status)
+      has_active=$(jq -r '
+        if (.phase_status // .status // "none") == "in_progress" then "yes"
+        elif ([.phases[]?.status] | any(. == "in_progress")) then "yes"
+        else "no" end
+      ' "$f" 2>/dev/null || echo "no")
+      if [[ "$has_active" == "yes" ]]; then
         # ── Ownership filter: skip checkpoints from other sessions ──
         stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
         stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
         if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
         if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
-          kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+          rune_pid_alive "$stored_pid" && continue  # alive = different session
         fi
         active_workflow="arc"
         break
@@ -121,7 +126,7 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
         stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
         if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
         if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
-          kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+          rune_pid_alive "$stored_pid" && continue  # alive = different session
         fi
         active_workflow=1
         break

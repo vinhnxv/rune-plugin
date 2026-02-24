@@ -17,7 +17,7 @@ in a single script. Use this instead of crafting raw `codex exec` commands.
 ```bash
 # Standard invocation (raw output)
 "${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
-  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   -r "${CODEX_REASONING:-xhigh}" \
   -t ${CODEX_TIMEOUT:-600} \
   -s ${CODEX_STREAM_IDLE_MS:-540000} \
@@ -26,7 +26,7 @@ in a single script. Use this instead of crafting raw `codex exec` commands.
 
 # With JSON parsing (--json + jq)
 "${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
-  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   -r "${CODEX_REASONING:-xhigh}" \
   -t ${CODEX_TIMEOUT:-600} \
   -j -g \
@@ -53,7 +53,7 @@ are kept as legacy reference for understanding the underlying `codex exec` flags
 STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
 trap 'rm -f "${STDERR_FILE}"' EXIT
 timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
-  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   --config model_reasoning_effort="${CODEX_REASONING:-xhigh}" \
   --config stream_idle_timeout_ms="${CODEX_STREAM_IDLE_MS:-540000}" \
   --sandbox read-only \
@@ -73,7 +73,7 @@ if [ "$CODEX_EXIT" -ne 0 ]; then classifyCodexError "$CODEX_EXIT" "$(cat "${STDE
 STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
 trap 'rm -f "${STDERR_FILE}"' EXIT
 timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
-  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   --config model_reasoning_effort="${CODEX_REASONING:-xhigh}" \
   --config stream_idle_timeout_ms="${CODEX_STREAM_IDLE_MS:-540000}" \
   --sandbox read-only \
@@ -133,7 +133,7 @@ nonce = random_hex(4)  # Unique boundary per invocation (SEC-004)
 # Timeouts resolved via resolveCodexTimeouts() — bounds: 300–3600s timeout, 10–(timeout-1) stream_idle
 STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
 timeout ${KILL_AFTER_FLAG} ${CODEX_TIMEOUT:-600} codex exec \
-  -m "${CODEX_MODEL:-gpt-5.3-codex-spark}" \
+  -m "${CODEX_MODEL:-gpt-5.3-codex}" \
   --config model_reasoning_effort="${CODEX_REASONING:-xhigh}" \
   --config stream_idle_timeout_ms="${CODEX_STREAM_IDLE_MS:-540000}" \
   --sandbox read-only \

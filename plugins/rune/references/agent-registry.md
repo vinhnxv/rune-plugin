@@ -77,7 +77,7 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | gap-fixer | Gap remediation fixer for Phase 5.8 — prompt-template-based (no dedicated .md file, uses `skills/roundtable-circle/references/ash-prompts/gap-fixer.md`) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
-| elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
+| elicitation-sage | Structured reasoning using curated methods (summoned per eligible section, max 6 per forge session) |
 | veil-piercer-plan | Plan truth-telling (6-dimension analysis, PASS/CONCERN/BLOCK verdicts) |
 | horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
 | deployment-verifier | Deployment artifact generation — Go/No-Go checklists, SQL verification, rollback plans, monitoring (DEPLOY-) |

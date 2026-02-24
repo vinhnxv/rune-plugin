@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.91.1] - 2026-02-24
+
+### Fixed
+- **Agent frontmatter format** — Convert all review/testing agent `tools:` from inline string to YAML list format; add `mcpServers: [echo-search]` to all review and testing agents
+- **EPERM-safe PID liveness** — `rune_pid_alive()` in `resolve-session-identity.sh` distinguishes ESRCH (dead) from EPERM (alive, different user) for cross-user session isolation
+- **Session-stop ownership refactor** — Extract `_get_fm_field()` and `_check_loop_ownership()` helpers in `on-session-stop.sh`, deduplicating batch/hierarchy/issues guard logic (-47 lines)
+- **JSON escaping** — Use `jq -Rs` for RFC 8259-compliant JSON escaping in `session-start.sh` (manual fallback preserved)
+- **Skill reference links** — Convert backtick reference paths to markdown links in appraise/devise/forge SKILLs
+- **Talisman config** — Add `doubt_seer` and `verification` config sections
+- **Script hardening** — `umask 077` in session-start.sh, quoting fixes in stamp-team-session.sh, bridge UID validation, timeout fallback
+
+### Added
+- Bilingual Rune guides (EN + VI) for code review/audit, work execution, and advanced workflows (6 new docs)
+
 ## [1.91.0] - 2026-02-24
 
 ### Added
@@ -58,7 +72,7 @@
 ## [1.89.0] - 2026-02-24
 
 ### Added
-- **Review Agent Gap Closure — 7 Enhancements from CE Comparison** — Closes gaps identified from comparison with compound-engineering plugin review agents:
+- **Review Agent Gap Closure — 7 Enhancements** — Closes gaps identified from cross-plugin review agent comparison:
   - **Enforcement Asymmetry Protocol** — Shared reference (`agents/review/references/enforcement-asymmetry.md`) enabling variable strictness based on change context (new file vs edit, shared vs isolated). Integrated into simplicity-warden, pattern-seer, and type-warden as proof-of-concept. Security findings always Strict.
   - **Forge-Keeper Data Migration Gatekeeper** — 3 new sections: Production Data Reality Check, Rollback Verification Depth (forward/backward compat matrix), Gatekeeper Verdicts (GATE-001 through GATE-010). GATE findings carry `requires_human_review: true`. New reference: `migration-gatekeeper-patterns.md`. Updated `data-integrity-patterns.md` with dual-write patterns.
   - **Tide-Watcher Frontend Race Conditions** — 3 new sections: Framework-Specific DOM Lifecycle Races (Hotwire/Turbo, React, Vue), Browser API Synchronization, State Machine Enforcement. New reference: `frontend-race-patterns.md`. Updated `async-patterns.md` with WebSocket/SSE patterns.
@@ -1846,7 +1860,7 @@ Feature release: Doc-consistency ward with cross-file drift prevention for arc a
 
 ## [1.16.0] - 2026-02-14
 
-Feature release: BMAD elicitation methods integration — 22-method curated registry with phase-aware selection.
+Feature release: Elicitation methods integration — 22-method curated registry with phase-aware selection.
 
 ### Added
 
@@ -1869,7 +1883,7 @@ Feature release: BMAD elicitation methods integration — 22-method curated regi
 
 ## [1.15.0] - 2026-02-14
 
-Feature release: BMAD-inspired quality improvements across plan, work, and review pipelines.
+Feature release: Quality improvements across plan, work, and review pipelines.
 
 ### Added
 

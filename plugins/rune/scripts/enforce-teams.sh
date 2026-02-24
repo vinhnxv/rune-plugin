@@ -70,13 +70,13 @@ source "${SCRIPT_DIR}/resolve-session-identity.sh"
 # Check arc checkpoints (skip stale files older than STALE_THRESHOLD_MIN)
 if [[ -d "${CWD}/.claude/arc" ]]; then
   while IFS= read -r f; do
-    if grep -q '"in_progress"' "$f" 2>/dev/null; then
+    if jq -e '(.phase == "in_progress") or (.status == "in_progress") or ([.phases[]?.status] | any(. == "in_progress"))' "$f" &>/dev/null; then
       # ── Ownership filter: skip checkpoints from other sessions ──
       stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
       stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
       if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
-        kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$stored_pid" && continue  # alive = different session
       fi
       active_workflow=1
       break
@@ -93,13 +93,13 @@ if [[ -z "$active_workflow" ]]; then
            "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-plan-*.json \
            "${CWD}"/tmp/.rune-forge-*.json; do
     # Skip files older than STALE_THRESHOLD_MIN minutes
-    if [[ -f "$f" ]] && find "$f" -maxdepth 0 -mmin -${STALE_THRESHOLD_MIN} -print -quit 2>/dev/null | grep -q . && grep -q '"active"' "$f" 2>/dev/null; then
+    if [[ -f "$f" ]] && find "$f" -maxdepth 0 -mmin -${STALE_THRESHOLD_MIN} -print -quit 2>/dev/null | grep -q . && jq -e '.status == "active"' "$f" &>/dev/null; then
       # ── Ownership filter: skip state files from other sessions ──
       stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
       stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
       if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
-        kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$stored_pid" && continue  # alive = different session
       fi
       active_workflow=1
       break
@@ -138,7 +138,7 @@ cat << 'DENY_JSON'
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
     "permissionDecisionReason": "ATE-1: Bare Task call blocked during active Rune workflow. All multi-agent phases MUST use Agent Teams. Add team_name to your Task call. Example: Task({ team_name: 'arc-forge-{id}', name: 'agent-name', subagent_type: 'general-purpose', ... }). See arc skill (skills/arc/SKILL.md) 'CRITICAL — Agent Teams Enforcement' section.",
-    "additionalContext": "BLOCKED by enforce-teams.sh hook. You MUST create a team with TeamCreate first, then pass team_name to all Task calls. Using bare subagent types like 'rune:utility:scroll-reviewer' or 'compound-engineering:research:best-practices-researcher' as subagent_type bypasses Agent Teams and causes context explosion. Always use subagent_type: 'general-purpose' and inject agent identity via the prompt parameter."
+    "additionalContext": "BLOCKED by enforce-teams.sh hook. You MUST create a team with TeamCreate first, then pass team_name to all Task calls. Using bare subagent types like 'rune:utility:scroll-reviewer' or 'other-plugin:some-agent-type' as subagent_type bypasses Agent Teams and causes context explosion. Always use subagent_type: 'general-purpose' and inject agent identity via the prompt parameter."
   }
 }
 DENY_JSON

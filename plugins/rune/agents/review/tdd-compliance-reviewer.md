@@ -5,7 +5,12 @@ description: |
   Reviews commit order, coverage thresholds, assertion quality, and test patterns.
   Activated when test files are present in the diff. Language-agnostic.
   Keywords: tdd, test, coverage, assertion, pytest, vitest, jest, testing.
-tools: Read, Glob, Grep
+tools:
+  - Read
+  - Glob
+  - Grep
+mcpServers:
+  - echo-search
 ---
 
 # TDD Compliance Reviewer — Stack Specialist Ash

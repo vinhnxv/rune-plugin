@@ -88,8 +88,8 @@ done
 # No associative arrays — uses grep/sort for macOS bash 3.x compatibility.
 
 SHARD_TMPFILE=$(mktemp "${TMPDIR:-/tmp}/shard-check-XXXXXX")
-# shellcheck disable=SC2064
-trap "rm -f '$SHARD_TMPFILE'" EXIT
+_cleanup_shard() { rm -f "$SHARD_TMPFILE"; }
+trap _cleanup_shard EXIT
 
 # Collect shard info: "prefix:num" per shard plan in SEEN array
 for plan in "${SEEN[@]+"${SEEN[@]}"}"; do

@@ -2,7 +2,7 @@
 name: appraise
 description: |
   Multi-agent code review using Agent Teams. Summons up to 7 built-in Ashes
-  (plus custom Ash from talisman.yml), each with their own 200k context window.
+  (plus custom Ash from talisman.yml), each with their own dedicated context window.
   Handles scope selection, team creation, review orchestration, aggregation, verification, and cleanup.
   Optional `--deep` runs multi-wave deep review with up to 18 Ashes across 3 waves.
 
@@ -37,7 +37,7 @@ allowed-tools:
 
 # /rune:appraise — Multi-Agent Code Review
 
-Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Ash gets its own 200k context window via Agent Teams.
+Orchestrate a multi-agent code review using the Roundtable Circle architecture. Each Ash gets its own dedicated context window via Agent Teams.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `codex-cli`, `polling-guard`, `zsh-compat`
 
@@ -106,7 +106,7 @@ Collect changed files and generate diff ranges. For detailed scope algorithms, s
 1. Detect `default_branch` from git remote/fallback
 2. Build `changed_files` — committed + staged + unstaged + untracked (or staged-only for `--partial`)
 3. Filter: remove non-existent files, symlinks
-4. Generate diff ranges for Phase 5.3 scope tagging (see `rune-orchestration/references/diff-scope.md`)
+4. Generate diff ranges for Phase 5.3 scope tagging (see [diff-scope.md](../rune-orchestration/references/diff-scope.md))
 
 **Abort conditions:**
 - No changed files → "Nothing to review. Make some changes first."
@@ -120,7 +120,7 @@ Gather PR metadata and linked issue context for downstream Ash consumption. Runs
 
 **Skip conditions**: `talisman.review.context_intelligence.enabled === false`, no `gh` CLI, `--partial` mode, non-git repo.
 
-See `roundtable-circle/references/context-intelligence.md` for the full contract, schema, and security model.
+See [context-intelligence.md](../roundtable-circle/references/context-intelligence.md) for the full contract, schema, and security model.
 
 ```javascript
 // sanitizeUntrustedText — canonical sanitization for user-authored content
@@ -177,7 +177,7 @@ Runs BEFORE team creation. Summons `lore-analyst` as a bare Task (no team yet �
 
 ## Phase 1: Rune Gaze (Scope Selection)
 
-Classify changed files by extension. See `roundtable-circle/references/rune-gaze.md`.
+Classify changed files by extension. See [rune-gaze.md](../roundtable-circle/references/rune-gaze.md).
 
 ```
 for each file in changed_files:

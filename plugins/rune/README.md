@@ -2,7 +2,7 @@
 
 Multi-agent engineering orchestration for [Claude Code](https://claude.ai/claude-code). Plan, work, review, and audit using Agent Teams.
 
-Each Ash teammate gets its own 200k context window, eliminating single-context bottlenecks.
+Each Ash teammate gets its own dedicated context window, eliminating single-context bottlenecks.
 
 ## Claude Code Install
 
@@ -20,7 +20,7 @@ claude --plugin-dir /path/to/rune-plugin
 ```
 
 > [!WARNING]
-> **Rune is a token-intensive multi-agent system.** Each workflow summons multiple agents with their own 200k context windows, consuming tokens rapidly. A single `/rune:arc` or `/rune:audit` run can burn through a significant portion of your weekly usage limit.
+> **Rune is a token-intensive multi-agent system.** Each workflow summons multiple agents with their own dedicated context windows, consuming tokens rapidly. A single `/rune:arc` or `/rune:audit` run can burn through a significant portion of your weekly usage limit.
 >
 > **We recommend Claude Max ($200/month) or higher.** If you are on a lower-tier subscription, a single Rune session could exhaust your entire week's usage allowance. Use `--dry-run` to preview scope before committing to a full run.
 
@@ -140,6 +140,12 @@ claude --plugin-dir /path/to/rune-plugin
 - [Hướng dẫn Rune (Tiếng Việt): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.vi.md)
 - [Rune planning guide (English): `/rune:devise` + `/rune:forge` + `/rune:plan-review` + `/rune:inspect`](../../docs/guides/rune-planning-and-plan-quality-guide.en.md)
 - [Hướng dẫn planning Rune (Tiếng Việt): `/rune:devise` + `/rune:forge` + `/rune:plan-review` + `/rune:inspect`](../../docs/guides/rune-planning-and-plan-quality-guide.vi.md)
+- [Rune code review and audit guide (English): `/rune:appraise` + `/rune:audit` + `/rune:mend`](../../docs/guides/rune-code-review-and-audit-guide.en.md)
+- [Hướng dẫn review và audit Rune (Tiếng Việt): `/rune:appraise` + `/rune:audit` + `/rune:mend`](../../docs/guides/rune-code-review-and-audit-guide.vi.md)
+- [Rune work execution guide (English): `/rune:strive` + `/rune:goldmask`](../../docs/guides/rune-work-execution-guide.en.md)
+- [Hướng dẫn thực thi Rune (Tiếng Việt): `/rune:strive` + `/rune:goldmask`](../../docs/guides/rune-work-execution-guide.vi.md)
+- [Rune advanced workflows guide (English): `/rune:arc-hierarchy` + `/rune:arc-issues` + `/rune:echoes`](../../docs/guides/rune-advanced-workflows-guide.en.md)
+- [Hướng dẫn workflow nâng cao Rune (Tiếng Việt): `/rune:arc-hierarchy` + `/rune:arc-issues` + `/rune:echoes`](../../docs/guides/rune-advanced-workflows-guide.vi.md)
 
 ## Arc Mode (End-to-End Pipeline)
 
@@ -322,7 +328,7 @@ When you run `/rune:appraise`, Rune:
 
 1. **Detects scope** — classifies changed files by extension
 2. **Selects Ash** — picks the right reviewers (3–9 Ashes)
-3. **Summons Agent Teams** — each reviewer gets its own 200k context window
+3. **Summons Agent Teams** — each reviewer gets its own dedicated context window
 4. **Reviews in parallel** — Ash review simultaneously, writing to files
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes
 6. **Verifies evidence** — Truthsight validates P1 findings against source
@@ -404,7 +410,7 @@ Codex findings go through a verification layer before entering the TOME:
 # .claude/talisman.yml
 codex:
   disabled: false                   # Set true to disable Codex Oracle entirely
-  model: "gpt-5.3-codex-spark"     # Codex model (gpt-5-codex, gpt-5.3-codex, gpt-5.3-codex-spark)
+  model: "gpt-5.3-codex"           # Codex model (gpt-5-codex, gpt-5.3-codex, gpt-5.3-codex-spark)
   reasoning: "xhigh"               # Reasoning effort (xhigh, high, medium, low)
   sandbox: "read-only"              # Sandbox mode (always read-only for review)
   context_budget: 20                # Max files to review (default: 20)
@@ -542,7 +548,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | scroll-reviewer | Document quality review |
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
-| elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
+| elicitation-sage | Structured reasoning using curated methods (summoned per eligible section, max 6 per forge session) |
 | veil-piercer-plan | Plan-level truth-teller (Phase 4C plan review) |
 | horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
 | gap-fixer | Gap remediation fixer for Phase 5.8 — prompt-template-based (no dedicated .md file) |
@@ -562,7 +568,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | context-weaving | Context overflow/rot prevention |
-| elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
+| elicitation | Curated structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | file-todos | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Gated by `talisman.file_todos.enabled` |
 | forge | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer (Phase 1.5) for risk-aware section prioritization |
 | git-worktree | Worktree isolation for /rune:strive (experimental `--worktree` flag) |
@@ -722,7 +728,7 @@ plugins/rune/
 │   ├── chome-pattern/       # CLAUDE_CONFIG_DIR resolution
 │   ├── codex-cli/           # Codex CLI integration
 │   ├── context-weaving/     # Context management
-│   ├── elicitation/         # BMAD-derived reasoning methods
+│   ├── elicitation/         # Curated structured reasoning methods
 │   │   └── references/      # methods.csv, examples.md, phase-mapping.md
 │   ├── forge/               # /rune:forge (plan enrichment, --exhaustive)
 │   │   └── references/      # forge-enrichment-protocol.md

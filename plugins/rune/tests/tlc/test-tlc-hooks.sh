@@ -172,12 +172,18 @@ else
   fail "T-10: Empty string input" "exit=$rc, output=$output"
 fi
 
+# ── Test isolation: temp dir avoids writes to $HOME/.claude (hermetic) ──
+TEST_CHOME=$(mktemp -d)
+export CLAUDE_CONFIG_DIR="$TEST_CHOME"
+_test_cleanup() { rm -rf "$TEST_CHOME" 2>/dev/null; }
+trap '_test_cleanup' EXIT
+
 # ────────────────────────────────────────────────────────────────
 # T-11: Stale team detection + auto-cleanup (regression for "Already leading" scenario)
 # This tests the motivating scenario: a crashed session leaves an orphaned team dir
 # and TLC-001 detects it, cleans the filesystem, and injects advisory context.
 # ────────────────────────────────────────────────────────────────
-CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+CHOME="$TEST_CHOME"
 STALE_TEAM="rune-stale-regression-test"
 STALE_DIR="$CHOME/teams/$STALE_TEAM"
 
