@@ -22,7 +22,7 @@ Plans with pseudocode include contract headers (Inputs/Outputs/Preconditions/Err
 
 ## Ash (Consolidated Teammates)
 
-Each Ash is an Agent Teams teammate with its own 200k context window. An Ash embeds multiple review agent perspectives into a single teammate to reduce team size.
+Each Ash is an Agent Teams teammate with its own dedicated context window. An Ash embeds multiple review agent perspectives into a single teammate to reduce team size.
 
 Forge Warden, Ward Sentinel, Pattern Weaver, and Veil Piercer embed dedicated review agent files from `agents/review/` (21 agents distributed across 4 Ashes — see circle-registry.md for mapping). Glyph Scribe, Knowledge Keeper, and Codex Oracle use inline perspective definitions in their Ash prompts. Codex Oracle wraps `codex exec` via Bash to provide cross-model verification using GPT-5.3-codex.
 

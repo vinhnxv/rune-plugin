@@ -38,7 +38,7 @@ Related guides:
 
 ### Recommended
 - Git repository with changes on a feature branch (for appraise).
-- Sufficient token budget — each workflow spawns multiple agents with 200k context windows.
+- Sufficient token budget — each workflow spawns multiple agents with dedicated context windows.
 
 ### Optional
 - `codex` CLI for cross-model verification (Codex Oracle joins as additional reviewer).
@@ -77,7 +77,7 @@ Rune detects changed files on your branch, selects appropriate reviewers, and pr
 1. **Scope detection** — collects changed files, classifies by extension.
 2. **Lore Layer** — risk-scores files by git history (churn, ownership concentration).
 3. **Rune Gaze** — selects matching Ashes based on file types.
-4. **Team creation** — spawns all Ashes in parallel, each with its own 200k context.
+4. **Team creation** — spawns all Ashes in parallel, each with its own dedicated context window.
 5. **Parallel review** — Ashes write findings to files (not to chat).
 6. **Aggregation** — Runebinder deduplicates, prioritizes, produces TOME.
 7. **Truthsight** — validates P1 evidence against source code.

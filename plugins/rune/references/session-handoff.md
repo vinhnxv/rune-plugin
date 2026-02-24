@@ -39,7 +39,7 @@ Teammates spawned via Agent Teams do **not** persist across session boundaries. 
 | Per-worker todo files | Yes | `tmp/work/{team}/todos/{worker}.md` |
 | Worker todo summary | Yes | `tmp/work/{team}/todos/_summary.md` |
 | **Teammate processes** | **No** | Terminated on session end |
-| **Teammate context windows** | **No** | Lost — 200k per agent, unrecoverable |
+| **Teammate context windows** | **No** | Lost per agent, unrecoverable |
 | **In-progress work (uncommitted)** | **Partial** | May exist in working tree |
 
 ### Recovery After Session Loss

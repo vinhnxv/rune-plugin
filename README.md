@@ -2,7 +2,7 @@
 
 **Multi-agent engineering orchestration for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).**
 
-Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own 200k context window.
+Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own dedicated context window.
 
 [![Version](https://img.shields.io/badge/version-1.91.0-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -32,7 +32,7 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## How It Works
 
-Rune orchestrates **multi-agent workflows** where specialized AI teammates collaborate through shared task lists and file-based communication. Instead of one agent doing everything in a single context window, Rune splits work across purpose-built agents — each with its own full 200k context.
+Rune orchestrates **multi-agent workflows** where specialized AI teammates collaborate through shared task lists and file-based communication. Instead of one agent doing everything in a single context window, Rune splits work across purpose-built agents — each with its own full context window.
 
 ```
 You ──► /rune:devise ──► Plan
@@ -463,7 +463,7 @@ rune-plugin/
 - **Claude Max ($200/month) or higher recommended**
 
 > [!WARNING]
-> **Rune is token-intensive.** Each workflow spawns multiple agents with their own 200k context windows. A single `/rune:arc` run can consume a significant portion of your weekly usage. Use `--dry-run` where available to preview scope before committing.
+> **Rune is token-intensive.** Each workflow spawns multiple agents with their own dedicated context windows. A single `/rune:arc` run can consume a significant portion of your weekly usage. Use `--dry-run` where available to preview scope before committing.
 
 ---
 

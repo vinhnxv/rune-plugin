@@ -2,7 +2,7 @@
 
 Multi-agent engineering orchestration for [Claude Code](https://claude.ai/claude-code). Plan, work, review, and audit using Agent Teams.
 
-Each Ash teammate gets its own 200k context window, eliminating single-context bottlenecks.
+Each Ash teammate gets its own dedicated context window, eliminating single-context bottlenecks.
 
 ## Claude Code Install
 
@@ -20,7 +20,7 @@ claude --plugin-dir /path/to/rune-plugin
 ```
 
 > [!WARNING]
-> **Rune is a token-intensive multi-agent system.** Each workflow summons multiple agents with their own 200k context windows, consuming tokens rapidly. A single `/rune:arc` or `/rune:audit` run can burn through a significant portion of your weekly usage limit.
+> **Rune is a token-intensive multi-agent system.** Each workflow summons multiple agents with their own dedicated context windows, consuming tokens rapidly. A single `/rune:arc` or `/rune:audit` run can burn through a significant portion of your weekly usage limit.
 >
 > **We recommend Claude Max ($200/month) or higher.** If you are on a lower-tier subscription, a single Rune session could exhaust your entire week's usage allowance. Use `--dry-run` to preview scope before committing to a full run.
 
@@ -328,7 +328,7 @@ When you run `/rune:appraise`, Rune:
 
 1. **Detects scope** — classifies changed files by extension
 2. **Selects Ash** — picks the right reviewers (3–9 Ashes)
-3. **Summons Agent Teams** — each reviewer gets its own 200k context window
+3. **Summons Agent Teams** — each reviewer gets its own dedicated context window
 4. **Reviews in parallel** — Ash review simultaneously, writing to files
 5. **Aggregates findings** — Runebinder deduplicates and prioritizes
 6. **Verifies evidence** — Truthsight validates P1 findings against source

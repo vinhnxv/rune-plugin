@@ -38,7 +38,7 @@ Các hướng dẫn liên quan:
 
 ### Khuyến nghị
 - Git repository có thay đổi trên feature branch (cho appraise).
-- Đủ token budget — mỗi workflow khởi tạo nhiều agent với 200k context.
+- Đủ token budget — mỗi workflow khởi tạo nhiều agent, mỗi agent có context window riêng.
 
 ### Tùy chọn
 - `codex` CLI cho cross-model verification (Codex Oracle tham gia review).
@@ -77,7 +77,7 @@ Rune phát hiện file thay đổi trên branch, chọn reviewer phù hợp, và
 1. **Phát hiện phạm vi** — thu thập file thay đổi, phân loại theo extension.
 2. **Lore Layer** — chấm điểm rủi ro file theo git history (churn, ownership).
 3. **Rune Gaze** — chọn Ash phù hợp dựa trên loại file.
-4. **Tạo team** — khởi tạo tất cả Ash song song, mỗi Ash có 200k context riêng.
+4. **Tạo team** — khởi tạo tất cả Ash song song, mỗi Ash có context window riêng.
 5. **Review song song** — Ash viết phát hiện ra file (không viết vào chat).
 6. **Tổng hợp** — Runebinder loại bỏ trùng lặp, ưu tiên, tạo TOME.
 7. **Truthsight** — kiểm tra bằng chứng P1 với source code.

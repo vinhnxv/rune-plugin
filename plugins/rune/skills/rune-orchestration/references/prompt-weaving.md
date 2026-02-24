@@ -4,7 +4,7 @@
 
 ## The Problem: Context Rot in Teammates
 
-When an Ash receives a 200k token context window filled with code files to review, the model's attention on critical instructions (evidence rules, output format, Truthbinding protocol) degrades. This is the Lost-in-Middle effect — content in the middle of long contexts receives less attention.
+When an Ash receives a large context window filled with code files to review, the model's attention on critical instructions (evidence rules, output format, Truthbinding protocol) degrades. This is the Lost-in-Middle effect — content in the middle of long contexts receives less attention.
 
 Context rot manifests as:
 - Findings without evidence blocks (forgot the evidence rule)

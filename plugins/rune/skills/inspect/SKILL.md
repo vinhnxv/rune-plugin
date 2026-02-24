@@ -37,7 +37,7 @@ allowed-tools:
 
 # /rune:inspect — Plan-vs-Implementation Deep Audit
 
-Orchestrate a multi-agent inspection that measures implementation completeness and quality against a plan. Each Inspector Ash gets its own 200k context window via Agent Teams.
+Orchestrate a multi-agent inspection that measures implementation completeness and quality against a plan. Each Inspector Ash gets its own dedicated context window via Agent Teams.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `polling-guard`, `zsh-compat`, `goldmask`, `codex-cli`
 

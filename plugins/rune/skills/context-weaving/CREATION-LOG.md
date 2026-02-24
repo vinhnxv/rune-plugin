@@ -1,15 +1,15 @@
 # Context Weaving — Creation Log
 
 ## Problem Statement
-Agent teams consuming the orchestrator's entire context window (~200k tokens), causing quality degradation in later phases. With 4+ agents reporting verbose findings back to the orchestrator, the context would fill up by Phase 6 (code review), leaving insufficient room for Phase 7 (mend) and beyond. The orchestrator's instructions would get compacted away, leading to drift in agent coordination and missed protocol steps.
+Agent teams consuming the orchestrator's entire context window, causing quality degradation in later phases. With 4+ agents reporting verbose findings back to the orchestrator, the context would fill up by Phase 6 (code review), leaving insufficient room for Phase 7 (mend) and beyond. The orchestrator's instructions would get compacted away, leading to drift in agent coordination and missed protocol steps.
 
 ## Alternatives Considered
 | Alternative | Why Rejected |
 |-------------|--------------|
 | Smaller agent teams (2-3 agents) | Loses perspective diversity — the whole point of multi-agent review is covering security, performance, patterns, and correctness simultaneously. Reducing to 2 agents defeats the purpose. |
-| Longer context models (>200k) | Not available at the time of creation. Even with larger windows, the fundamental problem remains — verbose agent output scales linearly while orchestrator instructions are fixed-size. |
+| Larger context windows | Even with larger windows, the fundamental problem remains — verbose agent output scales linearly while orchestrator instructions are fixed-size. |
 | Manual pruning by orchestrator | Unreliable — the orchestrator LLM inconsistently decides what to prune. Critical protocol steps get dropped while verbose agent output is preserved. |
-| File-based output only (no inline) | Partially adopted (Agent Teams give each teammate its own 200k window), but the orchestrator still needs to read summaries. Context weaving manages the residual overflow from summary reads. |
+| File-based output only (no inline) | Partially adopted (Agent Teams give each teammate its own context window), but the orchestrator still needs to read summaries. Context weaving manages the residual overflow from summary reads. |
 
 ## Key Design Decisions
 - **Unified overflow/rot/compression/offloading model**: Four separate mechanisms (pre-spawn overflow check, stale context rot detection, long-session compression, verbose content offloading) are unified into a single skill. Previously these were scattered across multiple skill files, leading to inconsistent application.
