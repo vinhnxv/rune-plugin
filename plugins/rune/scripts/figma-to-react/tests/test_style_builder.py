@@ -87,7 +87,7 @@ class TestFills:
         assert "background-color" not in props
 
     def test_gradient_fill(self):
-        """Gradient fills should produce background-image."""
+        """Gradient fills with empty stops should not produce background-image."""
         paint = Paint.model_validate({
             "type": "GRADIENT_LINEAR",
             "visible": True,
@@ -99,8 +99,7 @@ class TestFills:
             "gradientStops": [],
         })
         props = StyleBuilder().fills([paint]).build()
-        assert "background-image" in props
-        assert "linear-gradient" in props["background-image"]
+        assert "background-image" not in props
 
     def test_gradient_direction_to_right(self):
         """Horizontal gradient (left->right) should produce 'to right' direction."""
@@ -112,7 +111,10 @@ class TestFills:
                 {"x": 0.0, "y": 0.5},
                 {"x": 1.0, "y": 0.5},
             ],
-            "gradientStops": [],
+            "gradientStops": [
+                {"position": 0.0, "color": {"r": 1.0, "g": 0.0, "b": 0.0, "a": 1.0}},
+                {"position": 1.0, "color": {"r": 0.0, "g": 0.0, "b": 1.0, "a": 1.0}},
+            ],
         })
         props = StyleBuilder().fills([paint]).build()
         assert "to right" in props["background-image"]

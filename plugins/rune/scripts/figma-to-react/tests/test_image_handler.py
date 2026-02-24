@@ -60,8 +60,7 @@ class TestResolveUrl:
     def test_unknown_ref_placeholder(self):
         handler = ImageHandler()
         result = handler.resolve_url("unknown")
-        assert "TODO" in result
-        assert "unknown" in result
+        assert result == ""
 
     def test_set_image_urls_updates(self):
         handler = ImageHandler()
@@ -95,8 +94,7 @@ class TestGenerateImageJsx:
         node = _make_node(has_image_fill=True, image_ref="xyz789", width=100.0, height=100.0)
         handler = ImageHandler()  # No URL mapping
         jsx = handler.generate_image_jsx(node)
-        assert "<img" in jsx
-        assert "TODO" in jsx
+        assert "<div" in jsx
 
     def test_svg_candidate_generates_svg(self):
         node = _make_node(
