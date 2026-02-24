@@ -20,13 +20,13 @@
 ### Rule 1: Server-First Architecture (NEXT-001)
 - BAD: `'use client'` at the top of every component by default
 - GOOD: Server Components by default; add `'use client'` only when browser APIs, event handlers, or state are needed
-- Detection: `rg "'use client'" --type ts --type tsx -l`
+- Detection: `rg "'use client'" --glob "*.{ts,tsx}" -l`
 
 ### Rule 2: Data Fetching (NEXT-002)
 - BAD: `useEffect(() => { fetch('/api/data').then(...) }, [])` inside a component
 - GOOD: `async function Page() { const data = await fetch('...'); return <UI data={data} /> }`
 - Use `React.cache()` to deduplicate identical `fetch()` calls across a render tree
-- Detection: `rg "useEffect.*fetch\|useEffect.*axios" --type ts`
+- Detection: `rg "useEffect.*fetch|useEffect.*axios" --glob "*.{ts,tsx}"`
 
 ### Rule 3: File Conventions (NEXT-003)
 - BAD: Only `page.tsx` in a route segment with no fallback UI or error handling
@@ -79,6 +79,7 @@
 - [ ] CSRF: Server Actions are protected by default (same-site origin check); Route Handlers using `POST` should verify `Origin` header for non-browser clients
 - [ ] Content Security Policy headers set in `next.config.ts` or middleware response headers
 - [ ] Cookies that carry session tokens use `HttpOnly`, `Secure`, and `SameSite=Lax` attributes
+- [ ] No `dangerouslySetInnerHTML` without DOMPurify sanitization (inherited React XSS vector)
 
 ## Audit Commands
 

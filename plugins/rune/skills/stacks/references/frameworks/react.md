@@ -85,6 +85,7 @@
 - [ ] No secrets, API keys, or tokens in client-side bundles (check with `rg "process.env" --glob "*.{ts,tsx}"`)
 - [ ] CORS and CSP headers configured server-side (not just client guards)
 - [ ] User-supplied URLs validated before use in `href`, `src`, or `fetch()`
+- [ ] Client-side route guards are NOT the sole auth gate — enforce authorization server-side
 
 ## Audit Commands
 

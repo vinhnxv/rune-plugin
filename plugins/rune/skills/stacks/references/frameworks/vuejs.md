@@ -88,6 +88,8 @@
 - [ ] Slot content treated as untrusted — validate props passed into slots from external sources
 - [ ] API response data validated (Zod/valibot) before binding to reactive state
 - [ ] No secrets or tokens stored in Pinia state (persisted to localStorage via plugins)
+- [ ] No `eval()`, `new Function()`, or dynamic code execution in component logic
+- [ ] User-supplied URLs validated before use in `<router-link :to>`, `href`, or `src` attributes
 
 ## Audit Commands
 

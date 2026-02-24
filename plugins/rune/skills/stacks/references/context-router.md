@@ -97,6 +97,15 @@ computeContextManifest(task_type, file_scope, detected_stack, task_description):
       else:
         manifest.skills_excluded[skill_path] = "Domain mismatch"
 
+  # Step 3.5: Select build tool skills (from tooling[], not frameworks[])
+  if detected_stack?.tooling:
+    if "vite" in detected_stack.tooling AND "vite" not in detected_stack.frameworks:
+      # Vite is detected as tooling — load its framework skill when frontend/infra in scope
+      if domains.frontend OR domains.infra:
+        manifest.skills_to_load.push("frameworks/vite")
+      else:
+        manifest.skills_excluded["frameworks/vite"] = "No frontend/infra files in scope"
+
   # Step 4: Select database skills
   if detected_stack?.databases AND (domains.database OR domains.backend):
     for db in detected_stack.databases:
