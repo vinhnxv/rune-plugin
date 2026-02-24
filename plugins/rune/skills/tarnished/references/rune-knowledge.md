@@ -65,8 +65,8 @@ After implementation:
 ## Key Concepts Explained
 
 ### Ashes (Agents)
-Each "Ash" is a specialized AI agent with its own context window. Rune has 82 agents:
-- **37 review agents** — code quality, security, architecture, performance, etc.
+Each "Ash" is a specialized AI agent with its own context window. Rune has 84 agents:
+- **38 review agents** — code quality, security, architecture, performance, etc.
 - **5 research agents** — codebase analysis, git history, best practices
 - **23 investigation agents** — impact analysis, business logic tracing
 - **11 utility agents** — aggregation, deployment verification, reasoning
