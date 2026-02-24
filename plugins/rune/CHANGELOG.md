@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.99.0] - 2026-02-25
+
+### Added
+- **`frontend-design-patterns` skill** — Non-invocable knowledge skill for translating design specs into production components. 10 reference docs covering: accessibility (WCAG 2.1 AA), component reuse strategy (REUSE > EXTEND > CREATE), design system rules, design token reference (Figma-to-CSS/Tailwind mapping), layout alignment (Flexbox/Grid), responsive patterns (mobile-first), state and error handling (4 core UI states), Storybook patterns (CSF3/autodocs), visual region analysis (screenshot-to-structure), and variant mapping (Figma variants to component props). Auto-loaded by Stacks context router for frontend files.
+- **`design-sync` skill** — `/rune:design-sync` orchestration skill for Figma design synchronization. 3-phase pipeline: PLAN (Figma extraction → VSM creation) → WORK (VSM-guided implementation) → REVIEW (fidelity scoring). Supports `--plan-only`, `--resume-work`, `--review-only` flags. Visual Spec Map (VSM) v1.0 intermediate format. 6-dimension fidelity scoring (tokens, layout, responsive, a11y, variants, states). 8 reference docs. Gated by `design_sync.enabled` in talisman.
+- **`design-implementation-reviewer` agent** — Review Ash for design-to-code fidelity (FIDE prefix). Scores token compliance, layout fidelity, responsive coverage, accessibility, variant completeness, and state coverage. Activated when `design_sync.enabled` AND frontend detected AND Figma URL present.
+- **`design-sync-agent` agent** — Work agent for Figma extraction and VSM creation. Uses Figma MCP tools (figma_fetch_design, figma_inspect_node, figma_list_components) to extract tokens, region trees, and variant maps. Model: sonnet, maxTurns: 40.
+- **`design-iterator` agent** — Work agent for iterative design refinement. Runs screenshot-analyze-improve loop with ONE change per iteration (ITER-001 Iron Law). Convergence detection and oscillation prevention. Model: sonnet, maxTurns: 50.
+- **3 arc phase reference files** — `arc-phase-design-extraction.md` (Phase 3), `arc-phase-design-verification.md` (Phase 5.2), `arc-phase-design-iteration.md` (Phase 7.6). All conditional on `design_sync.enabled`. ATE-1 compliant with session isolation.
+- **Stack registry design entries** — Updated `stack-registry.md`, `detection.md`, and `context-router.md` with design tool detection (Figma URL patterns, design token files), frontend-design-patterns skill routing, and design-implementation-reviewer agent activation.
+- **Talisman `design_sync` config block** — 10 configuration keys for design sync workflow (enabled, max workers, iteration limits, fidelity threshold, token snap distance).
+
 ## [1.98.0] - 2026-02-25
 
 ### Added

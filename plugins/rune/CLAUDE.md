@@ -17,6 +17,8 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **polling-guard** | Monitoring loop fidelity — correct waitForCompletion translation, anti-pattern reference |
 | **skill-testing** | TDD methodology for skills — pressure testing, rationalization counters, Iron Law (SKT-001). `disable-model-invocation: true` |
 | **stacks** | Stack-aware intelligence — 4-layer detection engine (manifest scanning → context routing → knowledge skills → enforcement agents). 12 specialist reviewers (Python, TypeScript, Rust, PHP, Axum, FastAPI, Django, Laravel, SQLAlchemy, TDD, DDD, DI). Non-invocable — auto-loaded by Rune Gaze Phase 1A |
+| **frontend-design-patterns** | Frontend design implementation knowledge — design systems, design tokens, accessibility (WCAG 2.1 AA), responsive patterns, component reuse (REUSE > EXTEND > CREATE), layout alignment, variant mapping, Storybook, visual region analysis, UI state handling. Non-invocable — auto-loaded by Stacks context router for frontend files |
+| **design-sync** | Figma design synchronization workflow — 3-phase pipeline (PLAN: extraction → WORK: implementation → REVIEW: fidelity). VSM intermediate format, Figma MCP integration, fidelity scoring (6 dimensions), iterative refinement. Gated by `design_sync.enabled` |
 | **systematic-debugging** | 4-phase debugging methodology (Observe → Narrow → Hypothesize → Fix) for workers hitting repeated failures. Iron Law: no fixes without root cause investigation (DBG-001) |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
 | **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 23 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend → test → test coverage critique → pre-ship validation → release quality check → bot review wait → PR comment resolution → ship → merge) |
@@ -234,7 +236,7 @@ echo "Commands: $(find plugins/rune/commands -name '*.md' -not -path '*/referenc
 
 ## References
 
-- [Agent registry](references/agent-registry.md) — 39 review + 5 research + 2 work + 12 utility + 24 investigation + 4 testing agents
+- [Agent registry](references/agent-registry.md) — 39 review + 5 research + 4 work + 12 utility + 24 investigation + 4 testing agents
 - [Key concepts](references/key-concepts.md) — Tarnished, Ash, TOME, Arc, Mend, Forge Gaze, Echoes
 - [Lore glossary](references/lore-glossary.md) — Elden Ring terminology mapping
 - [Output conventions](references/output-conventions.md) — Directory structure per workflow

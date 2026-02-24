@@ -18,7 +18,7 @@ computeContextManifest(task_type, file_scope, detected_stack, task_description):
   }
 
   # Step 1: Classify files into domains
-  domains = { backend: false, frontend: false, database: false, testing: false, infra: false, docs: false }
+  domains = { backend: false, frontend: false, database: false, testing: false, infra: false, docs: false, design: false }
 
   for file in file_scope:
     ext = file.extension
@@ -58,6 +58,19 @@ computeContextManifest(task_type, file_scope, detected_stack, task_description):
     # Docs detection
     if ext == ".md" AND NOT path.includes("test"):
       domains.docs = true
+
+    # Design detection
+    if ext in [".figma", ".sketch"] OR path.includes(".storybook/"):
+      domains.design = true
+    elif ext in [".css", ".scss", ".less"] AND path.includes("design-tokens/"):
+      domains.design = true
+    elif file.name in [".figmarc", "figma.config.json"]:
+      domains.design = true
+
+  # Design domain inference: if Figma/Storybook detected in stack, mark design domain
+  if detected_stack?.frameworks:
+    if "figma" in detected_stack.frameworks OR "storybook" in detected_stack.frameworks:
+      domains.design = true
 
   manifest.domains = domains
 
@@ -137,6 +150,18 @@ computeContextManifest(task_type, file_scope, detected_stack, task_description):
   if has_di_framework(detected_stack):
     manifest.skills_to_load.push("patterns/di")
 
+  # Step 5.7: Select design skills
+  if domains.design:
+    manifest.skills_to_load.push("frontend-design-patterns")
+    if detected_stack?.frameworks:
+      if "figma" in detected_stack.frameworks:
+        manifest.skills_to_load.push("design/figma")
+      if "storybook" in detected_stack.frameworks:
+        manifest.skills_to_load.push("design/storybook")
+    # Conditionally load design-sync agent when talisman enables it
+    if talisman?.design_sync?.enabled:
+      manifest.agents_selected.push("design-implementation-reviewer")
+
   # Step 6: Load custom rules from talisman
   custom_rules = talisman?.stack_awareness?.custom_rules ?? []
   for rule in custom_rules:
@@ -191,6 +216,7 @@ computeContextManifest(task_type, file_scope, detected_stack, task_description):
 | testing | `test`, `spec`, `__tests__` in path | Test files |
 | infra | `Dockerfile`, CI configs, `.tf`, `.github/` | Infrastructure and deployment |
 | docs | `.md` (excluding test dirs) | Documentation |
+| design | `.figma`, `.sketch`, `.storybook/`, `design-tokens/`, `.figmarc`, `figma.config.json` | Design system files, tokens, and tool configs |
 
 ## Loading Strategies
 
