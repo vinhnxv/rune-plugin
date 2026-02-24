@@ -226,6 +226,9 @@ if (autoGenWork) {
   Bash(`mkdir -p "${todosDir}"`)
 }
 
+// Compute total worker count (scaling logic in worker-prompts.md)
+const workerCount = smithCount + forgerCount
+
 // Write state file with session identity for cross-session isolation
 const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
 const ownerPid = Bash(`echo $PPID`).trim()

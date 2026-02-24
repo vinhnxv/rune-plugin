@@ -86,14 +86,26 @@ const tmpPlanMatch = planPath.match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
 if (tmpPlanMatch) {
   planTimestamp = tmpPlanMatch[1]
 } else {
-  // For plans/ directory, look for risk-map.json in tmp/plans/ that references this plan
+  // For plans/ directory, find the risk-map.json that correlates with this plan
+  // by reading each risk-map and checking its plan reference
+  const planBasename = planPath.split('/').pop()
   const planTimestampFiles = Glob("tmp/plans/*/risk-map.json")
   for (const rmFile of planTimestampFiles) {
     const dirMatch = rmFile.match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
-    if (dirMatch) {
-      planTimestamp = dirMatch[1]
-      break
-    }
+    if (!dirMatch) continue
+    try {
+      const rmContent = JSON.parse(Read(rmFile))
+      // Match by plan path or basename stored in risk-map metadata
+      if (rmContent.plan === planPath || rmContent.plan?.endsWith(planBasename)) {
+        planTimestamp = dirMatch[1]
+        break
+      }
+    } catch (e) { /* corrupt risk-map — skip */ }
+  }
+  // Fallback: if no correlation found and only one risk-map exists, use it
+  if (!planTimestamp && planTimestampFiles.length === 1) {
+    const dirMatch = planTimestampFiles[0].match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
+    if (dirMatch) planTimestamp = dirMatch[1]
   }
 }
 

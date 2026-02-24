@@ -150,7 +150,7 @@ ${(() => {
   // Per-task file-todos status (when enabled)
   const talisman = readTalisman()
   const fileTodosEnabled = talisman?.file_todos?.enabled === true
-  const todosDir = talisman?.file_todos?.dir || "todos/"
+  const todosDir = resolveTodosDir($ARGUMENTS, talisman, "work")
   if (fileTodosEnabled) {
     const todoFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
     if (todoFiles.length > 0) {

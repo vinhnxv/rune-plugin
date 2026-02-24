@@ -353,9 +353,11 @@ Replace the standard Step 8 (patch generation) with:
 // Replaces standard Step 9 in worktree mode
 `    9. IF ward/tests fail (WORKTREE MODE):
        a. Do NOT commit
-       b. Revert your changes: git checkout -- .
-       c. TaskUpdate({ taskId, status: "pending", owner: "" })
-       d. SendMessage to the Tarnished: "Ward failed on task #{id}: {failure summary}"
+       b. Revert tracked changes: git checkout -- .
+       c. Clean untracked files: git clean -fd
+          (prevents leftover files from contaminating the next task in this worktree)
+       d. TaskUpdate({ taskId, status: "pending", owner: "" })
+       e. SendMessage to the Tarnished: "Ward failed on task #{id}: {failure summary}"
        NOTE: In worktree mode, uncommitted changes are isolated to your worktree
        and cannot affect other workers or the main branch.`
 ```

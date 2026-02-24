@@ -14,6 +14,9 @@ Worktree mode: Worker → git commit → mergeBroker() → git merge --no-ff →
 ## Merge Broker Algorithm
 
 ```javascript
+// Module-level constants (shared by mergeBroker + worktreeGarbageCollection)
+const BRANCH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
+
 // State: maintained across waves for deduplication
 const mergedBranches = new Set()
 const mergeSHAs = []
@@ -24,8 +27,6 @@ function mergeBroker(completedBranches, featureBranch) {
   // Outputs: merged feature branch, updated mergeSHAs[]
   // Preconditions: All wave workers have exited, branches exist
   // Error handling: Merge conflict → escalate to user (NEVER auto-resolve)
-
-  const BRANCH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
 
   // Sort by task ID for deterministic merge order
   const sorted = completedBranches.sort((a, b) => a.taskId - b.taskId)
@@ -183,26 +184,51 @@ function cleanupWorktree(worktreePath, branchName) {
 
 ## Phase 6 Worktree Garbage Collection
 
-At cleanup time (Phase 6), collect any orphaned worktrees and branches from failed runs:
+At cleanup time (Phase 6), collect orphaned worktrees and branches. Session-scoped first (current timestamp), then broader orphan sweep for stale resources from crashed previous runs:
 
 ```javascript
 function worktreeGarbageCollection(timestamp) {
   // 1. Prune stale worktree entries
   Bash("git worktree prune")
 
-  // 2. Remove orphaned worktrees matching rune-work pattern
+  // 2. Remove orphaned worktrees — session-scoped first, then broader sweep
   const worktreeList = Bash("git worktree list --porcelain").trim()
-  const worktreeEntries = worktreeList.split("\n\n").filter(e => e.includes("rune-work-"))
-  for (const entry of worktreeEntries) {
+  const allRuneEntries = worktreeList.split("\n\n").filter(e => e.includes("rune-work-"))
+
+  // 2a. Session-scoped: remove THIS session's worktrees (match timestamp)
+  const sessionEntries = allRuneEntries.filter(e => e.includes(`rune-work-${timestamp}`))
+  for (const entry of sessionEntries) {
     const pathMatch = entry.match(/^worktree (.+)$/m)
     if (pathMatch) {
-      warn(`Removing orphaned worktree: ${pathMatch[1]}`)
+      log(`Removing session worktree: ${pathMatch[1]}`)
       Bash(`git worktree remove --force "${pathMatch[1]}" 2>/dev/null`)
     }
   }
 
-  // 3. Cleanup orphaned branches (retry-with-backoff pattern)
-  const CLEANUP_DELAYS = [0, 3000, 8000]
+  // 2b. Orphan sweep: remove worktrees from OTHER sessions only if no active strive owns them
+  //     Check for active state files to avoid interfering with concurrent sessions
+  const otherEntries = allRuneEntries.filter(e => !e.includes(`rune-work-${timestamp}`))
+  for (const entry of otherEntries) {
+    const pathMatch = entry.match(/^worktree (.+)$/m)
+    if (!pathMatch) continue
+    // Extract timestamp from worktree path to check ownership
+    const wtTimestamp = pathMatch[1].match(/rune-work-([a-zA-Z0-9_-]+)/)?.[1]
+    if (wtTimestamp) {
+      const stateFile = `tmp/.rune-work-${wtTimestamp}.json`
+      if (exists(stateFile)) {
+        const state = JSON.parse(Read(stateFile))
+        // Skip if owned by a live session (kill -0 checks PID liveness)
+        if (state.owner_pid && Bash(`kill -0 ${state.owner_pid} 2>/dev/null`).exitCode === 0) {
+          log(`Skipping worktree owned by live session (PID ${state.owner_pid}): ${pathMatch[1]}`)
+          continue
+        }
+      }
+    }
+    warn(`Removing orphaned worktree: ${pathMatch[1]}`)
+    Bash(`git worktree remove --force "${pathMatch[1]}" 2>/dev/null`)
+  }
+
+  // 3. Cleanup orphaned branches — same session-first + ownership check pattern
   const orphanBranches = Bash("git branch --list 'rune-work-*' 2>/dev/null").trim()
   if (orphanBranches) {
     for (const branch of orphanBranches.split('\n').map(b => b.trim()).filter(Boolean)) {
@@ -210,6 +236,19 @@ function worktreeGarbageCollection(timestamp) {
       if (branch.startsWith('*')) continue
       const cleanBranch = branch.replace(/^\*?\s*/, '')
       if (!BRANCH_RE.test(cleanBranch)) continue
+
+      // Check if branch belongs to a live session before deleting
+      const branchTimestamp = cleanBranch.match(/rune-work-([a-zA-Z0-9_-]+)/)?.[1]
+      if (branchTimestamp && branchTimestamp !== timestamp) {
+        const stateFile = `tmp/.rune-work-${branchTimestamp}.json`
+        if (exists(stateFile)) {
+          const state = JSON.parse(Read(stateFile))
+          if (state.owner_pid && Bash(`kill -0 ${state.owner_pid} 2>/dev/null`).exitCode === 0) {
+            log(`Skipping branch owned by live session (PID ${state.owner_pid}): ${cleanBranch}`)
+            continue
+          }
+        }
+      }
       Bash(`git branch -D "${cleanBranch}" 2>/dev/null`)
     }
   }
@@ -333,7 +372,7 @@ This replaces the patch-based `meta.files` collection from commitBroker. The out
 ## Integration Points
 
 - **Phase 0**: `worktreeMode` flag determines which broker is active
-- **Phase 1 (Forge Team)**: Wave computation runs after dependency linking (sub-step 5.3 of TaskCreate loop in work.md)
+- **Phase 1 (Forge Team)**: Wave computation runs after dependency linking (sub-step 5.3 of TaskCreate loop in SKILL.md)
 - **Phase 2**: Workers spawned with `isolation: "worktree"` per wave
 - **Phase 3**: Wave-aware monitoring loop (monitor current wave, merge, spawn next)
 - **Phase 3.5**: `mergeBroker()` replaces `commitBroker()` when `worktreeMode === true`

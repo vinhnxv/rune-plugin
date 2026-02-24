@@ -192,12 +192,13 @@ const fileTodosEnabled = talisman?.file_todos?.enabled === true
 const autoGenWork = talisman?.file_todos?.auto_generate?.work === true
 
 if (fileTodosEnabled && autoGenWork) {
-  const todosDir = talisman?.file_todos?.dir || "todos/"
+  const todosDir = resolveTodosDir($ARGUMENTS, talisman, "work")
   Bash(`mkdir -p "${todosDir}"`)
 
-  // Get next sequential ID (zsh-safe)
+  // Get next sequential ID — use max(existing IDs) + 1 to avoid collision when gaps exist
   const existing = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)  // (N) safe
-  let nextId = existing.length + 1
+  let nextId = existing.length === 0 ? 1
+    : Math.max(...existing.map(f => parseInt(f.split('/').pop().slice(0, 3), 10) || 0)) + 1
 
   for (const task of extractedTasks) {
     // Dedup: check for existing todo with matching source_ref
@@ -277,9 +278,9 @@ if (fileTodosEnabled && autoGenWork) {
     if (task.status === 'completed' && fm.status !== 'complete') {
       Edit(todoFile, { old_string: `status: ${fm.status}`, new_string: 'status: complete' })
       Edit(todoFile, { old_string: `updated: "${fm.updated}"`, new_string: `updated: "${today}"` })
-    } else if (task.status === 'pending' && fm.status === 'in_progress') {
-      // Task was released (ward failure) — mark blocked
-      Edit(todoFile, { old_string: 'status: in_progress', new_string: 'status: blocked' })
+    } else if (task.status === 'pending' && (fm.status === 'in_progress' || fm.status === 'ready')) {
+      // Task was released (ward failure) or never claimed — mark blocked
+      Edit(todoFile, { old_string: `status: ${fm.status}`, new_string: 'status: blocked' })
       Edit(todoFile, { old_string: `updated: "${fm.updated}"`, new_string: `updated: "${today}"` })
     }
   }
