@@ -647,7 +647,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | rune-echoes | Smart Memory Lifecycle (5-tier project memory) |
 | rune-orchestration | Multi-agent coordination patterns |
 | skill-testing | TDD methodology for skills — pressure testing, rationalization counters, Iron Law (SKT-001). `disable-model-invocation: true` |
-| stacks | Stack-aware intelligence — 4-layer detection engine with 11 specialist reviewers (Python, TypeScript, Rust, PHP, FastAPI, Django, Laravel, SQLAlchemy, TDD, DDD, DI). Auto-loaded by Rune Gaze Phase 1A (non-invocable) |
+| stacks | Stack-aware intelligence — 4-layer detection engine with 12 specialist reviewers (Python, TypeScript, Rust, PHP, Axum, FastAPI, Django, Laravel, SQLAlchemy, TDD, DDD, DI). Auto-loaded by Rune Gaze Phase 1A (non-invocable) |
 | systematic-debugging | 4-phase debugging methodology (Observe → Narrow → Hypothesize → Fix) for workers hitting repeated failures. Iron Law: no fixes without root cause investigation (DBG-001) |
 | testing | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | using-rune | Workflow discovery and intent routing |
@@ -757,7 +757,7 @@ plugins/rune/
 │   └── plugin.json
 ├── agents/
 │   ├── investigation/       # 23 investigation agents (Goldmask + Inspect)
-│   ├── review/              # 37 review agents
+│   ├── review/              # 38 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
 │   ├── testing/             # 4 testing agents (arc Phase 7.7)
