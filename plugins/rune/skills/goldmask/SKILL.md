@@ -448,3 +448,11 @@ tmp/goldmask/{session_id}/
 - [investigation-protocol.md](references/investigation-protocol.md) — 5-step protocol for Impact tracers
 - [wisdom-protocol.md](references/wisdom-protocol.md) — 6-step protocol for Wisdom Sage
 - [lore-protocol.md](references/lore-protocol.md) — Risk scoring formula for Lore Analyst
+
+### Shared Cross-Skill References
+
+These files are consumed by other skills (forge, mend, inspect, devise) via cross-skill links:
+
+- [goldmask-quick-check.md](references/goldmask-quick-check.md) — Quick check protocol (used by forge, mend)
+- [lore-layer-integration.md](references/lore-layer-integration.md) — Lore Layer integration patterns (used by forge, inspect, devise, mend)
+- [risk-tier-sorting.md](references/risk-tier-sorting.md) — Risk tier sorting utilities (used by forge, mend)

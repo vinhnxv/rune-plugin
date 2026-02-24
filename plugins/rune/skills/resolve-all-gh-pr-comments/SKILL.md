@@ -97,49 +97,14 @@ Bash("GH_PROMPT_DISABLED=1 gh pr checkout ${prNumber}")
 
 ## Phase 3: Paginated Fetch — Write to Tmp Files
 
-Fetch ALL comments to tmp files to avoid loading everything into context at once.
+Fetch ALL comments to tmp files to avoid loading everything into context at once. Uses GraphQL cursor pagination (`$endCursor`) for review threads and REST pagination for issue/review comments.
 
 ```
 outputDir = "tmp/pr-comments/${prNumber}"
 Bash("mkdir -p '${outputDir}'")
-
-# 3a. Fetch review threads via GraphQL with cursor pagination
-# CRITICAL: Use $endCursor (not $cursor) for gh --paginate compatibility
-Bash("GH_PROMPT_DISABLED=1 gh api graphql --paginate -f query='
-query(\$endCursor: String) {
-  repository(owner: \"${owner}\", name: \"${repo}\") {
-    pullRequest(number: ${prNumber}) {
-      reviewThreads(first: 100, after: \$endCursor) {
-        pageInfo { hasNextPage endCursor }
-        nodes {
-          id
-          isResolved
-          isOutdated
-          comments(first: 10) {
-            nodes {
-              id
-              databaseId
-              author { login }
-              body
-              path
-              line
-              url
-              createdAt
-              updatedAt
-            }
-          }
-        }
-      }
-    }
-  }
-}' > '${outputDir}/review-threads.json'")
-
-# 3b. Fetch issue comments (REST, paginated) — bot summary comments
-Bash("GH_PROMPT_DISABLED=1 gh api --paginate 'repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=100' > '${outputDir}/issue-comments.json'")
-
-# 3c. Fetch PR review comments (REST, paginated) — inline bot comments
-Bash("GH_PROMPT_DISABLED=1 gh api --paginate 'repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=100' > '${outputDir}/review-comments.json'")
 ```
+
+See [paginated-fetch.md](references/paginated-fetch.md) for the full GraphQL and REST pagination protocol.
 
 ## Phase 4: Categorize from Tmp Files
 
@@ -188,81 +153,9 @@ if AUTO_RESOLVE_OUTDATED and outdatedCount > 0:
 
 ## Phase 6: Batch-Process Bot Comments
 
-Process comments in batches of BATCH_SIZE to protect context window.
+Process comments in batches of BATCH_SIZE to protect context window. Merges bot issue comments + unresolved threads into a single actionable list, splits into batches, then verifies and classifies each comment. Includes hallucination check algorithm that verifies bot findings against actual code (file existence, line validity, recent commits, code analysis).
 
-```
-# 6a. Merge bot issue comments + unresolved threads into a single actionable list
-Bash("jq -s 'add // []' '${outputDir}/bot-issue-comments.json' '${outputDir}/unresolved-threads.json' > '${outputDir}/actionable-all.json'")
-totalActionable = Bash("jq 'length' '${outputDir}/actionable-all.json'").trim()
-
-if totalActionable == 0:
-  log("No actionable bot comments or unresolved threads found.")
-  # Write summary report
-  Write("${outputDir}/summary.md", "# PR Comment Resolution Summary\n\nPR: #${prNumber}\nOutdated auto-resolved: ${outdatedCount}\nActionable comments: 0\nNo fixes needed.")
-  exit
-
-# 6b. Split into batches
-numBatches = ceil(totalActionable / BATCH_SIZE)
-for batch in 0..numBatches-1:
-  start = batch * BATCH_SIZE
-  Bash("jq '.[${start}:${start + BATCH_SIZE}]' '${outputDir}/actionable-all.json' > '${outputDir}/batch-${batch}.json'")
-
-# 6c. For each batch: read, verify, classify
-allResults = []
-for batch in 0..numBatches-1:
-  batchFile = "${outputDir}/batch-${batch}.json"
-  batchContent = Read(batchFile)
-
-  for each comment in batchContent:
-    result = { comment_id: comment.id, url: comment.url }
-
-    # Determine comment type and extract finding details
-    if comment has .path (review thread):
-      result.type = "review_thread"
-      result.file = comment.comments.nodes[0].path
-      result.line = comment.comments.nodes[0].line
-      result.body = comment.comments.nodes[0].body
-      result.author = comment.comments.nodes[0].author.login
-    else (issue comment):
-      result.type = "issue_comment"
-      result.body = comment.body
-      result.author = comment.user.login
-
-    # Hallucination check (if enabled)
-    if HALLUCINATION_CHECK and result.file:
-      result.verdict = verifyBotFinding(result)
-    else:
-      result.verdict = "NEEDS_REVIEW"
-
-    allResults.append(result)
-
-  Write("${outputDir}/batch-${batch}-results.json", JSON.stringify(batchResults))
-```
-
-### Hallucination Check Algorithm
-
-```
-function verifyBotFinding(finding):
-  # 1. Read the actual file at the referenced path
-  fileContent = Read(finding.file)
-  if fileContent is empty:
-    return { verdict: "NOT_APPLICABLE", reason: "File not found" }
-
-  # 2. Check if the referenced line still exists
-  lines = fileContent.split('\n')
-  if finding.line and (finding.line > lines.length):
-    return { verdict: "ALREADY_ADDRESSED", reason: "Line no longer exists" }
-
-  # 3. Check if a recent commit already addressed the concern
-  recentCommits = Bash("git log --oneline -5 -- '${finding.file}'")
-  # Look for fix-related keywords in commit messages
-
-  # 4. Analyze the actual code vs the bot's concern
-  # Read surrounding context (finding.line +/- 10 lines)
-  # Compare bot's claim against actual code behavior
-
-  # 5. Return verdict: VALID | FALSE_POSITIVE | ALREADY_ADDRESSED | NOT_APPLICABLE
-```
+See [batch-process.md](references/batch-process.md) for the full batch processing and hallucination check protocol.
 
 ## Phase 7: Present Analysis to User
 

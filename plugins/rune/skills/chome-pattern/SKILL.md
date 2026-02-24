@@ -78,49 +78,9 @@ These tools manage config dirs internally and always resolve `CLAUDE_CONFIG_DIR`
 
 ## Canonical Patterns
 
-### Pattern 1: Inline CHOME (most common)
+Three patterns for resolving CHOME: (1) inline for single Bash calls, (2) resolved variable for multiple calls, (3) documentation notation for human-readable docs. Each includes code examples for rm-rf, find, test -f, and test -d operations.
 
-For single Bash calls, inline the CHOME resolution:
-
-```javascript
-// rm-rf with CHOME
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
-
-// find with CHOME
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
-
-// test -f with CHOME (post-create verification)
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${teamName}/config.json" || echo "WARN: config.json not found"`)
-
-// test -d with CHOME (directory existence check)
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -d "$CHOME/teams/${teamName}/" && echo "exists"`)
-```
-
-### Pattern 2: Resolved CHOME variable (for multiple Bash calls)
-
-When a command makes several Bash calls to config dirs, resolve CHOME once at the top:
-
-```javascript
-// Resolve once at command start
-const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
-
-// Then use in multiple Bash calls
-Bash(`find "${CHOME}/teams" -mindepth 1 -maxdepth 1 -type d 2>/dev/null`)
-Bash(`test -d "${CHOME}/teams" && echo ok 2>/dev/null`)
-Bash(`rm -rf "${CHOME}/teams/${teamName}/" "${CHOME}/tasks/${teamName}/" 2>/dev/null`)
-```
-
-### Pattern 3: Documentation references
-
-In markdown docs, tables, and comments that describe paths for humans:
-
-```markdown
-<!-- Option A: Use $CHOME notation (preferred for pseudocode docs) -->
-| Team config | `$CHOME/teams/{name}/config.json` |
-
-<!-- Option B: Use ~/.claude/ with a note (preferred for user-facing docs) -->
-| Team config | `~/.claude/teams/{name}/` (or `$CLAUDE_CONFIG_DIR/teams/` if set) |
-```
+See [canonical-patterns.md](references/canonical-patterns.md) for full code examples of all 3 patterns.
 
 ## Classification Checklist
 
