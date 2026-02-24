@@ -107,12 +107,13 @@ Before content is loaded, the file path is validated:
 | File contains only YAML frontmatter | Sanitization strips it → whitespace-only guard fires → abort |
 | File is binary | Null byte stripping + whitespace guard → abort |
 | File is 0 bytes | Whitespace guard fires → abort |
-| Both `--prompt` and `--prompt-file` | `--prompt` wins (inline takes precedence) |
+| Both `--prompt` and `--prompt-file` | `--prompt-file` wins (file takes precedence) |
 | `--prompt-file` path is `~/.claude/my-prompt.md` | Allowed — within `~/.claude/` |
 | Absolute path escaping both project root and `~/.claude/` | Abort with path rejection message |
 | Very large file (>100KB) | No hard limit — sanitize and use; downstream Ash context budget is the real constraint |
-| Prompt tries to add `<seal>` tag | RUNE nonce marker stripping removes `<!-- RUNE:SEAL:xxx -->` patterns; plain `<seal>` text passes through (harmless without matching hook pattern) |
+| Prompt tries to add `<seal>` tag | RUNE nonce marker stripping removes `<!-- RUNE:SEAL:xxx -->` patterns; plain `<seal>`/`</seal>` tags are replaced with escaped equivalents (`&lt;seal&gt;`) to prevent completion detection bypass |
 | Prompt includes RE-ANCHOR text | Lines containing `RE-ANCHOR` are stripped entirely to prevent Truthbinding boundary spoofing |
+| Prompt contains `── END CUSTOM CRITERIA ──` | Marker string stripped to prevent premature termination of custom criteria boundary in `buildAshPrompt()` |
 
 ---
 
@@ -125,7 +126,9 @@ audit:
   default_prompt_file: ".claude/prompts/audit-focus.md"
 ```
 
-The flag `--prompt-file` overrides this. `--prompt` (inline) overrides both.
+The flag `--prompt-file` overrides this talisman default. When both `--prompt` and `--prompt-file` are provided, `--prompt-file` takes precedence.
+
+**Validation**: Talisman-sourced `default_prompt_file` paths undergo the same validation chain as the `--prompt-file` CLI flag: `..` rejection → `SAFE_PROMPT_PATH` regex → must be within project root or `~/.claude/` → `realpath -m` symlink escape check. The `resolveCustomPromptBlock(flags, talisman)` helper applies this validation to both sources via a shared `validatePromptFilePath()` step.
 
 ---
 

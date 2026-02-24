@@ -36,7 +36,7 @@ Both appraise and audit set these parameters before invoking shared phases:
 
 > **Note on `dirScope`** (parameter #20): When set, `dirScope.include` restricts file scanning to the listed directories; `dirScope.exclude` suppresses the listed directories even if they match `include`. The orchestrator threads `dirScope` through to inscription metadata so Ash teammates know which directories they are responsible for. When `null`, all discovered files are in scope (default behavior).
 
-> **Note on `customPromptBlock`** (parameter #21): An optional freeform string injected into each Ash prompt immediately before the RE-ANCHOR Truthbinding boundary. Sourced from `--prompt` (inline string) or `--prompt-file` (file contents). When `null`, no injection occurs and existing Ash prompts are unaffected — this guard is CRITICAL; omitting it would break all existing appraise/audit calls.
+> **Note on `customPromptBlock`** (parameter #21): An optional freeform string injected into each Ash prompt immediately before the RE-ANCHOR Truthbinding boundary. Sourced from `--prompt` (inline string) or `--prompt-file` (file contents). When both are provided, `--prompt-file` takes precedence. Resolved by `resolveCustomPromptBlock(flags, talisman)` before orchestration begins. When `null`, no injection occurs and existing Ash prompts are unaffected — this guard is CRITICAL; omitting it would break all existing appraise/audit calls. When `dirScope` is also non-null, the custom criteria apply only within the scoped directories — Ashes should not reference files outside `dirScope.include`.
 
 ### Session Isolation (Parameters 11-13)
 
@@ -564,7 +564,7 @@ const params = {
   focusArea: "full",
   flags, talisman,
   dirScope: null,  // #20: appraise operates on diff — no directory scoping
-  customPromptBlock: resolveCustomPromptBlock(flags)  // #21: from --prompt / --prompt-file (null if not set)
+  customPromptBlock: null  // #21: reserved for future use — appraise does not expose --prompt/--prompt-file flags yet
 }
 // Then execute Phases 1-7 from orchestration-phases.md
 ```
@@ -600,11 +600,15 @@ const params = {
 //   include = flags['--dirs']?.split(',').map(s => s.trim()) ?? []
 //   exclude = flags['--exclude-dirs']?.split(',').map(s => s.trim()) ?? []
 //
-// resolveCustomPromptBlock(flags):
-//   Returns null if neither --prompt nor --prompt-file is set.
-//   If --prompt: return flags['--prompt'] (inline string).
-//   If --prompt-file: return Read(flags['--prompt-file']) (file contents).
+// resolveCustomPromptBlock(flags, talisman):
+//   Precedence chain: --prompt-file > --prompt > talisman.audit.default_prompt_file > null
+//   Returns null if no prompt source is set.
+//   If --prompt: return sanitizePromptContent(flags['--prompt']).
+//   If --prompt-file: return sanitizePromptContent(Read(flags['--prompt-file'])).
 //   If both: --prompt-file takes precedence.
+//   Talisman fallback: talisman.audit.default_prompt_file undergoes same validation
+//   chain as --prompt-file (path traversal, SAFE_PROMPT_PATH, realpath check).
+//   See references/prompt-audit.md for full sanitization and validation rules.
 ```
 
 ## References

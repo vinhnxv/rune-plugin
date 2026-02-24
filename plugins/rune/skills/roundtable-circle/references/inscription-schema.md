@@ -65,7 +65,12 @@
 
   "specialist_ashes": ["array of stack-specialist Ash names selected by Phase 1A"],
 
-  "dir_scope": ["array of directory glob strings — restrict audit to these paths (e.g., ['src/', 'lib/']). null or absent = full repo. Only consumed by rune-audit and rune-audit-deep."],
+  "dir_scope": {
+    "include": ["array of directory strings — restrict audit to these paths (e.g., ['src/', 'lib/']). null when no --dirs specified (= full repo)."],
+    "exclude": ["array of directory strings — suppress these paths even if matched by include (e.g., ['vendor/']). May be non-empty even when include is null (talisman excludes)."]
+  },
+  // Note: dir_scope is null (not the object) when neither --dirs nor talisman.audit.dirs is set.
+  // Only consumed by rune-audit and rune-audit-deep.
 
   "custom_prompt": {
     "active": "boolean — whether prompt injection is enabled (default: false)",

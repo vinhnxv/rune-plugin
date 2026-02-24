@@ -122,10 +122,12 @@ const excludeDirs  = [...new Set([...talismanExcludes, ...flagExcludes])]       
 
 // 3. Validate paths — reject absolute paths and path traversal
 const validateDir = (p) => {
+  if (p === "." || p === "./") throw `Rejected "." as dir — use explicit subdirectory paths (e.g., "src/")`
   if (p.startsWith("/"))    throw `Rejected absolute path: "${p}" — use paths relative to project root`
   if (p.includes(".."))     throw `Rejected path traversal: "${p}" — ".." not allowed`
   if (!SAFE_PATH_PATTERN.test(p)) throw `Rejected unsafe path characters in: "${p}"`
-  // Symlink guard: resolve via realpath and verify within project root
+  // SECURITY INVARIANT: SAFE_PATH_PATTERN must be checked BEFORE this Bash call.
+  // The regex eliminates shell metacharacters, making the interpolation safe.
   const resolved  = Bash(`realpath -m "${p}" 2>/dev/null || echo "INVALID"`).trim()
   const projectRoot = Bash(`pwd -P`).trim()
   if (!resolved.startsWith(projectRoot)) throw `Rejected path escaping project root: "${p}"`
@@ -155,6 +157,9 @@ if (dedupedInclude.length > 0 && verifiedInclude.length === 0) {
 }
 
 // 7. Record dir_scope metadata for downstream phases
+// Contract: when include=null, full repo scope. Excludes are already applied at the find step
+// and need not be re-applied by Ashes. Ashes receiving dir_scope in inscription should check
+// include !== null before scoping — a truthy object with include=null means "full repo with excludes".
 const dir_scope = {
   include: verifiedInclude.length > 0 ? verifiedInclude : null,  // null = scan everything
   exclude: normExclude
@@ -165,7 +170,7 @@ const dir_scope = {
 # Scan all project files (excluding non-project directories)
 # When --dirs provided, scope find to verified include paths instead of '.'
 # dir_scope.include and dir_scope.exclude are resolved from the JavaScript block above.
-all_files=$(find ${dir_scope.include ? dir_scope.include.join(" ") : "."} -type f \
+all_files=$(find ${dir_scope.include ? dir_scope.include.map(p => `"${p}"`).join(" ") : "."} -type f \
   ! -path '*/.git/*' \
   ! -path '*/node_modules/*' \
   ! -path '*/__pycache__/*' \
