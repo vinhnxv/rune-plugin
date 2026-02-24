@@ -35,8 +35,6 @@ allowed-tools:
   - AskUserQuestion
   - WebSearch
   - WebFetch
-  - mcp__plugin_compound-engineering_context7__resolve-library-id
-  - mcp__plugin_compound-engineering_context7__query-docs
 ---
 
 # /rune:devise — Multi-Agent Planning Workflow

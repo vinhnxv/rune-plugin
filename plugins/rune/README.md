@@ -548,7 +548,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | scroll-reviewer | Document quality review |
 | mend-fixer | Parallel code fixer for /rune:mend findings (restricted tools) |
 | knowledge-keeper | Documentation coverage reviewer for plans |
-| elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
+| elicitation-sage | Structured reasoning using curated methods (summoned per eligible section, max 6 per forge session) |
 | veil-piercer-plan | Plan-level truth-teller (Phase 4C plan review) |
 | horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
 | gap-fixer | Gap remediation fixer for Phase 5.8 — prompt-template-based (no dedicated .md file) |
@@ -568,7 +568,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | context-weaving | Context overflow/rot prevention |
-| elicitation | BMAD-derived structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
+| elicitation | Curated structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | file-todos | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Gated by `talisman.file_todos.enabled` |
 | forge | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer (Phase 1.5) for risk-aware section prioritization |
 | git-worktree | Worktree isolation for /rune:strive (experimental `--worktree` flag) |
@@ -728,7 +728,7 @@ plugins/rune/
 │   ├── chome-pattern/       # CLAUDE_CONFIG_DIR resolution
 │   ├── codex-cli/           # Codex CLI integration
 │   ├── context-weaving/     # Context management
-│   ├── elicitation/         # BMAD-derived reasoning methods
+│   ├── elicitation/         # Curated structured reasoning methods
 │   │   └── references/      # methods.csv, examples.md, phase-mapping.md
 │   ├── forge/               # /rune:forge (plan enrichment, --exhaustive)
 │   │   └── references/      # forge-enrichment-protocol.md

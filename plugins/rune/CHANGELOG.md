@@ -72,7 +72,7 @@
 ## [1.89.0] - 2026-02-24
 
 ### Added
-- **Review Agent Gap Closure — 7 Enhancements from CE Comparison** — Closes gaps identified from comparison with compound-engineering plugin review agents:
+- **Review Agent Gap Closure — 7 Enhancements** — Closes gaps identified from cross-plugin review agent comparison:
   - **Enforcement Asymmetry Protocol** — Shared reference (`agents/review/references/enforcement-asymmetry.md`) enabling variable strictness based on change context (new file vs edit, shared vs isolated). Integrated into simplicity-warden, pattern-seer, and type-warden as proof-of-concept. Security findings always Strict.
   - **Forge-Keeper Data Migration Gatekeeper** — 3 new sections: Production Data Reality Check, Rollback Verification Depth (forward/backward compat matrix), Gatekeeper Verdicts (GATE-001 through GATE-010). GATE findings carry `requires_human_review: true`. New reference: `migration-gatekeeper-patterns.md`. Updated `data-integrity-patterns.md` with dual-write patterns.
   - **Tide-Watcher Frontend Race Conditions** — 3 new sections: Framework-Specific DOM Lifecycle Races (Hotwire/Turbo, React, Vue), Browser API Synchronization, State Machine Enforcement. New reference: `frontend-race-patterns.md`. Updated `async-patterns.md` with WebSocket/SSE patterns.
@@ -1860,7 +1860,7 @@ Feature release: Doc-consistency ward with cross-file drift prevention for arc a
 
 ## [1.16.0] - 2026-02-14
 
-Feature release: BMAD elicitation methods integration — 22-method curated registry with phase-aware selection.
+Feature release: Elicitation methods integration — 22-method curated registry with phase-aware selection.
 
 ### Added
 
@@ -1883,7 +1883,7 @@ Feature release: BMAD elicitation methods integration — 22-method curated regi
 
 ## [1.15.0] - 2026-02-14
 
-Feature release: BMAD-inspired quality improvements across plan, work, and review pipelines.
+Feature release: Quality improvements across plan, work, and review pipelines.
 
 ### Added
 

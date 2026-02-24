@@ -196,7 +196,7 @@ Compares a plan against its implementation across 9 quality dimensions:
 
 ### <a name="elicit"></a> `/rune:elicit` — Structured Reasoning
 
-24 BMAD-derived methods for structured thinking: Tree of Thoughts, Pre-mortem Analysis, Red Team vs Blue Team, 5 Whys, ADR, and more.
+24 curated methods for structured thinking: Tree of Thoughts, Pre-mortem Analysis, Red Team vs Blue Team, 5 Whys, ADR, and more.
 
 ```bash
 /rune:elicit

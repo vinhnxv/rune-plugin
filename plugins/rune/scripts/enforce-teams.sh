@@ -138,7 +138,7 @@ cat << 'DENY_JSON'
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
     "permissionDecisionReason": "ATE-1: Bare Task call blocked during active Rune workflow. All multi-agent phases MUST use Agent Teams. Add team_name to your Task call. Example: Task({ team_name: 'arc-forge-{id}', name: 'agent-name', subagent_type: 'general-purpose', ... }). See arc skill (skills/arc/SKILL.md) 'CRITICAL — Agent Teams Enforcement' section.",
-    "additionalContext": "BLOCKED by enforce-teams.sh hook. You MUST create a team with TeamCreate first, then pass team_name to all Task calls. Using bare subagent types like 'rune:utility:scroll-reviewer' or 'compound-engineering:research:best-practices-researcher' as subagent_type bypasses Agent Teams and causes context explosion. Always use subagent_type: 'general-purpose' and inject agent identity via the prompt parameter."
+    "additionalContext": "BLOCKED by enforce-teams.sh hook. You MUST create a team with TeamCreate first, then pass team_name to all Task calls. Using bare subagent types like 'rune:utility:scroll-reviewer' or 'other-plugin:some-agent-type' as subagent_type bypasses Agent Teams and causes context explosion. Always use subagent_type: 'general-purpose' and inject agent identity via the prompt parameter."
   }
 }
 DENY_JSON

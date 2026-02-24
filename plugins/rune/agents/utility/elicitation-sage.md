@@ -1,7 +1,7 @@
 ---
 name: elicitation-sage
 description: |
-  Structured reasoning specialist using BMAD-derived elicitation methods.
+  Structured reasoning specialist using curated elicitation methods.
   Each instance applies ONE assigned method (or auto-selects the top-scored
   method if no specific assignment). Summoned 1-4 times in parallel per
   workflow phase, each applying a DIFFERENT method for multi-perspective

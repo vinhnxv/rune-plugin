@@ -13,8 +13,6 @@ tools:
   - WebSearch
   - WebFetch
   - SendMessage
-  - mcp__plugin_compound-engineering_context7__resolve-library-id
-  - mcp__plugin_compound-engineering_context7__query-docs
 mcpServers:
   - echo-search
 ---
