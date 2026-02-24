@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.91.1] - 2026-02-24
+
+### Fixed
+- **Agent frontmatter format** — Convert all review/testing agent `tools:` from inline string to YAML list format; add `mcpServers: [echo-search]` to all review and testing agents
+- **EPERM-safe PID liveness** — `rune_pid_alive()` in `resolve-session-identity.sh` distinguishes ESRCH (dead) from EPERM (alive, different user) for cross-user session isolation
+- **Session-stop ownership refactor** — Extract `_get_fm_field()` and `_check_loop_ownership()` helpers in `on-session-stop.sh`, deduplicating batch/hierarchy/issues guard logic (-47 lines)
+- **JSON escaping** — Use `jq -Rs` for RFC 8259-compliant JSON escaping in `session-start.sh` (manual fallback preserved)
+- **Skill reference links** — Convert backtick reference paths to markdown links in appraise/devise/forge SKILLs
+- **Talisman config** — Add `doubt_seer` and `verification` config sections
+- **Script hardening** — `umask 077` in session-start.sh, quoting fixes in stamp-team-session.sh, bridge UID validation, timeout fallback
+
+### Added
+- Bilingual Rune guides (EN + VI) for code review/audit, work execution, and advanced workflows (6 new docs)
+
 ## [1.91.0] - 2026-02-24
 
 ### Added
