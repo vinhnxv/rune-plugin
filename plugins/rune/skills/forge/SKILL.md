@@ -199,105 +199,9 @@ log(`Phase 1.3: Extracted ${uniqueFiles.length} file references from plan`)
 
 ## Phase 1.5: Lore Layer (Goldmask)
 
-Run Goldmask Lore Layer risk scoring on files referenced in the plan. Prefer reusing existing
-risk-map data from prior workflows via data discovery. Falls back to spawning lore-analyst.
+Run Goldmask Lore Layer risk scoring on files referenced in the plan. Prefer reusing existing risk-map data from prior workflows via data discovery. Falls back to spawning lore-analyst as bare Task (ATE-1 exemption).
 
-**Reference**: See [goldmask/references/data-discovery.md](../goldmask/references/data-discovery.md)
-for the data discovery protocol and [goldmask/references/risk-context-template.md](../goldmask/references/risk-context-template.md)
-for the risk context template injected into agent prompts.
-
-```javascript
-// readTalisman: SDK Read() with project->global fallback. See references/read-talisman.md
-const talisman = readTalisman()
-
-// Skip conditions (same pattern as appraise/audit)
-const goldmaskEnabled: boolean = talisman?.goldmask?.enabled !== false
-const forgeGoldmaskEnabled: boolean = talisman?.goldmask?.forge?.enabled !== false
-const loreEnabled: boolean = talisman?.goldmask?.layers?.lore?.enabled !== false
-const isGitRepo: boolean = Bash("git rev-parse --is-inside-work-tree 2>/dev/null").trim() === "true"
-const noLoreFlag: boolean = args.includes("--no-lore")
-
-let riskMap: string | null = null
-let riskMapSource: string = "none"
-
-if (!goldmaskEnabled || !forgeGoldmaskEnabled || !loreEnabled || !isGitRepo || noLoreFlag) {
-  const skipReason: string = !goldmaskEnabled ? "goldmask.enabled=false"
-    : !forgeGoldmaskEnabled ? "goldmask.forge.enabled=false"
-    : !loreEnabled ? "goldmask.layers.lore.enabled=false"
-    : !isGitRepo ? "not a git repo"
-    : "--no-lore flag"
-  warn(`Phase 1.5: Lore Layer skipped — ${skipReason}`)
-} else if (uniqueFiles.length === 0) {
-  warn("Phase 1.5: Lore Layer skipped — no file references found in plan")
-} else {
-  // Option A: Discover existing risk-map from prior workflows
-  // See goldmask/references/data-discovery.md for protocol
-  const existing: GoldmaskData | null = discoverGoldmaskData({
-    needsRiskMap: true,
-    maxAgeDays: 3,
-    scopeFiles: uniqueFiles
-  })
-
-  if (existing?.riskMap) {
-    riskMap = existing.riskMap
-    riskMapSource = existing.riskMapPath
-    warn(`Phase 1.5: Reusing existing risk-map from ${existing.riskMapPath}`)
-  } else {
-    // G5 guard: check commit count
-    const lookbackDays: number = talisman?.goldmask?.layers?.lore?.lookback_days ?? 180
-    const commitCount: number = parseInt(
-      Bash(`git rev-list --count HEAD --since='${lookbackDays} days ago' 2>/dev/null || echo 0`).trim()
-    )
-    if (commitCount < 5) {
-      warn("Phase 1.5: Lore Layer skipped — fewer than 5 commits (G5 guard)")
-    } else {
-      // Option B: Spawn lore-analyst as bare Task (ATE-1 EXEMPTION — no team exists yet)
-      // Same pattern as appraise Phase 0.5 and inspect Phase 1.3
-      // Uses subagent_type: "general-purpose" with identity via prompt
-      // (enforce-teams.sh only allows Explore/Plan as named types)
-      Task({
-        subagent_type: "general-purpose",
-        name: "forge-lore-analyst",
-        // NO team_name — ATE-1 exemption (pre-team phase, team created at Phase 4)
-        prompt: `You are rune:investigation:lore-analyst — a Goldmask Lore Layer analyst.
-
-Analyze git history risk metrics for the following files:
-${uniqueFiles.join("\n")}
-
-Lookback window: ${lookbackDays} days
-
-Write risk-map.json to: tmp/forge/${timestamp}/risk-map.json
-
-Follow the lore-analyst protocol: compute per-file churn frequency, ownership concentration,
-co-change coupling, and assign risk tiers (CRITICAL, HIGH, MEDIUM, LOW, STALE).
-Output format: { "files": [{ "path", "tier", "risk_score", "metrics": { "frequency", "ownership": { "distinct_authors", "top_contributor" }, "co_changes": [{ "coupled_file", "coupling_pct" }] } }] }`
-      })
-
-      // Wait for lore-analyst output (30s timeout — non-blocking)
-      const LORE_TIMEOUT_MS: number = 30_000
-      const LORE_POLL_MS: number = 5_000
-      const maxPolls: number = Math.ceil(LORE_TIMEOUT_MS / LORE_POLL_MS)
-      for (let poll = 0; poll < maxPolls; poll++) {
-        Bash(`sleep ${LORE_POLL_MS / 1000}`)
-        try {
-          riskMap = Read(`tmp/forge/${timestamp}/risk-map.json`)
-          if (riskMap && riskMap.trim().length > 0) {
-            riskMapSource = `tmp/forge/${timestamp}/risk-map.json`
-            break
-          }
-        } catch (readError) {
-          // Not ready yet — continue polling
-          continue
-        }
-      }
-
-      if (!riskMap) {
-        warn("Phase 1.5: Lore analyst timed out — proceeding without risk data")
-      }
-    }
-  }
-}
-```
+See [lore-layer-integration.md](../goldmask/references/lore-layer-integration.md) for the shared implementation — skip conditions gate, data discovery, lore-analyst spawning, and polling timeout logic.
 
 ### Skip Conditions Summary — Forge Lore Layer
 
@@ -314,165 +218,19 @@ Output format: { "files": [{ "path", "tier", "risk_score", "metrics": { "frequen
 
 ## Phase 1.7: Codex Section Validation (v1.51.0+)
 
-After Lore Layer risk scoring, validate enrichment coverage cross-model. Identifies plan sections that reference high-risk files but have no Forge Gaze agent match.
+After Lore Layer risk scoring, validate enrichment coverage cross-model. Identifies plan sections that reference high-risk files but have no Forge Gaze agent match. Produces a `forceIncludeList` consumed by Phase 2.
 
-```javascript
-// Phase 1.7: Codex Section Validation
-// 4-condition detection gate (canonical pattern)
-const codexAvailable = detectCodex()
-const codexDisabled = talisman?.codex?.disabled === true
-const sectionValidEnabled = talisman?.codex?.section_validation?.enabled !== false
-const workflowIncluded = (talisman?.codex?.workflows ?? []).includes("forge")
+**Skip conditions**: Codex unavailable, `codex.disabled`, `codex.section_validation.enabled === false`, `forge` not in `codex.workflows`, or `sections.length <= 5`.
 
-let forceIncludeList = []  // Sections to force-include in Phase 2
-
-if (codexAvailable && !codexDisabled && sectionValidEnabled && workflowIncluded) {
-  const { timeout, reasoning, model: codexModel } = resolveCodexConfig(talisman, "section_validation", {
-    timeout: 300, reasoning: "medium"  // medium — simple binary coverage check
-  })
-
-  // Skip if plan is small (few sections = all will be covered)
-  if (sections.length > 5) {
-    const nonce = Bash(`openssl rand -hex 16`).trim()
-    const promptTmpFile = `tmp/forge/${timestamp}/.codex-prompt-section-validate.tmp`
-    try {
-      const sectionSummary = sections.map(s => `## ${s.title}\nFiles: ${extractFileRefs(s.content).join(", ") || "none"}`).join("\n\n")
-      const riskMapSummary = riskMap ? riskMap.substring(0, 10000) : "No risk data available"
-      const sanitizedSections = sanitizePlanContent(sectionSummary)
-      const sanitizedRisk = sanitizePlanContent(riskMapSummary)
-      const promptContent = `SYSTEM: You are a cross-model enrichment coverage validator.
-
-Validate enrichment coverage: Which plan sections reference high-risk files but have no
-Forge Gaze agent match? Which sections lack file references entirely?
-
-=== PLAN SECTIONS ===
-<<<NONCE_${nonce}>>>
-${sanitizedSections}
-<<<END_NONCE_${nonce}>>>
-
-=== RISK MAP ===
-<<<NONCE_${nonce}>>>
-${sanitizedRisk}
-<<<END_NONCE_${nonce}>>>
-
-Output a JSON array of section titles that need force-inclusion in enrichment:
-["Section Title 1", "Section Title 2"]
-
-Only include sections that reference CRITICAL or HIGH risk files but would otherwise
-be missed by topic-based agent matching. Output [] if all sections are covered.
-Base assessment on actual file references, not assumptions.`
-
-      Write(promptTmpFile, promptContent)
-      const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${reasoning}" -t ${timeout} -j -g "${promptTmpFile}"`)
-      const classified = classifyCodexError(result)
-
-      if (classified === "SUCCESS") {
-        try {
-          // Parse force-include list from Codex output
-          const jsonMatch = result.stdout.match(/\[.*\]/s)
-          if (jsonMatch) forceIncludeList = JSON.parse(jsonMatch[0])
-        } catch (e) { /* malformed JSON — proceed without force-include */ }
-      }
-      Write(`tmp/forge/${timestamp}/codex-section-validation.md`, formatSectionValidationReport(classified, result, forceIncludeList))
-    } finally {
-      Bash(`rm -f "${promptTmpFile}"`)  // Guaranteed cleanup
-    }
-  } else {
-    Write(`tmp/forge/${timestamp}/codex-section-validation.md`, "# Codex Section Validation\n\nSkipped: plan_sections <= 5")
-  }
-} else {
-  const skipReason = !codexAvailable ? "codex not available"
-    : codexDisabled ? "codex.disabled=true"
-    : !sectionValidEnabled ? "codex.section_validation.enabled=false"
-    : "forge not in codex.workflows"
-  Write(`tmp/forge/${timestamp}/codex-section-validation.md`, `# Codex Section Validation\n\nSkipped: ${skipReason}`)
-}
-```
+See [codex-section-validation.md](references/codex-section-validation.md) for the full protocol — 4-condition gate, nonce-bounded prompt, force-include list parsing, and SEC-003 compliance.
 
 ## Phase 2: Forge Gaze Selection
 
-Apply the Forge Gaze topic-matching algorithm (see [forge-gaze.md](../roundtable-circle/references/forge-gaze.md)):
+Apply the Forge Gaze topic-matching algorithm with force-include from Phase 1.7 and risk-weighted scoring from Goldmask Lore Layer. Boosts CRITICAL files by +0.15 and HIGH files by +0.08.
 
-```javascript
-const mode = flags.exhaustive ? "exhaustive" : "default"
-const assignments = forge_select(sections, topic_registry, mode)
+See [forge-gaze-selection.md](references/forge-gaze-selection.md) for the full protocol — mode selection, force-include application, risk-weighted scoring, and Codex Oracle participation.
 
-// Apply Phase 1.7 force-include list (Codex Section Validation)
-if (forceIncludeList.length > 0) {
-  for (const sectionTitle of forceIncludeList) {
-    const section = sections.find(s => s.title === sectionTitle)
-    if (section && !assignments.has(section)) {
-      // Force-include with default enrichment agent (must match forge-gaze [agent_object, score] shape)
-      const defaultAgent = topic_registry.find(a => a.name === "rune-architect") || { name: "rune-architect", perspective: "Architectural compliance and design pattern review" }
-      assignments.set(section, [[defaultAgent, 0.50]])
-      log(`  Force-include: "${sectionTitle}" — added by Codex Section Validation`)
-    }
-  }
-}
-
-// ── Risk-Boosted Scoring (Goldmask Lore Layer) ──
-// When risk-map data is available from Phase 1.5, boost Forge Gaze scores
-// for sections that reference CRITICAL or HIGH risk files.
-if (riskMap) {
-  const TIER_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4, UNKNOWN: 5 }
-
-  // getMaxRiskTier: returns the highest risk tier among the given files.
-  // NOTE: forge signature differs from inspect — second param is the full parsed risk-map object
-  // ({ files: RiskEntry[] }), not a flat RiskEntry[] array as in inspect/SKILL.md:335.
-  function getMaxRiskTier(files: string[], parsedRiskMap: { files: Array<{ path: string, tier: string }> }): string {
-    let maxTier: string = "UNKNOWN"
-    for (const filePath of files) {
-      const entry = parsedRiskMap.files?.find((f: { path: string }) => f.path === filePath)
-      if (entry && (TIER_ORDER[entry.tier] ?? 5) < (TIER_ORDER[maxTier] ?? 5)) {
-        maxTier = entry.tier
-      }
-    }
-    return maxTier
-  }
-
-  try {
-    const parsedRiskMap = JSON.parse(riskMap)
-    for (const [section, agents] of assignments) {
-      // Extract file refs from this specific section
-      const sectionFiles: string[] = []
-      for (const match of (section.content || '').matchAll(fileRefPattern)) {
-        const fp: string = match[1] || match[2]
-        if (fp && !fp.includes('..')) sectionFiles.push(fp)
-      }
-      const maxRiskTier: string = getMaxRiskTier(sectionFiles, parsedRiskMap)
-
-      if (maxRiskTier === 'CRITICAL') {
-        // Boost all agent scores for this section by 0.15 (heuristic threshold — not empirically
-        // calibrated; subject to tuning via future talisman.yml forge.risk_boost_critical config)
-        for (const agentEntry of agents) {
-          agentEntry[1] = Math.min(agentEntry[1] + 0.15, 1.0)
-        }
-        section.riskBoost = 0.15
-        section.autoIncludeResearchBudget = true  // Include research-budget agents even in default mode
-        log(`  Risk boost: "${section.title}" — CRITICAL files, +0.15 boost`)
-      } else if (maxRiskTier === 'HIGH') {
-        // Boost by 0.08 (heuristic threshold — not empirically calibrated; subject to tuning)
-        for (const agentEntry of agents) {
-          agentEntry[1] = Math.min(agentEntry[1] + 0.08, 1.0)
-        }
-        section.riskBoost = 0.08
-        log(`  Risk boost: "${section.title}" — HIGH files, +0.08 boost`)
-      }
-      // MEDIUM/LOW/STALE/UNKNOWN: no boost
-    }
-  } catch (parseError) {
-    warn("Phase 2: risk-map.json parse error — proceeding without risk boost")
-  }
-}
-
-// Log selection transparently (after risk boost applied)
-for (const [section, agents] of assignments) {
-  log(`Section: "${section.title}"${section.riskBoost ? ` [risk-boosted +${section.riskBoost}]` : ''}`)
-  for (const [agent, score] of agents) {
-    log(`  + ${agent.name} (${score.toFixed(2)}) — ${agent.perspective}`)
-  }
-}
-```
+See also [forge-gaze.md](../roundtable-circle/references/forge-gaze.md) for the base topic-matching algorithm.
 
 ### Selection Constants
 
@@ -483,12 +241,6 @@ for (const [section, agents] of assignments) {
 | Max total agents | 8 | 12 |
 
 These can be overridden via `talisman.yml` `forge:` section.
-
-### Codex Oracle Forge Agent (conditional)
-
-When `codex` CLI is available and `codex.workflows` includes `"forge"`, Codex Oracle participates in Forge Gaze topic matching. It provides cross-model enrichment.
-
-See [forge-enrichment-protocol.md](references/forge-enrichment-protocol.md) for the full Codex Oracle activation logic, prompt templates, and agent lifecycle.
 
 ## Phase 3: Confirm Scope
 
@@ -603,106 +355,9 @@ See [forge-enrichment-protocol.md](references/forge-enrichment-protocol.md) for 
 
 ## Phase 6: Cleanup & Present
 
-```javascript
-// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
-const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+Shuts down all forge teammates, cleans up team resources with retry-with-backoff and filesystem fallback, updates state file, presents completion report, and offers post-enhancement options (skipped in arc context).
 
-// 1. Dynamic member discovery — reads team config to find ALL teammates
-let allMembers = []
-try {
-  const teamConfig = JSON.parse(Read(`${CHOME}/teams/rune-forge-${timestamp}/config.json`))
-  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
-} catch (e) {
-  allMembers = []  // Team config unavailable — no members to shutdown
-}
-
-// Shutdown all discovered members
-for (const member of allMembers) {
-  SendMessage({ type: "shutdown_request", recipient: member, content: "Forge workflow complete" })
-}
-
-// Grace period — let teammates process shutdown_request and deregister.
-// Without this sleep, TeamDelete fires immediately → "active members" error → filesystem fallback.
-if (allMembers.length > 0) {
-  Bash(`sleep 15`)
-}
-
-// Validate identifier before rm -rf
-if (!/^[a-zA-Z0-9_-]+$/.test(timestamp)) throw new Error("Invalid forge identifier")
-
-// Cleanup team with retry-with-backoff (3 attempts: 0s, 5s, 10s)
-// Total budget: 15s grace + 15s retry = 30s max
-const CLEANUP_DELAYS = [0, 5000, 10000]
-let cleanupSucceeded = false
-for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
-  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
-  try { TeamDelete(); cleanupSucceeded = true; break } catch (e) {
-    if (attempt === CLEANUP_DELAYS.length - 1) warn(`forge cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
-  }
-}
-if (!cleanupSucceeded) {
-  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-forge-${timestamp}/" "$CHOME/tasks/rune-forge-${timestamp}/" 2>/dev/null`)
-}
-
-// Update state file to completed (preserve session identity)
-Write(`tmp/.rune-forge-${timestamp}.json`, {
-  team_name: `rune-forge-${timestamp}`,
-  plan: planPath,
-  started: startedTimestamp,
-  status: "completed",
-  completed: new Date().toISOString(),
-  config_dir: configDir,
-  owner_pid: ownerPid,
-  session_id: "${CLAUDE_SESSION_ID}"
-})
-```
-
-### Completion Report
-
-```
-The Tarnished has tempered the plan in forge fire.
-
-Plan: {planPath}
-Backup: tmp/forge/{timestamp}/original-plan.md
-Sections enriched: {enrichedCount}/{totalSections}
-Agents summoned: {agentCount}
-Mode: {default|exhaustive}
-
-Enrichments added:
-- "Technical Approach" — rune-architect, pattern-seer, simplicity-warden
-- "Security Requirements" — ward-sentinel, flaw-hunter
-- ...
-```
-
-### Post-Enhancement Options
-
-After presenting the completion report, offer next steps. **Skipped in arc context** — arc continues to Phase 2 (plan review) automatically.
-
-```javascript
-if (!isArcContext) {
-  AskUserQuestion({
-    questions: [{
-      question: `Plan enriched at ${planPath}. What would you like to do next?`,
-      header: "Next step",
-      options: [
-        { label: "/rune:strive (Recommended)", description: "Start implementing this plan with swarm workers" },
-        { label: "View diff", description: "Show what the forge changed (diff against backup)" },
-        { label: "Revert enrichment", description: "Restore the original plan from backup" },
-        { label: "Deepen sections", description: "Re-run forge on specific sections for more depth" }
-      ],
-      multiSelect: false
-    }]
-  })
-}
-// In arc context: cleanup team and return — arc orchestrator handles next phase
-```
-
-**Action handlers**:
-- `/rune:strive` → Invoke `Skill("rune:strive", planPath)`
-- **View diff** → `Bash(\`diff -u "tmp/forge/{timestamp}/original-plan.md" "${planPath}" || true\`)` — display unified diff of all changes
-- **Revert enrichment** → `Bash(\`cp "tmp/forge/{timestamp}/original-plan.md" "${planPath}"\`)` — restore original, confirm to user
-- **Deepen sections** → Ask which sections to re-deepen via AskUserQuestion, then re-run Phase 2-5 targeting only those sections (reuse same `timestamp` and backup)
+See [forge-cleanup.md](references/forge-cleanup.md) for the full protocol — member discovery, shutdown, TeamDelete retry, filesystem fallback, completion report, and post-enhancement AskUserQuestion.
 
 ## Error Handling
 
