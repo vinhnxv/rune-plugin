@@ -1,0 +1,411 @@
+"""Tests for layout_resolver.py — auto-layout to Tailwind flex/grid classes."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from layout_resolver import (
+    LayoutClasses,
+    resolve_container_layout,
+    resolve_child_layout,
+    resolve_absolute_position,
+)
+from node_parser import FigmaIRNode
+from figma_types import (
+    LayoutAlign,
+    LayoutMode,
+    LayoutSizingMode,
+    LayoutWrap,
+    NodeType,
+)
+
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+def _make_node(**overrides) -> FigmaIRNode:
+    defaults = dict(node_id="1:1", name="TestNode", node_type=NodeType.FRAME)
+    defaults.update(overrides)
+    return FigmaIRNode(**defaults)
+
+
+# ---------------------------------------------------------------------------
+# LayoutClasses
+# ---------------------------------------------------------------------------
+
+class TestLayoutClasses:
+    """Test the LayoutClasses container."""
+
+    def test_empty(self):
+        lc = LayoutClasses()
+        assert lc.container == []
+        assert lc.self_classes == []
+        assert lc.all_classes() == []
+
+    def test_combined(self):
+        lc = LayoutClasses()
+        lc.container = ["flex", "flex-col"]
+        lc.self_classes = ["w-full"]
+        assert lc.all_classes() == ["flex", "flex-col", "w-full"]
+
+
+# ---------------------------------------------------------------------------
+# resolve_container_layout — no auto-layout
+# ---------------------------------------------------------------------------
+
+class TestNoAutoLayout:
+    """Test nodes without auto-layout enabled."""
+
+    def test_no_layout_no_children_empty(self):
+        node = _make_node(has_auto_layout=False, is_frame_like=False)
+        result = resolve_container_layout(node)
+        assert result.container == []
+
+    def test_frame_with_children_gets_relative(self):
+        child = _make_node(node_id="2:1")
+        node = _make_node(
+            has_auto_layout=False, is_frame_like=True, children=[child]
+        )
+        result = resolve_container_layout(node)
+        assert "relative" in result.container
+
+
+# ---------------------------------------------------------------------------
+# resolve_container_layout — flex
+# ---------------------------------------------------------------------------
+
+class TestFlexLayout:
+    """Test horizontal and vertical flex layout resolution."""
+
+    def test_horizontal_flex(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+        )
+        result = resolve_container_layout(node)
+        assert "flex" in result.container
+        assert "flex-row" in result.container
+
+    def test_vertical_flex(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.VERTICAL,
+        )
+        result = resolve_container_layout(node)
+        assert "flex" in result.container
+        assert "flex-col" in result.container
+
+    def test_flex_wrap(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            layout_wrap=LayoutWrap.WRAP,
+        )
+        result = resolve_container_layout(node)
+        assert "flex-wrap" in result.container
+
+    def test_gap(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            item_spacing=16.0,
+        )
+        result = resolve_container_layout(node)
+        assert "gap-4" in result.container
+
+    def test_justify_center(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            primary_axis_align=LayoutAlign.CENTER,
+        )
+        result = resolve_container_layout(node)
+        assert "justify-center" in result.container
+
+    def test_justify_between(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            primary_axis_align=LayoutAlign.SPACE_BETWEEN,
+        )
+        result = resolve_container_layout(node)
+        assert "justify-between" in result.container
+
+    def test_items_center(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            counter_axis_align=LayoutAlign.CENTER,
+        )
+        result = resolve_container_layout(node)
+        assert "items-center" in result.container
+
+    def test_items_end(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            counter_axis_align=LayoutAlign.MAX,
+        )
+        result = resolve_container_layout(node)
+        assert "items-end" in result.container
+
+    def test_padding_uniform(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.VERTICAL,
+            padding=(16.0, 16.0, 16.0, 16.0),
+        )
+        result = resolve_container_layout(node)
+        assert "p-4" in result.container
+
+    def test_padding_xy(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.VERTICAL,
+            padding=(8.0, 16.0, 8.0, 16.0),
+        )
+        result = resolve_container_layout(node)
+        assert "px-4" in result.container
+        assert "py-2" in result.container
+
+    def test_padding_individual(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.VERTICAL,
+            padding=(4.0, 8.0, 12.0, 16.0),
+        )
+        result = resolve_container_layout(node)
+        assert "pt-1" in result.container
+        assert "pr-2" in result.container
+        assert "pb-3" in result.container
+        assert "pl-4" in result.container
+
+    def test_zero_padding_omitted(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.VERTICAL,
+            padding=(0.0, 0.0, 0.0, 0.0),
+        )
+        result = resolve_container_layout(node)
+        assert not any("p-" in c or "px-" in c or "py-" in c for c in result.container)
+
+    def test_overflow_hidden(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            clips_content=True,
+        )
+        result = resolve_container_layout(node)
+        assert "overflow-hidden" in result.container
+
+    def test_min_max_constraints(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            min_width=100.0,
+            max_width=400.0,
+        )
+        result = resolve_container_layout(node)
+        assert "min-w-25" in result.container
+        assert "max-w-100" in result.container
+
+    def test_content_alignment_on_wrap(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            layout_wrap=LayoutWrap.WRAP,
+            counter_axis_align_content=LayoutAlign.CENTER,
+        )
+        result = resolve_container_layout(node)
+        assert "content-center" in result.container
+
+    def test_counter_axis_spacing_on_wrap(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            layout_wrap=LayoutWrap.WRAP,
+            item_spacing=8.0,
+            counter_axis_spacing=16.0,
+        )
+        result = resolve_container_layout(node)
+        assert "gap-2" in result.container
+        assert "gap-y-4" in result.container
+
+
+# ---------------------------------------------------------------------------
+# resolve_container_layout — grid
+# ---------------------------------------------------------------------------
+
+class TestGridLayout:
+    """Test grid layout resolution."""
+
+    def test_basic_grid(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            layout_grid_columns=3,
+        )
+        result = resolve_container_layout(node)
+        assert "grid" in result.container
+        assert "grid-cols-3" in result.container
+
+    def test_grid_with_gap(self):
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            layout_grid_columns=2,
+            item_spacing=12.0,
+        )
+        result = resolve_container_layout(node)
+        assert "gap-3" in result.container
+
+    def test_grid_auto_fill(self):
+        """Grid with min cell width should use auto-fill."""
+        node = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            layout_grid_columns=3,
+            layout_grid_cell_min_width=200.0,
+        )
+        result = resolve_container_layout(node)
+        assert any("auto-fill" in c for c in result.container)
+        # The fixed grid-cols-3 should be removed
+        assert "grid-cols-3" not in result.container
+
+
+# ---------------------------------------------------------------------------
+# resolve_child_layout
+# ---------------------------------------------------------------------------
+
+class TestChildLayout:
+    """Test child layout classes within parent auto-layout."""
+
+    def test_absolute_child(self):
+        child = _make_node(node_id="2:1", is_absolute_positioned=True)
+        parent = _make_node(has_auto_layout=True)
+        classes = resolve_child_layout(child, parent)
+        assert "absolute" in classes
+
+    def test_fill_horizontal_in_row(self):
+        child = _make_node(
+            node_id="2:1",
+            layout_sizing_horizontal=LayoutSizingMode.FILL,
+        )
+        parent = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+        )
+        classes = resolve_child_layout(child, parent)
+        assert "flex-1" in classes
+
+    def test_fill_horizontal_in_column(self):
+        child = _make_node(
+            node_id="2:1",
+            layout_sizing_horizontal=LayoutSizingMode.FILL,
+        )
+        parent = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.VERTICAL,
+        )
+        classes = resolve_child_layout(child, parent)
+        assert "w-full" in classes
+
+    def test_fill_vertical_in_column(self):
+        child = _make_node(
+            node_id="2:1",
+            layout_sizing_vertical=LayoutSizingMode.FILL,
+        )
+        parent = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.VERTICAL,
+        )
+        classes = resolve_child_layout(child, parent)
+        assert "flex-1" in classes
+
+    def test_fill_vertical_in_row(self):
+        child = _make_node(
+            node_id="2:1",
+            layout_sizing_vertical=LayoutSizingMode.FILL,
+        )
+        parent = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+        )
+        classes = resolve_child_layout(child, parent)
+        assert "h-full" in classes
+
+    def test_fixed_width(self):
+        child = _make_node(
+            node_id="2:1",
+            layout_sizing_horizontal=LayoutSizingMode.FIXED,
+            width=200.0,
+        )
+        parent = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+        )
+        classes = resolve_child_layout(child, parent)
+        assert "w-50" in classes
+
+    def test_hug_generates_nothing(self):
+        child = _make_node(
+            node_id="2:1",
+            layout_sizing_horizontal=LayoutSizingMode.HUG,
+            layout_sizing_vertical=LayoutSizingMode.HUG,
+        )
+        parent = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+        )
+        classes = resolve_child_layout(child, parent)
+        assert classes == []
+
+    def test_no_auto_layout_parent(self):
+        child = _make_node(node_id="2:1")
+        parent = _make_node(has_auto_layout=False)
+        classes = resolve_child_layout(child, parent)
+        assert classes == []
+
+    def test_layout_grow(self):
+        child = _make_node(
+            node_id="2:1",
+            layout_grow=1.0,
+        )
+        parent = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+        )
+        classes = resolve_child_layout(child, parent)
+        assert "grow" in classes
+
+
+# ---------------------------------------------------------------------------
+# resolve_absolute_position
+# ---------------------------------------------------------------------------
+
+class TestAbsolutePosition:
+    """Test absolute position class generation."""
+
+    def test_non_absolute_returns_empty(self):
+        node = _make_node(is_absolute_positioned=False)
+        assert resolve_absolute_position(node) == []
+
+    def test_absolute_with_position(self):
+        node = _make_node(
+            is_absolute_positioned=True,
+            x=10.0,
+            y=20.0,
+            width=100.0,
+            height=50.0,
+        )
+        classes = resolve_absolute_position(node)
+        assert "absolute" in classes
+        assert any("left-" in c for c in classes)
+        assert any("top-" in c for c in classes)
+        assert any("w-" in c for c in classes)
+        assert any("h-" in c for c in classes)
