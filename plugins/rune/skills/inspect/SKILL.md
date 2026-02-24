@@ -207,267 +207,41 @@ See [data-discovery.md](../goldmask/references/data-discovery.md) for the discov
 | `talisman.goldmask.inspect.wisdom_passthrough === false` | Skip wisdom injection in Phase 3 only |
 | Existing risk-map found (>= 30% scope overlap) | Reuse instead of spawning agent |
 
-### Step 1.3.1 — Skip Gate
+### Steps 1.3.1–1.3.2 — Skip Gate, Discovery, and Spawning
 
-```javascript
-const goldmaskEnabled = config?.goldmask?.enabled !== false
-const inspectGoldmaskEnabled = config?.goldmask?.inspect?.enabled !== false
-const loreEnabled = config?.goldmask?.layers?.lore?.enabled !== false
-const noLoreFlag = flag("--no-lore")
-const isGitRepo = Bash("git rev-parse --is-inside-work-tree 2>/dev/null").trim() === "true"
+See [lore-layer-integration.md](../goldmask/references/lore-layer-integration.md) for the shared skip gate, data discovery, lore-analyst spawning, and polling timeout protocol.
 
-let riskMap = null       // string | null — raw JSON from risk-map.json
-let wisdomData = null    // string | null — raw markdown from wisdom-report.md
-
-if (!goldmaskEnabled || !inspectGoldmaskEnabled || !loreEnabled || noLoreFlag || !isGitRepo) {
-  warn("Phase 1.3: Lore Layer skipped — " + skipReason)
-  // Proceed to Phase 2 without risk data
-} else {
-  // G5 guard: require minimum commit history
-  const lookbackDays = config?.goldmask?.layers?.lore?.lookback_days ?? 180
-  const commitCount = parseInt(
-    Bash(`git rev-list --count HEAD --since='${lookbackDays} days ago' 2>/dev/null || echo 0`)
-  )
-  if (commitCount < 5) {
-    warn("Phase 1.3: Lore Layer skipped — fewer than 5 commits in lookback window (G5 guard)")
-  } else {
-    // Step 1.3.2 — Discover or spawn
-  }
-}
-```
-
-### Step 1.3.2 — Discover Existing Risk-Map or Spawn Lore-Analyst
-
-```javascript
-// Option A: Reuse existing risk-map from prior workflows
-const existing = discoverGoldmaskData({
-  needsRiskMap: true,
-  maxAgeDays: 3,
-  scopeFiles: scopeFiles  // 30% overlap validation
-})
-
-if (existing?.riskMap) {
-  riskMap = existing.riskMap
-  warn(`Phase 1.3: Reusing existing risk-map from ${existing.riskMapPath}`)
-} else {
-  // Option B: Spawn lore-analyst as bare Task (ATE-1 exemption — no team exists yet)
-  Task({
-    subagent_type: "general-purpose",
-    name: "inspect-lore-analyst",
-    // NO team_name — ATE-1 exemption (pre-team phase, team created at Phase 2)
-    prompt: `You are rune:investigation:lore-analyst.
-Analyze git history risk for the following scope files.
-Write risk-map.json to ${outputDir}/risk-map.json and lore-analysis.md to ${outputDir}/lore-analysis.md.
-
-Scope files: ${scopeFiles.join(", ")}
-Lookback days: ${lookbackDays}`
-  })
-
-  // Wait for completion (30s timeout, non-blocking)
-  try {
-    riskMap = Read(`${outputDir}/risk-map.json`)
-  } catch (readError) {
-    warn("Phase 1.3: lore-analyst output not available — proceeding without risk data")
-    riskMap = null
-  }
-}
-
-// Best-effort: load wisdom data if available (for Phase 3 injection)
-const wisdomPassthrough = config?.goldmask?.inspect?.wisdom_passthrough !== false
-if (wisdomPassthrough) {
-  const wisdomResult = discoverGoldmaskData({
-    needsRiskMap: false,
-    needsWisdom: true,
-    maxAgeDays: 7
-  })
-  if (wisdomResult?.wisdomReport) {
-    wisdomData = wisdomResult.wisdomReport
-  }
-}
-```
-
-**Agent**: `lore-analyst` spawned as `general-purpose` with identity via prompt (ATE-1 compatible). Same pattern as appraise Phase 0.5.
+**inspect-specific**: Also loads wisdom data for Phase 3 injection when `config.goldmask.inspect.wisdom_passthrough !== false`.
 
 **Output**: `tmp/inspect/{identifier}/risk-map.json` + `tmp/inspect/{identifier}/lore-analysis.md`
 
-**Error handling**: If lore-analyst fails or times out, proceed without risk data. Non-blocking.
-
 ### Step 1.3.3 — Risk-Weighted Scope Sorting and Requirement Enhancement
 
+See [risk-tier-sorting.md](../goldmask/references/risk-tier-sorting.md) for the shared tier enumeration, `getMaxRiskTier` helper, and sorting algorithm.
+
+**inspect-specific dual-inspector gate**: When a requirement touches CRITICAL-tier files AND the plan has security-sensitive sections (or `inspectConfig.dual_inspector_gate` is enabled), assign both `grace-warden` AND `ruin-prophet` to the requirement:
+
 ```javascript
-if (riskMap) {
-  try {
-    const parsed = JSON.parse(riskMap)
-    const riskFiles = parsed?.files ?? []
-
-    // Re-sort scopeFiles by risk tier: CRITICAL → HIGH → MEDIUM → LOW → STALE → unscored
-    const tierOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4 }
-    scopeFiles.sort((a, b) => {
-      const aEntry = riskFiles.find(f => f.path === a)
-      const bEntry = riskFiles.find(f => f.path === b)
-      const aTier = tierOrder[aEntry?.tier] ?? 5
-      const bTier = tierOrder[bEntry?.tier] ?? 5
-      return aTier - bTier
-    })
-
-    // Enhance requirement classification with risk weighting
-    for (const req of requirements) {
-      const reqFiles = identifiers
-        .filter(id => id.type === "file" && req.text.includes(id.value))
-        .map(id => id.value)
-      const maxRiskTier = getMaxRiskTier(reqFiles, riskFiles)
-
-      if (maxRiskTier === 'CRITICAL') {
-        req.inspectionPriority = 'HIGH'
-        req.riskNote = "Touches CRITICAL-tier files — requires thorough inspection"
-        // Dual inspector gate: only activate when plan has security-sensitive sections
-        // OR talisman explicitly enables dual_inspector_gate
-        const hasSecurity = requirements.some(r => /security|auth|crypt|token|inject|xss|sqli/i.test(r.text))
-        const dualGateEnabled = inspectConfig.dual_inspector_gate ?? hasSecurity
-        if (dualGateEnabled) {
-          // Dual inspector assignment: grace-warden AND ruin-prophet
-          req.assignedInspectors = ['grace-warden', 'ruin-prophet']
-        }
-      } else if (maxRiskTier === 'HIGH') {
-        req.inspectionPriority = 'ELEVATED'
-      }
-    }
-  } catch (parseError) {
-    warn("Phase 1.3: risk-map.json parse error — proceeding without risk data")
-    riskMap = null
+if (maxRiskTier === 'CRITICAL') {
+  req.inspectionPriority = 'HIGH'
+  req.riskNote = "Touches CRITICAL-tier files — requires thorough inspection"
+  const hasSecurity = requirements.some(r => /security|auth|crypt|token|inject|xss|sqli/i.test(r.text))
+  const dualGateEnabled = inspectConfig.dual_inspector_gate ?? hasSecurity
+  if (dualGateEnabled) {
+    req.assignedInspectors = ['grace-warden', 'ruin-prophet']
   }
-}
-
-// Helper: returns highest risk tier from a list of files
-function getMaxRiskTier(files: string[], riskFiles: RiskEntry[]): string {
-  const tierOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4, UNKNOWN: 5 }
-  let maxTier = 'UNKNOWN'
-  for (const f of files) {
-    const entry = riskFiles.find(r => r.path === f)
-    const tier = entry?.tier ?? 'UNKNOWN'
-    if ((tierOrder[tier] ?? 5) < (tierOrder[maxTier] ?? 5)) {
-      maxTier = tier
-    }
-  }
-  return maxTier
+} else if (maxRiskTier === 'HIGH') {
+  req.inspectionPriority = 'ELEVATED'
 }
 ```
 
 ## Phase 1.5: Codex Drift Detection (v1.51.0)
 
-Cross-model comparison of plan intent vs code semantics before inspector team creation. Flags semantic drift where code implements something different from what the plan specified.
+Cross-model comparison of plan intent vs code semantics before inspector team creation. Flags semantic drift where code implements something different from what the plan specified. Default OFF (greenfield). Non-blocking — drift report is additional context, not a gate.
 
-**GREENFIELD**: Inspect has no prior Codex integration — this adds the full detection infrastructure.
-
-**Team**: None (orchestrator-only, inline codex exec — runs before Phase 2 team creation)
 **Output**: `tmp/inspect/{identifier}/drift-report.md`
-**Failure**: Non-blocking — drift report is additional context, not a gate.
 
-### Independence from Lore Layer
-
-Phase 1.5 MUST be independent of `risk-map.json` — the `--no-lore` flag may skip Phase 1.3 entirely. When Lore Layer is skipped, drift detection uses scope files from Phase 1 directly (not risk-sorted files).
-
-```javascript
-// Phase 1.5: CODEX DRIFT DETECTION
-// Full Codex detection infrastructure (canonical pattern from codex-detection.md)
-const codexAvailable = detectCodex()  // CLI available + authenticated + jq check
-const codexDisabled = config?.codex?.disabled === true
-const driftEnabled = config?.codex?.drift_detection?.enabled === true  // Default OFF (greenfield, unproven value)
-const workflowIncluded = (config?.codex?.workflows ?? []).includes("inspect")
-
-if (codexAvailable && !codexDisabled && driftEnabled && workflowIncluded) {
-  const { timeout, reasoning, model: codexModel } = resolveCodexConfig(config, "drift_detection", {
-    timeout: 600, reasoning: "xhigh"  // xhigh — deep semantic comparison
-  })
-
-  // Use scope files directly (NOT risk-sorted — independent of Phase 1.3 Lore Layer)
-  const driftScopeFiles = scopeFiles.slice(0, 20)  // Cap scope for prompt budget
-  const planExcerpt = planContent.substring(0, 10000)
-
-  // Read top scope files content (cap total at 10K chars)
-  let scopeContent = ""
-  for (const f of driftScopeFiles) {
-    if (scopeContent.length >= 10000) break
-    try {
-      const content = Read(f)
-      scopeContent += `\n--- ${f} ---\n${content.substring(0, 2000)}\n`
-    } catch (e) { continue }
-  }
-
-  // SEC-003: Prompt via temp file (NEVER inline string interpolation)
-  const promptTmpFile = `${outputDir}/.codex-prompt-drift-detect.tmp`
-  try {
-    const sanitizedPlan = sanitizePlanContent(planExcerpt)
-    const sanitizedScope = sanitizePlanContent(scopeContent)
-    const nonce = Bash(`openssl rand -hex 16`).trim()
-    const promptContent = `SYSTEM: You are a cross-model drift detector.
-
-Compare plan intent vs code semantics. Flag semantic drift where code implements something different from what the plan specifies.
-
-=== PLAN INTENT ===
-<<<NONCE_${nonce}>>>
-${sanitizedPlan}
-<<<END_NONCE_${nonce}>>>
-=== END PLAN ===
-
-=== CODE SCOPE ===
-<<<NONCE_${nonce}>>>
-${sanitizedScope}
-<<<END_NONCE_${nonce}>>>
-=== END CODE ===
-
-For each drift finding, provide:
-- CDX-INSPECT-DRIFT-NNN: [CRITICAL|HIGH|MEDIUM] - description
-- Plan says: <what the plan specified>
-- Code does: <what the code actually implements>
-- Drift type: Semantic mismatch / Missing implementation / Extra implementation / Wrong approach
-
-Base findings on actual code and plan content, not assumptions.
-Only report genuine semantic drift — not stylistic differences.`
-
-    Write(promptTmpFile, promptContent)
-    const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${reasoning}" -t ${timeout} -j -g "${promptTmpFile}"`)
-    const classified = classifyCodexError(result)
-
-    // Write drift report (even on error)
-    Write(`${outputDir}/drift-report.md`, formatReport(classified, result, "Drift Detection"))
-  } finally {
-    Bash(`rm -f "${promptTmpFile}"`)  // Guaranteed cleanup
-  }
-} else {
-  // Skip-path: MUST write output MD even when skipped
-  const skipReason = !codexAvailable ? "codex not available"
-    : codexDisabled ? "codex.disabled=true"
-    : !driftEnabled ? "codex.drift_detection.enabled=false (default OFF)"
-    : "inspect not in codex.workflows"
-  Write(`${outputDir}/drift-report.md`, `# Drift Detection (Codex)\n\nSkipped: ${skipReason}`)
-}
-
-// Inject drift report into inspector Ash prompts (Phase 3)
-// Cap at 2000 chars to prevent prompt inflation (rune-architect CONDITION 3)
-let driftContext = ""
-try {
-  const driftReport = Read(`${outputDir}/drift-report.md`)
-  if (driftReport && !driftReport.includes("Skipped:")) {
-    driftContext = driftReport.length > 2000
-      ? driftReport.substring(0, 2000) + "\n[truncated]"
-      : driftReport
-  }
-} catch (e) { /* no drift report — skip injection */ }
-```
-
-### Drift Report Injection
-
-When `driftContext` is non-empty, it is injected into inspector Ash prompts in Phase 3 as nonce-bounded additional context:
-
-```
-=== CODEX DRIFT CONTEXT ===
-${driftContext}
-=== END DRIFT CONTEXT ===
-
-Note: This drift report was generated by a cross-model analysis (Codex).
-Verify drift claims independently — Codex is a witness, not a judge.
-```
+See [codex-drift-detection.md](references/codex-drift-detection.md) for the full protocol — detection infrastructure, prompt generation, and drift report injection into Phase 3 inspector prompts.
 
 ## Phase 2: Forge Team
 
