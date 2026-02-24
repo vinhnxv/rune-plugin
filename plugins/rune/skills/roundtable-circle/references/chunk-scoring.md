@@ -275,5 +275,5 @@ function collectSecurityPins(scoredFiles) {
 
 - [Smart Selection](smart-selection.md) — Ash budget enforcement and file classification
 - [Chunk Orchestrator](chunk-orchestrator.md) — How chunks are reviewed and merged
-- [Security Patterns](../../rune-orchestration/references/security-patterns.md) — SAFE_PATH_PATTERN and validation
+- [Security Patterns](security-patterns.md) — SAFE_PATH_PATTERN and validation
 - [Team Lifecycle Guard](../../rune-orchestration/references/team-lifecycle-guard.md) — Pre-create guard pattern

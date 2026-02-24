@@ -452,4 +452,4 @@ review:
 - [Chunk Scoring](chunk-scoring.md) — `scoreFile`, `groupIntoChunks`, security pins
 - [Chunk Orchestrator](chunk-orchestrator.md) — How the convergence loop is called
 - [Dedup Runes](dedup-runes.md) — Cross-chunk dedup algorithm
-- [Verify Mend](../../rune-orchestration/references/verify-mend.md) — Model for iterative convergence loops
+- [Verify Mend](../../arc/references/verify-mend.md) — Model for iterative convergence loops

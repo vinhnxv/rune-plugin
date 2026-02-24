@@ -383,4 +383,4 @@ stagnation: {
 | `projected_total > budget * 0.85` | `"at_risk"` | WARN: phases remaining + projection |
 | neither | `"on_track"` | No warning |
 
-> **Note**: `overrun` check (elapsed-based) takes priority over `at_risk` check (projection-based). See CONCERN-4 fix in [concern-context.md](../../../tmp/arc/arc-1771829206/concern-context.md).
+> **Note**: `overrun` check (elapsed-based) takes priority over `at_risk` check (projection-based). The CONCERN-4 fix ensures elapsed-based overrun is evaluated before projection-based at_risk.
