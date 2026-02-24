@@ -15,6 +15,9 @@ a single TOME.md summary.
 2. Parse findings from each file (P1, P2, P3, Questions, Nits sections)
 3. Deduplicate overlapping findings using the hierarchy below
 4. Write the aggregated TOME.md to: {output_dir}/TOME.md
+5. Write `## Assumption Summary` to TOME.md (after `## Statistics`)
+6. Extract `## Reviewer Assumptions` from each Ash output — collect per-Ash assumption lists and normalize confidence labels using the table below
+7. Build per-Ash confidence breakdown table (PROVEN/LIKELY/UNCERTAIN counts + Key Assumptions); collate `### High-Risk Assumptions (from UNCERTAIN findings)` list (UNCERTAIN findings only); detect cross-Ash assumption conflicts (same file + same 5-line window + semantically opposed recommendations, capped at 5, label as "Potential Assumption Conflicts (requires human review)")
 
 ## INPUT FILES
 
@@ -32,11 +35,32 @@ Rules:
 - Same file + overlapping lines → keep higher-priority Ash's finding
 - Same priority → keep higher severity (P1 > P2 > P3)
 - Same priority + same severity → keep both if different issues, merge if same
-- Record "also flagged by" for merged findings
+- Record "also flagged by" for merged findings (include confidence of losing Ash: `also flagged by: Forge Warden [UNCERTAIN]`)
 - Q/N interaction dedup: assertion (P1/P2/P3) at same location supersedes Q → drop Q
 - Assertion at same location supersedes N → drop N
 - Q and N at same location → keep both (different interaction types)
 - Multiple Q findings at same location → merge into single Q
+- **Confidence during dedup**: Winning Ash's confidence value is kept. Confidence does NOT influence dedup priority — hierarchy remains role-based. The `also_flagged_by` annotation is extended to include the losing Ash's confidence for full transparency.
+
+## CONFIDENCE NORMALIZATION MAP
+
+When parsing Ash output, normalize confidence labels to PROVEN/LIKELY/UNCERTAIN:
+
+<!-- Normalization handles LLM output variants that may deviate from the canonical vocabulary.
+     This map covers synonyms and numeric values so dedup and assumption summaries remain consistent. -->
+
+| Input variants | Normalized to |
+|----------------|--------------|
+| PROVEN, CERTAIN, CONFIRMED, HIGH | PROVEN |
+| LIKELY, PROBABLE, MEDIUM | LIKELY |
+| UNCERTAIN, SUSPICIOUS, LOW, DOUBTFUL | UNCERTAIN |
+| Numeric >= 0.8 | PROVEN |
+| Numeric 0.5–0.79 | LIKELY |
+| Numeric < 0.5 | UNCERTAIN |
+| Unrecognized / missing | UNTAGGED |
+
+<!-- UNTAGGED findings are counted separately in Statistics and noted in Assumption Summary.
+     They do not contribute to PROVEN/LIKELY/UNCERTAIN totals. -->
 
 ## SESSION NONCE
 
@@ -131,6 +155,23 @@ If doubt-seer output exists, create a `## Doubt Seer Challenges` section contain
 - P1: {count}, P2: {count}, P3: {count}, Q: {count}, N: {count}
 - Evidence coverage: {verified}/{total} ({percentage}%)
 - Ash completed: {completed}/{summoned}
+
+## Assumption Summary
+
+| Ash | PROVEN | LIKELY | UNCERTAIN | UNTAGGED | Key Assumptions |
+|-----|--------|--------|-----------|----------|-----------------|
+| {Ash name} | {count} | {count} | {count} | {count} | {top assumption or "None"} |
+
+### High-Risk Assumptions (from UNCERTAIN findings)
+
+{List assumptions from UNCERTAIN findings only — each as: "**Ash** in `file:line`: {assumption text}"}
+{If none: "No high-risk assumptions — no UNCERTAIN findings reported."}
+
+### Potential Assumption Conflicts (requires human review)
+
+{List up to 5 cases where different Ash made semantically opposed assumptions about the same file+5-line window}
+{Format: "**file:line** — {Ash A} assumed {X}; {Ash B} assumed {Y}"}
+{If none: "No cross-Ash assumption conflicts detected."}
 ```
 
 ## RULES
@@ -140,6 +181,7 @@ If doubt-seer output exists, create a `## Doubt Seer Challenges` section contain
 3. **Do NOT skip findings** — every P1/P2/P3/Q/N from every Ash must appear or be deduped
 4. **Track gaps** — if an Ash's output file is missing or incomplete, record in Coverage Gaps
 5. **Parse Seals** — extract confidence and self-review counts from each file's Seal block
+6. **Aggregate assumptions** — parse `## Reviewer Assumptions` from each Ash; normalize confidence labels using the CONFIDENCE NORMALIZATION MAP; build Assumption Summary. Confidence values are informational only (v1) — NOT used as inputs to mend priority, convergence scoring, or file-todo triage.
 
 ## INCOMPLETE DELIVERABLES
 
@@ -147,6 +189,7 @@ If an Ash's output file:
 - **Is missing**: Record as "missing" in Coverage Gaps, note uncovered scope
 - **Has no Seal**: Record as "partial" in Coverage Gaps
 - **Has findings but no Rune Traces**: Record as "partial", note low evidence quality
+- **Missing `## Reviewer Assumptions`**: Record as "partial (no assumptions)" in Coverage Gaps; omit from Assumption Summary table or record with "N/A" for all confidence columns
 
 ## GLYPH BUDGET
 
