@@ -19,7 +19,7 @@ Auto-detects project tech stack and loads domain-relevant context for reviews, a
 ```
 Layer 0: Context Router — computeContextManifest() decides WHAT to load
 Layer 1: Detection Engine — detectStack() scans manifests for evidence
-Layer 2: Knowledge Skills — 16 reference docs (languages, frameworks, databases, libraries, patterns)
+Layer 2: Knowledge Skills — 20 reference docs (languages, frameworks, databases, libraries, patterns)
 Layer 3: Enforcement Agents — 11 specialist reviewers with unique finding prefixes
 ```
 
@@ -56,9 +56,9 @@ See [stack-registry.md](references/stack-registry.md) for all supported language
 | Category | Supported |
 |----------|-----------|
 | Languages | Python, TypeScript, Rust, PHP |
-| Frameworks | FastAPI, Django, Laravel, SQLAlchemy |
+| Frameworks | FastAPI, Django, Laravel, SQLAlchemy, React, Vue.js, Next.js, Vite |
 | Databases | PostgreSQL, MySQL |
-| Libraries | Pydantic, dry-python/returns, Dishka |
+| Libraries | Pydantic, dry-python/returns, Dishka, Pinia, Vue Router |
 | Patterns | TDD, DDD, DI |
 
 ## Configuration
@@ -89,7 +89,7 @@ stack_awareness:
 - [stack-registry.md](references/stack-registry.md) — Supported stacks registry
 - [context-router.md](references/context-router.md) — Smart context loading algorithm
 - [languages/](references/languages/) — Language profiles (Python, TypeScript, Rust, PHP)
-- [frameworks/](references/frameworks/) — Framework checklists (FastAPI, Django, Laravel, SQLAlchemy)
+- [frameworks/](references/frameworks/) — Framework checklists (FastAPI, Django, Laravel, SQLAlchemy, React, Vue.js, Next.js, Vite)
 - [databases/](references/databases/) — Database patterns (PostgreSQL, MySQL)
 - [libraries/](references/libraries/) — Library patterns (Pydantic, Returns, Dishka)
 - [patterns/](references/patterns/) — Cross-cutting patterns (TDD, DDD, DI)

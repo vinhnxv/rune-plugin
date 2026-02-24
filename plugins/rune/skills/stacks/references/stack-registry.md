@@ -19,8 +19,10 @@ Complete registry of supported languages, frameworks, databases, libraries, and 
 | Django | Python | `django` in deps | `frameworks/django.md` | `django-reviewer` (DJG) |
 | Flask | Python | `flask` in deps | (none — covered by python profile) | (none) |
 | SQLAlchemy | Python | `sqlalchemy` in deps | `frameworks/sqlalchemy.md` | `sqlalchemy-reviewer` (SQLA) |
-| Next.js | TypeScript | `next` in deps | (none — covered by typescript profile) | (none) |
-| React | TypeScript | `react` in deps | (none — covered by typescript profile) | (none) |
+| Next.js | TypeScript | `next` in deps | `frameworks/nextjs.md` | (none — future) |
+| React | TypeScript | `react` in deps | `frameworks/react.md` | (none — future) |
+| Vue.js | TypeScript | `vue` in deps | `frameworks/vuejs.md` | (none — future) |
+| Vite | TypeScript | `vite` in deps/tooling | `frameworks/vite.md` | (none — future) |
 | Express | TypeScript | `express` in deps | (none — covered by typescript profile) | (none) |
 | NestJS | TypeScript | `nestjs` or `@nestjs` in deps | (none — covered by typescript profile) | (none) |
 | Actix-web | Rust | `actix` in deps | (none — covered by rust profile) | (none) |
@@ -49,6 +51,9 @@ Complete registry of supported languages, frameworks, databases, libraries, and 
 | Dishka | Python | `dishka` in deps | `libraries/dishka.md` |
 | dependency-injector | Python | `dependency-injector` in deps | (covered by di pattern) |
 | Zod | TypeScript | `zod` in deps | (covered by typescript profile) |
+| Pinia | TypeScript | `pinia` in deps | (covered by vuejs framework) |
+| Vue Router | TypeScript | `vue-router` in deps | (covered by vuejs framework) |
+| Nuxt | TypeScript | `nuxt` in deps | (covered by vuejs framework) |
 | tsyringe | TypeScript | `tsyringe` in deps | (covered by di pattern) |
 | inversify | TypeScript | `inversify` in deps | (covered by di pattern) |
 | Serde | Rust | `serde` in deps | (covered by rust profile) |
@@ -78,6 +83,10 @@ All specialist agents produce findings with unique prefixes to enable dedup:
 | DJG | django-reviewer | Framework |
 | LARV | laravel-reviewer | Framework |
 | SQLA | sqlalchemy-reviewer | Framework |
+| REACT | (future) react-reviewer | Framework |
+| VUE | (future) vuejs-reviewer | Framework |
+| NEXT | (future) nextjs-reviewer | Framework |
+| VTE | (future) vite-reviewer | Framework |
 | TDD | tdd-compliance-reviewer | Pattern |
 | DDD | ddd-reviewer | Pattern |
 | DI | di-reviewer | Pattern |
@@ -85,7 +94,7 @@ All specialist agents produce findings with unique prefixes to enable dedup:
 **Dedup hierarchy position**: Stack specialist prefixes are positioned BELOW the core Roundtable Circle prefixes:
 
 ```
-SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > PY > TSR > RST > PHP > FAPI > DJG > LARV > SQLA > TDD > DDD > DI
+SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > PY > TSR > RST > PHP > FAPI > DJG > LARV > SQLA > REACT > VUE > NEXT > VTE > TDD > DDD > DI
 ```
 
 When a stack specialist and a core Ash find the same issue, the core Ash's finding takes priority.
