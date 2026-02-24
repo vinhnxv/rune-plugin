@@ -3,9 +3,9 @@
 ## [1.93.0] - 2026-02-25
 
 ### Changed
-- **Skill reference extraction** — Extracted large inline sections from 10 SKILL.md files into dedicated `references/` files. Zero functional changes — content moved verbatim. Total: -1476 lines removed from SKILL.md files, +1955 lines in reference files (net: 30 files changed).
+- **Skill reference extraction** — Extracted large inline sections from 10 SKILL.md files into dedicated `references/` files. Zero functional changes — content moved verbatim. Total: -1476 lines removed from SKILL.md files, +1955 lines in reference files (39 files changed, 25 new reference files + 14 modified).
   - **Large skills (>500 lines)**:
-    - `forge/SKILL.md`: 729 -> ~370 lines — Phase 1 -> `references/forge-gaze-selection.md`, Phase 3.5 -> `references/codex-section-validation.md`, Phase 4+5 -> `references/forge-cleanup.md`
+    - `forge/SKILL.md`: 729 -> 381 lines — Phase 1 -> `references/forge-gaze-selection.md`, Phase 3.5 -> `references/codex-section-validation.md`, Phase 4+5 -> `references/forge-cleanup.md`
     - `mend/SKILL.md`: Phase 5.9 -> `references/todo-update-phase.md`, Phase 3 risk context -> `references/goldmask-mend-context.md`
     - `strive/SKILL.md`: Phase 0.5 -> `references/env-setup.md`, Phase 3.5 codex post-monitor -> `references/codex-post-monitor.md`
     - `arc-hierarchy/SKILL.md`: 542 -> 326 lines — Phase 5 -> `references/session-state.md`, Phase 7 -> `references/main-loop.md`
