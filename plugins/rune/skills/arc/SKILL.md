@@ -8,13 +8,13 @@ description: |
   code-review, goldmask-correlation, mend, verify-mend, test,
   pre-ship-validation, ship, merge).
   Use when checkpoint resume is needed after a crash or session end.
-  18-phase pipeline with convergence loops, Goldmask risk analysis,
+  21-phase pipeline with convergence loops, Goldmask risk analysis,
   pre-ship validation, and cross-model verification. Keywords: arc, pipeline,
-  --resume, checkpoint, convergence, forge, mend, ship, merge, 18 phases.
+  --resume, checkpoint, convergence, forge, mend, ship, merge, 21 phases.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
-  assistant: "The Tarnished begins the arc — 18 phases of forge, review, goldmask, test, mend, convergence, pre-ship validation, ship, and merge..."
+  assistant: "The Tarnished begins the arc — 21 phases of forge, review, goldmask, test, mend, convergence, pre-ship validation, ship, and merge..."
   </example>
 
   <example>
@@ -46,7 +46,7 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains eighteen phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, work, gap analysis, codex gap analysis, gap remediation, goldmask verification, code review (deep), goldmask correlation, mend, verify mend (convergence controller), test, pre-ship validation, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 8.5, 9, and 9.5). Phase 5.5 is hybrid: deterministic STEP A + Inspector Ashes STEP B. Phase 6 invokes `/rune:appraise --deep` for multi-wave review. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Phase 8.5 is the pre-ship completion validator — dual-gate deterministic check before PR creation. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
+Chains twenty-one phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, task decomposition, work, gap analysis, codex gap analysis, gap remediation, goldmask verification, code review (deep), goldmask correlation, mend, verify mend (convergence controller), test, test coverage critique, pre-ship validation, release quality check, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 8.5, 9, and 9.5). Phase 5.5 is hybrid: deterministic STEP A + Inspector Ashes STEP B. Phase 6 invokes `/rune:appraise --deep` for multi-wave review. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Phase 8.5 is the pre-ship completion validator — dual-gate deterministic check before PR creation. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`, `testing`, `agent-browser`, `polling-guard`, `zsh-compat`
 
@@ -115,6 +115,8 @@ Phase 2.7: VERIFICATION GATE → Deterministic plan checks (zero LLM)
     ↓ (verification-report.md)
 Phase 2.8: SEMANTIC VERIFICATION → Codex cross-model contradiction detection (v1.39.0)
     ↓ (codex-semantic-verification.md)
+Phase 4.5: TASK DECOMPOSITION → Codex cross-model task validation (v1.51.0)
+    ↓ (task-validation.md) — advisory, non-blocking
 Phase 5:   WORK → Swarm implementation + incremental commits
     ↓ (work-summary.md + committed code)
 Phase 5.5: GAP ANALYSIS → Check plan criteria vs committed code (deterministic + LLM)
@@ -135,8 +137,12 @@ Phase 7.5: VERIFY MEND → Convergence controller (adaptive review-mend loop)
     ↓ converged → proceed | retry → loop to Phase 6+7 (tier-based max cycles) | halted → warn + proceed
 Phase 7.7: TEST → 3-tier QA gate: unit → integration → E2E/browser (v1.43.0)
     ↓ (test-report.md) — WARN only, never halts
+Phase 7.8: TEST COVERAGE CRITIQUE → Codex cross-model test analysis (v1.51.0)
+    ↓ (test-critique.md) — advisory, non-blocking
 Phase 8.5: PRE-SHIP VALIDATION → Dual-gate completion check: artifact integrity + quality signals (v1.80.0)
     ↓ (pre-ship-report.md) — WARN/BLOCK non-blocking, proceeds to SHIP with diagnostics in PR body
+Phase 8.55: RELEASE QUALITY CHECK → Codex cross-model release validation (v1.51.0)
+    ↓ (release-quality.md) — advisory, non-blocking
 Phase 9:   SHIP → Push branch + create PR (orchestrator-only)
     ↓ (pr-body.md + checkpoint.pr_url)
 Phase 9.5: MERGE → Rebase + conflict check + auto-merge (orchestrator-only)
@@ -147,7 +153,7 @@ Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 8.5, 9, 9.5) match the legacy pipeline phases from devise.md and appraise.md for cross-command consistency. Phases 3, 4, 8, and 8.7 are reserved (8/8.7 removed in v1.67.0 — audit coverage now handled by Phase 6 `--deep`; 8.5 re-activated in v1.80.0 as PRE-SHIP VALIDATION). Phase 5.8 (GAP REMEDIATION) runs between 5.6 (Codex Gap) and 5.7 (Goldmask) — the non-sequential numbering preserves backward compatibility with older checkpoints. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 4.5, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 7.8, 8.5, 8.55, 9, 9.5) match the legacy pipeline phases from devise.md and appraise.md for cross-command consistency. Phases 3, 4, 8, and 8.7 are reserved (8/8.7 removed in v1.67.0 — audit coverage now handled by Phase 6 `--deep`; 8.5 re-activated in v1.80.0 as PRE-SHIP VALIDATION). Phase 5.8 (GAP REMEDIATION) runs between 5.6 (Codex Gap) and 5.7 (Goldmask) — the non-sequential numbering preserves backward compatibility with older checkpoints. Phases 4.5, 7.8, 8.55 are Codex cross-model inline phases added in v1.51.0. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
 
 ## Arc Orchestrator Design (ARC-1)
 
@@ -172,7 +178,7 @@ The dispatcher reads only structured summary headers from artifacts, not full co
 ### Phase Constants
 
 ```javascript
-const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'work', 'gap_analysis', 'codex_gap_analysis', 'gap_remediation', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'pre_ship_validation', 'ship', 'merge']
+const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'task_decomposition', 'work', 'gap_analysis', 'codex_gap_analysis', 'gap_remediation', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'test_coverage_critique', 'pre_ship_validation', 'release_quality_check', 'ship', 'merge']
 
 // IMPORTANT: checkArcTimeout() runs BETWEEN phases, not during. A phase that exceeds
 // its budget will only be detected after it finishes/times out internally.
@@ -194,6 +200,7 @@ const PHASE_TIMEOUTS = {
   plan_refine:   talismanTimeouts.plan_refine ?? 180_000,    //  3 min (orchestrator-only, no team)
   verification:  talismanTimeouts.verification ?? 30_000,    // 30 sec (orchestrator-only, no team)
   semantic_verification: talismanTimeouts.semantic_verification ?? 180_000,  //  3 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
+  task_decomposition: talismanTimeouts.task_decomposition ?? 300_000,  //  5 min (orchestrator-only, inline codex exec)
   work:          talismanTimeouts.work ?? 2_100_000,    // 35 min (inner 30m + 5m setup)
   gap_analysis:  talismanTimeouts.gap_analysis ?? 720_000,   // 12 min (inner 8m + 2m setup + 2m aggregate — hybrid: deterministic + Inspector Ashes)
   codex_gap_analysis: talismanTimeouts.codex_gap_analysis ?? 660_000,  // 11 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
@@ -201,8 +208,10 @@ const PHASE_TIMEOUTS = {
   code_review:   talismanTimeouts.code_review ?? 900_000,    // 15 min (inner 10m + 5m setup)
   mend:          talismanTimeouts.mend ?? 1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
   verify_mend:   talismanTimeouts.verify_mend ?? 240_000,    //  4 min (orchestrator-only, no team)
-  test:          talismanTimeouts.test ?? 900_000,        // 15 min without E2E (inner 10m + 5m setup). Dynamic: 40 min with E2E (2_400_000)
-  pre_ship_validation: talismanTimeouts.pre_ship_validation ?? 30_000,  // 30 sec (orchestrator-only, deterministic — matches verification gate budget)
+  test:          talismanTimeouts.test ?? 1_500_000,      // 25 min without E2E (inner 10m + 5m setup + 10m Phase 7.8 critique). Dynamic: 50 min with E2E (3_000_000)
+  test_coverage_critique: talismanTimeouts.test_coverage_critique ?? 600_000,  // 10 min (orchestrator-only, inline codex exec — absorbed into test budget)
+  pre_ship_validation: talismanTimeouts.pre_ship_validation ?? 360_000,  //  6 min (orchestrator-only, deterministic + Phase 8.55 release quality check)
+  release_quality_check: talismanTimeouts.release_quality_check ?? 300_000,  //  5 min (orchestrator-only, inline codex exec — absorbed into pre_ship budget)
   goldmask_verification: talismanTimeouts.goldmask_verification ?? 900_000,  // 15 min (inner 10m + 5m setup)
   goldmask_correlation:  talismanTimeouts.goldmask_correlation ?? 60_000,    //  1 min (orchestrator-only, no team)
   ship:          talismanTimeouts.ship ?? 300_000,      //  5 min (orchestrator-only, push + PR creation)
@@ -210,16 +219,17 @@ const PHASE_TIMEOUTS = {
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// Base budget sum is ~156 min (v1.67.0: removed audit/audit_mend/audit_verify — now covered by Phase 6 --deep):
+// Base budget sum is ~176 min (v1.51.0: +20 min from Codex expansion — task_decomposition(5) + test_coverage_critique(10) + release_quality_check(5)):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
-//   codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) + work(35) + gap_analysis(12) +
-//   goldmask_correlation(1) + test(15) + pre_ship_validation(0.5) + ship(5) + merge(10) = 156 min
-// With E2E: test grows to 40 min → 181 min base
-// LIGHT (2 cycles):    156 + 42 + 1×26 = 224 min
-// STANDARD (3 cycles): 156 + 42 + 2×26 = 250 min → hard cap at 240 min
-// THOROUGH (5 cycles): 156 + 42 + 4×26 = 302 min → hard cap at 240 min
-const ARC_TOTAL_TIMEOUT_DEFAULT = 13_440_000  // 224 min fallback (LIGHT tier minimum — used before tier selection)
-const ARC_TOTAL_TIMEOUT_HARD_CAP = 14_400_000  // 240 min (4 hours) — absolute hard cap
+//   task_decomposition(5) + codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) +
+//   work(35) + gap_analysis(12) + goldmask_correlation(1) + test(25) + test_coverage_critique(10) +
+//   pre_ship_validation(6) + release_quality_check(5) + ship(5) + merge(10) = 176 min
+// With E2E: test grows to 50 min → 201 min base
+// LIGHT (2 cycles):    176 + 42 + 1×26 = 244 min
+// STANDARD (3 cycles): 176 + 42 + 2×26 = 270 min → hard cap at 285 min
+// THOROUGH (5 cycles): 176 + 42 + 4×26 = 322 min → hard cap at 285 min
+const ARC_TOTAL_TIMEOUT_DEFAULT = 14_640_000  // 244 min fallback (LIGHT tier minimum — used before tier selection)
+const ARC_TOTAL_TIMEOUT_HARD_CAP = 17_100_000  // 285 min (4.75 hours) — absolute hard cap (raised from 240 for Codex expansion)
 const STALE_THRESHOLD = 300_000      // 5 min
 const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward/cross-file)
 
@@ -235,12 +245,13 @@ const CYCLE_BUDGET = {
 function calculateDynamicTimeout(tier) {
   const basePhaseBudget = PHASE_TIMEOUTS.forge + PHASE_TIMEOUTS.plan_review +
     PHASE_TIMEOUTS.plan_refine + PHASE_TIMEOUTS.verification +
-    PHASE_TIMEOUTS.semantic_verification + PHASE_TIMEOUTS.codex_gap_analysis +
-    PHASE_TIMEOUTS.gap_remediation +
+    PHASE_TIMEOUTS.semantic_verification + PHASE_TIMEOUTS.task_decomposition +
+    PHASE_TIMEOUTS.codex_gap_analysis + PHASE_TIMEOUTS.gap_remediation +
     PHASE_TIMEOUTS.goldmask_verification + PHASE_TIMEOUTS.goldmask_correlation +
     PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis +
-    PHASE_TIMEOUTS.test + PHASE_TIMEOUTS.pre_ship_validation +
-    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~156 min (v1.67.0: removed audit phases — covered by Phase 6 --deep)
+    PHASE_TIMEOUTS.test + PHASE_TIMEOUTS.test_coverage_critique +
+    PHASE_TIMEOUTS.pre_ship_validation + PHASE_TIMEOUTS.release_quality_check +
+    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~176 min (v1.51.0: +20 min from Codex expansion phases)
   const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
   const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
   const maxCycles = tier?.maxCycles ?? 3
@@ -310,7 +321,8 @@ Read(references/arc-phase-cleanup.md)
 See [arc-checkpoint-init.md](references/arc-checkpoint-init.md) for the full initialization.
 
 **Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check above
-**Outputs**: checkpoint object (schema v15), resolved arc config
+**Outputs**: checkpoint object (schema v16), resolved arc config
+**Schema v16 additions**: `test_critique_needs_attention` (boolean, Phase 7.8), `codex_cascade` (object with `total_attempted`, `total_succeeded`, `total_failed`, `consecutive_failures`, `cascade_warning`, `cascade_skipped`, `last_failure_phase`)
 **Error handling**: fail arc if plan file missing or config invalid
 
 // NOTE: Requires `freshnessResult` from the Freshness Check step (inline above).
@@ -425,6 +437,87 @@ if (fileTodosEnabled) {
 > **Note**: `--todos-dir` is an internal flag — NOT exposed at the `/rune:arc` CLI level.
 > Arc passes it internally from `checkpoint.todos_base` to sub-skills (strive, appraise, mend).
 > Users should not pass `--todos-dir` to `/rune:arc` directly.
+
+## Phase 4.5: TASK DECOMPOSITION (Codex cross-model validation)
+
+Validates plan-to-task decomposition quality before work begins. Checks granularity, dependencies, and file ownership conflicts.
+
+**Team**: None (orchestrator-only, inline codex exec)
+**Output**: `tmp/arc/{id}/task-validation.md`
+**Failure**: Non-blocking — advisory only. Strive lead reads `task-validation.md` but does NOT auto-modify task assignments.
+**Workflow key**: `"arc"` (arc phases register under the `"arc"` workflow)
+
+```javascript
+// Phase 4.5: TASK DECOMPOSITION
+// 4-condition detection gate (canonical pattern)
+const codexAvailable = detectCodex()
+const codexDisabled = talisman?.codex?.disabled === true
+const taskDecompEnabled = talisman?.codex?.task_decomposition?.enabled !== false
+const workflowIncluded = (talisman?.codex?.workflows ?? []).includes("arc")
+
+// 5th condition: cascade circuit breaker (check before the 4-condition pattern)
+if (checkpoint.codex_cascade?.cascade_warning === true) {
+  Write(`tmp/arc/${id}/task-validation.md`, "# Task Decomposition Validation (Codex)\n\nSkipped: Codex cascade circuit breaker active")
+  updateCheckpoint({ phase: "task_decomposition", status: "skipped" })
+  // Proceed to Phase 5 (WORK)
+} else if (codexAvailable && !codexDisabled && taskDecompEnabled && workflowIncluded) {
+  const { timeout, reasoning, model: codexModel } = resolveCodexConfig(talisman, "task_decomposition", {
+    timeout: 300, reasoning: "high"
+  })
+
+  // Read enriched plan for task structure
+  const planContent = Read(`tmp/arc/${id}/enriched-plan.md`)
+  const todosBase = checkpoint.todos_base ?? `tmp/arc/${id}/todos/`
+
+  // SEC-003: Prompt via temp file (NEVER inline string interpolation)
+  const promptTmpFile = `tmp/arc/${id}/.codex-prompt-task-decomp.tmp`
+  try {
+    const sanitizedPlan = sanitizePlanContent(planContent.substring(0, 10000))
+    const promptContent = `SYSTEM: You are a cross-model task decomposition validator.
+
+Analyze this plan's task structure for decomposition quality:
+
+=== PLAN ===
+${sanitizedPlan}
+=== END PLAN ===
+
+For each finding, provide:
+- CDX-TASK-NNN: [CRITICAL|HIGH|MEDIUM] - description
+- Category: Granularity / Dependency / File Conflict / Missing Task
+- Suggested fix (brief)
+
+Check for:
+1. Tasks too large (>3 files or >200 lines estimated) — recommend splitting
+2. Missing inter-task dependencies (task B reads output of task A but no blockedBy)
+3. File ownership conflicts (multiple tasks modifying the same file)
+4. Missing tasks (plan sections with no corresponding task)
+
+Base findings on actual plan content, not assumptions.`
+
+    Write(promptTmpFile, promptContent)
+    const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${reasoning}" -t ${timeout} -j -g "${promptTmpFile}"`)
+    const classified = classifyCodexError(result)
+
+    // Update cascade tracker
+    updateCascadeTracker(checkpoint, classified)
+
+    // Write output (even on error — CDX-TASK prefix)
+    Write(`tmp/arc/${id}/task-validation.md`, formatReport(classified, result, "Task Decomposition Validation"))
+    updateCheckpoint({ phase: "task_decomposition", status: "completed", artifact: `tmp/arc/${id}/task-validation.md` })
+  } finally {
+    Bash(`rm -f "${promptTmpFile}"`)  // Guaranteed cleanup
+  }
+} else {
+  // Skip-path: MUST write output MD (depth-seer critical finding)
+  const skipReason = !codexAvailable ? "codex not available"
+    : codexDisabled ? "codex.disabled=true"
+    : !taskDecompEnabled ? "codex.task_decomposition.enabled=false"
+    : "arc not in codex.workflows"
+  Write(`tmp/arc/${id}/task-validation.md`, `# Task Decomposition Validation (Codex)\n\nSkipped: ${skipReason}`)
+  updateCheckpoint({ phase: "task_decomposition", status: "skipped" })
+}
+// Proceed to Phase 5 (WORK)
+```
 
 ## Phase 5: WORK
 
@@ -584,6 +677,89 @@ if (flags.no_test || talisman?.testing?.enabled === false) {
 ```
 postPhaseCleanup(checkpoint, "test")
 
+## Phase 7.8: TEST COVERAGE CRITIQUE (Codex cross-model analysis)
+
+Cross-model analysis of test coverage after Phase 7.7 TEST completes. Identifies missing edge cases, brittle test patterns, and untested error paths.
+
+**Team**: None (orchestrator-only, inline codex exec)
+**Output**: `tmp/arc/{id}/test-critique.md`
+**Failure**: Non-blocking — advisory only. CDX-TEST findings set `test_critique_needs_attention` flag but never auto-fail the pipeline.
+**Workflow key**: `"arc"` (arc phases register under the `"arc"` workflow, NOT `"work"`)
+
+```javascript
+// Phase 7.8: TEST COVERAGE CRITIQUE
+// 4-condition detection gate (canonical pattern)
+const codexAvailable = detectCodex()
+const codexDisabled = talisman?.codex?.disabled === true
+const testCritiqueEnabled = talisman?.codex?.test_coverage_critique?.enabled !== false
+const workflowIncluded = (talisman?.codex?.workflows ?? []).includes("arc")
+
+// 5th condition: cascade circuit breaker
+if (checkpoint.codex_cascade?.cascade_warning === true) {
+  Write(`tmp/arc/${id}/test-critique.md`, "# Test Coverage Critique (Codex)\n\nSkipped: Codex cascade circuit breaker active")
+  updateCheckpoint({ phase: "test_coverage_critique", status: "skipped" })
+} else if (codexAvailable && !codexDisabled && testCritiqueEnabled && workflowIncluded) {
+  const { timeout, reasoning, model: codexModel } = resolveCodexConfig(talisman, "test_coverage_critique", {
+    timeout: 600, reasoning: "xhigh"  // xhigh — must trace coverage gaps across diff + test report
+  })
+
+  // Read test report from Phase 7.7
+  const testReport = Read(`tmp/arc/${id}/test-report.md`)
+  const diff = Bash(`git diff ${baseBranch}...HEAD`).substring(0, 15000)
+
+  // SEC-003: Prompt via temp file with SYSTEM prefix (inline pattern, NOT ANCHOR/RE-ANCHOR)
+  const promptTmpFile = `tmp/arc/${id}/.codex-prompt-test-critique.tmp`
+  try {
+    const sanitizedReport = sanitizePlanContent(testReport)
+    const sanitizedDiff = sanitizePlanContent(diff)
+    const promptContent = `SYSTEM: You are a cross-model test coverage critic.
+
+Analyze this test report and diff for coverage gaps:
+
+=== TEST REPORT ===
+${sanitizedReport}
+=== END TEST REPORT ===
+
+=== DIFF ===
+${sanitizedDiff}
+=== END DIFF ===
+
+For each finding, provide:
+- CDX-TEST-NNN: [CRITICAL|HIGH|MEDIUM] - description
+- Missing edge case / Brittle pattern / Untested error path
+- Suggested test case (pseudocode)
+
+Base findings on actual code, not assumptions.`
+
+    Write(promptTmpFile, promptContent)
+    const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${reasoning}" -t ${timeout} -j -g "${promptTmpFile}"`)
+    const classified = classifyCodexError(result)
+
+    // Update cascade tracker
+    updateCascadeTracker(checkpoint, classified)
+
+    Write(`tmp/arc/${id}/test-critique.md`, formatCritiqueReport(classified, result))
+    if (classified === "SUCCESS" && hasCriticalFindings(result)) {
+      checkpoint.test_critique_needs_attention = true
+    }
+    updateCheckpoint({ phase: "test_coverage_critique", status: "completed", artifact: `tmp/arc/${id}/test-critique.md` })
+  } finally {
+    Bash(`rm -f "${promptTmpFile}"`)  // Guaranteed cleanup
+  }
+} else {
+  // Skip-path: MUST write output MD even when skipped (depth-seer critical finding)
+  const skipReason = !codexAvailable ? "codex not available"
+    : codexDisabled ? "codex.disabled=true"
+    : !testCritiqueEnabled ? "codex.test_coverage_critique.enabled=false"
+    : "arc not in codex.workflows"
+  Write(`tmp/arc/${id}/test-critique.md`, `# Test Coverage Critique (Codex)\n\nSkipped: ${skipReason}`)
+  updateCheckpoint({ phase: "test_coverage_critique", status: "skipped" })
+}
+// Proceed to Phase 8.5 (PRE-SHIP VALIDATION)
+```
+
+See [arc-phase-test.md](references/arc-phase-test.md) for Phase 7.8 reference.
+
 ## Phase 8.5: PRE-SHIP VALIDATION (deterministic)
 
 See [arc-phase-pre-ship-validator.md](references/arc-phase-pre-ship-validator.md) for the full algorithm.
@@ -602,6 +778,98 @@ Between every phase, after `updateCheckpoint()`, the dispatcher calls `checkStag
 - `extractErrorPatterns()` — called after TOME aggregation (Phase 6, Phase 7.5)
 - `updateFileVelocity()` — called after each mend round (Phase 7 → Phase 7.5)
 - `checkBudgetForecast()` — called between every phase (enhancement to checkArcTimeout)
+
+## Phase 8.55: RELEASE QUALITY CHECK (Codex cross-model validation)
+
+Cross-model validation of release artifacts before PR creation. Checks CHANGELOG completeness, breaking API changes, and version bump conventions.
+
+**Team**: None (orchestrator-only, inline codex exec)
+**Output**: `tmp/arc/{id}/release-quality.md`
+**Failure**: Non-blocking — advisory only. CDX-RELEASE findings warn but do NOT block ship phase.
+**Consumers**: Phase 9 SHIP reads `release-quality.md` to include diagnostics in PR body.
+
+```javascript
+// Phase 8.55: RELEASE QUALITY CHECK
+// 4-condition detection gate (canonical pattern)
+const codexAvailable = detectCodex()
+const codexDisabled = talisman?.codex?.disabled === true
+const releaseCheckEnabled = talisman?.codex?.release_quality_check?.enabled !== false
+const workflowIncluded = (talisman?.codex?.workflows ?? []).includes("arc")
+
+// 5th condition: cascade circuit breaker
+if (checkpoint.codex_cascade?.cascade_warning === true) {
+  Write(`tmp/arc/${id}/release-quality.md`, "# Release Quality Check (Codex)\n\nSkipped: Codex cascade circuit breaker active")
+  updateCheckpoint({ phase: "release_quality_check", status: "skipped" })
+} else if (codexAvailable && !codexDisabled && releaseCheckEnabled && workflowIncluded) {
+  const { timeout, reasoning, model: codexModel } = resolveCodexConfig(talisman, "release_quality_check", {
+    timeout: 300, reasoning: "high"  // high — checklist-style validation
+  })
+
+  // Read release artifacts
+  const preShipReport = Read(`tmp/arc/${id}/pre-ship-report.md`)
+  const changelogContent = exists("CHANGELOG.md") ? Read("CHANGELOG.md").substring(0, 5000) : "(no CHANGELOG.md found)"
+  const diff = Bash(`git diff ${baseBranch}...HEAD --stat`).substring(0, 5000)
+
+  // SEC-003: Prompt via temp file
+  const promptTmpFile = `tmp/arc/${id}/.codex-prompt-release-quality.tmp`
+  try {
+    const sanitizedPreShip = sanitizePlanContent(preShipReport)
+    const sanitizedChangelog = sanitizePlanContent(changelogContent)
+    const sanitizedDiff = sanitizePlanContent(diff)
+    const promptContent = `SYSTEM: You are a cross-model release quality checker.
+
+Validate release quality for this PR:
+
+=== PRE-SHIP REPORT ===
+${sanitizedPreShip}
+=== END PRE-SHIP REPORT ===
+
+=== CHANGELOG (last 5000 chars) ===
+${sanitizedChangelog}
+=== END CHANGELOG ===
+
+=== DIFF STAT ===
+${sanitizedDiff}
+=== END DIFF STAT ===
+
+For each finding, provide:
+- CDX-RELEASE-NNN: [BLOCK|HIGH|MEDIUM] - description
+- Category: CHANGELOG completeness / Breaking change / Version bump / Missing docs
+
+Check for:
+1. CHANGELOG entries missing for significant changes visible in diff
+2. Breaking API changes without migration documentation
+3. Version bump that doesn't match semver conventions (feat=minor, fix=patch, breaking=major)
+4. New dependencies added without documentation
+
+BLOCK-level findings are advisory only — they do NOT auto-block the ship phase.
+Base findings on actual artifacts, not assumptions.`
+
+    Write(promptTmpFile, promptContent)
+    const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${reasoning}" -t ${timeout} -j -g "${promptTmpFile}"`)
+    const classified = classifyCodexError(result)
+
+    // Update cascade tracker
+    updateCascadeTracker(checkpoint, classified)
+
+    Write(`tmp/arc/${id}/release-quality.md`, formatReport(classified, result, "Release Quality Check"))
+    updateCheckpoint({ phase: "release_quality_check", status: "completed", artifact: `tmp/arc/${id}/release-quality.md` })
+  } finally {
+    Bash(`rm -f "${promptTmpFile}"`)  // Guaranteed cleanup
+  }
+} else {
+  // Skip-path: MUST write output MD
+  const skipReason = !codexAvailable ? "codex not available"
+    : codexDisabled ? "codex.disabled=true"
+    : !releaseCheckEnabled ? "codex.release_quality_check.enabled=false"
+    : "arc not in codex.workflows"
+  Write(`tmp/arc/${id}/release-quality.md`, `# Release Quality Check (Codex)\n\nSkipped: ${skipReason}`)
+  updateCheckpoint({ phase: "release_quality_check", status: "skipped" })
+}
+// Proceed to Phase 9 (SHIP)
+```
+
+See [arc-phase-pre-ship-validator.md](references/arc-phase-pre-ship-validator.md) for Phase 8.55 reference.
 
 ## Phase 9: SHIP (PR Creation)
 
@@ -637,7 +905,8 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | PLAN REVIEW | PLAN REFINEMENT | `plan-review.md` | 3 reviewer verdicts (PASS/CONCERN/BLOCK) |
 | PLAN REFINEMENT | VERIFICATION | `concern-context.md` | Extracted concern list. Plan not modified |
 | VERIFICATION | SEMANTIC VERIFICATION | `verification-report.md` | Deterministic check results (PASS/WARN) |
-| SEMANTIC VERIFICATION | WORK | `codex-semantic-verification.md` | Codex contradiction findings (or skip) |
+| SEMANTIC VERIFICATION | TASK DECOMPOSITION | `codex-semantic-verification.md` | Codex contradiction findings (or skip) |
+| TASK DECOMPOSITION | WORK | `task-validation.md` | Task granularity/dependency validation (or skip) |
 | WORK | GAP ANALYSIS | Working tree + `work-summary.md` | Git diff of committed changes + task summary |
 | GAP ANALYSIS | CODEX GAP ANALYSIS | `gap-analysis.md` | Criteria coverage (ADDRESSED/MISSING/PARTIAL) |
 | CODEX GAP ANALYSIS | GAP REMEDIATION | `codex-gap-analysis.md` | Cross-model gap findings + `codex_needs_remediation` checkpoint flag from Phase 5.6 + `needs_remediation` checkpoint flag from Phase 5.5 STEP D |
@@ -646,8 +915,10 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | MEND | VERIFY MEND | `resolution-report.md` | Fixed/FP/Failed finding list |
 | VERIFY MEND | MEND (retry) | `review-focus-round-{N}.json` | Phase 6+7 reset to pending, progressive focus scope |
 | VERIFY MEND | TEST | `resolution-report.md` + checkpoint convergence | Convergence verdict (converged/halted) |
-| TEST | PRE-SHIP VALIDATION | `test-report.md` | Test results with pass_rate, coverage_pct, tiers_run (or skipped) |
-| PRE-SHIP VALIDATION | SHIP | `pre-ship-report.md` | Dual-gate validation verdict (PASS/WARN/BLOCK) + diagnostics |
+| TEST | TEST COVERAGE CRITIQUE | `test-report.md` | Test results with pass_rate, coverage_pct, tiers_run (or skipped) |
+| TEST COVERAGE CRITIQUE | PRE-SHIP VALIDATION | `test-critique.md` | CDX-TEST findings + `test_critique_needs_attention` flag (or skip) |
+| PRE-SHIP VALIDATION | RELEASE QUALITY CHECK | `pre-ship-report.md` | Dual-gate validation verdict (PASS/WARN/BLOCK) + diagnostics |
+| RELEASE QUALITY CHECK | SHIP | `release-quality.md` | CDX-RELEASE findings (advisory, or skip). Feeds into PR body |
 | SHIP | MERGE | `pr-body.md` + `checkpoint.pr_url` | PR created, URL stored |
 | MERGE | Done | `merge-report.md` | Merged or auto-merge enabled. Pipeline summary to user |
 
@@ -660,6 +931,7 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | PLAN REFINEMENT | Non-blocking — proceed with deferred concerns | Advisory phase |
 | VERIFICATION | Non-blocking — proceed with warnings | Informational |
 | SEMANTIC VERIFICATION | Non-blocking — Codex timeout/unavailable → skip, proceed | Informational (v1.39.0) |
+| TASK DECOMPOSITION | Non-blocking — Codex timeout/unavailable → skip, proceed | Advisory (v1.51.0) |
 | WORK | Halt if <50% tasks complete. Partial commits preserved | `/rune:arc --resume` |
 | GAP ANALYSIS | Non-blocking — WARN only | Advisory context for code review |
 | CODEX GAP ANALYSIS | Non-blocking — Codex timeout/unavailable → skip, proceed | Advisory (v1.39.0) |
@@ -668,7 +940,9 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | MEND | Halt if >3 FAILED findings | User fixes, `/rune:arc --resume` |
 | VERIFY MEND | Non-blocking — retries up to tier max cycles (LIGHT: 2, STANDARD: 3, THOROUGH: 5), then proceeds | Convergence gate is advisory |
 | TEST | Non-blocking WARN only. Test failures recorded in report | `--no-test` to skip entirely |
-| PRE-SHIP VALIDATION | Non-blocking — BLOCK verdict proceeds with warning in PR body | Orchestrator-only, <30s |
+| TEST COVERAGE CRITIQUE | Non-blocking — Codex timeout/unavailable → skip, proceed. CDX-TEST findings are advisory | Advisory (v1.51.0) |
+| PRE-SHIP VALIDATION | Non-blocking — BLOCK verdict proceeds with warning in PR body | Orchestrator-only |
+| RELEASE QUALITY CHECK | Non-blocking — Codex timeout/unavailable → skip, proceed. CDX-RELEASE findings are advisory | Advisory (v1.51.0) |
 | SHIP | Skip PR creation, proceed to completion report. Branch was pushed | User creates PR manually: `gh pr create` |
 | MERGE | Skip merge, PR remains open. Rebase conflicts → warn with resolution steps | User merges manually: `gh pr merge --squash` |
 
@@ -720,7 +994,7 @@ Catches zombie teammates from the last delegated phase. Uses 3-strategy cleanup:
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
 | Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to next phase (SEMANTIC VERIFICATION if Codex available, otherwise WORK) |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
-| Schema v1-v14 checkpoint on --resume | Auto-migrate to v15 (marks removed audit phases as skipped, adds parent_plan, stagnation, no_test flag) |
+| Schema v1-v15 checkpoint on --resume | Auto-migrate to v16 (v15→v16 adds test_critique_needs_attention, codex_cascade fields, new phase entries for task_decomposition, test_coverage_critique, release_quality_check) |
 | Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |
 | Convergence evaluation timeout (>4 min) | Skip convergence check, proceed to test with warning |
 | TOME missing or malformed after re-review | Default to "halted" (fail-closed) |

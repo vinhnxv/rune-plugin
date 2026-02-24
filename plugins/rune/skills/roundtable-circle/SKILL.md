@@ -58,6 +58,8 @@ Phase 4:   Monitor         → TaskList polling, 5-min stale detection
 Phase 4.5: Doubt Seer     → Cross-examine Ash findings (conditional)
 Phase 5:   Aggregate       → Summon Runebinder → writes TOME.md
 Phase 6:   Verify          → Truthsight validation on P1 findings
+Phase 6.2: Diff Verify     → Codex cross-model P1/P2 verification (v1.51.0+)
+Phase 6.3: Arch Review     → Codex architecture review (audit mode only, v1.51.0+)
 Phase 7:   Cleanup         → Shutdown requests → approvals → TeamDelete
 ```
 
@@ -104,7 +106,9 @@ tmp/reviews/{id}/
 ├── knowledge-keeper.md      # Docs review findings (if summoned)
 ├── codex-oracle.md          # Cross-model review findings (if codex CLI available)
 ├── TOME.md                  # Aggregated + deduplicated findings
-└── truthsight-report.md     # Verification results (if Layer 2 enabled)
+├── truthsight-report.md     # Verification results (if Layer 2 enabled)
+├── codex-diff-verification.md  # Codex diff verification (Phase 6.2, v1.51.0+)
+└── architecture-review.md   # Codex architecture review (Phase 6.3, audit only, v1.51.0+)
 ```
 
 ### Audit Mode
@@ -463,6 +467,148 @@ The verifier:
 > **Note:** `completion.json` was defined in early versions but is not written by review/audit commands. Use Seal metadata + TOME.md instead. The Seal metadata (embedded in each Ash output) + state files (`tmp/.rune-{type}-*.json`) serve the same purpose. The structured output from the rune-orchestration File-Based Handoff Pattern references it for custom workflows, but the built-in review/audit lifecycle relies on Seal + TOME.md instead.
 
 Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/truthsight-pipeline.md)
+
+### Phase 6.2: Codex Diff Verification (Layer 3)
+
+Cross-model verification of P1/P2 findings against actual diff hunks. Adds a third verification layer after Layer 2 (Smart Verifier).
+
+```javascript
+// Phase 6.2: Codex Diff Verification (Layer 3)
+// 4-condition detection gate (canonical pattern)
+const codexAvailable = detectCodex()
+const codexDisabled = talisman?.codex?.disabled === true
+const diffVerifyEnabled = talisman?.codex?.diff_verification?.enabled !== false
+const workflowIncluded = (talisman?.codex?.workflows ?? []).includes("review")
+  || (talisman?.codex?.workflows ?? []).includes("audit")  // audit shares Roundtable Circle
+
+if (codexAvailable && !codexDisabled && diffVerifyEnabled && workflowIncluded) {
+  const { timeout, reasoning, model: codexModel } = resolveCodexConfig(talisman, "diff_verification", {
+    timeout: 300, reasoning: "high"  // high — structured 3-way verdict, not deep analysis
+  })
+
+  // Sample P1/P2 findings — prefer truthsight-report.md, fall back to TOME.md
+  let findingsSource = `${outputDir}truthsight-report.md`
+  if (!exists(findingsSource)) findingsSource = `${outputDir}TOME.md`  // Layer 2 skipped (<3 Ashes)
+  const findings = sampleP1P2Findings(Read(findingsSource), 3)
+
+  if (findings.length === 0) {
+    Write(`${outputDir}codex-diff-verification.md`, "# Codex Diff Verification\n\nSkipped: No P1/P2 findings to verify.")
+  } else {
+    // SEC-003: Build prompt via temp file (never inline string interpolation)
+    const nonce = Bash(`openssl rand -hex 16`).trim()
+    const promptTmpFile = `${outputDir}.codex-prompt-diff-verify.tmp`
+    try {
+      const sanitizedFindings = sanitizePlanContent(findings)
+      const diffContent = Bash(`git diff ${baseBranch}...HEAD`).substring(0, 15000)
+      const sanitizedDiff = sanitizeUntrustedText(diffContent)  // Unicode directional override protection
+      const promptContent = `SYSTEM: You are a cross-model diff verification specialist.
+
+For each finding below, compare against the actual diff hunk and respond with one of:
+- CONFIRMED: Finding accurately reflects code behavior in the diff
+- WEAKENED: Finding is partially valid but overstated
+- REFUTED: Finding does not match actual diff behavior
+
+=== FINDINGS ===
+<<<NONCE_${nonce}>>>
+${sanitizedFindings}
+<<<END_NONCE_${nonce}>>>
+
+=== DIFF ===
+<<<NONCE_${nonce}>>>
+${sanitizedDiff}
+<<<END_NONCE_${nonce}>>>
+
+For each finding, output: CDX-VERIFY-NNN: CONFIRMED|WEAKENED|REFUTED — reason
+Base verdicts on actual code, not assumptions.`
+
+      Write(promptTmpFile, promptContent)
+      const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${reasoning}" -t ${timeout} -j -g "${promptTmpFile}"`)
+      const classified = classifyCodexError(result)
+
+      if (classified === "SUCCESS") {
+        const verdicts = parseVerdicts(result.stdout)  // loose regex /CONFIRMED|WEAKENED|REFUTED/i
+        for (const v of verdicts) {
+          if (v.verdict === "CONFIRMED") adjustConfidence(v.findingId, +0.15)
+          else if (v.verdict === "REFUTED") demoteToP3(v.findingId)
+          // WEAKENED: no change
+        }
+      }
+      Write(`${outputDir}codex-diff-verification.md`, formatVerificationReport(classified, verdicts))
+    } finally {
+      Bash(`rm -f "${promptTmpFile}"`)  // Guaranteed cleanup
+    }
+  }
+} else {
+  const skipReason = !codexAvailable ? "codex not available"
+    : codexDisabled ? "codex.disabled=true"
+    : !diffVerifyEnabled ? "codex.diff_verification.enabled=false"
+    : "review/audit not in codex.workflows"
+  Write(`${outputDir}codex-diff-verification.md`, `# Codex Diff Verification\n\nSkipped: ${skipReason}`)
+}
+```
+
+**Confidence adjustments:**
+- CONFIRMED: +0.15 confidence bonus (same as `codex.verification.cross_model_bonus`)
+- WEAKENED: no change (finding is partially valid)
+- REFUTED: demote to P3 with `[CDX-REFUTED]` tag (still visible, lower priority)
+
+### Phase 6.3: Codex Architecture Review (Audit Mode Only)
+
+Cross-model analysis of TOME findings for cross-cutting architectural patterns. Only runs in audit mode (`scope=full`).
+
+```javascript
+// Phase 6.3: Codex Architecture Review (audit mode only)
+// 5-condition gate: 4-condition canonical + scope check
+const codexAvailable = detectCodex()
+const codexDisabled = talisman?.codex?.disabled === true
+const archReviewEnabled = talisman?.codex?.architecture_review?.enabled !== false
+const workflowIncluded = (talisman?.codex?.workflows ?? []).includes("audit")
+const isAuditMode = scope === "full"
+
+if (codexAvailable && !codexDisabled && archReviewEnabled && workflowIncluded && isAuditMode) {
+  const { timeout, reasoning, model: codexModel } = resolveCodexConfig(talisman, "architecture_review", {
+    timeout: 600, reasoning: "xhigh"  // xhigh — cross-cutting pattern analysis
+  })
+
+  const tomeContent = Read(`${outputDir}TOME.md`).substring(0, 20000)
+  const nonce = Bash(`openssl rand -hex 16`).trim()
+  const promptTmpFile = `${outputDir}.codex-prompt-arch-review.tmp`
+  try {
+    const sanitizedTome = sanitizePlanContent(tomeContent)
+    const promptContent = `SYSTEM: You are a cross-model architecture consistency reviewer.
+
+Analyze the aggregated TOME findings below for cross-cutting architectural patterns that
+individual reviewers may have missed. Focus on:
+1. Naming drift — inconsistent naming conventions across modules
+2. Layering violations — direct dependencies between layers that should be decoupled
+3. Error handling inconsistency — mixed error strategies across the codebase
+
+=== TOME FINDINGS ===
+<<<NONCE_${nonce}>>>
+${sanitizedTome}
+<<<END_NONCE_${nonce}>>>
+
+For each finding, output: CDX-ARCH-NNN: [CRITICAL|HIGH|MEDIUM] — description
+Include evidence from the TOME findings that support each architectural observation.
+Base findings on actual patterns, not assumptions.`
+
+    Write(promptTmpFile, promptContent)
+    const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${reasoning}" -t ${timeout} -j -g "${promptTmpFile}"`)
+    const classified = classifyCodexError(result)
+
+    Write(`${outputDir}architecture-review.md`, formatArchReviewReport(classified, result))
+  } finally {
+    Bash(`rm -f "${promptTmpFile}"`)  // Guaranteed cleanup
+  }
+} else {
+  const skipReason = !codexAvailable ? "codex not available"
+    : codexDisabled ? "codex.disabled=true"
+    : !archReviewEnabled ? "codex.architecture_review.enabled=false"
+    : !isAuditMode ? "architecture review only runs in audit mode (scope=full)"
+    : "audit not in codex.workflows"
+  Write(`${outputDir}architecture-review.md`, `# Codex Architecture Review\n\nSkipped: ${skipReason}`)
+}
+```
 
 ## Phase 7: Cleanup
 

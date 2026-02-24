@@ -763,7 +763,7 @@ codex:
   # Inner stream idle timeout — fires when model stops streaming (seconds).
   # Default: timeout - 60s. Must be < timeout.
   stream_idle_timeout: 540
-  workflows: [review, audit, plan, forge, work, mend]
+  workflows: [review, audit, plan, forge, work, mend, goldmask, inspect]
   # Work advisory settings (Phase 4.5 of /rune:strive — non-blocking plan-vs-implementation check)
   work_advisory:
     enabled: true                    # Set false to skip advisory in work pipeline
@@ -831,6 +831,70 @@ codex:
     enabled: true                    # Enable learning generalizability check (default: true)
     timeout: 300                     # 5 min minimum for xhigh reasoning (default: 300s)
     reasoning: "xhigh"              # xhigh reasoning for maximum quality
+  # ── Codex Expansion Keys (v1.51.0+) ──────────────────
+  # 10 additional inline cross-model verification points.
+  # All follow the canonical 4-condition detection gate + SEC-003 temp file pattern.
+  # 6 default-on (high ROI), 4 opt-in OFF (greenfield or niche).
+  # Cross-model diff verification in /rune:appraise Phase 6.2
+  # Verifies P1/P2 findings against actual diff hunks — 3-way verdict (CONFIRMED/WEAKENED/REFUTED)
+  diff_verification:
+    enabled: true                    # Default ON — high ROI, structured verdict (default: true)
+    timeout: 300                     # Structured 3-way verdict, not deep analysis (default: 300s)
+    reasoning: "high"               # high reasoning for structured verdict
+  # Cross-model test coverage critique in /rune:arc Phase 7.8
+  # Analyzes test report + diff for missing edge cases, brittle patterns, untested error paths
+  test_coverage_critique:
+    enabled: true                    # Default ON — catches coverage gaps cross-model (default: true)
+    timeout: 600                     # Must trace coverage gaps across diff + test report (default: 600s)
+    reasoning: "xhigh"              # xhigh — deep analysis of test coverage
+  # Cross-model release quality check in /rune:arc Phase 8.55
+  # Validates CHANGELOG completeness, breaking API changes, version bump conventions
+  release_quality_check:
+    enabled: true                    # Default ON — checklist-style validation (default: true)
+    timeout: 300                     # Checklist-style, not deep analysis (default: 300s)
+    reasoning: "high"               # high reasoning for structured validation
+  # Cross-model section validation in /rune:forge Phase 1.7
+  # Checks which plan sections reference high-risk files but have no Forge Gaze match
+  section_validation:
+    enabled: true                    # Default ON — binary coverage check (default: true)
+    timeout: 300                     # Binary check — "does section reference files?" (default: 300s)
+    reasoning: "medium"             # medium — simple binary check
+  # Cross-model research tiebreaker in /rune:devise Phase 2.3.5
+  # Conditional — only runs when research agents produce conflicting recommendations
+  research_tiebreaker:
+    enabled: true                    # Default ON — conditional, usually skips (default: true)
+    timeout: 300                     # Compare 2-3 positions (default: 300s)
+    reasoning: "high"               # high reasoning for conflict resolution
+  # Cross-model task decomposition validation in /rune:arc Phase 4.5
+  # Validates task granularity, dependencies, and file ownership conflicts before work begins
+  task_decomposition:
+    enabled: true                    # Default ON — structured granularity check (default: true)
+    timeout: 300                     # Structured check (default: 300s)
+    reasoning: "high"               # high reasoning for decomposition analysis
+  # Cross-model risk amplification in Goldmask Phase 3.5
+  # Traces 2nd/3rd-order risk chains that single-model analysis likely misses
+  risk_amplification:
+    enabled: false                   # OFF by default — greenfield, unproven value (opt-in)
+    timeout: 600                     # Deep transitive dependency tracing (default: 600s)
+    reasoning: "xhigh"              # xhigh — deep risk chain analysis
+  # Cross-model drift detection in /rune:inspect Phase 1.5
+  # Compares plan intent vs code semantics for pre-inspection drift signals
+  drift_detection:
+    enabled: false                   # OFF by default — greenfield, inspect already catches drift post-hoc (opt-in)
+    timeout: 600                     # Plan-vs-code semantic comparison (default: 600s)
+    reasoning: "xhigh"              # xhigh — semantic drift requires deep analysis
+  # Cross-model architecture consistency review in /rune:audit Phase 6.3
+  # Analyzes TOME findings for cross-cutting architectural patterns (audit mode only)
+  architecture_review:
+    enabled: false                   # OFF by default — audit-only niche use case (opt-in)
+    timeout: 600                     # TOME aggregate analysis (default: 600s)
+    reasoning: "xhigh"              # xhigh — cross-cutting pattern analysis
+  # Cross-model post-monitor architectural critique in /rune:strive Phase 3.7
+  # Analyzes all committed code vs plan for architectural drift after workers complete
+  post_monitor_critique:
+    enabled: false                   # OFF by default — post-execution signal has limited actionability (opt-in)
+    timeout: 300                     # Committed code vs plan check (default: 300s)
+    reasoning: "high"               # high reasoning for architectural comparison
 
 # ──────────────────────────────────────────────
 # Context Monitor — Runtime context rot prevention (v1.78.0+)
