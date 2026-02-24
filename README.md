@@ -513,6 +513,16 @@ rune-plugin/
 - [Hướng dẫn thực thi Rune (Tiếng Việt): strive + goldmask](docs/guides/rune-work-execution-guide.vi.md) — implementation swarm và phân tích tác động
 - [Rune advanced workflows guide (English): arc-hierarchy + arc-issues + echoes](docs/guides/rune-advanced-workflows-guide.en.md) — hierarchical execution, GitHub Issues batch, and agent memory
 - [Hướng dẫn workflow nâng cao Rune (Tiếng Việt): arc-hierarchy + arc-issues + echoes](docs/guides/rune-advanced-workflows-guide.vi.md) — thực thi phân cấp, batch GitHub Issues, và bộ nhớ agent
+- [Rune getting started guide (English)](docs/guides/rune-getting-started.en.md) — quick start for first-time users
+- [Hướng dẫn bắt đầu nhanh Rune (Tiếng Việt)](docs/guides/rune-getting-started.vi.md) — hướng dẫn nhanh cho người mới
+- [Rune talisman deep dive (English)](docs/guides/rune-talisman-deep-dive-guide.en.md) — master all 15+ configuration sections
+- [Hướng dẫn talisman chuyên sâu Rune (Tiếng Việt)](docs/guides/rune-talisman-deep-dive-guide.vi.md) — làm chủ 15+ section cấu hình
+- [Rune custom agents and extensions (English)](docs/guides/rune-custom-agents-and-extensions-guide.en.md) — build custom Ashes, CLI-backed reviewers, Forge Gaze integration
+- [Hướng dẫn custom agent và mở rộng Rune (Tiếng Việt)](docs/guides/rune-custom-agents-and-extensions-guide.vi.md) — xây dựng custom Ash, CLI reviewer, tích hợp Forge Gaze
+- [Rune troubleshooting and optimization (English)](docs/guides/rune-troubleshooting-and-optimization-guide.en.md) — debug failures, reduce token cost, tune performance
+- [Hướng dẫn xử lý sự cố và tối ưu Rune (Tiếng Việt)](docs/guides/rune-troubleshooting-and-optimization-guide.vi.md) — chẩn đoán lỗi, giảm token, tối ưu hiệu suất
+- [Rune engineering solutions (English)](docs/solutions/architecture/rune-engineering-solutions.en.md) — 30 unique solutions across 200+ commits
+- [Giải pháp kỹ thuật Rune (Tiếng Việt)](docs/solutions/architecture/rune-engineering-solutions.vi.md) — 30 giải pháp đặc biệt qua hơn 200 commits
 - [Changelog](plugins/rune/CHANGELOG.md) — release history
 - [Configuration guide](plugins/rune/talisman.example.yml) — full talisman schema
 
