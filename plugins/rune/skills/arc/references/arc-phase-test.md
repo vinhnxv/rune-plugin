@@ -349,3 +349,54 @@ If this phase crashes before cleanup:
 | Screenshots | `tmp/arc/{id}/screenshots/` |
 
 Recovery: `prePhaseCleanup()` handles team/task cleanup before phase, `postPhaseCleanup()` handles cleanup after. See [arc-phase-cleanup.md](arc-phase-cleanup.md). Docker containers auto-stop on Docker daemon restart. Browser sessions time out after 5 minutes of inactivity.
+
+---
+
+## Phase 7.8: TEST COVERAGE CRITIQUE (Codex cross-model, v1.51.0)
+
+Runs after Phase 7.7 TEST completes. Inline Codex integration — no team, orchestrator-only.
+
+**Team**: None (orchestrator-only)
+**Tools**: Read, Write, Bash (codex-exec.sh)
+**Timeout**: 10 min (600s Codex exec + overhead)
+**Inputs**: `tmp/arc/{id}/test-report.md`, git diff
+**Outputs**: `tmp/arc/{id}/test-critique.md`
+**Error handling**: Non-blocking. CDX-TEST findings are advisory — `test_critique_needs_attention` flag is set but never auto-fails the pipeline.
+
+### Detection Gate
+
+4-condition canonical pattern + cascade circuit breaker (5th condition):
+1. `detectCodex()` — CLI available and authenticated
+2. `!codexDisabled` — `talisman.codex.disabled !== true`
+3. `testCritiqueEnabled` — `talisman.codex.test_coverage_critique.enabled !== false` (default ON)
+4. `workflowIncluded` — `"arc"` in `talisman.codex.workflows` (NOT `"work"` — arc phases register under `"arc"`)
+5. `!cascade_warning` — cascade circuit breaker not tripped
+
+### Config
+
+| Key | Default | Range |
+|-----|---------|-------|
+| `codex.test_coverage_critique.enabled` | `true` | boolean |
+| `codex.test_coverage_critique.timeout` | `600` | 300-900s |
+| `codex.test_coverage_critique.reasoning` | `"xhigh"` | medium/high/xhigh |
+
+### CDX-TEST Finding Format
+
+```
+CDX-TEST-001: [CRITICAL] Missing edge case — empty input array not tested in sort()
+  Category: Missing edge case
+  Suggested test: test_sort_empty_array() → expect([])
+
+CDX-TEST-002: [HIGH] Brittle pattern — test relies on exact timestamp matching
+  Category: Brittle pattern
+  Suggested fix: Use time range assertion instead of exact match
+```
+
+### Checkpoint Integration
+
+When CRITICAL findings detected:
+```javascript
+checkpoint.test_critique_needs_attention = true
+```
+
+This flag is informational — human reviews during pre-ship (Phase 8.5). It does NOT trigger auto-remediation.

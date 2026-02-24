@@ -344,3 +344,57 @@ updateCheckpoint({
   team_name: null
 })
 ```
+
+---
+
+## Phase 8.55: RELEASE QUALITY CHECK (Codex cross-model, v1.51.0)
+
+Runs after Phase 8.5 PRE-SHIP VALIDATION. Inline Codex integration — no team, orchestrator-only.
+
+**Team**: None (orchestrator-only)
+**Tools**: Read, Write, Bash (codex-exec.sh)
+**Timeout**: 5 min (300s Codex exec + overhead)
+**Inputs**: `tmp/arc/{id}/pre-ship-report.md`, `CHANGELOG.md`, git diff stat
+**Outputs**: `tmp/arc/{id}/release-quality.md`
+**Error handling**: Non-blocking. CDX-RELEASE findings are advisory — they warn but do NOT block ship phase.
+**Consumers**: Phase 9 SHIP reads `release-quality.md` to include diagnostics in PR body.
+
+### Detection Gate
+
+4-condition canonical pattern + cascade circuit breaker (5th condition):
+1. `detectCodex()` — CLI available and authenticated
+2. `!codexDisabled` — `talisman.codex.disabled !== true`
+3. `releaseCheckEnabled` — `talisman.codex.release_quality_check.enabled !== false` (default ON)
+4. `workflowIncluded` — `"arc"` in `talisman.codex.workflows`
+5. `!cascade_warning` — cascade circuit breaker not tripped
+
+### Config
+
+| Key | Default | Range |
+|-----|---------|-------|
+| `codex.release_quality_check.enabled` | `true` | boolean |
+| `codex.release_quality_check.timeout` | `300` | 300-900s |
+| `codex.release_quality_check.reasoning` | `"high"` | medium/high/xhigh |
+
+### CDX-RELEASE Finding Format
+
+```
+CDX-RELEASE-001: [BLOCK] CHANGELOG missing entry for new API endpoint /users/bulk
+  Category: CHANGELOG completeness
+  Evidence: diff adds route handler at src/routes/users.ts:45
+
+CDX-RELEASE-002: [HIGH] Breaking change without migration docs — removed `legacyAuth` parameter
+  Category: Breaking change
+  Evidence: diff removes parameter at src/auth.ts:12, no MIGRATION.md update
+```
+
+### Phase 9 Integration
+
+Phase 9 (SHIP) reads `release-quality.md` alongside `pre-ship-report.md` to include diagnostics in PR body:
+```javascript
+// In arc-phase-ship.md:
+const releaseQuality = exists(`tmp/arc/${id}/release-quality.md`)
+  ? Read(`tmp/arc/${id}/release-quality.md`)
+  : null
+// Append CDX-RELEASE findings (if any) to PR body diagnostics section
+```

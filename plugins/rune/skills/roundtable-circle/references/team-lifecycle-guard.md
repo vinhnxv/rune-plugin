@@ -155,10 +155,19 @@ for (const member of allMembers) {
   SendMessage({ type: "shutdown_request", recipient: member, content: "Cancelled" })
 }
 
-// 4. Wait (max 30s)
+// 4. Grace period — let teammates deregister (15s)
+if (allMembers.length > 0) {
+  Bash(`sleep 15`)
+}
 
-// 5. TeamDelete with fallback
-try { TeamDelete() } catch (e) {
+// 5. TeamDelete with retry-with-backoff (0s, 5s, 10s)
+const CLEANUP_DELAYS = [0, 5000, 10000]
+let cleanupSucceeded = false
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupSucceeded = true; break } catch (e) {}
+}
+if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamPrefix}-${identifier}/" "$CHOME/tasks/${teamPrefix}-${identifier}/" 2>/dev/null`)
 }
 ```
@@ -220,12 +229,28 @@ for (const member of allMembers) {
   SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
 }
 
-// 3. Wait for shutdown approvals (max 30s)
+// 3. Grace period — let teammates process shutdown_request and deregister
+// Without this, TeamDelete fires before teammates approve shutdown → "active members" error.
+// 15s covers most cases (teammate receives msg, processes, calls shutdown_response, SDK deregisters).
+if (allMembers.length > 0) {
+  Bash(`sleep 15`)
+}
 
-// 4. TeamDelete with fallback
+// 4. TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+// Total max wait: 15s grace + 0s + 5s + 10s = 30s (matches documented "max 30s")
 // SEC-9 FIX: Re-validate team_name before rm -rf (defense-in-depth — team_name was read from config.json)
 if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) throw new Error(`Invalid team_name: ${team_name}`)
-try { TeamDelete() } catch (e) {
+
+// Retry-with-backoff: 0s, 5s, 10s (15s total retry budget after 15s grace period)
+const CLEANUP_DELAYS = [0, 5000, 10000]
+let cleanupSucceeded = false
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${team_name}/" "$CHOME/tasks/${team_name}/" 2>/dev/null`)
 }
 ```
@@ -245,7 +270,10 @@ Do NOT rely on static lists — they miss dynamically-added teammates.
 for (const member of allMembers) {
   SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
 }
-// Wait max 30s for shutdown_approved responses.
+// Grace period: let teammates deregister before TeamDelete
+if (allMembers.length > 0) {
+  Bash(`sleep 15`)  // 15s grace + 15s retry budget = 30s max
+}
 ```
 
 ### Step 3: TeamDelete (SDK state + filesystem)
@@ -328,7 +356,7 @@ All multi-agent commands: plan.md, work.md, arc SKILL.md, mend.md, review.md, au
 - For additional defense-in-depth, commands that delete user-facing directories (e.g., `/rune:rest`) should use `realpath` containment checks in addition to team name validation
 - Do not interpolate unsanitized external input into team names — validate first
 - Always update workflow state files (e.g., `tmp/.rune-review-{id}.json`) AFTER team cleanup, not before
-- The 30s wait is a best-effort grace period — some agents may need longer for complex file writes
+- The 30s wait budget is: 15s grace period (sleep) + 15s retry-with-backoff (0s + 5s + 10s). Some agents may need longer for complex file writes — the filesystem fallback handles this
 - Arc pipelines call TeamCreate/TeamDelete per-phase, so each phase transition needs the pre-create guard
 
 ## CDX-7 Crash Recovery (Cross-Reference)

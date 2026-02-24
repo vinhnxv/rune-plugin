@@ -465,8 +465,13 @@ for (const member of allMembers) {
   SendMessage({ type: "shutdown_request", recipient: member, content: `${label} complete` })
 }
 
-// 3. TeamDelete with retry-with-backoff
-const CLEANUP_DELAYS = [0, 3000, 8000]
+// 3. Grace period — let teammates deregister before TeamDelete
+if (allMembers.length > 0) {
+  Bash(`sleep 15`)
+}
+
+// 4. TeamDelete with retry-with-backoff (0s, 5s, 10s — 15s retry budget after 15s grace)
+const CLEANUP_DELAYS = [0, 5000, 10000]
 let cleanupSucceeded = false
 for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
   if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
