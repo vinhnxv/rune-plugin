@@ -84,23 +84,23 @@ class TestPreflightValidPaths:
         assert result.returncode == 0
         assert result.stderr.strip() == ""
 
-    def test_paths_with_spaces(self, tmp_path):
-        """Plan files with spaces in path are accepted."""
+    def test_paths_with_spaces_rejected(self, tmp_path):
+        """Plan files with spaces in path are rejected (SEC-001 allowlist)."""
         dir_with_space = tmp_path / "my plans"
         dir_with_space.mkdir()
         plan = dir_with_space / "plan file.md"
         plan.write_text("# Plan\n")
         result = run_preflight([str(plan)])
-        assert result.returncode == 0
-        assert str(plan) in result.stdout
+        assert result.returncode == 1
+        assert "disallowed characters" in result.stderr.lower()
 
-    def test_paths_with_tilde_in_name(self, tmp_path):
-        """Plan files with tilde in filename are accepted (not shell expansion)."""
+    def test_paths_with_tilde_in_name_rejected(self, tmp_path):
+        """Plan files with tilde in filename are rejected (SEC-001 allowlist)."""
         plan = tmp_path / "plan~backup.md"
         plan.write_text("# Plan\n")
         result = run_preflight([str(plan)])
-        assert result.returncode == 0
-        assert str(plan) in result.stdout
+        assert result.returncode == 1
+        assert "disallowed characters" in result.stderr.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +238,7 @@ class TestPreflightShellMetachars:
         result = run_preflight([str(plan)])
         assert result.returncode == 1
         assert "ERROR" in result.stderr
-        assert "metacharacter" in result.stderr.lower()
+        assert "disallowed characters" in result.stderr.lower()
 
     @pytest.mark.security
     def test_rejects_semicolon(self, tmp_path):
