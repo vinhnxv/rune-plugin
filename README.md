@@ -465,6 +465,10 @@ rune-plugin/
 ## Links
 
 - [Detailed component reference](plugins/rune/README.md) — all agents, skills, commands, hooks
+- [Rune user guide (English): arc + arc-batch](docs/guides/rune-arc-and-batch-guide.en.md) — operational guide with greenfield/brownfield use cases
+- [Hướng dẫn Rune (Tiếng Việt): arc + arc-batch](docs/guides/rune-arc-and-batch-guide.vi.md) — hướng dẫn vận hành kèm use case greenfield/brownfield
+- [Rune planning guide (English): devise + forge + plan-review + inspect](docs/guides/rune-planning-and-plan-quality-guide.en.md) — how to write and validate plan files correctly
+- [Hướng dẫn planning Rune (Tiếng Việt): devise + forge + plan-review + inspect](docs/guides/rune-planning-and-plan-quality-guide.vi.md) — cách lập plan và review plan đúng chuẩn
 - [Changelog](plugins/rune/CHANGELOG.md) — release history
 - [Configuration guide](plugins/rune/talisman.example.yml) — full talisman schema
 

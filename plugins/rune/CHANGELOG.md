@@ -16,12 +16,12 @@
 
 ### Changed
 - `forge-keeper.md`: Description updated with gatekeeper keywords, sections expanded from 7 to 10 (203 → 274 lines)
-- `tide-watcher.md`: Description updated with frontend race keywords, sections expanded
+- `tide-watcher.md`: Description updated with frontend race keywords, sections expanded from 8 to 11 (adding Framework-Specific DOM Lifecycle Races, Browser API Synchronization, State Machine Enforcement)
 - `review-checklist.md`: Pre-Analysis step added for Enforcement Asymmetry
 - `data-integrity-patterns.md`: Dual-write migration pattern section added
 - `async-patterns.md`: WebSocket/SSE reconnection race patterns added
 - `dedup-runes.md`: Standalone prefix table added, reserved standalone prefixes listed
-- `agent-registry.md`: Updated counts (34 → 37 review, 10 → 11 utility, total 79 → 82)
+- `agent-registry.md`: Updated counts (34 → 37 review, 10 → 12 utility*, total 79 → 83)
 - `plugin.json` / `marketplace.json`: Version 1.88.0 → 1.89.0, agent counts updated
 
 ## [1.88.0] - 2026-02-24

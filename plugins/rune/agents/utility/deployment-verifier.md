@@ -229,8 +229,10 @@ Include in Seal: `Inner-flame: {pass|fail|partial}. Revised: {count}.`
 
 ### 24-Hour Monitoring
 {monitoring table or "Manual monitoring plan required"}
+```
 
 ### SEAL
+```
 DEPLOY-{NNN}: {artifact_count} artifacts generated | Invariants: {n} | Steps: {n} | Reversible: {n}/{total}
 Inner-flame: {pass|fail|partial}. Revised: {count}.
 ```

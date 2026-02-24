@@ -82,3 +82,5 @@ review:
       - "lib/**"
       - "common/**"
 ```
+
+> **Cross-reference**: This protocol is integrated into review agent checklists via the Pre-Analysis step. See `simplicity-warden.md`, `pattern-seer.md`, and `type-warden.md` for per-agent adaptations. The `talisman.example.yml` `enforcement_asymmetry:` section documents the full configuration schema.

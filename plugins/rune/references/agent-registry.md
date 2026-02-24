@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 82 agents** (37 review + 5 research + 2 work + 12 utility* + 23 investigation + 4 testing)
+**Total: 83 agents** (37 review + 5 research + 2 work + 12 utility* + 23 investigation + 4 testing)
 
 \* 12 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 

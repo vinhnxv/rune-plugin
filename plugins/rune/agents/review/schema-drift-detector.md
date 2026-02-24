@@ -17,7 +17,7 @@ tools:
   - Read
   - Glob
   - Grep
-model: haiku
+model: sonnet
 mcpServers:
   - echo-search
 ---

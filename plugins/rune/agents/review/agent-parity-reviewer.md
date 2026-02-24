@@ -19,6 +19,7 @@ tools:
   - Grep
 mcpServers:
   - echo-search
+model: sonnet
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->
@@ -261,6 +262,12 @@ After completing analysis, verify:
 - [ ] Findings are **actionable** — each has a concrete fix suggestion
 - [ ] **Confidence score** assigned (0-100) with 1-sentence justification — reflects evidence strength, not finding severity
 - [ ] **Cross-check**: confidence >= 80 requires evidence-verified ratio >= 50%. If not, recalibrate.
+
+### Inner Flame (Self-Review Protocol)
+Before finalizing output, apply the 3-layer Inner Flame check:
+1. **Grounding**: Every finding references actual file:line evidence from Read tool output
+2. **Completeness**: All files in scope were read (not assumed), all checklist items addressed
+3. **Self-Adversarial**: Challenge your own findings — could any be false positives? Are confidence levels honest?
 
 ### Pre-Flight
 Before writing output file, confirm:

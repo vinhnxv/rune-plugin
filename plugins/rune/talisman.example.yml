@@ -159,12 +159,6 @@ ashes:
     #     always: true                     # Always summon (skip file matching)
     #   context_budget: 20
 
-    # Example 6: Persona-based reviewer (v1.88.0+)
-    # Use built-in persona agents or create your own opinionated reviewer.
-    # - name: "senior-engineer"
-    #   agent: "senior-engineer-reviewer"  # Built-in persona agent
-    #   workflows: [review]
-
 # ──────────────────────────────────────────────
 # Settings — Global behavior adjustments
 # ──────────────────────────────────────────────
@@ -209,6 +203,8 @@ settings:
   # Whether Truthsight Layer 2 verifier checks custom Ash outputs
   verification:
     layer_2_custom_agents: true
+  # NOTE: Enforcement Asymmetry config is in the review: convergence section below.
+  # See review: → enforcement_asymmetry: (line ~652) or agents/review/references/enforcement-asymmetry.md
 
 # ── Deep Audit settings (v1.56.0+) ──────────────
 # Deep investigation teammates for /rune:audit --deep.
@@ -217,7 +213,7 @@ settings:
 audit:
   deep:
     enabled: true
-   ashes:
+    ashes:
       - rot-seeker
       - strand-tracer
       - decree-auditor
@@ -528,6 +524,17 @@ solution_arena:
 #   auto_run_on_migrations: false      # Auto-trigger when migrations detected in diff
 #   output_dir: "tmp/deploy/"          # Directory for generated artifacts
 #   monitoring_stack: null             # Override detection: "datadog" | "prometheus" | "newrelic" | "sentry" | null (auto-detect)
+
+# ──────────────────────────────────────────────
+# Schema Drift Detection — Migration/model consistency (v1.89.0+)
+# ──────────────────────────────────────────────
+# The schema-drift-detector agent cross-references schema files against migrations
+# to catch accidental branch-hopping contamination. Supports 8 migration frameworks.
+# schema_drift:
+#   enabled: true                      # Master toggle
+#   frameworks: []                     # Auto-detect by default. Override: ["rails", "django", "alembic", "prisma", "typeorm", "knex", "drizzle", "flyway"]
+#   strict_mode: false                 # When true, flags ANY schema change without a corresponding migration
+#   ignore_paths: []                   # Glob patterns to exclude from drift detection
 
 # ──────────────────────────────────────────────
 # Elicitation — Structured reasoning agent (v1.31.0+)

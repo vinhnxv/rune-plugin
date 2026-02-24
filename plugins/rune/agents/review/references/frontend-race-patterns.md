@@ -1,6 +1,6 @@
 # Frontend Race Condition Patterns
 
-Detailed patterns for framework-specific frontend race conditions. Referenced by tide-watcher.md sections 9-11.
+Detailed patterns for framework-specific frontend race conditions. Referenced by tide-watcher.md (Hotwire/Turbo, React, and Vue concurrency sections).
 
 ---
 

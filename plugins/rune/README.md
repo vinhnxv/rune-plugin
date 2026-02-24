@@ -129,6 +129,8 @@ claude --plugin-dir /path/to/rune-plugin
 
 - [Rune user guide (English): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.en.md)
 - [Hướng dẫn Rune (Tiếng Việt): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.vi.md)
+- [Rune planning guide (English): `/rune:devise` + `/rune:forge` + `/rune:plan-review` + `/rune:inspect`](../../docs/guides/rune-planning-and-plan-quality-guide.en.md)
+- [Hướng dẫn planning Rune (Tiếng Việt): `/rune:devise` + `/rune:forge` + `/rune:plan-review` + `/rune:inspect`](../../docs/guides/rune-planning-and-plan-quality-guide.vi.md)
 
 ## Arc Mode (End-to-End Pipeline)
 
