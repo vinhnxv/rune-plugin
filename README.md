@@ -4,7 +4,7 @@
 
 Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own dedicated context window.
 
-[![Version](https://img.shields.io/badge/version-1.91.0-blue)](.claude-plugin/marketplace.json)
+[![Version](https://img.shields.io/badge/version-1.92.0-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Agents](https://img.shields.io/badge/agents-82-purple)](#agents)
 [![Skills](https://img.shields.io/badge/skills-33-orange)](#skills)
@@ -51,6 +51,14 @@ You ──► /rune:devise ──► Plan
 ---
 
 ## Workflows
+
+### Quick Start (New Users)
+
+| Command | What it does | Alias for |
+|---------|-------------|-----------|
+| `/rune:plan` | Plan a feature or task | `/rune:devise` |
+| `/rune:work` | Implement a plan with AI workers | `/rune:strive` |
+| `/rune:review` | Review your code changes | `/rune:appraise` |
 
 ### Core Commands
 
@@ -431,7 +439,7 @@ rune-plugin/
         │   ├── testing/          #    4 testing agents
         │   └── work/             #    2 work agents
         ├── skills/               # 33 skills
-        ├── commands/             # 11 slash commands
+        ├── commands/             # 14 slash commands
         ├── hooks/                # Event-driven hooks
         │   └── hooks.json
         ├── scripts/              # Hook scripts (20+)
