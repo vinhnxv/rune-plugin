@@ -160,6 +160,7 @@ Delegate cancellation based on the currently-active phase:
 | **MEND** (Phase 7) | Shutdown mend team — broadcast cancellation, send shutdown requests to all mend-fixer workers |
 | **VERIFY MEND** (Phase 7.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **TEST** (Phase 7.7) | Shutdown test team (`arc-test-{id}`) — broadcast cancellation, send shutdown requests. Cleanup test state files (`tmp/.rune-test-*.json`) |
+| **PRE-SHIP VALIDATION** (Phase 8.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **SHIP** (Phase 9) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **MERGE** (Phase 9.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 <!-- Phase 8 (AUDIT) removed in v1.67.0 — audit phases no longer exist in the arc pipeline -->
@@ -273,7 +274,7 @@ const PHASE_LABELS = {
   gap_remediation: '5.8 (GAP REMEDIATION)', goldmask_verification: '5.7 (GOLDMASK VERIFICATION)',
   code_review: '6 (CODE REVIEW)', goldmask_correlation: '6.5 (GOLDMASK CORRELATION)',
   mend: '7 (MEND)', verify_mend: '7.5 (VERIFY MEND)', test: '7.7 (TEST)',
-  ship: '9 (SHIP)', merge: '9.5 (MERGE)'
+  pre_ship_validation: '8.5 (PRE-SHIP VALIDATION)', ship: '9 (SHIP)', merge: '9.5 (MERGE)'
 }
 
 let report = `Arc pipeline cancelled.\n\n`

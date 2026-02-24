@@ -565,7 +565,7 @@ See [arc-phase-test.md](references/arc-phase-test.md) for the full algorithm.
 
 **Team**: `arc-test-{id}` — follows ATE-1 pattern
 **Output**: `tmp/arc/{id}/test-report.md`
-**Failure**: Non-blocking WARN only. Test failures do NOT halt the pipeline — they are recorded in the test report. The pipeline proceeds to Phase 9 (SHIP).
+**Failure**: Non-blocking WARN only. Test failures do NOT halt the pipeline — they are recorded in the test report. The pipeline proceeds to Phase 8.5 (PRE-SHIP VALIDATION).
 **Skip**: `--no-test` flag or `testing.enabled: false` in talisman.
 
 // ARC-6: Clean stale teams before delegating to sub-command
@@ -576,7 +576,7 @@ prePhaseCleanup(checkpoint)
 if (flags.no_test || talisman?.testing?.enabled === false) {
   checkpoint.phases.test.status = "skipped"
   checkpoint.phases.test.artifact = null
-  // Proceed to Phase 9 (SHIP)
+  // Proceed to Phase 8.5 (PRE-SHIP VALIDATION)
 } else {
   // Read and execute the arc-phase-test.md algorithm
   // Update checkpoint on completion with tiers_run, pass_rate, coverage_pct, has_frontend
@@ -718,7 +718,7 @@ Catches zombie teammates from the last delegated phase. Uses 3-strategy cleanup:
 | Branch conflict | Warn user, suggest manual resolution |
 | Total pipeline timeout (dynamic: 156-240 min based on tier) | Halt, preserve checkpoint, suggest `--resume` |
 | Phase 2.5 timeout (>3 min) | Proceed with partial concern extraction |
-| Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to WORK |
+| Phase 2.7 timeout (>30 sec) | Skip verification, log warning, proceed to next phase (SEMANTIC VERIFICATION if Codex available, otherwise WORK) |
 | Plan freshness STALE | AskUserQuestion with Re-plan/Override/Abort | User re-plans or overrides |
 | Schema v1-v14 checkpoint on --resume | Auto-migrate to v15 (marks removed audit phases as skipped, adds parent_plan, stagnation, no_test flag) |
 | Concurrent /rune:* command | Warn user (advisory) | No lock — user responsibility |

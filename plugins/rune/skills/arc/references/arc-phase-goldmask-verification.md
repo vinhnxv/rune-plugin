@@ -63,7 +63,7 @@ const diffSpec = `${baseBranch}...${workBranch}`
 prePhaseCleanup(checkpoint)  // Evict stale goldmask- teams (EC-4.2)
 
 updateCheckpoint({
-  phase: "goldmask_verification", status: "active",
+  phase: "goldmask_verification", status: "in_progress",
   phase_sequence: 5.7
 })
 

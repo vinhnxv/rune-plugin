@@ -157,7 +157,7 @@ const innerBudget = has_frontend ? 2_100_000 : 600_000  // 35m with E2E, 10m wit
 function remainingBudget() { return innerBudget - (Date.now() - phaseStart) }
 
 updateCheckpoint({
-  phase: "test", status: "active", phase_sequence: 7.7,
+  phase: "test", status: "in_progress", phase_sequence: 7.7,
   team_name: `arc-test-${id}`,
   tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend
 })
