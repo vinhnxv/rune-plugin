@@ -35,10 +35,12 @@ Claude Code's `Bash` tool inherits the user's shell. On macOS (default since Cat
 
 ## Enforcement
 
-The `enforce-zsh-compat.sh` PreToolUse hook (ZSH-001) catches the three most common issues at runtime:
+The `enforce-zsh-compat.sh` PreToolUse hook (ZSH-001) catches five common issues at runtime:
 - **Check A**: Bare `status=` variable assignment → denied
 - **Check B**: Unprotected glob in `for ... in GLOB; do` → auto-fixed with `setopt nullglob`
 - **Check C**: `! [[ ... ]]` history expansion → auto-fixed by rewriting to `[[ ! ... ]]`
+- **Check D**: `\!=` escaped not-equal in `[[ ]]` conditions → auto-fixed by stripping backslash
+- **Check E**: Unprotected globs in command arguments (rm, ls, cp, etc.) → auto-fixed with `setopt nullglob`
 
 This skill teaches the correct patterns so the hook rarely fires.
 
@@ -189,6 +191,50 @@ Move the `!` inside `[[ ]]`. For single-expression conditionals, `! [[ expr ]]` 
 
 **Note**: `! command` (e.g., `! grep -q pattern file`) is generally safe because the command name that follows is a real command. The issue is specifically `! [[` where zsh gets confused.
 
+## Pitfall 7: Escaped Not-Equal `\!=` in Conditions
+
+In bash, `\!=` inside `[[ ]]` is valid — the backslash is silently ignored. In zsh, `[[ ]]` rejects it.
+
+```bash
+# BAD — fatal in zsh
+if [[ "$owner" \!= "$session" ]]; then
+  echo "mismatch"
+fi
+# zsh: (eval):1: condition expected: \!=
+
+# GOOD — plain != works in both
+if [[ "$owner" != "$session" ]]; then
+  echo "mismatch"
+fi
+```
+
+### Why This Happens
+
+LLMs trained primarily on bash examples sometimes emit `\!=` as a "safe" form of `!=`. In bash, the backslash is a no-op before `!=` inside `[[ ]]`. In zsh, `[[ ]]` has its own parser that doesn't accept the escaped form.
+
+## Pitfall 8: Unprotected Globs in Command Arguments
+
+The NOMATCH issue (Pitfall 2) isn't limited to `for` loops. **Any** unmatched glob in zsh causes a fatal error — including in command arguments.
+
+```bash
+# BAD — fatal in zsh if no rune-* dirs exist
+rm -rf "$CHOME/teams/rune-"* "$CHOME/tasks/rune-"* 2>/dev/null
+# zsh: no matches found: /Users/me/.claude/teams/rune-*
+# NOTE: 2>/dev/null does NOT help — the error is at parse time!
+
+# GOOD — Option 1: use find (avoids shell globbing entirely)
+find "$CHOME/teams/" -maxdepth 1 -type d -name "rune-*" -exec rm -rf {} + 2>/dev/null
+
+# GOOD — Option 2: protect with nullglob
+setopt nullglob; rm -rf "$CHOME/teams/rune-"* "$CHOME/tasks/rune-"* 2>/dev/null
+```
+
+### Fix — Recommended Approaches
+
+**For cleanup commands**: Prefer `find` over shell globs. `find -name "rune-*"` passes the pattern as a string argument — no shell expansion occurs.
+
+**For quick one-liners**: Prepend `setopt nullglob;` to the command. This is scoped to the single Bash invocation.
+
 ## Quick Reference — Safe Patterns
 
 | Pattern | Bash-only | zsh-safe |
@@ -198,7 +244,8 @@ Move the `!` inside `[[ ]]`. For single-expression conditionals, `! [[ expr ]]` 
 | Negated `[[` | `if ! [[ expr ]]; then` | `if [[ ! expr ]]; then` |
 | Word split | `for w in $var; do` | `for w in ${(s: :)var}; do` or use arrays |
 | Array index | `${arr[0]}` | `${arr[1]}` or iterate with `[@]` |
-| Glob in args | `ls *.log` | `setopt nullglob; ls *.log` |
+| Glob in args | `rm path/*` | `setopt nullglob; rm path/*` or use `find` |
+| Escaped `!=` | `[[ "$a" \!= "$b" ]]` | `[[ "$a" != "$b" ]]` |
 
 ## When This Matters Most
 

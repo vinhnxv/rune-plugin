@@ -17,15 +17,29 @@
 #     Causes: (eval):N: command not found: !
 #     Fix: move negation inside: `[[ ! ... ]]`
 #
+# (D) Escaped not-equal operator `\!=` in [[ ]] conditions:
+#     In bash, `[[ "$a" \!= "$b" ]]` is valid (backslash is a no-op).
+#     In zsh, `[[ ]]` rejects `\!=` with: condition expected: \!=
+#     Fix: strip the backslash → `!=`
+#
+# (E) Unprotected globs in command arguments (non-for contexts):
+#     In zsh, unmatched globs in ANY position cause NOMATCH fatal error.
+#     `rm -rf path/rune-*` fails if no files match — 2>/dev/null doesn't help.
+#     Fix: prepend `setopt nullglob;` (same strategy as Check B).
+#
 # Detection strategy:
 #   1. Shell detection: skip if user's shell is not zsh
 #   2. Fast-path: skip if command doesn't contain any target patterns
 #   3. Check A: bare `status=` assignment (not `task_status=`, etc.)
 #   4. Check B: `for VAR in GLOB; do` without nullglob protection
 #   5. Check C: `! [[ ... ]]` history expansion
-#   6. Check A: block with actionable fix suggestion
+#   6. Check D: `\!=` inside conditions
+#   7. Check E: unprotected globs in command arguments (rm, ls, cp, mv, etc.)
+#   8. Check A: block with actionable fix suggestion
 #      Check B: AUTO-FIX by prepending `setopt nullglob;` (no wasted round-trip)
 #      Check C: AUTO-FIX by rewriting `! [[` → `[[ !`
+#      Check D: AUTO-FIX by rewriting `\!=` → `!=`
+#      Check E: AUTO-FIX by prepending `setopt nullglob;`
 #
 # Only active when user's shell is zsh — these are valid patterns in bash.
 #
@@ -79,13 +93,24 @@ NORMALIZED=$(printf '%s\n' "$COMMAND" | tr '\n' ' ')
 has_status_assign=""
 has_for_glob=""
 has_bang_bracket=""
+has_escaped_neq=""
+has_arg_glob=""
 case "$NORMALIZED" in *status=*) has_status_assign=1 ;; esac
 # BACK-005: Also detect `?` glob character (zsh NOMATCH-triggering)
 case "$NORMALIZED" in *for*in*[*?]*do*) has_for_glob=1 ;; esac
 # ZSH-001C: Detect `! [[` pattern (history expansion trigger in zsh)
 case "$NORMALIZED" in *'! [['*) has_bang_bracket=1 ;; esac
+# ZSH-001D: Detect `\!=` pattern (escaped not-equal, invalid in zsh [[ ]])
+case "$NORMALIZED" in *'\!='*) has_escaped_neq=1 ;; esac
+# ZSH-001E: Detect glob characters outside for-loops and outside quotes
+# Fast-path: only trigger if * or ? appears AND a common file command is present
+case "$NORMALIZED" in *[*?]*)
+  case "$NORMALIZED" in *rm*|*ls*|*cp*|*mv*|*cat*|*wc*|*head*|*tail*|*chmod*|*chown*)
+    has_arg_glob=1 ;;
+  esac ;;
+esac
 
-if [[ -z "$has_status_assign" && -z "$has_for_glob" && -z "$has_bang_bracket" ]]; then
+if [[ -z "$has_status_assign" && -z "$has_for_glob" && -z "$has_bang_bracket" && -z "$has_escaped_neq" && -z "$has_arg_glob" ]]; then
   exit 0
 fi
 
@@ -211,6 +236,93 @@ if [[ -n "$has_bang_bracket" ]]; then
 }
 AUTOFIX_JSON
     exit 0
+  fi
+fi
+
+# ─── Check D: `\!=` escaped not-equal in [[ ]] conditions ───────────────────
+# In bash, `[[ "$a" \!= "$b" ]]` is valid — the backslash is a no-op before `!=`.
+# In zsh, `[[ ]]` rejects `\!=` with: (eval):N: condition expected: \!=
+#
+# This is a common LLM generation artifact — bash-trained models sometimes emit
+# the escaped form. Auto-fix: strip the backslash.
+#
+# Strategy: AUTO-FIX by rewriting `\!=` → `!=` in the command.
+if [[ -n "$has_escaped_neq" ]]; then
+  if printf '%s\n' "$NORMALIZED" | grep -qF '\!='; then
+    # Auto-fix: replace `\!=` with `!=` throughout the command
+    FIXED_COMMAND=$(printf '%s' "$COMMAND" | sed 's/\\!=/!=/g')
+    # SEC: Escape special JSON characters in the command
+    ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.' || { exit 0; })
+    cat << AUTOFIX_JSON
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "updatedInput": { "command": ${ESCAPED_COMMAND} },
+    "additionalContext": "ZSH-001 auto-fix: rewrote '\\\\!=' to '!=' — zsh's [[ ]] rejects the escaped form. Bash accepts both, so this is safe."
+  }
+}
+AUTOFIX_JSON
+    exit 0
+  fi
+fi
+
+# ─── Check E: unprotected globs in command arguments ────────────────────────
+# In zsh, unmatched globs in ANY position cause NOMATCH fatal error — not just
+# in for-loops. `rm -rf path/rune-*` fails if no files match, and `2>/dev/null`
+# does NOT suppress it (the error is at parse time, before the command runs).
+#
+# Detection: glob characters (* or ?) in arguments to common file commands
+# (rm, ls, cp, mv, cat, wc, head, tail, chmod, chown) that are NOT inside
+# quotes and NOT already protected by nullglob/setopt.
+#
+# Exclusions (safe patterns that use * but don't expand as shell globs):
+#   - `find ... -name "pattern"` — find handles its own pattern matching
+#   - Globs inside double/single quotes — shell doesn't expand quoted globs
+#   - Commands already protected by setopt/shopt nullglob
+#   - for-loop globs (handled by Check B)
+#
+# Strategy: AUTO-FIX by prepending `setopt nullglob;` (same as Check B).
+if [[ -n "$has_arg_glob" ]]; then
+  # Skip if already protected by nullglob
+  has_protection=""
+  if printf '%s\n' "$NORMALIZED" | grep -qiE 'setopt[[:space:]]+(nullglob|null_glob)'; then
+    has_protection=1
+  fi
+  if printf '%s\n' "$NORMALIZED" | grep -qE 'shopt[[:space:]]+-s[[:space:]]+nullglob'; then
+    has_protection=1
+  fi
+
+  if [[ -z "$has_protection" ]]; then
+    # Detect unquoted glob patterns in arguments to file commands.
+    # Strategy: look for command followed by arguments containing unquoted * or ?
+    # Unquoted = not preceded by a quote character within the same word.
+    #
+    # We match patterns like:
+    #   rm -rf "$CHOME/teams/rune-"*    (glob after closing quote)
+    #   rm path/rune-*                   (plain unquoted glob)
+    #   ls tmp/*.md                      (glob in path)
+    #
+    # We skip if ALL glob chars appear inside balanced quotes (conservative check).
+    # Remove content between balanced quotes, then check if globs remain.
+    stripped=$(printf '%s\n' "$NORMALIZED" | sed -E "s/'[^']*'//g; s/\"[^\"]*\"//g")
+    if printf '%s\n' "$stripped" | grep -qE '[*?]'; then
+      # Unquoted glob detected — auto-fix with setopt nullglob
+      FIXED_COMMAND="setopt nullglob; ${COMMAND}"
+      # SEC: Escape special JSON characters in the command
+      ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.' || { exit 0; })
+      cat << AUTOFIX_JSON
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "updatedInput": { "command": ${ESCAPED_COMMAND} },
+    "additionalContext": "ZSH-001 auto-fix: prepended 'setopt nullglob;' to protect unquoted glob(s) in command arguments from zsh NOMATCH. Without this, zsh would abort with 'no matches found' if no files match the pattern."
+  }
+}
+AUTOFIX_JSON
+      exit 0
+    fi
   fi
 fi
 

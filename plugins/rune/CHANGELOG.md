@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.87.1] - 2026-02-24
+
+### Fixed
+- **ZSH-001 Check D**: `enforce-zsh-compat.sh` now auto-fixes `\!=` (escaped not-equal) in `[[ ]]` conditions. ZSH rejects `\!=` with "condition expected" while Bash silently accepts the backslash. Auto-fix: strip backslash → `!=`.
+- **ZSH-001 Check E**: `enforce-zsh-compat.sh` now auto-fixes unprotected globs in command arguments (not just for-loops). Commands like `rm -rf path/rune-*` cause ZSH NOMATCH fatal errors when no files match — `2>/dev/null` does not help. Auto-fix: prepend `setopt nullglob;`. Detects unquoted globs (strips balanced quotes before checking) for common file commands (rm, ls, cp, mv, cat, wc, head, tail, chmod, chown). Skips if `setopt nullglob` or `shopt -s nullglob` already present.
+- **zsh-compat skill**: Added Pitfall 7 (escaped `\!=`) and Pitfall 8 (argument globs) documentation. Updated Quick Reference table with new safe patterns.
+- **CLAUDE.md rule #8**: Added escaped `!=` and argument glob guidance. Updated enforcement hook description (3 → 5 checks).
+
 ## [1.87.0] - 2026-02-24
 
 ### Added
