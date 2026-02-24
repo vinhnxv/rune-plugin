@@ -180,7 +180,7 @@ Each phase summons a fresh team. Checkpoint-based resume (`--resume`) validates 
 When you run `/rune:arc-batch`, Rune executes `/rune:arc` across multiple plan files sequentially:
 
 1. **Pre-flight** — Validate all plan files exist, no duplicates or symlinks
-2. **For each plan** — Full 21-phase arc pipeline (forge through merge)
+2. **For each plan** — Full 23-phase arc pipeline (forge through merge)
 3. **Inter-run cleanup** — Checkout main, pull latest, clean state
 4. **Retry on failure** — Up to 3 `--resume` attempts per plan, then skip
 5. **Progress tracking** — `batch-progress.json` enables `--resume` for interrupted batches
@@ -193,7 +193,7 @@ When you run `/rune:arc-issues`, Rune processes a GitHub Issues backlog end-to-e
 
 1. **Fetch issues** — by label (`--label "rune:ready"`), file queue, or inline numbers
 2. **Generate plans** — each issue body becomes a plan file in `tmp/gh-plans/`
-3. **Run arc** — full 18-phase arc pipeline per issue (forge → work → review → mend → ship → merge)
+3. **Run arc** — full 23-phase arc pipeline per issue (forge through merge)
 4. **Post results** — success comment + `rune:done` label on issue after arc completes
 5. **Close issues** — PR body includes `Fixes #N` for auto-close on merge
 6. **Human escalation** — failed issues get `rune:failed` label + error comment; quality-gate failures get `rune:needs-review`
@@ -425,12 +425,14 @@ When Codex Oracle is disabled (via `codex.disabled: true`) or the CLI is not ins
 
 Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After each review or audit, agents persist patterns and learnings. Future sessions read these echoes to avoid repeating mistakes.
 
-### 3-Layer Lifecycle
+### 5-Tier Lifecycle
 
-| Layer | Name | Duration | Purpose |
-|-------|------|----------|---------|
+| Tier | Name | Duration | Purpose |
+|------|------|----------|---------|
 | Structural | **Etched** | Permanent | Architecture decisions, tech stack, key conventions |
-| Tactical | **Inscribed** | 90 days | Patterns from reviews/audits (N+1 queries, unused imports) |
+| User-Explicit | **Notes** | Permanent | User-requested memories via `/rune:echoes remember` |
+| Tactical | **Inscribed** | 90 days unreferenced | Patterns from reviews/audits (N+1 queries, unused imports) |
+| Agent-Observed | **Observations** | 60 days last access | Agent-discovered patterns, auto-promoted to Inscribed after 3 references |
 | Session | **Traced** | 30 days | Session-specific observations |
 
 ### How It Works
@@ -454,7 +456,7 @@ Rune Echoes is a project-level memory system stored in `.claude/echoes/`. After 
 |-----------|------|-------------|
 | Forge Warden | Backend review | Backend files changed |
 | Ward Sentinel | Security review | Always |
-| Veil Piercer | Truth-telling review | Always |
+| Veil Piercer | Plan-level truth-telling (Phase 4C) | Plan review workflows |
 | Pattern Weaver | Quality patterns | Always |
 | Glyph Scribe | Frontend review | Frontend files changed |
 | Knowledge Keeper | Docs review | Docs changed (>= 10 lines) |
@@ -553,6 +555,8 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | agent-browser | Browser automation knowledge injection for E2E testing (non-invocable) |
 | arc | End-to-end orchestration pipeline (pre-flight freshness gate + 23 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → test coverage critique → pre-ship validation → release quality check → bot review wait → PR comment resolution → ship → merge) |
 | arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
+| arc-hierarchy | Hierarchical plan execution — parent/child plan decomposition with dependency DAGs and requires/provides contracts |
+| arc-issues | GitHub Issues-driven batch arc execution — fetch issues by label, generate plans, run arc, post results |
 | ash-guide | Agent invocation reference |
 | audit | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation. Use `--incremental` for stateful 3-tier auditing (file, workflow, API) with persistent priority scoring and coverage tracking. Use `--dirs`/`--exclude-dirs` for directory-scoped audits (v1.91.0+). Use `--prompt`/`--prompt-file` for custom per-session Ash instructions (v1.91.0+) |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
@@ -572,7 +576,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | resolve-all-gh-pr-comments | Batch resolve all open PR review comments with pagination and progress tracking |
 | appraise | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml) |
 | roundtable-circle | Review orchestration (7-phase lifecycle) |
-| rune-echoes | Smart Memory Lifecycle (3-layer project memory) |
+| rune-echoes | Smart Memory Lifecycle (5-tier project memory) |
 | rune-orchestration | Multi-agent coordination patterns |
 | skill-testing | TDD methodology for skills — pressure testing, rationalization counters, Iron Law (SKT-001). `disable-model-invocation: true` |
 | stacks | Stack-aware intelligence — 4-layer detection engine with 11 specialist reviewers (Python, TypeScript, Rust, PHP, FastAPI, Django, Laravel, SQLAlchemy, TDD, DDD, DI). Auto-loaded by Rune Gaze Phase 1A (non-invocable) |
@@ -690,7 +694,7 @@ plugins/rune/
 │   ├── research/            # 5 research agents (plan pipeline)
 │   ├── testing/             # 4 testing agents (arc Phase 7.7)
 │   ├── work/                # 2 swarm workers (work pipeline)
-│   └── utility/             # 12 utility agents: Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan, horizon-sage, gap-fixer (prompt-template), deployment-verifier
+│   └── utility/             # 11 utility agents: runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan, horizon-sage, deployment-verifier (+ gap-fixer as prompt-template, no .md file)
 ├── commands/
 │   ├── cancel-arc.md           # /rune:cancel-arc
 │   ├── cancel-arc-batch.md     # /rune:cancel-arc-batch
@@ -700,6 +704,7 @@ plugins/rune/
 │   ├── cancel-audit.md         # /rune:cancel-audit
 │   ├── elicit.md               # /rune:elicit
 │   ├── echoes.md               # /rune:echoes
+│   ├── file-todos.md           # /rune:file-todos
 │   ├── plan-review.md          # /rune:plan-review
 │   └── rest.md                 # /rune:rest
 ├── skills/

@@ -4,10 +4,10 @@
 
 Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own 200k context window.
 
-[![Version](https://img.shields.io/badge/version-1.86.0-blue)](.claude-plugin/marketplace.json)
+[![Version](https://img.shields.io/badge/version-1.91.0-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Agents](https://img.shields.io/badge/agents-78-purple)](#agents)
-[![Skills](https://img.shields.io/badge/skills-31-orange)](#skills)
+[![Agents](https://img.shields.io/badge/agents-82-purple)](#agents)
+[![Skills](https://img.shields.io/badge/skills-33-orange)](#skills)
 
 ---
 
@@ -206,9 +206,9 @@ Compares a plan against its implementation across 9 quality dimensions:
 
 ## Agents
 
-**78 specialized agents** across 6 categories:
+**82 specialized agents** across 6 categories:
 
-### Review Agents (34)
+### Review Agents (37)
 
 Core reviewers that participate in `/rune:appraise` and `/rune:audit`:
 
@@ -232,10 +232,14 @@ Core reviewers that participate in `/rune:appraise` and `/rune:audit`:
 | Reference Validator | Import paths and config reference correctness |
 | Phantom Checker | Dynamic references (getattr, decorators, string dispatch) |
 | Naming Intent Analyzer | Name-behavior mismatches |
+| Type Warden | Type safety (mypy strict, modern Python idioms) |
 | Doubt Seer | Cross-agent claim verification |
 | Assumption Slayer | Premise validation (solving the right problem?) |
 | Reality Arbiter | Production viability (works in isolation vs. real conditions) |
 | Entropy Prophet | Long-term consequence prediction |
+| Schema Drift Detector | Schema drift between migrations and ORM/model definitions |
+| Agent Parity Reviewer | Agent-native parity, orphan features, context starvation |
+| Senior Engineer Reviewer | Persona-based senior engineer review, production thinking |
 
 **Stack Specialists** (auto-activated by detected tech stack):
 
@@ -281,7 +285,7 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 | Rune Smith | TDD-driven code implementation |
 | Trial Forger | Test generation following project patterns |
 
-### Utility Agents (10)
+### Utility Agents (11)
 
 | Agent | Purpose |
 |-------|---------|
@@ -295,6 +299,7 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 | Horizon Sage | Strategic depth assessment |
 | Veil Piercer | Plan reality-gap analysis |
 | Truthseer Validator | Audit coverage quality validation |
+| Deployment Verifier | Deployment artifact generation (Go/No-Go checklists, rollback plans) |
 
 ### Testing Agents (4)
 
@@ -309,7 +314,7 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 
 ## Skills
 
-31 skills providing background knowledge, workflow orchestration, and tool integration:
+33 skills providing background knowledge, workflow orchestration, and tool integration:
 
 | Skill | Type | Purpose |
 |-------|------|---------|
@@ -343,6 +348,8 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 | `polling-guard` | Reliability | Monitoring loop fidelity |
 | `zsh-compat` | Compatibility | macOS zsh shell safety |
 | `chome-pattern` | Compatibility | Multi-account config resolution |
+| `resolve-gh-pr-comment` | Workflow | Resolve a single GitHub PR review comment |
+| `resolve-all-gh-pr-comments` | Workflow | Batch resolve all open PR review comments |
 | `skill-testing` | Development | TDD for skill development |
 
 ---
@@ -415,15 +422,15 @@ rune-plugin/
 └── plugins/
     └── rune/                     # Main plugin
         ├── .claude-plugin/
-        │   └── plugin.json       # Plugin manifest (v1.86.0)
-        ├── agents/               # 78 agent definitions
-        │   ├── review/           #   34 review agents
+        │   └── plugin.json       # Plugin manifest (v1.91.0)
+        ├── agents/               # 82 agent definitions
+        │   ├── review/           #   37 review agents
         │   ├── investigation/    #   23 investigation agents
-        │   ├── utility/          #   10 utility agents
+        │   ├── utility/          #   11 utility agents
         │   ├── research/         #    5 research agents
         │   ├── testing/          #    4 testing agents
         │   └── work/             #    2 work agents
-        ├── skills/               # 31 skills
+        ├── skills/               # 33 skills
         ├── commands/             # 11 slash commands
         ├── hooks/                # Event-driven hooks
         │   └── hooks.json
