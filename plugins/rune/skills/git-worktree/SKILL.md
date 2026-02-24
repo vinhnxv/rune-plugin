@@ -50,45 +50,9 @@ Talisman override: `work.worktree.enabled: true` makes worktree mode the default
 
 ## Worktree Lifecycle
 
-Each worker's worktree follows this lifecycle:
+Each worker's worktree follows a 6-phase lifecycle: CREATE (SDK creates worktree + branch), WORK (isolated implementation), COMMIT (direct commit, one per task), SEAL (report completion), MERGE (orchestrator merges after wave), CLEANUP (remove worktree + branch). Includes crash recovery protocol.
 
-```
-1. CREATE — SDK creates worktree with unique branch when Task spawns
-   - Automatic: git worktree add <path> -b <branch>
-   - Worker CWD set to worktree path
-   - Branch name: SDK-assigned (included in Task result)
-
-2. WORK — Worker implements task in isolated worktree
-   - Full read/write access to all project files (copy)
-   - Changes are invisible to other workers
-   - Worker follows normal lifecycle (claim -> implement -> ward)
-
-3. COMMIT — Worker commits directly (replaces patch generation)
-   - git add <specific-files>
-   - Write commit message to a temp file
-   - git commit -F <commit-msg-file>  # SEC-011: no inline -m
-   - Exactly ONE commit per task (enforced by prompt)
-   - Worker MUST NOT push or merge
-
-4. SEAL — Worker reports completion with branch name
-   - Format: "Seal: task #{id} done. Branch: {branch}. Files: {list}"
-   - Branch name also stored in task metadata (backup channel)
-
-5. MERGE — Orchestrator merges branch after wave completes
-   - git merge --no-ff {branch} -m "rune: merge {worker} [worktree]"
-   - Sequential merge order (by task ID) for deterministic history
-
-6. CLEANUP — Orchestrator removes worktree and branch
-   - git worktree remove {worktreePath}
-   - git branch -d {branch} (merged) or -D (aborted)
-   - git worktree prune (final cleanup)
-```
-
-**Worker crash handling**: If a worker crashes mid-commit:
-1. Check `git status --porcelain` in the worktree
-2. `git reset --hard HEAD` to discard partial changes
-3. Remove worktree via `git worktree remove --force`
-4. Return task to pool for reclaim
+See [worktree-lifecycle.md](references/worktree-lifecycle.md) for the full 6-phase protocol and crash handling.
 
 ## Merge Strategy
 
@@ -142,49 +106,9 @@ User must make an informed choice for each conflict.
 
 ## Wave-Based Execution
 
-Tasks are grouped into **waves** by dependency depth to enable parallel execution
-while respecting dependencies:
+Tasks are grouped into waves by dependency depth. Wave 0 has no dependencies, Wave N depends only on Wave 0..N-1. Each wave runs workers in parallel, then merges all branches before proceeding. Includes DFS cycle detection and pre-wave checkpoint tags.
 
-```
-Wave 0: Tasks with no dependencies
-    -> Workers run in parallel worktrees
-    -> After all complete: merge all Wave 0 branches
-    |
-Wave 1: Tasks whose deps are all in Wave 0
-    -> Workers start from merged state
-    -> After all complete: merge all Wave 1 branches
-    |
-Wave N: Tasks whose deps are all in Wave 0..N-1
-    -> Same pattern
-```
-
-### Dependency Depth Calculation
-
-```
-depthOf(task):
-  if task has no blockers: return 0
-  return 1 + max(depthOf(blocker) for blocker in task.blockedBy)
-
-waves = groupBy(tasks, depthOf)
-```
-
-**Cycle detection**: Uses DFS white/gray/black coloring. Cycle detected -> abort
-with error listing the cycle path.
-
-### Wave Execution Flow
-
-```
-for wave in 0..maxWave:
-  1. Create pre-wave checkpoint: git tag rune-wave-{N}-pre-merge
-  2. Spawn workers for this wave with isolation: "worktree"
-  3. Monitor wave (TaskList polling, same as patch mode)
-  4. After all wave tasks complete: run merge broker
-  5. Log: "Wave {N}/{maxWave} complete ({completed}/{total} tasks)"
-  6. If all wave tasks failed: abort (do not proceed to next wave)
-```
-
-**Max workers per wave**: Capped by `work.worktree.max_workers_per_wave` (default: 3)
-or `min(work.max_workers, 3)` if not configured.
+See [wave-execution.md](references/wave-execution.md) for the full wave grouping, dependency depth calculation, and execution flow.
 
 ## Talisman Configuration
 
