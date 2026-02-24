@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.94.0] - 2026-02-25
+
+### Added
+- **`/rune:tarnished` master command** — Intelligent natural-language router and unified entry point for all Rune workflows. Parses user intent (Vietnamese + English), checks prerequisites, and chains multi-step workflows. Common usage: `/rune:tarnished plan ...`, `/rune:tarnished work ...`, `/rune:tarnished review ...`. Handles complex intents like "review and fix", "discuss then plan", and context-aware routing when prerequisites are missing. Includes 3 reference files: intent patterns, workflow chains, and full skill catalog.
+
 ## [1.93.0] - 2026-02-25
 
 ### Changed

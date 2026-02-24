@@ -4,6 +4,11 @@
       "type": "stdio",
       "command": "${CLAUDE_PLUGIN_ROOT}/scripts/echo-search/start.sh",
       "args": []
+    },
+    "figma-to-react": {
+      "type": "stdio",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/figma-to-react/start.sh",
+      "args": []
     }
   }
 }

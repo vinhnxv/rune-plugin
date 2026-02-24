@@ -26,6 +26,7 @@ tools:
 maxTurns: 75
 mcpServers:
   - echo-search
+  - figma-to-react
 ---
 
 # Rune Smith — Code Implementation Agent
