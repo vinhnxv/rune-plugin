@@ -54,6 +54,8 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 - Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
 - Prefix format: 2-5 uppercase alphanumeric characters (A-Z, 0-9)
 - Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `DOUBT`, `QUAL`, `FRONT`, `DOC`, `CDX`, `PY`, `TSR`, `RST`, `PHP`, `FAPI`, `DJG`, `LARV`, `SQLA`, `TDD`, `DDD`, `DI` — cannot be used by custom Ash
+- Reserved meta-prefix: `CUSTOM` — cannot be used as a custom Ash finding prefix. This prefix is reserved to distinguish `source="custom"` findings in dedup logic (see below).
+- **`source="custom"` attribute**: Findings emitted by custom-criteria Ashes (i.e., those injected via `customPromptBlock`) carry a `source="custom"` attribute in their RUNE:FINDING markers. The Runebinder uses this attribute to annotate deduplicated findings so reviewers know the finding originated from a user-defined inspection criterion rather than a built-in Ash perspective. Custom-criteria findings use standard finding prefixes (e.g., `SEC-001`, `BACK-001`) — the `source="custom"` attribute is the sole differentiator, NOT a separate prefix namespace.
 - Reserved standalone prefixes: `DATA`, `GATE`, `ASYNC`, `DRIFT`, `DEPLOY`, `PARITY`, `SENIOR`, `PAT`, `SIMP`, `TYPE` — used by standalone review/utility agents, mapped to embedded prefixes when inside Ash
 - Reserved deep-audit prefixes (active only when `/rune:audit --deep`): `DEBT`, `INTG`, `BIZL`, `EDGE`, `CORR`, `FAIL`, `DSEC`, `DSGN`, `RSRC`, `OBSV`, `MTNB`
 - **Note:** `CDX-DRIFT` is an internal Phase 5.6 finding ID used by the Codex gap analysis — it is NOT a custom Ash prefix
