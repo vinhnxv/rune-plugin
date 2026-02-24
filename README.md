@@ -39,15 +39,13 @@ You ──► /rune:devise ──► Plan
                            │
          /rune:arc ◄───────┘
              │
-             ├─ Forge          enrich plan with research agents
-             ├─ Plan Review    validate architecture and feasibility
-             ├─ Work           swarm workers implement in parallel
-             ├─ Review         multi-agent code review (up to 8 Ashes)
-             ├─ Mend           auto-fix review findings
-             ├─ Test           3-tier testing (unit → integration → E2E)
-             ├─ Audit          deep codebase analysis
-             ├─ Ship           create PR
-             └─ Merge          rebase and merge
+             ├─ Forge & Validate     enrich plan, review architecture, refine
+             ├─ Work                 swarm workers implement in parallel
+             ├─ Gap Analysis         detect and remediate implementation gaps
+             ├─ Review & Mend        multi-agent code review + auto-fix findings
+             ├─ Test                 3-tier testing (unit → integration → E2E)
+             ├─ Ship                 validate and create PR
+             └─ Merge               rebase and merge
 ```
 
 ---
