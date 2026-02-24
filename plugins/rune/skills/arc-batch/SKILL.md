@@ -29,7 +29,7 @@ argument-hint: "[plans/*.md | queue-file.txt] [--resume] [--dry-run] [--no-merge
 
 # /rune:arc-batch — Sequential Batch Arc Execution
 
-Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 18-phase pipeline (forge through merge) before the next plan starts.
+Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 21-phase pipeline (forge through merge) before the next plan starts.
 
 **Core loop**: Stop hook pattern (ralph-wiggum). Each arc runs as a native Claude Code turn. Between arcs, the Stop hook intercepts session end, reads batch state from `.claude/arc-batch-loop.local.md`, determines the next plan, cleans git state, and re-injects the arc prompt.
 
@@ -49,7 +49,7 @@ Executes `/rune:arc` across multiple plan files sequentially. Each arc run compl
 |------|-------------|---------|
 | `--dry-run` | List plans and exit without running | Off |
 | `--no-merge` | Pass `--no-merge` to each arc run | Off (auto-merge enabled) |
-| `--resume` | Resume from `batch-progress.json` | Off |
+| `--resume` | Resume from `batch-progress.json` (pending plans only — failed/cancelled plans must be re-run individually) | Off |
 | `--no-shard-sort` | Process plans in raw order (disable shard auto-sorting) | Off |
 
 ## Algorithm

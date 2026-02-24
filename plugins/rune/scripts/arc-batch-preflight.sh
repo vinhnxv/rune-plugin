@@ -34,9 +34,12 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
     continue
   fi
 
-  # 3.5 SEC-001 FIX: Shell metacharacter denylist (supports paths with spaces/tildes)
-  if [[ "$plan" =~ [\;\|\&\$\`\(\)\{\}\!] ]]; then
-    echo "ERROR: Shell metacharacters in path: $plan" >&2
+  # 3.5 SEC-001 FIX: Character allowlist — must match stop hook's GUARD 9 allowlist
+  # [a-zA-Z0-9._/-] to prevent silent batch abort when stop hook rejects a path
+  # that preflight accepted. Previous denylist approach allowed spaces/tildes which
+  # the stop hook would reject, causing silent mid-batch failure.
+  if [[ "$plan" =~ [^a-zA-Z0-9._/-] ]]; then
+    echo "ERROR: Path contains disallowed characters (only alphanumeric, dot, slash, hyphen, underscore allowed): $plan" >&2
     ERRORS=$((ERRORS + 1))
     continue
   fi
