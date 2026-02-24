@@ -135,8 +135,8 @@ try {
         for (const member of memberNames) {
           SendMessage({ type: "shutdown_request", recipient: member, content: "Arc pipeline complete — final sweep" })
         }
-        // Brief grace period for shutdown approval responses (5s)
-        Bash(`sleep 5`)
+        // Grace period — let teammates deregister before TeamDelete (15s)
+        Bash(`sleep 15`)
       }
     } catch (e) {
       // Team config unreadable — dir may already be gone. That's fine.

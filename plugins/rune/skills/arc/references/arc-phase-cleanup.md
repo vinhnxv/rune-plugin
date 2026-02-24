@@ -69,7 +69,7 @@ function postPhaseCleanup(checkpoint, phaseName) {
             try { SendMessage({ type: "shutdown_request", recipient: m.name, content: `Phase ${phaseName} complete — cleanup` }) } catch (e) { /* member may already be gone */ }
           }
         }
-        if (members.length > 0) Bash(`sleep 5`)  // Normalized with ARC-9 Strategy A grace period
+        if (members.length > 0) Bash(`sleep 15`)  // Grace period — let teammates deregister
       } catch (e) { /* team config unreadable — proceed to filesystem cleanup */ }
 
       // SDK state clear + filesystem rm-rf (TeamDelete clears SDK leadership, not the named team)

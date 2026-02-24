@@ -1307,7 +1307,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(inspectTeamName)) {
     try { SendMessage({ type: "shutdown_request", recipient: inspector }) } catch (e) { /* already exited */ }
   }
   try { SendMessage({ type: "shutdown_request", recipient: "verdict-binder" }) } catch (e) { /* already exited */ }
-  Bash("sleep 5")
+  Bash("sleep 15")  // Grace period — let teammates deregister
 
   try { TeamDelete() } catch (e) {
     Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${inspectTeamName}/" "$CHOME/tasks/${inspectTeamName}/" 2>/dev/null`)

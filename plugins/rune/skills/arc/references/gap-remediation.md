@@ -339,7 +339,7 @@ log(`Phase 5.8: ${fixedFiles.length} files modified by gap-fixer. Commits:\n${fi
 ```javascript
 // Shutdown gap-fixer
 try { SendMessage({ type: "shutdown_request", recipient: "gap-fixer" }) } catch (e) { /* already exited */ }
-Bash("sleep 5")
+Bash("sleep 15")  // Grace period — let teammate deregister
 
 // TeamDelete with CHOME-pattern fallback
 try { TeamDelete() } catch (e) {
