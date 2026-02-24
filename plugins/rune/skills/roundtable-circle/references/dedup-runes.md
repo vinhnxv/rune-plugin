@@ -17,6 +17,16 @@ If two Ash flag the same file within a 5-line range:
 | Pattern Weaver (P2) | Glyph Scribe (P2) | Merge if same issue, keep both if different |
 | Any (P1) | Any (P3) | Keep only P1 |
 
+### Confidence Handling During Dedup
+
+When a finding is deduplicated (losing Ash suppressed by winning Ash):
+- The **winning Ash's confidence value** (PROVEN/LIKELY/UNCERTAIN) is kept in the TOME finding
+- The **losing Ash's confidence** is included in the `also_flagged_by` annotation for transparency:
+  `(also flagged by: Forge Warden [UNCERTAIN])`
+- **Confidence does NOT influence dedup priority** — the role-based hierarchy (SEC > BACK > VEIL > ...) is the sole determinant of which finding survives
+
+This design preserves auditability: readers can see that a lower-priority Ash flagged the same issue with a different confidence level, without allowing confidence to override the structural dedup logic.
+
 ### Priority Hierarchy
 
 **Default (built-in only):**
@@ -250,4 +260,20 @@ for each finding in all_findings where finding.interaction is "question" or "nit
 - P1: {count}, P2: {count}, P3: {count}, Q: {count}, N: {count}
 - Evidence coverage: {percentage}%
 - Ash completed: {count}/{total}
+
+## Assumption Summary
+
+| Ash | PROVEN | LIKELY | UNCERTAIN | UNTAGGED | Key Assumptions |
+|-----|--------|--------|-----------|----------|-----------------|
+| {Ash name} | {count} | {count} | {count} | {count} | {top assumption or "None"} |
+
+### High-Risk Assumptions (from UNCERTAIN findings)
+
+{List assumptions from UNCERTAIN findings only}
+{If none: "No high-risk assumptions — no UNCERTAIN findings reported."}
+
+### Potential Assumption Conflicts (requires human review)
+
+{Up to 5 cross-Ash assumption conflicts at same file+5-line window}
+{If none: "No cross-Ash assumption conflicts detected."}
 ```

@@ -107,6 +107,8 @@ Use finding prefix: {finding_prefix}
     ```
   - **Issue:** {description}
   - **Fix:** {recommendation}
+  - **Confidence:** PROVEN | LIKELY | UNCERTAIN
+  - **Assumption:** {what you assumed about the code context for this finding — "None" if fully verified}
 
 ## P2 (High)
 
@@ -122,12 +124,31 @@ Use finding prefix: {finding_prefix}
 - Total findings: {count} (P1: {n}, P2: {n}, P3: {n})
 - Model: {model_name} via {cli_binary}
 
+## Reviewer Assumptions
+
+List the key assumptions you made during this review that could affect finding accuracy:
+
+1. **{Assumption}** — {why you assumed this, and what would change if the assumption is wrong}
+2. ...
+
+If no significant assumptions were made, write: "No significant assumptions — all findings are evidence-based."
+
 ## Self-Review Log
 
 After writing all findings, re-read your output and verify:
 | Finding | Rune Trace Valid? | Diff Relevant? | Action |
 |---------|------------------|----------------|--------|
 | {prefix}-001 | Yes/No | in-diff/pre-existing | KEPT / REVISED / DELETED |
+
+- Confidence breakdown: {PROVEN}/{LIKELY}/{UNCERTAIN}
+- Assumptions declared: {count}
+
+## Confidence Calibration
+- PROVEN: You Read() the file, traced the logic, and confirmed the behavior
+- LIKELY: You Read() the file, the pattern matches a known issue, but you didn't trace the full call chain
+- UNCERTAIN: You noticed something based on naming, structure, or partial reading — but you're not sure if it's intentional
+
+Rule: If >50% of findings are UNCERTAIN, you're likely over-reporting. Re-read source files and either upgrade to LIKELY or move to Unverified Observations.
 
 ## SEAL FORMAT
 
@@ -141,6 +162,8 @@ SEAL: {
   evidence_verified: {true/false},
   hallucination_guard: { step0_filtered: N, step1_filtered: N, step2_filtered: N, step3_filtered: N },
   confidence: {0.0-1.0},
+  confidence_breakdown: { proven: N, likely: N, uncertain: N },
+  assumptions: N,
   self_review_actions: { verified: N, revised: N, deleted: N }
 }
 ---

@@ -172,7 +172,7 @@
     {
       "name": "forge-warden",
       "output_file": "forge-warden.md",
-      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Self-Review Log", "Summary"],
+      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"],
       "role": "Backend code review",
       "perspectives": ["architecture", "performance", "logic-bugs", "duplication"],
       "file_scope": ["backend/**/*.py"]
@@ -180,7 +180,7 @@
     {
       "name": "ward-sentinel",
       "output_file": "ward-sentinel.md",
-      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Self-Review Log", "Summary"],
+      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"],
       "role": "Security review",
       "perspectives": ["vulnerabilities", "auth", "injection", "owasp"],
       "file_scope": ["**/*"]
@@ -188,7 +188,7 @@
     {
       "name": "pattern-weaver",
       "output_file": "pattern-weaver.md",
-      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Self-Review Log", "Summary"],
+      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"],
       "role": "Quality and patterns review",
       "perspectives": ["simplicity", "tdd", "dead-code", "patterns"],
       "file_scope": ["**/*"]
@@ -224,6 +224,8 @@
   }
 }
 ```
+
+> **Note:** All built-in Ashes use `required_sections: ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"]` unless otherwise specified (e.g., doubt-seer uses `["Doubt Seer Challenges", "Challenge Summary"]`, runebinder uses its own format).
 
 ## Required Fields
 

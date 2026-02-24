@@ -50,9 +50,10 @@ Before beginning aggregation, query Rune Echoes for previously identified aggreg
 
 1. Read all Ash output files from `{output_dir}/`
 2. Deduplicate findings using the hierarchy: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX
+2.5. Parse `## Reviewer Assumptions` from each Ash output — collect per-Ash assumption lists and confidence breakdowns (PROVEN/LIKELY/UNCERTAIN counts). If an Ash output is missing `## Reviewer Assumptions`, record it in Coverage Gaps as "partial (no assumptions)". Confidence values are informational only in v1 — NOT used as inputs to mend priority, convergence scoring, or file-todo triage.
 3. Prioritize: P1 first, then P2, then P3
 4. Report gaps from any crashed or stalled Ash
-5. Write unified summary to `{output_dir}/TOME.md`
+5. Write unified summary to `{output_dir}/TOME.md`, including `## Assumption Summary` section (after `## Statistics`) with: per-Ash confidence breakdown table (PROVEN/LIKELY/UNCERTAIN counts + Key Assumptions) and `### High-Risk Assumptions (from UNCERTAIN findings)` subsection
 
 ## Deduplication Rules
 

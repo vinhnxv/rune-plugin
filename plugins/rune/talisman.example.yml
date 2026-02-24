@@ -85,7 +85,7 @@ ashes:
         - "P1 (Critical)"
         - "P2 (High)"
         - "P3 (Medium)"
-        - "Summary"
+        - "Reviewer Assumptions"
         - "Self-Review Log"
 
     # Example 2: A global user-level performance agent

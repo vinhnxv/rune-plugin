@@ -70,7 +70,7 @@ source "${SCRIPT_DIR}/resolve-session-identity.sh"
 # Check arc checkpoints (skip stale files older than STALE_THRESHOLD_MIN)
 if [[ -d "${CWD}/.claude/arc" ]]; then
   while IFS= read -r f; do
-    if jq -e '(.phase == "in_progress") or (.status == "in_progress") or ([.phases[]?.status] | any(. == "in_progress"))' "$f" &>/dev/null; then
+    if jq -e '(.phase_status // .phase // .status // "none" | . == "in_progress") or ([.phases[]?.status] | any(. == "in_progress"))' "$f" &>/dev/null; then
       # ── Ownership filter: skip checkpoints from other sessions ──
       stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
       stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)

@@ -194,7 +194,7 @@ if (flags['--deep']) {
     teammates: deepAsh.map(name => ({
       name,
       output_file: `${name}.md`,
-      required_sections: ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Summary"]
+      required_sections: ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"]
     })),
     verification: { enabled: true }
   })

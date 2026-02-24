@@ -15,6 +15,8 @@ Each finding follows this template:
     ```
   - **Issue:** {description of what's wrong and why it matters}
   - **Fix:** {specific recommendation with code example if applicable}
+  - **Confidence:** PROVEN | LIKELY | UNCERTAIN
+  - **Assumption:** {what the agent assumed about this code — or "None" if fully verified}
   - **Evidence:**                          _(optional)_
     - type: grep_match | file_read | negative_grep | agent_output | reasoning_chain
     - source: {file:line or grep command or agent reference}
@@ -72,6 +74,8 @@ In addition to Markdown, Ash MAY write a companion JSON file for tooling integra
       "rune_trace": "async def process_payment(self, order):\n    balance = await self.get_balance()\n    # No lock between read and write",
       "issue": "Balance read and debit are not atomic",
       "fix": "Add async lock around balance operations",
+      "confidence": "PROVEN | LIKELY | UNCERTAIN",
+      "assumption": "string — what the agent assumed, or null if fully verified",
       "status": "confirmed"
     }
   ],
@@ -145,6 +149,20 @@ Knowledge Keeper uses blockquotes instead of code blocks for evidence:
 | Ash | Confidence | Spot-Checked | Result |
 |-----------|-----------|-------------|--------|
 | {name} | {0.X} | {N findings} | {all confirmed/N hallucinated} |
+
+## Assumption Summary
+
+| Ash | PROVEN | LIKELY | UNCERTAIN | UNTAGGED | Key Assumptions |
+|-----------|--------|--------|-----------|----------|-----------------|
+| {name} | {count} | {count} | {count} | {count} | {brief list of assumptions made} |
+
+### High-Risk Assumptions (from UNCERTAIN findings)
+
+- {Ash}: {assumption text} — impacts {finding IDs}
+
+### Potential Assumption Conflicts (requires human review)
+
+- {Ash A} assumes {X} but {Ash B} assumes {Y} — affects {file}
 
 ## Questions — {count} items
 
