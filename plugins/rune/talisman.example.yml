@@ -614,6 +614,20 @@ echoes:
   # NOTE: These keys use 'arc_' prefix to distinguish from chunked review keys above.
   # Arc convergence controls the Phase 6→7→7.5 loop; review convergence controls
   # per-chunk convergence within a single Phase 6 invocation.
+  # Enforcement Asymmetry (v1.88.0+)
+  # Applies variable strictness based on change context (new file vs edit, shared vs isolated).
+  # See agents/review/references/enforcement-asymmetry.md for full protocol.
+  # enforcement_asymmetry:
+  #   enabled: true                    # Master toggle (default: true)
+  #   security_always_strict: true     # Cannot be disabled
+  #   new_file_threshold: 0.30         # % lines changed to classify as MAJOR_EDIT (default: 0.30, range: 0.10-0.90)
+  #   high_risk_import_count: 5        # Files imported by >N = HIGH risk (default: 5, range: 1-50)
+  #   high_risk_paths:                 # Glob patterns for HIGH risk directories
+  #     - "core/**"
+  #     - "shared/**"
+  #     - "lib/**"
+  #     - "common/**"
+  #
   # arc_convergence_tier_override: null     # Force: "light" | "standard" | "thorough" | null (auto-detect)
   # arc_convergence_max_cycles: null        # Hard override: 1-5 (overrides tier, use sparingly)
   # arc_convergence_min_cycles: null        # Min re-review cycles before convergence (1-maxCycles, default: tier-based LIGHT:1/STANDARD:2/THOROUGH:2)

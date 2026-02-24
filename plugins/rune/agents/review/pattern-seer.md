@@ -40,6 +40,13 @@ Cross-cutting consistency specialist. Inconsistency doesn't cause crashes — it
 > "Consistency is not perfection — it's **predictability**. When a developer can predict
 > how the system works without reading the implementation, the design is good."
 
+## Enforcement Asymmetry
+
+Import and apply [enforcement-asymmetry.md](references/enforcement-asymmetry.md).
+In Pragmatic mode: accept reasonable naming conventions in new files even if
+they differ slightly from project standard. Only enforce strict naming
+consistency when modifying existing modules where inconsistency causes confusion.
+
 ## Analysis Framework
 
 ### 1. Inconsistent Naming (Ubiquitous Language Violations)
