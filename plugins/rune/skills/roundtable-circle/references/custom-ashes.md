@@ -51,7 +51,7 @@ Define custom Ash in `.claude/talisman.yml` (project) or `~/.claude/talisman.yml
 | `trigger.always` | bool | No | When true, Ash is always summoned (skip file matching). Useful for CLI-backed Ashes |
 | `context_budget` | int | Yes | Maximum files this Ash reads. Recommended: 15-30 |
 | `finding_prefix` | string | Yes | Unique 2-5 uppercase character prefix for finding IDs (e.g., `DOM`, `PERF`) |
-| `required_sections` | list | No | Expected sections in output file. Default: `["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Summary"]` |
+| `required_sections` | list | No | Expected sections in output file. Default: `["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"]` |
 | `forge.subsection` | string | No* | Subsection title this agent produces in forge mode. *Required if `forge` is in `workflows` |
 | `forge.perspective` | string | No* | Description of the agent's focus area for forge prompts. *Required if `forge` is in `workflows` |
 | `forge.budget` | enum | No* | `enrichment` or `research`. *Required if `forge` is in `workflows` |

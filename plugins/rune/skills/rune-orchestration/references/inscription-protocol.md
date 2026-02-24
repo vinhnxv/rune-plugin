@@ -19,13 +19,13 @@ The optional `context_injections` field tracks which echo memories were retrieve
     {
       "name": "forge-warden",
       "output_file": "forge-warden.md",
-      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Summary"],
+      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"],
       "role": "Backend code review"
     },
     {
       "name": "ward-sentinel",
       "output_file": "ward-sentinel.md",
-      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Summary"],
+      "required_sections": ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"],
       "role": "Security review"
     }
   ],
@@ -367,8 +367,8 @@ For decisions beyond agent capability:
 
 | Workflow | Output Dir | Aggregator | Verification | Sections |
 |----------|-----------|------------|-------------|----------|
-| `/rune:appraise` | `tmp/reviews/{pr}/` | Runebinder → TOME.md | Layer 0 + Layer 2 | P1, P2, P3, Self-Review Log, Summary |
-| `/rune:audit` | `tmp/audit/{id}/` | Runebinder → TOME.md | Layer 0 + Layer 2 + Validator | P1, P2, P3, Self-Review Log, Summary |
+| `/rune:appraise` | `tmp/reviews/{pr}/` | Runebinder → TOME.md | Layer 0 + Layer 2 | P1, P2, P3, Reviewer Assumptions, Self-Review Log |
+| `/rune:audit` | `tmp/audit/{id}/` | Runebinder → TOME.md | Layer 0 + Layer 2 + Validator | P1, P2, P3, Reviewer Assumptions, Self-Review Log |
 | `/rune:devise` | `tmp/plans/{timestamp}/research/` | Lead reads directly | Layer 0 only | Key Findings, Recommendations, Summary |
 | `/rune:strive` | `tmp/work/` | Lead reads directly | None (status-only) | Status, Files Changed, Tests |
 

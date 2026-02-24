@@ -9,7 +9,7 @@
 ```
 TaskCreate({
   subject: "Review backend code as Forge Warden",
-  description: "Files: {backend_files}\nOutput: tmp/reviews/{id}/forge-warden.md\nPerspectives: architecture, performance, logic bugs, duplication\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
+  description: "Files: {backend_files}\nOutput: tmp/reviews/{id}/forge-warden.md\nPerspectives: architecture, performance, logic bugs, duplication\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Reviewer Assumptions, Self-Review Log",
   activeForm: "Reviewing backend code"
 })
 ```
@@ -19,7 +19,7 @@ TaskCreate({
 ```
 TaskCreate({
   subject: "Review security posture as Ward Sentinel",
-  description: "Files: ALL changed files\nOutput: tmp/reviews/{id}/ward-sentinel.md\nPerspectives: vulnerabilities, auth, injection, OWASP\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
+  description: "Files: ALL changed files\nOutput: tmp/reviews/{id}/ward-sentinel.md\nPerspectives: vulnerabilities, auth, injection, OWASP\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Reviewer Assumptions, Self-Review Log",
   activeForm: "Reviewing security posture"
 })
 ```
@@ -29,7 +29,7 @@ TaskCreate({
 ```
 TaskCreate({
   subject: "Review code quality as Pattern Weaver",
-  description: "Files: ALL changed files\nOutput: tmp/reviews/{id}/pattern-weaver.md\nPerspectives: simplicity, TDD compliance, dead code, pattern consistency\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
+  description: "Files: ALL changed files\nOutput: tmp/reviews/{id}/pattern-weaver.md\nPerspectives: simplicity, TDD compliance, dead code, pattern consistency\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Reviewer Assumptions, Self-Review Log",
   activeForm: "Reviewing code quality patterns"
 })
 ```
@@ -39,7 +39,7 @@ TaskCreate({
 ```
 TaskCreate({
   subject: "Review frontend code as Glyph Scribe",
-  description: "Files: {frontend_files}\nOutput: tmp/reviews/{id}/glyph-scribe.md\nPerspectives: TypeScript safety, React performance, accessibility\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
+  description: "Files: {frontend_files}\nOutput: tmp/reviews/{id}/glyph-scribe.md\nPerspectives: TypeScript safety, React performance, accessibility\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Reviewer Assumptions, Self-Review Log",
   activeForm: "Reviewing frontend code"
 })
 ```
@@ -49,7 +49,7 @@ TaskCreate({
 ```
 TaskCreate({
   subject: "Review documentation as Knowledge Keeper",
-  description: "Files: {doc_files}\nOutput: tmp/reviews/{id}/knowledge-keeper.md\nPerspectives: accuracy, completeness, anti-injection\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
+  description: "Files: {doc_files}\nOutput: tmp/reviews/{id}/knowledge-keeper.md\nPerspectives: accuracy, completeness, anti-injection\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Reviewer Assumptions, Self-Review Log",
   activeForm: "Reviewing documentation"
 })
 ```
@@ -59,7 +59,7 @@ TaskCreate({
 ```
 TaskCreate({
   subject: "Truth-telling review as Veil Piercer",
-  description: "Files: ALL changed files\nOutput: tmp/reviews/{id}/veil-piercer.md\nPerspectives: premise validation, production viability, long-term consequences\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary",
+  description: "Files: ALL changed files\nOutput: tmp/reviews/{id}/veil-piercer.md\nPerspectives: premise validation, production viability, long-term consequences\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Reviewer Assumptions, Self-Review Log",
   activeForm: "Truth-telling review in progress"
 })
 ```
@@ -69,7 +69,7 @@ TaskCreate({
 ```
 TaskCreate({
   subject: "Review code as Codex Oracle (cross-model verification)",
-  description: "Files: {codex_files}\nOutput: tmp/reviews/{id}/codex-oracle.md\nPerspectives: cross-model security, logic, quality (GPT-5.3-codex)\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary\nNote: Requires codex CLI. Conditional — skipped if CLI unavailable.",
+  description: "Files: {codex_files}\nOutput: tmp/reviews/{id}/codex-oracle.md\nPerspectives: cross-model security, logic, quality (GPT-5.3-codex)\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Reviewer Assumptions, Self-Review Log\nNote: Requires codex CLI. Conditional — skipped if CLI unavailable.",
   activeForm: "Running cross-model review via Codex Oracle"
 })
 ```
@@ -79,7 +79,7 @@ TaskCreate({
 ```
 TaskCreate({
   subject: "Review code as {name} (external model via {cli_binary})",
-  description: "CLI: {cli_binary} --model {model_name}\nFiles: {matched_files}\nOutput: tmp/reviews/{id}/{name}.md\nPerspectives: cross-model security, logic, quality ({model_name})\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Self-Review Log, Summary\nNote: Requires {cli_binary} CLI. Conditional — skipped if CLI unavailable.",
+  description: "CLI: {cli_binary} --model {model_name}\nFiles: {matched_files}\nOutput: tmp/reviews/{id}/{name}.md\nPerspectives: cross-model security, logic, quality ({model_name})\nRequired sections: P1 (Critical), P2 (High), P3 (Medium), Reviewer Assumptions, Self-Review Log\nNote: Requires {cli_binary} CLI. Conditional — skipped if CLI unavailable.",
   activeForm: "Running cross-model review via {name} ({cli_binary})"
 })
 ```

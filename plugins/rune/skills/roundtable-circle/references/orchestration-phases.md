@@ -126,7 +126,7 @@ Write(`${outputDir}inscription.json`, {
   teammates: selectedAsh.map(r => ({
     name: r,
     output_file: `${r}.md`,
-    required_sections: ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Summary"]
+    required_sections: ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Reviewer Assumptions", "Self-Review Log"]
   })),
   verification: { enabled: true }
 })
