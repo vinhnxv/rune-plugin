@@ -28,6 +28,9 @@ Both appraise and audit set these parameters before invoking shared phases:
 | 16 | `focusArea` | string | `"full"` (appraise has no focus flag) | From `--focus` or `"full"` |
 | 17 | `flags` | object | Parsed CLI flags | Parsed CLI flags |
 | 18 | `talisman` | object | Parsed talisman.yml config | Parsed talisman.yml config |
+| 19 | `sessionNonce` | string | `crypto.randomUUID().slice(0,8)` | `crypto.randomUUID().slice(0,8)` |
+
+> **Note on `sessionNonce`**: Generated once at orchestrator startup. Written as `session_nonce` (snake_case) in inscription.json and ash prompts. Referenced as `sessionNonce` (camelCase) in orchestrator pseudocode. Both forms refer to the same value.
 
 ### Session Isolation (Parameters 11-13)
 
@@ -110,6 +113,8 @@ Write(`${outputDir}inscription.json`, {
   scope,
   depth,
   output_dir: outputDir,
+  team_name: teamName,
+  session_nonce: sessionNonce,
   teammates: selectedAsh.map(r => ({
     name: r,
     output_file: `${r}.md`,
@@ -131,6 +136,7 @@ Write(`${signalDir}/inscription.json`, JSON.stringify({
   workflow,
   timestamp,
   output_dir: outputDir,
+  team_name: teamName,
   teammates: selectedAsh.map(name => ({ name, output_file: `${name}.md` }))
 }))
 
@@ -178,10 +184,16 @@ for (const wave of waves) {
     // Inter-wave team reset
     TeamCreate({ team_name: `${teamName}-w${wave.waveNumber}` })
 
-    // Reset signal directory for new wave
-    Bash(`find "${signalDir}" -mindepth 1 -delete`)
-    Write(`${signalDir}/.expected`, String(wave.agents.length))
-    Write(`${signalDir}/.readonly-active`, "active")
+    // Create per-wave signal directory (matches hook TEAM_NAME for Wave 2+ agents)
+    const waveSignalDir = `tmp/.rune-signals/${teamName}-w${wave.waveNumber}`
+    Bash(`mkdir -p "${waveSignalDir}" && find "${waveSignalDir}" -mindepth 1 -delete`)
+    Write(`${waveSignalDir}/.expected`, String(wave.agents.length))
+    Write(`${waveSignalDir}/.readonly-active`, "active")
+    Write(`${waveSignalDir}/inscription.json`, JSON.stringify({
+      workflow, timestamp, output_dir: outputDir,
+      team_name: `${teamName}-w${wave.waveNumber}`,
+      teammates: wave.agents.map(ash => ({ name: ash.slug, output_file: `${ash.slug}.md` }))
+    }))
 
     // Create tasks for this wave's agents
     for (const ash of wave.agents) {
@@ -225,13 +237,17 @@ for (const wave of waves) {
     for (const ash of wave.agents) {
       SendMessage({ type: "shutdown_request", recipient: ash.slug })
     }
+    // Grace period — let wave teammates deregister
+    if (wave.agents.length > 0) {
+      Bash(`sleep 15`)
+    }
     // Force-delete remaining tasks to prevent zombie contamination
     const remaining = TaskList().filter(t => t.status !== "completed")
     for (const task of remaining) {
       TaskUpdate({ taskId: task.id, status: "deleted" })
     }
-    // Inter-wave TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
-    const WAVE_CLEANUP_DELAYS = [0, 3000, 8000]
+    // Inter-wave TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+    const WAVE_CLEANUP_DELAYS = [0, 5000, 10000]
     let waveCleanupOk = false
     for (let attempt = 0; attempt < WAVE_CLEANUP_DELAYS.length; attempt++) {
       if (attempt > 0) Bash(`sleep ${WAVE_CLEANUP_DELAYS[attempt] / 1000}`)
@@ -240,7 +256,8 @@ for (const wave of waves) {
       }
     }
     if (!waveCleanupOk) {
-      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+      const cleanupTeamName = wave.waveNumber === 1 ? teamName : `${teamName}-w${wave.waveNumber}`
+      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${cleanupTeamName}/" "$CHOME/tasks/${cleanupTeamName}/" 2>/dev/null`)
     }
 
     // Collect findings for next wave context (file:line + severity ONLY)
@@ -409,6 +426,30 @@ if (generateTodos) {
 
 Layer 0 inline checks + Layer 2 verifier. See roundtable-circle SKILL.md for the protocol.
 
+### Phase 6.2: Codex Diff Verification (Layer 3)
+
+Cross-model verification of P1/P2 findings against actual diff hunks. Runs after Layer 2 (Smart Verifier).
+
+- **Gate**: 4-condition canonical pattern — `codexAvailable && !codexDisabled && diffVerifyEnabled && workflowIncluded("review" OR "audit")`
+- **Input**: Up to 3 P1/P2 findings from `truthsight-report.md` (fallback: TOME.md if Layer 2 skipped)
+- **Output**: `{outputDir}codex-diff-verification.md` (CDX-VERIFY prefix)
+- **Verdicts**: CONFIRMED (+0.15 confidence), WEAKENED (no change), REFUTED (demote to P3)
+- **Config**: `codex.diff_verification.enabled` (default: true), timeout 300s, reasoning "high"
+
+See roundtable-circle SKILL.md Phase 6.2 for full pseudocode.
+
+### Phase 6.3: Codex Architecture Review (Audit Mode Only)
+
+Cross-model analysis of TOME findings for cross-cutting architectural patterns. Only runs when `scope=full` (audit mode).
+
+- **Gate**: 5-condition — canonical 4-condition + `scope === "full"` (audit only, NOT appraise)
+- **Input**: TOME.md aggregate (truncated to 20K chars)
+- **Output**: `{outputDir}architecture-review.md` (CDX-ARCH prefix)
+- **Focus**: Naming drift, layering violations, error handling inconsistency
+- **Config**: `codex.architecture_review.enabled` (default: false — opt-in), timeout 600s, reasoning "xhigh"
+
+See roundtable-circle SKILL.md Phase 6.3 for full pseudocode.
+
 ## Phase 7: Cleanup
 
 ```javascript
@@ -428,8 +469,13 @@ for (const member of allMembers) {
   SendMessage({ type: "shutdown_request", recipient: member, content: `${label} complete` })
 }
 
-// 3. TeamDelete with retry-with-backoff
-const CLEANUP_DELAYS = [0, 3000, 8000]
+// 3. Grace period — let teammates deregister before TeamDelete
+if (allMembers.length > 0) {
+  Bash(`sleep 15`)
+}
+
+// 4. TeamDelete with retry-with-backoff (0s, 5s, 10s — 15s retry budget after 15s grace)
+const CLEANUP_DELAYS = [0, 5000, 10000]
 let cleanupSucceeded = false
 for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
   if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)

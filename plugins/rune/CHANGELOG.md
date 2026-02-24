@@ -1,5 +1,47 @@
 # Changelog
 
+## [1.87.0] - 2026-02-24
+
+### Added
+- **Codex Expansion — 10 Cross-Model Integration Points** — Extends inline Codex verification from 9 to 19 total integration points across 7 workflows. All integrations follow the canonical 4-condition detection gate + cascade circuit breaker (5th condition) pattern.
+  - **Diff Verification** (2A) — `CDX-VERIFY` findings in `/rune:appraise` Phase 6.2. Codex cross-validates P1 findings from review. Default ON, 300s, high reasoning. ~30% skip rate when no P1/P2 findings.
+  - **Test Coverage Critique** (2B) — `CDX-TEST` findings in `/rune:arc` Phase 7.8. Cross-model test adequacy assessment against implementation diff. Default ON, 600s, xhigh reasoning. ~50% skip rate at high coverage.
+  - **Release Quality Check** (2C) — `CDX-RELEASE` findings in `/rune:arc` Phase 8.55. CHANGELOG completeness, breaking change detection, migration doc validation. Default ON, 300s, high reasoning. ~60% skip rate.
+  - **Section Validation** (3B) — `CDX-SECTION` findings in `/rune:forge` Phase 1.7. Cross-model enrichment quality assessment. Default ON, 300s, medium reasoning. ~40% skip rate.
+  - **Research Tiebreaker** (4B) — `[CDX-TIEBREAKER]` inline tag in `/rune:devise` Phase 2.3.5. Resolves conflicting research agent recommendations. Default ON, 300s, high reasoning. ~80% skip rate.
+  - **Task Decomposition** (4C) — `CDX-TASK` findings in `/rune:arc` Phase 4.5. Cross-model task granularity and dependency analysis. Default ON, 300s, high reasoning. ~40% skip rate.
+  - **Risk Amplification** (3A) — `CDX-RISK` findings in `/rune:goldmask` Phase 3.5. Cross-model risk signal amplification for critical files. Default **OFF**, 600s, xhigh reasoning. ~40% skip rate.
+  - **Drift Detection** (3C) — `CDX-INSPECT-DRIFT` findings in `/rune:inspect` Phase 1.5. Cross-model plan-vs-implementation drift analysis. Default **OFF**, 600s, xhigh reasoning. ~50% skip rate.
+  - **Architecture Review** (4A) — `CDX-ARCH` findings in `/rune:audit` Phase 6.3. Cross-model architectural pattern review. Default **OFF**, 600s, xhigh reasoning. ~70% skip rate.
+  - **Post-monitor Critique** (4D) — `CDX-ARCH-STRIVE` findings in `/rune:strive` Phase 3.7. Cross-model post-completion quality critique. Default **OFF**, 300s, high reasoning. ~30% skip rate.
+- **Cascade Failure Circuit Breaker** — `codex_cascade` checkpoint tracking. After 3+ consecutive Codex failures, remaining integrations auto-skip with consolidated warning. AUTH/QUOTA errors trigger immediate cascade. Tracked in arc checkpoint schema v16.
+- **Arc Pipeline Phase Expansion** — 3 new phases added to PHASE_ORDER (18 → 21 phases):
+  - Phase 4.5 TASK DECOMPOSITION — Codex cross-model task granularity analysis
+  - Phase 7.8 TEST COVERAGE CRITIQUE — Codex cross-model test adequacy assessment
+  - Phase 8.55 RELEASE QUALITY CHECK — Codex cross-model release artifact validation
+- **Greenfield Codex Integration** for Inspect and Goldmask — Full detection infrastructure added to workflows that previously had zero Codex support. Both require "inspect"/"goldmask" added to `codex.workflows` default array.
+- **Per-Workflow Codex Budget Caps** — Maximum Codex time and call limits per workflow (e.g., `/rune:arc` 30 min / 10 calls, `/rune:appraise` 10 min / 3 calls)
+
+### Changed
+- `arc/SKILL.md`: PHASE_ORDER expanded (18 → 21 phases), PHASE_TIMEOUTS updated (3 new entries + test/pre_ship_validation absorbed), ARC_TOTAL_TIMEOUT_HARD_CAP raised (240 → 285 min), ARC_TOTAL_TIMEOUT_DEFAULT raised (224 → 244 min), checkpoint schema v15 → v16, Phase Transition Contracts table updated (4 new rows), Failure Policy table updated (3 new rows)
+- `arc/references/arc-phase-test.md`: Added Phase 7.8 TEST COVERAGE CRITIQUE reference documentation
+- `arc/references/arc-phase-pre-ship-validator.md`: Added Phase 8.55 RELEASE QUALITY CHECK reference documentation
+- `codex-cli/SKILL.md`: Integration count updated (9 → 19), complete 19-row budget table, per-workflow budget caps, cascade circuit breaker documentation
+- `inspect/SKILL.md`: Added `codex-cli` to Load skills, Phase 1.5 Codex Drift Detection section (CDX-INSPECT-DRIFT prefix, independent of Lore Layer, 2000-char injection cap)
+- `devise/SKILL.md`: Added Phase 2.3.5 Research Conflict Tiebreaker section (heuristic conflict detection, [CDX-TIEBREAKER] inline tag)
+- `goldmask/SKILL.md`: Added Phase 3.5 Codex Risk Amplification section (CDX-RISK prefix, greenfield detection infrastructure)
+- `roundtable-circle/SKILL.md`: Added Phase 6.2 Codex Diff Verification section (CDX-VERIFY prefix)
+- `forge/SKILL.md`: Added Phase 1.7 Codex Section Validation section (CDX-SECTION prefix)
+- `strive/SKILL.md`: Added Phase 3.7 Codex Post-monitor Critique section (CDX-ARCH-STRIVE prefix)
+- `audit/SKILL.md`: Added Phase 6.3 Codex Architecture Review section (CDX-ARCH prefix)
+- `talisman.example.yml`: Added 10 new Codex feature config keys, `codex_cascade` schema, updated `codex.workflows` defaults
+- `plugin.json` / `marketplace.json`: Version 1.86.0 → 1.87.0
+
+### Migration Notes
+- **8 new CDX finding prefixes**: CDX-TEST, CDX-RELEASE, CDX-SECTION, CDX-TIEBREAKER, CDX-TASK, CDX-RISK, CDX-INSPECT-DRIFT, CDX-ARCH-STRIVE. CDX-VERIFY and CDX-ARCH are pre-existing. If you have custom Ashes using any of these prefixes, rename them to avoid dedup collisions.
+- **No breaking changes**: All 10 integrations follow the canonical detection gate pattern. 6 are default ON (with strong skip conditions), 4 are default OFF (opt-in). Existing workflows without Codex installed are completely unaffected.
+- **Arc checkpoint schema v16**: New `codex_cascade` field. Backward-compatible — missing field is treated as no cascade state.
+
 ## [1.86.0] - 2026-02-24
 
 ### Added

@@ -19,7 +19,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **stacks** | Stack-aware intelligence — 4-layer detection engine (manifest scanning → context routing → knowledge skills → enforcement agents). 11 specialist reviewers (Python, TypeScript, Rust, PHP, FastAPI, Django, Laravel, SQLAlchemy, TDD, DDD, DI). Non-invocable — auto-loaded by Rune Gaze Phase 1A |
 | **systematic-debugging** | 4-phase debugging methodology (Observe → Narrow → Hypothesize → Fix) for workers hitting repeated failures. Iron Law: no fixes without root cause investigation (DBG-001) |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
-| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 18 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend → test → pre-ship validation → ship → merge) |
+| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 21 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend → test → test coverage critique → pre-ship validation → release quality check → ship → merge) |
 | **testing** | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | **agent-browser** | Browser automation knowledge injection for E2E testing (non-invocable) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection. Shared data discovery + risk context template used by forge, mend, inspect, and devise |
@@ -44,7 +44,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 |---------|-------------|
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
-| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 18 phases: forge → plan review → plan refinement → verification → semantic verification → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend (convergence loop) → test → pre-ship validation → ship → merge |
+| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 21 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend (convergence loop) → test → test coverage critique → pre-ship validation → release quality check → ship → merge |
 | `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
 | `/rune:plan-review` | Review plan code samples for implementation correctness (thin wrapper for /rune:inspect --mode plan) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |

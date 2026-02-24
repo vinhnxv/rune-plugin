@@ -137,9 +137,15 @@ for (const member of allMembers) {
 }
 ```
 
-### 5. Wait for Approvals (Max 30s)
+### 5. Grace Period (15s)
 
-Wait for shutdown responses. After 30 seconds, proceed regardless.
+Let teammates process shutdown_request and deregister before TeamDelete.
+
+```javascript
+if (allMembers.length > 0) {
+  Bash(`sleep 15`)
+}
+```
 
 ### 6. Cleanup
 
@@ -147,8 +153,8 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 // Delete team with retry-with-backoff + CHOME fallback (see team-lifecycle-guard.md)
 // Validate team_name before shell interpolation
 if (!/^[a-zA-Z0-9_-]+$/.test(team_name)) throw new Error("Invalid team_name")
-// TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
-const RETRY_DELAYS = [0, 3000, 8000]
+// TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+const RETRY_DELAYS = [0, 5000, 10000]
 for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
   if (attempt > 0) {
     warn(`Cancel cleanup: TeamDelete attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)

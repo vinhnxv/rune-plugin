@@ -62,7 +62,7 @@ if (!exists(findingsPath)) {
 }
 
 updateCheckpoint({
-  phase: "goldmask_correlation", status: "active",
+  phase: "goldmask_correlation", status: "in_progress",
   phase_sequence: 6.5
 })
 

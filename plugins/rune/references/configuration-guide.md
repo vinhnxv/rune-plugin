@@ -42,11 +42,32 @@ codex:                                 # Codex CLI integration (see codex-cli sk
   reasoning: "xhigh"                  # Reasoning effort (xhigh | high | medium | low)
   timeout: 600                         # Outer GNU timeout in seconds for codex exec (default: 600, range: 300-3600)
   stream_idle_timeout: 540             # Inner stream idle timeout — kills codex if no output for this duration (default: 540, range: 10-timeout)
-  workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex — "mend" added in v1.39.0 for post-fix verification
+  workflows: [review, audit, plan, forge, work, mend, goldmask, inspect]  # Which pipelines use Codex
   work_advisory:
     enabled: true                      # Codex advisory in /rune:strive
   gap_analysis:
     remediation_threshold: 5           # Actionable Codex findings (MISSING/INCOMPLETE/DRIFT, excluding EXTRA) to trigger Phase 5.8 via Codex gate (default: 5, range: [1, 20] — RUIN-001 clamp)
+  # ── Codex Expansion (v1.51.0+) — 10 new inline cross-model verification points ──
+  diff_verification:                   # Appraise Phase 6.2 — 3-way verdict on P1/P2 findings vs diff hunks
+    enabled: true                      # ON by default (CDX-VERIFY prefix)
+  test_coverage_critique:              # Arc Phase 7.8 — test coverage gaps after test phase
+    enabled: true                      # ON by default (CDX-TEST prefix)
+  release_quality_check:               # Arc Phase 8.55 — CHANGELOG + breaking changes validation
+    enabled: true                      # ON by default (CDX-RELEASE prefix, advisory only)
+  section_validation:                  # Forge Phase 1.7 — plan section coverage check
+    enabled: true                      # ON by default (CDX-SECTION prefix)
+  research_tiebreaker:                 # Devise Phase 2.3.5 — conflict resolution (conditional)
+    enabled: true                      # ON by default, usually skips (CDX-TIEBREAKER tag)
+  task_decomposition:                  # Arc Phase 4.5 — task granularity + dependency validation
+    enabled: true                      # ON by default (CDX-TASK prefix)
+  risk_amplification:                  # Goldmask Phase 3.5 — 2nd/3rd-order risk chains
+    enabled: false                     # OFF — greenfield, opt-in (CDX-RISK prefix)
+  drift_detection:                     # Inspect Phase 1.5 — plan-vs-code semantic drift
+    enabled: false                     # OFF — greenfield, opt-in (CDX-INSPECT-DRIFT prefix)
+  architecture_review:                 # Audit Phase 6.3 — cross-cutting TOME analysis
+    enabled: false                     # OFF — audit-only niche (CDX-ARCH prefix)
+  post_monitor_critique:               # Strive Phase 3.7 — post-work architectural critique
+    enabled: false                     # OFF — limited actionability (CDX-ARCH-STRIVE prefix)
 
 solution_arena:
   enabled: true                    # Enable Arena phase in /rune:devise

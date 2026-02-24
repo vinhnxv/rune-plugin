@@ -220,6 +220,7 @@
 | `workflow` | Yes | — |
 | `timestamp` | Yes | — |
 | `output_dir` | Yes | — |
+| `team_name` | Yes | — |
 | `teammates` | Yes | — |
 | `teammates[].name` | Yes | — |
 | `teammates[].output_file` | Yes | — |

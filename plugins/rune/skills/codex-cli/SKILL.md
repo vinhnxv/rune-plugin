@@ -68,7 +68,7 @@ codex:
   sandbox: "read-only"                 # Always read-only (reserved for future use)
   context_budget: 20                   # Max files per session
   confidence_threshold: 80             # Min confidence % to report findings
-  workflows: [review, audit, plan, forge, work, mend]  # Which pipelines use Codex (v1.39.0: added "mend")
+  workflows: [review, audit, plan, forge, work, mend, goldmask, inspect]  # Which pipelines use Codex (v1.39.0: added "mend", v1.51.0: added "goldmask", "inspect")
   skip_git_check: false                # Pass --skip-git-repo-check if true
   work_advisory:
     enabled: true                      # Codex advisory in /rune:strive
@@ -182,6 +182,16 @@ Each workflow writes Codex output to a designated path:
 | arc (gap) | `tmp/arc/{id}/codex-gap-analysis.md` | CDX-GAP |
 | work (trial-forger) | `tmp/work/{id}/codex-edge-cases.md` | CDX |
 | work (rune-smith) | `tmp/work/{id}/codex-smith-prompt.txt` (temp) | CDX |
+| appraise (diff verify) | `tmp/reviews/{id}/codex-diff-verification.md` | CDX-VERIFY |
+| arc (test critique) | `tmp/arc/{id}/test-critique.md` | CDX-TEST |
+| arc (release quality) | `tmp/arc/{id}/release-quality.md` | CDX-RELEASE |
+| forge (section validate) | `tmp/forge/{id}/codex-section-validation.md` | CDX-SECTION |
+| devise (tiebreaker) | `tmp/plans/{id}/codex-tiebreaker.md` | CDX-TIEBREAKER |
+| arc (task decompose) | `tmp/arc/{id}/task-validation.md` | CDX-TASK |
+| goldmask (risk amplify) | `tmp/goldmask/{id}/risk-amplification.md` | CDX-RISK |
+| inspect (drift detect) | `tmp/inspect/{id}/drift-report.md` | CDX-INSPECT-DRIFT |
+| audit (arch review) | `tmp/audit/{id}/architecture-review.md` | CDX-ARCH |
+| strive (post-monitor) | `tmp/work/{id}/architectural-critique.md` | CDX-ARCH-STRIVE |
 
 **Every codex outcome** (success, failure, skip, error) MUST produce an MD file at the
 designated path. Even skip/error messages are written so downstream phases know Codex was attempted.
@@ -201,7 +211,11 @@ designated path. Even skip/error messages are written so downstream phases know 
    - Nonce boundary around untrusted content
 
    Current inline exceptions: Semantic Verification (Point 4), Trial Forger (Point 6),
-   Rune Smith Advisory (Point 7, default OFF), Shatter Scoring (Point 8), Echo Validation (Point 9).
+   Rune Smith Advisory (Point 7, default OFF), Shatter Scoring (Point 8), Echo Validation (Point 9),
+   Diff Verification (Point 10), Test Coverage Critique (Point 11), Release Quality Check (Point 12),
+   Section Validation (Point 13), Research Tiebreaker (Point 14), Task Decomposition (Point 15),
+   Risk Amplification (Point 16, default OFF), Drift Detection (Point 17, default OFF),
+   Architecture Review (Point 18, default OFF), Post-monitor Critique (Point 19, default OFF).
 
 2. **Always write to MD file**: Every outcome produces an MD file at the designated output path.
 
@@ -221,25 +235,58 @@ designated path. Even skip/error messages are written so downstream phases know 
    Only dedicated Codex teammates (codex-oracle, codex-mend-verifier, codex-arena-judge,
    codex-gap-analyzer) count toward the cap.
 
-## Codex Timeout Budget (v1.39.0+)
+## Codex Timeout Budget (v1.39.0+, expanded v1.51.0+)
 
-With all 9 deep integration points enabled, a full `/rune:arc` run adds up to 7 additional
-`codex exec` calls (~35 min total). Plan your arc total timeout accordingly:
+With all 19 deep integration points enabled across 7 workflows, Codex adds significant
+overhead. Plan your workflow timeouts accordingly. Each integration has strong skip conditions
+that reduce actual invocations to 3-5 per run.
 
-| Point | Timeout | Phase |
-|-------|---------|-------|
-| Elicitation Sage | 300s | Plan brainstorm |
-| Mend Verification | 660s | Post-mend |
-| Arena Judge | 300s | Plan arena |
-| Semantic Verification | 300s | Arc Phase 2.8 |
-| Gap Analysis | 600s | Arc Phase 5.6 |
-| Trial Forger | 300s | Work (per test task) |
-| Rune Smith | 300s | Work (per worker task, opt-in) |
-| Shatter | 300s | Plan Phase 2.5 |
-| Echo Validation | 300s | Post-workflow |
+| # | Point | Timeout | Reasoning | Phase | Default | Skip Condition | Est. Skip Rate |
+|---|-------|---------|-----------|-------|---------|----------------|----------------|
+| 1 | Elicitation Sage | 300s | varies | Plan brainstorm | ON | — | ~10% |
+| 2 | Mend Verification | 660s | xhigh | Post-mend | ON | — | ~10% |
+| 3 | Arena Judge | 300s | xhigh | Plan arena | ON | — | ~20% |
+| 4 | Semantic Verification | 300s | xhigh | Arc Phase 2.8 | ON | — | ~10% |
+| 5 | Gap Analysis | 600s | xhigh | Arc Phase 5.6 | ON | — | ~20% |
+| 6 | Trial Forger | 300s | xhigh | Work (per test task) | ON | — | ~20% |
+| 7 | Rune Smith | 300s | xhigh | Work (per worker, opt-in) | **OFF** | — | N/A |
+| 8 | Shatter | 300s | xhigh | Plan Phase 2.5 | ON | — | ~20% |
+| 9 | Echo Validation | 300s | xhigh | Post-workflow | ON | — | ~10% |
+| 10 | Diff Verification | 300s | high | Appraise Phase 6.2 | ON | `p1_p2_findings_count == 0` | ~30% |
+| 11 | Test Coverage Critique | 600s | xhigh | Arc Phase 7.8 | ON | `coverage_pct >= 80 && pass_rate == 100` | ~50% |
+| 12 | Release Quality Check | 300s | high | Arc Phase 8.55 | ON | `!breaking_changes && !changelog_stale` | ~60% |
+| 13 | Section Validation | 300s | medium | Forge Phase 1.7 | ON | `plan_sections <= 5` | ~40% |
+| 14 | Research Tiebreaker | 300s | high | Devise Phase 2.3.5 | ON | `conflictsDetected == 0` | ~80% |
+| 15 | Task Decomposition | 300s | high | Arc Phase 4.5 | ON | `task_count <= 5` | ~40% |
+| 16 | Risk Amplification | 600s | xhigh | Goldmask Phase 3.5 | **OFF** | `critical_files == 0 in risk-map` | ~40% |
+| 17 | Drift Detection | 600s | xhigh | Inspect Phase 1.5 | **OFF** | `scope_files <= 10` | ~50% |
+| 18 | Architecture Review | 600s | xhigh | Audit Phase 6.3 | **OFF** | Only runs in `audit` mode | ~70% |
+| 19 | Post-monitor Critique | 300s | high | Strive Phase 3.7 | **OFF** | `total_worker_commits <= 3` | ~30% |
 
-**Default** (`rune_smith.enabled: false`): ~2700s (~45 min) additional overhead.
-**All enabled** (`rune_smith.enabled: true` + 3 workers x 5 tasks): ~7200s (~120 min).
+### Budget Summary
+
+| Scenario | Codex Calls | Est. Time | Est. Cost/Run |
+|----------|------------|-----------|---------------|
+| Original 9 deep (v1.39.0) | 5-7 | ~15 min | ~$1.00-$2.10 |
+| After expansion (worst-case) | 8-10 | ~40-50 min | ~$1.50-$3.00 |
+| After expansion (with skip conditions) | 3-5 | ~15-25 min | ~$0.60-$1.50 |
+| All 19 integrations (theoretical, all workflows) | 19 | ~95 min | ~$2.85-$5.70 |
+
+> **Note**: The ~95 min figure spans 7 different workflows. No single command invokes all 7.
+> A realistic `/rune:arc` run expects 6-8 Codex calls totaling ~30-40 min.
+
+### Per-Workflow Codex Budget Caps
+
+| Workflow | Max Codex Time | Max Codex Calls | Rationale |
+|----------|---------------|-----------------|-----------|
+| `/rune:arc` | 1800s (30 min) | 10 | Arc's hard cap is 285 min; 30 min = ~10.5% |
+| `/rune:appraise` | 600s (10 min) | 3 | Review should stay fast |
+| `/rune:audit` | 900s (15 min) | 4 | Audit is thorough, higher budget |
+| `/rune:devise` | 900s (15 min) | 4 | Planning can be deliberate |
+| `/rune:forge` | 600s (10 min) | 2 | Enrichment should not dominate |
+| `/rune:inspect` | 600s (10 min) | 2 | Inspection is focused |
+| `/rune:strive` | 900s (15 min) | 5 | Work with per-task calls |
+| Goldmask | 600s (10 min) | 2 | Analysis layer, not core workflow |
 
 Per-feature `reasoning` keys (e.g., `codex.semantic_verification.reasoning: "xhigh"`) override
 the global `codex.reasoning` for that specific feature only.

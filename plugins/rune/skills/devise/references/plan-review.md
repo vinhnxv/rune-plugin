@@ -3,7 +3,7 @@
 ## 4A: Scroll Review (always)
 
 Create a task and summon a document quality reviewer, then wait for completion
-using `waitForCompletion` (see [monitor-utility.md](../../skills/roundtable-circle/references/monitor-utility.md)):
+using `waitForCompletion` (see [monitor-utility.md](../../roundtable-circle/references/monitor-utility.md)):
 
 ```javascript
 // 1. Create task for scroll-reviewer (enables TaskList-based monitoring)

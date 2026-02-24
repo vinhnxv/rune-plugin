@@ -135,6 +135,7 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
   // Cleanup ephemeral sage team before mend delegation (STEP 3).
   // Sage has completed (synchronous). Clear team so mend sub-command can create its own.
   try { SendMessage({ type: "shutdown_request", recipient: "elicitation-sage-mend", content: "Analysis complete" }) } catch (e) { /* sage may have already exited */ }
+  Bash("sleep 5")  // Grace period — single-agent sage (5s sufficient)
   try { TeamDelete() } catch (e) {}
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${sageTeam}/" "$CHOME/tasks/${sageTeam}/" 2>/dev/null`)
 }

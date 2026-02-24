@@ -289,6 +289,6 @@ When `changed_files.length > CHUNK_THRESHOLD` (default: 20) and `--no-chunk` is 
 - Cross-cutting findings (optional): `tmp/reviews/{id}/cross-cutting.md`
 
 **Reference files:**
-- Full chunking algorithm: [`chunk-orchestrator.md`](../../skills/roundtable-circle/references/chunk-orchestrator.md)
-- File scoring and grouping: [`chunk-scoring.md`](../../skills/roundtable-circle/references/chunk-scoring.md)
-- Convergence metrics, thresholds, and decision matrix: [`convergence-gate.md`](../../skills/roundtable-circle/references/convergence-gate.md)
+- Full chunking algorithm: [`chunk-orchestrator.md`](../../roundtable-circle/references/chunk-orchestrator.md)
+- File scoring and grouping: [`chunk-scoring.md`](../../roundtable-circle/references/chunk-scoring.md)
+- Convergence metrics, thresholds, and decision matrix: [`convergence-gate.md`](../../roundtable-circle/references/convergence-gate.md)

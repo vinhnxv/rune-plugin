@@ -300,7 +300,12 @@ for (const member of allMembers) {
   SendMessage({ type: "shutdown_request", recipient: member, content: "Review complete" })
 }
 
-// 2. TeamDelete with retry-with-backoff (CLEANUP_DELAYS: [0, 3000, 8000])
+// 2. Grace period — let teammates deregister before TeamDelete
+if (allMembers.length > 0) {
+  Bash(`sleep 15`)
+}
+
+// 3. TeamDelete with retry-with-backoff (CLEANUP_DELAYS: [0, 5000, 10000])
 //    On failure: filesystem fallback (CHOME pattern)
 
 // 3. Update state file to "completed" (preserve config_dir, owner_pid, session_id)

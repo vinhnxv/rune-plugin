@@ -160,6 +160,7 @@ Delegate cancellation based on the currently-active phase:
 | **MEND** (Phase 7) | Shutdown mend team — broadcast cancellation, send shutdown requests to all mend-fixer workers |
 | **VERIFY MEND** (Phase 7.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **TEST** (Phase 7.7) | Shutdown test team (`arc-test-{id}`) — broadcast cancellation, send shutdown requests. Cleanup test state files (`tmp/.rune-test-*.json`) |
+| **PRE-SHIP VALIDATION** (Phase 8.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **SHIP** (Phase 9) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 | **MERGE** (Phase 9.5) | No-op — orchestrator-only, no team to cancel. Skip to Step 4 |
 <!-- Phase 8 (AUDIT) removed in v1.67.0 — audit phases no longer exist in the arc pipeline -->
@@ -208,9 +209,15 @@ for (const member of allMembers) {
 }
 ```
 
-#### 3c. Wait for Approvals (Max 30s)
+#### 3c. Grace Period (15s)
 
-Wait for shutdown responses. After 30 seconds, proceed regardless.
+Let teammates process shutdown_request and deregister before TeamDelete.
+
+```javascript
+if (allMembers.length > 0) {
+  Bash(`sleep 15`)
+}
+```
 
 #### 3d. Delete Team
 
@@ -221,8 +228,8 @@ Wait for shutdown responses. After 30 seconds, proceed regardless.
 if (phase_team && !/^[a-zA-Z0-9_-]+$/.test(phase_team)) throw new Error("Invalid phase_team")
 if (phase_team && phase_team.includes('..')) throw new Error('Path traversal detected in phase_team')
 if (phase_team) {
-  // TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
-  const RETRY_DELAYS = [0, 3000, 8000]
+  // TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+  const RETRY_DELAYS = [0, 5000, 10000]
   for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
     if (attempt > 0) {
       warn(`Cancel cleanup: TeamDelete attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]/1000}s...`)
@@ -273,7 +280,7 @@ const PHASE_LABELS = {
   gap_remediation: '5.8 (GAP REMEDIATION)', goldmask_verification: '5.7 (GOLDMASK VERIFICATION)',
   code_review: '6 (CODE REVIEW)', goldmask_correlation: '6.5 (GOLDMASK CORRELATION)',
   mend: '7 (MEND)', verify_mend: '7.5 (VERIFY MEND)', test: '7.7 (TEST)',
-  ship: '9 (SHIP)', merge: '9.5 (MERGE)'
+  pre_ship_validation: '8.5 (PRE-SHIP VALIDATION)', ship: '9 (SHIP)', merge: '9.5 (MERGE)'
 }
 
 let report = `Arc pipeline cancelled.\n\n`

@@ -291,7 +291,7 @@ if (shardMatch) {
           const siblingStatus = siblingFrontmatter?.status || "draft"
 
           // Check if dependency shard has been implemented
-          // "completed" in frontmatter means /rune:work finished
+          // "completed" in frontmatter means /rune:strive finished
           // Also check git log for commits mentioning the shard
           if (siblingStatus !== "completed") {
             // Secondary check: look for arc completion stamp in the shard plan

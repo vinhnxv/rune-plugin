@@ -125,7 +125,7 @@ RESOLVED_OUTPUT=$(resolve_path "$FULL_OUTPUT_PATH")
 RESOLVED_OUTDIR=$(resolve_path "${CWD}/${OUTPUT_DIR}")
 if [[ "$RESOLVED_OUTPUT" != "$RESOLVED_OUTDIR"* ]]; then
   echo "ERROR: output_file resolves outside output_dir" >&2
-  exit 0
+  exit 2  # CDX-006: fail-closed — block idle on security violation (consistent with lines 105, 109)
 fi
 
 if [[ ! -f "$FULL_OUTPUT_PATH" ]]; then
@@ -153,7 +153,8 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
   # SEC-009: Simple string match — this is a quality gate, not a security boundary.
   # BACK-102: ^SEAL: requires column-0 positioning by design — partial or indented
   # SEAL lines are treated as incomplete output (fail-safe).
-  if ! grep -q "^SEAL:" "$FULL_OUTPUT_PATH" 2>/dev/null && ! grep -q "<seal>" "$FULL_OUTPUT_PATH" 2>/dev/null; then
+  # Check for SEAL in output file: YAML format (^SEAL:), XML tag (<seal>), or Inner Flame self-review marker
+  if ! grep -q "^SEAL:" "$FULL_OUTPUT_PATH" 2>/dev/null && ! grep -q "<seal>" "$FULL_OUTPUT_PATH" 2>/dev/null && ! grep -q "^Inner Flame:" "$FULL_OUTPUT_PATH" 2>/dev/null; then
     _trace "BLOCK SEAL missing: $FULL_OUTPUT_PATH"
     echo "SEAL marker missing in ${FULL_OUTPUT_PATH}. Review output incomplete — add SEAL block." >&2
     exit 2  # Block idle until Ash adds SEAL

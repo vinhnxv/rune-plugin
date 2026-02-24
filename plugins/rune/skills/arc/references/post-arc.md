@@ -1,6 +1,6 @@
 # Post-Arc — Full Algorithm
 
-Post-pipeline lifecycle steps that run after all 18 phases complete (or after the last non-skipped phase). Covers echo persistence, completion report display, and final zombie teammate sweep.
+Post-pipeline lifecycle steps that run after all 21 phases complete (or after the last non-skipped phase). Covers echo persistence, completion report display, and final zombie teammate sweep.
 
 **Inputs**: completed checkpoint, plan path, echo config, `arcStart` timestamp
 **Outputs**: echoes persisted, completion report displayed to user, stale teams cleaned
@@ -135,8 +135,8 @@ try {
         for (const member of memberNames) {
           SendMessage({ type: "shutdown_request", recipient: member, content: "Arc pipeline complete — final sweep" })
         }
-        // Brief grace period for shutdown approval responses (5s)
-        Bash(`sleep 5`)
+        // Grace period — let teammates deregister before TeamDelete (15s)
+        Bash(`sleep 15`)
       }
     } catch (e) {
       // Team config unreadable — dir may already be gone. That's fine.

@@ -1,6 +1,37 @@
-# Quality Gates — Phases 4, 4.1, 4.3, 4.4, 4.5
+# Quality Gates — Phases 3.7, 4, 4.1, 4.3, 4.4, 4.5
 
 Post-implementation quality pipeline. Runs after all worker tasks complete and the commit/merge broker has finished.
+
+## Phase 3.7 Integration: Architectural Critique (optional input to Phase 4)
+
+When `codex.post_monitor_critique.enabled === true` and Codex is available, Phase 3.7 produces `tmp/work/{timestamp}/architectural-critique.md` with CDX-ARCH-STRIVE-prefixed findings. Phase 4 (Ward Check) considers these findings as an **advisory signal**.
+
+**Integration into Phase 4**: After running wards and the 10-point verification checklist, the orchestrator checks for architectural critique findings:
+
+```javascript
+// Phase 4 addition: read Phase 3.7 architectural critique (if present)
+const critiquePath = `tmp/work/${timestamp}/architectural-critique.md`
+if (exists(critiquePath)) {
+  const critiqueContent = Read(critiquePath)
+  const critiqueFindings = (critiqueContent.match(/\[CDX-ARCH-STRIVE-\d+\]/g) || []).length
+  if (critiqueFindings > 0) {
+    checks.push(`INFO: Codex Architectural Critique: ${critiqueFindings} finding(s) — see ${critiquePath}`)
+    // Advisory only — does NOT block ward check or create fix tasks
+    // P1 findings are logged prominently but still non-blocking
+    const p1Count = (critiqueContent.match(/Severity: P1/g) || []).length
+    if (p1Count > 0) {
+      warn(`Architectural critique found ${p1Count} P1 finding(s) — review before shipping`)
+    }
+  }
+}
+```
+
+**Key design decisions:**
+- **Non-blocking**: All CDX-ARCH-STRIVE findings are advisory (INFO-level). They appear in the completion report but do not fail the ward check.
+- **P1 prominence**: P1 (blocking-severity) findings generate a prominent warning in the report, but the decision to act on them remains with the human.
+- **Skip-path safety**: When Phase 3.7 was skipped or errored, the output file still exists with a skip reason. Phase 4 detects zero findings and proceeds normally.
+
+---
 
 ## Phase 4: Ward Check
 
@@ -55,14 +86,26 @@ const tmpPlanMatch = planPath.match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
 if (tmpPlanMatch) {
   planTimestamp = tmpPlanMatch[1]
 } else {
-  // For plans/ directory, look for risk-map.json in tmp/plans/ that references this plan
+  // For plans/ directory, find the risk-map.json that correlates with this plan
+  // by reading each risk-map and checking its plan reference
+  const planBasename = planPath.split('/').pop()
   const planTimestampFiles = Glob("tmp/plans/*/risk-map.json")
   for (const rmFile of planTimestampFiles) {
     const dirMatch = rmFile.match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
-    if (dirMatch) {
-      planTimestamp = dirMatch[1]
-      break
-    }
+    if (!dirMatch) continue
+    try {
+      const rmContent = JSON.parse(Read(rmFile))
+      // Match by plan path or basename stored in risk-map metadata
+      if (rmContent.plan === planPath || rmContent.plan?.endsWith(planBasename)) {
+        planTimestamp = dirMatch[1]
+        break
+      }
+    } catch (e) { /* corrupt risk-map — skip */ }
+  }
+  // Fallback: if no correlation found and only one risk-map exists, use it
+  if (!planTimestamp && planTimestampFiles.length === 1) {
+    const dirMatch = planTimestampFiles[0].match(/tmp\/plans\/([a-zA-Z0-9_-]+)\//)
+    if (dirMatch) planTimestamp = dirMatch[1]
   }
 }
 
