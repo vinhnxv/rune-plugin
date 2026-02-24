@@ -3,6 +3,11 @@
 > Evaluates review quality after each chunk merge round and decides whether re-review is needed.
 > Used by the chunk orchestrator after every TOME merge. Generates a `convergence-report.md` always,
 > even when convergence is disabled.
+>
+> **Disambiguation**: These tiers control **per-chunk re-review rounds** within a single review pass.
+> They are distinct from the arc-level convergence tiers (LIGHT/STANDARD/THOROUGH) in
+> [review-mend-convergence.md](review-mend-convergence.md), which control **review→mend cycle count**
+> across the full arc pipeline. The `CHUNK_` prefix prevents confusion between the two systems.
 
 ## 3-Tier Adaptive Convergence
 
@@ -11,19 +16,19 @@ The tier is selected **once** at the start (after Phase 1 scoring) and does not 
 
 | Tier | Max Re-reviews | Total Passes | Trigger Condition |
 |------|---------------|-------------|-------------------|
-| **MINIMAL** | 1 | 2 | All chunks doc-only OR total files <= 25 |
-| **STANDARD** | 2 | 3 | Default — mixed code/docs, no high-risk files |
-| **THOROUGH** | 3 | 4 | Any file `riskFactor >= 2.0` OR `avgComplexity > 2.0` OR total files > 40 |
+| **CHUNK_MINIMAL** | 1 | 2 | All chunks doc-only OR total files <= 25 |
+| **CHUNK_STANDARD** | 2 | 3 | Default — mixed code/docs, no high-risk files |
+| **CHUNK_THOROUGH** | 3 | 4 | Any file `riskFactor >= 2.0` OR `avgComplexity > 2.0` OR total files > 40 |
 
-**Calibration**: STANDARD (3 total passes) matches real-world usage where normal plans need ~3 review runs. THOROUGH adds 1 extra pass for auth/security/payment/migration changes. MINIMAL still gets 1 re-review — even docs-only changes benefit from a quality check.
+**Calibration**: CHUNK_STANDARD (3 total passes) matches real-world usage where normal plans need ~3 review runs. CHUNK_THOROUGH adds 1 extra pass for auth/security/payment/migration changes. CHUNK_MINIMAL still gets 1 re-review — even docs-only changes benefit from a quality check.
 
 **Time impact** (5 chunks, ~8 min/chunk avg):
 
 | Tier | Best Case | Typical | Worst Case |
 |------|-----------|---------|------------|
-| MINIMAL | ~40 min | ~44 min | ~48 min |
-| STANDARD | ~40 min | ~52 min | ~64 min |
-| THOROUGH | ~40 min | ~60 min | ~80 min |
+| CHUNK_MINIMAL | ~40 min | ~44 min | ~48 min |
+| CHUNK_STANDARD | ~40 min | ~52 min | ~64 min |
+| CHUNK_THOROUGH | ~40 min | ~60 min | ~80 min |
 
 *Best case = all chunks converge on first pass. Worst case = all chunks re-reviewed every round.*
 
@@ -40,9 +45,9 @@ The tier is selected **once** at the start (after Phase 1 scoring) and does not 
 
 ```javascript
 const TIERS = {
-  minimal:  { name: 'MINIMAL',  maxRounds: 1 },
-  standard: { name: 'STANDARD', maxRounds: 2 },
-  thorough: { name: 'THOROUGH', maxRounds: 3 },
+  minimal:  { name: 'CHUNK_MINIMAL',  maxRounds: 1 },
+  standard: { name: 'CHUNK_STANDARD', maxRounds: 2 },
+  thorough: { name: 'CHUNK_THOROUGH', maxRounds: 3 },
 }
 
 function selectConvergenceTier(scoredFiles, chunks, config) {
@@ -365,7 +370,7 @@ Generated deterministically (no LLM) — adds < 2 seconds.
 # Convergence Report — Review {identifier}
 
 **Date:** {timestamp}
-**Convergence Tier:** {MINIMAL | STANDARD | THOROUGH} (reason: {tier_reason})
+**Convergence Tier:** {CHUNK_MINIMAL | CHUNK_STANDARD | CHUNK_THOROUGH} (reason: {tier_reason})
 **Total Rounds:** {N} (initial + {N-1} re-reviews, max allowed: {tier.maxRounds})
 **Final Verdict:** {CONVERGED | HALTED | DISABLED}
 **Total Findings:** {N} (after dedup)
@@ -424,7 +429,7 @@ Trend: IMPROVING (findings +4, failed chunks 1 → 0)
 | Key | Value |
 |-----|-------|
 | convergence_enabled | true |
-| convergence_tier | STANDARD (auto-detected) |
+| convergence_tier | CHUNK_STANDARD (auto-detected) |
 | max_convergence_rounds (derived) | 2 |
 | density_threshold (code) | 0.3 |
 | evidence_threshold (code) | 0.7 |

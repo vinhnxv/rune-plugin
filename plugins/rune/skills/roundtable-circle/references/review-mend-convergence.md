@@ -2,6 +2,11 @@
 
 Shared tier selection, convergence evaluation, and progressive focus logic for both arc (Phase 6-7.5 loop) and standalone `/rune:appraise --cycles N`.
 
+> **Disambiguation**: These tiers (LIGHT/STANDARD/THOROUGH) control **review→mend cycle count**
+> across the arc pipeline. They are distinct from the per-chunk convergence tiers
+> (CHUNK_MINIMAL/CHUNK_STANDARD/CHUNK_THOROUGH) in [convergence-gate.md](convergence-gate.md),
+> which control **re-review rounds within a single review pass**.
+
 ## 3-Tier Adaptive Convergence
 
 The number of review-mend cycles scales with changeset complexity.

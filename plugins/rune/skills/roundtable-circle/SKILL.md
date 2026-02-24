@@ -431,7 +431,7 @@ For each Ash output file, run grep-based validation:
 # Required structure checks
 grep -c "## P1" {output_file}      # P1 section exists
 grep -c "## P2" {output_file}      # P2 section exists
-grep -c "## Summary" {output_file} # Summary section exists
+grep -c "## Reviewer Assumptions" {output_file} # Assumptions section exists
 grep -c "SEAL:" {output_file}      # Seal present
 
 # Evidence quality checks

@@ -158,7 +158,9 @@ Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 4.5, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 7.8, 8.5, 8.55, 9.1, 9.2, 9, 9.5) match the legacy pipeline phases from devise.md and appraise.md for cross-command consistency. Phases 3, 4, 8, and 8.7 are reserved (8/8.7 removed in v1.67.0 — audit coverage now handled by Phase 6 `--deep`; 8.5 re-activated in v1.80.0 as PRE-SHIP VALIDATION). Phase 5.8 (GAP REMEDIATION) runs between 5.6 (Codex Gap) and 5.7 (Goldmask) — the non-sequential numbering preserves backward compatibility with older checkpoints. Phases 4.5, 7.8, 8.55 are Codex cross-model inline phases added in v1.51.0. Phases 9.1, 9.2 are bot review integration phases added in v1.88.0. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 4.5, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 7.8, 8.5, 8.55, 9.1, 9.2, 9, 9.5) match the legacy pipeline phases from devise.md and appraise.md for cross-command consistency. Phases 3, 4, 8, and 8.7 are reserved (8/8.7 removed in v1.67.0 — audit coverage now handled by Phase 6 `--deep`; 8.5 re-activated in v1.80.0 as PRE-SHIP VALIDATION). Phases 4.5, 7.8, 8.55 are Codex cross-model inline phases added in v1.51.0. Phases 9.1, 9.2 are bot review integration phases added in v1.88.0.
+
+**WARNING — Non-monotonic execution order**: Phase 5.8 (GAP REMEDIATION) executes **before** Phase 5.7 (GOLDMASK VERIFICATION). The `PHASE_ORDER` array defines the canonical execution sequence using phase **names**, not numbers. Any tooling that sorts by numeric phase ID will get the wrong order. The non-sequential numbering preserves backward compatibility with older checkpoints — do NOT renumber. Always use `PHASE_ORDER` for iteration order.
 
 ## Arc Orchestrator Design (ARC-1)
 
@@ -226,17 +228,17 @@ const PHASE_TIMEOUTS = {
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// Base budget sum is ~201 min (v1.88.0: +25 min from bot review — bot_review_wait(10) + pr_comment_resolution(15)):
+// Base budget sum is ~216.5 min (recalculated v1.91.2):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
 //   task_decomposition(5) + codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) +
 //   work(35) + gap_analysis(12) + goldmask_correlation(1) + test(25) + test_coverage_critique(10) +
 //   pre_ship_validation(6) + release_quality_check(5) + bot_review_wait(10) + pr_comment_resolution(15) +
-//   ship(5) + merge(10) = 201 min
-// With E2E: test grows to 50 min → 226 min base
-// LIGHT (2 cycles):    201 + 42 + 1×26 = 269 min
-// STANDARD (3 cycles): 201 + 42 + 2×26 = 295 min → hard cap at 310 min
-// THOROUGH (5 cycles): 201 + 42 + 4×26 = 347 min → hard cap at 310 min
-const ARC_TOTAL_TIMEOUT_DEFAULT = 16_140_000  // 269 min fallback (LIGHT tier minimum — used before tier selection)
+//   ship(5) + merge(10) = 216.5 min
+// With E2E: test grows to 50 min → 241.5 min base
+// LIGHT (2 cycles):    216.5 + 42 + 1×26 = 284.5 min
+// STANDARD (3 cycles): 216.5 + 42 + 2×26 = 310.5 min → hard cap at 310 min
+// THOROUGH (5 cycles): 216.5 + 42 + 4×26 = 362.5 min → hard cap at 310 min
+const ARC_TOTAL_TIMEOUT_DEFAULT = 17_070_000  // 284.5 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 18_600_000  // 310 min (5.17 hours) — absolute hard cap (raised from 285 for bot review phases)
 const STALE_THRESHOLD = 300_000      // 5 min
 const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward/cross-file)
@@ -260,7 +262,7 @@ function calculateDynamicTimeout(tier) {
     PHASE_TIMEOUTS.test + PHASE_TIMEOUTS.test_coverage_critique +
     PHASE_TIMEOUTS.pre_ship_validation + PHASE_TIMEOUTS.release_quality_check +
     PHASE_TIMEOUTS.bot_review_wait + PHASE_TIMEOUTS.pr_comment_resolution +
-    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~201 min (v1.88.0: +25 min from bot review phases)
+    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~216.5 min (recalculated v1.91.2)
   const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
   const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
   const maxCycles = tier?.maxCycles ?? 3
