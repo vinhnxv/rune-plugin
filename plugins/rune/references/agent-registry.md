@@ -1,8 +1,8 @@
 # Agent Registry
 
-**Total: 79 agents** (34 review + 5 research + 2 work + 11 utility* + 23 investigation + 4 testing)
+**Total: 82 agents** (37 review + 5 research + 2 work + 12 utility* + 23 investigation + 4 testing)
 
-\* 11 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
+\* 12 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 
 Shared resources: [Review Checklist](../agents/review/references/review-checklist.md) (self-review and pre-flight for all review agents)
 
@@ -44,6 +44,9 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | tdd-compliance-reviewer | Test-first development, coverage, assertion quality (TDD-001 through TDD-010) |
 | ddd-reviewer | Domain-Driven Design patterns and bounded contexts (DDD-001 through DDD-010) |
 | di-reviewer | Dependency injection patterns and wiring validation (DI-001 through DI-010) |
+| schema-drift-detector | Schema drift between migrations and ORM/model definitions across 8 frameworks (DRIFT-001 through DRIFT-005) |
+| agent-parity-reviewer | Agent-native parity — orphan features, context starvation, sandbox isolation (PARITY-001 through PARITY-005) |
+| senior-engineer-reviewer | Persona-based senior engineer review — production thinking, temporal reasoning (SENIOR-001 through SENIOR-010) |
 
 ## Research Agents (`agents/research/`)
 
@@ -77,6 +80,7 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | elicitation-sage | Structured reasoning using BMAD-derived methods (summoned per eligible section, max 6 per forge session) |
 | veil-piercer-plan | Plan truth-telling (6-dimension analysis, PASS/CONCERN/BLOCK verdicts) |
 | horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
+| deployment-verifier | Deployment artifact generation — Go/No-Go checklists, SQL verification, rollback plans, monitoring (DEPLOY-) |
 
 ## Investigation Agents (`agents/investigation/`)
 

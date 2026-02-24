@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.89.0] - 2026-02-24
+
+### Added
+- **Review Agent Gap Closure — 7 Enhancements from CE Comparison** — Closes gaps identified from comparison with compound-engineering plugin review agents:
+  - **Enforcement Asymmetry Protocol** — Shared reference (`agents/review/references/enforcement-asymmetry.md`) enabling variable strictness based on change context (new file vs edit, shared vs isolated). Integrated into simplicity-warden, pattern-seer, and type-warden as proof-of-concept. Security findings always Strict.
+  - **Forge-Keeper Data Migration Gatekeeper** — 3 new sections: Production Data Reality Check, Rollback Verification Depth (forward/backward compat matrix), Gatekeeper Verdicts (GATE-001 through GATE-010). GATE findings carry `requires_human_review: true`. New reference: `migration-gatekeeper-patterns.md`. Updated `data-integrity-patterns.md` with dual-write patterns.
+  - **Tide-Watcher Frontend Race Conditions** — 3 new sections: Framework-Specific DOM Lifecycle Races (Hotwire/Turbo, React, Vue), Browser API Synchronization, State Machine Enforcement. New reference: `frontend-race-patterns.md`. Updated `async-patterns.md` with WebSocket/SSE patterns.
+  - **Schema Drift Detector** — New review agent (`schema-drift-detector.md`) detecting accidental schema drift between migration files and ORM/model definitions across 8 frameworks (Rails, Prisma, Alembic, Django, Knex, TypeORM, Drizzle, Sequelize). DRIFT- prefix findings.
+  - **Deployment Verification Agent** — New utility agent (`agents/utility/deployment-verifier.md`) generating deployment artifacts: Go/No-Go checklists, data invariant definitions, SQL verification queries, rollback procedures, and infrastructure-aware monitoring plans. Standalone-only. DEPLOY- prefix.
+  - **Agent-Native Parity Reviewer** — New review agent (`agent-parity-reviewer.md`) checking agent-tool parity: orphan features, context starvation, sandbox isolation, workflow tools anti-patterns. PARITY- prefix findings.
+  - **Senior Engineer Reviewer** — New review agent (`senior-engineer-reviewer.md`) with persona-based review framework: 5-dimension senior engineer perspective (production thinking, temporal reasoning, team impact, system boundaries, operational readiness). SENIOR- prefix findings. Reference: `persona-review-framework.md`.
+- **5 new finding prefixes** registered in dedup-runes.md: GATE-, DRIFT-, DEPLOY-, PARITY-, SENIOR-
+- **Talisman config**: New sections for `enforcement_asymmetry`, `schema_drift`, `deployment_verification`
+
+### Changed
+- `forge-keeper.md`: Description updated with gatekeeper keywords, sections expanded from 7 to 10 (203 → 274 lines)
+- `tide-watcher.md`: Description updated with frontend race keywords, sections expanded
+- `review-checklist.md`: Pre-Analysis step added for Enforcement Asymmetry
+- `data-integrity-patterns.md`: Dual-write migration pattern section added
+- `async-patterns.md`: WebSocket/SSE reconnection race patterns added
+- `dedup-runes.md`: Standalone prefix table added, reserved standalone prefixes listed
+- `agent-registry.md`: Updated counts (34 → 37 review, 10 → 11 utility, total 79 → 82)
+- `plugin.json` / `marketplace.json`: Version 1.88.0 → 1.89.0, agent counts updated
+
 ## [1.88.0] - 2026-02-24
 
 ### Added

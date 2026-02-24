@@ -125,6 +125,11 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:echoes migrate  # Migrate echo names after upgrade
 ```
 
+## User Documentation
+
+- [Rune user guide (English): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.en.md)
+- [Hướng dẫn Rune (Tiếng Việt): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.vi.md)
+
 ## Arc Mode (End-to-End Pipeline)
 
 When you run `/rune:arc`, Rune chains 23 phases into one automated pipeline:
@@ -450,7 +455,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 
 ### Review Agents
 
-34 specialized agents that Ash embed as perspectives:
+37 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -488,6 +493,9 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 | tdd-compliance-reviewer | TDD cycle compliance, test-first discipline, coverage quality (TDD) |
 | ddd-reviewer | DDD aggregate boundaries, value objects, domain events (DDD) |
 | di-reviewer | Dependency injection patterns, container config, scope management (DI) |
+| schema-drift-detector | Schema drift between migrations and ORM/model definitions (DRIFT) |
+| agent-parity-reviewer | Agent-native parity, orphan features, context starvation (PARITY) |
+| senior-engineer-reviewer | Persona-based senior engineer review, production thinking (SENIOR) |
 
 ### Research Agents
 
@@ -525,6 +533,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | veil-piercer-plan | Plan-level truth-teller (Phase 4C plan review) |
 | horizon-sage | Strategic depth assessment — Temporal Horizon, Root Cause Depth, Innovation Quotient, Stability, Maintainability |
 | gap-fixer | Gap remediation fixer for Phase 5.8 — prompt-template-based (no dedicated .md file) |
+| deployment-verifier | Deployment artifact generation — Go/No-Go checklists, SQL verification, rollback plans, monitoring |
 
 ## Skills
 
@@ -665,12 +674,12 @@ plugins/rune/
 │   └── plugin.json
 ├── agents/
 │   ├── investigation/       # 23 investigation agents (Goldmask + Inspect)
-│   ├── review/              # 34 review agents
+│   ├── review/              # 37 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
 │   ├── testing/             # 4 testing agents (arc Phase 7.7)
 │   ├── work/                # 2 swarm workers (work pipeline)
-│   └── utility/             # 11 utility agents: Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan, horizon-sage, gap-fixer (prompt-template)
+│   └── utility/             # 12 utility agents: Runebinder, decree-arbiter, truthseer-validator, flow-seer, scroll-reviewer, mend-fixer, knowledge-keeper, elicitation-sage, veil-piercer-plan, horizon-sage, gap-fixer (prompt-template), deployment-verifier
 ├── commands/
 │   ├── cancel-arc.md           # /rune:cancel-arc
 │   ├── cancel-arc-batch.md     # /rune:cancel-arc-batch
