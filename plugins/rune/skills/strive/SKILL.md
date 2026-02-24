@@ -123,66 +123,11 @@ When `worktreeMode === true`:
 
 ## Phase 0.5: Environment Setup
 
-Before forging the team, verify the git environment is safe for work.
+Before forging the team, verify the git environment is safe for work. Checks branch safety (warns on `main`/`master`), handles dirty working trees with stash UX, and validates worktree prerequisites when in worktree mode.
 
-**Skip condition**: When invoked via `/rune:arc`, skip Phase 0.5 entirely — arc handles branch creation in its Pre-flight phase (COMMIT-1). Detection: check for active arc checkpoint at `.claude/arc/*/checkpoint.json` with any phase status `"in_progress"`.
+**Skip conditions**: Invoked via `/rune:arc` (arc handles COMMIT-1), or `work.skip_branch_check: true` in talisman.
 
-**Talisman override**: `work.skip_branch_check: true` disables this phase for experienced users who manage branches manually.
-
-### Branch Check
-
-```javascript
-const currentBranch = Bash("git branch --show-current").trim()
-const defaultBranch = Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'").trim()
-  || (Bash("git rev-parse --verify origin/main 2>/dev/null").exitCode === 0 ? "main" : "master")
-if (currentBranch === "") {
-  throw new Error("Detached HEAD detected. Checkout a branch before running /rune:strive: git checkout -b <branch>")
-}
-const BRANCH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/
-if (!BRANCH_RE.test(currentBranch)) throw new Error(`Invalid current branch name: ${currentBranch}`)
-if (!BRANCH_RE.test(defaultBranch)) throw new Error(`Unexpected default branch name: ${defaultBranch}`)
-
-if (currentBranch === defaultBranch) {
-  AskUserQuestion({
-    questions: [{
-      question: `You're on \`${defaultBranch}\`. Workers will commit here. Create a feature branch?`,
-      header: "Branch",
-      options: [
-        { label: "Create branch (Recommended)", description: "Create a feature branch from current HEAD" },
-        { label: "Continue on " + defaultBranch, description: "Workers commit directly to " + defaultBranch }
-      ],
-      multiSelect: false
-    }]
-  })
-  // If create branch: derive slug from plan name, validate, checkout -b
-  // If continue on default: require explicit "yes" confirmation (fail-closed)
-}
-```
-
-### Dirty Working Tree Check
-
-```javascript
-const status = Bash("git status --porcelain").trim()
-if (status !== "") {
-  AskUserQuestion({
-    questions: [{
-      question: "Uncommitted changes found. How to proceed?",
-      header: "Git state",
-      options: [
-        { label: "Stash changes (Recommended)", description: "git stash -- restore after work completes" },
-        { label: "Continue anyway", description: "Workers may conflict with uncommitted changes" }
-      ],
-      multiSelect: false
-    }]
-  })
-  // Default on timeout: stash (fail-safe)
-}
-let didStash = false  // Set to true if stash was applied above; consumed by Phase 6 cleanup
-```
-
-**Branch name derivation**: `rune/work-{slugified-plan-name}-{YYYYMMDD-HHMMSS}` matching arc skill's COMMIT-1 convention.
-
-**Worktree validation**: When `worktreeMode === true`, validate git version >= 2.5, run `git worktree list`, and perform SDK canary test (C3). All three steps fall back to patch mode instead of aborting. See worktree validation pseudocode in the full command for details.
+See [env-setup.md](references/env-setup.md) for the full protocol — branch check, dirty tree detection, stash UX, and worktree validation.
 
 ## Phase 1: Forge Team
 
@@ -321,118 +266,11 @@ Key guarantees: sorted by task ID for deterministic merge order, dedup guard, `-
 
 ### Phase 3.7: Codex Post-monitor Architectural Critique (Optional, Non-blocking)
 
-After all workers complete and the commit/merge broker finishes, optionally run Codex to detect architectural drift between committed code and the plan. Runs **before** the ward check so findings feed into Phase 4.
+After all workers complete and the commit/merge broker finishes, optionally run Codex to detect architectural drift between committed code and the plan. Non-blocking, opt-in via `codex.post_monitor_critique.enabled`.
 
-**Talisman key**: `codex.post_monitor_critique`
-**CDX prefix**: `CDX-ARCH-STRIVE`
-**Default**: OFF (opt-in — post-execution signal has limited actionability)
-**Inputs**: planPath, committedFiles (from commit broker metadata), timestamp
-**Outputs**: `tmp/work/{timestamp}/architectural-critique.md`
-**Skip condition**: `total_worker_commits <= 3` (small changes don't warrant architectural analysis)
+**Skip conditions**: Codex unavailable, `codex.disabled`, feature not enabled, `work` not in `codex.workflows`, or `total_worker_commits <= 3`.
 
-```javascript
-// Phase 3.7: Codex Post-monitor Architectural Critique
-// Position: after Phase 3.5 (commit/merge broker), before Phase 4 (ward check)
-// Design: post-monitor achieves 80% of mid-execution benefit with 20% complexity
-
-const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
-const codexDisabled = talisman?.codex?.disabled === true
-const featureEnabled = talisman?.codex?.post_monitor_critique?.enabled === true  // default OFF
-const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend", "goldmask", "inspect"]
-const workflowIncluded = codexWorkflows.includes("work")
-
-if (codexAvailable && !codexDisabled && featureEnabled && workflowIncluded) {
-  // Skip condition: small changes don't warrant architectural analysis
-  const totalCommits = committedFiles.length  // proxy for commit count from broker metadata
-  if (totalCommits <= 3) {
-    Write(`tmp/work/${timestamp}/architectural-critique.md`,
-      `# Architectural Critique — Skipped\n\nReason: ${totalCommits} committed files (<= 3 threshold). Small change set does not warrant architectural analysis.\n`)
-    log("Phase 3.7: Skipped — small change set")
-  } else {
-    log("Phase 3.7: Running Codex post-monitor architectural critique...")
-
-    // Resolve Codex config from talisman (post_monitor_critique defaults: 300s timeout, high reasoning)
-    const { timeout: codexTimeout, reasoning: codexReasoning, model: codexModel,
-            streamIdleMs: codexStreamIdleMs, killAfterFlag } = resolveCodexConfig(talisman, "post_monitor_critique", {
-      timeout: 300, reasoning: "high"
-    })
-
-    // Gather context: plan content + committed diff
-    const planContent = sanitizePlanContent(Read(planPath))
-    const diff = Bash(`git diff HEAD~${totalCommits}..HEAD 2>/dev/null | head -c 15000`).trim()
-    const sanitizedDiff = sanitizeUntrustedText(diff)  // SEC: Unicode directional override protection
-
-    // Gather committed file list for structural context
-    const fileList = committedFiles.join("\n")
-
-    // SEC-003: Write prompt to temp file (never inline shell interpolation)
-    const nonce = Bash("openssl rand -hex 16").trim()
-    const promptPath = `tmp/work/${timestamp}/codex-critique-prompt.tmp`
-    Write(promptPath, `SYSTEM: You are an architectural reviewer analyzing code changes against a plan.
-Identify architectural drift, structural inconsistencies, and deviations from the plan.
-Prefix ALL findings with [CDX-ARCH-STRIVE-NNN].
-
-Categories to check:
-1. Module boundary violations (code placed in wrong layer/module)
-2. Naming convention drift (inconsistent with plan's proposed names)
-3. Missing abstractions (plan specified interfaces/patterns not implemented)
-4. Dependency direction violations (lower layers importing from higher)
-5. Error handling inconsistency (mixed patterns across new code)
-
----BEGIN-NONCE-${nonce}---
-PLAN:
-${planContent}
-
-COMMITTED FILES:
-${fileList}
-
-DIFF:
-${sanitizedDiff}
----END-NONCE-${nonce}---
-
-Output format:
-[CDX-ARCH-STRIVE-NNN] Title — file:line — description
-Classification: DRIFT | STRUCTURAL | NAMING | MISSING | DEPENDENCY | ERROR_HANDLING
-Severity: P1 (blocking) | P2 (should fix) | P3 (advisory)
-
-If no architectural issues found, output: "No architectural drift detected."`)
-
-    // Execute via canonical codex-exec.sh wrapper
-    const outputPath = `tmp/work/${timestamp}/architectural-critique.md`
-    const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${codexReasoning}" -t ${codexTimeout} -j -g "${promptPath}"`)
-
-    if (result.exitCode === 0) {
-      const findings = result.stdout
-      Write(outputPath, `# Architectural Critique — Codex Post-monitor\n\nTimestamp: ${new Date().toISOString()}\nPlan: ${planPath}\nCommitted files: ${totalCommits}\n\n${findings}\n`)
-      // Count findings for ward check integration
-      const findingCount = (findings.match(/\[CDX-ARCH-STRIVE-\d+\]/g) || []).length
-      if (findingCount > 0) {
-        log(`Phase 3.7: ${findingCount} architectural finding(s) — see ${outputPath}`)
-      } else {
-        log("Phase 3.7: No architectural drift detected")
-      }
-    } else {
-      // Classify error per codex-detection.md ## Runtime Error Classification
-      const stderr = Read(`tmp/work/${timestamp}/codex-critique-stderr.tmp`)
-      warn(`Phase 3.7: Codex error (exit ${result.exitCode}) — skipping. See stderr for details.`)
-      Write(outputPath, `# Architectural Critique — Codex Error\n\nReason: Codex exited with code ${result.exitCode}.\nPipeline continues without architectural critique.\n`)
-    }
-
-    // Cleanup temp files
-    Bash(`rm -f "tmp/work/${timestamp}/codex-critique-prompt.tmp" "tmp/work/${timestamp}/codex-critique-stderr.tmp"`)
-  }
-} else {
-  // Feature disabled or Codex unavailable — write skip output (mandatory per success criteria)
-  const skipReason = !codexAvailable ? "Codex CLI not available"
-    : codexDisabled ? "Codex disabled in talisman"
-    : !featureEnabled ? "codex.post_monitor_critique.enabled is false (opt-in)"
-    : "work not in codex.workflows"
-  Write(`tmp/work/${timestamp}/architectural-critique.md`,
-    `# Architectural Critique — Skipped\n\nReason: ${skipReason}\n`)
-}
-```
-
-**Ward check integration**: Phase 4 reads `architectural-critique.md` if it exists and has findings. CDX-ARCH-STRIVE findings are treated as advisory (INFO-level) — they do not block the ward check. See [quality-gates.md](references/quality-gates.md) Phase 3.7 integration section.
+See [codex-post-monitor.md](references/codex-post-monitor.md) for the full protocol — feature gate, nonce-bounded prompt injection, codex-exec.sh invocation, error classification, and ward check integration.
 
 ## Phase 4: Quality Gates
 
