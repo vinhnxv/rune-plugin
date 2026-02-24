@@ -68,7 +68,11 @@ if (lockAcquired === "EXISTS") {
   if (!/^\d+$/.test(String(lockMeta.pid))) {
     log("Invalid PID in lock file — removing stale lock")
     Bash(`rm -rf "${lockDir}"`)
-    Bash(`mkdir "${lockDir}" 2>/dev/null || true`)
+    const reacquired = Bash(`mkdir "${lockDir}" 2>/dev/null && echo "ACQUIRED" || echo "FAILED"`)
+    if (reacquired === "FAILED") {
+      log("Lost lock race after stale cleanup — skipping incremental")
+      goto "Load Custom Ashes"  // Fall back to full audit
+    }
     // Re-write lock metadata below
   } else {
     const pidAlive = Bash(`kill -0 ${lockMeta.pid} 2>/dev/null && ps -p ${lockMeta.pid} -o comm= | grep -q node && echo "alive" || echo "dead"`)
@@ -76,11 +80,17 @@ if (lockAcquired === "EXISTS") {
       log("Another audit session (PID ${lockMeta.pid}) is active — skipping incremental update")
       goto "Load Custom Ashes"  // Fall back to full audit
     }
-    // Stale lock — clean up and retry
+    // Stale lock — clean up and retry (verify reacquisition to close race window)
     Bash(`rm -rf "${lockDir}"`)
-    Bash(`mkdir "${lockDir}" 2>/dev/null || true`)
+    const reacquired = Bash(`mkdir "${lockDir}" 2>/dev/null && echo "ACQUIRED" || echo "FAILED"`)
+    if (reacquired === "FAILED") {
+      log("Lost lock race after stale cleanup — skipping incremental")
+      goto "Load Custom Ashes"  // Fall back to full audit
+    }
   }
 }
+// Lock successfully acquired — mark for write-back gate
+incrementalLockAcquired = true
 // Write lock metadata
 Write(`${lockDir}/meta.json`, {
   pid: ownerPid, config_dir: configDir,

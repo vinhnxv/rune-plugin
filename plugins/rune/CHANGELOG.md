@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.90.0] - 2026-02-24
+
+### Added
+- **Flow Seer Deep Spec Analysis — 4-Phase Structured Protocol** (v1.90.0) — Transforms the flow-seer agent from an 89-line flat checklist into a 255-line 4-phase structured protocol:
+  - **Phase 1 — Deep Flow Analysis**: Maps user journeys with EARS classification (Ubiquitous/State-driven/Event-driven/Optional/Unwanted), optional mermaid diagrams for complex flows (4+ decision points, max 15 nodes)
+  - **Phase 2 — Permutation Discovery**: Systematic 7-dimension matrix (User Type, Entry Point, Client/Context, Network, Prior State, Data State, Timing) with NIST pairwise coverage baseline. Configurable cap via `talisman.flow_seer.permutation_cap` (default: 15)
+  - **Phase 3 — Gap Identification**: 12-category checklist (Error Handling, State Management, Input Validation, User Feedback, Security, Accessibility, Data Persistence, Timeout/Rate Limiting, Resume/Cancellation, Integration Contracts, Concurrency, i18n) with category relevance filtering and cross-cutting contradiction detection
+  - **Phase 4 — Question Formulation**: Prioritized questions (Critical max 5 / Important max 8 / Nice-to-have max 5) with BABOK structured interview pattern, mandatory example scenarios for critical questions
+  - **FLOW-NNN finding prefix**: Spec-level findings with 3-digit format, documented as non-dedup (does not participate in `SEC > BACK > ... > CDX` hierarchy)
+  - **Second-pass mode**: Auto-detects plan documents (YAML frontmatter with `type:` field), skips Phase 2 for re-validation passes
+  - **Pre-Flight Checklist**: 9-point verification before output submission
+  - **Phase-level output budgets**: ~180 lines total (40 + 30 + 60 + 50) to prevent context overflow
+  - **Executive summary**: Gap count, critical question count, permutation coverage % as first 3 lines
+- New reference file: `agents/utility/references/flow-analysis-categories.md` — extracted category tables, permutation dimensions, IEEE 29148 quality mapping, EARS classification guide, BABOK question categories, severity mapping (CRITICAL=P1, HIGH=P2, MEDIUM/LOW=P3)
+- Write tool added to flow-seer frontmatter (explicit capability declaration)
+
+### Changed
+- `flow-seer.md`: Complete rewrite from 89 lines → 255 lines (4-phase protocol)
+- `flow-seer.md`: Description updated with 4-phase protocol keywords for Forge Gaze topic matching
+- `flow-seer.md`: Echo integration enhanced with category-specific query patterns (flow, permutation, gap, question)
+- `plugin.json` / `marketplace.json`: Version 1.89.0 → 1.90.0
+
 ## [1.89.0] - 2026-02-24
 
 ### Added

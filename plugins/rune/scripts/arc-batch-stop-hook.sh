@@ -273,11 +273,12 @@ if [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
     PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
   fi
 fi
-# Determine failure: checkpoint explicitly failed/errored, OR no PR and no success status
+# Determine failure: checkpoint explicitly failed/errored, OR checkpoint exists without success indicators.
+# Only apply heuristic when checkpoint file exists — missing checkpoint defaults to "completed" (prior behavior).
 if [[ "$ARC_CKPT_STATUS" == "failed" ]] || [[ "$ARC_CKPT_STATUS" == "error" ]]; then
   ARC_STATUS="failed"
-elif [[ "$PR_URL" == "none" ]] && [[ "$ARC_CKPT_STATUS" != "completed" ]] && [[ "$ARC_CKPT_STATUS" != "shipped" ]] && [[ "$ARC_CKPT_STATUS" != "merged" ]]; then
-  # No PR and checkpoint doesn't indicate success — treat as failure
+elif [[ -f "$ARC_CKPT" ]] && [[ "$PR_URL" == "none" ]] && [[ "$ARC_CKPT_STATUS" != "completed" ]] && [[ "$ARC_CKPT_STATUS" != "shipped" ]] && [[ "$ARC_CKPT_STATUS" != "merged" ]]; then
+  # Checkpoint exists but no PR and no success status — treat as failure
   ARC_STATUS="failed"
 fi
 _trace "Arc status determination: arc_status=${ARC_STATUS} ckpt_status=${ARC_CKPT_STATUS} pr_url=${PR_URL}"
@@ -414,9 +415,8 @@ fi
 # ── SHARD-AWARE TRANSITION DETECTION (v1.66.0+) ──
 # Detect if current and next plans are sibling shards (same feature group).
 # If so, skip git checkout main — stay on shared feature branch.
-CURRENT_PLAN=$(echo "$UPDATED_PROGRESS" | jq -r '
-  [.plans[] | select(.status == "completed")] | last | .path // empty
-' 2>/dev/null || true)
+# Use the known current plan path directly (status-independent, immune to failed/completed mismatch)
+CURRENT_PLAN="$_CURRENT_PLAN_PATH"
 
 current_shard_prefix=""
 next_shard_prefix=""

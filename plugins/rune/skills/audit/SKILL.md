@@ -92,6 +92,8 @@ const depth = flags['--standard']
 const audit_id = Bash(`date +%Y%m%d-%H%M%S`).trim()
 const isIncremental = flags['--incremental'] === true
   && (talisman?.audit?.incremental?.enabled !== false)
+let incrementalLockAcquired = false  // Tracks whether THIS session owns the lock (Finding 1/2 fix)
+const sessionId = "${CLAUDE_SESSION_ID}"  // Standalone variable for use in state writes (Finding 3 fix)
 ```
 
 ## Phase 0: Pre-flight
@@ -225,7 +227,9 @@ if (reviewableFileCount > 100) {
 }
 
 // ── Incremental Result Write-Back (Phase 7.5) ──
-if (isIncremental) {
+// Gate: only run when this session actually acquired the lock and created a checkpoint.
+// If we fell back to full audit (lock held by another session), skip write-back entirely.
+if (isIncremental && incrementalLockAcquired) {
   // Read current state
   const state = Read(".claude/audit-state/state.json")
   const checkpoint = Read(".claude/audit-state/checkpoint.json")
@@ -234,26 +238,44 @@ if (isIncremental) {
   const tome = Read(`${outputDir}/TOME.md`)
   const findingsPerFile = parseTomeFindings(tome)
 
+  // Determine which files actually completed vs failed (Finding 4 fix)
+  // Files present in TOME with findings (even zero) are completed; files absent from TOME are failed
+  const tomeFilePaths = new Set(Object.keys(findingsPerFile))
+  const filesCompleted = checkpoint.batch.filter(f => tomeFilePaths.has(f))
+  const filesFailed = checkpoint.batch.filter(f => !tomeFilePaths.has(f))
+
   // Update state.json for each audited file
+  const fileManifestData = Read(".claude/audit-state/manifest.json")
   for (const filePath of checkpoint.batch) {
+    const wasCompleted = tomeFilePaths.has(filePath)
     const findings = findingsPerFile[filePath] || { P1: 0, P2: 0, P3: 0, total: 0 }
-    const fileManifest = Read(".claude/audit-state/manifest.json")?.files?.[filePath]
+    const fileManifest = fileManifestData?.files?.[filePath]
 
-    state.files[filePath] = {
-      ...state.files[filePath],
-      last_audited: new Date().toISOString(),
-      last_audit_id: audit_id,
-      last_git_hash: fileManifest?.git?.current_hash || null,
-      changed_since_audit: false,
-      audit_count: (state.files[filePath]?.audit_count || 0) + 1,
-      audited_by: [...new Set([...(state.files[filePath]?.audited_by || []), ...selectedAsh])],
-      findings,
-      status: "audited",
-      consecutive_error_count: 0
+    if (wasCompleted) {
+      state.files[filePath] = {
+        ...state.files[filePath],
+        last_audited: new Date().toISOString(),
+        last_audit_id: audit_id,
+        last_git_hash: fileManifest?.git?.current_hash || null,
+        changed_since_audit: false,
+        audit_count: (state.files[filePath]?.audit_count || 0) + 1,
+        audited_by: [...new Set([...(state.files[filePath]?.audited_by || []), ...selectedAsh])],
+        findings,
+        status: "audited",
+        consecutive_error_count: 0
+      }
+      // Remove from coverage_gaps if present
+      delete state.coverage_gaps?.[filePath]
+    } else {
+      // File was in batch but absent from TOME — mark as error for re-queue
+      const errorCount = (state.files[filePath]?.consecutive_error_count || 0) + 1
+      state.files[filePath] = {
+        ...state.files[filePath],
+        status: errorCount >= 3 ? "error_permanent" : "error",
+        consecutive_error_count: errorCount,
+        last_audit_id: audit_id
+      }
     }
-
-    // Remove from coverage_gaps if present
-    delete state.coverage_gaps?.[filePath]
   }
 
   // Recompute stats
@@ -282,8 +304,8 @@ if (isIncremental) {
     mode: "incremental", depth,
     batch_size: checkpoint.batch.length,
     files_planned: checkpoint.batch,
-    files_completed: checkpoint.batch, // All completed at this point
-    files_failed: [],
+    files_completed: filesCompleted,
+    files_failed: filesFailed,
     total_findings: Object.values(findingsPerFile).reduce((s, f) => s + f.total, 0),
     findings_by_severity: {
       P1: Object.values(findingsPerFile).reduce((s, f) => s + f.P1, 0),
@@ -301,8 +323,11 @@ if (isIncremental) {
     completed: checkpoint.batch, current_file: null
   })
 
-  // Release advisory lock
-  Bash(`rm -rf .claude/audit-state/.lock`)
+  // Release advisory lock (ownership-checked per incremental-state-schema.md protocol)
+  const lockMeta = Read(".claude/audit-state/.lock/meta.json")
+  if (lockMeta?.pid == ownerPid) {
+    Bash(`rm -rf .claude/audit-state/.lock`)
+  } // else: not our lock — skip (Finding 2 fix)
 
   // Generate coverage report
   // See references/coverage-report.md
