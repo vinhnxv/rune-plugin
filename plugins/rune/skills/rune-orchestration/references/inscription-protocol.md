@@ -84,7 +84,7 @@ Include Rune Traces (code evidence) for ALL findings.
 ## SEAL FORMAT
 When complete, end your output file with:
 ---
-SEAL: { findings: N, evidence_verified: true/false, confidence: 0.X, self_reviewed: true, evidence_coverage: "N/M findings have structured evidence", unproven_claims: N }
+SEAL: { findings: N, evidence_verified: true/false, confidence: N, self_reviewed: true, evidence_coverage: "N/M findings have structured evidence", unproven_claims: N }
 ---
 
 Then send to the Tarnished: "Seal: {role} complete. Path: {output_file}. Findings: N P1, N P2, N P3."
@@ -103,7 +103,7 @@ Then send to the Tarnished: "Seal: {role} complete. Path: {output_file}. Finding
 
 ## Seal Format Specification
 
-Each Ash writes a Seal at the end of their output file:
+Each Ash writes a Seal at the end of their output file. **Applies to Report and Research output formats only.** Status-format workflows (e.g., `/rune:strive` workers) use `TaskUpdate` + per-worker todo files for status reporting — Seal is not required for status-only agents.
 
 ```
 ---
@@ -238,14 +238,14 @@ Append a `## Self-Review Log` table with columns: #, Finding, Action, Notes.
 
 When complete, end your output file with:
 ---
-SEAL: { findings: N, evidence_verified: true/false, confidence: 0.X,
+SEAL: { findings: N, evidence_verified: true/false, confidence: N,
         self_reviewed: true, self_review_actions: "confirmed: N, revised: N, deleted: N",
         evidence_coverage: "N/M findings have structured evidence", unproven_claims: N }
 ---
 
 Then send to the Tarnished (max 50 words — Glyph Budget enforced):
 "Seal: {role} complete. Path: {output_file}. Findings: N P1, N P2, N P3.
-Confidence: 0.X. Self-reviewed: yes."
+Confidence: N/100. Self-reviewed: yes."
 
 # RE-ANCHOR — TRUTHBINDING REMINDER
 
@@ -290,8 +290,8 @@ Before sending your Seal, verify:
 After all Ash complete:
 
 1. Read each Ash's `confidence` from their Seal
-2. For Ash with confidence < 0.7: spot-check ALL P1 findings
-3. For Ash with confidence >= 0.7: spot-check 1-2 P1 findings
+2. For Ash with confidence < 70: spot-check ALL P1 findings
+3. For Ash with confidence >= 70: spot-check 1-2 P1 findings
 4. For each spot-check:
    - Read the actual source file at the claimed `file:line`
    - Compare the Rune Trace block against real code
@@ -482,7 +482,7 @@ After all agents complete:
 2. Run per-file validation (exists, >100 bytes, required sections, Seal)
 3. Run Runebinder aggregation if applicable
 4. Run Truthsight Layer 2 if enabled
-5. Write completion.json with workflow summary
+5. Report workflow results via Seal metadata + TOME.md (completion.json is deprecated — see SKILL.md)
 
 #### Example: Custom Research Workflow
 

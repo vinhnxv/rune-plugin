@@ -60,7 +60,7 @@ Before sending your Seal:
 [Exact format for the Seal and SendMessage]
 End your output file with:
 ---
-SEAL: { findings: N, evidence_verified: true, confidence: 0.X, self_reviewed: true }
+SEAL: { findings: N, evidence_verified: true, confidence: N, self_reviewed: true }
 ---
 
 SendMessage to the Tarnished: "Seal: {role} complete. Path: {path}. Findings: N P1, N P2, N P3."
