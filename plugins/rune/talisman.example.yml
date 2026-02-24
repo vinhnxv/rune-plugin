@@ -131,7 +131,16 @@ ashes:
     #   context_budget: 15
     #   finding_prefix: "COMP"
 
-    # Example 5: CLI-backed Ash — external model via CLI (v1.57.0+)
+    # Example 5: Persona-based reviewer (v1.88.0+)
+    # Use the built-in senior-engineer-reviewer agent as an opinionated persona Ash.
+    # Custom personas use the same ashes.custom[] framework — no separate namespace needed.
+    # - name: "senior-engineer"
+    #   agent: "rune:review:senior-engineer-reviewer"
+    #   source: plugin
+    #   workflows: [review]
+    #   finding_prefix: "SENIOR"
+
+    # Example 6: CLI-backed Ash — external model via CLI (v1.57.0+)
     # When `cli:` is present, the Ash invokes an external model via CLI
     # instead of a Claude Code agent. Detected via detectExternalModel().
     # `agent` and `source` become optional (ignored when cli: is set).
@@ -501,6 +510,18 @@ solution_arena:
   enabled: true                      # Set false to disable Arena globally
   skip_for_types: ["fix"]           # Feature types that skip Arena (fix = simple bug fixes)
   # Additional config (weights, thresholds) available in future versions
+
+# ──────────────────────────────────────────────
+# Deployment Verification — Artifact generation (v1.88.0+)
+# ──────────────────────────────────────────────
+# Generates Go/No-Go checklists, SQL verification queries, rollback
+# procedures, and monitoring plans. Standalone utility — not integrated
+# into the arc pipeline. Invoke manually after code review passes.
+# deployment_verification:
+#   enabled: false                     # Opt-in (not all projects need deployment artifacts)
+#   auto_run_on_migrations: false      # Auto-trigger when migrations detected in diff
+#   output_dir: "tmp/deploy/"          # Directory for generated artifacts
+#   monitoring_stack: null             # Override detection: "datadog" | "prometheus" | "newrelic" | "sentry" | null (auto-detect)
 
 # ──────────────────────────────────────────────
 # Elicitation — Structured reasoning agent (v1.31.0+)
