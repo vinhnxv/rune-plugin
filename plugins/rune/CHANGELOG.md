@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.93.0] - 2026-02-25
+
+### Changed
+- **Skill reference extraction** — Extracted large inline sections from 10 SKILL.md files into dedicated `references/` files. Zero functional changes — content moved verbatim. Total: -1476 lines removed from SKILL.md files, +1955 lines in reference files (net: 30 files changed).
+  - **Large skills (>500 lines)**:
+    - `forge/SKILL.md`: 729 -> ~370 lines — Phase 1 -> `references/forge-gaze-selection.md`, Phase 3.5 -> `references/codex-section-validation.md`, Phase 4+5 -> `references/forge-cleanup.md`
+    - `mend/SKILL.md`: Phase 5.9 -> `references/todo-update-phase.md`, Phase 3 risk context -> `references/goldmask-mend-context.md`
+    - `strive/SKILL.md`: Phase 0.5 -> `references/env-setup.md`, Phase 3.5 codex post-monitor -> `references/codex-post-monitor.md`
+    - `arc-hierarchy/SKILL.md`: 542 -> 326 lines — Phase 5 -> `references/session-state.md`, Phase 7 -> `references/main-loop.md`
+    - `rune-echoes/SKILL.md`: 478 -> 320 lines — Example Entries -> `references/entry-examples.md`, Codex Echo Validation -> `references/codex-echo-validation.md`, Remembrance -> `references/remembrance-promotion.md`
+    - `resolve-all-gh-pr-comments/SKILL.md`: 416 -> 309 lines — Phase 3 -> `references/paginated-fetch.md`, Phase 6 -> `references/batch-process.md`
+  - **Shared cross-skill references** (goldmask):
+    - `goldmask/references/goldmask-quick-check.md` — shared by forge and mend
+    - `goldmask/references/lore-layer-integration.md` — shared by forge, inspect, devise, mend
+    - `goldmask/references/risk-tier-sorting.md` — shared by forge and mend
+  - **Medium skills (initial references)**:
+    - `git-worktree/SKILL.md`: 241 -> 165 lines — `references/worktree-lifecycle.md`, `references/wave-execution.md`
+    - `chome-pattern/SKILL.md`: 208 -> 168 lines — `references/canonical-patterns.md`
+    - `zsh-compat/SKILL.md`: 261 -> 203 lines — `references/glob-nomatch-patterns.md`
+
 ## [1.92.0] - 2026-02-25
 
 ### Added
