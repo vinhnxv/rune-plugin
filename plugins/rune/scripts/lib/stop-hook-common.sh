@@ -95,7 +95,9 @@ parse_frontmatter() {
 get_field() {
   local field="$1"
   [[ "$field" =~ ^[a-z_]+$ ]] || return 1
-  echo "$FRONTMATTER" | grep "^${field}:" | sed "s/^${field}:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' | head -1
+  # BACK-B4-004 FIX: `|| true` prevents grep exit code 1 (no match) from propagating
+  # through pipefail → set -e → ERR trap → script exit. Missing fields return empty string.
+  echo "$FRONTMATTER" | grep "^${field}:" | sed "s/^${field}:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' | head -1 || true
 }
 
 # ── validate_session_ownership(): Guards 5.7/10 — session isolation ──

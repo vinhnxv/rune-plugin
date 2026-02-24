@@ -384,6 +384,28 @@ arc:
     pr_monitoring: false         # Include post-deploy monitoring section in PR body
     rebase_before_merge: true    # Rebase onto target branch before merge (default: true)
 
+    # ── Bot Review (Phase 9.1 + 9.2, v1.88.0+) ──────
+    # Controls bot review wait and PR comment resolution after PR creation.
+    # Disabled by default — opt-in via enabled: true or --bot-review CLI flag.
+    # bot_review:
+    #   enabled: false                   # Master toggle for Phase 9.1 + 9.2 (default: false — opt-in)
+    #   timeout_ms: 900000              # 15 min hard timeout for bot review wait (default: 900000)
+    #   initial_wait_ms: 120000         # 2 min initial wait for bots to start (default: 120000)
+    #   poll_interval_ms: 30000         # 30s between polls (default: 30000)
+    #   stability_window_ms: 120000     # 2 min of no new bot activity = done (default: 120000)
+    #   max_comment_batch_size: 10      # Process comments in batches of N (default: 10)
+    #   auto_resolve_outdated: true     # Auto-resolve outdated review threads (default: true)
+    #   hallucination_check: true       # Verify bot findings against actual code (default: true)
+    #   known_bots:                     # List of known review bot usernames
+    #     - "gemini-code-assist[bot]"
+    #     - "coderabbitai[bot]"
+    #     - "copilot[bot]"
+    #     - "cubic-dev-ai[bot]"
+    #     - "chatgpt-codex-connector[bot]"
+    #   quality_commands: []            # Project-specific quality check commands
+    #   # Example: ["npm run lint", "npm run typecheck"]
+    #   max_review_rounds: 3           # Max bot review→fix→push cycles (default: 3)
+
   # ── Pre-merge checklist (Phase 9.5) ────────
   # Deterministic checks before merge. Each boolean toggles a check.
   pre_merge_checks:
@@ -443,6 +465,8 @@ arc:
     goldmask_verification: 900000  # 15 minutes (default, v1.47.0+)
     goldmask_correlation: 60000    # 1 minute (default, v1.47.0+)
     ship: 300000                 # 5 minutes (default, v1.40.0+)
+    bot_review_wait: 900000      # 15 min (default, v1.88.0+; only when bot_review.enabled)
+    pr_comment_resolution: 1200000  # 20 min (default, v1.88.0+; only when bot_review.enabled)
     merge: 600000                # 10 minutes (default, v1.40.0+)
     # NOTE: Total pipeline timeout is computed dynamically by calculateDynamicTimeout(tier).
     # It is NOT configurable via talisman. See SKILL.md for the formula.

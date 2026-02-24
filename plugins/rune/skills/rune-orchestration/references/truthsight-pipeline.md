@@ -20,7 +20,7 @@ The Tarnished performs grep-based validation on each output file:
 
 ```
 For each Ash output file:
-  1. Read required_sections from inscription.agents[ash].required_sections
+  1. Read required_sections from inscription.teammates.find(t => t.name === ash).required_sections
   2. Grep for each "## Section Name" header in the output file
   3. Parse Seal for required fields:
      - findings, evidence_verified, confidence,
@@ -141,7 +141,7 @@ self_review_actions: "confirmed: 10, revised: 1, deleted: 1"
 
 ### Sampling Strategy
 
-| Finding Priority | Default Rate | If Ash confidence < 0.7 | If inline checks FAILED |
+| Finding Priority | Default Rate | If Ash confidence < 70 | If inline checks FAILED |
 |-----------------|-------------|-------------------------------|------------------------|
 | P1 (Critical) | 100% | 100% | 100% |
 | P2 (High) | ~30% (every 3rd) | 100% | 100% |

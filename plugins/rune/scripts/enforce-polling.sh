@@ -51,12 +51,19 @@ case "$COMMAND" in *sleep*) ;; *) exit 0 ;; esac
 # Normalize multiline commands (catches newline-separated sleep/echo)
 NORMALIZED=$(printf '%s\n' "$COMMAND" | tr '\n' ' ')
 
-# Pre-filter: skip if the command starts with echo/printf/cat/grep (false positive on quoted patterns)
+# Pre-filter: skip if command is a simple echo/printf/cat/grep WITHOUT chain operators.
 # Known limitation: regex cannot distinguish shell quoting context. Commands that *mention*
 # the anti-pattern in string literals (e.g., echo "sleep 30 && echo poll") would false-positive.
-# This pre-filter catches the most common case.
+# This pre-filter catches the most common case, but ONLY when no chain operator is present —
+# a chained command like "echo setup && sleep 30 && echo poll" must still be checked.
 case "$NORMALIZED" in
-  echo\ *|printf\ *|cat\ *|grep\ *) exit 0 ;;
+  echo\ *|printf\ *|cat\ *|grep\ *)
+    # Only skip if no chain operator that could hide a sleep+echo anti-pattern
+    case "$NORMALIZED" in
+      *"&&"*|*";"*) ;; # Contains chain operator — fall through to regex check
+      *) exit 0 ;;     # Simple command — safe to skip
+    esac
+    ;;
 esac
 
 # Detection: sleep + echo/printf pattern
@@ -66,7 +73,9 @@ esac
 # matching substrings like "nosleep" in variable/function names.
 if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[0-9]+[[:space:]]*(&&|;)[[:space:]]*(echo|printf)'; then
   # Threshold: only block sleep >= 10s (startup probes use sleep 1-5)
-  SLEEP_NUM=$(printf '%s\n' "$NORMALIZED" | grep -oE 'sleep[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+')
+  # Extract the sleep value specifically from the anti-pattern match (sleep N && echo / sleep N ; echo)
+  # not just the first sleep token in the command — avoids bypass via "sleep 1 && setup; sleep 60 && echo poll"
+  SLEEP_NUM=$(printf '%s\n' "$NORMALIZED" | grep -oE 'sleep[[:space:]]+[0-9]+[[:space:]]*(&&|;)[[:space:]]*(echo|printf)' | grep -oE 'sleep[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+')
   [[ "${SLEEP_NUM:-0}" -lt 10 ]] && exit 0
 
   # Check for active Rune workflow (THIS session only)
@@ -80,7 +89,9 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
   # Arc checkpoint detection
   if [[ -d "${CWD}/.claude/arc" ]]; then
     while IFS= read -r f; do
-      if grep -q '"in_progress"' "$f" 2>/dev/null; then
+      # SEC-4 FIX: Use jq for precise field extraction instead of grep substring match
+      phase_status=$(jq -r '.phase_status // .status // empty' "$f" 2>/dev/null || true)
+      if [[ "$phase_status" == "in_progress" ]]; then
         # ── Ownership filter: skip checkpoints from other sessions ──
         stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
         stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
@@ -94,14 +105,17 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
     done < <(find "${CWD}/.claude/arc" -name checkpoint.json -maxdepth 2 -type f 2>/dev/null)
   fi
 
-  # State file detection — all 7 workflow types
+  # State file detection — all 8 workflow types
   if [[ -z "$active_workflow" ]]; then
     shopt -s nullglob
     for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json \
              "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-mend-*.json \
              "${CWD}"/tmp/.rune-plan-*.json "${CWD}"/tmp/.rune-forge-*.json \
-             "${CWD}"/tmp/.rune-inspect-*.json; do
-      if [[ -f "$f" ]] && grep -q '"active"' "$f" 2>/dev/null; then
+             "${CWD}"/tmp/.rune-inspect-*.json "${CWD}"/tmp/.rune-goldmask-*.json; do
+      if [[ ! -f "$f" ]]; then continue; fi
+      # SEC-4 FIX: Use jq for precise status extraction instead of grep substring match
+      file_status=$(jq -r '.status // empty' "$f" 2>/dev/null || true)
+      if [[ "$file_status" == "active" ]]; then
         # ── Ownership filter: skip state files from other sessions ──
         stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
         stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
@@ -123,7 +137,7 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
     "permissionDecisionReason": "POLL-001: Blocked sleep+echo monitoring anti-pattern during active Rune workflow. This pattern skips TaskList and provides zero progress visibility.",
-    "additionalContext": "CORRECT monitoring loop: (1) Call TaskList tool, (2) Count completed tasks, (3) Log progress, (4) Check if all done, (5) Check stale tasks, (6) Bash('sleep 30'). See monitor-utility.md per-command configuration table for exact pollIntervalMs values. NEVER use 'sleep N && echo poll check' — it bypasses the entire monitoring contract."
+    "additionalContext": "CORRECT monitoring loop: (1) Call TaskList tool, (2) Count completed tasks, (3) Log progress, (4) Check if all done, (5) Check stale tasks, (6) Bash('sleep ${pollIntervalMs/1000}'). Derive sleep interval from per-command pollIntervalMs config — see monitor-utility.md configuration table for exact values. NEVER use 'sleep N && echo poll check' — it bypasses the entire monitoring contract."
   }
 }
 DENY_JSON

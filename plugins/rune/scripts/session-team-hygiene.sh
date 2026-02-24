@@ -46,10 +46,15 @@ if [[ -d "$CHOME/teams/" ]]; then
   while IFS= read -r dir; do
     dirname=$(basename "$dir")
     if [[ "$dirname" =~ ^[a-zA-Z0-9_-]+$ ]] && [[ ! -L "$dir" ]]; then
+      # Session ownership filter: skip teams owned by other live sessions
+      if [[ -f "$dir/.session" ]] && [[ ! -L "$dir/.session" ]]; then
+        marker_session=$(head -c 256 "$dir/.session" 2>/dev/null | tr -d '[:space:]' || true)
+        if [[ -n "$marker_session" ]] && [[ -n "$HOOK_SESSION_ID" ]] && [[ "$marker_session" != "$HOOK_SESSION_ID" ]]; then
+          continue  # Different session owns this team — not an orphan for us
+        fi
+      fi
       orphan_names+=("$dirname")
       # BACK-012 FIX: ((0++)) returns exit code 1 under set -e, killing the script
-      # NOTE: Orphan count may include teams from other active sessions (no .session ownership check).
-      # This is reporting-only — actual cleanup is handled by postPhaseCleanup/ARC-9 with ownership checks.
       orphan_count=$((orphan_count + 1))
     fi
   done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" -o -name "goldmask-*" \) -mmin +30 2>/dev/null)

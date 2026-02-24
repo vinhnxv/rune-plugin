@@ -19,7 +19,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **stacks** | Stack-aware intelligence — 4-layer detection engine (manifest scanning → context routing → knowledge skills → enforcement agents). 11 specialist reviewers (Python, TypeScript, Rust, PHP, FastAPI, Django, Laravel, SQLAlchemy, TDD, DDD, DI). Non-invocable — auto-loaded by Rune Gaze Phase 1A |
 | **systematic-debugging** | 4-phase debugging methodology (Observe → Narrow → Hypothesize → Fix) for workers hitting repeated failures. Iron Law: no fixes without root cause investigation (DBG-001) |
 | **zsh-compat** | zsh shell compatibility — read-only variables, glob NOMATCH, word splitting, array indexing |
-| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 21 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend → test → test coverage critique → pre-ship validation → release quality check → ship → merge) |
+| **arc** | End-to-end orchestration pipeline (pre-flight freshness gate + 23 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend → test → test coverage critique → pre-ship validation → release quality check → bot review wait → PR comment resolution → ship → merge) |
 | **testing** | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | **agent-browser** | Browser automation knowledge injection for E2E testing (non-invocable) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection. Shared data discovery + risk context template used by forge, mend, inspect, and devise |
@@ -36,6 +36,8 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **mend** | Parallel finding resolution from TOME. Goldmask data passthrough (risk-overlaid severity, risk context injection) + quick check (Phase 5.95) |
 | **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask (2-8 agents, basic default) for pre-implementation risk assessment |
 | **appraise** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml). Default: standard. Use `--deep` for multi-wave deep review. |
+| **resolve-gh-pr-comment** | Resolve a single GitHub PR review comment — fetch, analyze, fix, reply, and resolve thread |
+| **resolve-all-gh-pr-comments** | Batch resolve all open PR review comments with pagination and progress tracking |
 | **strive** | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 
 ## Commands
@@ -44,7 +46,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 |---------|-------------|
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
-| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 21 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend (convergence loop) → test → test coverage critique → pre-ship validation → release quality check → ship → merge |
+| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 23 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend (convergence loop) → test → test coverage critique → pre-ship validation → release quality check → bot review wait → PR comment resolution → ship → merge |
 | `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
 | `/rune:plan-review` | Review plan code samples for implementation correctness (thin wrapper for /rune:inspect --mode plan) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
@@ -72,7 +74,9 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
    - **Read-only variables**: Never use `status` as a Bash variable name — it is read-only in zsh. Use `task_status`, `tstat`, or `completion_status` instead. Also avoid: `pipestatus`, `ERRNO`, `signals`.
    - **Glob NOMATCH**: In zsh, unmatched globs in `for` loops cause fatal errors (`no matches found`). Always protect globs with `(N)` qualifier: `for f in path/*.md(N); do`. Alternatively, use `setopt nullglob` or `shopt -s nullglob` before the loop.
    - **History expansion**: In zsh, `! [[ expr ]]` triggers history expansion of `!` instead of logical negation. Always use `[[ ! expr ]]` instead. Error signature: `(eval):N: command not found: !`.
-   - **Enforcement**: `enforce-zsh-compat.sh` PreToolUse hook (ZSH-001) catches three patterns at runtime when zsh is detected: (A) `status=` assignments → denied, (B) unprotected `for ... in GLOB; do` → auto-fixed with `setopt nullglob`, (C) `! [[ ... ]]` → auto-fixed to `[[ ! ... ]]`. The `zsh-compat` skill provides background knowledge for all zsh pitfalls.
+   - **Escaped `!=`**: In zsh, `[[ "$a" \!= "$b" ]]` fails with "condition expected: \!=". Always use `!=` without backslash.
+   - **Argument globs**: In zsh, `rm -rf path/rune-*` fails with "no matches found" when no files match — `2>/dev/null` does NOT help. Prefer `find` for cleanup, or prepend `setopt nullglob;`.
+   - **Enforcement**: `enforce-zsh-compat.sh` PreToolUse hook (ZSH-001) catches five patterns at runtime when zsh is detected: (A) `status=` assignments → denied, (B) unprotected `for ... in GLOB; do` → auto-fixed with `setopt nullglob`, (C) `! [[ ... ]]` → auto-fixed to `[[ ! ... ]]`, (D) `\!=` in conditions → auto-fixed to `!=`, (E) unprotected globs in command arguments → auto-fixed with `setopt nullglob`. The `zsh-compat` skill provides background knowledge for all zsh pitfalls.
 9. **Polling loop fidelity**: When translating `waitForCompletion` pseudocode, you MUST call the `TaskList` tool on every poll cycle — not just sleep and hope. The correct sequence per cycle is: `TaskList()` → count completed → check stale/timeout → `Bash("sleep 30")` → repeat. Derive loop parameters from config — not arbitrary values: `maxIterations = ceil(timeoutMs / pollIntervalMs)` and `sleep $(pollIntervalMs / 1000)`. See monitor-utility.md per-command configuration table for exact values.
    - **NEVER** use `Bash("sleep N && echo poll check")` as a monitoring pattern. This skips TaskList entirely and provides zero visibility into task progress.
    - **ALWAYS** call `TaskList` between sleeps to check actual task status.
@@ -149,7 +153,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 |------|--------|---------|
 | `PreToolUse:Write\|Edit\|Bash\|NotebookEdit` | `scripts/enforce-readonly.sh` | SEC-001: Blocks write tools for review/audit/inspect Ashes when `.readonly-active` marker exists. |
 | `PreToolUse:Bash` | `scripts/enforce-polling.sh` | POLL-001: Blocks `sleep+echo` monitoring anti-pattern during active Rune workflows. Enforces TaskList-based polling loops. Filters workflow detection by session ownership. |
-| `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) auto-fixes unprotected glob with setopt nullglob, (C) auto-fixes `! [[` history expansion to `[[ !`. Only active when user's shell is zsh (or macOS fallback). |
+| `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) auto-fixes unprotected glob in for-loops with setopt nullglob, (C) auto-fixes `! [[` history expansion to `[[ !`, (D) auto-fixes `\!=` to `!=` in conditions, (E) auto-fixes unprotected globs in command arguments with setopt nullglob. Only active when user's shell is zsh (or macOS fallback). |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-gap-fixer-paths.sh` | SEC-GAP-001: Blocks gap-fixer Ashes from writing to `.claude/`, `.github/`, `node_modules/`, CI YAML, and `.env` files. Only active during gap-fix workflows. |
 | `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. Filters by session ownership. |

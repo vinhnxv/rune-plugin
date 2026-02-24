@@ -54,11 +54,18 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
 // CDX-003 FIX: Gate behind !teamDeleteSucceeded to prevent cross-workflow scan from
 // wiping concurrent workflows when TeamDelete already succeeded cleanly.
 if (!teamDeleteSucceeded) {
-  // rm-rf TARGET team dirs + cross-workflow scan
+  // rm-rf TARGET team dirs (safe — we validated newTeamName in STEP 1)
   // CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${newTeamName}/" "$CHOME/tasks/${newTeamName}/" 2>/dev/null`)
-  // Cross-workflow scan — clean ANY stale rune/arc team dirs
-  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
+  // Cross-workflow scan — clean stale rune/arc team dirs WITH ownership + age check
+  // Only removes dirs that: (a) older than 30 min (-mmin +30), AND (b) not owned by another live session
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && for dir in $(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -mmin +30 2>/dev/null); do
+    if [ -f "$dir/.session" ] && [ ! -L "$dir/.session" ]; then
+      marker=$(head -c 256 "$dir/.session" 2>/dev/null | tr -d '[:space:]')
+      if [ -n "$marker" ] && [ "$marker" != "${CLAUDE_SESSION_ID}" ]; then continue; fi
+    fi
+    dn=$(basename "$dir"); rm -rf "$CHOME/teams/$dn/" "$CHOME/tasks/$dn/" 2>/dev/null
+  done`)
   // Retry TeamDelete after filesystem cleanup (SDK state may be unblocked now)
   try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 }
@@ -319,7 +326,7 @@ if (allMembers.length > 0) {
 ```javascript
 try { TeamDelete() } catch (e) {
   // Fallback: rm -rf (filesystem only — SDK state already cleared by TeamDelete attempt)
-  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${team_name}/" "$CHOME/tasks/${team_name}/" 2>/dev/null`)
 }
 ```
 
@@ -327,7 +334,7 @@ try { TeamDelete() } catch (e) {
 ```javascript
 // Check that team directory is actually gone
 // CHOME: Must use CLAUDE_CONFIG_DIR pattern for multi-account support
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -d "$CHOME/teams/${teamName}/" && echo "WARN: Zombie team detected: ${teamName}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -d "$CHOME/teams/${team_name}/" && echo "WARN: Zombie team detected: ${team_name}" && rm -rf "$CHOME/teams/${team_name}/" "$CHOME/tasks/${team_name}/" 2>/dev/null`)
 ```
 
 ### Critical ordering rules

@@ -20,9 +20,9 @@ Create a GitHub or Linear issue from a plan file.
    if (!SAFE_TITLE_PATTERN.test(title)) throw new Error('Unsafe characters in issue title')
    if (!SAFE_PATH_PATTERN.test(path) || path.includes('..')) throw new Error('Unsafe characters in plan path')
 
-   // Use -- to separate flags from positional args, write title to temp file to avoid shell expansion
+   // Write title to temp file to avoid shell expansion
    Write('tmp/.issue-title.txt', `${type}: ${title}`)
-   Bash(`gh issue create --title "$(< tmp/.issue-title.txt)" --body-file -- "plans/${path}"`)
+   Bash(`gh issue create --title "$(< tmp/.issue-title.txt)" --body-file "plans/${path}"`)
    ```
 
 3. **Linear**:

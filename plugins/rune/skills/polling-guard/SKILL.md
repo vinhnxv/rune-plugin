@@ -48,7 +48,7 @@ TaskList()          <- MANDATORY: check actual task status
   log progress
   check if all done
   check stale tasks
-Bash("sleep 30")    <- exactly 30s, derived from pollIntervalMs config
+Bash("sleep ${pollIntervalMs/1000}")  <- derived from per-command config
 ```
 
 ### INCORRECT — sleep+echo proxy
@@ -62,7 +62,7 @@ Bash("sleep 60 && echo poll check")   <- BLOCKED: skips TaskList entirely
 This is the 6-step inline template. Every `waitForCompletion` call MUST translate to this pattern:
 
 ```
-POLL_INTERVAL = 30                    // from pollIntervalMs config (seconds)
+POLL_INTERVAL = pollIntervalMs / 1000  // derive from per-command config (seconds)
 MAX_ITERATIONS = ceil(timeoutMs / pollIntervalMs)
 
 for iteration in 1..MAX_ITERATIONS:
@@ -71,7 +71,7 @@ for iteration in 1..MAX_ITERATIONS:
   3. Log: "Progress: {completed}/{expectedCount} tasks"
   4. If completed >= expectedCount -> break
   5. Check stale: any task in_progress > staleWarnMs -> warn
-  6. Call Bash("sleep 30")           <- exactly 30s, derived from config
+  6. Call Bash("sleep ${POLL_INTERVAL}")  <- derived from pollIntervalMs config
 ```
 
 Parameters are derived from per-command config — never invented:
@@ -103,7 +103,7 @@ See [monitor-utility.md](../roundtable-circle/references/monitor-utility.md) for
 The `enforce-polling.sh` PreToolUse hook blocks sleep+echo anti-patterns at runtime during active Rune workflows. Deny code: **POLL-001**.
 
 - **Detection**: `sleep N {&&|;} echo/printf` where N >= 10 seconds
-- **Scope**: Only during active workflows (arc checkpoints or `.rune-*` state files)
+- **Scope**: Only during active workflows (arc checkpoints or `.rune-*` state files — covers review, audit, work, mend, plan, forge, inspect, goldmask)
 - **Recovery**: If POLL-001 fires, switch to the canonical monitoring loop above
 
 If this skill is loaded correctly, the hook should rarely fire — the skill teaches the correct pattern before mistakes happen. The hook catches failures as a safety net.

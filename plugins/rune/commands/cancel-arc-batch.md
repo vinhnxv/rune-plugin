@@ -65,6 +65,28 @@ if (foreignSession) {
 }
 ```
 
+### 2.5. Mark In-Progress Plan as Cancelled
+
+Without this step, the currently-running plan stays `in_progress` in the progress file forever — the Stop hook won't fire (state file removed), and `--resume` only picks up `pending` plans.
+
+```javascript
+const progressFile = "tmp/arc-batch/batch-progress.json"
+if (Bash(`test -f "${progressFile}" && echo "yes" || echo "no"`).trim() === "yes") {
+  try {
+    const progress = JSON.parse(Read(progressFile))
+    const inProgressPlan = progress.plans.find(p => p.status === "in_progress")
+    if (inProgressPlan) {
+      inProgressPlan.status = "cancelled"
+      inProgressPlan.cancelled_at = new Date().toISOString()
+      progress.updated_at = new Date().toISOString()
+      Write(progressFile, JSON.stringify(progress, null, 2))
+    }
+  } catch (e) {
+    // Progress file unreadable — proceed with state file removal anyway
+  }
+}
+```
+
 ### 3. Remove State File
 
 ```javascript

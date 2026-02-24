@@ -6,15 +6,16 @@ description: |
   plan-review, plan-refinement, verification, semantic-verification, work,
   gap-analysis, codex-gap-analysis, gap-remediation, goldmask-verification,
   code-review, goldmask-correlation, mend, verify-mend, test,
-  pre-ship-validation, ship, merge).
+  pre-ship-validation, bot-review-wait, pr-comment-resolution, ship, merge).
   Use when checkpoint resume is needed after a crash or session end.
-  21-phase pipeline with convergence loops, Goldmask risk analysis,
-  pre-ship validation, and cross-model verification. Keywords: arc, pipeline,
-  --resume, checkpoint, convergence, forge, mend, ship, merge, 21 phases.
+  23-phase pipeline with convergence loops, Goldmask risk analysis,
+  pre-ship validation, bot review integration, and cross-model verification.
+  Keywords: arc, pipeline, --resume, checkpoint, convergence, forge, mend,
+  bot review, PR comments, ship, merge, 23 phases.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
-  assistant: "The Tarnished begins the arc — 21 phases of forge, review, goldmask, test, mend, convergence, pre-ship validation, ship, and merge..."
+  assistant: "The Tarnished begins the arc — 23 phases of forge, review, goldmask, test, mend, convergence, pre-ship validation, bot review, ship, and merge..."
   </example>
 
   <example>
@@ -46,7 +47,7 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains twenty-one phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, task decomposition, work, gap analysis, codex gap analysis, gap remediation, goldmask verification, code review (deep), goldmask correlation, mend, verify mend (convergence controller), test, test coverage critique, pre-ship validation, release quality check, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 8.5, 9, and 9.5). Phase 5.5 is hybrid: deterministic STEP A + Inspector Ashes STEP B. Phase 6 invokes `/rune:appraise --deep` for multi-wave review. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Phase 8.5 is the pre-ship completion validator — dual-gate deterministic check before PR creation. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
+Chains twenty-three phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, task decomposition, work, gap analysis, codex gap analysis, gap remediation, goldmask verification, code review (deep), goldmask correlation, mend, verify mend (convergence controller), test, test coverage critique, pre-ship validation, release quality check, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 8.5, 9, and 9.5). Phase 5.5 is hybrid: deterministic STEP A + Inspector Ashes STEP B. Phase 6 invokes `/rune:appraise --deep` for multi-wave review. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Phase 8.5 is the pre-ship completion validator — dual-gate deterministic check before PR creation. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
 
 **Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`, `testing`, `agent-browser`, `polling-guard`, `zsh-compat`
 
@@ -67,7 +68,7 @@ Chains twenty-one phases into a single automated pipeline: forge, plan review, p
 - `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely. No shared task list, no SendMessage, no context isolation. This is the root cause of context explosion.
 - Using named `subagent_type` values (e.g., `"rune:utility:scroll-reviewer"`, `"compound-engineering:research:best-practices-researcher"`, `"rune:review:ward-sentinel"`) — these resolve to non-general-purpose agents. Always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
 
-**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 21 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
+**WHY:** Without Agent Teams, agent outputs consume the orchestrator's context window (~200k). With 23 phases spawning agents, the orchestrator hits context limit after 2 phases. Agent Teams give each teammate its own 200k window. The orchestrator only reads artifact files.
 
 **ENFORCEMENT:** The `enforce-teams.sh` PreToolUse hook blocks bare Task calls when a Rune workflow is active. If your Task call is blocked, add `team_name` to it.
 
@@ -143,6 +144,10 @@ Phase 8.5: PRE-SHIP VALIDATION → Dual-gate completion check: artifact integrit
     ↓ (pre-ship-report.md) — WARN/BLOCK non-blocking, proceeds to SHIP with diagnostics in PR body
 Phase 8.55: RELEASE QUALITY CHECK → Codex cross-model release validation (v1.51.0)
     ↓ (release-quality.md) — advisory, non-blocking
+Phase 9.1: BOT_REVIEW_WAIT → Poll for bot reviews before shipping (v1.88.0)
+    ↓ (bot-review-wait.md) — non-blocking, skippable via talisman
+Phase 9.2: PR_COMMENT_RESOLUTION → Resolve bot/human PR review comments (v1.88.0)
+    ↓ (pr-comment-resolution.md) — non-blocking, multi-round loop
 Phase 9:   SHIP → Push branch + create PR (orchestrator-only)
     ↓ (pr-body.md + checkpoint.pr_url)
 Phase 9.5: MERGE → Rebase + conflict check + auto-merge (orchestrator-only)
@@ -153,7 +158,7 @@ Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 4.5, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 7.8, 8.5, 8.55, 9, 9.5) match the legacy pipeline phases from devise.md and appraise.md for cross-command consistency. Phases 3, 4, 8, and 8.7 are reserved (8/8.7 removed in v1.67.0 — audit coverage now handled by Phase 6 `--deep`; 8.5 re-activated in v1.80.0 as PRE-SHIP VALIDATION). Phase 5.8 (GAP REMEDIATION) runs between 5.6 (Codex Gap) and 5.7 (Goldmask) — the non-sequential numbering preserves backward compatibility with older checkpoints. Phases 4.5, 7.8, 8.55 are Codex cross-model inline phases added in v1.51.0. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 4.5, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 7.8, 8.5, 8.55, 9.1, 9.2, 9, 9.5) match the legacy pipeline phases from devise.md and appraise.md for cross-command consistency. Phases 3, 4, 8, and 8.7 are reserved (8/8.7 removed in v1.67.0 — audit coverage now handled by Phase 6 `--deep`; 8.5 re-activated in v1.80.0 as PRE-SHIP VALIDATION). Phase 5.8 (GAP REMEDIATION) runs between 5.6 (Codex Gap) and 5.7 (Goldmask) — the non-sequential numbering preserves backward compatibility with older checkpoints. Phases 4.5, 7.8, 8.55 are Codex cross-model inline phases added in v1.51.0. Phases 9.1, 9.2 are bot review integration phases added in v1.88.0. The `PHASE_ORDER` array uses names (not numbers) for validation logic.
 
 ## Arc Orchestrator Design (ARC-1)
 
@@ -178,7 +183,7 @@ The dispatcher reads only structured summary headers from artifacts, not full co
 ### Phase Constants
 
 ```javascript
-const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'task_decomposition', 'work', 'gap_analysis', 'codex_gap_analysis', 'gap_remediation', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'test_coverage_critique', 'pre_ship_validation', 'release_quality_check', 'ship', 'merge']
+const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'task_decomposition', 'work', 'gap_analysis', 'codex_gap_analysis', 'gap_remediation', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'test_coverage_critique', 'pre_ship_validation', 'release_quality_check', 'bot_review_wait', 'pr_comment_resolution', 'ship', 'merge']
 
 // IMPORTANT: checkArcTimeout() runs BETWEEN phases, not during. A phase that exceeds
 // its budget will only be detected after it finishes/times out internally.
@@ -212,6 +217,8 @@ const PHASE_TIMEOUTS = {
   test_coverage_critique: talismanTimeouts.test_coverage_critique ?? 600_000,  // 10 min (orchestrator-only, inline codex exec — absorbed into test budget)
   pre_ship_validation: talismanTimeouts.pre_ship_validation ?? 360_000,  //  6 min (orchestrator-only, deterministic + Phase 8.55 release quality check)
   release_quality_check: talismanTimeouts.release_quality_check ?? 300_000,  //  5 min (orchestrator-only, inline codex exec — absorbed into pre_ship budget)
+  bot_review_wait: talismanTimeouts.bot_review_wait ?? 600_000,  // 10 min (orchestrator-only, polling for bot reviews — configurable via talisman arc.ship.bot_review)
+  pr_comment_resolution: talismanTimeouts.pr_comment_resolution ?? 900_000,  // 15 min (orchestrator-only, multi-round comment resolution loop)
   goldmask_verification: talismanTimeouts.goldmask_verification ?? 900_000,  // 15 min (inner 10m + 5m setup)
   goldmask_correlation:  talismanTimeouts.goldmask_correlation ?? 60_000,    //  1 min (orchestrator-only, no team)
   ship:          talismanTimeouts.ship ?? 300_000,      //  5 min (orchestrator-only, push + PR creation)
@@ -219,17 +226,18 @@ const PHASE_TIMEOUTS = {
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// Base budget sum is ~176 min (v1.51.0: +20 min from Codex expansion — task_decomposition(5) + test_coverage_critique(10) + release_quality_check(5)):
+// Base budget sum is ~201 min (v1.88.0: +25 min from bot review — bot_review_wait(10) + pr_comment_resolution(15)):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
 //   task_decomposition(5) + codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) +
 //   work(35) + gap_analysis(12) + goldmask_correlation(1) + test(25) + test_coverage_critique(10) +
-//   pre_ship_validation(6) + release_quality_check(5) + ship(5) + merge(10) = 176 min
-// With E2E: test grows to 50 min → 201 min base
-// LIGHT (2 cycles):    176 + 42 + 1×26 = 244 min
-// STANDARD (3 cycles): 176 + 42 + 2×26 = 270 min → hard cap at 285 min
-// THOROUGH (5 cycles): 176 + 42 + 4×26 = 322 min → hard cap at 285 min
-const ARC_TOTAL_TIMEOUT_DEFAULT = 14_640_000  // 244 min fallback (LIGHT tier minimum — used before tier selection)
-const ARC_TOTAL_TIMEOUT_HARD_CAP = 17_100_000  // 285 min (4.75 hours) — absolute hard cap (raised from 240 for Codex expansion)
+//   pre_ship_validation(6) + release_quality_check(5) + bot_review_wait(10) + pr_comment_resolution(15) +
+//   ship(5) + merge(10) = 201 min
+// With E2E: test grows to 50 min → 226 min base
+// LIGHT (2 cycles):    201 + 42 + 1×26 = 269 min
+// STANDARD (3 cycles): 201 + 42 + 2×26 = 295 min → hard cap at 310 min
+// THOROUGH (5 cycles): 201 + 42 + 4×26 = 347 min → hard cap at 310 min
+const ARC_TOTAL_TIMEOUT_DEFAULT = 16_140_000  // 269 min fallback (LIGHT tier minimum — used before tier selection)
+const ARC_TOTAL_TIMEOUT_HARD_CAP = 18_600_000  // 310 min (5.17 hours) — absolute hard cap (raised from 285 for bot review phases)
 const STALE_THRESHOLD = 300_000      // 5 min
 const MEND_RETRY_TIMEOUT = 780_000   // 13 min (inner 5m polling + 5m setup + 3m ward/cross-file)
 
@@ -251,7 +259,8 @@ function calculateDynamicTimeout(tier) {
     PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis +
     PHASE_TIMEOUTS.test + PHASE_TIMEOUTS.test_coverage_critique +
     PHASE_TIMEOUTS.pre_ship_validation + PHASE_TIMEOUTS.release_quality_check +
-    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~176 min (v1.51.0: +20 min from Codex expansion phases)
+    PHASE_TIMEOUTS.bot_review_wait + PHASE_TIMEOUTS.pr_comment_resolution +
+    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~201 min (v1.88.0: +25 min from bot review phases)
   const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
   const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
   const maxCycles = tier?.maxCycles ?? 3
@@ -901,6 +910,54 @@ Base findings on actual artifacts, not assumptions.`
 
 See [arc-phase-pre-ship-validator.md](references/arc-phase-pre-ship-validator.md) for Phase 8.55 reference.
 
+## Phase 9.1: BOT_REVIEW_WAIT (conditional, v1.88.0)
+
+See [arc-phase-bot-review-wait.md](references/arc-phase-bot-review-wait.md) for the full algorithm.
+
+**Team**: None (orchestrator-only)
+**Output**: `tmp/arc/{id}/bot-review-wait-report.md`
+**Failure**: Non-blocking — timeout or no bot reviews expected → skip cleanly, proceed to Phase 9.2.
+**Skip**: `arc.ship.bot_review.enabled: false` in talisman (default: false — opt-in feature).
+
+```javascript
+// Skip gate: 3-layer priority (CLI flag → talisman → default off)
+const botReviewEnabled = talisman?.arc?.ship?.bot_review?.enabled === true
+if (!botReviewEnabled) {
+  updateCheckpoint({ phase: "bot_review_wait", status: "skipped" })
+  // Proceed to Phase 9.2 (PR_COMMENT_RESOLUTION)
+} else {
+  // Read and execute the arc-phase-bot-review-wait.md algorithm
+  // Polls for bot reviews (CI, linters, security scanners) with configurable timeout
+  // Update checkpoint on completion
+}
+```
+
+## Phase 9.2: PR_COMMENT_RESOLUTION (conditional, v1.88.0)
+
+See [arc-phase-pr-comment-resolution.md](references/arc-phase-pr-comment-resolution.md) for the full algorithm.
+
+**Team**: `arc-pr-resolve-{id}` — follows ATE-1 pattern
+**Inputs**: PR URL from checkpoint, bot review results from Phase 9.1 (if available)
+**Output**: `tmp/arc/{id}/pr-comment-resolution-report.md`
+**Failure**: Non-blocking — unresolvable comments are logged in report. Pipeline proceeds to Phase 9 (SHIP) or directly to merge.
+**Skip**: Skipped when Phase 9.1 is skipped AND no PR exists yet (pre-ship context). Also skipped when `arc.ship.bot_review.enabled: false`.
+
+```javascript
+// Skip gate: requires bot_review enabled AND a PR to resolve comments on
+const prCommentEnabled = talisman?.arc?.ship?.bot_review?.enabled === true
+if (!prCommentEnabled) {
+  updateCheckpoint({ phase: "pr_comment_resolution", status: "skipped" })
+  // Proceed to Phase 9 (SHIP)
+} else {
+  // ARC-6: Clean stale teams before creating pr-resolve team
+  prePhaseCleanup(checkpoint)
+  // Read and execute the arc-phase-pr-comment-resolution.md algorithm
+  // Multi-round loop: fetch comments → fix → reply → resolve → re-check
+  // Update checkpoint on completion
+  postPhaseCleanup(checkpoint, "pr_comment_resolution")
+}
+```
+
 ## Phase 9: SHIP (PR Creation)
 
 See [arc-phase-ship.md](references/arc-phase-ship.md) for the full algorithm.
@@ -948,7 +1005,9 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | TEST | TEST COVERAGE CRITIQUE | `test-report.md` | Test results with pass_rate, coverage_pct, tiers_run (or skipped) |
 | TEST COVERAGE CRITIQUE | PRE-SHIP VALIDATION | `test-critique.md` | CDX-TEST findings + `test_critique_needs_attention` flag (or skip) |
 | PRE-SHIP VALIDATION | RELEASE QUALITY CHECK | `pre-ship-report.md` | Dual-gate validation verdict (PASS/WARN/BLOCK) + diagnostics |
-| RELEASE QUALITY CHECK | SHIP | `release-quality.md` | CDX-RELEASE findings (advisory, or skip). Feeds into PR body |
+| RELEASE QUALITY CHECK | BOT_REVIEW_WAIT | `release-quality.md` | CDX-RELEASE findings (advisory, or skip). Feeds into PR body |
+| BOT_REVIEW_WAIT | PR_COMMENT_RESOLUTION | `bot-review-wait-report.md` | Bot review status (completed/timeout/skipped). Skips cleanly if disabled |
+| PR_COMMENT_RESOLUTION | SHIP | `pr-comment-resolution-report.md` | Resolved/deferred comment list. Skips cleanly if disabled |
 | SHIP | MERGE | `pr-body.md` + `checkpoint.pr_url` | PR created, URL stored |
 | MERGE | Done | `merge-report.md` | Merged or auto-merge enabled. Pipeline summary to user |
 
@@ -973,6 +1032,8 @@ Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completi
 | TEST COVERAGE CRITIQUE | Non-blocking — Codex timeout/unavailable → skip, proceed. CDX-TEST findings are advisory | Advisory (v1.51.0) |
 | PRE-SHIP VALIDATION | Non-blocking — BLOCK verdict proceeds with warning in PR body | Orchestrator-only |
 | RELEASE QUALITY CHECK | Non-blocking — Codex timeout/unavailable → skip, proceed. CDX-RELEASE findings are advisory | Advisory (v1.51.0) |
+| BOT_REVIEW_WAIT | Non-blocking — timeout or disabled → skip cleanly. No bot reviews expected → skip. Poll failure → proceed with warning | Advisory (v1.88.0) |
+| PR_COMMENT_RESOLUTION | Non-blocking — unresolvable comments logged in report. Hallucination check rejects invalid fixes. Max rounds exceeded → proceed with remaining comments | Advisory (v1.88.0) |
 | SHIP | Skip PR creation, proceed to completion report. Branch was pushed | User creates PR manually: `gh pr create` |
 | MERGE | Skip merge, PR remains open. Rebase conflicts → warn with resolution steps | User merges manually: `gh pr merge --squash` |
 
@@ -1040,4 +1101,9 @@ Catches zombie teammates from the last delegated phase. Uses 3-strategy cleanup:
 | Test phase: Service startup failed | Skip integration/E2E tiers, unit tests still run |
 | Test phase: E2E browser agent timeout | Record timeout per-route, produce partial report |
 | Test phase: All tiers failed | Non-blocking — report recorded, pipeline continues to SHIP |
+| Bot review wait: Poll timeout | Non-blocking — proceed to PR comment resolution with partial results |
+| Bot review wait: No bots configured | Skip cleanly — no reviews to wait for |
+| PR comment resolution: Hallucination check failed | Reject fix, log as deferred, proceed to next comment |
+| PR comment resolution: Max rounds exceeded | Proceed with remaining unresolved comments in report |
+| PR comment resolution: gh API failure | Skip resolution, log warning, proceed to SHIP |
 | Zombie teammates after arc completion (ARC-9) | Final sweep sends shutdown_request + TeamDelete. Fallback: `/rune:cancel-arc` |
