@@ -197,7 +197,7 @@ if (!goldmaskEnabled || !goldmaskDeviseEnabled || !isGitRepo || isQuick) {
   // Prefer repo-surveyor output (contains file inventory), then git-miner (changed files)
   const predictedFiles: string[] = []
   try {
-    const surveyorOutput: string = Read(`tmp/plans/${timestamp}/research/repo-surveyor.md`)
+    const surveyorOutput: string = Read(`tmp/plans/${timestamp}/research/repo-analysis.md`)
     // Parse file paths from surveyor's file inventory section
     for (const match of surveyorOutput.matchAll(/`([^`]+\.\w+)`/g)) {
       const fp: string = match[1]
@@ -210,7 +210,7 @@ if (!goldmaskEnabled || !goldmaskDeviseEnabled || !isGitRepo || isQuick) {
   }
   if (predictedFiles.length === 0) {
     try {
-      const gitMinerOutput: string = Read(`tmp/plans/${timestamp}/research/git-miner.md`)
+      const gitMinerOutput: string = Read(`tmp/plans/${timestamp}/research/git-history.md`)
       for (const match of gitMinerOutput.matchAll(/`([^`]+\.\w+)`/g)) {
         const fp: string = match[1]
         if (fp && !fp.includes('..') && !predictedFiles.includes(fp)) {
@@ -1005,6 +1005,7 @@ AskUserQuestion({
     multiSelect: false
   }]
 })
+```
 
 ## Phase 3: Forge (Default — skipped with `--quick`)
 
@@ -1066,11 +1067,11 @@ const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
 // 1. Dynamic member discovery — reads team config to find ALL teammates
 let allMembers = []
 try {
-  const teamConfig = Read(`${CHOME}/teams/rune-plan-${timestamp}/config.json`)
+  const teamConfig = JSON.parse(Read(`${CHOME}/teams/rune-plan-${timestamp}/config.json`))
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
-  allMembers = [...allTeammates]
+  allMembers = []  // Team config unavailable — no members to shutdown
 }
 
 // Shutdown all discovered members
