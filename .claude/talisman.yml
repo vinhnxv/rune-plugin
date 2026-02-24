@@ -67,6 +67,25 @@ echoes:
   version_controlled: false
 
 # ──────────────────────────────────────────────
+# Doubt Seer — Cross-agent false-positive verification
+# ──────────────────────────────────────────────
+doubt_seer:
+  enabled: true
+  workflows: [review, audit]
+  challenge_threshold: "P2"        # Challenge P2+ findings (not just P1)
+  max_challenges: 30
+  block_on_unproven: false         # Flag in TOME but don't halt workflow
+  unproven_threshold: 0.8
+
+# ──────────────────────────────────────────────
+# Truthsight — Post-review finding verification
+# ──────────────────────────────────────────────
+verification:
+  enabled: true
+  layer_0: true                    # Grep-based inline checks (file paths, line numbers)
+  layer_2: true                    # Summon Truthsight Verifier for P1 findings
+
+# ──────────────────────────────────────────────
 # Review — Chunked review and convergence settings (v1.35.0+)
 # ──────────────────────────────────────────────
 review:

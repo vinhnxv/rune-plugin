@@ -113,6 +113,7 @@ if [[ "$PROMPT_SIZE" -gt 1048576 ]]; then
 fi
 
 # ─── Validation: model allowlist ──────────────────────────────────────────────
+MODEL=$(echo "$MODEL" | tr '[:upper:]' '[:lower:]')
 CODEX_MODEL_ALLOWLIST='^gpt-5(\.[0-9]+)?-codex(-spark)?$'
 if [[ ! "$MODEL" =~ $CODEX_MODEL_ALLOWLIST ]]; then
   _trace "WARN: Model '$MODEL' rejected by allowlist — falling back to gpt-5.3-codex-spark"

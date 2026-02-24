@@ -526,15 +526,27 @@ class TestZshCheckBGlobAutoFix:
         assert "ZSH-001" in ctx or "nullglob" in ctx.lower()
 
     @requires_jq
-    def test_no_action_for_glob_outside_for_loop(self, hook_runner) -> None:
-        """Glob in non-for context (find, ls, echo) → no action taken."""
+    def test_autofix_for_glob_outside_for_loop(self, hook_runner) -> None:
+        """Glob in non-for context (ls *.md) → Check E auto-fix with setopt nullglob.
+
+        Check E (v1.x) catches unquoted globs in command arguments to file
+        commands (ls, rm, cp, etc.). In zsh, `ls *.md` fails with NOMATCH if
+        no .md files exist. The auto-fix prepends `setopt nullglob;`.
+
+        Note: `find . -name '*.py'` has the glob inside quotes → safe (stripped).
+        """
         result = hook_runner(
             ENFORCE_ZSH_COMPAT,
             make_bash_input("ls *.md && find . -name '*.py'"),
             env_override=ZSH_ENV,
         )
         assert result.returncode == 0
-        assert result.stdout.strip() == ""
+        output = parse_hook_output(result.stdout)
+        hook_out = output["hookSpecificOutput"]
+        assert hook_out["permissionDecision"] == "allow"
+        fixed = hook_out["updatedInput"]["command"]
+        assert fixed.startswith("setopt nullglob; ")
+        assert "ls *.md" in fixed
 
     @requires_jq
     def test_autofixes_path_with_star_glob(self, hook_runner) -> None:

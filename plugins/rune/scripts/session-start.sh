@@ -50,6 +50,8 @@ json_escape() {
   s="${s//$'\n'/\\n}"
   s="${s//$'\r'/\\r}"
   s="${s//$'\t'/\\t}"
+  s="${s//$'\b'/\\b}"  # backspace
+  s="${s//$'\f'/\\f}"  # form feed
   printf '%s' "$s"
 }
 

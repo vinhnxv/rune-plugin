@@ -51,9 +51,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 ECHO_DIR = os.environ.get("ECHO_DIR", "")
 DB_PATH = os.environ.get("DB_PATH", "")
-# Dual-mode validation: when set, runs both BM25-only and composite scoring
-# in parallel and logs divergence to tmp/.rune-signals/.echo-scoring-validation.log
-ECHO_VALIDATION_MODE = os.environ.get("ECHO_VALIDATION_MODE", "").lower() in ("1", "true", "yes")
 
 # SEC-003: Validate env vars don't point to system directories
 _FORBIDDEN_PREFIXES = ("/etc", "/usr", "/bin", "/sbin", "/var/run", "/proc", "/sys")
@@ -129,8 +126,8 @@ def _check_and_clear_dirty(echo_dir):
 #   1. Relevance  — normalized BM25 score (0.0–1.0)
 #   2. Importance — layer-based weight (Etched > Inscribed > Traced)
 #   3. Recency    — exponential decay based on entry age
-#   4. Proximity  — file proximity to current context (placeholder, Task 3)
-#   5. Frequency  — access frequency from echo_access_log (placeholder, Task 2)
+#   4. Proximity  — file proximity to current context (evidence path extraction)
+#   5. Frequency  — access frequency from echo_access_log (log-scaled)
 #
 # BM25 sign convention: SQLite FTS5 bm25() returns NEGATIVE values where
 # more negative = more relevant. We normalize via min-max scaling:
@@ -152,11 +149,11 @@ _DEFAULT_WEIGHTS = {
 
 # Layer importance mapping — higher = more important
 _LAYER_IMPORTANCE = {
-    "Etched": 1.0,
-    "Inscribed": 0.6,
-    "Traced": 0.3,
-    "Notes": 0.9,       # User-explicit memories (Task 6)
-    "Observations": 0.5, # Agent-observed patterns (Task 7)
+    "etched": 1.0,
+    "notes": 0.8,
+    "inscribed": 0.6,
+    "observations": 0.4,
+    "traced": 0.3,
 }
 
 # Recency half-life in days — entries older than this get < 0.5 score
@@ -253,7 +250,7 @@ def _score_importance(layer: str) -> float:
     Returns:
         Importance score in [0.0, 1.0]. Unknown layers get 0.3 (same as Traced).
     """
-    return _LAYER_IMPORTANCE.get(layer, 0.3)
+    return _LAYER_IMPORTANCE.get(layer.lower() if layer else "", 0.3)
 
 
 def _score_recency(date_str: Optional[str]) -> float:
@@ -630,120 +627,6 @@ _SCORING_WEIGHTS = _load_scoring_weights()
 
 
 # ---------------------------------------------------------------------------
-# Dual-mode validation (C8 concern)
-# ---------------------------------------------------------------------------
-
-def _kendall_tau_distance(ranking_a: List[str], ranking_b: List[str]) -> float:
-    """Compute normalized Kendall tau distance between two rankings.
-
-    Measures the fraction of pairwise disagreements between two orderings
-    of the same items. Returns 0.0 for identical rankings, 1.0 for
-    completely reversed rankings.
-
-    Args:
-        ranking_a: List of item IDs in first ranking order.
-        ranking_b: List of item IDs in second ranking order.
-
-    Returns:
-        Normalized Kendall tau distance in [0.0, 1.0].
-    """
-    if not ranking_a or not ranking_b:
-        return 0.0
-
-    # Build rank position maps
-    pos_a = {item: i for i, item in enumerate(ranking_a)}
-    pos_b = {item: i for i, item in enumerate(ranking_b)}
-
-    # Only compare items present in both rankings
-    common = [item for item in ranking_a if item in pos_b]
-    n = len(common)
-    if n < 2:
-        return 0.0
-
-    # Count pairwise disagreements
-    discordant = 0
-    total_pairs = n * (n - 1) // 2
-    for i in range(n):
-        for j in range(i + 1, n):
-            item_i = common[i]
-            item_j = common[j]
-            # Concordant if relative order is same in both rankings
-            a_order = pos_a[item_i] - pos_a[item_j]
-            b_order = pos_b[item_i] - pos_b[item_j]
-            if (a_order > 0) != (b_order > 0):
-                discordant += 1
-
-    return discordant / total_pairs if total_pairs > 0 else 0.0
-
-
-def _log_validation_divergence(
-    query: str,
-    bm25_ranking: List[Dict[str, Any]],
-    composite_ranking: List[Dict[str, Any]],
-) -> None:
-    """Log scoring divergence between BM25-only and composite rankings.
-
-    Writes JSON lines to tmp/.rune-signals/.echo-scoring-validation.log.
-    Non-blocking: silently catches I/O errors.
-
-    Exit criteria (documented for operators):
-    - Safe to switch when divergence > 0.2 in < 5% of queries
-    - No Etched entry drops more than 0.15 in composite score
-    - No original top-5 entry falls below top-20 in composite ranking
-
-    Args:
-        query: The search query.
-        bm25_ranking: Top results from BM25-only scoring.
-        composite_ranking: Top results from composite scoring.
-    """
-    bm25_ids = [r.get("id", "") for r in bm25_ranking[:5]]
-    comp_ids = [r.get("id", "") for r in composite_ranking[:5]]
-
-    tau = _kendall_tau_distance(
-        [r.get("id", "") for r in bm25_ranking[:20]],
-        [r.get("id", "") for r in composite_ranking[:20]],
-    )
-
-    # Check if any original top-5 fell below top-20
-    comp_id_set_20 = {r.get("id", "") for r in composite_ranking[:20]}
-    top5_drops = [eid for eid in bm25_ids if eid and eid not in comp_id_set_20]
-
-    log_entry = {
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "query": query[:200],
-        "bm25_top5": bm25_ids,
-        "composite_top5": comp_ids,
-        "tau_distance": round(tau, 4),
-        "top5_dropped_from_top20": top5_drops,
-    }
-
-    # Derive log path from ECHO_DIR
-    log_path = ""
-    if ECHO_DIR:
-        normalized = ECHO_DIR.rstrip(os.sep)
-        suffix = os.path.join(".claude", "echoes")
-        if normalized.endswith(suffix):
-            project_root = normalized[: -len(suffix)].rstrip(os.sep)
-        else:
-            project_root = os.path.dirname(os.path.dirname(normalized))
-        log_path = os.path.join(
-            project_root, "tmp", ".rune-signals", ".echo-scoring-validation.log"
-        )
-
-    if not log_path:
-        return
-
-    try:
-        log_dir = os.path.dirname(log_path)
-        if not os.path.isdir(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
-    except OSError:
-        pass  # Non-fatal: validation logging failure is silent
-
-
-# ---------------------------------------------------------------------------
 # Database helpers
 # ---------------------------------------------------------------------------
 
@@ -967,12 +850,17 @@ def upsert_semantic_group(
     if similarities is None:
         similarities = [0.0] * len(entry_ids)
     count = 0
-    for eid, sim in zip(entry_ids, similarities):
-        conn.execute(
-            "INSERT OR REPLACE INTO semantic_groups (group_id, entry_id, similarity, created_at) VALUES (?, ?, ?, ?)",
-            (group_id, eid, sim, now))
-        count += 1
-    conn.commit()
+    conn.execute("BEGIN")
+    try:
+        for eid, sim in zip(entry_ids, similarities):
+            conn.execute(
+                "INSERT OR REPLACE INTO semantic_groups (group_id, entry_id, similarity, created_at) VALUES (?, ?, ?, ?)",
+                (group_id, eid, sim, now))
+            count += 1
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return count
 
 
@@ -1328,7 +1216,7 @@ def get_retry_entries(
                 f.entry_id,
                 e.source, e.layer, e.role, e.date,
                 substr(e.content, 1, 200) AS content_preview,
-                e.line_number,
+                e.line_number, e.tags,
                 f.retry_count
             FROM echo_search_failures f
             JOIN echo_entries e ON e.id = f.entry_id
@@ -1358,8 +1246,8 @@ def get_retry_entries(
                 "role": row["role"],
                 "date": row["date"],
                 "content_preview": row["content_preview"],
-                "tags": row["tags"] if "tags" in row.keys() else "",
-                "content": row["content_preview"] if "content_preview" in row.keys() else "",
+                "tags": row["tags"],
+                "content": row["content_preview"],
                 "score": boosted_score,
                 "line_number": row["line_number"],
                 "retry_source": True,
@@ -1635,7 +1523,7 @@ def search_entries(conn, query, limit=10, layer=None, role=None):
         SELECT
             e.id, e.source, e.layer, e.role, e.date,
             substr(e.content, 1, 200) AS content_preview,
-            e.line_number,
+            e.line_number, e.tags,
             bm25(echo_entries_fts) AS score
         FROM echo_entries_fts f
         JOIN echo_entries e ON e.rowid = f.rowid
@@ -1665,6 +1553,7 @@ def search_entries(conn, query, limit=10, layer=None, role=None):
             "content_preview": row["content_preview"],
             "score": round(row["score"], 4),
             "line_number": row["line_number"],
+            "tags": row["tags"],
         })
     return results
 
@@ -2242,7 +2131,10 @@ def run_mcp_server():
             )
 
             # C2 concern: Record access SYNCHRONOUSLY before returning.
-            _record_access(conn, results, query)
+            try:
+                _record_access(conn, results, query)
+            except Exception:
+                pass  # Non-fatal: access logging failure must not break search
         finally:
             conn.close()
 

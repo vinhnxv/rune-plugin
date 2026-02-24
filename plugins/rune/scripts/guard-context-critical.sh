@@ -24,7 +24,7 @@ INPUT=$(head -c 65536)
 [[ -z "$INPUT" ]] && exit 0
 
 # --- Single-pass jq extraction (performance: runs on EVERY TeamCreate/Task) ---
-read -r TOOL_NAME SUBAGENT_TYPE CWD SESSION_ID < <(
+IFS=$'\t' read -r TOOL_NAME SUBAGENT_TYPE CWD SESSION_ID < <(
   echo "$INPUT" | jq -r '[.tool_name//"", .tool_input.subagent_type//"", .cwd//"", .session_id//""] | @tsv' 2>/dev/null || echo ""
 ) || true
 
@@ -90,7 +90,7 @@ AGE=$(( NOW - FILE_MTIME ))
 [[ "$AGE" -ge "$STALE_SECONDS" ]] && exit 0
 
 # --- Parse bridge data ---
-read -r BRIDGE_CFG BRIDGE_PID REM_INT < <(
+IFS=$'\t' read -r BRIDGE_CFG BRIDGE_PID REM_INT < <(
   jq -r '[.config_dir//"", .owner_pid//"", (.remaining_percentage // -1 | tostring)] | @tsv' "$BRIDGE_FILE" 2>/dev/null || echo ""
 ) || true
 

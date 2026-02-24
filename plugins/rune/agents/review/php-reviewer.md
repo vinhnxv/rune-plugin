@@ -5,7 +5,12 @@ description: |
   Reviews type declarations, null safety, enum usage, readonly properties,
   and PHP-specific security issues. Activated when PHP stack is detected.
   Keywords: php, strict_types, enums, readonly, fibers, laravel.
-tools: Read, Glob, Grep
+tools:
+  - Read
+  - Glob
+  - Grep
+mcpServers:
+  - echo-search
 ---
 
 # PHP Reviewer — Stack Specialist Ash

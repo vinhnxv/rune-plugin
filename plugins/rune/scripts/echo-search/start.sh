@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Echo Search MCP Server launcher
 #
 # WHY THIS WRAPPER EXISTS:

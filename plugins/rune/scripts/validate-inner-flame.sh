@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# Pre-flight: yq dependency guard (needed for talisman config parsing)
+command -v yq &>/dev/null || exit 0
+
 # Read hook input (64KB cap — sufficient for TaskCompleted JSON payloads)
 INPUT=$(head -c 65536)
 

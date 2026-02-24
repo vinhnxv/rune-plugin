@@ -180,7 +180,7 @@ if [[ -d "${CWD}/tmp/" ]]; then
       sf_pid=$(jq -r '.owner_pid // empty' "$sf" 2>/dev/null || true)
       if [[ -n "$sf_cfg" && "$sf_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$sf_pid" && "$sf_pid" =~ ^[0-9]+$ && "$sf_pid" != "$PPID" ]]; then
-        kill -0 "$sf_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$sf_pid" && continue  # alive = different session
       fi
       state_team_names+=("$tname")
     fi
@@ -258,7 +258,7 @@ if [[ -d "${CWD}/tmp/" ]]; then
       f_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
       if [[ -n "$f_cfg" && "$f_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$f_pid" && "$f_pid" =~ ^[0-9]+$ && "$f_pid" != "$PPID" ]]; then
-        kill -0 "$f_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$f_pid" && continue  # alive = different session
       fi
       # Update status to "stopped" (not "completed" — distinguishes clean exit from crash)
       jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '.status = "stopped" | .stopped_by = "STOP-001" | .stopped_at = $ts' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null
@@ -292,7 +292,7 @@ if [[ -d "${CWD}/.claude/arc/" ]]; then
       f_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
       if [[ -n "$f_cfg" && "$f_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$f_pid" && "$f_pid" =~ ^[0-9]+$ && "$f_pid" != "$PPID" ]]; then
-        kill -0 "$f_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$f_pid" && continue  # alive = different session
       fi
       # Cancel all in_progress phases
       jq '.phases |= with_entries(if .value.status == "in_progress" then .value.status = "cancelled" else . end)' "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f" 2>/dev/null

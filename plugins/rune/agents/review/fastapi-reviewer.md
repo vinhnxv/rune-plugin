@@ -5,7 +5,12 @@ description: |
   Reviews route design, Pydantic validation, dependency injection, IDOR prevention,
   error responses, and OpenAPI alignment. Activated when FastAPI is detected.
   Keywords: fastapi, pydantic, depends, async, openapi, idor.
-tools: Read, Glob, Grep
+tools:
+  - Read
+  - Glob
+  - Grep
+mcpServers:
+  - echo-search
 ---
 
 # FastAPI Reviewer — Stack Specialist Ash

@@ -5,7 +5,12 @@ description: |
   Reviews ownership patterns, error handling, unsafe code, async (tokio),
   and Rust-specific performance issues. Activated when Rust stack is detected.
   Keywords: rust, ownership, borrow checker, unsafe, tokio, thiserror, anyhow.
-tools: Read, Glob, Grep
+tools:
+  - Read
+  - Glob
+  - Grep
+mcpServers:
+  - echo-search
 ---
 
 # Rust Reviewer — Stack Specialist Ash

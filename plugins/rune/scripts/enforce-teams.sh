@@ -70,13 +70,13 @@ source "${SCRIPT_DIR}/resolve-session-identity.sh"
 # Check arc checkpoints (skip stale files older than STALE_THRESHOLD_MIN)
 if [[ -d "${CWD}/.claude/arc" ]]; then
   while IFS= read -r f; do
-    if grep -q '"in_progress"' "$f" 2>/dev/null; then
+    if jq -e '(.phase == "in_progress") or (.status == "in_progress") or ([.phases[]?.status] | any(. == "in_progress"))' "$f" &>/dev/null; then
       # ── Ownership filter: skip checkpoints from other sessions ──
       stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
       stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
       if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
-        kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$stored_pid" && continue  # alive = different session
       fi
       active_workflow=1
       break
@@ -93,13 +93,13 @@ if [[ -z "$active_workflow" ]]; then
            "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-plan-*.json \
            "${CWD}"/tmp/.rune-forge-*.json; do
     # Skip files older than STALE_THRESHOLD_MIN minutes
-    if [[ -f "$f" ]] && find "$f" -maxdepth 0 -mmin -${STALE_THRESHOLD_MIN} -print -quit 2>/dev/null | grep -q . && grep -q '"active"' "$f" 2>/dev/null; then
+    if [[ -f "$f" ]] && find "$f" -maxdepth 0 -mmin -${STALE_THRESHOLD_MIN} -print -quit 2>/dev/null | grep -q . && jq -e '.status == "active"' "$f" &>/dev/null; then
       # ── Ownership filter: skip state files from other sessions ──
       stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
       stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
       if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
-        kill -0 "$stored_pid" 2>/dev/null && continue  # alive = different session
+        rune_pid_alive "$stored_pid" && continue  # alive = different session
       fi
       active_workflow=1
       break

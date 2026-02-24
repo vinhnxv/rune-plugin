@@ -167,8 +167,8 @@ fi
 RUNE_STATUS_LABELS=("rune:in-progress" "rune:done" "rune:failed" "rune:needs-review")
 
 # ── Process each issue number ──
-# Dedup: track seen numbers
-declare -A SEEN_NUMS
+# Dedup: track seen numbers (string-based for Bash 3.2 compat — no declare -A)
+SEEN_NUMS=" "
 for raw_num in "${ISSUE_NUMS[@]}"; do
   # Validate format
   if ! _is_valid_issue_num "$raw_num"; then
@@ -176,12 +176,11 @@ for raw_num in "${ISSUE_NUMS[@]}"; do
     continue
   fi
 
-  # Dedup check
-  if [[ -n "${SEEN_NUMS[$raw_num]:-}" ]]; then
-    # Duplicate — skip silently (already validated/added above)
-    continue
-  fi
-  SEEN_NUMS[$raw_num]=1
+  # Dedup check (word-boundary match in space-delimited string)
+  case "$SEEN_NUMS" in
+    *" ${raw_num} "*) continue ;;  # Duplicate — skip silently
+  esac
+  SEEN_NUMS="${SEEN_NUMS}${raw_num} "
 
   # Validate issue exists and is open via gh issue view
   ISSUE_JSON=$(GH_PROMPT_DISABLED=1 _gh_timeout gh issue view "$raw_num" --json number,state,labels 2>/dev/null || echo "")
