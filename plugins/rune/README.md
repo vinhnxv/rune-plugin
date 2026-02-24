@@ -630,6 +630,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | context-weaving | Context overflow/rot prevention |
+| debug | Structured debugging with ACH hypothesis investigation. 4-phase protocol (Observe → Narrow → Hypothesize → Fix) with evidence tiers and consistency matrix |
 | elicitation | Curated structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | file-todos | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Gated by `talisman.file_todos.enabled` |
 | forge | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer (Phase 1.5) for risk-aware section prioritization |
@@ -756,7 +757,7 @@ plugins/rune/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── agents/
-│   ├── investigation/       # 23 investigation agents (Goldmask + Inspect)
+│   ├── investigation/       # 24 investigation agents (Goldmask + Inspect)
 │   ├── review/              # 38 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)

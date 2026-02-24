@@ -13,8 +13,8 @@
   "plugins": [
     {
       "name": "rune",
-      "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspect, test, and audit with Agent Teams. Includes 38 review agents, 5 research agents, 23 investigation agents, 12 utility agents, 2 work agents, 4 testing agents, 14 commands, and 34 skills. Curated elicitation methods for structured reasoning. Stack-aware intelligence with 12 language/framework/pattern specialist reviewers. Multi-language quality guidance (Python, TypeScript, Rust, PHP, Axum).",
-      "version": "1.94.0",
+      "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspect, test, and audit with Agent Teams. Includes 38 review agents, 5 research agents, 24 investigation agents, 12 utility agents, 2 work agents, 4 testing agents, 14 commands, and 36 skills. Curated elicitation methods for structured reasoning. Stack-aware intelligence with 12 language/framework/pattern specialist reviewers. Multi-language quality guidance (Python, TypeScript, Rust, PHP, Axum).",
+      "version": "1.95.0",
       "author": {
         "name": "vinhnxv",
         "email": "vinh.ngxv@gmail.com",
@@ -58,6 +58,7 @@
         "./skills/chome-pattern",
         "./skills/codex-cli",
         "./skills/context-weaving",
+        "./skills/debug",
         "./skills/devise",
         "./skills/elicitation",
         "./skills/file-todos",

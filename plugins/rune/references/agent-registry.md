@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 84 agents** (38 review + 5 research + 2 work + 12 utility* + 23 investigation + 4 testing)
+**Total: 85 agents** (38 review + 5 research + 2 work + 12 utility* + 24 investigation + 4 testing)
 
 \* 12 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 
@@ -121,6 +121,14 @@ Used by `/rune:inspect` and `/rune:arc` Phase 5.5:
 | ember-seer | Performance embers — resource lifecycle degradation, memory patterns, pool management, async correctness, algorithmic complexity |
 | signal-watcher | Signal propagation — logging adequacy, metrics coverage, distributed tracing, error classification, incident reproducibility |
 | decay-tracer | Progressive decay — naming quality erosion, comment staleness, complexity creep, convention drift, tech debt trajectories |
+
+### Debugging Agents
+
+Used by `/rune:debug` skill:
+
+| Agent | Purpose |
+|-------|---------|
+| hypothesis-investigator | ACH-based hypothesis investigation — structured Analysis of Competing Hypotheses with 4 evidence tiers (DIRECT/CORRELATIONAL/TESTIMONIAL/ABSENCE) and consistency matrix scoring |
 
 ## Testing Agents (`agents/testing/`)
 
