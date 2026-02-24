@@ -78,6 +78,8 @@ computeContextManifest(task_type, file_scope, detected_stack, task_description):
         manifest.skills_to_load.push(skill_path)
       elif fw in ["sqlalchemy"] AND (domains.backend OR domains.database):
         manifest.skills_to_load.push(skill_path)
+      elif fw in ["axum", "actix-web", "rocket"] AND domains.backend:
+        manifest.skills_to_load.push(skill_path)
       elif fw in ["nextjs", "react", "express", "nestjs"]:
         if domains.frontend OR domains.backend:
           manifest.skills_to_load.push(skill_path)
