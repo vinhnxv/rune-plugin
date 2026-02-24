@@ -106,17 +106,18 @@ def _gradient_direction(positions: List[Any]) -> str:
     return f"{angle_deg}deg"
 
 
-def _gradient_stops_css(stops: Optional[List[Any]]) -> str:
+def _gradient_stops_css(stops: Optional[List[Any]]) -> Optional[str]:
     """Convert Figma gradient stops to CSS gradient color stops.
 
     Args:
         stops: List of ColorStop-like objects with position and color.
 
     Returns:
-        CSS gradient stops string (e.g., "#ff0000 0%, #0000ff 100%").
+        CSS gradient stops string (e.g., "#ff0000 0%, #0000ff 100%"),
+        or None if stops is empty.
     """
     if not stops:
-        return "transparent, transparent"
+        return None
 
     parts: List[str] = []
     for stop in stops:
@@ -173,15 +174,17 @@ class StyleBuilder:
         elif paint.type == PaintType.GRADIENT_LINEAR:
             direction = _gradient_direction(paint.gradient_handle_positions or [])
             stops = _gradient_stops_css(paint.gradient_stops)
-            self._props["background-image"] = (
-                f"linear-gradient({direction}, {stops})"
-            )
+            if stops is not None:
+                self._props["background-image"] = (
+                    f"linear-gradient({direction}, {stops})"
+                )
 
         elif paint.type == PaintType.GRADIENT_RADIAL:
             stops = _gradient_stops_css(paint.gradient_stops)
-            self._props["background-image"] = (
-                f"radial-gradient(circle, {stops})"
-            )
+            if stops is not None:
+                self._props["background-image"] = (
+                    f"radial-gradient(circle, {stops})"
+                )
 
         elif paint.type == PaintType.IMAGE:
             self._props["background-size"] = "cover"

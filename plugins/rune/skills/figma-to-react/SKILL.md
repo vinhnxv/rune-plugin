@@ -97,13 +97,17 @@ Typical usage flow:
 ## Supported Features
 
 - 12 Figma node types (FRAME, TEXT, RECTANGLE, ELLIPSE, GROUP, COMPONENT, INSTANCE, COMPONENT_SET, SECTION, VECTOR, BOOLEAN_OPERATION, IMAGE fills)
-- Auto-layout v4/v5 (horizontal, vertical, wrap, grid mode)
+- Auto-layout v5 (horizontal, vertical, wrap, grid mode)
 - Tailwind v4 classes (bg-linear-to-*, rounded-xs, shadow-xs)
 - Color snapping to Tailwind palette (22 palettes, RGB distance < 20)
 - Styled text segments (characterStyleOverrides merged)
 - Icon candidate detection (vector nodes <=64x64)
 - SVG candidate marking (BOOLEAN_OPERATION nodes)
 - Image fill handling with placeholder resolution
+
+## Rune Integration
+
+When running `/rune:work` or `/rune:strive`, rune-smith worker Ashes have access to the figma-to-react MCP tools. Workers can call `figma_to_react`, `figma_inspect_node`, `figma_list_components`, and `figma_fetch_design` directly during implementation to generate component code from Figma designs without leaving the workflow.
 
 ## Configuration
 

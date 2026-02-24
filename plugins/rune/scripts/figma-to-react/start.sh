@@ -18,7 +18,7 @@ if ! python3 -c "import mcp; import httpx; import pydantic" 2>/dev/null; then
     REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
     if [ -f "$REQUIREMENTS" ]; then
         echo "Installing figma-to-react dependencies..." >&2
-        python3 -m pip install --quiet -r "$REQUIREMENTS" >&2
+        python3 -m pip install -r "$REQUIREMENTS" >&2
     else
         echo "Error: Missing dependencies and no requirements.txt found" >&2
         exit 1
@@ -29,7 +29,7 @@ fi
 # FIGMA_TOKEN is required at runtime (not at launch) — the server
 # validates it when a tool call actually needs the Figma API.
 # Cache TTL env vars (seconds):
-#   FIGMA_FILE_CACHE_TTL  - TTL for file/node data (default: 300)
-#   FIGMA_IMAGE_CACHE_TTL - TTL for image export URLs (default: 600)
+#   FIGMA_FILE_CACHE_TTL  - TTL for file/node data (default: 1800)
+#   FIGMA_IMAGE_CACHE_TTL - TTL for image export URLs (default: 86400)
 
 exec python3 "$SCRIPT_DIR/server.py"

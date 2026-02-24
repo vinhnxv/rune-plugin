@@ -53,9 +53,9 @@ class ImageHandler:
             image_ref: Figma image reference hash.
 
         Returns:
-            Resolved URL, or a placeholder if not found.
+            Resolved URL, or empty string if not found.
         """
-        return self._image_urls.get(image_ref, f"{{/* TODO: resolve image {image_ref} */}}")
+        return self._image_urls.get(image_ref, "")
 
     def has_image(self, node: FigmaIRNode) -> bool:
         """Check if a node contains an image fill.
@@ -92,7 +92,9 @@ class ImageHandler:
             return self._generate_svg_placeholder(node, class_attr)
 
         if node.has_image_fill and node.image_ref:
-            url = self.resolve_url(node.image_ref)
+            url = _sanitize_image_url(self.resolve_url(node.image_ref))
+            if not url:
+                return f'<div{class_attr} />'
             alt = _sanitize_alt_text(node.name)
             width = round(node.width) if node.width > 0 else ""
             height = round(node.height) if node.height > 0 else ""
@@ -147,22 +149,38 @@ def collect_image_refs(node: FigmaIRNode) -> List[str]:
     Returns:
         List of unique image reference hash strings.
     """
-    refs: List[str] = []
-    _collect_refs_recursive(node, refs)
-    return list(dict.fromkeys(refs))  # Deduplicate while preserving order
+    return list(dict.fromkeys(_collect_refs_recursive(node)))  # Deduplicate while preserving order
 
 
-def _collect_refs_recursive(node: FigmaIRNode, refs: List[str]) -> None:
-    """Recursively collect image refs from the tree.
+def _collect_refs_recursive(node: FigmaIRNode):
+    """Recursively yield image refs from the tree.
 
     Args:
         node: Current IR node.
-        refs: Accumulator list for image references.
+
+    Yields:
+        Image reference hash strings found in the subtree.
     """
     if node.image_ref:
-        refs.append(node.image_ref)
+        yield node.image_ref
     for child in node.children:
-        _collect_refs_recursive(child, refs)
+        yield from _collect_refs_recursive(child)
+
+
+def _sanitize_image_url(url: str) -> str:
+    """Sanitize an image URL for safe use in JSX src attributes.
+
+    Args:
+        url: Raw URL string to sanitize.
+
+    Returns:
+        Sanitized URL, or "about:blank" if the URL is unsafe.
+    """
+    if not url:
+        return ""
+    if not (url.startswith("https://") or url.startswith("http://")):
+        return "about:blank"
+    return url.replace('"', "%22")
 
 
 def _sanitize_alt_text(name: str) -> str:

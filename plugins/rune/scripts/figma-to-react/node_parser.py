@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
@@ -336,10 +337,11 @@ def merge_text_segments(
         ]
 
     segments: List[StyledTextSegment] = []
-    current_idx: int = overrides[0] if overrides else 0
+    effective_overrides = overrides[:len(characters)]
+    current_idx: int = effective_overrides[0]
     start: int = 0
 
-    for i, char_override in enumerate(overrides):
+    for i, char_override in enumerate(effective_overrides):
         if char_override != current_idx:
             # Flush segment
             style = (
@@ -502,6 +504,10 @@ def parse_node(
     Returns:
         Parsed FigmaIRNode, or None if the node type is unsupported.
     """
+    if not isinstance(raw, dict):
+        logger.debug("parse_node received non-dict argument: %r", type(raw))
+        return None
+
     if deduplicator is None:
         deduplicator = _NameDeduplicator()
 
@@ -582,7 +588,7 @@ def parse_node(
     if isinstance(pydantic_node, BooleanOperationNode):
         ir_node.boolean_operation = (
             pydantic_node.boolean_operation.value
-            if pydantic_node.boolean_operation
+            if pydantic_node.boolean_operation is not None
             else None
         )
         ir_node.is_svg_candidate = True
@@ -747,9 +753,14 @@ def walk_tree(node: FigmaIRNode) -> List[FigmaIRNode]:
     Returns:
         List of all nodes in pre-order traversal.
     """
-    result: List[FigmaIRNode] = [node]
-    for child in node.children:
-        result.extend(walk_tree(child))
+    result: List[FigmaIRNode] = []
+    stack: deque[FigmaIRNode] = deque([node])
+    while stack:
+        current = stack.pop()
+        result.append(current)
+        # Push children in reverse order to maintain pre-order traversal
+        for child in reversed(current.children):
+            stack.append(child)
     return result
 
 
@@ -781,4 +792,11 @@ def count_nodes(node: FigmaIRNode) -> int:
     Returns:
         Total number of nodes including the root.
     """
-    return 1 + sum(count_nodes(child) for child in node.children)
+    total = 0
+    stack: deque[FigmaIRNode] = deque([node])
+    while stack:
+        current = stack.pop()
+        total += 1
+        for child in current.children:
+            stack.append(child)
+    return total

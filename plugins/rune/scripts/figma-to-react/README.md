@@ -229,7 +229,7 @@ Figma enforces per-user rate limits. The error message includes:
 
 ### "Bad request (400)"
 
-- Node IDs must be in colon-separated format (e.g., `1:3`, not `1-3`). The URL parser handles this conversion automatically, but if calling the Figma API directly, use colons.
+- Node IDs in Figma URLs use hyphens (e.g., `1-3`), but the Figma API uses colons (e.g., `1:3`). The MCP tools handle this conversion automatically — pass the URL as-is from your browser and the server converts the node ID format internally. If calling the Figma API directly (outside of these MCP tools), use colon format.
 
 ### "Request timed out"
 
@@ -253,12 +253,13 @@ The default timeout is 30 seconds. Large files with many nodes may take longer. 
 server.py              FastMCP server + 4 tools + lifespan context
 url_parser.py          URL parsing + SSRF validation (SEC-001)
 figma_client.py        Async httpx client + two-tier cache + rate-limit handling
-figma_types.py         Pydantic v2 models for Figma API responses (12 node types)
+figma_types.py         Pydantic v2 models + enums for Figma API responses and domain types
 node_parser.py         Raw API -> IR tree (FigmaIRNode) with normalization
 style_builder.py       IR node -> CSS properties extraction
 tailwind_mapper.py     CSS properties -> Tailwind v4 utility classes
 layout_resolver.py     Auto-layout v5 -> flexbox/grid CSS resolution
-react_generator.py     IR tree -> React JSX + Tailwind classes
+react_generator.py     IR tree -> React JSX + Tailwind classes; includes
+                         generate_component_with_props() for typed props interfaces
 image_handler.py       Image fill detection + export URL resolution
 ```
 

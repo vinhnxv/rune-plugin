@@ -246,8 +246,9 @@ def _handle_error_response(response: httpx.Response) -> None:
             plan_tier=plan_tier,
         )
 
+    logger.debug("Figma API error response body (HTTP %d): %s", status, response.text[:500])
     raise FigmaAPIError(
-        f"Figma API error (HTTP {status}): {response.text[:500]}",
+        f"Figma API error (HTTP {status}). See server logs for details.",
         status_code=status,
     )
 

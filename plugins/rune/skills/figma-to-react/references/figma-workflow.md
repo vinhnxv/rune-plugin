@@ -63,7 +63,7 @@ Refine the generated code:
 | Get raw IR tree for custom processing | `figma_fetch_design` |
 | Generate React code from a design | `figma_to_react` |
 
-## Integration with /rune:devise and /rune:strive
+## Integration with /rune:devise and /rune:work (/rune:strive)
 
 ### Planning Phase
 
@@ -79,7 +79,7 @@ actual design measurements, color values, and layout properties.
 
 ### Implementation Phase
 
-During `/rune:strive`, rune-smith workers with `figma-to-react` MCP access can:
+During `/rune:work` (alias: `/rune:strive`), rune-smith workers with `figma-to-react` MCP access can:
 
 1. Call `figma_to_react` to generate initial component code
 2. Adjust the output to match project conventions

@@ -244,11 +244,9 @@ class TestEdgeCases:
         )
         assert result["file_key"] == "ABC123XYZabcdef789012"
 
-    def test_http_upgraded_to_https(self):
-        """HTTP URLs should be handled (the URL parser may accept them)."""
-        # Depending on implementation, this may succeed or fail.
-        # The regex in the plan allows http:// as well.
-        result = parse_figma_url(
-            "http://figma.com/design/ABC123XYZabcdef789012/MyFile"
-        )
-        assert result["file_key"] == "ABC123XYZabcdef789012"
+    def test_http_rejected(self):
+        """HTTP URLs must be rejected — only HTTPS is allowed (SEC-001)."""
+        with pytest.raises(FigmaURLError):
+            parse_figma_url(
+                "http://figma.com/design/ABC123XYZabcdef789012/MyFile"
+            )

@@ -49,11 +49,20 @@ def _normalize_node_id(raw: str) -> str:
 
     Returns:
         Node ID with colons as separators.
+
+    Raises:
+        FigmaURLError: If the normalized node ID contains unexpected characters.
     """
     # First decode any percent-encoding (%3A → :)
     decoded = unquote(raw)
     # Then convert hyphens to colons (1-3 → 1:3)
-    return decoded.replace("-", ":")
+    normalized = decoded.replace("-", ":")
+    # Validate: Figma node IDs contain only digits, colons, and commas
+    if not re.match(r"^[\d:,]+$", normalized):
+        raise FigmaURLError(
+            f"Invalid node-id format '{normalized}'. Expected digits, colons, and commas only."
+        )
+    return normalized
 
 
 def parse_figma_url(url: str) -> dict[str, Optional[str]]:
@@ -95,9 +104,9 @@ def parse_figma_url(url: str) -> dict[str, Optional[str]]:
             f"Invalid hostname '{hostname}'. Only figma.com URLs are accepted (SSRF prevention)."
         )
 
-    if parsed.scheme not in ("https", "http"):
+    if parsed.scheme != "https":
         raise FigmaURLError(
-            f"Invalid scheme '{parsed.scheme}'. Only https URLs are accepted."
+            f"Invalid scheme '{parsed.scheme}'. Only https is accepted."
         )
 
     # Match the path against known URL patterns.

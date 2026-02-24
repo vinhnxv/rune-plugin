@@ -286,10 +286,23 @@ def snap_color(css_color: str, prefix: str = "bg") -> str:
     Returns:
         Tailwind color class string.
     """
+    # CSS named colors and special values that must not be treated as hex
+    _CSS_NAMED_COLORS = {
+        "transparent": f"{prefix}-transparent",
+        "currentcolor": f"{prefix}-current",
+        "inherit": f"{prefix}-inherit",
+        "initial": f"{prefix}-inherit",
+        "unset": f"{prefix}-inherit",
+        "black": f"{prefix}-black",
+        "white": f"{prefix}-white",
+    }
+
     rgb = _parse_hex(css_color) or _parse_rgba(css_color)
     if rgb is None:
-        hex_fallback = css_color.lstrip("#")
-        return f"{prefix}-[#{hex_fallback}]" if hex_fallback else f"{prefix}-black"
+        named = _CSS_NAMED_COLORS.get(css_color.lower())
+        if named:
+            return named
+        return f"{prefix}-[{css_color}]"
 
     best_dist = float("inf")
     best_name = ""
@@ -333,10 +346,10 @@ def _px_to_spacing(px: float) -> str:
 
     unit = px / 4.0
     # Check for clean values
-    if unit == int(unit):
-        return str(int(unit))
+    if abs(unit - round(unit)) < 1e-9:
+        return str(int(round(unit)))
     # Half values
-    if unit * 2 == int(unit * 2):
+    if abs(unit * 2 - round(unit * 2)) < 1e-9:
         return f"{unit:.1f}"
     # Arbitrary
     return f"[{px:.0f}px]"
