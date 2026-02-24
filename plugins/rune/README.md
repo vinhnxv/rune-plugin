@@ -24,6 +24,30 @@ claude --plugin-dir /path/to/rune-plugin
 >
 > **We recommend Claude Max ($200/month) or higher.** If you are on a lower-tier subscription, a single Rune session could exhaust your entire week's usage allowance. Use `--dry-run` to preview scope before committing to a full run.
 
+## Getting Started (New Users)
+
+New to Rune? Start with three commands:
+
+```
+/rune:plan  →  /rune:work  →  /rune:review
+   Plan          Build          Review
+```
+
+```bash
+# 1. Plan a feature
+/rune:plan add user authentication with JWT
+
+# 2. Implement the plan
+/rune:work
+
+# 3. Review the code
+/rune:review
+```
+
+These are beginner-friendly aliases for `/rune:devise`, `/rune:strive`, and `/rune:appraise`.
+
+See the [Getting Started guide (EN)](../../docs/guides/rune-getting-started.en.md) | [Hướng dẫn bắt đầu (VI)](../../docs/guides/rune-getting-started.vi.md) for a complete walkthrough.
+
 ## Quick Start
 
 ```bash
@@ -136,6 +160,8 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## User Documentation
 
+- **[Getting started (English)](../../docs/guides/rune-getting-started.en.md)** — Start here! Plan → Work → Review in 3 commands
+- **[Bắt đầu với Rune (Tiếng Việt)](../../docs/guides/rune-getting-started.vi.md)** — Bắt đầu tại đây! Plan → Work → Review với 3 lệnh
 - [Rune user guide (English): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.en.md)
 - [Hướng dẫn Rune (Tiếng Việt): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.vi.md)
 - [Rune planning guide (English): `/rune:devise` + `/rune:forge` + `/rune:plan-review` + `/rune:inspect`](../../docs/guides/rune-planning-and-plan-quality-guide.en.md)
@@ -711,8 +737,11 @@ plugins/rune/
 │   ├── elicit.md               # /rune:elicit
 │   ├── echoes.md               # /rune:echoes
 │   ├── file-todos.md           # /rune:file-todos
+│   ├── plan.md                 # /rune:plan (alias for /rune:devise)
 │   ├── plan-review.md          # /rune:plan-review
-│   └── rest.md                 # /rune:rest
+│   ├── rest.md                 # /rune:rest
+│   ├── review.md               # /rune:review (alias for /rune:appraise)
+│   └── work.md                 # /rune:work (alias for /rune:strive)
 ├── skills/
 │   ├── agent-browser/       # Browser automation knowledge (non-invocable)
 │   ├── arc/                 # /rune:arc (end-to-end pipeline)
