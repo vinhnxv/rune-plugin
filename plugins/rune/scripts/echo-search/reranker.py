@@ -19,6 +19,7 @@ Configuration is controlled via talisman.yml::
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
 import shutil
@@ -81,7 +82,7 @@ def build_rerank_prompt(query: str, entries: List[Dict[str, Any]]) -> str:
     for entry in entries:
         entry_id = entry.get("id", "unknown")
         preview = entry.get("content_preview", entry.get("content", ""))
-        lines.append(f'<entry id="{entry_id}">{preview}</entry>')
+        lines.append(f'<entry id="{html.escape(str(entry_id), quote=True)}">{html.escape(str(preview))}</entry>')
     entries_text = "\n".join(lines)
     return _RERANK_PROMPT_TEMPLATE.format(query=query, entries=entries_text)
 

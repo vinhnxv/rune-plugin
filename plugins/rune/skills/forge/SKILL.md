@@ -393,7 +393,7 @@ Base assessment on actual file references, not assumptions.`
 
 ## Phase 2: Forge Gaze Selection
 
-Apply the Forge Gaze topic-matching algorithm (see `roundtable-circle/references/forge-gaze.md`):
+Apply the Forge Gaze topic-matching algorithm (see [forge-gaze.md](../roundtable-circle/references/forge-gaze.md)):
 
 ```javascript
 const mode = flags.exhaustive ? "exhaustive" : "default"

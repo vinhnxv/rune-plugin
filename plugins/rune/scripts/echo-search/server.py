@@ -42,7 +42,7 @@ import sys
 import tempfile
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
@@ -270,7 +270,7 @@ def _score_recency(date_str: Optional[str]) -> float:
         return 0.0
     try:
         entry_date = datetime.strptime(date_str[:10], "%Y-%m-%d")
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         age_days = max((now - entry_date).days, 0)
         # Exponential decay: score = 2^(-age/half_life)
         return math.pow(2.0, -age_days / _RECENCY_HALF_LIFE_DAYS)

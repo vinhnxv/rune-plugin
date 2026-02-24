@@ -9,6 +9,7 @@
 # BD-2 doc: This hook is purely advisory. It will NEVER emit permissionDecision: "deny".
 
 set -euo pipefail
+umask 077
 
 # --- Fail-open wrapper ---
 _fail_open() { exit 0; }
