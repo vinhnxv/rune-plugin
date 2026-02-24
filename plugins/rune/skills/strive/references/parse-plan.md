@@ -331,6 +331,41 @@ function extractFileTargets(task) {
 
 For tasks with no extractable file targets, no ownership restriction is applied (treated as shared).
 
+## Write task_ownership to inscription.json (SEC-STRIVE-001)
+
+After extracting tasks and file targets, write `task_ownership` to `inscription.json` for runtime enforcement by the `validate-strive-worker-paths.sh` PreToolUse hook. This MUST happen in Phase 1 after task extraction and before worker spawning.
+
+```javascript
+// Build task_ownership from extracted file targets
+const taskOwnership = {}
+for (const task of tasks) {
+  const { files, dirs } = extractFileTargets(task)
+  if (files.length > 0 || dirs.length > 0) {
+    taskOwnership[`task-${task.id}`] = {
+      owner: "unassigned",  // Updated when worker claims task
+      files: files,
+      dirs: dirs
+    }
+  }
+  // Tasks with no targets are omitted — treated as unrestricted by the hook
+}
+
+// Write to inscription.json (extends existing inscription written in Phase 1)
+// The task_ownership key is NEW — older inscription formats lack it.
+// The hook checks for task_ownership presence and fails open if missing.
+const inscriptionPath = `tmp/.rune-signals/rune-work-${timestamp}/inscription.json`
+const inscription = JSON.parse(Read(inscriptionPath))
+inscription.task_ownership = taskOwnership
+Write(inscriptionPath, JSON.stringify(inscription, null, 2))
+```
+
+**Key design decisions**:
+- `task_ownership` is a NEW key (not an extension of existing format)
+- Tasks with no extractable file targets are omitted from `task_ownership` (unrestricted)
+- The hook uses a flat union of all entries — worker-A can write to worker-B's files, but files outside ALL tasks are blocked
+- `owner` field is set to `"unassigned"` initially; can be updated when workers claim tasks (future enhancement)
+- Talisman `work.unrestricted_shared_files` array supplements the allowlist at hook evaluation time (not stored in inscription)
+
 ## Confirm with User
 
 Present extracted tasks with risk tiers and ask for confirmation:

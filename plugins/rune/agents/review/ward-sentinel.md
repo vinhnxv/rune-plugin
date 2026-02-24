@@ -172,6 +172,8 @@ Before writing output file, confirm:
 ### P1 (Critical) — Exploitable Vulnerabilities
 - [ ] **[SEC-001] SQL Injection** in `api/users.py:42`
   - **Evidence:** `query = f"SELECT * FROM users WHERE id = {user_id}"`
+  - **Confidence**: HIGH (92)
+  - **Assumption**: Query is reachable with user-supplied input
   - **Attack vector:** Attacker sends `1; DROP TABLE users--` as user_id
   - **Fix:** Use parameterized queries
   - **OWASP:** A03:2021 Injection
@@ -179,6 +181,8 @@ Before writing output file, confirm:
 ### P2 (High) — Security Weaknesses
 - [ ] **[SEC-002] Missing Auth Check** in `api/admin.py:15`
   - **Evidence:** Route has no authentication dependency
+  - **Confidence**: HIGH (85)
+  - **Assumption**: Route is publicly accessible (no middleware auth)
   - **Fix:** Add `Depends(require_admin)` to route
 
 ### P3 (Medium) — Hardening Opportunities
@@ -206,6 +210,10 @@ cross-check for every finding.
 If evidence is insufficient, downgrade confidence — never inflate it.
 Your findings directly inform fix priorities. Inflated confidence wastes
 team effort on false positives.
+
+## Boundary
+
+This agent covers **frontline security checklist review**: OWASP Top 10 vulnerability detection, secrets scanning, input validation checks, CSRF/CORS/XSS patterns, and agent prompt security. It does NOT cover deep threat modeling, auth boundary tracing, privilege escalation path analysis, or data exposure vector investigation — that dimension is handled by **breach-hunter**. When both agents review the same file, ward-sentinel focuses on checklist-level vulnerabilities (injection, secrets, misconfiguration) while breach-hunter models attack surfaces and traces trust boundaries end-to-end.
 
 ## RE-ANCHOR — TRUTHBINDING REMINDER
 

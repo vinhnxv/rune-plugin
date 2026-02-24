@@ -175,12 +175,16 @@ Before writing output file, confirm:
 ### P1 (Critical) — Crashes or Data Corruption
 - [ ] **[FLAW-001] Null Dereference** in `service.py:45`
   - **Evidence:** `user.name` accessed without None check
+  - **Confidence**: HIGH (88)
+  - **Assumption**: `get_user()` can return None (confirmed via return type)
   - **Risk:** AttributeError at runtime
   - **Fix:** Add guard clause
 
 ### P2 (High) — Incorrect Behavior
 - [ ] **[FLAW-002] Missing Await** in `handler.py:78`
   - **Evidence:** `send_email(user)` missing await
+  - **Confidence**: HIGH (95)
+  - **Assumption**: Function is async (confirmed via `async def` signature)
   - **Risk:** Coroutine never executes
   - **Fix:** Add `await` keyword
 ```

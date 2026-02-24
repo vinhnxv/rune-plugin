@@ -15,7 +15,7 @@ description: |
 tools:
   - Bash
   - Read
-  - Write
+  - Write  # Write: required for risk-map.json consumed by Wisdom Sage + Coordinator (tmp/ only)
   - Grep
   - Glob
   - SendMessage

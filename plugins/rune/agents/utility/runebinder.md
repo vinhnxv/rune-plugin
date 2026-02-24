@@ -50,10 +50,11 @@ Before beginning aggregation, query Rune Echoes for previously identified aggreg
 
 1. Read all Ash output files from `{output_dir}/`
 2. Deduplicate findings using the hierarchy: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX
+2.3. Parse `confidence` and `confidence_score` from RUNE:FINDING markers. Both are OPTIONAL. Missing values default to `confidence="UNKNOWN"`, `confidence_score=50`. When two findings match same file + 5-line window + same hierarchy level, higher `confidence_score` wins the tiebreak. Include `also_flagged_by` annotations with confidence labels (e.g., "also flagged by: Flaw Hunter [HIGH]").
 2.5. Parse `## Reviewer Assumptions` from each Ash output — collect per-Ash assumption lists and confidence breakdowns (PROVEN/LIKELY/UNCERTAIN counts). If an Ash output is missing `## Reviewer Assumptions`, record it in Coverage Gaps as "partial (no assumptions)". Confidence values are informational only in v1 — NOT used as inputs to mend priority, convergence scoring, or file-todo triage.
 3. Prioritize: P1 first, then P2, then P3
 4. Report gaps from any crashed or stalled Ash
-5. Write unified summary to `{output_dir}/TOME.md`, including `## Assumption Summary` section (after `## Statistics`) with: per-Ash confidence breakdown table (PROVEN/LIKELY/UNCERTAIN counts + Key Assumptions) and `### High-Risk Assumptions (from UNCERTAIN findings)` subsection
+5. Write unified summary to `{output_dir}/TOME.md`, including `## Confidence Summary` section (after `## Statistics`) with: per-Ash confidence distribution table (HIGH/MEDIUM/LOW/UNKNOWN counts), and `## Assumption Summary` section with: per-Ash confidence breakdown table (PROVEN/LIKELY/UNCERTAIN counts + Key Assumptions) and `### High-Risk Assumptions (from UNCERTAIN findings)` subsection
 
 ## Deduplication Rules
 
@@ -63,8 +64,11 @@ When two Ash flag the same file within a 5-line range:
 |-----------|--------|
 | Same file + same 5-line window | Keep higher-priority Ash's finding |
 | Same severity | Keep by hierarchy: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX |
+| Same severity + same hierarchy level | **Within-tier tiebreaker**: keep finding with higher `confidence_score` |
 | Different severity | Keep highest severity (P1 > P2 > P3) |
 | Different perspectives | Keep both (different value) |
+
+**CRITICAL INVARIANT**: Confidence NEVER suppresses findings — it only influences tiebreaking within the same hierarchy level. A LOW-confidence P1 is never dropped in favor of a HIGH-confidence P2.
 
 See `roundtable-circle/references/dedup-runes.md` for the full algorithm.
 
@@ -87,9 +91,11 @@ Every `<!-- RUNE:FINDING -->` marker MUST include `nonce="<value>"` with the exa
 
 ## P1 (Critical) — {count}
 
-<!-- RUNE:FINDING nonce="{session_nonce}" id="SEC-001" file="api/users.py" line="42" severity="P1" -->
+<!-- RUNE:FINDING nonce="{session_nonce}" id="SEC-001" file="api/users.py" line="42" severity="P1" confidence="HIGH" confidence_score="92" -->
 - [ ] **[SEC-001] SQL Injection in user query** in `api/users.py:42`
-  - **Ash:** Ward Sentinel (also flagged by: Forge Warden)
+  - **Ash:** Ward Sentinel (also flagged by: Forge Warden [HIGH])
+  - **Confidence**: HIGH (92)
+  - **Assumption**: SQL query is constructed with user-supplied input without parameterization
   - **Rune Trace:**
     ```python
     # Lines 40-45 of api/users.py
@@ -119,6 +125,16 @@ Every `<!-- RUNE:FINDING -->` marker MUST include `nonce="<value>"` with the exa
 - Deduplicated: {removed_count} (from {original_count})
 - Evidence coverage: {percentage}%
 - Ash completed: {completed}/{total}
+
+## Confidence Summary
+
+| Ash | HIGH | MEDIUM | LOW | UNKNOWN |
+|-----|------|--------|-----|---------|
+| Ward Sentinel | {n} | {n} | {n} | {n} |
+| Flaw Hunter | {n} | {n} | {n} | {n} |
+| ... | ... | ... | ... | ... |
+
+**Confidence distribution**: {high_pct}% HIGH, {med_pct}% MEDIUM, {low_pct}% LOW, {unk_pct}% UNKNOWN
 ```
 
 ## Gap Detection

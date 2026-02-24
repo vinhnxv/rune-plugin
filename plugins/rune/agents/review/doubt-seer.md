@@ -183,6 +183,8 @@ Before writing output file, confirm:
 - [ ] **[DOUBT-001] Unproven: {original finding title}** — challenges `[{PREFIX}-{NUM}]` from {ash_name}
   - **Claim type:** FACTUAL | ANALYTICAL-MEASURABLE | ANALYTICAL-SUBJECTIVE | PRESCRIPTIVE
   - **Original claim:** {what the Ash asserted}
+  - **Confidence**: LOW (25)
+  - **Assumption**: {what the original Ash assumed — now disproven or unsupported}
   - **Challenge:** {what doubt-seer found when verifying}
   - **Evidence:**
     - type: file_read | grep_match | negative_grep | reasoning_chain
@@ -194,6 +196,8 @@ Before writing output file, confirm:
 - [ ] **[DOUBT-002] Uncertain: {original finding title}** — challenges `[{PREFIX}-{NUM}]` from {ash_name}
   - **Claim type:** ...
   - **Original claim:** ...
+  - **Confidence**: MEDIUM ({score})
+  - **Assumption**: {what remains unverified}
   - **Challenge:** ...
   - **Evidence:** ...
   - **Counter-argument:** ...

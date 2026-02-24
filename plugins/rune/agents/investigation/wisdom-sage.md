@@ -15,7 +15,7 @@ description: |
 tools:
   - Bash
   - Read
-  - Write
+  - Write  # Write: required for file-bus handoff to goldmask-coordinator (tmp/ only)
   - Grep
   - Glob
   - SendMessage
