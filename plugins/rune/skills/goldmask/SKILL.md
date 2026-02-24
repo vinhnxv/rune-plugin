@@ -372,13 +372,14 @@ If a layer fails:
 for each teammate in team config:
     SendMessage(type: "shutdown_request", recipient: teammate)
 
-# Wait for approvals (max 30s)
+# Grace period — let teammates deregister before TeamDelete
+sleep 15
 
 # SEC-5: Validate session_id before rm-rf (project convention)
 if (!/^[a-zA-Z0-9_-]+$/.test(session_id)) { error("Invalid session_id"); return }
 
-# TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
-CLEANUP_DELAYS=(0 3 8)
+# TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+CLEANUP_DELAYS=(0 5 10)
 cleanupSucceeded=false
 for delay in "${CLEANUP_DELAYS[@]}"; do
     [ "$delay" -gt 0 ] && sleep "$delay"

@@ -129,11 +129,11 @@ try {
   SendMessage({ type: "shutdown_request", recipient: "verdict-binder", content: "Aggregation complete." })
 } catch { /* pass */ }
 
-// Wait briefly for shutdowns
-Bash("sleep 5")
+// Grace period — let teammates deregister before TeamDelete
+Bash("sleep 15")
 
-// TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
-const CLEANUP_DELAYS = [0, 3000, 8000]
+// TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+const CLEANUP_DELAYS = [0, 5000, 10000]
 let cleanupSucceeded = false
 for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
   if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
