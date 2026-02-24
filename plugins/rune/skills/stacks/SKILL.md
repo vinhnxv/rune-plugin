@@ -20,7 +20,7 @@ Auto-detects project tech stack and loads domain-relevant context for reviews, a
 Layer 0: Context Router — computeContextManifest() decides WHAT to load
 Layer 1: Detection Engine — detectStack() scans manifests for evidence
 Layer 2: Knowledge Skills — 20 reference docs (languages, frameworks, databases, libraries, patterns)
-Layer 3: Enforcement Agents — 11 specialist reviewers with unique finding prefixes
+Layer 3: Enforcement Agents — 12 specialist reviewers with unique finding prefixes
 ```
 
 ## How It Works

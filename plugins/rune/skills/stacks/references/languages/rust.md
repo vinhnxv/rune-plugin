@@ -67,6 +67,17 @@
 - [ ] Dependencies audited with `cargo audit`
 - [ ] No `allow(unsafe_code)` at crate level
 
+## Async Safety Patterns
+
+| ID | Pattern | When | Why | Fix |
+|----|---------|------|-----|-----|
+| RST-011 | Timing-safe comparison | Token/secret `==` | Side-channel attack | `subtle::ConstantTimeEq` or `mac.verify_slice()` |
+| RST-012 | Cancel safety | `select!` branches | Partial data loss | Stream merging / cancel-safe wrappers |
+| RST-013 | Arc cycles | Self-referential Arc | Memory leak | Use `Weak` for back-refs |
+| RST-014 | Unbounded channels | `unbounded_channel()` | OOM under load | Bounded channels + backpressure |
+| RST-015 | Interior mutability | RefCell in async | Runtime panic / not Send | `tokio::sync::Mutex<T>` or `RwLock<T>` |
+| RST-016 | Arc bounds | `Arc<dyn Trait>` | Data race | Add `+ Send + Sync` to trait definition |
+
 ## Audit Commands
 
 ```bash
@@ -87,4 +98,22 @@ rg "panic!\(|todo!\(|unimplemented!\(" --type rust
 
 # Find transmute
 rg "transmute" --type rust
+
+# RST-011: Timing-unsafe comparison (secrets)
+rg '==.*(token|secret|password|api_key|hmac|signature)' --type rust -i
+
+# RST-012: Non-cancel-safe ops in select!
+rg 'select!\s*\{' --type rust -A 20
+
+# RST-013: Arc cycles (potential — needs manual review)
+rg 'Arc<dyn |Arc<.*Arc<' --type rust
+
+# RST-014: Unbounded channels
+rg 'unbounded_channel\(\)' --type rust
+
+# RST-015: RefCell in async context
+rg 'RefCell<' --type rust
+
+# RST-016: Arc<dyn Trait> without Send+Sync (flag for manual check)
+rg 'Arc<dyn [A-Z]' --type rust
 ```

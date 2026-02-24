@@ -26,7 +26,7 @@ Complete registry of supported languages, frameworks, databases, libraries, and 
 | Express | TypeScript | `express` in deps | (none — covered by typescript profile) | (none) |
 | NestJS | TypeScript | `nestjs` or `@nestjs` in deps | (none — covered by typescript profile) | (none) |
 | Actix-web | Rust | `actix` in deps | (none — covered by rust profile) | (none) |
-| Axum | Rust | `axum` in deps | (none — covered by rust profile) | (none) |
+| Axum | Rust | `axum` or `axum-extra` in deps (tower, sqlx corroborate) | `frameworks/axum.md` | `axum-reviewer` (AXUM) |
 | Rocket | Rust | `rocket` in deps | (none — covered by rust profile) | (none) |
 | Laravel | PHP | `laravel` in deps | `frameworks/laravel.md` | `laravel-reviewer` (LARV) |
 | Symfony | PHP | `symfony` in deps | (none — covered by php profile) | (none) |
@@ -78,6 +78,7 @@ All specialist agents produce findings with unique prefixes to enable dedup:
 | PY | python-reviewer | Language |
 | TSR | typescript-reviewer | Language |
 | RST | rust-reviewer | Language |
+| AXUM | axum-reviewer | Framework |
 | PHP | php-reviewer | Language |
 | FAPI | fastapi-reviewer | Framework |
 | DJG | django-reviewer | Framework |
@@ -94,7 +95,7 @@ All specialist agents produce findings with unique prefixes to enable dedup:
 **Dedup hierarchy position**: Stack specialist prefixes are positioned BELOW the core Roundtable Circle prefixes:
 
 ```
-SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > PY > TSR > RST > PHP > FAPI > DJG > LARV > SQLA > REACT > VUE > NEXT > VTE > TDD > DDD > DI
+SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > PY > TSR > RST > AXUM > PHP > FAPI > DJG > LARV > SQLA > REACT > VUE > NEXT > VTE > TDD > DDD > DI
 ```
 
 When a stack specialist and a core Ash find the same issue, the core Ash's finding takes priority.
@@ -107,6 +108,7 @@ SKILL_TO_AGENT_MAP = {
   "languages/typescript":  "typescript-reviewer",
   "languages/rust":        "rust-reviewer",
   "languages/php":         "php-reviewer",
+  "frameworks/axum":       "axum-reviewer",
   "frameworks/fastapi":    "fastapi-reviewer",
   "frameworks/django":     "django-reviewer",
   "frameworks/laravel":    "laravel-reviewer",

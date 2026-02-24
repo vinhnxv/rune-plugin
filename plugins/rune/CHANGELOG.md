@@ -4,6 +4,11 @@
 
 ### Added
 - **`/rune:tarnished` master command** — Intelligent natural-language router and unified entry point for all Rune workflows. Parses user intent (Vietnamese + English), checks prerequisites, and chains multi-step workflows. Common usage: `/rune:tarnished plan ...`, `/rune:tarnished work ...`, `/rune:tarnished review ...`. Handles complex intents like "review and fix", "discuss then plan", and context-aware routing when prerequisites are missing. Includes 3 reference files: intent patterns, workflow chains, and full skill catalog.
+- **`axum-reviewer` agent** — Axum/SQLx specialist Ash with 10 named patterns (AXUM-001→010): N+1 query detection, extractor ordering violations, IDOR prevention, input validation on Path params, transaction boundary mismatches, extractor rejection handling, State vs Extension, HandleErrorLayer for fallible Tower middleware, `from_fn_with_state`, and graceful shutdown. Activated when Axum is detected in `Cargo.toml`.
+- **`stacks/references/frameworks/axum.md`** — Framework reference doc covering extractor ordering, State vs Extension, SQLx transaction patterns, N+1 prevention, Tower middleware composition, security checklist, and audit commands for all 10 AXUM patterns.
+- **RST-011→016 async safety patterns** in `rust-reviewer` — 6 new patterns beyond clippy: timing-unsafe comparison (`==` on secrets), cancel safety in `select!`, Arc cycles without Weak, unbounded channels, RefCell in async context, and `Arc<dyn Trait>` without Send+Sync.
+- **Async Safety Patterns section** in `stacks/references/languages/rust.md` — table of 6 async safety patterns with When/Why/Fix columns, plus 6 new audit commands.
+- **Axum wiring in stack registry and context router** — `stack-registry.md` Axum row updated to `axum-reviewer (AXUM)` + `SKILL_TO_AGENT_MAP` entry + AXUM in dedup hierarchy after RST. `context-router.md` Step 3 adds `elif fw in ["axum", "actix-web", "rocket"] AND domains.backend` condition (critical fix: without this, axum skill was never loaded).
 
 ## [1.93.0] - 2026-02-25
 

@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 83 agents** (37 review + 5 research + 2 work + 12 utility* + 23 investigation + 4 testing)
+**Total: 84 agents** (38 review + 5 research + 2 work + 12 utility* + 23 investigation + 4 testing)
 
 \* 12 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 
@@ -35,7 +35,8 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | doubt-seer | Cross-agent claim verification through adversarial interrogation |
 | python-reviewer | Python type safety, async correctness, modern idioms (PY-001 through PY-010) |
 | typescript-reviewer | TypeScript type system, strict mode, generics patterns (TSR-001 through TSR-010) |
-| rust-reviewer | Rust ownership, lifetimes, unsafe blocks (RST-001 through RST-010) |
+| rust-reviewer | Rust ownership, lifetimes, unsafe blocks, async safety (RST-001 through RST-016) |
+| axum-reviewer | Axum/SQLx web service patterns: N+1 queries, extractor ordering, IDOR, Tower middleware (AXUM-001 through AXUM-010) |
 | php-reviewer | PHP type system, namespacing, security patterns (PHP-001 through PHP-010) |
 | fastapi-reviewer | FastAPI route design, Pydantic validation, dependency injection (FAPI-001 through FAPI-010) |
 | django-reviewer | Django ORM, security, middleware patterns (DJG-001 through DJG-010) |
