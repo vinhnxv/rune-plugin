@@ -474,6 +474,12 @@ rune-plugin/
 - [Hướng dẫn Rune (Tiếng Việt): arc + arc-batch](docs/guides/rune-arc-and-batch-guide.vi.md) — hướng dẫn vận hành kèm use case greenfield/brownfield
 - [Rune planning guide (English): devise + forge + plan-review + inspect](docs/guides/rune-planning-and-plan-quality-guide.en.md) — how to write and validate plan files correctly
 - [Hướng dẫn planning Rune (Tiếng Việt): devise + forge + plan-review + inspect](docs/guides/rune-planning-and-plan-quality-guide.vi.md) — cách lập plan và review plan đúng chuẩn
+- [Rune code review and audit guide (English): appraise + audit + mend](docs/guides/rune-code-review-and-audit-guide.en.md) — multi-agent review, codebase audit, and finding resolution
+- [Hướng dẫn review và audit Rune (Tiếng Việt): appraise + audit + mend](docs/guides/rune-code-review-and-audit-guide.vi.md) — review đa agent, audit codebase, và xử lý finding
+- [Rune work execution guide (English): strive + goldmask](docs/guides/rune-work-execution-guide.en.md) — swarm implementation and impact analysis
+- [Hướng dẫn thực thi Rune (Tiếng Việt): strive + goldmask](docs/guides/rune-work-execution-guide.vi.md) — implementation swarm và phân tích tác động
+- [Rune advanced workflows guide (English): arc-hierarchy + arc-issues + echoes](docs/guides/rune-advanced-workflows-guide.en.md) — hierarchical execution, GitHub Issues batch, and agent memory
+- [Hướng dẫn workflow nâng cao Rune (Tiếng Việt): arc-hierarchy + arc-issues + echoes](docs/guides/rune-advanced-workflows-guide.vi.md) — thực thi phân cấp, batch GitHub Issues, và bộ nhớ agent
 - [Changelog](plugins/rune/CHANGELOG.md) — release history
 - [Configuration guide](plugins/rune/talisman.example.yml) — full talisman schema
 

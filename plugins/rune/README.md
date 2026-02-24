@@ -140,6 +140,12 @@ claude --plugin-dir /path/to/rune-plugin
 - [Hướng dẫn Rune (Tiếng Việt): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.vi.md)
 - [Rune planning guide (English): `/rune:devise` + `/rune:forge` + `/rune:plan-review` + `/rune:inspect`](../../docs/guides/rune-planning-and-plan-quality-guide.en.md)
 - [Hướng dẫn planning Rune (Tiếng Việt): `/rune:devise` + `/rune:forge` + `/rune:plan-review` + `/rune:inspect`](../../docs/guides/rune-planning-and-plan-quality-guide.vi.md)
+- [Rune code review and audit guide (English): `/rune:appraise` + `/rune:audit` + `/rune:mend`](../../docs/guides/rune-code-review-and-audit-guide.en.md)
+- [Hướng dẫn review và audit Rune (Tiếng Việt): `/rune:appraise` + `/rune:audit` + `/rune:mend`](../../docs/guides/rune-code-review-and-audit-guide.vi.md)
+- [Rune work execution guide (English): `/rune:strive` + `/rune:goldmask`](../../docs/guides/rune-work-execution-guide.en.md)
+- [Hướng dẫn thực thi Rune (Tiếng Việt): `/rune:strive` + `/rune:goldmask`](../../docs/guides/rune-work-execution-guide.vi.md)
+- [Rune advanced workflows guide (English): `/rune:arc-hierarchy` + `/rune:arc-issues` + `/rune:echoes`](../../docs/guides/rune-advanced-workflows-guide.en.md)
+- [Hướng dẫn workflow nâng cao Rune (Tiếng Việt): `/rune:arc-hierarchy` + `/rune:arc-issues` + `/rune:echoes`](../../docs/guides/rune-advanced-workflows-guide.vi.md)
 
 ## Arc Mode (End-to-End Pipeline)
 
