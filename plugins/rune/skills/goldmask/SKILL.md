@@ -265,7 +265,7 @@ Runs in parallel with Wisdom Sage. Traces 2nd/3rd-order risk chains that single-
 // Reference: codex-detection.md for canonical detectCodex()
 const codexAvailable = detectCodex()
 const codexDisabled = talisman?.codex?.disabled === true
-const riskAmpEnabled = talisman?.codex?.risk_amplification?.enabled !== false
+const riskAmpEnabled = talisman?.codex?.risk_amplification?.enabled === true
 const workflowIncluded = (talisman?.codex?.workflows ?? []).includes("goldmask")
 
 if (codexAvailable && !codexDisabled && riskAmpEnabled && workflowIncluded) {

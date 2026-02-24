@@ -399,16 +399,21 @@ if (codexAvailable && !codexDisabled && driftEnabled && workflowIncluded) {
   try {
     const sanitizedPlan = sanitizePlanContent(planExcerpt)
     const sanitizedScope = sanitizePlanContent(scopeContent)
+    const nonce = Bash(`openssl rand -hex 16`).trim()
     const promptContent = `SYSTEM: You are a cross-model drift detector.
 
 Compare plan intent vs code semantics. Flag semantic drift where code implements something different from what the plan specifies.
 
 === PLAN INTENT ===
+<<<NONCE_${nonce}>>>
 ${sanitizedPlan}
+<<<END_NONCE_${nonce}>>>
 === END PLAN ===
 
 === CODE SCOPE ===
+<<<NONCE_${nonce}>>>
 ${sanitizedScope}
+<<<END_NONCE_${nonce}>>>
 === END CODE ===
 
 For each drift finding, provide:

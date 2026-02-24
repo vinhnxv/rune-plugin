@@ -262,6 +262,36 @@ function calculateDynamicTimeout(tier) {
 // Shared prototype pollution guard — used by prePhaseCleanup (ARC-6) and ORCH-1 resume cleanup.
 // BACK-005 FIX: Single definition replaces two duplicate inline Sets.
 const FORBIDDEN_PHASE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+// Cascade circuit breaker tracker — updates codex_cascade checkpoint fields.
+// Called after every classifyCodexError() in Codex integration phases (4.5, 7.8, 8.55).
+function updateCascadeTracker(checkpoint, classified) {
+  if (!checkpoint.codex_cascade) {
+    checkpoint.codex_cascade = {
+      total_attempted: 0, total_succeeded: 0, total_failed: 0,
+      consecutive_failures: 0, cascade_warning: false,
+      cascade_skipped: 0, last_failure_phase: null
+    }
+  }
+  const cc = checkpoint.codex_cascade
+  cc.total_attempted++
+
+  if (classified.category === "SUCCESS") {
+    cc.total_succeeded++
+    cc.consecutive_failures = 0
+  } else {
+    cc.total_failed++
+    cc.consecutive_failures++
+    cc.last_failure_phase = checkpoint.current_phase
+
+    // Trigger cascade warning on 3+ consecutive failures or AUTH/QUOTA errors
+    if (cc.consecutive_failures >= 3 || classified.category === "AUTH" || classified.category === "QUOTA") {
+      cc.cascade_warning = true
+    }
+  }
+
+  updateCheckpoint({ codex_cascade: cc })
+}
 ```
 
 See [phase-tool-matrix.md](references/phase-tool-matrix.md) for per-phase tool restrictions and time budget details.

@@ -252,7 +252,7 @@ that reduce actual invocations to 3-5 per run.
 | 7 | Rune Smith | 300s | xhigh | Work (per worker, opt-in) | **OFF** | — | N/A |
 | 8 | Shatter | 300s | xhigh | Plan Phase 2.5 | ON | — | ~20% |
 | 9 | Echo Validation | 300s | xhigh | Post-workflow | ON | — | ~10% |
-| 10 | Diff Verification | 300s | high | Appraise Phase 6.2 | ON | `p1_findings_count == 0` | ~30% |
+| 10 | Diff Verification | 300s | high | Appraise Phase 6.2 | ON | `p1_p2_findings_count == 0` | ~30% |
 | 11 | Test Coverage Critique | 600s | xhigh | Arc Phase 7.8 | ON | `coverage_pct >= 80 && pass_rate == 100` | ~50% |
 | 12 | Release Quality Check | 300s | high | Arc Phase 8.55 | ON | `!breaking_changes && !changelog_stale` | ~60% |
 | 13 | Section Validation | 300s | medium | Forge Phase 1.7 | ON | `plan_sections <= 5` | ~40% |

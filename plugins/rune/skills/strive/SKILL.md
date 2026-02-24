@@ -397,15 +397,9 @@ Severity: P1 (blocking) | P2 (should fix) | P3 (advisory)
 
 If no architectural issues found, output: "No architectural drift detected."`)
 
-    // Execute via canonical codex-exec.sh wrapper (SEC-009: stdin pipe)
+    // Execute via canonical codex-exec.sh wrapper
     const outputPath = `tmp/work/${timestamp}/architectural-critique.md`
-    const result = Bash(`timeout ${killAfterFlag} ${codexTimeout} \
-      "\${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
-      -m "${codexModel}" \
-      --config model_reasoning_effort="${codexReasoning}" \
-      --config stream_idle_timeout_ms="${codexStreamIdleMs}" \
-      --sandbox read-only --full-auto --skip-git-repo-check --json \
-      < "${promptPath}" 2>"tmp/work/${timestamp}/codex-critique-stderr.tmp"`)
+    const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${codexReasoning}" -t ${codexTimeout} -j -g "${promptPath}"`)
 
     if (result.exitCode === 0) {
       const findings = result.stdout

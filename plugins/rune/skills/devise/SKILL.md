@@ -622,11 +622,14 @@ if (codexAvailable && !codexDisabled && tiebreakerEnabled && workflowIncluded) {
           `=== ${r.source} ===\n${sanitizePlanContent(r.content)}\n=== END ${r.source} ===`
         ).join("\n\n")
 
+        const nonce = Bash(`openssl rand -hex 16`).trim()
         const promptContent = `SYSTEM: You are a cross-model research conflict resolver.
 
 Research agents produced conflicting recommendations. Analyze each position and provide a tiebreaker verdict.
 
+<<<NONCE_${nonce}>>>
 ${recSummary}
+<<<END_NONCE_${nonce}>>>
 
 Provide:
 1. Summary of each position (1-2 sentences)
