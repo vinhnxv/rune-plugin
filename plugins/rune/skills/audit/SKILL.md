@@ -24,7 +24,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[--deep] [--focus <area>] [--max-agents <N>] [--dry-run] [--no-lore] [--deep-lore] [--standard] [--todos-dir <path>] [--incremental] [--resume] [--status] [--reset] [--tier <file|workflow|api|all>] [--force-files <glob>]"
+argument-hint: "[--deep] [--focus <area>] [--max-agents <N>] [--dry-run] [--no-lore] [--deep-lore] [--standard] [--todos-dir <path>] [--incremental] [--resume] [--status] [--reset] [--tier <file|workflow|api|all>] [--force-files <glob>] [--dirs <path,...>] [--exclude-dirs <path,...>]"
 allowed-tools:
   - Task
   - TaskCreate
@@ -70,10 +70,12 @@ Thin wrapper that sets audit-specific parameters, then delegates to the shared R
 | `--reset` | Reset incremental audit history and start fresh | Off |
 | `--tier <tier>` | Limit incremental audit to specific tier: `file`, `workflow`, `api`, `all` | `all` |
 | `--force-files <glob>` | Force specific files into incremental batch regardless of priority score | None |
+| `--dirs <path,...>` | Comma-separated list of directories to audit (relative to project root). Overrides talisman `audit.dirs`. Merged with talisman defaults when both are set. | All dirs (talisman or full scan) |
+| `--exclude-dirs <path,...>` | Comma-separated list of directories to exclude from audit. Merged with talisman `audit.exclude_dirs`. Flag values take precedence over talisman defaults. | None (plus talisman defaults) |
 
 **Note:** Unlike `/rune:appraise`, there is no `--partial` flag. Audit always scans the full project.
 
-**Flag interactions**: `--incremental` and `--deep` are orthogonal. `--incremental --deep` runs incremental file selection (batch) followed by deep investigation Ashes on the selected batch. `--incremental --focus` applies focus filtering BEFORE priority scoring (reduces candidate set, then scores within that set).
+**Flag interactions**: `--dirs` and `--exclude-dirs` are pre-filters on the Phase 0 `find` command — they narrow the `all_files` set before it reaches Rune Gaze, the incremental layer, or the Lore Layer (those components receive a smaller array and require zero changes). `--dirs` and `--exclude-dirs` can be combined; `--exclude-dirs` is applied after `--dirs` (intersection then exclusion). `--incremental` and `--deep` are orthogonal. `--incremental --deep` runs incremental file selection (batch) followed by deep investigation Ashes on the selected batch. `--incremental --focus` applies focus filtering BEFORE priority scoring (reduces candidate set, then scores within that set).
 
 **Focus mode** selects only the relevant Ash (see [circle-registry.md](../roundtable-circle/references/circle-registry.md) for the mapping).
 
@@ -100,9 +102,68 @@ const sessionId = "${CLAUDE_SESSION_ID}"  // Standalone variable for use in stat
 
 <!-- DELEGATION-CONTRACT: Changes to Phase 0 steps must be reflected in skills/arc/references/arc-delegation-checklist.md -->
 
+```javascript
+// ── Directory Scope Resolution (Phase 0 pre-filter) ──
+// Security pattern: SAFE_PATH_PATTERN — rejects path traversal and absolute escape
+const SAFE_PATH_PATTERN = /^[a-zA-Z0-9._\/-]+$/
+
+// 1. Parse flag values (comma-separated lists)
+const flagDirs     = (flags['--dirs']         || "").split(",").map(s => s.trim()).filter(Boolean)
+const flagExcludes = (flags['--exclude-dirs'] || "").split(",").map(s => s.trim()).filter(Boolean)
+
+// 2. Merge with talisman defaults (flags override when both present)
+//    Array.isArray() guard: talisman values may be strings or undefined
+const talismanDirs     = Array.isArray(talisman?.audit?.dirs)         ? talisman.audit.dirs         : []
+const talismanExcludes = Array.isArray(talisman?.audit?.exclude_dirs) ? talisman.audit.exclude_dirs : []
+const includeDirs  = flagDirs.length     > 0 ? flagDirs     : talismanDirs      // flags override talisman
+const excludeDirs  = [...new Set([...talismanExcludes, ...flagExcludes])]        // merge both exclude lists
+
+// 3. Validate paths — reject absolute paths and path traversal
+const validateDir = (p) => {
+  if (p.startsWith("/"))    throw `Rejected absolute path: "${p}" — use paths relative to project root`
+  if (p.includes(".."))     throw `Rejected path traversal: "${p}" — ".." not allowed`
+  if (!SAFE_PATH_PATTERN.test(p)) throw `Rejected unsafe path characters in: "${p}"`
+  // Symlink guard: resolve via realpath and verify within project root
+  const resolved  = Bash(`realpath -m "${p}" 2>/dev/null || echo "INVALID"`).trim()
+  const projectRoot = Bash(`pwd -P`).trim()
+  if (!resolved.startsWith(projectRoot)) throw `Rejected path escaping project root: "${p}"`
+  return true
+}
+;[...includeDirs, ...excludeDirs].forEach(validateDir)
+
+// 4. Normalize: strip trailing slashes, ensure relative, deduplicate
+const normalize = (p) => p.replace(/\/+$/, "").replace(/^\.\//, "")
+const normInclude  = [...new Set(includeDirs.map(normalize))]
+const normExclude  = [...new Set(excludeDirs.map(normalize))]
+
+// 5. Remove subdirs already covered by a parent (dedup overlapping dirs)
+const removeRedundant = (dirs) => dirs.filter(d =>
+  !dirs.some(parent => parent !== d && d.startsWith(parent + "/"))
+)
+const dedupedInclude = removeRedundant(normInclude)
+
+// 6. Verify dirs exist — warn and skip missing, abort if ALL missing
+const verifiedInclude = dedupedInclude.filter(d => {
+  const exists = Bash(`test -d "${d}" && echo yes || echo no`).trim() === "yes"
+  if (!exists) log(`[warn] --dirs path not found, skipping: ${d}`)
+  return exists
+})
+if (dedupedInclude.length > 0 && verifiedInclude.length === 0) {
+  throw "All --dirs paths are missing or invalid — nothing to audit."
+}
+
+// 7. Record dir_scope metadata for downstream phases
+const dir_scope = {
+  include: verifiedInclude.length > 0 ? verifiedInclude : null,  // null = scan everything
+  exclude: normExclude
+}
+```
+
 ```bash
 # Scan all project files (excluding non-project directories)
-all_files=$(find . -type f \
+# When --dirs provided, scope find to verified include paths instead of '.'
+# dir_scope.include and dir_scope.exclude are resolved from the JavaScript block above.
+all_files=$(find ${dir_scope.include ? dir_scope.include.join(" ") : "."} -type f \
   ! -path '*/.git/*' \
   ! -path '*/node_modules/*' \
   ! -path '*/__pycache__/*' \
@@ -116,6 +177,7 @@ all_files=$(find . -type f \
   ! -path '*/.tox/*' \
   ! -path '*/vendor/*' \
   ! -path '*/.cache/*' \
+$(dir_scope.exclude.map(d => `  ! -path '*/${d}/*'`).join(" \\\n")) \
   | sort)
 
 # Optional: get branch name for metadata (not required — audit works without git)
@@ -201,6 +263,7 @@ const params = {
   maxAgents: flags['--max-agents'],
   workflow: "rune-audit",
   focusArea: flags['--focus'] || "full",
+  dirScope: dir_scope,      // #20: { include: string[]|null, exclude: string[] } — resolved in Phase 0
   flags, talisman
 }
 
