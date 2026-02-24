@@ -72,9 +72,9 @@ if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/
   if [[ -n "$_BATCH_CFG" && "$_BATCH_CFG" != "$RUNE_CURRENT_CFG" ]]; then
     _is_owner=false
   fi
-  # Check PID
+  # Check PID (EPERM-safe: rune_pid_alive from resolve-session-identity.sh)
   if [[ "$_is_owner" == "true" && -n "$_BATCH_PID" && "$_BATCH_PID" =~ ^[0-9]+$ && "$_BATCH_PID" != "$PPID" ]]; then
-    if kill -0 "$_BATCH_PID" 2>/dev/null; then
+    if rune_pid_alive "$_BATCH_PID"; then
       _is_owner=false
     fi
   fi
@@ -102,9 +102,9 @@ if [[ -f "${CWD}/.claude/arc-hierarchy-loop.local.md" ]] && [[ ! -L "${CWD}/.cla
   if [[ -n "$_HIER_CFG" && "$_HIER_CFG" != "$RUNE_CURRENT_CFG" ]]; then
     _is_hier_owner=false
   fi
-  # Check PID (liveness)
+  # Check PID (EPERM-safe: rune_pid_alive from resolve-session-identity.sh)
   if [[ "$_is_hier_owner" == "true" && -n "$_HIER_PID" && "$_HIER_PID" =~ ^[0-9]+$ && "$_HIER_PID" != "$PPID" ]]; then
-    if kill -0 "$_HIER_PID" 2>/dev/null; then
+    if rune_pid_alive "$_HIER_PID"; then
       _is_hier_owner=false
     fi
   fi
@@ -136,9 +136,9 @@ if [[ -f "${CWD}/.claude/arc-issues-loop.local.md" ]] && [[ ! -L "${CWD}/.claude
   if [[ -n "$_ISSUES_CFG" && "$_ISSUES_CFG" != "$RUNE_CURRENT_CFG" ]]; then
     _is_issues_owner=false
   fi
-  # Check PID (liveness)
+  # Check PID (EPERM-safe: rune_pid_alive from resolve-session-identity.sh)
   if [[ "$_is_issues_owner" == "true" && -n "$_ISSUES_PID" && "$_ISSUES_PID" =~ ^[0-9]+$ && "$_ISSUES_PID" != "$PPID" ]]; then
-    if kill -0 "$_ISSUES_PID" 2>/dev/null; then
+    if rune_pid_alive "$_ISSUES_PID"; then
       _is_issues_owner=false
     fi
   fi
@@ -315,8 +315,8 @@ for f in /tmp/rune-ctx-*-warned.json /tmp/rune-ctx-*.json; do
   B_PID=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
   # Only clean if: our config_dir AND (our PID or dead PID)
   [[ -n "$B_CFG" && "$B_CFG" != "$RUNE_CURRENT_CFG" ]] && continue
-  if [[ -n "$B_PID" && "$B_PID" =~ ^[0-9]+$ ]]; then
-    kill -0 "$B_PID" 2>/dev/null && [[ "$B_PID" != "${PPID:-0}" ]] && continue
+  if [[ -n "$B_PID" && "$B_PID" =~ ^[0-9]+$ && "$B_PID" != "${PPID:-0}" ]]; then
+    rune_pid_alive "$B_PID" && continue
   fi
   rm -f "$f" 2>/dev/null
   # NOTE: _trace may not be defined in on-session-stop.sh — use inline trace

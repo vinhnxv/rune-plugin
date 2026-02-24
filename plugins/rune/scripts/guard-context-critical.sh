@@ -100,8 +100,8 @@ if [[ -n "$BRIDGE_CFG" && "$BRIDGE_CFG" != "$RUNE_CURRENT_CFG" ]]; then
 fi
 
 if [[ -n "$BRIDGE_PID" && "$BRIDGE_PID" =~ ^[0-9]+$ && "$BRIDGE_PID" != "$PPID" ]]; then
-  if kill -0 "$BRIDGE_PID" 2>/dev/null; then
-    exit 0  # Different live session
+  if rune_pid_alive "$BRIDGE_PID"; then
+    exit 0  # Different live session (EPERM-safe)
   else
     # Orphaned bridge — cleanup and allow
     rm -f "$BRIDGE_FILE" 2>/dev/null

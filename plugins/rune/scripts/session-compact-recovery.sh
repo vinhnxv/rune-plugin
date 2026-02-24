@@ -34,8 +34,12 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # ── GUARD 2: Input size cap (SEC-2: 1MB DoS prevention) ──
-# FIX: Add timeout guard (consistent with pre-compact-checkpoint.sh line 44)
-INPUT=$(timeout 2 head -c 1048576 || true)
+# timeout guard prevents blocking on disconnected stdin (macOS may lack timeout)
+if command -v timeout &>/dev/null; then
+  INPUT=$(timeout 2 head -c 1048576 || true)
+else
+  INPUT=$(head -c 1048576 2>/dev/null || true)
+fi
 
 # ── GUARD 3: Trigger must be "compact" ──
 TRIGGER=$(echo "$INPUT" | jq -r '.trigger // empty' 2>/dev/null || true)
@@ -62,24 +66,27 @@ CHECKPOINT_DATA=$(jq -c '.' "$CHECKPOINT_FILE" 2>/dev/null) || {
   exit 0
 }
 
+# ── Session identity (EPERM-safe PID check + resolved config dir) ──
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=resolve-session-identity.sh
+source "${SCRIPT_DIR}/resolve-session-identity.sh"
+
 # ── GUARD 7: Ownership verification (session isolation) ──
 # If checkpoint includes config_dir/owner_pid, verify this session owns it.
 # Fail-open: missing fields = legacy checkpoint → allow recovery.
 CHKPT_CFG=$(echo "$CHECKPOINT_DATA" | jq -r '.config_dir // empty' 2>/dev/null || true)
 CHKPT_PID=$(echo "$CHECKPOINT_DATA" | jq -r '.owner_pid // empty' 2>/dev/null || true)
-CURRENT_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-CURRENT_CFG=$(cd "$CURRENT_CFG" 2>/dev/null && pwd -P || echo "$CURRENT_CFG")
 
 if [[ -n "$CHKPT_CFG" ]]; then
   CHKPT_CFG_RESOLVED=$(cd "$CHKPT_CFG" 2>/dev/null && pwd -P || echo "$CHKPT_CFG")
-  if [[ "$CHKPT_CFG_RESOLVED" != "$CURRENT_CFG" ]]; then
-    _trace "Ownership mismatch: checkpoint config_dir=${CHKPT_CFG} != current=${CURRENT_CFG}"
+  if [[ "$CHKPT_CFG_RESOLVED" != "$RUNE_CURRENT_CFG" ]]; then
+    _trace "Ownership mismatch: checkpoint config_dir=${CHKPT_CFG} != current=${RUNE_CURRENT_CFG}"
     rm -f "$CHECKPOINT_FILE" 2>/dev/null
     exit 0
   fi
 fi
 if [[ -n "$CHKPT_PID" && "$CHKPT_PID" =~ ^[0-9]+$ && "$CHKPT_PID" != "${PPID:-0}" ]]; then
-  if kill -0 "$CHKPT_PID" 2>/dev/null; then
+  if rune_pid_alive "$CHKPT_PID"; then
     # Checkpoint belongs to another live session — do not consume it
     _trace "Ownership mismatch: checkpoint owner_pid=${CHKPT_PID} is alive, our PPID=${PPID:-0}"
     exit 0

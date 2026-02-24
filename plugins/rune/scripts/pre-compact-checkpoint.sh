@@ -123,8 +123,12 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # ── GUARD 2: Input size cap (SEC-2: 1MB DoS prevention) ──
-# FW-003 FIX: timeout guard prevents blocking on disconnected stdin
-INPUT=$(timeout 2 head -c 1048576 || true)
+# timeout guard prevents blocking on disconnected stdin (macOS may lack timeout)
+if command -v timeout &>/dev/null; then
+  INPUT=$(timeout 2 head -c 1048576 || true)
+else
+  INPUT=$(head -c 1048576 2>/dev/null || true)
+fi
 
 # ── GUARD 3: CWD extraction and canonicalization ──
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)

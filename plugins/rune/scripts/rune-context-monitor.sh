@@ -75,6 +75,18 @@ fi
 # P1-3 FIX: Symlink guard before reading bridge file
 [[ -L "$BRIDGE_FILE" ]] && exit 0
 
+# OS-level UID check (consistent with guard-context-critical.sh EC-H5)
+_BRIDGE_UID=""
+if [[ "$(uname)" == "Darwin" ]]; then
+  _BRIDGE_UID=$(stat -f %u "$BRIDGE_FILE" 2>/dev/null || true)
+else
+  _BRIDGE_UID=$(stat -c %u "$BRIDGE_FILE" 2>/dev/null || true)
+fi
+if [[ -n "$_BRIDGE_UID" && "$_BRIDGE_UID" != "$(id -u)" ]]; then
+  _trace "SKIP: bridge UID mismatch (file=$_BRIDGE_UID, us=$(id -u))"
+  exit 0
+fi
+
 # EDGE-MON-008: Cap bridge file read (consistent with stdin 1MB cap pattern)
 BRIDGE=$(head -c 4096 "$BRIDGE_FILE" 2>/dev/null) || exit 0
 REMAINING=$(echo "$BRIDGE" | jq -r '.remaining_percentage // empty' 2>/dev/null || true)
@@ -91,7 +103,7 @@ B_CFG=$(echo "$BRIDGE" | jq -r '.config_dir // empty' 2>/dev/null || true)
 B_PID=$(echo "$BRIDGE" | jq -r '.owner_pid // empty' 2>/dev/null || true)
 [[ -n "$B_CFG" && "$B_CFG" != "$RUNE_CURRENT_CFG" ]] && { _trace "SKIP: config_dir mismatch"; exit 0; }
 if [[ -n "$B_PID" && "$B_PID" =~ ^[0-9]+$ && "$B_PID" != "${PPID:-0}" ]]; then
-  kill -0 "$B_PID" 2>/dev/null && { _trace "SKIP: bridge owned by live PID $B_PID"; exit 0; }
+  rune_pid_alive "$B_PID" && { _trace "SKIP: bridge owned by live PID $B_PID (EPERM-safe)"; exit 0; }
 fi
 _trace "BRIDGE read: remaining=$REMAINING used=$USED_PCT age=$(($(date +%s) - TIMESTAMP))s"
 
