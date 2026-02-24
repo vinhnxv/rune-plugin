@@ -13,8 +13,8 @@
   "plugins": [
     {
       "name": "rune",
-      "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspect, test, and audit with Agent Teams. Includes 34 review agents, 5 research agents, 23 investigation agents, 10 utility agents, 2 work agents, 4 testing agents, 11 commands, and 31 skills. BMAD-derived elicitation methods for structured reasoning. Stack-aware intelligence with 11 language/framework/pattern specialist reviewers. Multi-language quality guidance (Python, TypeScript, Rust, PHP).",
-      "version": "1.87.0",
+      "description": "Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspect, test, and audit with Agent Teams. Includes 34 review agents, 5 research agents, 23 investigation agents, 10 utility agents, 2 work agents, 4 testing agents, 11 commands, and 33 skills. BMAD-derived elicitation methods for structured reasoning. Stack-aware intelligence with 11 language/framework/pattern specialist reviewers. Multi-language quality guidance (Python, TypeScript, Rust, PHP).",
+      "version": "1.88.0",
       "author": {
         "name": "vinhnxv",
         "email": "vinh.ngxv@gmail.com",
@@ -68,6 +68,8 @@
         "./skills/inspect",
         "./skills/mend",
         "./skills/polling-guard",
+        "./skills/resolve-all-gh-pr-comments",
+        "./skills/resolve-gh-pr-comment",
         "./skills/roundtable-circle",
         "./skills/rune-echoes",
         "./skills/rune-orchestration",

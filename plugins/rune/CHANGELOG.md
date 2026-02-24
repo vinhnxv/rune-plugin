@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.88.0] - 2026-02-24
+
+### Added
+- **PR Bot Review & Comment Resolution** — Two new arc pipeline phases and two standalone skills for automated PR review handling:
+  - **Phase 9.1 BOT_REVIEW_WAIT** — Polls for bot reviews (CI, linters, security scanners) with configurable timeout and 3-layer skip gate (CLI → talisman → default off). Non-blocking failure policy.
+  - **Phase 9.2 PR_COMMENT_RESOLUTION** — Multi-round review loop that fetches PR comments, applies fixes, replies with explanations, and resolves threads. Hallucination check algorithm rejects invalid fixes. 4 loop exit conditions. Crash recovery with round-aware resume.
+  - **`/rune:resolve-gh-pr-comment`** — Standalone skill for resolving a single PR review comment. 10-phase workflow: parse input → fetch comment → detect author → verify code → present analysis → fix/reply/resolve.
+  - **`/rune:resolve-all-gh-pr-comments`** — Standalone skill for batch PR comment resolution with pagination support and `updatedAt` tracking.
+- **Talisman config**: New `arc.ship.bot_review` section with 10+ configuration keys (enabled, bot_names, timeout, max_rounds, etc.). New timeout entries for `bot_review_wait` and `pr_comment_resolution` in `arc.timeouts`.
+- **Arc pipeline expansion**: PHASE_ORDER grows from 21 → 23 phases. PHASE_TIMEOUTS adds `bot_review_wait` (10 min) and `pr_comment_resolution` (15 min). Base budget ~176 → ~201 min. ARC_TOTAL_TIMEOUT_DEFAULT and HARD_CAP updated accordingly.
+
+### Changed
+- `arc/SKILL.md`: Description updated (21 → 23 phases), Pipeline Overview expanded, Phase Transition Contracts table (2 new rows), Failure Policy table (2 new rows), Error Handling table (5 new entries), calculateDynamicTimeout includes new phases
+- `talisman.example.yml`: Added `bot_review` section under `arc.ship` and timeout entries
+- `plugin.json` / `marketplace.json`: Version 1.87.0 → 1.88.0, skill count 31 → 33, skills array updated
+
 ## [1.87.1] - 2026-02-24
 
 ### Fixed
