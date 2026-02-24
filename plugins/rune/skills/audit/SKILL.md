@@ -24,7 +24,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[--deep] [--focus <area>] [--max-agents <N>] [--dry-run] [--no-lore] [--deep-lore] [--standard] [--todos-dir <path>] [--incremental] [--resume] [--status] [--reset] [--tier <file|workflow|api|all>] [--force-files <glob>] [--dirs <path,...>] [--exclude-dirs <path,...>]"
+argument-hint: "[--deep] [--focus <area>] [--max-agents <N>] [--dry-run] [--no-lore] [--deep-lore] [--standard] [--todos-dir <path>] [--incremental] [--resume] [--status] [--reset] [--tier <file|workflow|api|all>] [--force-files <glob>] [--dirs <path,...>] [--exclude-dirs <path,...>] [--prompt <text>] [--prompt-file <path>]"
 allowed-tools:
   - Task
   - TaskCreate
@@ -72,6 +72,8 @@ Thin wrapper that sets audit-specific parameters, then delegates to the shared R
 | `--force-files <glob>` | Force specific files into incremental batch regardless of priority score | None |
 | `--dirs <path,...>` | Comma-separated list of directories to audit (relative to project root). Overrides talisman `audit.dirs`. Merged with talisman defaults when both are set. | All dirs (talisman or full scan) |
 | `--exclude-dirs <path,...>` | Comma-separated list of directories to exclude from audit. Merged with talisman `audit.exclude_dirs`. Flag values take precedence over talisman defaults. | None (plus talisman defaults) |
+| `--prompt <text>` | Inline custom inspection criteria injected into every Ash prompt. Sanitized via `sanitizePromptContent()`. Findings use standard prefixes with `source="custom"` attribute. | None |
+| `--prompt-file <path>` | Path to a Markdown file containing custom inspection criteria. Loaded, sanitized, and injected into Ash prompts. Takes precedence over `--prompt` when both are set. See [prompt-audit.md](references/prompt-audit.md). | None (or talisman `audit.default_prompt_file`) |
 
 **Note:** Unlike `/rune:appraise`, there is no `--partial` flag. Audit always scans the full project.
 
@@ -264,6 +266,7 @@ const params = {
   workflow: "rune-audit",
   focusArea: flags['--focus'] || "full",
   dirScope: dir_scope,      // #20: { include: string[]|null, exclude: string[] } — resolved in Phase 0
+  customPromptBlock: resolveCustomPromptBlock(flags, talisman),  // #21: from --prompt / --prompt-file (null if not set). See references/prompt-audit.md
   flags, talisman
 }
 
