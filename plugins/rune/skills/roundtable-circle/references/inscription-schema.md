@@ -65,6 +65,18 @@
 
   "specialist_ashes": ["array of stack-specialist Ash names selected by Phase 1A"],
 
+  "dir_scope": {
+    "include": ["array of directory strings — restrict audit to these paths (e.g., ['src/', 'lib/']). null when no --dirs specified (= full repo)."],
+    "exclude": ["array of directory strings — suppress these paths even if matched by include (e.g., ['vendor/']). May be non-empty even when include is null (talisman excludes)."]
+  },
+  // Note: dir_scope is null (not the object) when neither --dirs nor talisman.audit.dirs is set.
+  // Only consumed by rune-audit and rune-audit-deep.
+
+  "custom_prompt": {
+    "active": "boolean — whether prompt injection is enabled (default: false)",
+    "prompt_file": "string — path to Markdown prompt file relative to repo root (e.g., '.claude/audit-prompt.md'). Only consumed by rune-audit and rune-audit-deep."
+  },
+
   "diff_scope": {
     "enabled": "boolean — whether diff-scope tagging is active (default: true)",
     "base": "string — base branch for diff (e.g., 'main')",
@@ -225,6 +237,8 @@
 | `teammates[].name` | Yes | — |
 | `teammates[].output_file` | Yes | — |
 | `teammates[].required_sections` | Yes | — |
+| `dir_scope` | No | `null` (full repo). Array of directory glob strings. Only consumed by audit workflows. (v1.90.0+) |
+| `custom_prompt` | No | `{ "active": false }`. Only consumed by audit workflows. (v1.90.0+) |
 | `diff_scope` | No | `{ "enabled": false }` |
 | `context_intelligence` | No | `{ "available": false }` (v1.60.0+) |
 | `linter_context` | No | `{ "detected": [], "rule_categories": [], "suppress_categories": [] }` (v1.60.0+) |

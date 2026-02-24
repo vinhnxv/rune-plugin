@@ -54,8 +54,8 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
 // CDX-003 FIX: Gate behind !teamDeleteSucceeded to prevent cross-workflow scan from
 // wiping concurrent workflows when TeamDelete already succeeded cleanly.
 if (!teamDeleteSucceeded) {
+  // Scoped cleanup — only remove THIS session's team/task dirs (not all rune-*/arc-*)
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-plan-${timestamp}/" "$CHOME/tasks/rune-plan-${timestamp}/" 2>/dev/null`)
-  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
   try { TeamDelete() } catch (e2) { /* proceed to TeamCreate */ }
 }
 

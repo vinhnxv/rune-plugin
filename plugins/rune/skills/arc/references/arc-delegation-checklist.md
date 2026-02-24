@@ -15,6 +15,25 @@ rather than inline interpolation (see appraise.md SEC-006). Variables from previ
 phase artifacts (plan paths, file lists, team names) are validated at arc pre-flight,
 but re-validate if transforming or concatenating.
 
+## Phase 0: Pre-flight Parameters (Passthrough)
+
+These parameters are parsed during arc pre-flight and passed through to the delegated command
+at each phase. Arc itself does not act on them — it forwards them as-is.
+
+| Parameter | Flags | Destination phases | Action |
+|-----------|-------|--------------------|--------|
+| `--dirs <csv>` | Directory include filter | Phase 6 (appraise), Phase 8 (audit) | **ADAPT** — Arc passes `--dirs` to the delegated command. Only applies to file-discovery phases. |
+| `--exclude-dirs <csv>` | Directory exclude filter | Phase 6 (appraise), Phase 8 (audit) | **ADAPT** — Arc passes `--exclude-dirs` to the delegated command alongside `--dirs`. |
+| `--prompt <string>` | Inline custom inspection criteria | Phase 6 (appraise), Phase 8 (audit) | **ADAPT** — Arc passes `--prompt` to the delegated command. The command resolves it via `resolveCustomPromptBlock()` in orchestration-phases.md. |
+| `--prompt-file <path>` | File containing custom inspection criteria | Phase 6 (appraise), Phase 8 (audit) | **ADAPT** — Arc passes `--prompt-file` to the delegated command. Takes precedence over `--prompt` when both are set. |
+
+### Phase 0 passthrough rules
+
+- `--dirs` / `--exclude-dirs` feed into `dirScope` (parameter #20 in orchestration-phases.md). Arc resolves these at pre-flight for validation only — do NOT apply dir filtering to arc's own file discovery. Forward to delegated commands verbatim.
+- `--prompt` / `--prompt-file` feed into `customPromptBlock` (parameter #21 in orchestration-phases.md). Arc does NOT modify prompt content. If `--prompt-file` is provided, validate the file exists at pre-flight (arc aborts early if missing); arc does NOT read the file contents — the delegated command reads it.
+- Both sets of parameters are **SKIP** for arc phases that do not delegate to appraise/audit (forge, strive, mend, goldmask, etc.).
+- Security: apply `SAFE_PATH_PATTERN` validation to `--prompt-file` path (same as other file path parameters). Block path traversal (`..`) and absolute paths outside the project root.
+
 ## Phase 1: FORGE → `/rune:forge`
 
 Already explicit in arc-phase-forge.md. Listed here for completeness.

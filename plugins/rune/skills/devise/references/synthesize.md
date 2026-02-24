@@ -46,8 +46,8 @@ estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
 strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
-git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
-branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
+git_sha: "{run: git rev-parse HEAD}"
+branch: "{run: git branch --show-current}"
 session_budget:
   max_concurrent_agents: 3      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
@@ -85,8 +85,8 @@ estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
 strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
-git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
-branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
+git_sha: "{run: git rev-parse HEAD}"
+branch: "{run: git branch --show-current}"
 session_budget:
   max_concurrent_agents: 5      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
@@ -197,8 +197,8 @@ estimated_effort: "{S|M|L|XL} — ~{N} LOC, {N} files"
 impact: "{N}/10"
 strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
-git_sha: !`git rev-parse HEAD 2>/dev/null || echo "null"`
-branch: !`git branch --show-current 2>/dev/null | grep . || echo "null"`
+git_sha: "{run: git rev-parse HEAD}"
+branch: "{run: git branch --show-current}"
 session_budget:
   max_concurrent_agents: 8      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
@@ -579,7 +579,6 @@ wardResults ({name, exitCode}[], from Phase 4)
 const planTitle = extractPlanTitle(planPath)  // <- undefined function
 const prTitle = `${planType}: ${planTitle}`    // <- planType undefined
 Bash(`git push -u origin "${currentBranch}"`)  // <- no error handling
-```
 ```
 
 5. Write to `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`

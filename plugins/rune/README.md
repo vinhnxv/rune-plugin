@@ -60,6 +60,15 @@ claude --plugin-dir /path/to/rune-plugin
 /rune:audit --focus security    # Security-only audit
 /rune:audit --max-agents 3      # Limit to 3 Ashes
 
+# Directory-scoped audit (v1.91.0+)
+/rune:audit --dirs src,lib              # Audit only src/ and lib/
+/rune:audit --exclude-dirs vendor,dist  # Exclude vendor/ and dist/
+/rune:audit --dirs src --exclude-dirs src/generated  # Include src/ except generated/
+
+# Custom prompt-based audit (v1.91.0+)
+/rune:audit --prompt "Flag all direct SQL string interpolation as P1"  # Inline instruction
+/rune:audit --prompt-file .claude/prompts/hipaa-audit.md               # File-based instruction
+
 # Incremental stateful audit (v1.84.0+)
 /rune:audit --incremental               # Prioritized batch audit with persistent state
 /rune:audit --incremental --status       # Coverage dashboard (no audit performed)
@@ -545,7 +554,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | arc | End-to-end orchestration pipeline (pre-flight freshness gate + 23 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → test coverage critique → pre-ship validation → release quality check → bot review wait → PR comment resolution → ship → merge) |
 | arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
 | ash-guide | Agent invocation reference |
-| audit | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation. Use `--incremental` for stateful 3-tier auditing (file, workflow, API) with persistent priority scoring and coverage tracking |
+| audit | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation. Use `--incremental` for stateful 3-tier auditing (file, workflow, API) with persistent priority scoring and coverage tracking. Use `--dirs`/`--exclude-dirs` for directory-scoped audits (v1.91.0+). Use `--prompt`/`--prompt-file` for custom per-session Ash instructions (v1.91.0+) |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
 | context-weaving | Context overflow/rot prevention |

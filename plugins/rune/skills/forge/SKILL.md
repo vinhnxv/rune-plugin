@@ -404,8 +404,9 @@ if (forceIncludeList.length > 0) {
   for (const sectionTitle of forceIncludeList) {
     const section = sections.find(s => s.title === sectionTitle)
     if (section && !assignments.has(section)) {
-      // Force-include with default enrichment agent
-      assignments.set(section, [["rune-architect", 0.50]])
+      // Force-include with default enrichment agent (must match forge-gaze [agent_object, score] shape)
+      const defaultAgent = topic_registry.find(a => a.name === "rune-architect") || { name: "rune-architect", perspective: "Architectural compliance and design pattern review" }
+      assignments.set(section, [[defaultAgent, 0.50]])
       log(`  Force-include: "${sectionTitle}" — added by Codex Section Validation`)
     }
   }
@@ -528,7 +529,8 @@ After team creation:
 // Concurrent session check
 const existingForge = Glob("tmp/.rune-forge-*.json")
 for (const sf of existingForge) {
-  const state = JSON.parse(Read(sf))
+  let state
+  try { state = JSON.parse(Read(sf)) } catch (e) { continue }  // Skip corrupt state files
   if (state.status === "active") {
     const age = Date.now() - new Date(state.started).getTime()
     if (age < 1800000) { // 30 minutes
@@ -610,11 +612,11 @@ const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
 // 1. Dynamic member discovery — reads team config to find ALL teammates
 let allMembers = []
 try {
-  const teamConfig = Read(`${CHOME}/teams/rune-forge-${timestamp}/config.json`)
+  const teamConfig = JSON.parse(Read(`${CHOME}/teams/rune-forge-${timestamp}/config.json`))
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
-  allMembers = [...allAgents]
+  allMembers = []  // Team config unavailable — no members to shutdown
 }
 
 // Shutdown all discovered members

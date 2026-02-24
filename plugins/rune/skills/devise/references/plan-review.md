@@ -138,7 +138,7 @@ then wait using `waitForCompletion`:
 
 ```javascript
 // Create tasks for each reviewer (enables TaskList-based monitoring)
-const reviewerCount = 3  // decree-arbiter, knowledge-keeper, veil-piercer-plan (+ optional doubt-seer, horizon-sage, elicitation-sages)
+let reviewerCount = 3  // decree-arbiter, knowledge-keeper, veil-piercer-plan (+ optional doubt-seer, horizon-sage, elicitation-sages)
 TaskCreate({
   subject: "Technical soundness review (decree-arbiter)",
   description: `Review ${planPath} for architecture fit, feasibility, security/performance risks`,
@@ -259,6 +259,7 @@ if (doubtSeerEnabled && doubtSeerWorkflows.includes("plan")) {
 // Skipped if talisman horizon.enabled === false
 const horizonEnabled = readTalisman()?.horizon?.enabled !== false
 if (horizonEnabled) {
+  reviewerCount++
   // Read strategic intent from plan frontmatter — validate against allowlist
   const planFrontmatter = extractYamlFrontmatter(Read(planPath))
   const VALID_INTENTS = ["long-term", "quick-win", "auto"]
@@ -314,6 +315,7 @@ if (elicitEnabled) {
     "migration", "performance", "decision", "approach", "comparison"]
   const keywordHits = elicitKeywords.filter(k => planText.includes(k)).length
   const reviewSageCount = keywordHits >= 4 ? 3 : keywordHits >= 2 ? 2 : 1
+  reviewerCount += reviewSageCount
 
   for (let i = 0; i < reviewSageCount; i++) {
     TaskCreate({

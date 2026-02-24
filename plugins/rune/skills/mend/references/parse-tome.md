@@ -181,7 +181,7 @@ for (const finding of allFindings) {
 
 // Filter: remove skipped pre-existing findings from file groups
 // Skipped findings are still recorded in the resolution report as SKIPPED (scope)
-const actionableFindings = allFindings.filter(f => f.scopeAction === "fix" || !f.scope)
+let actionableFindings = allFindings.filter(f => f.scopeAction === "fix" || !f.scope)
 const skippedByScope = allFindings.filter(f => f.scopeAction === "skip")
 if (skippedByScope.length > 0) {
   log(`Scope filtering: ${skippedByScope.length} pre-existing findings skipped (${actionableFindings.length} actionable)`)
@@ -196,6 +196,7 @@ if (skippedByScope.length > 0) {
 if (actionableFindings.length === 0 && allFindings.length > 0) {
   warn("Zero in-diff findings — disabling scope filtering for this round")
   for (const f of allFindings) { f.scopeAction = "fix" }
+  actionableFindings = allFindings.filter(f => f.scopeAction === "fix" || !f.scope)
 }
 ```
 

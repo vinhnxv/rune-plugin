@@ -570,9 +570,9 @@ if (!goldmaskEnabled || !quickCheckEnabled) {
   if (scopedMustChange.length === 0) {
     warn("Phase 5.95: No MUST-CHANGE files overlap with TOME scope — skipping")
   } else {
-    // Get files actually modified by mend fixers
+    // Get files actually modified by mend fixers (working tree + staged, not just commits)
     // Derive from git diff against preMendSha (captured at Phase 2)
-    const mendedFilesRaw = Bash(`git diff --name-only ${preMendSha}...HEAD 2>/dev/null`)
+    const mendedFilesRaw = Bash(`git diff --name-only ${preMendSha} 2>/dev/null`)
     // normalize: canonical root-relative POSIX path (no ./ prefix, no trailing slash, lowercase)
     const mendedFiles = mendedFilesRaw.trim().split('\n').filter(Boolean).map(normalize)
 

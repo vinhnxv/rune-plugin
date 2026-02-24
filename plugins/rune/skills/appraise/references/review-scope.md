@@ -109,7 +109,7 @@ if (flags['--scope-file']) {
     if (Array.isArray(scopeData?.focus_files) && scopeData.focus_files.length > 0) {
       // SEC-001: Validate each entry against SAFE_FILE_PATH before use
       changed_files = scopeData.focus_files.filter(f =>
-        typeof f === 'string' && SAFE_FILE_PATH.test(f) && !f.includes('..') && !f.startsWith('/') && exists(f)
+        typeof f === 'string' && SAFE_FILE_PATH.test(f) && !f.includes('..') && !f.startsWith('/') && exists(f) && !isSymlink(f)
       )
       log(`Scope override: ${changed_files.length} files from ${scopePath}`)
     } else {
@@ -219,6 +219,9 @@ if (cycleCount > 1) {
       warn(`Cycle ${cycle} produced no TOME — skipping in merge`)
     }
   }
+
+  // Ensure merge destination directory exists (runSinglePassReview only creates {identifier}-cycle-N dirs)
+  Bash(`mkdir -p "tmp/reviews/${identifier}"`)
 
   // Merge cycle TOMEs into final TOME
   if (cycleTomes.length === 0) {

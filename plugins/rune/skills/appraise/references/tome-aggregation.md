@@ -106,15 +106,18 @@ After Runebinder produces TOME.md, check for suspiciously empty Ash outputs:
 
 ```javascript
 // For each Ash that reviewed >15 files but produced 0 findings: flag in TOME
-for (const ash of selectedAsh) {
-  const ashOutput = Read(`tmp/reviews/${identifier}/${ash.name}.md`)
+// selectedAsh is string[] (ash names), not objects — use name directly and get file count from inscription
+const inscription = JSON.parse(Read(`tmp/reviews/${identifier}/inscription.json`))
+for (const ashName of selectedAsh) {
+  const ashOutput = Read(`tmp/reviews/${identifier}/${ashName}.md`)
   const findingCount = (ashOutput.match(/<!-- RUNE:FINDING/g) || []).length
-  const fileCount = ash.files.length
+  const ashAssignment = inscription.assignments?.find(a => a.ash === ashName)
+  const fileCount = ashAssignment?.files?.length || 0
 
   if (fileCount > 15 && findingCount === 0) {
-    warn(`${ash.name} reviewed ${fileCount} files with 0 findings — verify review thoroughness`)
+    warn(`${ashName} reviewed ${fileCount} files with 0 findings — verify review thoroughness`)
     // Runebinder appends a NOTE (not a finding) to TOME.md:
-    // "NOTE: {ash.name} reviewed {fileCount} files and reported no findings.
+    // "NOTE: {ashName} reviewed {fileCount} files and reported no findings.
     //  This may indicate a thorough codebase or an incomplete review."
   }
 }
