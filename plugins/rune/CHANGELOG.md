@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.92.0] - 2026-02-25
+
+### Added
+- **Beginner-friendly command aliases** — 3 new commands for the basic daily workflow:
+  - `/rune:plan` — alias for `/rune:devise` (plan a feature or task)
+  - `/rune:work` — alias for `/rune:strive` (implement a plan)
+  - `/rune:review` — alias for `/rune:appraise` (review code changes)
+- These commands forward all arguments to their underlying skills, providing simpler naming for new users
+- **Getting Started guide** — Beginner-friendly walkthrough of the Plan → Work → Review cycle (EN + VI)
+- **README "Getting Started" section** — New section at the top of README for new users with the 3-command workflow
+
 ## [1.91.2] - 2026-02-24
 
 ### Fixed

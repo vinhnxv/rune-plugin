@@ -19,10 +19,70 @@ Restart Claude Code after installation to load the plugin.
 claude --plugin-dir /path/to/rune-plugin
 ```
 
+### Setup: Enable Agent Teams (Required)
+
+Rune requires [Agent Teams](https://code.claude.com/docs/en/agent-teams) to be enabled. Without this, Rune commands will not work. Add the following to your settings file (`.claude/settings.json` or `.claude/settings.local.json`):
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+### Recommended: Include Rune Directories in Context
+
+Rune generates output files in directories that are typically gitignored. To let Claude Code read these files, add them to `includedGitignorePatterns` in your settings:
+
+```json
+{
+  "includedGitignorePatterns": [
+    "plans/",
+    "todos/",
+    "tmp/",
+    "reviews/",
+    ".claude/arc/",
+    ".claude/echoes/",
+    ".claude/arc-batch-loop.local.md",
+    ".claude/CLAUDE.local.md",
+    ".claude/talisman.yml"
+  ]
+}
+```
+
+> **Where to put settings:**
+> - `.claude/settings.json` — project-level, committable (shared with team)
+> - `.claude/settings.local.json` — project-level, gitignored (personal preferences)
+
 > [!WARNING]
 > **Rune is a token-intensive multi-agent system.** Each workflow summons multiple agents with their own dedicated context windows, consuming tokens rapidly. A single `/rune:arc` or `/rune:audit` run can burn through a significant portion of your weekly usage limit.
 >
 > **We recommend Claude Max ($200/month) or higher.** If you are on a lower-tier subscription, a single Rune session could exhaust your entire week's usage allowance. Use `--dry-run` to preview scope before committing to a full run.
+
+## Getting Started (New Users)
+
+New to Rune? Start with three commands:
+
+```
+/rune:plan  →  /rune:work  →  /rune:review
+   Plan          Build          Review
+```
+
+```bash
+# 1. Plan a feature
+/rune:plan add user authentication with JWT
+
+# 2. Implement the plan
+/rune:work
+
+# 3. Review the code
+/rune:review
+```
+
+These are beginner-friendly aliases for `/rune:devise`, `/rune:strive`, and `/rune:appraise`.
+
+See the [Getting Started guide (EN)](../../docs/guides/rune-getting-started.en.md) | [Hướng dẫn bắt đầu (VI)](../../docs/guides/rune-getting-started.vi.md) for a complete walkthrough.
 
 ## Quick Start
 
@@ -136,6 +196,8 @@ claude --plugin-dir /path/to/rune-plugin
 
 ## User Documentation
 
+- **[Getting started (English)](../../docs/guides/rune-getting-started.en.md)** — Start here! Plan → Work → Review in 3 commands
+- **[Bắt đầu với Rune (Tiếng Việt)](../../docs/guides/rune-getting-started.vi.md)** — Bắt đầu tại đây! Plan → Work → Review với 3 lệnh
 - [Rune user guide (English): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.en.md)
 - [Hướng dẫn Rune (Tiếng Việt): `/rune:arc` + `/rune:arc-batch`](../../docs/guides/rune-arc-and-batch-guide.vi.md)
 - [Rune planning guide (English): `/rune:devise` + `/rune:forge` + `/rune:plan-review` + `/rune:inspect`](../../docs/guides/rune-planning-and-plan-quality-guide.en.md)
@@ -711,8 +773,11 @@ plugins/rune/
 │   ├── elicit.md               # /rune:elicit
 │   ├── echoes.md               # /rune:echoes
 │   ├── file-todos.md           # /rune:file-todos
+│   ├── plan.md                 # /rune:plan (alias for /rune:devise)
 │   ├── plan-review.md          # /rune:plan-review
-│   └── rest.md                 # /rune:rest
+│   ├── rest.md                 # /rune:rest
+│   ├── review.md               # /rune:review (alias for /rune:appraise)
+│   └── work.md                 # /rune:work (alias for /rune:strive)
 ├── skills/
 │   ├── agent-browser/       # Browser automation knowledge (non-invocable)
 │   ├── arc/                 # /rune:arc (end-to-end pipeline)

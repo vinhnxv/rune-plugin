@@ -57,6 +57,9 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | `/rune:elicit` | Interactive elicitation method selection |
 | `/rune:file-todos` | Manage file-based todos (create, triage, status, list, next, search, archive) |
 | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
+| `/rune:plan` | Beginner alias for `/rune:devise` — plan a feature or task |
+| `/rune:work` | Beginner alias for `/rune:strive` — implement a plan |
+| `/rune:review` | Beginner alias for `/rune:appraise` — review code changes |
 
 ## Core Rules
 

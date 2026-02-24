@@ -1831,7 +1831,23 @@ def _check_promotions(echo_dir: str, db_path: str) -> int:
                 promote_by_file[fpath][1][eid] = line_num
 
         total_promoted = 0
+        real_echo_dir = os.path.realpath(echo_dir)
         for fpath, (ids_to_promote, line_map) in promote_by_file.items():
+            # SEC-P1-001: Validate file path is inside echo_dir to prevent
+            # path traversal if database contents are corrupted or tampered.
+            real_fpath = os.path.realpath(fpath)
+            try:
+                common = os.path.commonpath([real_echo_dir, real_fpath])
+            except ValueError:
+                # Different drives on Windows, or empty paths
+                continue
+            if common != real_echo_dir:
+                print(
+                    "Warning: Skipping promotion for path outside echo_dir: %s"
+                    % fpath,
+                    file=sys.stderr,
+                )
+                continue
             promoted = _promote_observations_in_file(fpath, ids_to_promote, line_map)
             total_promoted += promoted
 
@@ -2153,6 +2169,7 @@ def run_mcp_server():
             is_dirty = _check_and_clear_dirty(ECHO_DIR)
             if (count == 0 or is_dirty) and ECHO_DIR:
                 conn.close()
+                conn = None  # SEC-P1-002: Mark closed before reindex
                 do_reindex(ECHO_DIR, DB_PATH)
                 conn = get_db(DB_PATH)
 
@@ -2167,7 +2184,8 @@ def run_mcp_server():
             except Exception:
                 pass  # Non-fatal: access logging failure must not break search
         finally:
-            conn.close()
+            if conn is not None:
+                conn.close()
 
         return [
             types.TextContent(

@@ -37,6 +37,16 @@ Do not auto-invoke heavyweight commands — suggest and let the user confirm.
 | "Clean up" / "remove temp files" | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
 | "Cancel the review" / "stop the audit" | `/rune:cancel-review` or `/rune:cancel-audit` | Graceful shutdown of active workflows |
 
+### Beginner Aliases
+
+For users new to Rune, these simpler commands forward to the full versions:
+
+| User Says | Suggest | Equivalent |
+|-----------|---------|------------|
+| "plan" / "plan this" | `/rune:plan` | `/rune:devise` |
+| "work" / "build" / "implement" | `/rune:work` | `/rune:strive` |
+| "review" / "check my code" | `/rune:review` | `/rune:appraise` |
+
 ## Routing Rules
 
 1. **Suggest, don't auto-invoke.** Rune commands spawn agent teams. Always confirm first.
@@ -67,3 +77,6 @@ Do not auto-invoke heavyweight commands — suggest and let the user confirm.
 | `/rune:goldmask` | Yes (8 tracers) | 5-10 min | Diff spec or file list |
 | `/rune:elicit` | No | 2-5 min | Topic |
 | `/rune:rest` | No | <1 min | None |
+| `/rune:plan` | (alias for `/rune:devise`) |||
+| `/rune:work` | (alias for `/rune:strive`) |||
+| `/rune:review` | (alias for `/rune:appraise`) |||

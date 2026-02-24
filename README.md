@@ -4,7 +4,7 @@
 
 Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own dedicated context window.
 
-[![Version](https://img.shields.io/badge/version-1.91.0-blue)](.claude-plugin/marketplace.json)
+[![Version](https://img.shields.io/badge/version-1.92.0-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Agents](https://img.shields.io/badge/agents-82-purple)](#agents)
 [![Skills](https://img.shields.io/badge/skills-33-orange)](#skills)
@@ -27,6 +27,31 @@ Restart Claude Code after installation.
 claude --plugin-dir /path/to/rune-plugin
 ```
 </details>
+
+### Setup
+
+Rune requires [Agent Teams](https://code.claude.com/docs/en/agent-teams). Enable it in `.claude/settings.json` or `.claude/settings.local.json`:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "includedGitignorePatterns": [
+    "plans/",
+    "todos/",
+    "tmp/",
+    "reviews/",
+    ".claude/arc/",
+    ".claude/echoes/",
+    ".claude/arc-batch-loop.local.md",
+    ".claude/CLAUDE.local.md",
+    ".claude/talisman.yml"
+  ]
+}
+```
+
+`includedGitignorePatterns` lets Claude Code read Rune's output directories that are typically gitignored.
 
 ---
 
@@ -51,6 +76,14 @@ You ──► /rune:devise ──► Plan
 ---
 
 ## Workflows
+
+### Quick Start (New Users)
+
+| Command | What it does | Alias for |
+|---------|-------------|-----------|
+| `/rune:plan` | Plan a feature or task | `/rune:devise` |
+| `/rune:work` | Implement a plan with AI workers | `/rune:strive` |
+| `/rune:review` | Review your code changes | `/rune:appraise` |
 
 ### Core Commands
 
@@ -431,7 +464,7 @@ rune-plugin/
         │   ├── testing/          #    4 testing agents
         │   └── work/             #    2 work agents
         ├── skills/               # 33 skills
-        ├── commands/             # 11 slash commands
+        ├── commands/             # 14 slash commands
         ├── hooks/                # Event-driven hooks
         │   └── hooks.json
         ├── scripts/              # Hook scripts (20+)
