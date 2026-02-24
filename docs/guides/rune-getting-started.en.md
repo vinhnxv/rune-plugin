@@ -17,6 +17,57 @@ Rune is a multi-agent orchestration plugin for [Claude Code](https://claude.ai/c
 
 Restart Claude Code after installation.
 
+## Setup
+
+### 1. Enable Agent Teams
+
+Rune uses [Agent Teams](https://code.claude.com/docs/en/agent-teams) — multiple AI agents working together, each with its own context window. This feature must be enabled first.
+
+Add this to `.claude/settings.json` or `.claude/settings.local.json` in your project:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+### 2. Include Rune Output Directories (Recommended)
+
+Rune generates output files (plans, reviews, temporary artifacts) in directories that are typically gitignored. To let Claude Code read these files, add `includedGitignorePatterns` to the same settings file:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "includedGitignorePatterns": [
+    "plans/",
+    "todos/",
+    "tmp/",
+    "reviews/",
+    ".claude/arc/",
+    ".claude/echoes/",
+    ".claude/arc-batch-loop.local.md",
+    ".claude/CLAUDE.local.md",
+    ".claude/talisman.yml"
+  ]
+}
+```
+
+> **Where to put settings:**
+> - `.claude/settings.json` — project-level, committable (shared with your team)
+> - `.claude/settings.local.json` — project-level, gitignored (your personal preferences)
+>
+> Use `settings.local.json` if you don't want to commit these settings to your repository.
+
+### 3. Verify
+
+After saving the settings, restart Claude Code. You should now be able to run `/rune:plan` and see agents being spawned.
+
+---
+
 ## The Basic Workflow: Plan → Work → Review
 
 Rune's daily workflow follows three steps:
@@ -203,4 +254,4 @@ Yes! Plans are markdown files in `plans/`. Edit freely before running `/rune:wor
 Use `/rune:mend` to auto-fix findings. For false positives, you can ignore specific findings.
 
 **Q: Do I need Agent Teams enabled?**
-Yes. Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in your environment or Claude Code settings.
+Yes, it's required. See the [Setup](#setup) section above for instructions.

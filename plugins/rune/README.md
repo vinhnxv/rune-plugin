@@ -19,6 +19,42 @@ Restart Claude Code after installation to load the plugin.
 claude --plugin-dir /path/to/rune-plugin
 ```
 
+### Setup: Enable Agent Teams (Required)
+
+Rune requires [Agent Teams](https://code.claude.com/docs/en/agent-teams) to be enabled. Without this, Rune commands will not work. Add the following to your settings file (`.claude/settings.json` or `.claude/settings.local.json`):
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+### Recommended: Include Rune Directories in Context
+
+Rune generates output files in directories that are typically gitignored. To let Claude Code read these files, add them to `includedGitignorePatterns` in your settings:
+
+```json
+{
+  "includedGitignorePatterns": [
+    "plans/",
+    "todos/",
+    "tmp/",
+    "reviews/",
+    ".claude/arc/",
+    ".claude/echoes/",
+    ".claude/arc-batch-loop.local.md",
+    ".claude/CLAUDE.local.md",
+    ".claude/talisman.yml"
+  ]
+}
+```
+
+> **Where to put settings:**
+> - `.claude/settings.json` — project-level, committable (shared with team)
+> - `.claude/settings.local.json` — project-level, gitignored (personal preferences)
+
 > [!WARNING]
 > **Rune is a token-intensive multi-agent system.** Each workflow summons multiple agents with their own dedicated context windows, consuming tokens rapidly. A single `/rune:arc` or `/rune:audit` run can burn through a significant portion of your weekly usage limit.
 >

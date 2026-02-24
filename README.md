@@ -28,6 +28,31 @@ claude --plugin-dir /path/to/rune-plugin
 ```
 </details>
 
+### Setup
+
+Rune requires [Agent Teams](https://code.claude.com/docs/en/agent-teams). Enable it in `.claude/settings.json` or `.claude/settings.local.json`:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "includedGitignorePatterns": [
+    "plans/",
+    "todos/",
+    "tmp/",
+    "reviews/",
+    ".claude/arc/",
+    ".claude/echoes/",
+    ".claude/arc-batch-loop.local.md",
+    ".claude/CLAUDE.local.md",
+    ".claude/talisman.yml"
+  ]
+}
+```
+
+`includedGitignorePatterns` lets Claude Code read Rune's output directories that are typically gitignored.
+
 ---
 
 ## How It Works

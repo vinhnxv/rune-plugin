@@ -17,6 +17,57 @@ Rune là plugin điều phối multi-agent cho [Claude Code](https://claude.ai/c
 
 Khởi động lại Claude Code sau khi cài đặt.
 
+## Thiết lập
+
+### 1. Bật Agent Teams (Bắt buộc)
+
+Rune sử dụng [Agent Teams](https://code.claude.com/docs/en/agent-teams) — nhiều AI agent làm việc cùng nhau, mỗi agent có context window riêng. Tính năng này phải được bật trước khi sử dụng.
+
+Thêm cấu hình sau vào `.claude/settings.json` hoặc `.claude/settings.local.json` trong project của bạn:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+### 2. Cho phép Claude Code đọc thư mục output của Rune (Khuyến nghị)
+
+Rune tạo các file output (plans, reviews, artifacts tạm) trong các thư mục thường bị gitignore. Để Claude Code có thể đọc các file này, thêm `includedGitignorePatterns` vào cùng file settings:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "includedGitignorePatterns": [
+    "plans/",
+    "todos/",
+    "tmp/",
+    "reviews/",
+    ".claude/arc/",
+    ".claude/echoes/",
+    ".claude/arc-batch-loop.local.md",
+    ".claude/CLAUDE.local.md",
+    ".claude/talisman.yml"
+  ]
+}
+```
+
+> **Đặt settings ở đâu:**
+> - `.claude/settings.json` — cấp project, commit được (chia sẻ với team)
+> - `.claude/settings.local.json` — cấp project, gitignored (cấu hình cá nhân)
+>
+> Dùng `settings.local.json` nếu bạn không muốn commit các settings này vào repository.
+
+### 3. Xác nhận
+
+Sau khi lưu settings, khởi động lại Claude Code. Bạn sẽ có thể chạy `/rune:plan` và thấy các agent được tạo ra.
+
+---
+
 ## Quy trình cơ bản: Plan → Work → Review
 
 Quy trình làm việc hàng ngày với Rune gồm ba bước:
@@ -203,4 +254,4 @@ Có! Kế hoạch là file markdown trong `plans/`. Bạn thoải mái chỉnh s
 Dùng `/rune:mend` để tự động sửa. Với false positive, bạn có thể bỏ qua các findings cụ thể.
 
 **H: Tôi có cần bật Agent Teams không?**
-Có. Đặt `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` trong môi trường hoặc settings của Claude Code.
+Có, đây là yêu cầu bắt buộc. Xem phần [Thiết lập](#thiết-lập) ở trên để biết cách cấu hình.
