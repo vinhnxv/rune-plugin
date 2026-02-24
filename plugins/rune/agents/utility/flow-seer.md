@@ -14,6 +14,8 @@ tools:
   - Glob
   - Grep
   - SendMessage
+disallowedTools:
+  - Bash
 mcpServers:
   - echo-search
 ---
@@ -48,7 +50,7 @@ Before beginning flow analysis, query Rune Echoes for previously identified patt
 1. **Primary (MCP available)**: Use `mcp__echo-search__echo_search` with category-specific queries
    - Flow queries: "user flow", "state transition", "user journey", "decision point"
    - Permutation queries: "edge case", "device", "offline", "concurrent", "first-time user"
-   - Gap queries: "requirement gap", "missing scenario", "accessibility", "timeout", "rate limit", "resume", "cancellation"
+   - Gap queries: "requirement gap", "missing scenario", "accessibility", "timeout", "rate limit", "resume", "cancellation", "error handling", "state management", "input validation", "concurrency", "data persistence"
    - Question queries: "clarification needed", "ambiguous spec", "blocking question"
    - Module-specific: module names under investigation
    - Limit: 5 results — focus on Etched entries (permanent flow analysis knowledge)
@@ -68,6 +70,9 @@ rather than a raw spec), this is a **second-pass validation** (Comprehensive tem
 - **Skip Phase 2** (Permutation Discovery) — a plan is not a user-facing spec
 - **Focus Phase 3** on implementation completeness gaps, dependency ordering, and phase boundary coverage
 - **Focus Phase 4** on questions about design choices rather than spec clarification
+
+Documents without YAML frontmatter, without a `type:` field, or with an unrecognized
+`type:` value are treated as raw specifications (first-pass, all phases active).
 
 ## 4-Phase Analysis Protocol
 
@@ -138,7 +143,7 @@ For each gap found, record:
 - **Suggestion**: How to resolve (specific, actionable)
 
 Also perform a cross-cutting contradiction check: scan for internal contradictions
-across all spec files. When the same behavior is described differently, flag as
+across all analyzed spec files. When the same behavior is described differently, flag as
 "Requirement Conflict" with both sources cited.
 
 **Phase 3 budget**: ~60 lines (all severities, prioritized).
