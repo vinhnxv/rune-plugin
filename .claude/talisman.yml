@@ -181,7 +181,7 @@ plan:
 # ──────────────────────────────────────────────
 codex:
   disabled: false
-  model: "gpt-5.3-codex-spark"
+  model: "gpt-5.3-codex"
   reasoning: "xhigh"
   sandbox: "read-only"
   context_budget: 20

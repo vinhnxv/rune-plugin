@@ -272,7 +272,7 @@ if codexAvailable AND NOT codexDisabled AND talisman.codex.echo_validation.enabl
   // BACK-006 FIX: Initialize codexModel with CODEX_MODEL_ALLOWLIST validation
   const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
   const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-    ? talisman.codex.model : "gpt-5.3-codex-spark"
+    ? talisman.codex.model : "gpt-5.3-codex"
 
   learningText = newEchoEntry.content[0..2000]
 

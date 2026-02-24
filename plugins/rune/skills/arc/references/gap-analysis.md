@@ -927,7 +927,7 @@ Confidence thresholds:
 
   // SEC-003: Validate codex model from talisman allowlist
   const claimCodexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-    ? talisman.codex.model : "gpt-5.3-codex-spark"
+    ? talisman.codex.model : "gpt-5.3-codex"
 
   const claimTimeout = Math.min(talisman?.codex?.gap_analysis?.claim_timeout ?? 300, 600)
   // SEC-R1-001 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion on prompt content
@@ -998,7 +998,7 @@ Confidence thresholds:
 ```javascript
 // NOTE: CODEX_MODEL_ALLOWLIST already declared in STEP 3.5 via claimCodexModel (reused here)
 const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-  ? talisman.codex.model : "gpt-5.3-codex-spark"
+  ? talisman.codex.model : "gpt-5.3-codex"
 
 // SEC-006 FIX: Validate reasoning against allowlist before shell interpolation
 const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]

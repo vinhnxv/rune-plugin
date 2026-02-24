@@ -410,7 +410,7 @@ Codex findings go through a verification layer before entering the TOME:
 # .claude/talisman.yml
 codex:
   disabled: false                   # Set true to disable Codex Oracle entirely
-  model: "gpt-5.3-codex-spark"     # Codex model (gpt-5-codex, gpt-5.3-codex, gpt-5.3-codex-spark)
+  model: "gpt-5.3-codex"           # Codex model (gpt-5-codex, gpt-5.3-codex, gpt-5.3-codex-spark)
   reasoning: "xhigh"               # Reasoning effort (xhigh, high, medium, low)
   sandbox: "read-only"              # Sandbox mode (always read-only for review)
   context_budget: 20                # Max files to review (default: 20)

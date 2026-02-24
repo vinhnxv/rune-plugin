@@ -34,7 +34,7 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan")) {
     // Security pattern: CODEX_MODEL_ALLOWLIST — see security-patterns.md
     const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
     const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-      ? talisman.codex.model : "gpt-5.3-codex-spark"
+      ? talisman.codex.model : "gpt-5.3-codex"
 
     // CTX-001: Pass file PATH to Codex instead of inlining content to avoid context overflow.
     // Codex runs with --sandbox read-only and CAN read local files by path.
@@ -194,7 +194,7 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("work")) {
     const gitDiffRange = safeGitSha ? `${safeGitSha}..HEAD` : 'HEAD~5..HEAD'
 
     // Model, reasoning, timeout — validated by codex-exec.sh (SEC-006, SEC-004, CODEX_MODEL_ALLOWLIST)
-    const codexModel = talisman?.codex?.model ?? "gpt-5.3-codex-spark"
+    const codexModel = talisman?.codex?.model ?? "gpt-5.3-codex"
     const codexReasoning = talisman?.codex?.gap_analysis?.reasoning ?? "xhigh"
     const rawGapTimeout = Number(talisman?.codex?.gap_analysis?.timeout)
     const perAspectTimeout = Number.isFinite(rawGapTimeout) ? rawGapTimeout : 900

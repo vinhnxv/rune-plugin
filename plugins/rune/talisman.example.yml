@@ -835,7 +835,7 @@ doubt_seer:
 # This is the runtime kill switch — no code changes needed.
 codex:
   disabled: false                    # Set true to disable Codex Oracle entirely
-  model: "gpt-5.3-codex-spark"      # Codex model — only gpt-5.x-codex(-spark) supported (e.g., gpt-5-codex, gpt-5.3-codex, gpt-5.3-codex-spark)
+  model: "gpt-5.3-codex"             # Codex model — only gpt-5.x-codex(-spark) supported (e.g., gpt-5-codex, gpt-5.3-codex, gpt-5.3-codex-spark)
   reasoning: "xhigh"                # Reasoning effort (xhigh, high, medium, low)
   # NOTE: sandbox is currently ignored — codex always uses --sandbox read-only. Reserved for future use.
   sandbox: "read-only"               # Sandbox mode (always read-only for review — do NOT change)

@@ -234,7 +234,7 @@ When an orchestrator (plan, forge, arc) selects a method with a non-empty `codex
    // SEC-001 FIX: CODEX_MODEL_ALLOWLIST validation
    const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-     ? talisman.codex.model : "gpt-5.3-codex-spark"
+     ? talisman.codex.model : "gpt-5.3-codex"
    // SEC-010 FIX: CODEX_REASONING_ALLOWLIST validation
    const CODEX_REASONING_ALLOWLIST = ["xhigh", "high", "medium", "low"]
    const codexReasoning = CODEX_REASONING_ALLOWLIST.includes(talisman?.codex?.reasoning ?? "")
