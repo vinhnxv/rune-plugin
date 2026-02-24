@@ -159,6 +159,12 @@ ashes:
     #     always: true                     # Always summon (skip file matching)
     #   context_budget: 20
 
+    # Example 6: Persona-based reviewer (v1.88.0+)
+    # Use built-in persona agents or create your own opinionated reviewer.
+    # - name: "senior-engineer"
+    #   agent: "senior-engineer-reviewer"  # Built-in persona agent
+    #   workflows: [review]
+
 # ──────────────────────────────────────────────
 # Settings — Global behavior adjustments
 # ──────────────────────────────────────────────
