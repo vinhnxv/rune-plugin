@@ -344,7 +344,10 @@ Task({
       ? "Merge cross-wave findings. Later wave findings supersede earlier (deeper analysis wins)."
       : "Write unified summary."}
     Write ${outputDir}TOME.md.
-    Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="{session_nonce}" ... --> markers.`
+
+    SESSION NONCE: ${sessionNonce}
+    Every finding MUST be wrapped in <!-- RUNE:FINDING nonce="${sessionNonce}" ... --> markers.
+    Use exactly this nonce value: ${sessionNonce}`
 })
 ```
 
@@ -376,7 +379,43 @@ if (generateTodos) {
   // 2. Extract findings via RUNE:FINDING markers (6-step pipeline)
   //    nonce validation → marker parsing → attribute extraction →
   //    path normalization → Q/N filtering → scope classification
-  const allFindings = extractFindings(tomeContent, sessionNonce)
+  let allFindings = extractFindings(tomeContent, sessionNonce)
+
+  // 2a. Nonce-missing fallback (Layer 2 — graceful degradation)
+  // When extractFindings() returns 0 findings, check if TOME has markers that were
+  // rejected due to missing nonce attributes (Runebinder omission, not cross-session injection).
+  // Distinguishes nonce-MISSING from nonce-MISMATCHED to preserve SEC-010.
+  if (allFindings.length === 0) {
+    const markerCount = (tomeContent.match(/<!-- RUNE:FINDING /g) || []).length
+    if (markerCount > 0) {
+      const hasAnyNonce = /<!-- RUNE:FINDING [^>]*nonce="/.test(tomeContent)
+      if (hasAnyNonce) {
+        // Markers have nonce= but it doesn't match sessionNonce → cross-session injection
+        // DO NOT fallback — this is SEC-010 working correctly
+        warn(`Phase 5.4: ${markerCount} markers found with non-matching nonce. Rejecting (SEC-010).`)
+      } else {
+        // Markers lack nonce= entirely → Runebinder omitted it (same-session, safe to recover)
+        warn(`Phase 5.4: ${markerCount} RUNE:FINDING markers found but none have nonce=. Falling back to lenient extraction.`)
+        allFindings = extractFindingsLenient(tomeContent)
+        allFindings.forEach(f => f.nonce_fallback = true)
+      }
+    }
+  }
+
+  // 2b. Heading-based extraction fallback (Layer 3 — audit TOMEs without markers)
+  // When TOME uses markdown heading format instead of HTML comment markers,
+  // extract findings from ### headings matching known prefix patterns.
+  if (allFindings.length === 0) {
+    const markerCount = (tomeContent.match(/<!-- RUNE:FINDING /g) || []).length
+    if (markerCount === 0) {
+      const headingFindings = extractFindingsFromHeadings(tomeContent)
+      if (headingFindings.length > 0) {
+        warn(`Phase 5.4: No RUNE:FINDING markers. Extracted ${headingFindings.length} findings from headings.`)
+        allFindings = headingFindings
+        allFindings.forEach(f => f.marker_format = 'heading')
+      }
+    }
+  }
 
   // 3. Filter out non-actionable findings
   const todoableFindings = allFindings.filter(f =>
@@ -450,6 +489,38 @@ if (generateTodos) {
 ```
 
 **generateTodoFromFinding()** writes a markdown file using the template from `skills/file-todos/references/todo-template.md`, filling in the `source: review` (or `audit`) conditional sections with finding data from TOME.
+
+### extractFindingsLenient(tomeContent)
+
+Lenient variant of `extractFindings()` that parses `<!-- RUNE:FINDING ... -->` markers without validating the `nonce=` attribute. Used only by the nonce-missing fallback path (step 2a) when all markers lack nonce entirely. Validates all other marker attributes (id, file, line, severity).
+
+### extractFindingsFromHeadings(tomeContent)
+
+Extracts findings from markdown `### ` headings when no `<!-- RUNE:FINDING -->` markers exist (audit TOMEs). Validates against known finding prefix allowlist to prevent false extraction.
+
+```javascript
+function extractFindingsFromHeadings(content) {
+  const findings = []
+  // Match: ### [PREFIX-NNN] Title  OR  ### PREFIX-NNN: Title
+  // Extended to handle multi-segment prefixes: CDX-VERIFY-001, PARITY-R001
+  const HEADING_RE = /^###\s+(?:\[([A-Z]+(?:-[A-Z]+)*-\d+)\]|([A-Z]+(?:-[A-Z]+)*-\d+):)\s+(.+)$/gm
+  const KNOWN_PREFIXES = /^(SEC|BACK|VEIL|DOUBT|DOC|QUAL|FRONT|CDX|TOME|PARITY|FLAW|ARCH|PERF)/
+  let match
+  while ((match = HEADING_RE.exec(content)) !== null) {
+    const id = match[1] || match[2]
+    if (!KNOWN_PREFIXES.test(id)) continue  // skip non-finding headings
+    const title = match[3].trim()
+    // Look ahead ~500 chars for severity and file metadata
+    const context = content.substring(match.index, match.index + 500)
+    const severity = context.match(/\*\*Severity\*\*:\s*(P[123])/i)?.[1]
+      || context.match(/\bP([123])\b/)?.[0]
+      || 'P3'  // default if not found
+    const file = context.match(/\*\*(?:File|Source)\*\*:\s*`([^`]+)`/)?.[1] || null
+    findings.push({ id, title, severity, file, interaction: null })
+  }
+  return findings
+}
+```
 
 **Filtering summary**:
 
