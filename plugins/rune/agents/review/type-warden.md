@@ -58,6 +58,13 @@ Before reviewing type safety, query Rune Echoes for previously identified type-r
 - Historical type safety patterns inform which functions need annotation verification
 - Include echo context in findings as: `**Echo context:** {past pattern} (source: type-warden/MEMORY.md)`
 
+## Enforcement Asymmetry
+
+Import and apply [enforcement-asymmetry.md](references/enforcement-asymmetry.md).
+In Pragmatic mode: accept `Any`/`any` in new utility files with clear TODO
+comments for future typing. In Strict mode: zero tolerance for untyped code
+in modified shared modules.
+
 ## Analysis Framework
 
 ### 1. Type Annotations

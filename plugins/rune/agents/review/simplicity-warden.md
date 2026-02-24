@@ -87,6 +87,13 @@ Before checking for over-engineering, query Rune Echoes for previously identifie
 - Historical YAGNI violations inform which abstractions need justification checks
 - Include echo context in findings as: `**Echo context:** {past pattern} (source: simplicity-warden/MEMORY.md)`
 
+## Enforcement Asymmetry
+
+Import and apply [enforcement-asymmetry.md](references/enforcement-asymmetry.md).
+In Pragmatic mode: skip YAGNI findings on new isolated files — new code hasn't
+proven it needs simplification yet. Focus YAGNI enforcement on modifications
+to existing shared code where unnecessary additions compound complexity.
+
 ## Analysis Framework
 
 ### 1. Premature Abstraction

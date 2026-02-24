@@ -131,7 +131,16 @@ ashes:
     #   context_budget: 15
     #   finding_prefix: "COMP"
 
-    # Example 5: CLI-backed Ash — external model via CLI (v1.57.0+)
+    # Example 5: Persona-based reviewer (v1.88.0+)
+    # Use the built-in senior-engineer-reviewer agent as an opinionated persona Ash.
+    # Custom personas use the same ashes.custom[] framework — no separate namespace needed.
+    # - name: "senior-engineer"
+    #   agent: "rune:review:senior-engineer-reviewer"
+    #   source: plugin
+    #   workflows: [review]
+    #   finding_prefix: "SENIOR"
+
+    # Example 6: CLI-backed Ash — external model via CLI (v1.57.0+)
     # When `cli:` is present, the Ash invokes an external model via CLI
     # instead of a Claude Code agent. Detected via detectExternalModel().
     # `agent` and `source` become optional (ignored when cli: is set).
@@ -194,6 +203,8 @@ settings:
   # Whether Truthsight Layer 2 verifier checks custom Ash outputs
   verification:
     layer_2_custom_agents: true
+  # NOTE: Enforcement Asymmetry config is in the review: convergence section below.
+  # See review: → enforcement_asymmetry: (line ~652) or agents/review/references/enforcement-asymmetry.md
 
 # ── Deep Audit settings (v1.56.0+) ──────────────
 # Deep investigation teammates for /rune:audit --deep.
@@ -202,7 +213,7 @@ settings:
 audit:
   deep:
     enabled: true
-   ashes:
+    ashes:
       - rot-seeker
       - strand-tracer
       - decree-auditor
@@ -503,6 +514,29 @@ solution_arena:
   # Additional config (weights, thresholds) available in future versions
 
 # ──────────────────────────────────────────────
+# Deployment Verification — Artifact generation (v1.88.0+)
+# ──────────────────────────────────────────────
+# Generates Go/No-Go checklists, SQL verification queries, rollback
+# procedures, and monitoring plans. Standalone utility — not integrated
+# into the arc pipeline. Invoke manually after code review passes.
+# deployment_verification:
+#   enabled: false                     # Opt-in (not all projects need deployment artifacts)
+#   auto_run_on_migrations: false      # Auto-trigger when migrations detected in diff
+#   output_dir: "tmp/deploy/"          # Directory for generated artifacts
+#   monitoring_stack: null             # Override detection: "datadog" | "prometheus" | "newrelic" | "sentry" | null (auto-detect)
+
+# ──────────────────────────────────────────────
+# Schema Drift Detection — Migration/model consistency (v1.89.0+)
+# ──────────────────────────────────────────────
+# The schema-drift-detector agent cross-references schema files against migrations
+# to catch accidental branch-hopping contamination. Supports 8 migration frameworks.
+# schema_drift:
+#   enabled: true                      # Master toggle
+#   frameworks: []                     # Auto-detect by default. Override: ["rails", "django", "alembic", "prisma", "typeorm", "knex", "drizzle", "flyway"]
+#   strict_mode: false                 # When true, flags ANY schema change without a corresponding migration
+#   ignore_paths: []                   # Glob patterns to exclude from drift detection
+
+# ──────────────────────────────────────────────
 # Elicitation — Structured reasoning agent (v1.31.0+)
 # ──────────────────────────────────────────────
 # The elicitation-sage is summoned in plan, forge, review, and mend phases
@@ -614,6 +648,20 @@ echoes:
   # NOTE: These keys use 'arc_' prefix to distinguish from chunked review keys above.
   # Arc convergence controls the Phase 6→7→7.5 loop; review convergence controls
   # per-chunk convergence within a single Phase 6 invocation.
+  # Enforcement Asymmetry (v1.88.0+)
+  # Applies variable strictness based on change context (new file vs edit, shared vs isolated).
+  # See agents/review/references/enforcement-asymmetry.md for full protocol.
+  # enforcement_asymmetry:
+  #   enabled: true                    # Master toggle (default: true)
+  #   security_always_strict: true     # Cannot be disabled
+  #   new_file_threshold: 0.30         # % lines changed to classify as MAJOR_EDIT (default: 0.30, range: 0.10-0.90)
+  #   high_risk_import_count: 5        # Files imported by >N = HIGH risk (default: 5, range: 1-50)
+  #   high_risk_paths:                 # Glob patterns for HIGH risk directories
+  #     - "core/**"
+  #     - "shared/**"
+  #     - "lib/**"
+  #     - "common/**"
+  #
   # arc_convergence_tier_override: null     # Force: "light" | "standard" | "thorough" | null (auto-detect)
   # arc_convergence_max_cycles: null        # Hard override: 1-5 (overrides tier, use sparingly)
   # arc_convergence_min_cycles: null        # Min re-review cycles before convergence (1-maxCycles, default: tier-based LIGHT:1/STANDARD:2/THOROUGH:2)

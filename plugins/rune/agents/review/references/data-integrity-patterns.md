@@ -317,3 +317,74 @@ def update_email(user, new_email):
 rg "(ssn|social_security|tax_id|passport|credit_card|card_number)" --type py --type ts --type rs
 rg "(phone_number|date_of_birth|address|salary|bank_account)" --type py --type ts --type rs
 ```
+
+---
+
+## 8. Dual-Write Migration Pattern
+
+When renaming or moving a column in a live system, dual-write ensures zero-downtime data consistency.
+
+**Python (Alembic) — Dual-Write Column Rename**
+```python
+# Migration 1: Add new column
+def upgrade():
+    op.add_column('users', sa.Column('display_name', sa.String(255), nullable=True))
+
+def downgrade():
+    op.drop_column('users', 'display_name')
+```
+
+```python
+# Application code: Dual-write phase
+class User(Base):
+    name = Column(String(255))           # Old column (still primary)
+    display_name = Column(String(255))   # New column (being populated)
+
+    def set_name(self, value):
+        self.name = value
+        self.display_name = value  # Dual-write to both columns
+```
+
+```python
+# Migration 2: Backfill (batched, idempotent)
+def upgrade():
+    # -- SCAFFOLD: Verify against production schema before executing
+    conn = op.get_bind()
+    while True:
+        result = conn.execute(text("""
+            UPDATE users SET display_name = name
+            WHERE display_name IS NULL
+            LIMIT 10000
+        """))
+        if result.rowcount == 0:
+            break
+```
+
+**TypeScript (Knex) — Dual-Write Column Rename**
+```typescript
+// Application code: Dual-write phase
+async function updateUserName(id: string, name: string) {
+  await db('users')
+    .where({ id })
+    .update({
+      name,           // Old column
+      display_name: name,  // New column — dual-write
+    });
+}
+```
+
+**Detection: Incomplete Dual-Write**
+```
+# Find column additions without corresponding dual-write code
+# Step 1: Identify new columns in migration
+rg "add_column|addColumn|ADD COLUMN" --type py --type ts --type rb
+
+# Step 2: Check if application writes to both old and new
+rg "(old_column_name|new_column_name)" --type py --type ts --type rb
+
+# Step 3: Check background jobs and serializers (often missed)
+rg "(old_column_name)" --glob "*job*" --glob "*worker*" --glob "*serializer*" --glob "*task*"
+```
+
+**WebSocket/SSE dual-write consideration:**
+When migrating real-time event schemas, both old and new event shapes must be emitted during the transition period. Subscribers may be running old or new client code simultaneously.

@@ -2,6 +2,13 @@
 
 Standard Self-Review and Pre-Flight checklist for all review agents. Each agent specifies its own finding prefix.
 
+### Pre-Analysis (before scanning files)
+
+- [ ] Read [enforcement-asymmetry.md](enforcement-asymmetry.md) if not already loaded
+- [ ] For each file in scope, classify Change Type (git status) and Scope Risk
+- [ ] Record strictness level per file in analysis notes
+- [ ] Apply strictness matrix when assigning finding severity
+
 ### Self-Review
 After completing analysis, verify:
 - [ ] Every finding references a **specific file:line** with evidence
