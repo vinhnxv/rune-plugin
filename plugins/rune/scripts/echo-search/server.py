@@ -269,7 +269,9 @@ def _score_recency(date_str: Optional[str]) -> float:
     if not date_str:
         return 0.0
     try:
-        entry_date = datetime.strptime(date_str[:10], "%Y-%m-%d")
+        entry_date = datetime.strptime(date_str[:10], "%Y-%m-%d").replace(
+            tzinfo=timezone.utc
+        )
         now = datetime.now(timezone.utc)
         age_days = max((now - entry_date).days, 0)
         # Exponential decay: score = 2^(-age/half_life)
