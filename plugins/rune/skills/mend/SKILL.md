@@ -262,78 +262,11 @@ Summon mend-fixer teammates with ANCHOR/RE-ANCHOR Truthbinding. When 6+ file gro
 
 ### Risk Context Injection (Goldmask Enhancement)
 
-When Goldmask data is available from Phase 0.5, inject risk context into each fixer's prompt. Uses the shared risk-context-template.
-
-**Load reference**: [risk-context-template.md](../goldmask/references/risk-context-template.md)
-
-```javascript
-// For each mend-fixer, inject Goldmask context for their assigned files
-const injectContext = talisman?.goldmask?.mend?.inject_context !== false  // default: true
-
-if (injectContext && (parsedRiskMap || goldmaskData?.wisdomReport || goldmaskData?.goldmaskMd)) {
-  for (const fixer of fixers) {
-    let goldmaskContext = ""
-
-    // Section 1: Risk tiers for assigned files (from risk-context-template.md)
-    if (parsedRiskMap) {
-      const riskEntries = fixer.assignedFiles
-        .map(f => parsedRiskMap.files?.find(r => r.path === f))
-        .filter(Boolean)
-
-      if (riskEntries.length > 0) {
-        // Render Section 1 (File Risk Tiers) from risk-context-template.md
-        goldmaskContext += renderRiskContextTemplate(riskEntries, fixer.assignedFiles)
-      }
-    }
-
-    // Section 2: Wisdom advisories for assigned files
-    if (goldmaskData?.wisdomReport) {
-      // filterWisdomForFiles(wisdomReport: string, files: string[]) => { file: string, intent: string, cautionScore: number, advisory: string }[]
-      // Input: wisdomReport — raw markdown string from GOLDMASK wisdom layer (contains WISDOM-NNN: heading blocks)
-      //        files — array of root-relative POSIX paths for the fixer's assigned files
-      // Output: array of advisory objects matching those paths, one entry per matched WISDOM-NNN block
-      const advisories = filterWisdomForFiles(goldmaskData.wisdomReport, fixer.assignedFiles)
-      // filterWisdomForFiles: parse WISDOM-NNN headings, match file paths,
-      // return { file, intent, cautionScore, advisory }[]
-      if (advisories.length > 0) {
-        goldmaskContext += "\n\n### Caution Zones\n\n"
-        for (const adv of advisories) {
-          // SEC-001: Sanitize wisdom advisory content before interpolation into fixer prompts
-          // to prevent prompt injection via adversarial advisory text.
-          const safeAdvisory = sanitizeFindingText(adv.advisory)
-          goldmaskContext += `- **\`${adv.file}\`** -- ${adv.intent} intent (caution: ${adv.cautionScore}). ${safeAdvisory}\n`
-        }
-        goldmaskContext += "\n**IMPORTANT**: Preserve the original design intent of these code sections. Your changes must not break the defensive, constraint, or compatibility behavior described above.\n"
-      }
-    }
-
-    // Section 3: Blast-radius warnings for assigned files
-    if (goldmaskData?.goldmaskMd) {
-      // extractMustChangeFiles contract (BACK-007): returns root-relative POSIX paths,
-      // no ./ prefix, no trailing slash. Filter path traversal before use.
-      const mustChangeFiles = extractMustChangeFiles(goldmaskData.goldmaskMd)
-        .filter(f => !f.includes('..'))
-      const affectedAssigned = fixer.assignedFiles.filter(f => mustChangeFiles.includes(f))
-      if (affectedAssigned.length > 0) {
-        goldmaskContext += `\n\n### Blast Radius Warning\n\nThese files have WIDE blast radius: ${affectedAssigned.map(f => '\`' + f + '\`').join(', ')}. Changes here affect downstream dependencies. Test thoroughly.\n`
-      }
-    }
-
-    // Append to fixer prompt (only if non-empty)
-    if (goldmaskContext.trim()) {
-      fixer.prompt += "\n\n## Risk Context (Goldmask)\n" + goldmaskContext
-    }
-  }
-}
-```
+When Goldmask data is available from Phase 0.5, inject risk context into each fixer's prompt. Three sections: risk tiers, wisdom advisories, and blast-radius warnings.
 
 **Skip condition**: When `talisman.goldmask.mend.inject_context === false`, or when no Goldmask data exists, fixer prompts remain unchanged.
 
-**Helper functions** (implement inline — no shared module):
-- `renderRiskContextTemplate(riskEntries, files)` — renders Section 1 table from risk-context-template.md. Returns empty string when no entries.
-- `filterWisdomForFiles(wisdomReport, files)` — parses `WISDOM-NNN:` headings, returns `{ file, intent, cautionScore, advisory }[]` for matching files.
-- `extractMustChangeFiles(goldmaskMd)` — parses "MUST-CHANGE" classification from GOLDMASK.md findings table. Returns root-relative POSIX paths without `./` prefix or trailing slash. Strips `../` for path traversal safety.
-- `sanitizeFindingText(text)` — strips HTML comments, code fences, image syntax, zero-width chars, angle brackets; caps at 500 chars. Shared with CDX-010 finding sanitization. Apply to all wisdom advisory content before prompt interpolation (SEC-001).
+See [goldmask-mend-context.md](references/goldmask-mend-context.md) for the full protocol — `renderRiskContextTemplate()`, `filterWisdomForFiles()`, `extractMustChangeFiles()`, `sanitizeFindingText()`, and SEC-001 sanitization rules.
 
 See [fixer-spawning.md](references/fixer-spawning.md) for full fixer prompt template and batch monitoring logic.
 
@@ -421,111 +354,11 @@ See [resolution-report.md](references/resolution-report.md) for Codex verificati
 
 ## Phase 5.9: Todo Update (Conditional)
 
-After all fixes are applied and verified, update corresponding file-todos for resolved findings. Runs only when `file_todos.enabled === true` in talisman AND todo files exist with matching `finding_id` values.
+After all fixes are applied and verified, update corresponding file-todos for resolved findings. Scans all source subdirectories (`{base}*/[0-9][0-9][0-9]-*.md`) for cross-source `finding_id` matching, updates frontmatter status, and appends Work Log entries.
 
 **Skip conditions**: `talisman.file_todos.enabled` is not `=== true` (opt-in gate) OR no todo files found in any subdirectory OR no todo files match any resolved finding IDs.
 
-```javascript
-// Phase 5.9: Update file-todos for resolved findings
-const fileTodosEnabled = talisman?.file_todos?.enabled === true  // opt-in gate (must match strive/orchestration-phases)
-
-// CHANGED: Use resolveTodosBase (not resolveTodosDir) — mend scans ALL source subdirectories
-// See integration-guide.md "Cross-Source Scanning (Mend Pattern)" for canonical pattern
-const base = resolveTodosBase($ARGUMENTS, talisman)
-//   standalone: "todos/"
-//   arc:        "tmp/arc/{id}/todos/"  (via --todos-dir)
-
-// CHANGED: Scan ALL subdirectories — mend is a cross-source consumer
-const allTodoFiles = Glob(`${base}*/[0-9][0-9][0-9]-*.md`)
-//   Matches: todos/work/001-*.md, todos/review/002-*.md, todos/audit/001-*.md
-//   Or:      tmp/arc/{id}/todos/work/001-*.md, tmp/arc/{id}/todos/review/001-*.md
-const todosExist = fileTodosEnabled && allTodoFiles.length > 0
-
-if (todosExist) {
-  const today = new Date().toISOString().slice(0, 10)
-
-  // Build index: finding_id → todo file path (O(N) scan across ALL subdirectories)
-  const todoIndex = new Map()
-  for (const todoFile of allTodoFiles) {
-    const fm = parseFrontmatter(Read(todoFile))
-    if (fm.finding_id) {
-      todoIndex.set(fm.finding_id, { file: todoFile, frontmatter: fm })
-    }
-  }
-
-  const phaseFixerName = "mend-orchestrator"  // Phase 5.9 runs in orchestrator context, not a fixer agent
-  let updatedCount = 0
-
-  for (const finding of resolvedFindings) {
-    const todoEntry = todoIndex.get(finding.id)
-    if (!todoEntry) continue  // No todo file for this finding (--todos was not active)
-
-    const { file: todoFile, frontmatter: fm } = todoEntry
-
-    // Skip if already claimed by another mend-fixer
-    if (fm.mend_fixer_claim && fm.mend_fixer_claim !== phaseFixerName) continue
-
-    // Claim the todo for this fixer (prevents concurrent editing)
-    if (!fm.mend_fixer_claim) {
-      Edit(todoFile, {
-        old_string: `assigned_to: ${fm.assigned_to || 'null'}`,
-        new_string: `assigned_to: ${fm.assigned_to || 'null'}\nmend_fixer_claim: "${phaseFixerName}"`
-      })
-    }
-
-    // Determine new status based on resolution
-    let newStatus
-    switch (finding.resolution) {
-      case 'FIXED':
-      case 'FIXED_CROSS_FILE':
-        newStatus = 'complete'
-        break
-      case 'FALSE_POSITIVE':
-        newStatus = 'wont_fix'
-        break
-      case 'FAILED':
-      case 'SKIPPED':
-        // Do not change status — leave for manual review
-        newStatus = null
-        break
-    }
-
-    // Update frontmatter status via Edit (NO file rename — Option A)
-    if (newStatus && fm.status !== newStatus) {
-      Edit(todoFile, {
-        old_string: `status: ${fm.status}`,
-        new_string: `status: ${newStatus}`
-      })
-      Edit(todoFile, {
-        old_string: `updated: "${fm.updated}"`,
-        new_string: `updated: "${today}"`
-      })
-    }
-
-    // Append Work Log entry
-    const workLogEntry = `
-### ${today} - Mend Resolution
-
-**By**: ${phaseFixerName}
-
-**Actions**:
-- Resolution: ${finding.resolution}
-- ${finding.resolution === 'FIXED' ? `Fixed: ${finding.fix_summary}` : `Reason: ${finding.reason}`}
-- Files: ${finding.files?.join(', ') || 'N/A'}
-
-**Learnings**:
-- ${finding.learnings || 'N/A'}
-`
-    // Append to end of file
-    const todoContent = Read(todoFile)
-    Write(todoFile, todoContent + '\n' + workLogEntry.trim() + '\n')
-
-    updatedCount++
-  }
-
-  log(`Phase 5.9: Updated ${updatedCount} todo files from ${resolvedFindings.length} resolved findings`)
-}
-```
+See [todo-update-phase.md](references/todo-update-phase.md) for the full protocol — todo discovery, frontmatter parsing, claim lock, work log generation, and resolution-to-status mapping.
 
 **Resolution-to-status mapping**:
 
@@ -538,103 +371,13 @@ if (todosExist) {
 | `SKIPPED` | (unchanged) | Blocked or deferred |
 | `CONSISTENCY_FIX` | (no todo) | Doc-consistency has no todos |
 
-**Claim lock**: The `mend_fixer_claim` frontmatter field prevents concurrent editing when two fixers work on findings in the same todo. The second fixer checks this field and skips if claimed.
-
 ## Phase 5.95: Goldmask Quick Check (Deterministic)
 
-After all fixes and verifications, run a deterministic blast-radius check comparing mend output against Goldmask predictions. No agents — pure set comparison.
+After all fixes and verifications, run a deterministic blast-radius check comparing mend output against Goldmask predictions. No agents — pure set comparison. Advisory-only (does NOT halt the pipeline).
 
-```javascript
-// Skip conditions
-const quickCheckEnabled = talisman?.goldmask?.mend?.quick_check !== false  // default: true
-const goldmaskEnabled = talisman?.goldmask?.enabled !== false
+**Skip conditions**: `goldmask.enabled === false`, `goldmask.mend.quick_check === false`, or no GOLDMASK.md found.
 
-if (!goldmaskEnabled || !quickCheckEnabled) {
-  warn("Phase 5.95: Goldmask Quick Check disabled (talisman kill switch)")
-} else if (!goldmaskData?.goldmaskMd) {
-  warn("Phase 5.95: No GOLDMASK.md found — skipping quick check")
-} else {
-  // Extract MUST-CHANGE files from GOLDMASK.md
-  // Parse "MUST-CHANGE" classification from findings table in Impact Clusters section
-  // normalize: canonical root-relative POSIX path (no ./ prefix, no trailing slash, lowercase)
-  const normalize = f => f.replace(/^\.\//, '').replace(/\/$/, '').toLowerCase()
-  const mustChangeFiles = extractMustChangeFiles(goldmaskData.goldmaskMd)
-    .filter(f => !f.includes('..'))  // Strip path traversal
-    .map(normalize)
-
-  // Intersect with TOME scope to avoid false positive "untouched" warnings
-  // (P0 concern: mustChangeFiles may reference files not in this TOME's scope)
-  const tomeFiles = allFindings.map(f => normalize(f.file))
-  const scopedMustChange = mustChangeFiles.filter(f => tomeFiles.includes(f))
-
-  if (scopedMustChange.length === 0) {
-    warn("Phase 5.95: No MUST-CHANGE files overlap with TOME scope — skipping")
-  } else {
-    // Get files actually modified by mend fixers (working tree + staged, not just commits)
-    // Derive from git diff against preMendSha (captured at Phase 2)
-    const mendedFilesRaw = Bash(`git diff --name-only ${preMendSha} 2>/dev/null`)
-    // normalize: canonical root-relative POSIX path (no ./ prefix, no trailing slash, lowercase)
-    const mendedFiles = mendedFilesRaw.trim().split('\n').filter(Boolean).map(normalize)
-
-    // Check: did mend touch MUST-CHANGE files?
-    const untouchedMustChange = scopedMustChange.filter(f => !mendedFiles.includes(f))
-    const unexpectedTouches = mendedFiles.filter(f =>
-      !scopedMustChange.includes(f) && !tomeFiles.includes(f)
-    )
-
-    // Build quick check report
-    let quickCheckReport = `# Goldmask Quick Check -- rune-mend-${id}\n\n`
-    quickCheckReport += `Generated: ${new Date().toISOString()}\n\n`
-
-    // BACK-002: This gate is intentionally advisory-only (warn) — it does NOT halt the pipeline.
-    // GOLDMASK predictions are probabilistic; blocking on mismatches would cause false failures.
-    // Warnings are surfaced in the resolution report for human review.
-    if (untouchedMustChange.length > 0) {
-      warn(`Phase 5.95: ${untouchedMustChange.length} MUST-CHANGE files not modified by mend`)
-      quickCheckReport += `## Untouched MUST-CHANGE Files\n\n`
-      quickCheckReport += `${untouchedMustChange.length} files predicted as MUST-CHANGE were not modified:\n\n`
-      for (const f of untouchedMustChange) {
-        quickCheckReport += `- \`${f}\` (predicted MUST-CHANGE but not fixed)\n`
-      }
-      quickCheckReport += `\n`
-    }
-
-    if (unexpectedTouches.length > 0) {
-      warn(`Phase 5.95: ${unexpectedTouches.length} unexpected file modifications`)
-      quickCheckReport += `## Unexpected Modifications\n\n`
-      quickCheckReport += `${unexpectedTouches.length} files modified that were NOT in TOME or MUST-CHANGE:\n\n`
-      for (const f of unexpectedTouches) {
-        quickCheckReport += `- \`${f}\` (unexpected modification)\n`
-      }
-      quickCheckReport += `\n`
-    }
-
-    if (untouchedMustChange.length === 0 && unexpectedTouches.length === 0) {
-      quickCheckReport += `## Result: CLEAN\n\nAll MUST-CHANGE files in scope were addressed. No unexpected modifications.\n`
-    }
-
-    quickCheckReport += `\n## Summary\n\n`
-    quickCheckReport += `- MUST-CHANGE files in scope: ${scopedMustChange.length}\n`
-    quickCheckReport += `- Modified by mend: ${scopedMustChange.length - untouchedMustChange.length}\n`
-    quickCheckReport += `- Untouched: ${untouchedMustChange.length}\n`
-    quickCheckReport += `- Unexpected modifications: ${unexpectedTouches.length}\n`
-
-    Write(`${mendOutputDir}/goldmask-quick-check.md`, quickCheckReport)
-
-    // Store results for Phase 6 resolution report
-    quickCheckResults = {
-      scopedMustChange,
-      untouchedMustChange,
-      unexpectedTouches,
-      reportPath: `${mendOutputDir}/goldmask-quick-check.md`
-    }
-  }
-}
-```
-
-**Agents**: NONE. Deterministic set comparison.
-
-**Performance**: ~1-5s (git diff + file reads + set operations).
+See [goldmask-quick-check.md](../goldmask/references/goldmask-quick-check.md) for the full protocol — MUST-CHANGE file extraction, scope intersection, modification detection, and report generation.
 
 **Output**: `tmp/mend/{id}/goldmask-quick-check.md`
 
