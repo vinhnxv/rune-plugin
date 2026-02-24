@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.91.2] - 2026-02-24
+
+### Fixed
+- **Nonce propagation in Runebinder spawn prompt** — Explicit nonce injection (3-way redundancy) replaces ambiguous `{session_nonce}` placeholder notation in Phase 5 Runebinder spawn prompt (`orchestration-phases.md`)
+- **Todo generation fallback** — Phase 5.4 now generates todo files when TOME findings lack nonce attributes (same-session lenient extraction) or use heading-only format (no RUNE:FINDING markers)
+- **Runebinder nonce self-check** — Quality Gates section reinforced with post-write nonce verification step (step 5)
+- **Runebinder agent definition** — Session Nonce section synced with prompt template to clarify nonce injection mechanism
+
+
 ## [1.91.1] - 2026-02-24
 
 ### Fixed
