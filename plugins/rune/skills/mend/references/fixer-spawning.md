@@ -35,7 +35,7 @@ function extractCrossFileRefs(fixGuidance, evidence, allFindings) {
   }
 
   // Pattern 3: finding ID references (e.g., "depends on SEC-001")
-  const findingPattern = /(SEC|BACK|VEIL|DOC|QUAL|FRONT|CDX)-\d{3}/g
+  const findingPattern = /(SEC|BACK|VEIL|DOUBT|DOC|QUAL|FRONT|CDX)-\d{3}/g
   while ((match = findingPattern.exec(safeText)) !== null) {
     const refFinding = allFindings.find(f => f.id === match[0])
     if (refFinding) {
@@ -124,7 +124,6 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
 
 if (!teamDeleteSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-mend-${id}/" "$CHOME/tasks/rune-mend-${id}/" 2>/dev/null`)
-  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + && find "$CHOME/tasks/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" \) -exec rm -rf {} + 2>/dev/null`)
   try { TeamDelete() } catch (e2) { /* proceed */ }
 }
 
@@ -197,6 +196,7 @@ Summon mend-fixer teammates. When 6+ file groups, use sequential batching (max 5
 const BATCH_SIZE = 5
 const fixerEntries = inscription.fixers
 const totalBatches = Math.ceil(fixerEntries.length / BATCH_SIZE)
+let completedBefore = 0  // cumulative completed tasks from prior batches
 
 for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
   const batch = fixerEntries.slice(batchIdx * BATCH_SIZE, (batchIdx + 1) * BATCH_SIZE)
@@ -256,7 +256,7 @@ for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
   // Per-batch monitoring: wait before starting next batch
   if (totalBatches > 1) {
     const perBatchTimeout = Math.floor(innerPollingTimeout / totalBatches)
-    const batchResult = waitForCompletion(teamName, batch.length, {
+    const batchResult = waitForCompletion(teamName, completedBefore + batch.length, {
       timeoutMs: perBatchTimeout,
       staleWarnMs: Math.min(300_000, Math.floor(perBatchTimeout * 0.6)),
       autoReleaseMs: Math.min(600_000, Math.floor(perBatchTimeout * 0.9)),
@@ -264,6 +264,7 @@ for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
       label: `Mend batch ${batchIdx + 1}/${totalBatches}`
     })
     if (batchResult.timedOut) warn(`Batch ${batchIdx + 1} timed out — proceeding to next batch`)
+    completedBefore += batch.length  // advance offset for next batch
   }
 }
 ```
