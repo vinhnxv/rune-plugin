@@ -202,6 +202,12 @@ if (verdict === 'converged') {
     throw new Error(`PHASE_ORDER invariant violated: code_review (${crIdx}) must precede verify_mend (${vmIdx})`)
   }
 
+  // NOTE: goldmask_verification is intentionally NOT reset on convergence retry.
+  // Rationale: mend only touches files already in the diff scope — it does not introduce
+  // new files. The blast-radius analysis from goldmask_verification remains valid because
+  // the set of changed files is unchanged (only their content differs after mend fixes).
+  // Re-running goldmask would produce the same file-level risk tiers.
+
   checkpoint.phases.code_review.status = 'pending'
   checkpoint.phases.code_review.artifact = null
   checkpoint.phases.code_review.artifact_hash = null

@@ -8,6 +8,7 @@ opt-in via talisman or `--bot-review` CLI flag.
 **Team**: None (orchestrator-only — runs inline after Phase 9.1 BOT_REVIEW_WAIT)
 **Tools**: Bash (gh, git, jq), Read, Write, Edit
 **Timeout**: 20 min (PHASE_TIMEOUTS.pr_comment_resolution = 1_200_000)
+**Error handling**: Non-blocking. Skip on missing PR URL, zero unresolved comments, or API failure.
 
 **Inputs**:
 - Checkpoint (with `pr_url`, `bot_review` from Phase 9.1)

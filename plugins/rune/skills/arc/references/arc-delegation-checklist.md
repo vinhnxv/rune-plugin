@@ -4,7 +4,8 @@ Canonical reference for which Phase 0 steps to execute when arc delegates to ano
 Each step is annotated: **RUN** (execute as-is), **SKIP** (arc handles this or not needed),
 or **ADAPT** (run with arc-specific modifications).
 
-<!-- NOTE: When adding new arc phases that delegate to commands, add a section here. -->
+> **Contributor note**: When adding new arc phases that delegate to commands, add a section to this file.
+
 <!-- Cross-reference: appraise.md and audit.md Phase 0 sections contain DELEGATION-CONTRACT comments pointing here. -->
 
 ## Security Note
@@ -100,6 +101,81 @@ arc-phase-plan-review.md). This section documents feature parity with plan-revie
 | Custom Ash for mend | **SKIP** | No custom Ash workflow for mend |
 | Session-scoped todos | **RUN** | No `--todos-dir` flag needed (removed). Mend auto-resolves todos base from `workflowOutputDir`. Scans all source subdirectories (`{base}/*/[0-9][0-9][0-9]-*.md` and `[0-9][0-9][0-9][0-9]-*.md`) for cross-source `finding_id` matching. Arc sets `workflowOutputDir = tmp/arc/{id}/` |
 
+## Phase 2.5: PLAN REFINEMENT — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 2.7: VERIFICATION — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 2.8: SEMANTIC VERIFICATION — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 3: DESIGN EXTRACTION — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 4: TASK DECOMPOSITION — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 5.2: DESIGN VERIFICATION — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 5.5: GAP ANALYSIS — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 5.6: CODEX GAP ANALYSIS — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 5.8: GAP REMEDIATION → `/rune:*` (gap-fix team)
+
+Delegated to the respective gap-fix team (`arc-gap-fix-{id}`). Uses the same RUN/SKIP/ADAPT delegation contract as Phase 5 (WORK).
+
+| Step | Action | Reason |
+|------|--------|--------|
+| Team lifecycle | **RUN** | Gap remediation creates `arc-gap-fix-{id}` team with fixers |
+| File scope | **ADAPT** | Scope limited to FIXABLE gaps from VERDICT.md (not full task list) |
+| Codex Oracle detection | **SKIP** | Gap remediation does not use Codex Oracle |
+| Session-scoped todos | **RUN** | Fixers write todos to `{workflowOutputDir}/todos/gap/` |
+
 ## Phase 5.7: GOLDMASK VERIFICATION → `/rune:goldmask`
 
 Delegates to the standalone `/rune:goldmask` skill, which manages its own team and agents.
@@ -131,6 +207,89 @@ Orchestrator-only phase — no delegation, no team creation. Reads Phase 5.7 + P
 ### Convergence cycle behavior
 
 On re-review rounds (`round > 0`), `goldmask_correlation` is reset to `pending` by verify-mend.md so it re-correlates with the new TOME. Goldmask verification is NOT re-run (blast radius doesn't change between mend cycles).
+
+## Phase 7.5: VERIFY MEND — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 7.6: DESIGN ITERATION — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 7.7: TEST → `/rune:*` (test team)
+
+Delegated to the respective test team (`arc-test-{id}`).
+
+| Step | Action | Reason |
+|------|--------|--------|
+| Team lifecycle | **RUN** | Test phase creates `arc-test-{id}` team with test runners |
+| Scope | **ADAPT** | Diff-scoped test execution (changed files only, not full suite) |
+| E2E detection | **RUN** | Detects E2E tests and applies extended timeout (dynamic 40 min) |
+| Session-scoped todos | **RUN** | Test runners write todos to `{workflowOutputDir}/todos/test/` |
+
+## Phase 7.8: TEST COVERAGE CRITIQUE — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 8.5: PRE-SHIP VALIDATION — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 8.55: RELEASE QUALITY CHECK — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 9.1: BOT REVIEW WAIT — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 9.2: PR COMMENT RESOLUTION — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 9: SHIP — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
+
+## Phase 9.5: MERGE — ORCHESTRATOR-ONLY
+
+No delegation. Runs inline in arc orchestrator context.
+
+- **Delegation**: None (orchestrator-only)
+- **Pre-flight steps**: N/A
+- **Post-phase cleanup**: Standard checkpoint update
 
 <!-- Phase 8 (AUDIT) delegation removed in v1.67.0. Audit coverage is now handled by
      Phase 6 `/rune:appraise --deep` (multi-wave review with investigation + dimension Ashes).

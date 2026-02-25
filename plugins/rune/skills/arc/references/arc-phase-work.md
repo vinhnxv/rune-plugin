@@ -112,8 +112,8 @@ If this phase crashes before reaching cleanup, the following resources are orpha
 
 | Resource | Location |
 |----------|----------|
-| Team config | `~/.claude/teams/rune-work-{identifier}/` |
-| Task list | `~/.claude/tasks/rune-work-{identifier}/` |
+| Team config | `$CHOME/teams/rune-work-{identifier}/` (where CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}") |
+| Task list | `$CHOME/tasks/rune-work-{identifier}/` |
 | State file | `tmp/.rune-work-*.json` (stuck in `"active"` status) |
 | Signal dir | `tmp/.rune-signals/rune-work-{identifier}/` |
 

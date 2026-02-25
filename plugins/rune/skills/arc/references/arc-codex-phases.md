@@ -23,6 +23,16 @@ Codex-powered semantic contradiction detection on the enriched plan. Runs AFTER 
 ```javascript
 updateCheckpoint({ phase: "semantic_verification", status: "in_progress", phase_sequence: 4.5, team_name: null })
 
+// 5th condition: cascade circuit breaker — check FIRST (matches SKILL.md pattern at line 533)
+if (checkpoint.codex_cascade?.cascade_warning === true) {
+  Write(`tmp/arc/${id}/codex-semantic-verification.md`, "Codex semantic verification skipped: cascade circuit breaker active.")
+  updateCheckpoint({ phase: "semantic_verification", status: "skipped", artifact: `tmp/arc/${id}/codex-semantic-verification.md`, artifact_hash: sha256("Codex semantic verification skipped: cascade circuit breaker active."), phase_sequence: 4.5, team_name: null })
+  return
+}
+
+// H1 NOTE: Uses inline Bash check instead of detectCodex() for self-containment.
+// This reference file is consumed by the LLM orchestrator — detectCodex() is a SKILL.md
+// pseudo-function that may not be in context when this reference is loaded.
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
 const codexDisabled = talisman?.codex?.disabled === true
 const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
@@ -135,9 +145,14 @@ If no contradictions found, output: "No scope/timeline contradictions detected."
   Write(`tmp/arc/${id}/codex-semantic-verification.md`, "Codex unavailable — semantic verification skipped.")
 }
 
+// H2 FIX: Use "skipped" status when codex didn't actually run (was unavailable or disabled)
+// "completed" is reserved for when the phase actually executed its core logic
+const semanticActuallyRan = codexAvailable && !codexDisabled && codexWorkflows.includes("arc")
+  && (talisman?.codex?.semantic_verification?.enabled !== false)
+
 updateCheckpoint({
   phase: "semantic_verification",
-  status: "completed",
+  status: semanticActuallyRan ? "completed" : "skipped",
   artifact: `tmp/arc/${id}/codex-semantic-verification.md`,
   artifact_hash: sha256(Read(`tmp/arc/${id}/codex-semantic-verification.md`)),
   phase_sequence: 4.5,
@@ -165,6 +180,13 @@ Codex-powered cross-model gap detection that compares the plan against the actua
 ```javascript
 updateCheckpoint({ phase: "codex_gap_analysis", status: "in_progress", phase_sequence: 5.6, team_name: null })
 
+// 5th condition: cascade circuit breaker — check FIRST (matches SKILL.md pattern at line 828)
+if (checkpoint.codex_cascade?.cascade_warning === true) {
+  Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Codex gap analysis skipped: cascade circuit breaker active.")
+  updateCheckpoint({ phase: "codex_gap_analysis", status: "skipped", artifact: `tmp/arc/${id}/codex-gap-analysis.md`, artifact_hash: sha256("Codex gap analysis skipped: cascade circuit breaker active."), phase_sequence: 5.6, team_name: null, codex_needs_remediation: false })
+  return
+}
+
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
 const codexDisabled = talisman?.codex?.disabled === true
 const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
@@ -181,7 +203,8 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("arc")) {
     if (!/^[a-zA-Z0-9._\/-]+$/.test(rawPlanFile) || rawPlanFile.includes('..') || rawPlanFile.startsWith('-') || rawPlanFile.startsWith('/')) {
       warn(`Phase 5.6: Invalid plan_file in checkpoint ("${rawPlanFile}") — skipping Codex gap analysis`)
       Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Skipped: invalid plan_file path in checkpoint.")
-      updateCheckpoint({ phase: "codex_gap_analysis", status: "completed", artifact: `tmp/arc/${id}/codex-gap-analysis.md`, phase_sequence: 5.6, team_name: null, codex_needs_remediation: false })
+      // H2 FIX: "skipped" — invalid path means codex didn't run
+      updateCheckpoint({ phase: "codex_gap_analysis", status: "skipped", artifact: `tmp/arc/${id}/codex-gap-analysis.md`, phase_sequence: 5.6, team_name: null, codex_needs_remediation: false })
       return
     }
     const planFilePath = rawPlanFile
@@ -305,9 +328,13 @@ const codexThreshold = Math.max(1, Math.min(20,
 ))
 const codexNeedsRemediation = !codexWasSkipped && codexFindingCount >= codexThreshold
 
+// H2 FIX: Use "skipped" when codex didn't actually run
+const gapActuallyRan = codexAvailable && !codexDisabled && codexWorkflows.includes("arc")
+  && (talisman?.codex?.gap_analysis?.enabled !== false)
+
 updateCheckpoint({
   phase: "codex_gap_analysis",
-  status: "completed",
+  status: gapActuallyRan ? "completed" : "skipped",
   artifact: `tmp/arc/${id}/codex-gap-analysis.md`,
   artifact_hash: sha256(Read(`tmp/arc/${id}/codex-gap-analysis.md`)),
   phase_sequence: 5.6,

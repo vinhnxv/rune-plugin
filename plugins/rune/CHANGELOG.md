@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.107.2] - 2026-02-26
+
+### Fixed
+- **C1: 5 missing phases in checkpoint init** — Added `task_decomposition`, `test_coverage_critique`, `release_quality_check`, `bot_review_wait`, `pr_comment_resolution` to `arc-checkpoint-init.md`. These phases existed in `PHASE_ORDER` but were absent from the checkpoint schema, causing the dispatcher to skip them silently. Schema bumped to v17 with migration step in `arc-resume.md`.
+- **C2: Cascade circuit breaker missing** — Added `checkpoint.codex_cascade?.cascade_warning` check as outermost guard in `arc-codex-phases.md` for both Phase 2.8 (semantic verification) and Phase 5.6 (codex gap analysis). Matches the pattern already enforced in SKILL.md.
+- **C3: Raw codex exec in gap-analysis.md** — Replaced raw `codex exec` calls in STEP 3.5 (claim verification) and STEP 4 (gap analysis) with `codex-exec.sh` wrapper (SEC-009). The wrapper enforces model allowlist, timeout clamping, and error classification.
+- **H2: Phase status "completed" vs "skipped"** — Skip paths in `arc-codex-phases.md` (Phases 2.8, 5.6) and `gap-analysis.md` now correctly set `status: "skipped"` instead of `"completed"` when codex doesn't actually run (unavailable, disabled, or blocked by circuit breaker).
+- **H4: Resume session ownership** — Added step 2c to `arc-resume.md` that verifies `checkpoint.config_dir` and `checkpoint.owner_pid` before allowing resume. Prevents cross-session interference where two arc sessions could resume the same checkpoint.
+- **M1: HEAVY_PHASES documentation** — Added clarifying comment in SKILL.md explaining that `HEAVY_PHASES` covers sub-skill-delegated phases only, not all team-spawning phases.
+- **M2: Orphaned reference files** — Deleted 3 unreferenced `arc-phase-design-*.md` files (extraction, iteration, verification) that were remnants of removed design-sync arc integration.
+- **M4: Undeclared CODEX_MODEL_ALLOWLIST** — Added explicit declaration of `CODEX_MODEL_ALLOWLIST` regex before its first use in `gap-analysis.md` STEP 3.5.
+- **H1: Codex detection consistency** — Added explanatory comment in `arc-codex-phases.md` documenting why inline `Bash("command -v codex")` is used instead of `detectCodex()` (reference file self-containment).
+
 ## [1.107.1] - 2026-02-26
 
 ### Fixed

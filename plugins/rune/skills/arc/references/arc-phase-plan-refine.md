@@ -16,7 +16,7 @@ Extract CONCERN details from reviewer outputs and propagate as context to the wo
 ## Algorithm
 
 ```javascript
-updateCheckpoint({ phase: "plan_refine", status: "in_progress", phase_sequence: 3, team_name: null })
+updateCheckpoint({ phase: "plan_refine", status: "in_progress", phase_sequence: 2.5, team_name: null })
 
 // Canonical reviewers — hardcoded for self-containment (matches Phase 2 plan review)
 const reviewers = [
@@ -58,7 +58,7 @@ for (const reviewer of reviewers) {
 
 // STEP 2: Skip if no concerns
 if (concerns.length === 0) {
-  updateCheckpoint({ phase: "plan_refine", status: "skipped", phase_sequence: 3, team_name: null })
+  updateCheckpoint({ phase: "plan_refine", status: "skipped", phase_sequence: 2.5, team_name: null })
   // Proceed directly to Phase 2.7 (VERIFICATION GATE)
   return
 }
@@ -101,12 +101,12 @@ if (allConcern) {
   // CDX-015 MITIGATION (P3): Handle all-CONCERN escalation response branches
   // SEC-2 FIX: Null-guard AskUserQuestion return value
   if (!escalationResponse) {
-    updateCheckpoint({ phase: "plan_refine", status: "failed", phase_sequence: 3, team_name: null })
+    updateCheckpoint({ phase: "plan_refine", status: "failed", phase_sequence: 2.5, team_name: null })
     error("Arc halted — escalation dialog returned null. Fix plan, then /rune:arc --resume")
     return
   }
   if (escalationResponse.includes("Halt")) {
-    updateCheckpoint({ phase: "plan_refine", status: "failed", phase_sequence: 3, team_name: null })
+    updateCheckpoint({ phase: "plan_refine", status: "failed", phase_sequence: 2.5, team_name: null })
     error("Arc halted by user at all-CONCERN escalation. Fix plan, then /rune:arc --resume")
     return
   } else if (escalationResponse.includes("Re-run")) {
@@ -117,7 +117,7 @@ if (allConcern) {
       phase: "plan_review", status: "pending", phase_sequence: 2,
       artifact: null, artifact_hash: null
     })
-    updateCheckpoint({ phase: "plan_refine", status: "pending", phase_sequence: 3, team_name: null })
+    updateCheckpoint({ phase: "plan_refine", status: "pending", phase_sequence: 2.5, team_name: null })
     error("Arc reverted to Phase 2 (PLAN REVIEW). Run /rune:arc --resume to re-review.")
     return
   }

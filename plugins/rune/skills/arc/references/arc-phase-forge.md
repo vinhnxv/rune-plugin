@@ -2,13 +2,12 @@
 
 Invoke `/rune:forge` logic on the plan. Forge Gaze topic-aware enrichment with Codex Oracle and custom Ashes.
 
-**Team**: `rune-forge-{timestamp}` (delegated to `/rune:forge` --- manages its own TeamCreate/TeamDelete with guards)
-<!-- PAT-006: Intentional deviation — naming uses forge's internal convention (rune-forge-{timestamp}) rather than arc-prefixed names since forge manages its own team lifecycle independently of arc -->
+**Team**: `rune-forge-{timestamp}` (delegated to `/rune:forge` — manages its own TeamCreate/TeamDelete with guards)
 **Tools**: Forge agents receive read-only tools (Read, Glob, Grep, Write for own output file only)
-**Timeout**: 15 min (PHASE_TIMEOUTS.forge = 900_000 --- inner 10m + 5m setup)
+**Timeout**: 15 min (PHASE_TIMEOUTS.forge = 900_000 — inner 10m + 5m setup)
 **Inputs**: planFile (string, validated at arc init), id (string, validated at arc init)
 **Outputs**: `tmp/arc/{id}/enriched-plan.md` (enriched copy of original plan)
-**Error handling**: Forge timeout --- proceed with original plan copy (warn user, offer `--no-forge`). No enrichments --- use original plan copy. Team lifecycle failure --- delegated to forge cleanup (see [team-lifecycle-guard.md](../../rune-orchestration/references/team-lifecycle-guard.md)).
+**Error handling**: Forge timeout — proceed with original plan copy (warn user, offer `--no-forge`). No enrichments — use original plan copy. Team lifecycle failure — delegated to forge cleanup (see [team-lifecycle-guard.md](../../rune-orchestration/references/team-lifecycle-guard.md)).
 **Consumers**: SKILL.md (Phase 1 stub)
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
@@ -22,8 +21,8 @@ Invoke `/rune:forge` logic on the plan. Forge Gaze topic-aware enrichment with C
 ## Arc-Context Adaptations
 
 When forge detects arc context (`planPath.startsWith("tmp/arc/")`), it automatically:
-- Skips Phase 3 (scope confirmation) --- arc is automated, no user gate
-- Skips Phase 6 post-enhancement options --- arc continues to Phase 2
+- Skips Phase 3 (scope confirmation) — arc is automated, no user gate
+- Skips Phase 6 post-enhancement options — arc continues to Phase 2
 
 ## Algorithm
 
@@ -61,11 +60,11 @@ for (const sf of staleForgeFiles) {
     Bash(`rm -f "${sf}" 2>/dev/null`)
   }
 }
-// SEC-12 FIX: Use Glob() to resolve wildcard --- Read() does not support glob expansion.
-// CDX-2 NOTE: Glob matches ALL forge state files --- [0] is most recent by mtime.
+// SEC-12 FIX: Use Glob() to resolve wildcard — Read() does not support glob expansion.
+// CDX-2 NOTE: Glob matches ALL forge state files — [0] is most recent by mtime.
 // After /rune:forge invocation completes, read state file to discover team name:
 const forgeStateFiles = Glob("tmp/.rune-forge-*.json")
-if (forgeStateFiles.length > 1) warn(`Multiple forge state files found (${forgeStateFiles.length}) --- using most recent`)
+if (forgeStateFiles.length > 1) warn(`Multiple forge state files found (${forgeStateFiles.length}) — using most recent`)
 let forgeTeamName = forgeStateFiles.length > 0
   ? JSON.parse(Read(forgeStateFiles[0])).team_name
   : `rune-forge-${Date.now()}`
@@ -103,8 +102,8 @@ updateCheckpoint({
 
 ## Team Lifecycle
 
-Delegated to `/rune:forge` --- manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](../../rune-orchestration/references/team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
+Delegated to `/rune:forge` — manages its own TeamCreate/TeamDelete with guards (see [team-lifecycle-guard.md](../../rune-orchestration/references/team-lifecycle-guard.md)). Arc records the actual `team_name` in checkpoint for cancel-arc discovery.
 
-Arc MUST record the actual `team_name` created by `/rune:forge` in the checkpoint. This enables `/rune:cancel-arc` to discover and shut down the forge team if the user cancels mid-pipeline. The forge command creates its own team with its own naming convention --- arc reads the team name back after delegation.
+Arc MUST record the actual `team_name` created by `/rune:forge` in the checkpoint. This enables `/rune:cancel-arc` to discover and shut down the forge team if the user cancels mid-pipeline. The forge command creates its own team with its own naming convention — arc reads the team name back after delegation.
 
 Arc runs `prePhaseCleanup(checkpoint)` before delegation (ARC-6) and `postPhaseCleanup(checkpoint, "forge")` after checkpoint update. See SKILL.md Inter-Phase Cleanup Guard section and [arc-phase-cleanup.md](arc-phase-cleanup.md).

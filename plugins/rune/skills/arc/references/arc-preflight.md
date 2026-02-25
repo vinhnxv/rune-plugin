@@ -522,7 +522,7 @@ const activeTeams = Object.values(checkpoint.phases)
 // SEC-004 NOTE: Known limitation — this cross-workflow scan runs unconditionally during
 // prePhaseCleanup. Architecturally correct for arc (owns all phases, serial execution),
 // but could collide with concurrent non-arc workflows (e.g., standalone /rune:appraise).
-// TODO: Shared lock file or advisory lock to coordinate with non-arc workflows.
+// KNOWN LIMITATION: See TODO at line 95 for proposed shared lock file approach.
 for (const prefix of ARC_TEAM_PREFIXES) {
   const dirs = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
   for (const dir of dirs) {

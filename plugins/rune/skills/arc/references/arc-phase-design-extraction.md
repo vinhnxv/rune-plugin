@@ -1,173 +1,157 @@
-# Phase 3: DESIGN_EXTRACTION — Full Algorithm
+# Phase 5.1: DESIGN EXTRACTION — Arc Design Sync Integration
 
-Figma design data extraction and Visual Spec Map (VSM) creation. Conditional phase — runs only when `design_sync.enabled` AND a Figma URL is present in the plan.
+Extracts Figma design specifications and creates Visual Spec Maps (VSM) for the arc pipeline.
+Gated by `design_sync.enabled` in talisman. **Non-blocking** — design phases never halt the pipeline.
 
-**Team**: `arc-design-extract-{id}` (self-managed)
-**Tools**: Read, Write, Bash, Glob, Grep (+ Figma MCP tools via design-sync-agent)
-**Timeout**: 5 min (talisman: `arc.timeouts.design_extraction`, default 300000ms)
-**Inputs**: id, enriched-plan.md, Figma URL from plan metadata
-**Outputs**: `tmp/arc/{id}/design-extraction.md` (summary) + `tmp/arc/{id}/vsm/` (VSM files)
-**Error handling**: Non-blocking (WARN). Missing VSM degrades to code-only review in Phase 5.2.
-**Consumers**: SKILL.md (Phase 3 stub), Phase 5.2 DESIGN_VERIFICATION, Phase 7.6 DESIGN_ITERATION
+**Team**: `arc-design-{id}` (design-sync-agent workers)
+**Tools**: Read, Write, Bash, Task, TaskCreate, TaskUpdate, TaskList, TeamCreate, SendMessage
+**Timeout**: 10 min (PHASE_TIMEOUTS.design_extraction = 600_000)
+**Inputs**: id, plan frontmatter (Figma URL), `arcConfig.design_sync` (resolved via `resolveArcConfig()`)
+**Outputs**: `tmp/arc/{id}/vsm/` directory with VSM files per component
+**Error handling**: Non-blocking. All design phases are skippable — failures set status "skipped" with reason.
+**Consumers**: Phase 5.2 DESIGN VERIFICATION (reads VSM files), WORK phase workers (consult VSM for implementation)
 
-> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context. Phase reference files call these without import.
+> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities
+> available in the arc orchestrator context. Phase reference files call these without import.
+
+## Pre-checks
+
+1. Skip gate — `arcConfig.design_sync?.enabled !== true` → skip
+2. Extract Figma URL from plan frontmatter — skip if absent
+3. Check Figma MCP tools available — skip with warning if unavailable
+4. Validate Figma URL format: `/^https:\/\/www\.figma\.com\/(design|file)\/[A-Za-z0-9]+/`
 
 ## Algorithm
 
 ```javascript
-// ═══════════════════════════════════════════════════════
-// STEP 0: PRE-FLIGHT GUARDS
-// ═══════════════════════════════════════════════════════
+updateCheckpoint({ phase: "design_extraction", status: "in_progress", phase_sequence: 5.1, team_name: null })
 
-// Defense-in-depth: id validated at arc init — re-assert here
-if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error(`Phase 3: unsafe id value: "${id}"`)
-
-// Condition 1: design_sync.enabled
-const designConfig = talisman?.design_sync ?? { enabled: false }
-if (!designConfig.enabled) {
-  updateCheckpoint({ phase: "design_extraction", status: "skipped", reason: "design_sync.enabled=false" })
-  return  // Skip silently
-}
-
-// Condition 2: Figma URL present in plan
-const plan = Read(`tmp/arc/${id}/enriched-plan.md`)
-const FIGMA_URL_PATTERN = /https:\/\/www\.figma\.com\/(design|file)\/[A-Za-z0-9]+[^\s)"]*/
-const figmaMatch = plan.match(FIGMA_URL_PATTERN)
-
-if (!figmaMatch) {
-  updateCheckpoint({ phase: "design_extraction", status: "skipped", reason: "no Figma URL in plan" })
-  return  // Skip silently
-}
-
-const figmaUrl = figmaMatch[0]
-
-// Validate URL structure before any MCP calls
-if (!/^https:\/\/www\.figma\.com\/(design|file)\/[A-Za-z0-9]+(\/[^?]*)?(\?.*)?$/.test(figmaUrl)) {
-  warn(`Phase 3: Figma URL failed validation: ${figmaUrl}`)
-  updateCheckpoint({ phase: "design_extraction", status: "skipped", reason: "invalid Figma URL format" })
+// 0. Skip gate — design sync is DISABLED by default (opt-in via talisman)
+const designSyncConfig = arcConfig.design_sync ?? {}
+const designSyncEnabled = designSyncConfig.enabled === true
+if (!designSyncEnabled) {
+  log("Design extraction skipped — design_sync.enabled is false in talisman.")
+  updateCheckpoint({ phase: "design_extraction", status: "skipped" })
   return
 }
 
-// ═══════════════════════════════════════════════════════
-// STEP 1: SETUP
-// ═══════════════════════════════════════════════════════
+// 1. Extract Figma URL from plan frontmatter
+const planContent = Read(checkpoint.plan_file)
+const figmaUrlMatch = planContent.match(/figma_url:\s*(https:\/\/www\.figma\.com\/[^\s]+)/)
+const figmaUrl = figmaUrlMatch?.[1]
 
+if (!figmaUrl) {
+  log("Design extraction skipped — no figma_url found in plan frontmatter.")
+  updateCheckpoint({ phase: "design_extraction", status: "skipped" })
+  return
+}
+
+// 2. Validate Figma URL format
+const FIGMA_URL_PATTERN = /^https:\/\/www\.figma\.com\/(design|file)\/[A-Za-z0-9]+/
+if (!FIGMA_URL_PATTERN.test(figmaUrl)) {
+  warn(`Design extraction: invalid Figma URL format: ${figmaUrl}`)
+  updateCheckpoint({ phase: "design_extraction", status: "skipped" })
+  return
+}
+
+// 3. Check Figma MCP availability (non-blocking probe)
+let figmaMcpAvailable = false
+try {
+  // Probe: attempt a minimal MCP call — if it throws, MCP is unavailable
+  figma_list_components({ url: figmaUrl })
+  figmaMcpAvailable = true
+} catch (e) {
+  warn("Design extraction: Figma MCP tools unavailable. Skipping design extraction. Check .mcp.json configuration.")
+  updateCheckpoint({ phase: "design_extraction", status: "skipped" })
+  return
+}
+
+// 4. Prepare output directory
 Bash(`mkdir -p "tmp/arc/${id}/vsm"`)
 
-// ═══════════════════════════════════════════════════════
-// STEP 2: TEAM CREATION
-// ═══════════════════════════════════════════════════════
-
-prePhaseCleanup(checkpoint)  // Evict stale arc-design-extract-{id} teams
-TeamCreate({ team_name: `arc-design-extract-${id}` })
-const phaseStart = Date.now()
-const timeoutMs = designConfig.extraction_timeout ?? talisman?.arc?.timeouts?.design_extraction ?? 300_000
+// 5. Create extraction team
+prePhaseCleanup(checkpoint)
+TeamCreate({ team_name: `arc-design-${id}` })
 
 updateCheckpoint({
-  phase: "design_extraction", status: "in_progress", phase_sequence: 3,
-  team_name: `arc-design-extract-${id}`,
+  phase: "design_extraction", status: "in_progress", phase_sequence: 5.1,
+  team_name: `arc-design-${id}`,
   figma_url: figmaUrl
 })
 
-// ═══════════════════════════════════════════════════════
-// STEP 3: CREATE EXTRACTION TASKS
-// ═══════════════════════════════════════════════════════
+// 6. Fetch top-level components from Figma
+const figmaData = figma_fetch_design({ url: figmaUrl })
+const components = figma_list_components({ url: figmaUrl })
+const maxWorkers = designSyncConfig.max_extraction_workers ?? 2
 
-// Single task for extraction (design-sync-agent handles internal decomposition)
-TaskCreate({
-  subject: `Extract VSM from Figma: ${figmaUrl}`,
-  activeForm: `Extracting VSM from Figma`,
-  description: `Fetch Figma design data from ${figmaUrl}.
-    Extract design tokens, region trees, variant maps, responsive specs.
-    Write VSM files to: tmp/arc/${id}/vsm/
-    Write summary to: tmp/arc/${id}/design-extraction.md
-    Follow the VSM schema (vsm_schema_version: "1.0").
-    Read design-sync/references/vsm-spec.md for the schema.
-    Read design-sync/references/phase1-design-extraction.md for the algorithm.`,
-  metadata: { phase: "extraction", figma_url: figmaUrl }
-})
-
-// ═══════════════════════════════════════════════════════
-// STEP 4: SUMMON EXTRACTION AGENT
-// ═══════════════════════════════════════════════════════
-
-const maxWorkers = designConfig.max_extraction_workers ?? 2
-
-for (let i = 0; i < maxWorkers; i++) {
-  Task({
-    subagent_type: "general-purpose", model: resolveModelForAgent("design-sync-agent", talisman),  // Cost tier mapping
-    name: `design-syncer-${i + 1}`, team_name: `arc-design-extract-${id}`,
-    prompt: `You are design-syncer-${i + 1}. Extract Figma design specs and create VSM files.
-      Figma URL: ${figmaUrl}
-      Output directory: tmp/arc/${id}/vsm/
-      Summary output: tmp/arc/${id}/design-extraction.md
-      [inject agent work/design-sync-agent.md content]
-      [inject skill design-sync/references/vsm-spec.md content]
-      [inject skill design-sync/references/phase1-design-extraction.md content]`
+// 7. Create extraction tasks (one per component)
+for (const component of components.slice(0, 20)) {  // cap at 20 components
+  TaskCreate({
+    subject: `Extract VSM for ${component.name}`,
+    description: `Fetch Figma node ${component.id} from ${figmaUrl}. Extract design tokens, region tree, variant map. Output to: tmp/arc/${id}/vsm/${component.name}.md`,
+    metadata: { phase: "extraction", node_id: component.id, figma_url: figmaUrl }
   })
 }
 
-// ═══════════════════════════════════════════════════════
-// STEP 5: MONITOR EXTRACTION
-// ═══════════════════════════════════════════════════════
-
-waitForCompletion(
-  Array.from({ length: maxWorkers }, (_, i) => `design-syncer-${i + 1}`),
-  { timeoutMs }
-)
-
-// ═══════════════════════════════════════════════════════
-// STEP 6: VALIDATE OUTPUT
-// ═══════════════════════════════════════════════════════
-
-const vsmFiles = Glob(`tmp/arc/${id}/vsm/*.md`)
-const extractionReport = exists(`tmp/arc/${id}/design-extraction.md`)
-
-if (vsmFiles.length === 0) {
-  warn("Phase 3: No VSM files produced — design extraction failed")
-  Write(`tmp/arc/${id}/design-extraction.md`,
-    "Phase 3 DESIGN_EXTRACTION: No VSM files produced. Extraction failed.\n" +
-    `Figma URL: ${figmaUrl}\n<!-- SEAL: design-extraction-complete -->`)
+// 8. Spawn design-sync-agent workers
+for (let i = 0; i < Math.min(maxWorkers, components.length); i++) {
+  Task({
+    subagent_type: "general-purpose", model: "sonnet",
+    name: `design-syncer-${i + 1}`, team_name: `arc-design-${id}`,
+    prompt: `You are design-syncer-${i + 1}. Extract Figma design specs and create VSM files.
+      Figma URL: ${figmaUrl}
+      Output directory: tmp/arc/${id}/vsm/
+      [inject agent design-sync-agent.md content]`
+  })
 }
 
-// ═══════════════════════════════════════════════════════
-// STEP 7: CLEANUP
-// ═══════════════════════════════════════════════════════
+// 9. Monitor extraction
+waitForCompletion([...Array(maxWorkers).keys()].map(i => `design-syncer-${i + 1}`), {
+  timeoutMs: 480_000  // 8 min inner budget
+})
 
-// Shutdown workers
+// 10. Shutdown workers + cleanup team
 for (let i = 0; i < maxWorkers; i++) {
   SendMessage({ type: "shutdown_request", recipient: `design-syncer-${i + 1}` })
 }
 sleep(15_000)
 
-// TeamDelete with rm-rf fallback
 try {
   TeamDelete()
 } catch (e) {
   const CHOME = process.env.CLAUDE_CONFIG_DIR || `${HOME}/.claude`
-  Bash(`rm -rf "${CHOME}/teams/arc-design-extract-${id}" "${CHOME}/tasks/arc-design-extract-${id}" 2>/dev/null`)
+  Bash(`rm -rf "${CHOME}/teams/arc-design-${id}" "${CHOME}/tasks/arc-design-${id}" 2>/dev/null`)
 }
 
-// Update checkpoint
+// 11. Collect VSM output paths
+const vsmFiles = Bash(`find "tmp/arc/${id}/vsm" -name "*.md" 2>/dev/null`).trim().split('\n').filter(Boolean)
+
 updateCheckpoint({
   phase: "design_extraction", status: "completed",
-  artifact: `tmp/arc/${id}/design-extraction.md`,
-  artifact_hash: exists(`tmp/arc/${id}/design-extraction.md`)
-    ? sha256(Read(`tmp/arc/${id}/design-extraction.md`)) : null,
-  phase_sequence: 3,
-  team_name: `arc-design-extract-${id}`,
+  phase_sequence: 5.1, team_name: null,
+  vsm_files: vsmFiles,
   vsm_count: vsmFiles.length,
   figma_url: figmaUrl
 })
 ```
 
+## Error Handling
+
+| Error | Recovery |
+|-------|----------|
+| `design_sync.enabled` is false | Skip phase — status "skipped" |
+| No Figma URL in plan frontmatter | Skip phase — status "skipped" |
+| Figma MCP tools unavailable | Skip phase — status "skipped", warn user |
+| Figma API timeout (>60s) | Retry once, then skip with warning |
+| Agent failure | Skip phase — design phases are non-blocking |
+
 ## Crash Recovery
 
 | Resource | Location |
 |----------|----------|
-| Team config | `$CHOME/teams/arc-design-extract-{id}/` (where `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`) |
-| Task list | `$CHOME/tasks/arc-design-extract-{id}/` |
-| VSM files | `tmp/arc/{id}/vsm/` |
-| Extraction report | `tmp/arc/{id}/design-extraction.md` |
+| VSM files | `tmp/arc/{id}/vsm/*.md` |
+| Team config | `$CHOME/teams/arc-design-{id}/` |
+| Task list | `$CHOME/tasks/arc-design-{id}/` |
+| Checkpoint state | `.claude/arc/{id}/checkpoint.json` (phase: "design_extraction") |
 
-Recovery: `prePhaseCleanup()` handles team/task eviction. VSM files persist on disk for resume.
+Recovery: On `--resume`, if design_extraction is `in_progress`, clean up stale team and re-run from the beginning. Extraction is idempotent — VSM files are overwritten cleanly.
