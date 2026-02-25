@@ -19,7 +19,7 @@ version: 1
 #   minimal  — Maximum savings: Haiku for most, Sonnet for reasoning-heavy (~15-20% cost)
 # See references/cost-tier-mapping.md for full agent-to-category-to-model mapping.
 # Does NOT affect: main session model, Custom Ashes, or Codex Oracle.
-# cost_tier: balanced
+# cost_tier: balanced    # Omit or comment out to use "balanced" (the default)
 
 # ──────────────────────────────────────────────
 # Rune Gaze — File classification overrides

@@ -31,13 +31,15 @@ Centralized reference for the `cost_tier` system that controls which Claude mode
 | Truth-tellers | opus | opus | sonnet | sonnet |
 | Deep analysis | opus | sonnet | sonnet | sonnet |
 | Standard review | opus | sonnet | sonnet | haiku |
-| Code workers | opus | sonnet | sonnet | sonnet |
+| Code workers¹ | opus | sonnet | sonnet | sonnet |
 | Research | sonnet | sonnet | haiku | haiku |
 | Tracers | sonnet | haiku | haiku | haiku |
 | Utility | sonnet | sonnet | haiku | haiku |
 | Testing | sonnet | sonnet | sonnet | haiku |
 
-**Exception:** `test-failure-analyst` uses opus/opus/sonnet/sonnet (needs deep reasoning for failure root cause analysis).
+**Exception:** `test-failure-analyst` uses opus/opus/sonnet/sonnet (needs deep reasoning for failure root cause analysis). This exception is handled inline in `resolveModelForAgent()` before the category lookup — it is NOT reflected in `CATEGORY_TIER_MAP`.
+
+¹ Code workers and deep-analysis currently map to identical tiers. They are separated as distinct categories for future tier differentiation (e.g., giving code workers haiku on minimal tier while keeping deep-analysis on sonnet).
 
 ## Agent-to-Category Assignment
 
@@ -45,13 +47,13 @@ Centralized reference for the `cost_tier` system that controls which Claude mode
 
 `senior-engineer-reviewer`, `assumption-slayer`, `reality-arbiter`, `entropy-prophet`, `decree-arbiter`, `horizon-sage`, `veil-piercer-plan`, `goldmask-coordinator`, `wisdom-sage`, `doubt-seer`
 
-### Deep analysis (18)
+### Deep analysis (19)
 
-`breach-hunter`, `truth-seeker`, `fringe-watcher`, `ruin-watcher`, `ruin-prophet`, `grace-warden`, `sight-oracle`, `vigil-keeper`, `ember-seer`, `decay-tracer`, `rot-seeker`, `signal-watcher`, `order-auditor`, `decree-auditor`, `strand-tracer`, `depth-seer`, `blight-seer`, `rune-architect`
+`breach-hunter`, `truth-seeker`, `fringe-watcher`, `ruin-watcher`, `ruin-prophet`, `grace-warden`, `sight-oracle`, `vigil-keeper`, `ember-seer`, `decay-tracer`, `rot-seeker`, `signal-watcher`, `order-auditor`, `decree-auditor`, `strand-tracer`, `depth-seer`, `blight-seer`, `rune-architect`, `hypothesis-investigator`
 
-### Standard review (31)
+### Standard review (32)
 
-`flaw-hunter`, `void-analyzer`, `wraith-finder`, `mimic-detector`, `pattern-seer`, `tide-watcher`, `trial-oracle`, `type-warden`, `forge-keeper`, `ember-oracle`, `schema-drift-detector`, `phantom-checker`, `refactor-guardian`, `reference-validator`, `naming-intent-analyzer`, `simplicity-warden`, `agent-parity-reviewer`, `tdd-compliance-reviewer`, `ward-sentinel`, `python-reviewer`, `typescript-reviewer`, `rust-reviewer`, `php-reviewer`, `fastapi-reviewer`, `django-reviewer`, `laravel-reviewer`, `sqlalchemy-reviewer`, `ddd-reviewer`, `di-reviewer`, `cross-shard-sentinel`, `design-implementation-reviewer`
+`flaw-hunter`, `void-analyzer`, `wraith-finder`, `mimic-detector`, `pattern-seer`, `tide-watcher`, `trial-oracle`, `type-warden`, `forge-keeper`, `ember-oracle`, `schema-drift-detector`, `phantom-checker`, `refactor-guardian`, `reference-validator`, `naming-intent-analyzer`, `simplicity-warden`, `agent-parity-reviewer`, `tdd-compliance-reviewer`, `ward-sentinel`, `python-reviewer`, `typescript-reviewer`, `rust-reviewer`, `php-reviewer`, `fastapi-reviewer`, `django-reviewer`, `laravel-reviewer`, `sqlalchemy-reviewer`, `ddd-reviewer`, `di-reviewer`, `cross-shard-sentinel`, `design-implementation-reviewer`, `axum-reviewer`
 
 ### Code workers (5)
 
@@ -65,9 +67,9 @@ Centralized reference for the `cost_tier` system that controls which Claude mode
 
 `api-contract-tracer`, `business-logic-tracer`, `config-dependency-tracer`, `data-layer-tracer`, `event-message-tracer`, `lore-analyst`
 
-### Utility (8)
+### Utility (9)
 
-`runebinder`, `scroll-reviewer`, `knowledge-keeper`, `flow-seer`, `elicitation-sage`, `deployment-verifier`, `truthseer-validator`, `gap-fixer`
+`runebinder`, `scroll-reviewer`, `knowledge-keeper`, `flow-seer`, `elicitation-sage`, `deployment-verifier`, `truthseer-validator`, `gap-fixer` (prompt-template), `verdict-binder`
 
 ### Testing (4)
 
@@ -94,7 +96,10 @@ function resolveModelForAgent(agentName, talisman) {
   // Lookup from COST_TIER_TABLE (keyed by agent name → category)
   const category = AGENT_CATEGORY_MAP[agentName]
   if (!category) return TIER_DEFAULTS[effectiveTier]
-  return CATEGORY_TIER_MAP[category][effectiveTier]
+  const model = CATEGORY_TIER_MAP[category][effectiveTier]
+  // Output validation: guard against data corruption in CATEGORY_TIER_MAP
+  const VALID_MODELS = new Set(["opus", "sonnet", "haiku"])
+  return VALID_MODELS.has(model) ? model : TIER_DEFAULTS[effectiveTier]
 }
 
 const TIER_DEFAULTS = {
@@ -123,3 +128,5 @@ const CATEGORY_TIER_MAP = {
 - **Main session model** is controlled by Claude Code settings — NOT affected
 - **Agent frontmatter `model:`** becomes the fallback when `cost_tier` is not set in talisman
 - Unknown agents (e.g., future agents not yet categorized) fall back to `TIER_DEFAULTS`
+- **Tracers vs Research asymmetry**: Tracers get haiku on `balanced` tier while research gets sonnet — tracers perform mechanical reference traversal (follow imports, extract structured data) while research agents need reasoning to interpret search results and synthesize findings
+- **Pseudocode nature**: `resolveModelForAgent()` above is reference pseudocode — actual callers pass the resolved model string as the `model:` parameter in their Task spawn call. See individual skill SKILL.md files for call sites

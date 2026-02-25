@@ -15,7 +15,7 @@
 ```
 Task:
   subagent_type: "general-purpose"
-  model: resolveModelForAgent("truthseer-validator", talisman)  # Cost tier mapping
+  model: resolveModelForAgent("truthseer-validator", talisman)  # Cost tier mapping (references/cost-tier-mapping.md)
   description: "Truthsight Verifier for review #{id}"
   prompt: [this template with variables filled]
 ```

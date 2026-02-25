@@ -200,6 +200,7 @@ Task({
   agent: "hypothesis-investigator",
   team_name: teamName,
   name: "investigator-{N}",
+  model: resolveModelForAgent("hypothesis-investigator", talisman),  // Cost tier mapping (references/cost-tier-mapping.md)
   prompt: "You are assigned hypothesis {hypothesis_id}. Claim your task from the task list, investigate, and report findings to tmp/debug/{teamName}/{hypothesis_id}.md"
 })
 ```

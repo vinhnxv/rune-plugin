@@ -76,7 +76,7 @@ Post-review agents that verify Ash output quality. Run AFTER all Ash complete.
 # Layer 2: Smart Verifier (summoned by lead after Ash complete)
 Task:
   subagent_type: "general-purpose"
-  model: resolveModelForAgent("truthseer-validator", talisman)  # Cost tier mapping
+  model: resolveModelForAgent("truthseer-validator", talisman)  # Cost tier mapping (references/cost-tier-mapping.md)
   description: "Truthsight Verifier"
   prompt: [from references/verifier-prompt.md]
   # Writes to: {output_dir}/truthsight-report.md
