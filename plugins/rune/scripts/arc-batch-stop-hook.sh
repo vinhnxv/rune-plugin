@@ -185,8 +185,11 @@ if [[ "$SUMMARY_ENABLED" != "false" ]]; then
 
     # Extract PR URL from arc checkpoint if available
     PR_URL="none"
-    ARC_CKPT="${CWD}/tmp/.arc-checkpoint.json"
-    if [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
+    # BUG FIX (v1.107.0): Arc checkpoints live at .claude/arc/${id}/checkpoint.json,
+    # NOT tmp/.arc-checkpoint.json (which never existed). Use _find_arc_checkpoint()
+    # from lib/stop-hook-common.sh to find the correct checkpoint for this session.
+    ARC_CKPT=$(_find_arc_checkpoint || true)
+    if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
       PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
     fi
 
@@ -262,24 +265,32 @@ fi
 
 # ── Detect arc failure before marking plan status (parity with arc-issues-stop-hook.sh) ──
 # Check arc checkpoint status and PR URL to determine success vs failure.
-# If arc failed (no PR URL and checkpoint shows failure), mark as "failed" instead of "completed".
-ARC_STATUS="completed"
-ARC_CKPT="${CWD}/tmp/.arc-checkpoint.json"
+# BUG FIX (v1.107.0): Default to "failed" instead of "completed".
+# Only mark "completed" with positive evidence (PR URL or checkpoint success status).
+# Previous bug: defaulted "completed" + read non-existent tmp/.arc-checkpoint.json,
+# causing phantom "completed" for plans that never actually ran.
+ARC_STATUS="failed"
+# BUG FIX (v1.107.0): Use _find_arc_checkpoint() to locate the real checkpoint
+# at .claude/arc/${id}/checkpoint.json (session-scoped, newest by mtime).
+ARC_CKPT=$(_find_arc_checkpoint || true)
 ARC_CKPT_STATUS=""
-if [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
-  ARC_CKPT_STATUS=$(jq -r '.status // empty' "$ARC_CKPT" 2>/dev/null || true)
+if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
+  ARC_CKPT_STATUS=$(jq -r '.phases | to_entries | map(select(.value.status == "completed")) | length' "$ARC_CKPT" 2>/dev/null || echo "0")
   # Also extract PR_URL from checkpoint if not already set by summary block
   if [[ "$PR_URL" == "none" ]]; then
     PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
   fi
 fi
-# Determine failure: checkpoint explicitly failed/errored, OR checkpoint exists without success indicators.
-# Only apply heuristic when checkpoint file exists — missing checkpoint defaults to "completed" (prior behavior).
-if [[ "$ARC_CKPT_STATUS" == "failed" ]] || [[ "$ARC_CKPT_STATUS" == "error" ]]; then
-  ARC_STATUS="failed"
-elif [[ -f "$ARC_CKPT" ]] && [[ "$PR_URL" == "none" ]] && [[ "$ARC_CKPT_STATUS" != "completed" ]] && [[ "$ARC_CKPT_STATUS" != "shipped" ]] && [[ "$ARC_CKPT_STATUS" != "merged" ]]; then
-  # Checkpoint exists but no PR and no success status — treat as failure
-  ARC_STATUS="failed"
+# Determine success: PR URL exists (arc reached SHIP) or checkpoint shows ship/merge completed
+if [[ "$PR_URL" != "none" ]]; then
+  ARC_STATUS="completed"
+elif [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]]; then
+  # Check if ship or merge phase completed
+  _ship_status=$(jq -r '.phases.ship.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
+  _merge_status=$(jq -r '.phases.merge.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
+  if [[ "$_ship_status" == "completed" ]] || [[ "$_merge_status" == "completed" ]]; then
+    ARC_STATUS="completed"
+  fi
 fi
 _trace "Arc status determination: arc_status=${ARC_STATUS} ckpt_status=${ARC_CKPT_STATUS} pr_url=${PR_URL}"
 

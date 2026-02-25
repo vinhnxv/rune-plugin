@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.105.1] - 2026-02-26
+
+### Fixed
+- **Phantom "completed" status in arc-batch and arc-issues** — Stop hooks read arc checkpoint from `tmp/.arc-checkpoint.json` (a file that never existed). Arc actually writes checkpoints to `.claude/arc/${id}/checkpoint.json`. Because the file was never found, all failure detection was dead code and every plan defaulted to "completed" status regardless of actual outcome. Fixed by adding `_find_arc_checkpoint()` to `lib/stop-hook-common.sh` that locates the newest session-scoped checkpoint at the correct path.
+- **Default-to-completed logic inverted** — `ARC_STATUS` now defaults to `"failed"` and is only set to `"completed"` with positive evidence (PR URL exists or ship/merge phase completed in checkpoint). Previous behavior: defaulted `"completed"` before any validation.
+- **Pre-compact checkpoint arc data loss** — `pre-compact-checkpoint.sh` read the same non-existent `tmp/.arc-checkpoint.json`, causing compact recovery to lose all arc state context. Now uses inline checkpoint finder matching session ownership.
+- Affects: `scripts/arc-batch-stop-hook.sh` (lines 188, 267), `scripts/arc-issues-stop-hook.sh` (line 133), `scripts/pre-compact-checkpoint.sh` (line 293), `scripts/lib/stop-hook-common.sh` (new `_find_arc_checkpoint()`)
+
 ## [1.105.0] - 2026-02-25
 
 ### Added
