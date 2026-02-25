@@ -69,7 +69,7 @@ Log the reordering results:
 
 ## Interaction with Shard Grouping
 
-Phase 1.5 runs FIRST on the full plan list. Shard auto-sorting (Phase 0) runs SECOND on its subset. This means:
+Phase 0 (shard auto-sorting) runs FIRST on its subset. Phase 1.5 (smart ordering) runs SECOND on the full plan list. This means:
 
 - Smart ordering applies to all plans (both regular and shard plans)
 - Shard grouping then re-groups shard plans within their feature groups

@@ -83,7 +83,7 @@ function smartOrderPlans(planPaths, talisman, resumeMode, noSmartSort):
   return sorted planPaths
 ```
 
-**Interaction with shard grouping**: Phase 1.5 runs on the full plan list BEFORE shard auto-sorting (Phase 0). Shard grouping then re-groups shard plans within their feature groups, potentially overriding smart ordering for shard subsets. Both are independently controlled (`--no-smart-sort` / `--no-shard-sort`).
+**Interaction with shard grouping**: Phase 0 (shard auto-sorting) runs FIRST on its subset, then Phase 1.5 (smart ordering) runs on the full plan list. Smart ordering respects shard grouping boundaries — shard plans within feature groups maintain their numeric order. Both are independently controlled (`--no-smart-sort` / `--no-shard-sort`).
 
 ## V1 Architecture (REMOVED — v1.59.0)
 
