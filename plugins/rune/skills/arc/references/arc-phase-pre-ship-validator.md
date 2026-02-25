@@ -347,6 +347,10 @@ updateCheckpoint({
 
 ---
 
+<!-- Phase 8.55 is intentionally embedded in this file rather than extracted to a separate
+     arc-phase-release-quality-check.md. It is a lightweight Codex-only sub-phase that always
+     runs immediately after Phase 8.5 pre-ship validation, and separating it would add file
+     overhead without improving discoverability. -->
 ## Phase 8.55: RELEASE QUALITY CHECK (Codex cross-model, v1.51.0)
 
 Runs after Phase 8.5 PRE-SHIP VALIDATION. Inline Codex integration — no team, orchestrator-only.

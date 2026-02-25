@@ -821,11 +821,18 @@ const codexDisabled = talisman?.codex?.disabled === true
 const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
 const gapEnabled = talisman?.codex?.gap_analysis?.enabled !== false
 
+// 5th condition: cascade circuit breaker — check FIRST (matches SKILL.md pattern)
+if (checkpoint.codex_cascade?.cascade_warning === true) {
+  Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Codex gap analysis skipped: cascade circuit breaker active.")
+  updateCheckpoint({ phase: "codex_gap_analysis", status: "skipped", phase_sequence: 5.6, team_name: null })
+  return
+}
+
 // BACK-003 FIX: Gate on "arc" workflow — all arc sub-phases register under "arc",
 // not individual workflow names. See arc-phase-test.md § Detection Gate.
 if (!codexAvailable || codexDisabled || !codexWorkflows.includes("arc") || !gapEnabled) {
   Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Codex gap analysis skipped (unavailable or disabled).")
-  updateCheckpoint({ phase: "codex_gap_analysis", status: "completed", phase_sequence: 5.6, team_name: null })
+  updateCheckpoint({ phase: "codex_gap_analysis", status: "skipped", phase_sequence: 5.6, team_name: null })
   return  // Skip to next phase
 }
 ```
@@ -924,16 +931,19 @@ Confidence thresholds:
   const claimPromptPath = `tmp/arc/${id}/codex-claim-prompt.txt`
   Write(claimPromptPath, claimPrompt)
 
+  // M4 FIX: Declare CODEX_MODEL_ALLOWLIST before first use (was previously undeclared)
+  const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
+
   // SEC-003: Validate codex model from talisman allowlist
   const claimCodexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
     ? talisman.codex.model : "gpt-5.3-codex"
 
   const claimTimeout = Math.min(talisman?.codex?.gap_analysis?.claim_timeout ?? 300, 600)
-  // SEC-R1-001 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion on prompt content
-  const claimResult = Bash(`cat "${claimPromptPath}" | timeout ${claimTimeout} codex exec \
-    -m "${claimCodexModel}" --config model_reasoning_effort="xhigh" \
-    --sandbox read-only --full-auto --skip-git-repo-check \
-    - 2>/dev/null; echo "EXIT:$?"`)
+  // C3 FIX: Use codex-exec.sh wrapper (SEC-009) instead of raw codex exec.
+  // The wrapper enforces model allowlist, timeout clamping [300,900], and error classification.
+  const claimResult = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+    -m "${claimCodexModel}" -r "xhigh" -t ${claimTimeout} -g \
+    "${claimPromptPath}"; echo "EXIT:$?"`)
 
   Bash(`rm -f "${claimPromptPath}" 2>/dev/null`)
 
@@ -1009,7 +1019,8 @@ const codexIgnoreCheck = Bash("test -f .codexignore && echo yes || echo no").tri
 if (codexIgnoreCheck !== "yes") {
   warn("Codex Gap Analysis: .codexignore not found — skipping (SEC-008)")
   Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Codex gap analysis skipped (.codexignore not found).")
-  updateCheckpoint({ phase: "codex_gap_analysis", status: "completed", phase_sequence: 5.6, team_name: null })
+  // H2 FIX: Use "skipped" — codex didn't actually run
+  updateCheckpoint({ phase: "codex_gap_analysis", status: "skipped", phase_sequence: 5.6, team_name: null })
   return
 }
 
@@ -1030,16 +1041,15 @@ for (const aspect of gapAspects) {
 }
 
 // Run all aspects in PARALLEL (separate Bash tool calls, matching arc-codex-phases.md pattern)
-// SEC-R1-001 FIX: Use stdin pipe instead of $(cat) to avoid shell expansion on prompt content
+// C3 FIX: Use codex-exec.sh wrapper (SEC-009) instead of raw codex exec.
 // CTX-001: Prompt uses file PATHS not inline content — Codex reads files itself.
 const aspectResults = gapAspects.map(aspect => {
-  return Bash(`cat "tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt" | timeout ${perAspectTimeout} codex exec \
-    -m "${codexModel}" \
-    --config model_reasoning_effort="${codexReasoning}" \
-    --sandbox read-only --full-auto --skip-git-repo-check \
-    - 2>/dev/null`)
+  return Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" \
+    -m "${codexModel}" -r "${codexReasoning}" -t ${perAspectTimeout} -g \
+    "tmp/arc/${id}/codex-gap-${aspect.name}-prompt.txt"`)
 })
 // NOTE: The orchestrator MUST issue these Bash calls as PARALLEL tool calls (not sequential).
+// Exit code 2 from codex-exec.sh = pre-flight failure (e.g., .codexignore missing) — treat as skip.
 ```
 
 ### STEP 5: Process Results and Cleanup
@@ -1051,7 +1061,10 @@ for (let i = 0; i < gapAspects.length; i++) {
   const aspect = gapAspects[i]
   const result = aspectResults[i]
   outputParts.push(`## ${aspect.name}`)
-  if (result.exitCode === 0 && result.stdout.trim().length > 0) {
+  if (result.exitCode === 2) {
+    // codex-exec.sh pre-flight failure (e.g., .codexignore missing) — matching arc-codex-phases.md pattern
+    outputParts.push(`_Skipped: codex-exec.sh pre-flight failure (exit 2)._`)
+  } else if (result.exitCode === 0 && result.stdout.trim().length > 0) {
     outputParts.push(result.stdout.trim())
   } else if (result.exitCode === 124) {
     outputParts.push(`_Codex timed out for this aspect (${perAspectTimeout}s)._`)

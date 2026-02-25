@@ -301,7 +301,6 @@ const stagnationReport = checkStagnation(checkpoint)
 if (stagnationReport) {
   warn(stagnationReport)
   // NON-BLOCKING: warn only. User can /rune:cancel-arc if needed.
-  // Future: configurable halt threshold in talisman.yml
 }
 ```
 

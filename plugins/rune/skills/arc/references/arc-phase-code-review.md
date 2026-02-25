@@ -287,8 +287,8 @@ If this phase crashes before reaching cleanup, the following resources are orpha
 
 | Resource | Location |
 |----------|----------|
-| Team config | `~/.claude/teams/rune-review-{identifier}/` |
-| Task list | `~/.claude/tasks/rune-review-{identifier}/` |
+| Team config | `$CHOME/teams/rune-review-{identifier}/` (where CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}") |
+| Task list | `$CHOME/tasks/rune-review-{identifier}/` |
 | State file | `tmp/.rune-review-*.json` (stuck in `"active"` status) |
 | Signal dir | `tmp/.rune-signals/rune-review-{identifier}/` |
 

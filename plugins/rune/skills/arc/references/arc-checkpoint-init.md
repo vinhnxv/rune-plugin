@@ -107,6 +107,10 @@ function resolveArcConfig(talisman, inlineFlags) {
   if (inlineFlags.no_pr !== undefined) config.ship.auto_pr = !inlineFlags.no_pr
   if (inlineFlags.no_merge !== undefined) config.ship.auto_merge = !inlineFlags.no_merge
   if (inlineFlags.draft !== undefined) config.ship.draft = inlineFlags.draft
+  // Bot review flags: --no-bot-review (force off) > --bot-review (force on) > talisman
+  // Phase 9.1/9.2 read these from arcConfig via flags.bot_review / flags.no_bot_review
+  if (inlineFlags.bot_review !== undefined) config.bot_review = inlineFlags.bot_review
+  if (inlineFlags.no_bot_review !== undefined) config.no_bot_review = inlineFlags.no_bot_review
 
   return config
 }
@@ -121,6 +125,8 @@ const inlineFlags = {
   no_pr: args.includes('--no-pr') ? true : undefined,
   no_merge: args.includes('--no-merge') ? true : undefined,
   draft: args.includes('--draft') ? true : undefined,
+  bot_review: args.includes('--bot-review') ? true : undefined,
+  no_bot_review: args.includes('--no-bot-review') ? true : undefined,
 }
 const arcConfig = resolveArcConfig(talisman, inlineFlags)
 // Use arcConfig.no_forge, arcConfig.approve, arcConfig.ship.auto_pr, etc. throughout
@@ -138,25 +144,7 @@ const arcTotalTimeout = calculateDynamicTimeout(tier)
 
 ## Checkpoint Schema v16
 
-Schema v16 adds `suspended_tasks` array to the `work` phase (v1.106.0+). Tracks tasks that
-workers suspended mid-execution via the context preservation protocol. On arc resume, suspended
-tasks are detected and their context injected into new worker spawn prompts.
-Backward compatible: v15 checkpoints get `suspended_tasks: []` on migration (FAIL-005).
-Context paths are scoped to `tmp/work/{timestamp}/context/{arc-checkpoint-id}/` (FAIL-008).
-
-Schema v15 adds `stagnation` field for the Stagnation Sentinel (v1.80.0+). Tracks error pattern
-fingerprints, file-change velocity across mend rounds, and budget forecast status. Non-blocking
-diagnostics emitted after each phase. See [stagnation-sentinel.md](stagnation-sentinel.md).
-Backward compatible: v14 checkpoints get `stagnation: null` on migration (resume path).
-
-Schema v14 adds `parent_plan` metadata for hierarchical execution (v1.79.0+). When an arc runs
-as a child in a `/rune:arc-hierarchy` session, `parent_plan` carries hierarchy context so phases
-can skip branch creation and PR creation (the parent manages the single feature branch and PR).
-Backward compatible: v13 checkpoints get `parent_plan: null` on migration (resume path).
-
-Schema v13 removes audit/audit_mend/audit_verify phases (v1.67.0+). Phase 6 now invokes
-`/rune:appraise --deep` which covers audit-depth analysis via multi-wave review.
-Backward compatible: v12 checkpoints are migrated by marking removed audit phases as "skipped".
+// Schema history: see CHANGELOG.md for migration notes from v12-v16.
 
 ```javascript
 // ── Resolve session identity for cross-session isolation ──
@@ -179,9 +167,9 @@ const parentPlanMeta = {
 // The arc-hierarchy SKILL.md documents the injection protocol.
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 16, plan_file: planFile,
+  id, schema_version: 17, plan_file: planFile,
   config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
-  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test },
+  flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test, bot_review: arcConfig.bot_review ?? false, no_bot_review: arcConfig.no_bot_review ?? false },
   arc_config: arcConfig,
   pr_url: null,
   freshness: freshnessResult || null,
@@ -201,6 +189,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     plan_refine:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     semantic_verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    task_decomposition: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     work:         { status: "pending", artifact: null, artifact_hash: null, team_name: null,
                     // Schema v16 (v1.106.0): suspended tasks from context preservation protocol.
                     // Each entry: { task_id, context_path, reason }
@@ -215,9 +204,17 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     test:         { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false },
+    test_coverage_critique: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     pre_ship_validation: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    release_quality_check: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     ship:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    bot_review_wait: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    pr_comment_resolution: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     merge:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    design_extraction: { status: "pending", artifacts: null, artifact_hash: null },
+    design_verification: { status: "pending", artifacts: null, artifact_hash: null },
+    design_iteration: { status: "pending", artifacts: null, artifact_hash: null },
+    // Design phases conditionally set to "skipped" at runtime when design_sync.enabled === false
   },
   convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [], original_changed_files: changedFiles },
   // NEW (v1.66.0): Shard metadata from pre-flight shard detection (null for non-shard arcs)
@@ -234,6 +231,6 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
   updated_at: new Date().toISOString()
 })
 
-// Schema migration is handled in arc-resume.md (steps 3a through 3o).
-// Migrations v1→v16 are defined there. See arc-resume.md for the full chain.
+// Schema migration is handled in arc-resume.md (steps 3a through 3s).
+// Migrations v1→v18 are defined there. See arc-resume.md for the full chain.
 ```

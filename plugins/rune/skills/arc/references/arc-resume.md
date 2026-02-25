@@ -24,6 +24,24 @@ On resume, validate checkpoint integrity before proceeding:
      throw new Error("Invalid session_nonce in checkpoint — possible tampering")
    }
    ```
+2c. Verify session ownership (H4: cross-session safety):
+   ```javascript
+   // Session isolation: verify checkpoint belongs to current session or dead session
+   const CHOME = Bash('echo "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"').trim()
+   if (checkpoint.config_dir && checkpoint.config_dir !== CHOME) {
+     throw new Error(`Checkpoint belongs to different config dir (${checkpoint.config_dir} ≠ ${CHOME}) — aborting resume`)
+   }
+   if (checkpoint.owner_pid) {
+     const pidAlive = Bash(`kill -0 ${checkpoint.owner_pid} 2>/dev/null && echo yes || echo no`).trim() === "yes"
+     if (pidAlive && String(checkpoint.owner_pid) !== Bash('echo $PPID').trim()) {
+       throw new Error(`Checkpoint owned by live PID ${checkpoint.owner_pid} — another arc session is active`)
+     }
+     // Dead PID = safe to claim (orphan recovery)
+   }
+   // Claim ownership for this session
+   checkpoint.owner_pid = Number(Bash('echo $PPID').trim())
+   checkpoint.config_dir = CHOME
+   ```
 3. Schema migration (default missing schema_version: `const version = checkpoint.schema_version ?? 1`):
    if version < 2, migrate v1 → v2:
    a. Add plan_refine: { status: "skipped", ... }
@@ -123,7 +141,31 @@ On resume, validate checkpoint integrity before proceeding:
       // Context paths scoped to arc checkpoint id (FAIL-008): context/{checkpoint.id}/{task_id}.md
       // FAIL-005: Explicit migration — do NOT rely on runtime ?? fallback for this field.
    b. Set schema_version: 16
-3p. Resume freshness re-check:
+3q. If schema_version < 17, migrate v16 → v17:
+   a. Add 5 missing phase entries (C1 fix — phases exist in PHASE_ORDER but were absent from checkpoint):
+      checkpoint.phases.task_decomposition = checkpoint.phases.task_decomposition ?? { status: "skipped", artifact: null, artifact_hash: null, team_name: null }
+      checkpoint.phases.test_coverage_critique = checkpoint.phases.test_coverage_critique ?? { status: "skipped", artifact: null, artifact_hash: null, team_name: null }
+      checkpoint.phases.release_quality_check = checkpoint.phases.release_quality_check ?? { status: "skipped", artifact: null, artifact_hash: null, team_name: null }
+      checkpoint.phases.bot_review_wait = checkpoint.phases.bot_review_wait ?? { status: "skipped", artifact: null, artifact_hash: null, team_name: null }
+      checkpoint.phases.pr_comment_resolution = checkpoint.phases.pr_comment_resolution ?? { status: "skipped", artifact: null, artifact_hash: null, team_name: null }
+      // Default "skipped" — pre-v17 arcs did not track these phases in checkpoint.
+      // The dispatcher uses PHASE_ORDER to determine execution order; these phases
+      // will be re-evaluated at runtime based on their gate conditions.
+   b. Set schema_version: 17
+3s. If schema_version < 18, migrate v17 → v18:
+   ```javascript
+   // Migration: Add design sync phases (if missing)
+   // Note: bot_review_wait, pr_comment_resolution, test_coverage_critique,
+   // release_quality_check were already added in v16→v17 migration (step 3q).
+   const designPhases = ['design_extraction', 'design_verification', 'design_iteration']
+   for (const phase of designPhases) {
+     if (!checkpoint.phases[phase]) {
+       checkpoint.phases[phase] = { status: "pending", artifacts: null, artifact_hash: null }
+     }
+   }
+   ```
+   b. Set schema_version: 18
+3r. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)
    c. If frontmatter extraction returns null, skip freshness re-check (plan may be malformed — log warning)

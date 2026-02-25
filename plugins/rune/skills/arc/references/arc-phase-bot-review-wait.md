@@ -7,6 +7,7 @@ or `--bot-review` CLI flag.
 **Team**: None (orchestrator-only — runs inline after Phase 9 SHIP)
 **Tools**: Bash (gh), Write
 **Timeout**: 15 min (PHASE_TIMEOUTS.bot_review_wait = 900_000)
+**Error handling**: Non-blocking. Disabled by default. Skip on missing PR URL, invalid PR number, or no bots detected.
 
 **Inputs**:
 - Checkpoint (with `pr_url` from Phase 9 SHIP)

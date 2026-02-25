@@ -19,9 +19,27 @@ The arc orchestrator passes only phase-appropriate tools when creating each phas
 | Phase 7 (MEND) | Orchestrator: full. Fixers: restricted (see mend-fixer) | Least privilege for fixers |
 | Phase 7.5 (VERIFY MEND) | Read, Glob, Grep, Write, Bash (git diff) | Orchestrator-only — convergence controller (no team) |
 | Phase 7.7 (TEST) | Full access (Read, Write, Edit, Bash, Glob, Grep) | Team: `arc-test-{id}` — diff-scoped test execution |
+| Phase 7.8 (TEST COVERAGE CRITIQUE) | Codex CLI only — no agent team | Orchestrator-only — inline codex exec, fast critique |
 | Phase 8.5 (PRE-SHIP VALIDATION) | Read, Write, Grep | Orchestrator-only — deterministic dual-gate check |
+| Phase 8.55 (RELEASE QUALITY CHECK) | Codex CLI only — no agent team | Orchestrator-only — inline codex exec, release gate |
 | Phase 9 (SHIP) | Read, Write, Bash (git push, gh pr create) | Orchestrator-only — push + PR creation |
+| Phase 9.1 (BOT REVIEW WAIT) | Bash (gh), Read, Write | Denied: Edit, TeamCreate — monitor CI/bot feedback only |
+| Phase 9.2 (PR COMMENT RESOLUTION) | Bash (gh, git, jq), Read, Write, Edit, Glob, Grep | Denied: TeamCreate — orchestrator resolves comments inline |
 | Phase 9.5 (MERGE) | Read, Write, Bash (git rebase, gh pr merge) | Orchestrator-only — rebase + merge + CI wait |
+
+## Extended Tool Restriction Details (New Phases)
+
+Phases added in v1.100+ that require explicit allowed/denied tool contracts:
+
+| Phase | Allowed Tools | Denied Tools | Timeout |
+|-------|--------------|-------------|---------|
+| design_extraction (3) | Read, Write, Bash, Glob, Grep + Figma MCP | TeamCreate, TeamDelete | 5 min |
+| design_verification (5.2) | Read, Glob, Grep | Write, Edit, Bash | 5 min |
+| design_iteration (7.6) | Read, Write, Edit, Bash, Glob, Grep + agent-browser | TeamCreate, TeamDelete | 10 min |
+| test_coverage_critique (7.8) | Codex CLI only — no agent team | N/A | 2 min |
+| release_quality_check (8.55) | Codex CLI only — no agent team | N/A | 2 min |
+| bot_review_wait (9.1) | Bash (gh), Read, Write | Edit, TeamCreate | 15 min |
+| pr_comment_resolution (9.2) | Bash (gh, git, jq), Read, Write, Edit, Glob, Grep | TeamCreate | 20 min |
 
 Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`". Only the arc orchestrator writes to checkpoint.json.
 
@@ -45,9 +63,12 @@ Worker and fixer agent prompts include: "Do not modify files in `.claude/arc/`".
 | VERIFY MEND | 4 min | Convergence evaluation (orchestrator-only); re-review cycles run as separate Phase 6+7 |
 | TEST | 15 min | Inner 10m + 5m setup; dynamic 40 min with E2E (arc-test-{id} team) |
 | PRE-SHIP VALIDATION | 30 sec | Orchestrator-only, deterministic dual-gate check |
+| RELEASE QUALITY CHECK | 5 min | Orchestrator-only, inline codex exec (absorbed into pre_ship budget) |
 | SHIP | 5 min | Orchestrator-only, push + PR creation |
+| BOT REVIEW WAIT | 15 min | Orchestrator-only, polling for bot reviews (disabled by default — opt-in via talisman or `--bot-review`) |
+| PR COMMENT RESOLUTION | 20 min | Orchestrator-only, multi-round comment resolution loop (disabled by default) |
 | MERGE | 10 min | Orchestrator-only, rebase + merge + CI wait |
 
-**Total pipeline hard ceiling**: Dynamic (156-240 min based on tier; hard cap 240 min). See `calculateDynamicTimeout()` in SKILL.md.
+**Total pipeline hard ceiling**: Dynamic (156-320 min based on tier; hard cap 320 min). See `calculateDynamicTimeout()` in SKILL.md.
 
 Delegated phases use inner-timeout + 60s buffer so the delegated command handles its own timeout first; the arc timeout is a safety net only.

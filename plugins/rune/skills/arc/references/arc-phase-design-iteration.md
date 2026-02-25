@@ -1,228 +1,144 @@
-# Phase 7.6: DESIGN_ITERATION — Full Algorithm
+# Phase 5.3: DESIGN ITERATION — Arc Design Sync Integration
 
-Iterative design refinement — runs a screenshot-analyze-improve loop to fix design fidelity gaps. Conditional phase — runs only when fidelity score is below threshold AND convergence has passed.
+Runs screenshot→analyze→fix loop to improve design fidelity after Phase 5.2 DESIGN VERIFICATION.
+Gated by `design_sync.enabled` AND `design_sync.iterate_enabled` in talisman.
+**Non-blocking** — design phases never halt the pipeline.
 
-**Team**: `arc-design-iterate-{id}` (self-managed)
-**Tools**: Read, Write, Edit, Bash, Glob, Grep (+ agent-browser if available)
-**Timeout**: 10 min (talisman: `arc.timeouts.design_iteration`, default 600000ms)
-**Inputs**: id, VSM files, design-verification.md (fidelity report), component files
-**Outputs**: `tmp/arc/{id}/design-iteration.md` (iteration report)
-**Error handling**: Non-blocking (WARN). Failed iteration doesn't halt pipeline.
-**Consumers**: SKILL.md (Phase 7.6 stub)
+**Team**: `arc-design-iter-{id}` (design-iterator workers with agent-browser)
+**Tools**: Read, Write, Bash, Task, TaskCreate, TaskUpdate, TaskList, TeamCreate, SendMessage
+**Timeout**: 15 min (PHASE_TIMEOUTS.design_iteration = 900_000)
+**Inputs**: id, design findings from Phase 5.2 (`tmp/arc/{id}/design-findings.json`), implemented components
+**Outputs**: `tmp/arc/{id}/design-iteration-report.md`, improved implementation commits
+**Error handling**: Non-blocking. Skip if no findings from Phase 5.2 or agent-browser unavailable.
+**Consumers**: Phase 9 SHIP (design iteration results included in PR body diagnostics)
 
-> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities available in the arc orchestrator context.
+> **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities
+> available in the arc orchestrator context. Phase reference files call these without import.
+
+## Pre-checks
+
+1. Skip gate — `arcConfig.design_sync?.enabled !== true` → skip
+2. Skip gate — `arcConfig.design_sync?.iterate_enabled !== true` → skip
+3. Verify design findings exist from Phase 5.2 — skip if none
+4. Check agent-browser availability — skip if not installed
 
 ## Algorithm
 
 ```javascript
-// ═══════════════════════════════════════════════════════
-// STEP 0: PRE-FLIGHT GUARDS
-// ═══════════════════════════════════════════════════════
+updateCheckpoint({ phase: "design_iteration", status: "in_progress", phase_sequence: 5.3, team_name: null })
 
-if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error(`Phase 7.6: unsafe id value: "${id}"`)
-
-// Condition 1: design_verification completed
-const verificationStatus = checkpoint.phases?.design_verification?.status
-if (verificationStatus !== "completed") {
-  updateCheckpoint({ phase: "design_iteration", status: "skipped", reason: "design_verification not completed" })
+// 0. Skip gates
+const designSyncConfig = arcConfig.design_sync ?? {}
+const designSyncEnabled = designSyncConfig.enabled === true
+if (!designSyncEnabled) {
+  log("Design iteration skipped — design_sync.enabled is false in talisman.")
+  updateCheckpoint({ phase: "design_iteration", status: "skipped" })
   return
 }
 
-// Condition 2: fidelity below threshold
-const designConfig = talisman?.design_sync ?? {}
-const fidelityThreshold = designConfig.fidelity_threshold ?? 80
-const currentFidelity = checkpoint.phases?.design_verification?.fidelity_score ?? 0
-
-if (currentFidelity >= fidelityThreshold) {
-  updateCheckpoint({
-    phase: "design_iteration", status: "skipped",
-    reason: `fidelity ${currentFidelity} >= threshold ${fidelityThreshold}`
-  })
-  return  // Skip — already passing
-}
-
-// Condition 3: design_sync.iterate_enabled (optional gate)
-// When false, skip iteration even if fidelity is low
-if (designConfig.iterate_enabled === false) {
-  warn(`Phase 7.6: fidelity ${currentFidelity} < ${fidelityThreshold} but iterate_enabled=false — skipping`)
-  updateCheckpoint({ phase: "design_iteration", status: "skipped", reason: "iterate_enabled=false" })
+const iterateEnabled = designSyncConfig.iterate_enabled === true
+if (!iterateEnabled) {
+  log("Design iteration skipped — design_sync.iterate_enabled is false in talisman.")
+  updateCheckpoint({ phase: "design_iteration", status: "skipped" })
   return
 }
 
-// Condition 4: convergence loop must have passed (post-mend)
-// Prevents running iteration before code fixes are stable
-const convergenceStatus = checkpoint.convergence?.status
-if (convergenceStatus !== "converged" && convergenceStatus !== "max_cycles") {
-  updateCheckpoint({ phase: "design_iteration", status: "skipped", reason: "convergence not reached" })
+// 1. Check upstream Phase 5.2 ran and has findings
+const verificationPhase = checkpoint.phases?.design_verification
+if (!verificationPhase || verificationPhase.status === "skipped") {
+  log("Design iteration skipped — Phase 5.2 was skipped.")
+  updateCheckpoint({ phase: "design_iteration", status: "skipped" })
   return
 }
 
-const maxIterations = designConfig.max_iterations ?? 3
-const vsmFiles = Glob(`tmp/arc/${id}/vsm/*.md`)
+if (!exists(`tmp/arc/${id}/design-findings.json`)) {
+  log("Design iteration skipped — no design findings from Phase 5.2.")
+  updateCheckpoint({ phase: "design_iteration", status: "skipped" })
+  return
+}
 
-// ═══════════════════════════════════════════════════════
-// STEP 1: IDENTIFY COMPONENTS NEEDING ITERATION
-// ═══════════════════════════════════════════════════════
+const findings = JSON.parse(Read(`tmp/arc/${id}/design-findings.json`))
+if (findings.length === 0) {
+  log("Design iteration skipped — zero findings from Phase 5.2.")
+  updateCheckpoint({ phase: "design_iteration", status: "skipped" })
+  return
+}
 
-const componentScores = checkpoint.phases?.design_verification?.component_scores ?? {}
-const componentsToIterate = Object.entries(componentScores)
-  .filter(([_, score]) => score < fidelityThreshold)
-  .sort(([_, a], [__, b]) => a - b)  // Lowest fidelity first
+// 2. Check agent-browser availability
+const agentBrowserAvailable = Bash("agent-browser --version 2>/dev/null && echo 'yes' || echo 'no'").trim() === "yes"
+if (!agentBrowserAvailable) {
+  warn("Design iteration skipped — agent-browser not installed. Install: npm i -g @anthropic-ai/agent-browser")
+  updateCheckpoint({ phase: "design_iteration", status: "skipped" })
+  return
+}
+
+// 3. Configuration
+const maxIterations = designSyncConfig.max_iterations ?? 3
+const maxWorkers = designSyncConfig.max_iteration_workers ?? 2
+const fidelityThreshold = designSyncConfig.fidelity_threshold ?? 80
+let baseUrl = designSyncConfig.base_url ?? "http://localhost:3000"
+
+// URL scope restriction (SEC-003): hard-block non-localhost URLs
+const urlHost = new URL(baseUrl).hostname
+if (urlHost !== 'localhost' && urlHost !== '127.0.0.1') {
+  warn(`Design iteration base_url ${baseUrl} is not localhost — overriding to localhost`)
+  baseUrl = "http://localhost:3000"
+}
+
+// 4. Group findings by component
+const findingsByComponent = groupBy(findings.filter(f => f.score < fidelityThreshold), 'component')
+const componentsToIterate = Object.keys(findingsByComponent)
 
 if (componentsToIterate.length === 0) {
-  updateCheckpoint({ phase: "design_iteration", status: "skipped", reason: "no components below threshold" })
+  log(`Design iteration skipped — all components meet fidelity threshold (${fidelityThreshold}).`)
+  updateCheckpoint({ phase: "design_iteration", status: "skipped" })
   return
 }
 
-// ═══════════════════════════════════════════════════════
-// STEP 2: TEAM CREATION
-// ═══════════════════════════════════════════════════════
-
+// 5. Create iteration team
 prePhaseCleanup(checkpoint)
-TeamCreate({ team_name: `arc-design-iterate-${id}` })
-const phaseStart = Date.now()
-const timeoutMs = designConfig.iteration_timeout ?? talisman?.arc?.timeouts?.design_iteration ?? 600_000
-
-Bash(`mkdir -p "tmp/arc/${id}/design-iterations"`)
+TeamCreate({ team_name: `arc-design-iter-${id}` })
 
 updateCheckpoint({
-  phase: "design_iteration", status: "in_progress", phase_sequence: 7.6,
-  team_name: `arc-design-iterate-${id}`,
-  components_to_iterate: componentsToIterate.length,
-  max_iterations: maxIterations
+  phase: "design_iteration", status: "in_progress", phase_sequence: 5.3,
+  team_name: `arc-design-iter-${id}`
 })
 
-// ═══════════════════════════════════════════════════════
-// STEP 3: CREATE ITERATION TASKS
-// ═══════════════════════════════════════════════════════
-
-for (const [componentName, currentScore] of componentsToIterate) {
-  const vsmPath = vsmFiles.find(f => f.includes(componentName))
-  if (!vsmPath) {
-    warn(`Phase 7.6: No VSM found for ${componentName} — skipping`)
-    continue
-  }
-
-  const reviewPath = `tmp/arc/${id}/design-reviews/${componentName}.md`
+// 6. Create iteration tasks
+for (const component of componentsToIterate) {
   TaskCreate({
-    subject: `Iterate on ${componentName} (fidelity: ${currentScore}/${fidelityThreshold})`,
-    activeForm: `Iterating on ${componentName} design fidelity`,
-    description: `Run screenshot→analyze→improve loop on ${componentName}.
-      VSM: ${vsmPath}
-      Previous review: ${reviewPath}
-      Max iterations: ${maxIterations}
-      Target fidelity: ${fidelityThreshold}
-      Current fidelity: ${currentScore}
-      Output: tmp/arc/${id}/design-iterations/${componentName}.md
-      One change per iteration. Verify improvement. Revert on regression.
-      Read design-sync/references/fidelity-scoring.md for scoring.`,
-    metadata: {
-      phase: "iteration",
-      vsm_path: vsmPath,
-      component: componentName,
-      current_score: currentScore,
-      target_score: fidelityThreshold
-    }
+    subject: `Iterate design fidelity for ${component}`,
+    description: `Run screenshot→analyze→fix loop for ${component}. Max ${maxIterations} iterations. Base URL: ${baseUrl}. Findings: ${JSON.stringify(findingsByComponent[component])}`,
+    metadata: { phase: "iteration", component, max_iterations: maxIterations }
   })
 }
 
-// ═══════════════════════════════════════════════════════
-// STEP 4: SUMMON DESIGN ITERATORS
-// ═══════════════════════════════════════════════════════
-
-const maxWorkers = designConfig.max_iteration_workers ?? 2
-const workersToSpawn = Math.min(maxWorkers, componentsToIterate.length)
-
-for (let i = 0; i < workersToSpawn; i++) {
+// 7. Spawn design-iterator workers with agent-browser
+for (let i = 0; i < Math.min(maxWorkers, componentsToIterate.length); i++) {
   Task({
-    subagent_type: "general-purpose", model: resolveModelForAgent("design-iterator", talisman),  // Cost tier mapping
-    name: `design-iter-${i + 1}`, team_name: `arc-design-iterate-${id}`,
-    prompt: `You are design-iter-${i + 1}. Iteratively refine component implementations to match VSM specs.
+    subagent_type: "general-purpose", model: "sonnet",
+    name: `design-iter-${i + 1}`, team_name: `arc-design-iter-${id}`,
+    prompt: `You are design-iter-${i + 1}. Run screenshot→analyze→fix loop to improve design fidelity.
+      Base URL: ${baseUrl}
+      Browser session: --session arc-design-${id}
       Max iterations per component: ${maxIterations}
-      Target fidelity: ${fidelityThreshold}
-      Output directory: tmp/arc/${id}/design-iterations/
-      [inject agent work/design-iterator.md content]
-      [inject skill frontend-design-patterns/SKILL.md content]
-
-      GLYPH BUDGET PROTOCOL:
-      Write ALL iteration details to output files.
-      Return ONLY: file path + 1-sentence summary (max 50 words).`
+      Fidelity threshold: ${fidelityThreshold}
+      Output iteration report to: tmp/arc/${id}/design-iteration-report.md
+      [inject agent-browser skill content]
+      [inject screenshot-comparison.md content]`
   })
 }
 
-// ═══════════════════════════════════════════════════════
-// STEP 5: MONITOR ITERATION
-// ═══════════════════════════════════════════════════════
+// 8. Monitor
+waitForCompletion([...Array(maxWorkers).keys()].map(i => `design-iter-${i + 1}`), {
+  timeoutMs: 720_000  // 12 min inner budget
+})
 
-const workerNames = Array.from({ length: workersToSpawn }, (_, i) => `design-iter-${i + 1}`)
-waitForCompletion(workerNames, { timeoutMs })
+// 9. Close browser sessions
+Bash(`agent-browser session list 2>/dev/null | grep -F "arc-design-${id}" && agent-browser close --session "arc-design-${id}" 2>/dev/null || true`)
 
-// ═══════════════════════════════════════════════════════
-// STEP 6: AGGREGATE ITERATION RESULTS
-// ═══════════════════════════════════════════════════════
-
-const iterationFiles = Glob(`tmp/arc/${id}/design-iterations/*.md`)
-let totalIterations = 0
-let p1Fixed = 0
-let p2Fixed = 0
-const updatedScores = {}
-
-for (const iterFile of iterationFiles) {
-  const content = Read(iterFile)
-  const componentName = iterFile.replace(/.*\//, '').replace('.md', '')
-
-  // Extract iteration count
-  const iterMatch = content.match(/Iterations:\s*(\d+)/)
-  totalIterations += iterMatch ? parseInt(iterMatch[1]) : 0
-
-  // Extract final fidelity (if reported)
-  const scoreMatch = content.match(/Final [Ff]idelity:\s*(\d+)/)
-  updatedScores[componentName] = scoreMatch ? parseInt(scoreMatch[1]) : componentScores[componentName]
-
-  // Count fixed findings
-  const p1Match = content.match(/P1 fixed:\s*(\d+)/)
-  const p2Match = content.match(/P2 fixed:\s*(\d+)/)
-  p1Fixed += p1Match ? parseInt(p1Match[1]) : 0
-  p2Fixed += p2Match ? parseInt(p2Match[1]) : 0
-}
-
-const updatedOverall = Object.values(updatedScores).length > 0
-  ? Math.round(Object.values(updatedScores).reduce((a, b) => a + b, 0) / Object.values(updatedScores).length)
-  : currentFidelity
-
-// ═══════════════════════════════════════════════════════
-// STEP 7: WRITE ITERATION REPORT
-// ═══════════════════════════════════════════════════════
-
-const report = `# Design Iteration Report
-
-**Before: ${currentFidelity}/100 → After: ${updatedOverall}/100**
-**Total Iterations: ${totalIterations}**
-**P1 Fixed: ${p1Fixed} | P2 Fixed: ${p2Fixed}**
-**Verdict: ${updatedOverall >= fidelityThreshold ? 'PASS' : 'BELOW_THRESHOLD'}**
-
-## Per-Component Results
-
-| Component | Before | After | Iterations | Status |
-|-----------|--------|-------|-----------|--------|
-${Object.entries(updatedScores).map(([name, score]) =>
-  `| ${name} | ${componentScores[name] ?? '?'} | ${score} | — | ${score >= fidelityThreshold ? 'PASS' : 'NEEDS_WORK'} |`
-).join('\n')}
-
-## Detail Reports
-
-${iterationFiles.map(f => `- [${f.replace(/.*\//, '')}](${f})`).join('\n')}
-
-<!-- SEAL: design-iteration-complete -->
-`
-
-Write(`tmp/arc/${id}/design-iteration.md`, report)
-
-// ═══════════════════════════════════════════════════════
-// STEP 8: CLEANUP
-// ═══════════════════════════════════════════════════════
-
-for (let i = 0; i < workersToSpawn; i++) {
+// 10. Shutdown workers + cleanup team
+for (let i = 0; i < maxWorkers; i++) {
   SendMessage({ type: "shutdown_request", recipient: `design-iter-${i + 1}` })
 }
 sleep(15_000)
@@ -231,43 +147,38 @@ try {
   TeamDelete()
 } catch (e) {
   const CHOME = process.env.CLAUDE_CONFIG_DIR || `${HOME}/.claude`
-  Bash(`rm -rf "${CHOME}/teams/arc-design-iterate-${id}" "${CHOME}/tasks/arc-design-iterate-${id}" 2>/dev/null`)
+  Bash(`rm -rf "${CHOME}/teams/arc-design-iter-${id}" "${CHOME}/tasks/arc-design-iter-${id}" 2>/dev/null`)
 }
+
+const iterReport = exists(`tmp/arc/${id}/design-iteration-report.md`)
+  ? Read(`tmp/arc/${id}/design-iteration-report.md`) : "No iteration report generated."
 
 updateCheckpoint({
   phase: "design_iteration", status: "completed",
-  artifact: `tmp/arc/${id}/design-iteration.md`,
-  artifact_hash: sha256(Read(`tmp/arc/${id}/design-iteration.md`)),
-  phase_sequence: 7.6,
-  team_name: `arc-design-iterate-${id}`,
-  fidelity_before: currentFidelity,
-  fidelity_after: updatedOverall,
-  total_iterations: totalIterations,
-  p1_fixed: p1Fixed,
-  p2_fixed: p2Fixed
+  artifact: `tmp/arc/${id}/design-iteration-report.md`,
+  artifact_hash: sha256(iterReport),
+  phase_sequence: 5.3, team_name: null,
+  components_iterated: componentsToIterate.length
 })
 ```
 
-## Phase Ordering
+## Error Handling
 
-Design iteration runs AFTER convergence (review-mend loop) but BEFORE test:
-
-```
-... → Phase 7.5 VERIFY_MEND (convergence) → Phase 7.6 DESIGN_ITERATION → Phase 7.7 TEST → ...
-```
-
-This ordering ensures:
-1. Code-level fixes are stable before visual refinement
-2. Visual fixes are included in the test phase
-3. Iteration doesn't fight with mend fixes on the same files
+| Error | Recovery |
+|-------|----------|
+| `design_sync.enabled` is false | Skip phase — status "skipped" |
+| No design findings from Phase 5.2 | Skip phase — nothing to iterate on |
+| agent-browser unavailable | Skip phase — design iteration requires browser |
+| Max iterations reached (3) | Complete with current state, note partial convergence |
+| Agent failure | Skip phase — design iteration is non-blocking |
 
 ## Crash Recovery
 
 | Resource | Location |
 |----------|----------|
-| Team config | `$CHOME/teams/arc-design-iterate-{id}/` |
-| Task list | `$CHOME/tasks/arc-design-iterate-{id}/` |
-| Iteration files | `tmp/arc/{id}/design-iterations/` |
-| Iteration report | `tmp/arc/{id}/design-iteration.md` |
+| Iteration report | `tmp/arc/{id}/design-iteration-report.md` |
+| Browser sessions | `arc-design-{id}` (check `agent-browser session list`) |
+| Team config | `$CHOME/teams/arc-design-iter-{id}/` |
+| Checkpoint state | `.claude/arc/{id}/checkpoint.json` (phase: "design_iteration") |
 
-Recovery: `prePhaseCleanup()` handles team eviction. Iteration files persist on disk.
+Recovery: On `--resume`, if design_iteration is `in_progress`, close any stale browser sessions (`agent-browser close --session "arc-design-{id}"`), clean up stale team, and re-run from the beginning. The screenshot→fix loop is idempotent — components are re-evaluated from their current state.

@@ -1,0 +1,90 @@
+# Arc Naming Conventions
+
+Canonical taxonomy for arc pipeline terminology. Ensures consistent naming across all 35+ reference files.
+
+## Phase Validation Suffixes
+
+| Suffix | Meaning | Behavior on Failure | Example |
+|--------|---------|---------------------|---------|
+| **Gate** | Binary pass/fail checkpoint | Halts pipeline (unless overridden by `--confirm`) | Freshness Gate, Verification Gate |
+| **Validator** | Checks conformance to rules | Writes findings; non-blocking | Pre-Ship Validator, Truthseer Validator |
+| **Sentinel** | Monitors ongoing condition | Advisory warnings; never blocks | Stagnation Sentinel |
+| **Guard** | Prevents unsafe entry | Blocks phase start if precondition unmet | Entry Guard (verify-mend.md) |
+| **Check** | Quick deterministic verification | Advisory or blocking depending on context | Ward Check, Goldmask Quick Check |
+
+## Phase Name Patterns
+
+| Pattern | Convention | Example |
+|---------|-----------|---------|
+| `arc-phase-{name}.md` | Standard phase reference file | `arc-phase-work.md`, `arc-phase-mend.md` |
+| `arc-phase-{name}-{qualifier}.md` | Conditional or variant phase | `arc-phase-design-extraction.md` |
+| `arc-{utility}.md` | Cross-phase utility | `arc-checkpoint-init.md`, `arc-resume.md` |
+| `{concept}.md` | Standalone algorithm | `stagnation-sentinel.md`, `verify-mend.md` |
+
+## Checkpoint Phase Keys
+
+Phase keys in `checkpoint.phases` use snake_case and match PHASE_ORDER entries:
+
+```
+forge, plan_review, plan_refine, verification_gate, semantic_verification,
+task_decomposition, work, gap_analysis, codex_gap_analysis, gap_remediation,
+goldmask_verification, code_review, goldmask_correlation, mend, verify_mend,
+test, test_coverage_critique, pre_ship_validation, release_quality_check,
+bot_review_wait, pr_comment_resolution, ship, merge
+```
+
+Conditional phases (not in PHASE_ORDER, gated by talisman):
+```
+design_extraction, design_verification, design_iteration
+```
+
+## Finding Prefixes
+
+| Prefix | Source | Used By |
+|--------|--------|---------|
+| `CDX-TASK` | Codex task decomposition (Phase 4.5) | task-validation.md |
+| `CDX-GAP` | Codex gap analysis (Phase 5.7) | codex-gap-analysis.md |
+| `CDX-SEM` | Codex semantic verification (Phase 3.5) | semantic-check.md |
+| `SEC-` | Security findings | TOME.md (review/audit) |
+| `BACK-` | Backend/logic findings | TOME.md |
+| `QUAL-` | Code quality findings | TOME.md |
+| `PAT-` | Pattern consistency | TOME.md |
+| `DOC-` | Documentation findings | TOME.md |
+| `FRONT-` | Frontend findings | TOME.md |
+| `PERF-` | Performance findings | TOME.md |
+
+## Status Values
+
+### Phase Status
+`pending` → `in_progress` → `completed` | `skipped` | `failed`
+
+### Mend Finding Resolution
+`FIXED` | `FIXED_CROSS_FILE` | `FALSE_POSITIVE` | `FAILED` | `SKIPPED` | `CONSISTENCY_FIX`
+
+### Convergence Verdicts
+`converged` | `retry` | `halted`
+
+## Talisman Key Naming
+
+Arc-related talisman keys follow dot-notation nesting:
+
+```yaml
+codex:
+  disabled: false
+  task_decomposition:
+    enabled: true          # Feature toggle
+  workflows: ["arc"]       # Workflow allowlist
+
+review:
+  diff_scope:
+    enabled: true          # Scope tagging toggle
+
+goldmask:
+  enabled: true            # Master switch
+  mend:
+    enabled: true          # Mend integration
+    inject_context: true   # Fixer prompt injection
+    quick_check: true      # Phase 5.95
+```
+
+**Convention**: Boolean toggles default to `true` (opt-out). Use `!== false` pattern for safe defaults.

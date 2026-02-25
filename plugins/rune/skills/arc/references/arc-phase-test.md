@@ -352,6 +352,10 @@ Recovery: `prePhaseCleanup()` handles team/task cleanup before phase, `postPhase
 
 ---
 
+<!-- Phase 7.8 is intentionally embedded in this file rather than extracted to a separate
+     arc-phase-test-coverage-critique.md. It is a lightweight Codex-only sub-phase that always
+     runs immediately after Phase 7.7 test execution, and separating it would add file overhead
+     without improving discoverability. -->
 ## Phase 7.8: TEST COVERAGE CRITIQUE (Codex cross-model, v1.51.0)
 
 Runs after Phase 7.7 TEST completes. Inline Codex integration — no team, orchestrator-only.
