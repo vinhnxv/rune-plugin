@@ -217,6 +217,47 @@ Here's a complete example session:
 
 ---
 
+## `/rune:tarnished` — The Unified Entry Point
+
+Don't remember which command to use? `/rune:tarnished` is the intelligent master command that routes your request to the correct Rune workflow. It understands both English and Vietnamese.
+
+```bash
+# Just say what you want — tarnished figures out the right command
+/rune:tarnished plan add user authentication
+/rune:tarnished work
+/rune:tarnished review
+/rune:tarnished arc plans/my-plan.md
+
+# Chain multiple steps with "and" / "then"
+/rune:tarnished review and fix
+/rune:tarnished plan then work
+
+# Natural language works too
+/rune:tarnished implement the latest plan
+/rune:tarnished fix the findings from the last review
+
+# Ask for guidance
+/rune:tarnished help
+/rune:tarnished what should I do next?
+```
+
+When run with no arguments, `/rune:tarnished` scans your project state (plans, reviews, git changes) and suggests the most logical next action.
+
+| Keyword | Routes to |
+|---------|-----------|
+| `plan` | `/rune:devise` |
+| `work` | `/rune:strive` |
+| `review` | `/rune:appraise` |
+| `arc` | `/rune:arc` |
+| `arc-batch` | `/rune:arc-batch` |
+| `arc-issues` | `/rune:arc-issues` |
+| `audit` | `/rune:audit` |
+| `forge` | `/rune:forge` |
+| `mend` | `/rune:mend` |
+| `help` | Guidance mode |
+
+---
+
 ## Going Further
 
 Once you're comfortable with the basic workflow, explore these advanced commands:

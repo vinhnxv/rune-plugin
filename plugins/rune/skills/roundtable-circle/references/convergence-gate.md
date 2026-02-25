@@ -8,6 +8,12 @@
 > They are distinct from the arc-level convergence tiers (LIGHT/STANDARD/THOROUGH) in
 > [review-mend-convergence.md](review-mend-convergence.md), which control **review→mend cycle count**
 > across the full arc pipeline. The `CHUNK_` prefix prevents confusion between the two systems.
+>
+> **Sharding bypass (v1.98.0+):** When `inscription.sharding.enabled === true`, chunked review
+> is inactive (`inscription.chunked = false`). This convergence gate is bypassed entirely for
+> sharded reviews. Arc-level convergence (LIGHT/STANDARD/THOROUGH in review-mend-convergence.md)
+> continues to operate on the unified TOME scalar counts regardless of shard topology — it is
+> fully shard-topology-agnostic. No changes to arc-level convergence are needed.
 
 ## 3-Tier Adaptive Convergence
 

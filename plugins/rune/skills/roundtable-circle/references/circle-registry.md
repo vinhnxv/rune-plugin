@@ -127,6 +127,33 @@ Each Ash entry carries two scheduling fields used by [wave-scheduling.md](wave-s
 **Audit file priority:** entry points > new files > services > abstractions > infrastructure
 **Context budget:** max 30 files (all file types)
 
+### Shard Reviewers (Inscription Sharding, v1.98.0+)
+
+**Wave:** N/A — parallel, no wave scheduling | **Deep only:** false (exclusive to standard depth)
+
+> Active only when `inscription.sharding.enabled === true`.
+> Shard Reviewers replace standard specialist Ash selection for `scope=diff` + large diffs.
+> They are NOT used in `scope=full` audit or `depth=deep` mode.
+
+| Agent | Prefix | Scope |
+|-------|--------|-------|
+| Shard Reviewer A | `SHA-` | Files in shard A (domain-affinity group) |
+| Shard Reviewer B | `SHB-` | Files in shard B |
+| Shard Reviewer C | `SHC-` | Files in shard C |
+| Shard Reviewer D | `SHD-` | Files in shard D |
+| Shard Reviewer E | `SHE-` | Files in shard E (MAX_SHARDS = 5) |
+| Cross-Shard Sentinel | `XSH-` | Reads only shard summary JSONs (no source files) |
+
+**Model policy:** `auto` = sonnet for security/code shards, haiku for docs-only shards.
+**Context budget:** SHARD_SIZE files per reviewer (default 12, configurable via talisman).
+**Finding format:** Uses standard RUNE:FINDING markers with `shard="{shard_id}"` attribute.
+**Prompt template:** [shard-reviewer.md](ash-prompts/shard-reviewer.md)
+**Allocator:** [shard-allocator.md](shard-allocator.md)
+
+> **SHA- prefix note:** `SHA-001` finding IDs will not collide with `SHA-256` algorithm
+> references in code comments — RUNE:FINDING HTML markers are the structural dedup anchor,
+> not the prefix string alone. Plain-text `SHA-256` references in code have no markers.
+
 ## Audit Scope Assignment
 
 During `/rune:audit`, each Ash receives a file list capped by its context budget. Files are assigned using the priority order above.

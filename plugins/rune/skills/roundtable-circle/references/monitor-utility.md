@@ -207,7 +207,9 @@ Each command passes its own `opts` to `waitForCompletion`:
 
 | Command | `timeoutMs` | `staleWarnMs` | `autoReleaseMs` | `pollIntervalMs` | `label` | `onCheckpoint` |
 |---------|-------------|---------------|-----------------|-------------------|---------|----------------|
-| `appraise` | 600,000 (10 min) | 300,000 (5 min) | — | 30,000 (30s) | `"Review"` | — |
+| `appraise` (standard) | 600,000 (10 min) | 300,000 (5 min) | — | 30,000 (30s) | `"Review"` | — |
+| `appraise` (shard reviewers) | 600,000 (10 min) | 300,000 (5 min) | — | 30,000 (30s) | `"Shard review (N shards)"` | — |
+| `appraise` (cross-shard sentinel) | 180,000 (3 min) | 90,000 (90s) | — | 30,000 (30s) | `"Cross-shard analysis"` | — |
 | `audit` | 900,000 (15 min) | 300,000 (5 min) | — | 30,000 (30s) | `"Audit"` | — |
 | `strive` | 1,800,000 (30 min) | 300,000 (5 min) | 600,000 (10 min) | 30,000 (30s) | `"Work"` | Yes (milestone) |
 | `mend` | 900,000 (15 min) ‡ | 300,000 (5 min) | 600,000 (10 min) | 30,000 (30s) | `"Mend"` | — |

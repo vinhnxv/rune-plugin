@@ -84,6 +84,35 @@ These are beginner-friendly aliases for `/rune:devise`, `/rune:strive`, and `/ru
 
 See the [Getting Started guide (EN)](../../docs/guides/rune-getting-started.en.md) | [Hướng dẫn bắt đầu (VI)](../../docs/guides/rune-getting-started.vi.md) for a complete walkthrough.
 
+### `/rune:tarnished` — The Unified Entry Point
+
+Don't remember which command to use? `/rune:tarnished` is the intelligent master command that routes natural language to the correct Rune workflow. It understands both English and Vietnamese.
+
+```bash
+# Route by keyword — passes through to the right skill
+/rune:tarnished plan add user authentication
+/rune:tarnished work plans/my-plan.md
+/rune:tarnished review
+/rune:tarnished arc plans/my-plan.md
+/rune:tarnished arc-batch plans/*.md
+/rune:tarnished arc-issues --label "rune:ready"
+
+# Chain workflows — multi-step with confirmation between steps
+/rune:tarnished review and fix
+/rune:tarnished plan then work
+
+# Natural language — classifies intent automatically
+/rune:tarnished implement the latest plan
+/rune:tarnished fix the findings from the last review
+
+# Guidance — ask Rune anything
+/rune:tarnished help
+/rune:tarnished what should I do next?
+/rune:tarnished khi nào nên dùng audit vs review?
+```
+
+When run with no arguments, `/rune:tarnished` scans your project state (plans, reviews, git changes) and suggests the most logical next action.
+
 ## Quick Start
 
 ```bash
@@ -758,7 +787,7 @@ plugins/rune/
 │   └── plugin.json
 ├── agents/
 │   ├── investigation/       # 24 investigation agents (Goldmask + Inspect)
-│   ├── review/              # 38 review agents
+│   ├── review/              # 39 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
 │   ├── testing/             # 4 testing agents (arc Phase 7.7)

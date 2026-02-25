@@ -124,6 +124,36 @@ When `--incremental` flag is set, the file list is pre-filtered by the increment
 
 **Audit-history-aware budget**: When `--incremental` is active, prefer assigning files to Ashes that have NOT previously audited them (from `state.json.files[path].audited_by`). This increases reviewer diversity across sessions.
 
+## Inscription Sharding vs Standard Selection (v1.98.0+)
+
+When `depth=standard` and `scope=diff` and `totalFiles > shard_threshold` (default 15),
+the standard Ash selection path is BYPASSED in favour of Inscription Sharding.
+
+| Condition | Path |
+|-----------|------|
+| `depth=deep` | Wave scheduling → specialist Ashes (standard, no sharding) |
+| `depth=standard`, `scope=diff`, `totalFiles > shard_threshold` | **Inscription Sharding** — domain-affinity shard reviewers |
+| `depth=standard`, `scope=diff`, `totalFiles <= shard_threshold` | Standard Ash selection (this section) |
+| `depth=standard`, `scope=full` (audit) | Standard Ash selection (this section) |
+
+When sharding is active, `selectedAsh` is NOT populated from Rune Gaze. Instead,
+`buildShardReviewerPrompt()` generates prompts per shard from `inscription.sharding.shards`.
+See [shard-allocator.md](shard-allocator.md) for domain group assignment and bin-packing.
+
+**Rationale — why deep mode does NOT use sharding**: Deep mode agents (rot-seeker, breach-hunter,
+strand-tracer, etc.) are highly specialized investigators. They benefit from seeing the full file
+set within their specialty — sharding generalist reviewers makes sense because each covers ALL
+dimensions, but sharding specialists would split their domain expertise across arbitrary file
+boundaries. Deep mode's wave system already handles context management by running specialist
+waves sequentially with context forwarding.
+
+**Convergence re-review**: When the convergence loop retries the review phase (arc Phase 7.5),
+`allocateShards()` runs again on the narrowed progressive-focus file set. Since mend typically
+touches 5-15 files, this almost always falls below `SHARD_THRESHOLD` → standard specialist review.
+If re-review scope exceeds `reshard_threshold` (default: 30), standard review is forced rather
+than re-sharding, because re-sharding breaks finding prefix continuity and impairs oscillation
+detection. See `talisman.review.reshard_threshold`.
+
 ## Wave Assignment
 
 After Rune Gaze selects Ashes based on file classification, wave scheduling determines execution order for `depth=deep` mode. Standard depth bypasses wave scheduling entirely.
@@ -231,3 +261,4 @@ for each chunk:
 - [Rune Gaze](rune-gaze.md) — Extension classification rules
 - [Circle Registry](circle-registry.md) — Agent-to-Ash mapping, wave assignments, deepOnly flags
 - [Wave Scheduling](wave-scheduling.md) — Wave selection, merge logic, timeout distribution
+- [Shard Allocator](shard-allocator.md) — Domain-affinity bin-packing for Inscription Sharding (v1.98.0+)

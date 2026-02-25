@@ -14,6 +14,9 @@ Complete reference for `/rune:tarnished` routing decisions.
 | `appraise` | `/rune:appraise` | — | Git diff (auto) | `tmp/reviews/*/TOME.md` |
 | `audit` | `/rune:audit` | — | None (full scan) | `tmp/audit/*/TOME.md` |
 | `arc` | `/rune:arc` | — | Plan file path | Full pipeline → merged PR |
+| `arc-batch` | `/rune:arc-batch` | — | Plan glob / queue file | Sequential batch execution |
+| `arc-issues` | `/rune:arc-issues` | — | `--label` or `--issue` | GitHub Issues → plans → arc |
+| `arc-hierarchy` | `/rune:arc-hierarchy` | — | Parent plan path | Hierarchical plan execution |
 | `forge` | `/rune:forge` | — | Plan file path | Enriched plan |
 | `mend` | `/rune:mend` | — | TOME file path | Fixed code |
 | `inspect` | `/rune:inspect` | — | Plan file path | `tmp/inspect/*/VERDICT.md` |
@@ -29,7 +32,9 @@ Complete reference for `/rune:tarnished` routing decisions.
 | `devise` | `--quick`, `--no-brainstorm`, `--no-forge`, `--exhaustive` |
 | `appraise` | `--deep` |
 | `audit` | `--deep`, `--standard`, `--incremental`, `--dirs`, `--focus` |
-| `arc` | `--resume`, `--skip-forge` |
+| `arc` | `--resume`, `--skip-forge`, `--no-forge`, `--skip-freshness` |
+| `arc-batch` | `--auto-merge`, `--no-merge` |
+| `arc-issues` | `--label`, `--issue`, `--max-issues` |
 | `strive` | `--approve`, `--worktree` |
 
 ## Prerequisite Map
@@ -40,6 +45,9 @@ Complete reference for `/rune:tarnished` routing decisions.
 | `mend` | TOME file | `Glob("tmp/reviews/*/TOME.md")` or `Glob("tmp/audit/*/TOME.md")` |
 | `appraise` | Git changes | `git diff --stat` |
 | `arc` | Plan file | `Glob("plans/*.md")` |
+| `arc-batch` | Plan glob / queue | `Glob("plans/*.md")` |
+| `arc-issues` | GitHub issues | GitHub labels or issue numbers |
+| `arc-hierarchy` | Parent plan | `Glob("plans/*.md")` with child plans |
 | `forge` | Plan file | `Glob("plans/*.md")` |
 | `inspect` | Plan file | `Glob("plans/*.md")` |
 
@@ -53,6 +61,9 @@ Complete reference for `/rune:tarnished` routing decisions.
 | `appraise` | Up to 8 | 3-10 min |
 | `audit` | Up to 8 | 5-15 min |
 | `arc` | Per phase | 30-90 min |
+| `arc-batch` | Per plan | 45-240 min/plan |
+| `arc-issues` | Per issue | 45-240 min/issue |
+| `arc-hierarchy` | Per child | 45-240 min/child |
 | `forge` | Per section | 5-15 min |
 | `mend` | Per file | 3-10 min |
 | `goldmask` | 8 tracers | 5-10 min |

@@ -32,9 +32,16 @@ This design preserves auditability: readers can see that a lower-priority Ash fl
 **Default (built-in only):**
 
 ```
-Ward Sentinel > Forge Warden > Veil Piercer > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle
-SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX
+Ward Sentinel > Forge Warden > Veil Piercer > Knowledge Keeper > Pattern Weaver > Glyph Scribe > Codex Oracle > Shard Reviewers > Cross-Shard Sentinel
+SEC > BACK > VEIL > DOUBT > SH{X} > DOC > QUAL > FRONT > CDX > XSH
 ```
+
+> **Sharding dedup note (v1.98.0+):** `SH{X}-` prefixes (`SHA-`, `SHB-`, `SHC-`, `SHD-`, `SHE-`)
+> represent Shard Reviewers A-E. They slot above DOC/QUAL/FRONT/CDX but below SEC/BACK/VEIL/DOUBT.
+> `XSH-` (Cross-Shard Sentinel) is always lowest priority — yields to all per-shard findings.
+> Sharding and specialist Ash are mutually exclusive by design, so SH{X} vs SEC/BACK collisions
+> cannot occur in practice. If a shard contains security-critical files, the shard reviewer
+> (not Ward Sentinel) reviews them — its SH{X} findings position in the hierarchy accordingly.
 
 When the same issue is found by multiple Ash:
 1. Keep the finding from the highest-priority Ash
@@ -54,16 +61,16 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 - If `settings.dedup_hierarchy` is defined in config, use it as-is (user controls the order)
 - If NOT defined, append custom prefixes AFTER built-in hierarchy (lowest priority):
   ```
-  SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > {custom_1} > {custom_2} > ...
+  SEC > BACK > VEIL > DOUBT > SH{X} > DOC > QUAL > FRONT > CDX > XSH > {custom_1} > {custom_2} > ...
   ```
 - **External model prefix ordering (v1.57.0+):** CLI-backed Ash prefixes (from `ashes.custom[]` entries with `cli:` field) are positioned BELOW `CDX` in the default hierarchy. Built-in prefixes (`SEC`, `BACK`, `DOC`, `QUAL`, `FRONT`, `CDX`) MUST always precede external model prefixes. This enforcement applies ONLY to CLI-backed external model prefixes — agent-backed custom Ashes can be placed anywhere in a user-defined hierarchy.
   ```
   Default with external models:
-  SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > {cli_ext_1} > {cli_ext_2} > {agent_custom_1} > ...
+  SEC > BACK > VEIL > DOUBT > SH{X} > DOC > QUAL > FRONT > CDX > XSH > {cli_ext_1} > {cli_ext_2} > {agent_custom_1} > ...
   ```
 - Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
 - Prefix format: 2-5 uppercase alphanumeric characters (A-Z, 0-9)
-- Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `DOUBT`, `QUAL`, `FRONT`, `DOC`, `CDX`, `PY`, `TSR`, `RST`, `PHP`, `FAPI`, `DJG`, `LARV`, `SQLA`, `TDD`, `DDD`, `DI` — cannot be used by custom Ash
+- Reserved built-in prefixes: `SEC`, `BACK`, `VEIL`, `DOUBT`, `QUAL`, `FRONT`, `DOC`, `CDX`, `PY`, `TSR`, `RST`, `PHP`, `FAPI`, `DJG`, `LARV`, `SQLA`, `TDD`, `DDD`, `DI`, `SHA`, `SHB`, `SHC`, `SHD`, `SHE`, `XSH` — cannot be used by custom Ash
 - Reserved meta-prefix: `CUSTOM` — cannot be used as a custom Ash finding prefix. This prefix is reserved to distinguish `source="custom"` findings in dedup logic (see below).
 - **`source="custom"` attribute**: Findings emitted by custom-criteria Ashes (i.e., those injected via `customPromptBlock`) carry a `source="custom"` attribute in their RUNE:FINDING markers. The Runebinder uses this attribute to annotate deduplicated findings so reviewers know the finding originated from a user-defined inspection criterion rather than a built-in Ash perspective. Custom-criteria findings use standard finding prefixes (e.g., `SEC-001`, `BACK-001`) — the `source="custom"` attribute is the sole differentiator, NOT a separate prefix namespace.
 - Reserved standalone prefixes: `DATA`, `GATE`, `ASYNC`, `DRIFT`, `DEPLOY`, `PARITY`, `SENIOR`, `PAT`, `SIMP`, `TYPE` — used by standalone review/utility agents, mapped to embedded prefixes when inside Ash
@@ -125,6 +132,12 @@ Each Ash uses a unique prefix for finding IDs:
 | ember-seer | `RSRC-` | `RSRC-001` | Deep-dimension |
 | signal-watcher | `OBSV-` | `OBSV-001` | Deep-dimension |
 | decay-tracer | `MTNB-` | `MTNB-001` | Deep-dimension |
+| Shard Reviewer A | `SHA-` | `SHA-001` | Inscription Sharding (v1.98.0+) |
+| Shard Reviewer B | `SHB-` | `SHB-001` | Inscription Sharding (v1.98.0+) |
+| Shard Reviewer C | `SHC-` | `SHC-001` | Inscription Sharding (v1.98.0+) |
+| Shard Reviewer D | `SHD-` | `SHD-001` | Inscription Sharding (v1.98.0+) |
+| Shard Reviewer E | `SHE-` | `SHE-001` | Inscription Sharding (v1.98.0+) |
+| Cross-Shard Sentinel | `XSH-` | `XSH-001` | Inscription Sharding cross-file analysis |
 | *(custom)* | *from config* | e.g., `DOM-001` | Custom |
 
 **Standalone Agent Prefixes** (used when agents run independently, mapped to embedded prefix when inside Ash):

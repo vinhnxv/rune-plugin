@@ -27,7 +27,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
-from .figma_types import (
+from figma_types import (
     Color,
     Effect,
     EffectType,

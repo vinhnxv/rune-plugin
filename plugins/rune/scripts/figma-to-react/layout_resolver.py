@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from .figma_types import LayoutAlign, LayoutMode, LayoutSizingMode, LayoutWrap
-from .node_parser import FigmaIRNode
-from .tailwind_mapper import _px_to_spacing
+from figma_types import LayoutAlign, LayoutMode, LayoutSizingMode, LayoutWrap
+from node_parser import FigmaIRNode
+from tailwind_mapper import _px_to_spacing
 
 
 # ---------------------------------------------------------------------------
