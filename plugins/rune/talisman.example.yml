@@ -1210,3 +1210,29 @@ context_monitor:
 #   max_stack_ashes: 3                     # Maximum stack specialist Ashes per review session (default: 3)
 #                                          # Controls how many language/framework/pattern specialists are added.
 #                                          # Does not affect core Ashes (Ward Sentinel, Pattern Weaver, etc.).
+
+# ── Figma Design Sync (v1.97.0+) ──
+# Controls the /rune:design-sync pipeline and arc design phases.
+# Requires Figma MCP server configured in .mcp.json for extraction.
+# design_sync:
+#   enabled: false                           # Master switch — must be true for design-sync to run (default: false)
+#                                            # When false, arc design phases (3, 5.2, 7.6) are skipped entirely.
+#   max_extraction_workers: 2                # Maximum design-sync-agent workers for extraction phase (default: 2)
+#   max_implementation_workers: 3            # Maximum rune-smith workers for design implementation (default: 3)
+#   max_iteration_workers: 2                 # Maximum design-iterator workers per iteration round (default: 2)
+#   max_iterations: 5                        # Maximum fidelity iteration rounds before giving up (default: 5)
+#                                            # Each round: review → identify worst dimension → fix → re-review.
+#   iterate_enabled: false                   # Enable iterative refinement loop (default: false)
+#                                            # When false, pipeline stops after first fidelity review (Phase 3).
+#                                            # When true, triggers arc Phase 7.6 if score < fidelity_threshold.
+#   fidelity_threshold: 80                   # Minimum fidelity score to pass (0-100, default: 80)
+#                                            # Below this, iteration loop triggers (if iterate_enabled).
+#                                            # Scoring: tokens 25%, layout 20%, responsive 15%, a11y 20%, variants 10%, states 10%.
+#   token_snap_distance: 20                  # RGB distance threshold for color token snapping (default: 20)
+#                                            # Colors within this distance of a design system token are snapped.
+#                                            # Lower = stricter matching. Range: 0-50.
+#   figma_cache_ttl: 1800                    # Figma API response cache TTL in seconds (default: 1800 = 30 min)
+#                                            # Prevents redundant API calls during extraction.
+#   design_tools:                            # Stack-awareness design tool integration
+#     - figma                                # Figma MCP server (required for extraction)
+#     - storybook                            # Storybook integration for component preview (optional)

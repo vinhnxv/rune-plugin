@@ -20,6 +20,21 @@ detectStack(repoRoot):
     "composer.json":    detectPHPStack,
   }
 
+  # Step 1b: Scan design tool config files
+  design_manifests = {
+    ".figmarc":          detectDesignTools,
+    "figma.config.json": detectDesignTools,
+  }
+
+  for manifest, detector in design_manifests:
+    if exists(repoRoot + "/" + manifest):
+      result = detector(Read(manifest))
+      evidence[manifest] = result
+
+  # Step 1c: Check for design tool directories
+  if exists(repoRoot + "/.storybook/"):
+    evidence[".storybook/"] = { language: null, frameworks: ["storybook"], databases: [], libraries: [], tooling: [] }
+
   # SECURITY: Raw manifest content is untrusted input.
   # Only propagate the structured result object downstream — never raw content strings.
   for manifest, detector in manifests:
@@ -134,6 +149,12 @@ detectTypeScriptStack(content):
   if contains(content, "typeorm"):     result.databases.push("typeorm")
   if contains(content, "drizzle"):     result.databases.push("drizzle")
 
+  # Design tool detection (from package.json deps)
+  if contains(content, "@figma") OR contains(content, "figma-api"):
+    result.frameworks.push("figma")
+  if contains(content, "storybook") OR contains(content, "@storybook"):
+    result.frameworks.push("storybook")
+
   # Library detection
   if contains(content, "zod"):         result.libraries.push("zod")
   if contains(content, "pinia"):       result.libraries.push("pinia")
@@ -207,6 +228,25 @@ detectPHPStack(content):
   return result
 ```
 
+### detectDesignTools(content)
+
+```
+detectDesignTools(content):
+  result = { language: null, frameworks: [], databases: [], libraries: [], tooling: [] }
+
+  # Figma detection
+  if contains(content, "figma") OR contains(content, "@figma"):
+    result.frameworks.push("figma")
+
+  # Storybook detection (from package.json deps)
+  if contains(content, "storybook") OR contains(content, "@storybook"):
+    result.frameworks.push("storybook")
+
+  return result
+```
+
+**Note**: Design tools are language-agnostic (`language: null`). They do not set a primary language. Detection also runs against `package.json` via `detectTypeScriptStack` for `@storybook/*` and `@figma/*` dependencies.
+
 ## Helper Functions
 
 ### has_ddd_structure(repoRoot)
@@ -241,7 +281,9 @@ prioritize(specialist_selections, max_stack_ashes):
     # Framework specialists (max 2)
     "fastapi-reviewer", "django-reviewer", "laravel-reviewer", "sqlalchemy-reviewer",
     # Pattern specialists (conditional)
-    "tdd-compliance-reviewer", "ddd-reviewer", "di-reviewer"
+    "tdd-compliance-reviewer", "ddd-reviewer", "di-reviewer",
+    # Design specialists (conditional on talisman.design_sync.enabled)
+    "design-implementation-reviewer"
   ]
 
   sorted = []
@@ -260,7 +302,8 @@ When `talisman.stack_awareness.override` is set, skip detection and use the over
 VALID_LANGUAGES = ["python", "typescript", "rust", "php"]
 VALID_FRAMEWORKS = ["fastapi", "django", "flask", "laravel", "symfony", "sqlalchemy",
                     "nextjs", "react", "vuejs", "nuxt", "express", "nestjs",
-                    "actix-web", "axum", "rocket"]
+                    "actix-web", "axum", "rocket",
+                    "figma", "storybook"]
 
 if talisman?.stack_awareness?.override:
   override = talisman.stack_awareness.override

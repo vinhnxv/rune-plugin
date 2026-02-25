@@ -4,10 +4,10 @@
 
 Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own dedicated context window.
 
-[![Version](https://img.shields.io/badge/version-1.96.0-blue)](.claude-plugin/marketplace.json)
+[![Version](https://img.shields.io/badge/version-1.99.0-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Agents](https://img.shields.io/badge/agents-82-purple)](#agents)
-[![Skills](https://img.shields.io/badge/skills-34-orange)](#skills)
+[![Agents](https://img.shields.io/badge/agents-89-purple)](#agents)
+[![Skills](https://img.shields.io/badge/skills-38-orange)](#skills)
 
 ---
 
@@ -268,9 +268,9 @@ Compares a plan against its implementation across 9 quality dimensions:
 
 ## Agents
 
-**82 specialized agents** across 6 categories:
+**89 specialized agents** across 6 categories:
 
-### Review Agents (37)
+### Review Agents (40)
 
 Core reviewers that participate in `/rune:appraise` and `/rune:audit`:
 
@@ -318,8 +318,9 @@ Core reviewers that participate in `/rune:appraise` and `/rune:audit`:
 | TDD Compliance Reviewer | TDD practices (test-first, coverage, assertion quality) |
 | DDD Reviewer | Domain-Driven Design (aggregates, bounded contexts) |
 | DI Reviewer | Dependency Injection (scope, circular deps, service locator) |
+| Design Implementation Reviewer | Design-to-code fidelity (tokens, layout, responsive, a11y, variants) |
 
-### Investigation Agents (23)
+### Investigation Agents (24)
 
 Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 
@@ -340,12 +341,14 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 | Lore Scholar | Framework docs via Context7 MCP + web search fallback |
 | Practice Seeker | External best practices and industry patterns |
 
-### Work Agents (2)
+### Work Agents (4)
 
 | Agent | Purpose |
 |-------|---------|
 | Rune Smith | TDD-driven code implementation |
 | Trial Forger | Test generation following project patterns |
+| Design Sync Agent | Figma extraction and Visual Spec Map creation |
+| Design Iterator | Iterative design refinement (screenshot-analyze-fix loop) |
 
 ### Utility Agents (11)
 
@@ -376,7 +379,7 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 
 ## Skills
 
-34 skills providing background knowledge, workflow orchestration, and tool integration:
+38 skills providing background knowledge, workflow orchestration, and tool integration:
 
 | Skill | Type | Purpose |
 |-------|------|---------|
@@ -398,6 +401,8 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 | `context-weaving` | Orchestration | Context overflow prevention |
 | `rune-echoes` | Memory | 5-tier persistent agent memory |
 | `stacks` | Intelligence | Stack-aware detection and routing |
+| `frontend-design-patterns` | Intelligence | Design-to-code patterns (tokens, a11y, responsive, components) |
+| `design-sync` | Workflow | Figma design sync (extraction, implementation, fidelity review) |
 | `inner-flame` | Quality | Universal self-review protocol |
 | `ash-guide` | Reference | Agent invocation guide |
 | `tarnished` | Routing | Unified entry point — natural language to workflow |
@@ -486,13 +491,13 @@ rune-plugin/
     └── rune/                     # Main plugin
         ├── .claude-plugin/
         │   └── plugin.json       # Plugin manifest (v1.91.0)
-        ├── agents/               # 82 agent definitions
-        │   ├── review/           #   37 review agents
-        │   ├── investigation/    #   23 investigation agents
-        │   ├── utility/          #   11 utility agents
+        ├── agents/               # 89 agent definitions
+        │   ├── review/           #   40 review agents
+        │   ├── investigation/    #   24 investigation agents
+        │   ├── utility/          #   12 utility agents
         │   ├── research/         #    5 research agents
         │   ├── testing/          #    4 testing agents
-        │   └── work/             #    2 work agents
+        │   └── work/             #    4 work agents
         ├── skills/               # 33 skills
         ├── commands/             # 14 slash commands
         ├── hooks/                # Event-driven hooks

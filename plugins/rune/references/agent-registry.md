@@ -1,6 +1,6 @@
 # Agent Registry
 
-**Total: 86 agents** (39 review + 5 research + 2 work + 12 utility* + 24 investigation + 4 testing)
+**Total: 89 agents** (40 review + 5 research + 4 work + 12 utility* + 24 investigation + 4 testing)
 
 \* 12 utility agents includes 1 prompt-template-based agent (gap-fixer) without a dedicated .md file.
 
@@ -49,6 +49,7 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 | agent-parity-reviewer | Agent-native parity — orphan features, context starvation, sandbox isolation (PARITY-001 through PARITY-005) |
 | senior-engineer-reviewer | Persona-based senior engineer review — production thinking, temporal reasoning (SENIOR-001 through SENIOR-010) |
 | cross-shard-sentinel | Cross-shard consistency analysis — reads only shard summary JSONs, detects import mismatches, auth boundary gaps, naming drift (XSH-001+). Active only when Inscription Sharding is enabled (v1.98.0+) |
+| design-implementation-reviewer | Design-to-code fidelity — token compliance, layout matching, responsive coverage, accessibility, variant completeness (FIDE-001 through FIDE-010) |
 
 ## Research Agents (`agents/research/`)
 
@@ -66,6 +67,8 @@ Shared resources: [Review Checklist](../agents/review/references/review-checklis
 |-------|---------|
 | rune-smith | Code implementation (TDD-aware swarm worker) |
 | trial-forger | Test generation (swarm worker) |
+| design-sync-agent | Figma extraction and VSM creation (design swarm worker) |
+| design-iterator | Design fidelity iteration — screenshot→analyze→improve loop (design swarm worker) |
 
 ## Utility Agents (`agents/utility/`)
 

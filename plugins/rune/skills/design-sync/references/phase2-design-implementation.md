@@ -1,0 +1,155 @@
+# Phase 2: VSM-Guided Implementation
+
+Algorithm for creating frontend components from Visual Spec Maps (VSM).
+
+## Implementation Workflow
+
+### Step 1: VSM Parsing
+
+```
+1. Read VSM file for the target component
+2. Extract:
+   - Token map (design tokens to use)
+   - Region tree (component structure)
+   - Variant map (props to implement)
+   - Responsive spec (breakpoint behavior)
+   - Accessibility requirements
+   - Component dependencies (REUSE or EXTEND candidates)
+```
+
+### Step 2: Component Scaffolding
+
+```
+1. Determine component location:
+   - Check existing component directories (components/, src/components/, ui/)
+   - Match project convention for subdirectory (by domain, by type)
+
+2. Check for REUSE/EXTEND opportunities:
+   - Search component library for similar components
+   - If match >= 70% → EXTEND (add variant or compose)
+   - If match < 70% → CREATE new component
+
+3. Generate component skeleton:
+   - Props interface from VSM variant map
+   - Import statements for design tokens
+   - Base markup from region tree
+```
+
+### Step 3: Token Application
+
+```
+For each visual property in the VSM token map:
+  Apply the mapped token:
+  - Colors → className="bg-{token}" or style={{ color: 'var(--{token})' }}
+  - Spacing → className="p-{n} gap-{n}" or style with CSS custom property
+  - Typography → className="text-{size} font-{weight} leading-{n}"
+  - Shadows → className="shadow-{level}"
+  - Borders → className="rounded-{size} border-{width}"
+
+RULE: Never use hardcoded values. Every visual property must reference a token.
+If the VSM flags a value as "unmatched," use the closest token and add a TODO comment.
+```
+
+### Step 4: Layout Implementation
+
+```
+Map VSM region tree to markup:
+  FRAME (horizontal auto-layout) → <div className="flex flex-row gap-{n}">
+  FRAME (vertical auto-layout)   → <div className="flex flex-col gap-{n}">
+  FRAME (wrap)                   → <div className="flex flex-wrap gap-{n}">
+  FRAME (grid)                   → <div className="grid grid-cols-{n} gap-{n}">
+  TEXT                           → <p> / <h1-6> / <span> (based on context)
+  RECTANGLE                      → <div> with background/border styles
+  IMAGE fill                     → <img> with proper alt text
+
+Sizing:
+  Fixed → w-{n} h-{n} or w-[{n}px]
+  Fill container → flex-1
+  Hug contents → w-fit
+```
+
+### Step 5: Variant Implementation
+
+```
+For each prop in the VSM variant map:
+  1. Add to props interface with TypeScript type
+  2. Implement conditional styling per variant value
+  3. Set default to VSM-specified default
+
+Pattern (using cva or similar):
+  const variants = {
+    variant: {
+      primary: "bg-primary text-primary-foreground",
+      secondary: "bg-secondary text-secondary-foreground",
+    },
+    size: {
+      sm: "h-8 px-3 text-sm",
+      md: "h-10 px-4 text-base",
+      lg: "h-12 px-6 text-lg",
+    },
+  }
+```
+
+### Step 6: State Implementation
+
+```
+For each required state (from VSM accessibility section):
+  Loading → skeleton or spinner conditional
+  Error → error message with recovery action
+  Empty → empty state illustration with CTA
+  Disabled → reduced opacity, aria-disabled="true"
+
+Implementation pattern:
+  if (loading) return <Skeleton />
+  if (error) return <ErrorState message={error} onRetry={retry} />
+  if (!data?.length) return <EmptyState action={createNew} />
+  return <SuccessContent data={data} />
+```
+
+### Step 7: Responsive Implementation
+
+```
+For each breakpoint in VSM responsive spec:
+  Apply mobile-first utilities:
+  - Base (mobile) → no prefix
+  - md (768px) → md: prefix
+  - lg (1024px) → lg: prefix
+
+Example from VSM:
+  Mobile: flex-col, single column
+  Tablet: flex-row, 2 columns
+  Desktop: flex-row, 3 columns
+
+Implementation:
+  className="flex flex-col md:flex-row"
+  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+```
+
+### Step 8: Accessibility Implementation
+
+```
+From VSM accessibility requirements:
+  - Add ARIA attributes (role, aria-label, aria-expanded, etc.)
+  - Add keyboard event handlers (onKeyDown for Enter/Space/Escape)
+  - Ensure focus management (tabIndex, focus trap for modals)
+  - Set color contrast (verified by token selection)
+  - Add alt text for images, labels for inputs
+```
+
+## Quality Checks Before Completion
+
+```
+1. No hardcoded visual values (grep for hex, rgb, arbitrary px)
+2. All VSM tokens applied
+3. All variants from variant map implemented
+4. All 4 UI states handled (loading, error, empty, success)
+5. Responsive breakpoints match VSM spec
+6. Accessibility attributes present per VSM requirements
+7. Component registered (exported, Storybook story if applicable)
+```
+
+## Cross-References
+
+- [component-reuse-strategy.md](../../frontend-design-patterns/references/component-reuse-strategy.md) — REUSE > EXTEND > CREATE
+- [layout-alignment.md](../../frontend-design-patterns/references/layout-alignment.md) — Flex/Grid patterns
+- [vsm-spec.md](vsm-spec.md) — VSM schema
