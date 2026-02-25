@@ -138,3 +138,52 @@ If post-review confidence drops below 60, do NOT mark task complete — report b
 
 Self-review is ONE pass. If the review reveals issues, fix them and note in the log.
 Do not iterate the self-review itself — that leads to infinite loops.
+
+## Completeness Score (TaskCompleted Gate)
+
+The `TaskCompleted` Haiku gate scores Rune workflow task completions using a weighted 4-criterion formula. This score is computed by the gate — teammates do not need to calculate it. However, understanding the criteria helps teammates write better SEAL messages.
+
+### Score Formula
+
+```
+Completeness Score = (CriteriaMatch × 0.40) + (InnerFlamePass × 0.25) + (OutputCompleteness × 0.20) + (EvidenceQuality × 0.15)
+```
+
+### Criteria
+
+| Criterion | Weight | How to Pass |
+|-----------|--------|-------------|
+| **Criteria Match** | 0.40 | Task subject describes work matching the task description's acceptance criteria |
+| **Inner Flame Pass** | 0.25 | Output mentions Inner Flame self-review or a `<seal>` marker |
+| **Output Completeness** | 0.20 | Subject mentions specific deliverables (file paths, counts, decisions) |
+| **Evidence Quality** | 0.15 | Concrete artifacts mentioned (file names, line numbers, test results) |
+
+**Threshold**: 0.7 (configurable). Scores below 0.7 cause the gate to return `{"ok": false}`, blocking task completion.
+
+### Completeness Score Block Format
+
+The gate returns a structured JSON response. The score block in the gate response follows this format:
+
+```markdown
+## Completeness Score
+- Criteria Match: {N/M criteria met} = {score}
+- Inner Flame: {pass|partial|fail} = {score}
+- Output Completeness: {all sections present?} = {score}
+- Evidence Quality: {file:line refs / total claims} = {score}
+- **Overall**: {weighted average} ({above|below} threshold)
+```
+
+The JSON response includes:
+- `score` — overall weighted score (0.0–1.0)
+- `met` — list of acceptance criteria confirmed addressed
+- `partial` — list of criteria partially addressed
+- `missing` — list of criteria not addressed (cause of low score)
+
+### Impact on SEAL Format
+
+The scoring reinforces the existing SEAL convention. Include in your SEAL message:
+- Reference to Inner Flame self-review (`Inner-flame: pass/partial/fail`)
+- Specific file paths or artifact references (Evidence Quality)
+- A brief summary of what was delivered (Output Completeness)
+
+Non-Rune tasks (no `rune-`/`arc-` team prefix) are exempt from scoring — the gate applies legitimacy-only evaluation for those.
