@@ -122,7 +122,7 @@ ${blockedTasks.length > 0 ? `\n### Blocked Tasks\n${blockedTasks.map(t => `- [ ]
 - ${verificationWarnings.length === 0 ? "No verification warnings" : `${verificationWarnings.length} warnings`}
 ${(() => {
   // Read todo summary if it exists
-  const todoSummaryPath = `tmp/work/${timestamp}/todos/_summary.md`
+  const todoSummaryPath = `tmp/work/${timestamp}/worker-logs/_summary.md`
   const hasSummary = Bash(`test -f "${todoSummaryPath}" && echo "yes"`).trim() === "yes"
   if (hasSummary) {
     const summaryContent = Read(todoSummaryPath)
@@ -149,8 +149,9 @@ ${decisions ? decisions : ""}
 ${(() => {
   // Per-task file-todos status
   const talisman = readTalisman()
-  const todosDir = resolveTodosDir($ARGUMENTS, talisman, "work")
+  const todosDir = resolveTodosDir(workflowOutputDir, "work")
   const todoFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
+    .concat(Glob(`${todosDir}[0-9][0-9][0-9][0-9]-*.md`))
   if (todoFiles.length > 0) {
     const counts = { pending: 0, ready: 0, in_progress: 0, complete: 0, blocked: 0, wont_fix: 0 }
     for (const f of todoFiles) {

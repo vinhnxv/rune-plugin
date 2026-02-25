@@ -44,7 +44,7 @@ related_todos: []                   # Qualified IDs of related todos across sour
 workflow_chain: []                  # Ordered list of workflow events: ["{skill}:{timestamp}", ...]
 
 # --- NEW: Ordering metadata ---
-execution_order: null               # Computed by manifest build (topological sort position, null until computed). Check === null, not !execution_order (0 is valid)
+execution_order: null               # Computed by manifest build (topological sort position, 1-indexed, null until computed). Check === null, not !execution_order (0 is reserved sentinel)
 wave: null                          # Wave number assigned by strive/mend (null for manual todos). Multiple todos can share a wave.
 ---
 ```

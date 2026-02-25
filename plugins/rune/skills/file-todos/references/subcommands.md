@@ -177,7 +177,11 @@ fi
 
 Process pending todos in batch (capped at 10 per session). Supports resolution-aware decisions in v2.
 
-1. Scan all source subdirectories: `Glob("${todosBase}/*/[0-9][0-9][0-9]-*.md")`
+1. Scan all source subdirectories (both 3-digit and 4-digit IDs):
+   ```javascript
+   Glob("${todosBase}/*/[0-9][0-9][0-9]-*.md")
+     .concat(Glob("${todosBase}/*/[0-9][0-9][0-9][0-9]-*.md"))
+   ```
 2. Filter to `status: pending` (from frontmatter, NOT filename)
 3. Sort by priority (P1 first), then by `issue_id` (oldest first)
 4. If `talisman.file_todos.triage.auto_approve_p1 === true`:
@@ -341,6 +345,7 @@ Search across todo titles, problem statements, and work logs for matching text.
 3. Search using Grep across all source subdirectories:
 
 ```javascript
+// Search both 3-digit and 4-digit IDs
 Grep({
   pattern: sanitizedQuery,
   path: todosBase,
@@ -348,6 +353,14 @@ Grep({
   output_mode: "content",
   context: 2,
   "-i": true  // case-insensitive
+})
+Grep({
+  pattern: sanitizedQuery,
+  path: todosBase,
+  glob: "*/[0-9][0-9][0-9][0-9]-*.md",
+  output_mode: "content",
+  context: 2,
+  "-i": true
 })
 ```
 
@@ -585,7 +598,7 @@ The `.todo-index.json` v1 cache is replaced by per-source manifests in v2. Each 
 **Dirty signal per source**: Any sub-command that modifies a todo file writes `{todos_base}/{source}/.dirty` marker. On next `manifest build`, only dirty sources are rebuilt.
 
 **Rebuild protocol** (atomic):
-1. Scan `${todos_base}/${source}/[0-9][0-9][0-9]-*.md` files
+1. Scan `${todos_base}/${source}/[0-9][0-9][0-9]-*.md` and `[0-9][0-9][0-9][0-9]-*.md` files
 2. Parse frontmatter and compute DAG
 3. Write to temp file: `todos-${source}-manifest.json.tmp`
 4. Atomic rename: `mv todos-${source}-manifest.json.tmp todos-${source}-manifest.json`
