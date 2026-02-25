@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.97.0] - 2026-02-25
+
+### Changed
+- **Mandatory file-todos** — Removed `talisman.file_todos.enabled` gate from 41 locations across 15 files. File-todos are now always generated for work (strive) and review (appraise/audit). No talisman opt-in required. Suppress per-run with `--todos=false`
+- **Simplified file-todos config** — Removed `file_todos.enabled` and `file_todos.auto_generate` talisman keys. Only `file_todos.dir` (path override) and `file_todos.triage` remain configurable
+
+### Added
+- **Wave-based execution for strive** — Workers process todos in bounded waves (max 3 todos per worker per wave by default). Fresh workers spawned each wave to avoid context exhaustion. Single-wave optimization for small task sets (<9 tasks). New talisman key: `work.todos_per_worker` (default: 3)
+- **Wave-based execution for mend** — Fixers process findings in bounded waves (max 5 findings per fixer per wave by default). Fresh fixers spawned each wave. P1 findings prioritized across all waves. New talisman key: `mend.todos_per_fixer` (default: 5)
+- **2 new talisman keys** — `work.todos_per_worker` (default: 3) and `mend.todos_per_fixer` (default: 5) for wave capacity tuning
+
 ## [1.96.0] - 2026-02-25
 
 ### Added
