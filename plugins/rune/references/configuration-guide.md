@@ -259,6 +259,12 @@ Per-phase timeout values in milliseconds. Values are clamped to 10s–3600s rang
 | `ship` | number | 300000 | Phase 9: PR creation (5 min, v1.40.0+) |
 | `merge` | number | 600000 | Phase 9.5: Merge (10 min, v1.40.0+) |
 
+### `arc.batch.smart_ordering` — Smart plan ordering (v1.104.0)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable smart plan ordering in `/rune:arc-batch`. When enabled, Phase 1.5 reorders plans by file overlap isolation and `version_target` to reduce merge conflicts. CLI flag `--no-smart-sort` overrides this setting. Skipped on `--resume` to preserve partially-completed batch order. |
+
 ### `review` — Chunked review settings (v1.51.0+)
 
 Controls how large diffs are split into reviewable chunks to limit per-step context cost.

@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.104.0] - 2026-02-25
+
+### Added
+- **Smart Plan Ordering for `/rune:arc-batch`** (Tier 1) — Phase 1.5 reorders plans by file overlap isolation and `version_target` to reduce merge conflicts and version collisions. Isolated plans (no shared file targets) execute first, then conflicting plans sorted by ascending version target. Memory-only reordering — no file writes until Phase 5.
+- **`--no-smart-sort` flag** for `/rune:arc-batch` — preserves raw glob/queue order when smart ordering is undesirable. Independent from `--no-shard-sort` (both can be combined).
+- **`arc.batch.smart_ordering.enabled`** talisman config key — kill switch for smart ordering (default: `true`).
+- **`smart-ordering.md`** reference — Tier 1 algorithm documentation (skip conditions, 7-step algorithm, shard interaction, flag coexistence, Tier 1 limitations).
+- **Flag coexistence table** in arc-batch SKILL.md — documents `--no-smart-sort` / `--no-shard-sort` interaction matrix.
+
+### Changed
+- Arc-batch pipeline overview now includes Phase 1.5 between Phase 1 (preflight) and Phase 2 (dry run).
+- Known Limitation #2 updated to note smart ordering mitigation for version bump coordination.
+
+### Migration
+- Users relying on queue file order should pass `--no-smart-sort` when upgrading to v1.104.0.
+
 ## [1.103.0] - 2026-02-25
 
 ### Added

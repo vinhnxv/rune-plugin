@@ -474,6 +474,13 @@ arc:
       # max_content_lines: 30   # Reserved — currently hardcoded
       # dir: tmp/arc-batch/summaries  # Reserved — currently hardcoded
 
+    # Smart plan ordering (v1.104.0)
+    # Reorders plans by file overlap isolation and version_target to reduce merge conflicts.
+    # Runs as Phase 1.5 (after preflight, before dry-run). Memory-only — no file writes.
+    # CLI: --no-smart-sort overrides this setting.
+    smart_ordering:
+      enabled: true              # Enable smart plan ordering (default: true)
+
   # ── Gap Analysis settings (v1.51.0+) ──
   gap_analysis:
     inspectors: 2              # Number (1-4): spawn first N from priority list (grace-warden > ruin-prophet > sight-oracle > vigil-keeper). Or array of names: ["grace-warden", "ruin-prophet", "sight-oracle", "vigil-keeper"]
