@@ -58,7 +58,9 @@ source "${SCRIPT_DIR}/resolve-session-identity.sh"
 # ── Helper: Extract a YAML frontmatter field value (single-line, simple values only) ──
 _get_fm_field() {
   local fm="$1" field="$2"
-  echo "$fm" | grep "^${field}:" | sed "s/^${field}:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' | head -1
+  # || true: grep returning no match (exit 1) must not trigger ERR trap (set -euo pipefail)
+  # Without this, callers outside `if` conditions (lines 94, 105) would exit 0 via ERR trap
+  echo "$fm" | grep "^${field}:" | sed "s/^${field}:[[:space:]]*//" | sed 's/^"//' | sed 's/"$//' | head -1 || true
 }
 
 # ── Helper: Check if this session owns a loop state file ──
@@ -85,8 +87,14 @@ _check_loop_ownership() {
 
 # ── GUARD 5: Defer to arc-batch stop hook (with ownership check) ──
 if _check_loop_ownership "${CWD}/.claude/arc-batch-loop.local.md"; then
-  # This session owns the batch — defer to arc-batch-stop-hook.sh
-  exit 0
+  _batch_active=$(_get_fm_field "$_LOOP_FM" "active")
+  if [[ "$_batch_active" == "true" ]]; then
+    # This session owns an active batch — defer to arc-batch-stop-hook.sh
+    exit 0
+  else
+    # Not active (completed/cancelled) — clean up orphaned file
+    rm -f "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null
+  fi
 fi
 
 # ── GUARD 5b: Defer to arc-hierarchy stop hook (with ownership check) ──
