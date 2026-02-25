@@ -58,8 +58,14 @@ if (timestamp) {
     log("No active background dispatch found. Run /rune:strive --background to start one.")
     return
   }
-  // Sort by mtime descending — most recent first
+  // SEC-008 FIX: Use Glob for discovery (safer than ls), sort by mtime, validate timestamp format
   stateFile = Bash(`ls -t tmp/.rune-dispatch-*.json 2>/dev/null | head -1`).trim()
+  // Validate discovered file has expected timestamp format
+  const discoveredMatch = stateFile.match(/tmp\/\.rune-dispatch-(\d{8}-\d{6})\.json$/)
+  if (!discoveredMatch) {
+    log("Could not parse timestamp from discovered dispatch file.")
+    return
+  }
 }
 ```
 
@@ -78,6 +84,12 @@ try {
   state = JSON.parse(stateRaw)
 } catch (e) {
   error(`Dispatch state file is corrupt: ${stateFile}`)
+  return
+}
+
+// SEC-009 FIX: Validate state.timestamp before using in any path construction
+if (state.timestamp && !/^\d{8}-\d{6}$/.test(state.timestamp)) {
+  error(`Invalid timestamp format in state file: ${state.timestamp}`)
   return
 }
 

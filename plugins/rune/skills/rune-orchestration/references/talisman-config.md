@@ -13,7 +13,7 @@ Controls worker question relay protocol (Forge Revision 1 — SendMessage-based)
 question_relay:
   enabled: true                        # Default: true. Set false to disable question relay entirely.
   timeout_seconds: 180                 # How long a worker waits for an answer before auto-resolving (default: 180s = 3 min).
-  poll_interval_seconds: 30            # How often workers check for answers in background mode (default: 30s).
+  poll_interval_seconds: 15            # DOC-004 FIX: Fast-path signal scan interval (default: 15s). Matches question-relay.md and SKILL.md.
   auto_answer_on_timeout: true         # If true, worker resumes with best-judgment answer on timeout (default: true).
                                        # If false, worker marks task BLOCKED on unanswered question timeout.
   max_questions_per_worker: 3          # Max questions a worker may ask per task session (SEC-006, default: 3).
@@ -72,7 +72,7 @@ version: 1
 question_relay:
   enabled: true
   timeout_seconds: 180
-  poll_interval_seconds: 30
+  poll_interval_seconds: 15     # DOC-004 FIX: matches spec default (15s)
   auto_answer_on_timeout: true
   max_questions_per_worker: 3
 

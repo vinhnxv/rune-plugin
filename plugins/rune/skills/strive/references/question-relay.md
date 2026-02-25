@@ -189,11 +189,12 @@ files as a compaction recovery mechanism only:
 
 ```javascript
 // Fast-path: scan for unanswered .question files (compaction recovery)
-const questionFiles = Glob(`${signalDir}/*.question(N)`)
+// SEC-014 FIX: Remove (N) zsh qualifier — Glob() tool natively returns empty array on no match
+const questionFiles = Glob(`${signalDir}/*.question`)
 for (const qFile of questionFiles) {
   const baseName = qFile.split('/').pop()
   const answerFile = qFile.replace('.question', '.answer')
-  const answerExists = Glob(`${answerFile}(N)`).length > 0
+  const answerExists = Glob(answerFile).length > 0
   if (!answerExists) {
     // Unanswered question detected from persistence layer
     // This means compaction occurred while a question was pending
@@ -220,13 +221,14 @@ for (const qFile of questionFiles) {
 const workerQuestionCounts = {}  // { workerName: number }
 
 function onWorkerQuestion(workerName, taskId, question) {
+  const cap = talisman?.question_relay?.max_questions_per_worker ?? 3  // SEC-006 FIX: define cap variable
   const count = (workerQuestionCounts[workerName] || 0) + 1
-  if (count > (talisman?.question_relay?.max_questions_per_worker ?? 3)) {
+  if (count > cap) {
     // Cap exceeded — relay advisory to worker (not a hard block)
     SendMessage({
       type: "message",
       recipient: workerName,
-      content: `ANSWER: Question cap exceeded (max ${max} per worker). Make best-effort decision and mark as "assumed — needs review" in your Seal.
+      content: `ANSWER: Question cap exceeded (max ${cap} per worker). Make best-effort decision and mark as "assumed — needs review" in your Seal.
 TASK: ${taskId}
 DECIDED_BY: cap-exceeded`,
       summary: `Question cap exceeded for ${workerName}`
@@ -275,15 +277,19 @@ async function relayQuestionToUser(question, signalDir) {
   }
 
   // Persist answer for compaction recovery (atomic write)
+  // SEC-002 FIX: Write answer to temp file, then use jq --rawfile to avoid shell injection
   const seq = question.seq
+  const answerTmpFile = `${signalDir}/.answer-content.tmp`
+  Write(answerTmpFile, answerText)
   const tmpFile = Bash(`mktemp "${signalDir}/.a-XXXXXX.tmp"`).trim()
   Bash(`jq -n \
     --arg task_id    "${question.task_id}" \
-    --arg answer     "${answerText}" \
+    --rawfile answer "${answerTmpFile}" \
     --arg decided_by "${decidedBy}" \
     --arg seq        "${seq}" \
     '{task_id: $task_id, answer: $answer, decided_by: $decided_by, seq: ($seq | tonumber)}' \
     > "${tmpFile}" && mv "${tmpFile}" "${signalDir}/${question.task_id}.q${seq}.answer"`)
+  Bash(`rm -f "${answerTmpFile}"`)
 }
 ```
 

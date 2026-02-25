@@ -72,12 +72,20 @@ const contextBody = buildContextBody(currentState)  // worker-authored summary
 const truncatedBody = contextBody.slice(0, 4000)
 
 // 4. Stash partial work (not WIP commits — per FAIL-006)
+//    SEC-004/SEC-012: Validate taskId and arcCheckpointId before shell interpolation and path construction
+if (!/^[a-zA-Z0-9_-]+$/.test(taskId)) throw new Error("Invalid taskId format")
+if (!/^[a-zA-Z0-9_-]+$/.test(arcCheckpointId)) throw new Error("Invalid arcCheckpointId format")
+if (!contextPath.startsWith('tmp/work/') || contextPath.includes('..')) throw new Error("Context path traversal detected")
 Bash(`git stash push -m "rune-suspend-task-${taskId}-$(date +%s)"`)
 
 // 5. Atomic write with integrity hash (FAIL-002)
 //    Compute hash with placeholder, then write actual hash
+//    SEC-001 FIX: Write to temp file and hash from file — avoids shell injection via worker content
 const placeholder = buildContextFile({ filesModified, filePending, truncatedBody, sha256: "" })
-const actualSha256 = Bash(`echo -n "${placeholder}" | sha256sum | cut -d' ' -f1`).trim()
+const hashTmpFile = `${contextPath}.hash.tmp`
+Write(hashTmpFile, placeholder)
+const actualSha256 = Bash(`sha256sum < "${hashTmpFile}" | cut -d' ' -f1`).trim()
+Bash(`rm -f "${hashTmpFile}"`)
 const finalContent = placeholder.replace('content_sha256: ""', `content_sha256: "${actualSha256}"`)
 
 // Atomic write: write to tmp file, then mv (FAIL-002)
@@ -149,9 +157,18 @@ for (const { taskId, contextPath } of suspendedTasks) {
   const contextMeta = parseYamlFrontmatter(contextRaw)
 
   // Integrity check (FAIL-002)
+  // SEC-007 FIX: Anchor regex to frontmatter section only to prevent body injection
   const storedSha = contextMeta.content_sha256
-  const contentForHash = contextRaw.replace(/content_sha256: ".+"/, 'content_sha256: ""')
-  const actualSha = Bash(`echo -n "${contentForHash}" | sha256sum | cut -d' ' -f1`).trim()
+  const fmEnd = contextRaw.indexOf('---', 3)
+  const frontmatter = contextRaw.slice(0, fmEnd)
+  const body = contextRaw.slice(fmEnd)
+  const frontmatterForHash = frontmatter.replace(/content_sha256: ".+"/, 'content_sha256: ""')
+  const contentForHash = frontmatterForHash + body
+  // SEC-013 FIX: Use temp file for hashing — avoids shell injection via worker content
+  const resumeHashTmp = `${contextPath}.resume-hash.tmp`
+  Write(resumeHashTmp, contentForHash)
+  const actualSha = Bash(`sha256sum < "${resumeHashTmp}" | cut -d' ' -f1`).trim()
+  Bash(`rm -f "${resumeHashTmp}"`)
   if (storedSha !== actualSha) {
     warn(`Task #${taskId}: context file integrity check FAILED. Resetting to cold start.`)
     TaskUpdate({ taskId, status: "pending", owner: "", metadata: { suspended: false, context_path: null } })

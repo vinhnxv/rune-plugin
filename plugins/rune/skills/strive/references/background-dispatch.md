@@ -71,10 +71,19 @@ state file, the orchestrator checks for an existing lock:
 ```javascript
 // PERF-005: Single active dispatch per session
 const lockFiles = Glob("tmp/.rune-dispatch-*.lock")
+const currentPid = Bash("echo $PPID").trim()
 const activeLocks = lockFiles.filter(f => {
   try {
     const lock = JSON.parse(Read(f))
-    return lock.owner_pid === Bash("echo $PPID").trim() && lock.status === "active"
+    // SEC-003 FIX: Verify PID liveness before treating lock as active
+    if (lock.status !== "active") return false
+    const pidAlive = Bash(`kill -0 ${lock.owner_pid} 2>/dev/null && echo "alive" || echo "dead"`).trim()
+    if (pidAlive === "dead") {
+      // Orphan lock — prior session is dead, clean up
+      Bash(`rm -f "${f}"`)
+      return false
+    }
+    return lock.owner_pid === currentPid
   } catch { return false }
 })
 
@@ -86,15 +95,18 @@ if (activeLocks.length > 0) {
   return
 }
 
-// Write lock file (SEC-005: owner-only permissions)
-Bash(`mkdir -m 700 -p tmp/ && touch tmp/.rune-dispatch-${timestamp}.lock`)
-Write(`tmp/.rune-dispatch-${timestamp}.lock`, JSON.stringify({
+// SEC-005 FIX: Atomic lock write — write to temp file then mv (prevents race window)
+Bash(`mkdir -m 700 -p tmp/`)
+const lockContent = JSON.stringify({
   timestamp,
-  owner_pid: Bash("echo $PPID").trim(),
+  owner_pid: currentPid,
   session_id: "${CLAUDE_SESSION_ID}",
   status: "active",
   created_at: new Date().toISOString()
-}))
+})
+const lockTmpPath = `tmp/.rune-dispatch-${timestamp}.lock.tmp`
+Write(lockTmpPath, lockContent)
+Bash(`mv "${lockTmpPath}" "tmp/.rune-dispatch-${timestamp}.lock"`)
 ```
 
 Lock file is removed when `--collect` gathers results or when the dispatch is explicitly cancelled.
@@ -132,9 +144,18 @@ tmp/work/{timestamp}/questions/{task-id}.question   # worker writes question
 tmp/work/{timestamp}/questions/{task-id}.answer     # orchestrator or user writes answer
 ```
 
-**SEC-006**: Workers may ask at most 3 questions per task. After 3 unanswered questions,
+**SEC-006**: Workers may ask at most 3 questions per task (configured via
+`question_relay.max_questions_per_worker` in talisman.yml). After the cap is reached,
 the worker auto-resolves using its best judgment and logs the decision in its worker log.
 This prevents unbounded blocking in background mode.
+
+**QUAL-003: Background vs Foreground Path Difference**: In foreground mode, question/answer
+persistence uses the signal directory at `tmp/.rune-signals/rune-work-{timestamp}/`. In
+background mode, workers write to `tmp/work/{timestamp}/questions/` instead. The signal
+directory is orchestrator-owned (for compaction recovery), while the questions directory is
+worker-owned (for file-based IPC when no user session exists). The compaction recovery scan
+in `question-relay.md` only reads from the signal directory — it will NOT discover
+background-mode question files.
 
 ---
 
@@ -184,10 +205,11 @@ Configure background dispatch under `dispatch:` in `.claude/talisman.yml`:
 ```yaml
 dispatch:
   enabled: true                          # Default: true. Set false to disable --background flag.
-  default_mode: background               # "background" | "foreground". Default: foreground.
+  default_mode: foreground               # QUAL-007 FIX: "background" | "foreground". Default: foreground.
+                                         # Change to "background" to make --background the default for all strive runs.
   auto_collect_on_complete: true         # Auto-run --collect after all workers finish. Default: true.
   status_poll_interval_seconds: 30       # /rune:status refresh interval. Default: 30.
-  question_cap: 3                        # Max questions per worker in background mode (SEC-006). Default: 3.
+  # DOC-003 FIX: question cap is configured via question_relay.max_questions_per_worker (not here)
   lock_enforcement: true                 # Enforce single active dispatch per session (PERF-005). Default: true.
 ```
 

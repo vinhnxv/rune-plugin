@@ -16,7 +16,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[plan-path] [--approve] [--worktree]"
+argument-hint: "[plan-path] [--approve] [--worktree] [--background|-bg] [--collect]"
 allowed-tools:
   - Task
   - TaskCreate
