@@ -107,6 +107,19 @@ Where `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`.
 
 See [references/read-talisman.md](references/read-talisman.md).
 
+### resolveModelForAgent()
+
+Centralized model selection based on `cost_tier` config. Maps agent name → category → tier → model string.
+
+**Inputs**: `agentName` (string), `talisman` (parsed talisman.yml)
+**Outputs**: `"opus"` | `"sonnet"` | `"haiku"`
+**Tiers**: `opus` (all agents on strongest), `balanced` (default — truth-tellers on Opus, others on Sonnet/Haiku), `efficient` (Sonnet primary, Haiku for mechanical), `minimal` (Haiku for most, Sonnet for reasoning-heavy)
+**Categories**: 8 agent categories (truth-tellers, deep-analysis, standard-review, code-workers, research, tracers, utility, testing)
+**Exception**: `test-failure-analyst` gets elevated model (opus/opus/sonnet/sonnet across tiers)
+**Fallback**: Unknown agents → tier default. Invalid tier → `"balanced"`.
+
+See [references/cost-tier-mapping.md](references/cost-tier-mapping.md) for the full category-to-tier map, agent assignments, and pseudocode.
+
 ## Versioning & Pre-Commit Checklist
 
 Every change to this plugin MUST include updates to all four files:

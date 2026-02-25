@@ -135,7 +135,7 @@ const workersToSpawn = Math.min(maxWorkers, componentsToIterate.length)
 
 for (let i = 0; i < workersToSpawn; i++) {
   Task({
-    subagent_type: "general-purpose", model: "sonnet",
+    subagent_type: "general-purpose", model: resolveModelForAgent("design-iterator", talisman),  // Cost tier mapping
     name: `design-iter-${i + 1}`, team_name: `arc-design-iterate-${id}`,
     prompt: `You are design-iter-${i + 1}. Iteratively refine component implementations to match VSM specs.
       Max iterations per component: ${maxIterations}

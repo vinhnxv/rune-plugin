@@ -307,7 +307,7 @@ if (hasCodeBlocks) {
       team_name: layer2TeamName,
       name: inspector,
       subagent_type: "general-purpose",
-      model: "sonnet",
+      model: resolveModelForAgent(inspector, talisman),  // Cost tier mapping (references/cost-tier-mapping.md)
       prompt: loadTemplate(templatePath, {
         plan_path: enrichedPlanPath,
         output_path: `tmp/arc/${id}/plan-inspect-${inspector}.md`,

@@ -1230,7 +1230,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(inspectTeamName)) {
       subagent_type: "general-purpose",
       team_name: inspectTeamName,
       name: inspector,
-      model: "sonnet",
+      model: resolveModelForAgent(inspector, talisman),  // Cost tier mapping
       run_in_background: true
     })
   }
@@ -1287,7 +1287,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(inspectTeamName)) {
       subagent_type: "general-purpose",
       team_name: inspectTeamName,
       name: "verdict-binder",
-      model: "sonnet",
+      model: resolveModelForAgent("verdict-binder", talisman),  // Cost tier mapping
       run_in_background: true
     })
 

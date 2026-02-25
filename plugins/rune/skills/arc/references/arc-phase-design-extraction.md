@@ -95,7 +95,7 @@ const maxWorkers = designConfig.max_extraction_workers ?? 2
 
 for (let i = 0; i < maxWorkers; i++) {
   Task({
-    subagent_type: "general-purpose", model: "sonnet",
+    subagent_type: "general-purpose", model: resolveModelForAgent("design-sync-agent", talisman),  // Cost tier mapping
     name: `design-syncer-${i + 1}`, team_name: `arc-design-extract-${id}`,
     prompt: `You are design-syncer-${i + 1}. Extract Figma design specs and create VSM files.
       Figma URL: ${figmaUrl}

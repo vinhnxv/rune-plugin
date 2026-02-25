@@ -79,7 +79,7 @@ for (const vsm of vsmFiles) {
 // ═══════════════════════════════════════════════════════
 
 Task({
-  subagent_type: "general-purpose", model: "sonnet",
+  subagent_type: "general-purpose", model: resolveModelForAgent("design-implementation-reviewer", talisman),  // Cost tier mapping
   name: "design-reviewer-1", team_name: `arc-design-verify-${id}`,
   prompt: `You are design-reviewer-1. Review component implementations against VSM specs.
     VSM directory: tmp/arc/${id}/vsm/

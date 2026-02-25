@@ -174,6 +174,7 @@ for (const ash of selectedAsh) {
     team_name: teamName,
     name: ash,  // slug name, no wave suffix
     subagent_type: "general-purpose",
+    model: resolveModelForAgent(ash, talisman),  // Cost tier mapping (references/cost-tier-mapping.md)
     prompt: buildAshPrompt(ash, { scope, outputDir, fileList, dirScope, customPromptBlock }),
     run_in_background: true
   })
@@ -251,6 +252,7 @@ for (const wave of waves) {
       team_name: wave.waveNumber === 1 ? teamName : `${teamName}-w${wave.waveNumber}`,
       name: ash.slug,  // NO -w1 suffix — preserves hook compatibility
       subagent_type: "general-purpose",
+      model: resolveModelForAgent(ash.name, talisman),  // Cost tier mapping
       prompt: buildAshPrompt(ash.name, { scope, outputDir, fileList, priorFindings, dirScope, customPromptBlock }),
       run_in_background: true
     })
@@ -338,6 +340,7 @@ Task({
   team_name: teamName,  // May need to re-create team for final aggregation
   name: "runebinder",
   subagent_type: "general-purpose",
+  model: resolveModelForAgent("runebinder", talisman),  // Cost tier mapping
   prompt: `Read all findings from ${outputDir}.
     Deduplicate using hierarchy from dedup-runes.md.
     ${depth === "deep"

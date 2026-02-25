@@ -101,7 +101,7 @@ for (const { inspector, taskId, reqIds } of tasks) {
     subagent_type: "general-purpose",
     team_name: teamName,
     name: inspector,
-    model: "sonnet",
+    model: resolveModelForAgent(inspector, talisman),  // Cost tier mapping
     run_in_background: true
   })
 }
@@ -212,7 +212,7 @@ Task({
   subagent_type: "general-purpose",
   team_name: fixerTeamName,
   name: "gap-fixer",
-  model: "sonnet",
+  model: resolveModelForAgent("gap-fixer", talisman),  // Cost tier mapping
   run_in_background: true
 })
 

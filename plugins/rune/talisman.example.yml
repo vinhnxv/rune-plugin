@@ -9,6 +9,19 @@
 version: 1
 
 # ──────────────────────────────────────────────
+# Cost Tier — Agent model selection
+# ──────────────────────────────────────────────
+# Controls which Claude model each agent category uses when spawned.
+# One switch, four profiles:
+#   opus     — Maximum quality, all agents on strongest model (~100% cost)
+#   balanced — Strategic mix: truth-tellers on Opus, others on Sonnet/Haiku (~35-40% cost) [default]
+#   efficient — Save money: Sonnet primary, Haiku for mechanical tasks (~20-25% cost)
+#   minimal  — Maximum savings: Haiku for most, Sonnet for reasoning-heavy (~15-20% cost)
+# See references/cost-tier-mapping.md for full agent-to-category-to-model mapping.
+# Does NOT affect: main session model, Custom Ashes, or Codex Oracle.
+# cost_tier: balanced    # Omit or comment out to use "balanced" (the default)
+
+# ──────────────────────────────────────────────
 # Rune Gaze — File classification overrides
 # ──────────────────────────────────────────────
 rune-gaze:
