@@ -22,6 +22,7 @@ description: |
   assistant: "I'll use rune-orchestration for audit agent coordination and output format"
   </example>
 user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Task
   - Read

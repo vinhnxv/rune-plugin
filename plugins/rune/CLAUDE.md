@@ -193,6 +193,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `Stop` | `scripts/arc-hierarchy-stop-hook.sh` | ARC-HIERARCHY-LOOP: Drives the arc-hierarchy loop via Stop hook pattern. Reads `.claude/arc-hierarchy-loop.local.md` state file, verifies child provides() contracts, constructs next child arc prompt, re-injects via blocking JSON. Includes session isolation guard. Runs BEFORE on-session-stop.sh. |
 | `Stop` | `scripts/arc-issues-stop-hook.sh` | ARC-ISSUES-LOOP: Drives the arc-issues loop via Stop hook pattern. Reads `.claude/arc-issues-loop.local.md` state file, marks current issue completed, posts GitHub comment, updates labels, constructs next arc prompt. Includes session isolation guard. Runs BEFORE on-session-stop.sh. |
 | `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. Filters cleanup by session ownership. One-shot design prevents infinite loops via `stop_hook_active` flag. |
+| `Notification:statusline` | `scripts/rune-statusline.sh` | Context statusline producer. Writes session metrics (used%, remaining%, cost) to bridge file for `rune-context-monitor.sh` consumer. Outputs colored progress bar with workflow status. |
 
 **Seal Convention**: Ashes emit `<seal>TAG</seal>` as the last line of output for deterministic completion detection. See `roundtable-circle/references/monitor-utility.md` "Seal Convention" section.
 

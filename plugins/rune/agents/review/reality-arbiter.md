@@ -17,6 +17,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 
 # Reality Arbiter — Production Viability Agent

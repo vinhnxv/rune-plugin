@@ -17,6 +17,7 @@ description: |
   assistant: "Loading roundtable-circle for Agent Teams review orchestration"
   </example>
 user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Task
   - TaskCreate

@@ -21,6 +21,7 @@ description: |
   <commentary>polling-guard skill explains why POLL-001 fires and the correct alternative.</commentary>
   </example>
 user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Read
   - Glob

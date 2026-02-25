@@ -385,18 +385,21 @@ def merge_text_segments(
 # ---------------------------------------------------------------------------
 
 
-def _has_vector_children(node: FigmaNodeBase) -> bool:
+def _has_vector_children(node: FigmaNodeBase, _depth: int = 0) -> bool:
     """Check if a node's subtree contains only vector primitives.
 
     Args:
         node: Figma node to check.
+        _depth: Internal recursion depth counter.
 
     Returns:
         True if all children (recursively) are vector types.
     """
+    if _depth > _MAX_PARSE_DEPTH:
+        return False
     if not node.children:
         return node.type in _VECTOR_TYPES
-    return all(_has_vector_children(child) for child in node.children)
+    return all(_has_vector_children(child, _depth + 1) for child in node.children)
 
 
 def _detect_icon_candidate(node: FigmaNodeBase) -> bool:
@@ -481,10 +484,14 @@ def _can_be_flattened(node: FigmaIRNode) -> bool:
     return True
 
 
+_MAX_PARSE_DEPTH = 100  # BACK-P3-004: Guard against pathological nesting
+
+
 def parse_node(
     raw: Dict[str, Any],
     parent_rotation: float = 0.0,
     deduplicator: Optional[_NameDeduplicator] = None,
+    _depth: int = 0,
 ) -> Optional[FigmaIRNode]:
     """Parse a raw Figma API node dict into an IR node.
 
@@ -500,10 +507,14 @@ def parse_node(
         parent_rotation: Accumulated rotation from ancestor nodes.
         deduplicator: Name deduplication tracker. Created automatically
             for the root call.
+        _depth: Internal recursion depth counter.
 
     Returns:
         Parsed FigmaIRNode, or None if the node type is unsupported.
     """
+    if _depth > _MAX_PARSE_DEPTH:
+        logger.warning("Max parse depth (%d) exceeded, skipping subtree", _MAX_PARSE_DEPTH)
+        return None
     if not isinstance(raw, dict):
         logger.debug("parse_node received non-dict argument: %r", type(raw))
         return None
@@ -603,7 +614,7 @@ def parse_node(
 
     # Recursively parse children
     for child_raw in raw.get("children", []):
-        child = parse_node(child_raw, cumulative_rotation, deduplicator)
+        child = parse_node(child_raw, cumulative_rotation, deduplicator, _depth + 1)
         if child is not None:
             ir_node.children.append(child)
 

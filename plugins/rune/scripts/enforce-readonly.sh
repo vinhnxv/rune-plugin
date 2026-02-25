@@ -16,10 +16,11 @@ set -euo pipefail
 umask 077
 
 # Pre-flight: jq is required for JSON parsing.
-# If missing, exit 0 (non-blocking) — allow rather than crash.
+# If missing, exit 2 (blocking) — deny rather than silently disable enforcement.
+# This is a SECURITY-CRITICAL hook: failing open would bypass SEC-001 protection.
 if ! command -v jq &>/dev/null; then
-  echo "WARNING: jq not found — enforce-readonly.sh hook is inactive" >&2
-  exit 0
+  echo "ERROR: jq not found — enforce-readonly.sh requires jq. Install jq to enable SEC-001 protection." >&2
+  exit 2
 fi
 
 INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read

@@ -17,6 +17,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 
 # Entropy Prophet — Long-term Consequence Agent

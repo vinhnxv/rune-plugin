@@ -18,6 +18,7 @@ description: |
   assistant: "Loading context-weaving for session compression"
   </example>
 user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Task
   - Read

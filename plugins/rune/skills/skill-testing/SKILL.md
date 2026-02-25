@@ -10,6 +10,7 @@ description: |
   skills, agent bypass, rule evasion, skill audit, bulletproofing, writing skills.
 user-invocable: true
 disable-model-invocation: true
+allowed-tools: Read, Glob, Grep
 ---
 
 # Skill Testing Framework

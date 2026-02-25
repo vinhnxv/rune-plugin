@@ -48,6 +48,7 @@ if command -v jq &>/dev/null; then
   ESCAPED_CONTENT=$(printf '%s' "$CONTENT" | jq -Rs '.' | sed 's/^"//;s/"$//')
 else
   # Fallback: manual escaping for named control chars
+  # SEC-P3-003: Also strip remaining C0 control chars (U+0000-U+001F) via tr
   json_escape() {
     local s="$1"
     s="${s//\\/\\\\}"
@@ -57,6 +58,8 @@ else
     s="${s//$'\t'/\\t}"
     s="${s//$'\b'/\\b}"
     s="${s//$'\f'/\\f}"
+    # Strip any remaining control chars not covered above (null, BEL, etc.)
+    s=$(printf '%s' "$s" | tr -d '\000-\010\016-\037')
     printf '%s' "$s"
   }
   ESCAPED_CONTENT=$(json_escape "$CONTENT")

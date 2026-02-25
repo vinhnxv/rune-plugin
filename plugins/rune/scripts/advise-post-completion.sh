@@ -52,7 +52,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 source "${SCRIPT_DIR}/resolve-session-identity.sh"
 
 # --- Debounce: once per session ---
-FLAG_FILE="/tmp/rune-postcomp-$(id -u)-${SESSION_ID}.json"
+# SEC-P3-005: Use TMPDIR (non-predictable on macOS) + UID-scoped path
+FLAG_FILE="${TMPDIR:-/tmp}/rune-postcomp-$(id -u)-${SESSION_ID}.json"
 
 # Symlink guard on flag file
 if [[ -L "$FLAG_FILE" ]]; then

@@ -23,6 +23,7 @@ description: |
   <commentary>zsh-compat explains why ZSH-001 fires and the correct alternative.</commentary>
   </example>
 user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Read
   - Glob

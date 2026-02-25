@@ -10,8 +10,6 @@ tools:
   - Read
   - Glob
   - Grep
-skills:
-  - inner-flame
 mcpServers:
   - echo-search
 ---
