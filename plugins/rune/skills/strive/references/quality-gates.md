@@ -43,14 +43,14 @@ After all tasks complete, run project-wide quality gates. See [ward-check.md](..
 
 ## Phase 4.1: Todo Summary Generation (orchestrator-only)
 
-After ward check passes and all workers have exited, the orchestrator generates `todos/_summary.md` by reading all per-worker todo files. This runs AFTER all workers exit to avoid TOCTOU race conditions.
+After ward check passes and all workers have exited, the orchestrator generates `worker-logs/_summary.md` by reading all per-worker log files. This runs AFTER all workers exit to avoid TOCTOU race conditions.
 
 See [todo-protocol.md](todo-protocol.md) for the full summary generation algorithm, frontmatter schema, PR integration, and Phase 6 safety net.
 
-**Inputs**: All `todos/{worker-name}.md` files in `tmp/work/{timestamp}/todos/`
-**Outputs**: `tmp/work/{timestamp}/todos/_summary.md`
+**Inputs**: All `{worker-name}.md` files in `tmp/work/{timestamp}/worker-logs/`
+**Outputs**: `tmp/work/{timestamp}/worker-logs/_summary.md`
 **Preconditions**: Ward check passed (Phase 4), all workers completed/shutdown
-**Error handling**: Missing or unparseable todo file → skip that worker in summary (warn). Empty todos dir → skip summary generation entirely (non-blocking).
+**Error handling**: Missing or unparseable worker log file → skip that worker in summary (warn). Empty worker-logs dir → skip summary generation entirely (non-blocking).
 
 ---
 

@@ -167,12 +167,12 @@ If `worker-logs/_summary.md` exists, append a collapsible Work Session section t
 <details>
 <summary>{workers} workers completed {completed_tasks}/{total_tasks} tasks ({completed_subtasks}/{total_subtasks} subtasks)</summary>
 
-{contents of todos/_summary.md Progress Overview table}
+{contents of worker-logs/_summary.md Progress Overview table}
 
 </details>
 
 ### Key Decisions
-{3-5 decisions from todos/_summary.md that introduced new dependencies, changed architecture, or deviated from plan}
+{3-5 decisions from worker-logs/_summary.md that introduced new dependencies, changed architecture, or deviated from plan}
 
 ### Known Issues
 {any failed tasks or incomplete subtasks from summary}
