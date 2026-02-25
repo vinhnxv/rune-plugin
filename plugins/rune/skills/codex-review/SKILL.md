@@ -77,7 +77,7 @@ BINDING CONSTRAINTS:
 Orchestrate a cross-model code review using both Claude Code agents and OpenAI Codex
 agents in parallel. Cross-verify findings between models for higher-confidence results.
 
-**Load skills**: `codex-cli`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `polling-guard`, `zsh-compat`
+**Load skills**: `codex-cli`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `polling-guard`, `zsh-compat`, `inner-flame`
 
 ## Flags
 
@@ -163,7 +163,7 @@ const positionalArg = getPositionalArg(args)  // first non-flag argument
 ### Setup
 
 ```javascript
-const identifier = generateIdentifier()  // YYYYMMDD-HHMMSS
+const identifier = generateIdentifier()  // YYYYMMDD-HHMMSS-{shortSession} (first 4 chars of session nonce)
 const REVIEW_DIR = `tmp/codex-review/${identifier}/`
 Bash(`mkdir -p ${REVIEW_DIR}/claude ${REVIEW_DIR}/codex`)
 ```
@@ -343,7 +343,7 @@ for (const agent of codexAgents) {
 ### Readonly Enforcement
 
 ```javascript
-// Block all agents from modifying codebase during review (SEC-001)
+// SEC-001: Write tools blocked for review Ashes via enforce-readonly.sh hook when .readonly-active marker exists
 Bash(`mkdir -p tmp/.rune-signals/${teamName}`)
 Write(`tmp/.rune-signals/${teamName}/.readonly-active`, "active")
 ```
@@ -386,7 +386,7 @@ Report findings based on CODE BEHAVIOR only.
 ## Review Scope
 - Scope type: {scopeType}
 - Files: {fileList.join('\n')}
-{if customPrompt: ## Custom Instructions\n{customPrompt}}
+{if customPrompt: ## Custom Instructions\n{sanitizeUntrustedText(customPrompt, 2000)}}
 
 <!-- NONCE:{nonce}:BEGIN -->
 {diffContent or fileContents}
@@ -484,35 +484,18 @@ for (let i = 0; i < codexAgents.length; i++) {
 
 ### Monitoring Loop
 
-```javascript
-// Phase 2b: Poll until all agents complete
-const POLL_INTERVAL = 30_000  // 30s
-const timeout = codexReviewConfig?.timeout || 900_000  // 15 min (covers Codex timeout cascade)
-const MAX_ITERATIONS = Math.ceil(timeout / POLL_INTERVAL)
-const totalAgents = claudeAgents.length + codexAgents.length
+Uses the shared polling utility — see [monitor-utility.md](../roundtable-circle/references/monitor-utility.md) for full pseudocode and contract.
 
-for (let i = 0; i < MAX_ITERATIONS; i++) {
-  // MANDATORY: TaskList every cycle (POLL-001 — never sleep+echo)
-  const tasks = TaskList()
-  const completed = tasks.filter(t => t.status === "completed").length
+**codex-review config params:**
 
-  if (completed >= totalAgents) break
+| Param | Value | Source |
+|-------|-------|--------|
+| `timeoutMs` | `codexReviewConfig?.timeout \|\| 900_000` | 15 min (covers Codex timeout cascade) |
+| `staleWarnMs` | `300_000` | 5 min |
+| `pollIntervalMs` | `30_000` | 30s |
+| `label` | `"codex-review"` | Phase 2b polling |
 
-  // Stale detection: warn if any agent in_progress > 5 min (300s)
-  const staleAgents = tasks.filter(t =>
-    t.status === "in_progress" &&
-    (Date.now() - new Date(t.updatedAt).getTime()) > 300_000
-  )
-  if (staleAgents.length > 0) {
-    console.warn(`Stale agents detected: ${staleAgents.map(t => t.subject).join(', ')}`)
-  }
-
-  Bash(`sleep 30`)  // After TaskList, not before
-}
-
-// Update phase in state file
-updateStateFile(identifier, { phase: "cross-verifying" })
-```
+After polling completes: `updateStateFile(identifier, { phase: "cross-verifying" })`
 
 ---
 
@@ -523,166 +506,15 @@ updateStateFile(identifier, { phase: "cross-verifying" })
 **CRITICAL**: This phase runs ORCHESTRATOR-INLINE (on the lead), NOT as a teammate.
 This prevents compromised Codex output from influencing verification via message injection.
 
-### Step 0: Hallucination Guard (SECURITY GATE — runs before cross-verification)
+Read and execute [cross-verification.md](references/cross-verification.md) for the full cross-verification algorithm. The algorithm consists of 5 steps:
 
-```javascript
-// MUST execute before any matching. This is a security gate, not a quality filter.
-for (const finding of codexFindings) {
-  // 1. File existence: does finding.file exist on disk?
-  if (!fileExists(finding.file)) {
-    finding.status = "CDX-HALLUCINATED"
-    stats.hallucinated++
-    continue
-  }
+1. **Step 0 — Hallucination Guard** (security gate): File existence, line reference, and semantic checks on all Codex findings before matching.
+2. **Step 1 — Parse & Normalize**: Parse markdown findings from both wings, normalize file paths, line buckets (scope-adaptive width from dedup-runes.md), and categories (including compound CDX- prefixes).
+3. **Step 2 — Match Algorithm**: Multi-tier matching (STRONG 1.0, ADJACENT 0.8, PARTIAL 0.7, WEAK 0.5, DESCRIPTION_MATCH 0.4) with category adjacency map and Jaccard fallback.
+4. **Step 3 — Classify**: Produce crossVerified, disputed (severity diff >= 2), claudeOnly, and codexOnly buckets with cross-model confidence bonus.
+5. **Step 4 — Write cross-verification.json**: N-way model-agnostic output structure with agreement rate formula and per-model finding cap (SEC-CAP-001).
 
-  // 2. Line reference: is finding.line within file's actual line count?
-  const lineCount = getLineCount(finding.file)
-  if (finding.line && finding.line > lineCount) {
-    finding.status = "CDX-HALLUCINATED"
-    stats.hallucinated++
-    continue
-  }
-
-  // 3. Semantic check: basic substring match of description against file content
-  const fileContent = Read(finding.file)
-  const descKeywords = extractKeywords(finding.description).slice(0, 3)
-  const semanticMatch = descKeywords.some(kw => fileContent.includes(kw))
-  if (!semanticMatch) {
-    finding.status = "CDX-HALLUCINATED"
-    stats.hallucinated++
-    continue
-  }
-}
-```
-
-### Step 1: Parse & Normalize
-
-```javascript
-// Parse all finding files
-const claudeFindings = parseMarkdownFindings(REVIEW_DIR + '/claude/')  // CLD-prefixed
-const codexFindings = parseMarkdownFindings(REVIEW_DIR + '/codex/')    // CDX-prefixed
-
-// Normalize: standardize file paths, line buckets, categories
-function getBucket(line, fileExt) {
-  // Scope-adaptive bucket width (from dedup-runes.md pattern):
-  const width = { '.py': 8, '.rb': 8, '.min.js': 2, '.bundle.js': 2 }[fileExt] || 5
-  return Math.floor(line / width) * width
-}
-
-function normalizeCategory(prefix) {
-  const map = { XSEC: 'SEC', CDXS: 'SEC', XBUG: 'BUG', CDXB: 'BUG',
-                XPERF: 'PERF', CDXP: 'PERF', XQAL: 'QUAL', CDXQ: 'QUAL',
-                XDEAD: 'DEAD', CDXQ: 'DEAD' }
-  return map[prefix] || 'QUAL'
-}
-```
-
-### Step 2: Match Algorithm
-
-```javascript
-// Category adjacency map (near-matches allowed at reduced score):
-const ADJACENT_CATEGORIES = { SEC: ['BUG'], BUG: ['SEC', 'PERF'], QUAL: ['DEAD'] }
-
-function matchFindings(claudeFinding, codexFinding) {
-  if (claudeFinding.file !== codexFinding.file) return null
-
-  const claudeBucket = getBucket(claudeFinding.line, getExt(claudeFinding.file))
-  const codexBucket = getBucket(codexFinding.line, getExt(codexFinding.file))
-  const sameCategory = claudeFinding.category === codexFinding.category
-  const adjacentCategory = ADJACENT_CATEGORIES[claudeFinding.category]?.includes(codexFinding.category)
-
-  // Exact match: same file + same bucket + same category
-  if (claudeBucket === codexBucket && sameCategory) return { score: 1.0, type: "STRONG" }
-
-  // Adjacent category match (penalized)
-  if (claudeBucket === codexBucket && adjacentCategory) return { score: 0.8, type: "ADJACENT" }
-
-  // Same bucket, different category
-  if (claudeBucket === codexBucket) return { score: 0.5, type: "WEAK" }
-
-  // Nearby line (±10), same category
-  const nearbyLine = Math.abs((claudeFinding.line || 0) - (codexFinding.line || 0)) <= 10
-  if (nearbyLine && sameCategory) return { score: 0.7, type: "PARTIAL" }
-
-  // Description-text fallback: Jaccard similarity
-  const jaccard = computeJaccard(claudeFinding.description, codexFinding.description)
-  if (jaccard >= 0.45) return { score: 0.4, type: "DESCRIPTION_MATCH" }
-
-  return null
-}
-```
-
-### Step 3: Classify
-
-```javascript
-const crossVerified = []
-const disputed = []
-const claudeOnly = []
-const codexOnly = []
-const CROSS_MODEL_BONUS = codexReviewConfig?.cross_model_bonus ?? 15
-const CONFIDENCE_THRESHOLD = codexReviewConfig?.confidence_threshold ?? 80
-
-for (const cf of claudeFindings) {
-  const matches = codexFindings
-    .filter(df => df.status !== "CDX-HALLUCINATED")
-    .map(df => ({ finding: df, match: matchFindings(cf, df) }))
-    .filter(m => m.match !== null && m.match.score >= 0.7)
-    .sort((a, b) => b.match.score - a.match.score)
-
-  if (matches.length > 0) {
-    const best = matches[0]
-    const boostedConf = Math.min(100, Math.max(cf.confidence, best.finding.confidence) + CROSS_MODEL_BONUS)
-
-    // Disputed: both found same location but severity differs by 2+ levels
-    const severityDiff = Math.abs(cf.severity - best.finding.severity)
-    if (severityDiff >= 2) {
-      disputed.push({ claude: cf, codex: best.finding, match: best.match, id: `DISP-${generateId()}` })
-    } else {
-      crossVerified.push({
-        ...mergeFindings(cf, best.finding),
-        confidence: boostedConf,
-        id: `XVER-${cf.category}-${generateId()}`,
-        classification: "CROSS-VERIFIED",
-        models_agree: ["claude", "codex"]
-      })
-    }
-  } else {
-    claudeOnly.push({ ...cf, id: `CLD-${cf.originalId}`, classification: "STANDARD" })
-  }
-}
-
-// Remaining unmatched Codex findings → codex_only
-for (const df of codexFindings.filter(f => f.status !== "CDX-HALLUCINATED" && !f.matched)) {
-  codexOnly.push({ ...df, id: `CDX-${df.originalId}`, classification: "STANDARD" })
-}
-```
-
-### Step 4: Write cross-verification.json
-
-```javascript
-// N-way model-agnostic structure for future extensibility:
-Write(`${REVIEW_DIR}/cross-verification.json`, JSON.stringify({
-  cross_verified: crossVerified,
-  disputed: disputed,
-  model_exclusive: {
-    claude: claudeOnly,
-    codex: codexOnly
-  },
-  stats: {
-    total_claude: claudeFindings.length,
-    total_codex: codexFindings.filter(f => f.status !== "CDX-HALLUCINATED").length,
-    hallucinated_codex: stats.hallucinated,
-    cross_verified_count: crossVerified.length,
-    disputed_count: disputed.length,
-    claude_only_count: claudeOnly.length,
-    codex_only_count: codexOnly.length,
-    agreement_rate: `${Math.round((crossVerified.length / Math.max(1, claudeFindings.length + codexOnly.length)) * 100)}%`
-  },
-  // Apply finding cap per model (SEC-CAP-001):
-  // MAX_FINDINGS_PER_MODEL = talisman.codex_review?.max_findings_per_model ?? 100
-  generated_at: new Date().toISOString()
-}, null, 2))
-```
+**Authoritative agreement rate formula**: `crossVerified.length / Math.max(1, claudeFindings.length + codexOnly.length)`
 
 ---
 
@@ -716,82 +548,7 @@ Write(`${REVIEW_DIR}/CROSS-REVIEW.md`, report)
 
 ### Report Structure
 
-```markdown
-# Cross-Model Code Review
-
-**Date:** {timestamp}
-**Scope:** {scope_type} ({file_count} files)
-**Models:** Claude ({model}) + Codex ({codex_model})
-**Agents:** {claude_count} Claude + {codex_count} Codex = {total} total
-**Agreement Rate:** {agreement_rate}%
-
----
-
-## Cross-Verified Findings (Both Models Agree)
-
-> Independently identified by BOTH Claude and Codex — highest confidence.
-
-### P1 (Critical) — {count}
-
-- [ ] **[XVER-SEC-001]** SQL injection in `api/users.py:42` <!-- RUNE:FINDING xver-sec-001 P1 -->
-  - **Confidence:** 95% (cross-verified: Claude 85% + Codex 90% + bonus 15%)
-  - **Claude says:** {claude description}
-  - **Codex says:** {codex description}
-  - **Evidence:** {code snippet}
-  - **Fix:** {recommendation}
-
----
-
-## Disputed Findings (Models Disagree)
-
-> Conflicting assessments between models. Human review recommended.
-
-- [ ] **[DISP-001]** `api/auth.py:78` — Potential auth bypass
-  - **Claude (P1):** {claude assessment}
-  - **Codex (P3):** {codex assessment}
-  - **Disagreement:** Severity mismatch (P1 vs P3)
-  - **Recommendation:** Human review needed
-
----
-
-## Claude-Only Findings
-
-> Found by Claude but not flagged by Codex.
-
-### P1 — {count}
-- [ ] **[CLD-XSEC-001]** ... <!-- RUNE:FINDING cld-xsec-001 P1 -->
-
----
-
-## Codex-Only Findings
-
-> Found by Codex but not flagged by Claude.
-
-### P1 — {count}
-- [ ] **[CDX-CDXS-001]** ... <!-- RUNE:FINDING cdx-cdxs-001 P1 -->
-
----
-
-## Positive Observations
-{Merged from both models}
-
-## Questions for Author
-{Merged from both models}
-
-## Statistics
-
-| Metric | Value |
-|--------|-------|
-| Total Claude findings | {N} |
-| Total Codex findings | {N} |
-| Codex hallucinated (filtered) | {N} |
-| Cross-verified | {N} ({pct}%) |
-| Disputed | {N} ({pct}%) |
-| Claude-only | {N} ({pct}%) |
-| Codex-only | {N} ({pct}%) |
-| Agreement rate | {pct}% |
-| Review duration | {duration} |
-```
+Read and execute [report-template.md](references/report-template.md) for the full report template. The report contains sections for: Cross-Verified Findings (both models agree, highest confidence), Disputed Findings (severity disagreement, human review needed), Claude-Only and Codex-Only Findings (STANDARD classification), Positive Observations, Questions for Author, and a Statistics table with agreement rate and hallucination counts.
 
 ### Finding Prefix Convention
 
@@ -924,7 +681,7 @@ Also inherits from `codex:` section (model, reasoning, disabled flags).
 - [codex-detection.md](../roundtable-circle/references/codex-detection.md) — 9-step Codex detection algorithm
 - [team-lifecycle-guard.md](../rune-orchestration/references/team-lifecycle-guard.md) — Pre-create guard pattern
 - [dedup-runes.md](../roundtable-circle/references/dedup-runes.md) — Line range bucket logic
-- [cost-tier-mapping.md](../rune-orchestration/references/cost-tier-mapping.md) — Model selection per agent
+- [cost-tier-mapping.md](../../references/cost-tier-mapping.md) — Model selection per agent
 - [security-patterns.md](../roundtable-circle/references/security-patterns.md) — Codex security validation patterns
 
 <!-- RE-ANCHOR: TRUTHBINDING ACTIVE

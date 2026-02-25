@@ -110,6 +110,7 @@ Use EXACTLY this format:
 
 {Clarifications needed}
 <!-- RE-ANCHOR:{SESSION_NONCE} -->
+<seal>CLAUDE-{AGENT_NAME}</seal>
 ```
 
 ---
@@ -184,6 +185,7 @@ Write findings to: {OUTPUT_PATH}
 
 ## Questions
 <!-- RE-ANCHOR:{SESSION_NONCE} -->
+<seal>CLAUDE-{AGENT_NAME}</seal>
 ```
 
 ---
@@ -256,6 +258,7 @@ Write findings to: {OUTPUT_PATH}
 
 ## Questions
 <!-- RE-ANCHOR:{SESSION_NONCE} -->
+<seal>CLAUDE-{AGENT_NAME}</seal>
 ```
 
 ---
@@ -328,6 +331,7 @@ Write findings to: {OUTPUT_PATH}
 
 ## Questions
 <!-- RE-ANCHOR:{SESSION_NONCE} -->
+<seal>CLAUDE-{AGENT_NAME}</seal>
 ```
 
 ---
@@ -400,6 +404,7 @@ Write findings to: {OUTPUT_PATH}
 
 ## Questions
 <!-- RE-ANCHOR:{SESSION_NONCE} -->
+<seal>CLAUDE-{AGENT_NAME}</seal>
 ```
 
 ---

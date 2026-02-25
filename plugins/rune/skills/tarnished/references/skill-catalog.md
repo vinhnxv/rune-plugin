@@ -25,6 +25,7 @@ Complete reference for `/rune:tarnished` routing decisions.
 | `rest` | `/rune:rest` | — | None | Cleans tmp/ |
 | `echoes` | `/rune:echoes` | — | Subcommand | Echo management |
 | `talisman` | `/rune:talisman` | — | Subcommand (init/audit/update/guide/status) | Talisman config |
+| `codex-review` | `/rune:codex-review` | — | Git diff (auto) | `tmp/codex-reviews/*/TOME.md` |
 
 ## Skill Flags Quick Reference
 
@@ -70,4 +71,5 @@ Complete reference for `/rune:tarnished` routing decisions.
 | `goldmask` | 8 tracers | 5-10 min |
 | `elicit` | None | 2-5 min |
 | `talisman` | None | 1-3 min |
+| `codex-review` | Up to 4 | 5-15 min |
 | `rest` | None | < 1 min |

@@ -37,6 +37,7 @@ Do not auto-invoke heavyweight commands — suggest and let the user confirm.
 | "Configure Rune" / "setup talisman" / "init talisman" / "rune config" | `/rune:talisman` | Initialize, audit, or guide talisman.yml configuration |
 | "Clean up" / "remove temp files" | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
 | "Cancel the review" / "stop the audit" | `/rune:cancel-review` or `/rune:cancel-audit` | Graceful shutdown of active workflows |
+| "Cross-model review" / "codex review" / "second opinion" | `/rune:codex-review` | Cross-model code review — Claude + Codex in parallel |
 
 ### Beginner Aliases
 
@@ -78,6 +79,7 @@ For users new to Rune, these simpler commands forward to the full versions:
 | `/rune:goldmask` | Yes (8 tracers) | 5-10 min | Diff spec or file list |
 | `/rune:elicit` | No | 2-5 min | Topic |
 | `/rune:talisman` | No | 1-3 min | Subcommand (init/audit/update/guide/status) |
+| `/rune:codex-review` | Yes (up to 4) | 5-15 min | Git diff (auto-detected) |
 | `/rune:rest` | No | <1 min | None |
 | `/rune:plan` | (alias for `/rune:devise`) |||
 | `/rune:work` | (alias for `/rune:strive`) |||

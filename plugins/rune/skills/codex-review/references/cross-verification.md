@@ -84,16 +84,30 @@ claude_findings.push({ id, description, file_path, line, confidence,
 Same regex patterns applied to `REVIEW_DIR/codex/*.md`. Additional step:
 
 ```
-// Strip ANCHOR/RE-ANCHOR echoes from Codex output
+// SANITIZATION PIPELINE (SEC-014): Execute in this exact order:
+// Step 1: Strip ANCHOR/RE-ANCHOR markers
+// Step 2: Strip HTML/script tags (XSS prevention)
+// Step 3: Apply sanitizeUntrustedText() (length + encoding normalization)
+// Step 4: Parse findings via regex
+
+// Step 1: Strip ANCHOR/RE-ANCHOR echoes from Codex output
 content = content.replace(/<!-- ANCHOR.*?-->/gs, '')
 content = content.replace(/<!-- RE-ANCHOR.*?-->/gs, '')
-// Apply sanitizeUntrustedText() before regex parsing
+// Step 2: Strip HTML/script tags
+content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+content = content.replace(/<[^>]+>/g, '')
+// Step 3: Apply sanitizeUntrustedText() before regex parsing
 
 // Prefix enforcement: reject non-CDX- prefixes
 for each parsed finding:
   if not finding.id.startsWith("CDX-"):
     log.warn("SUSPICIOUS_PREFIX in Codex output:", finding.id)
     finding.status = "SUSPICIOUS_PREFIX"  // excluded from cross-verification
+
+// SEC-009: Enforce per-model finding cap to prevent resource exhaustion
+MAX_FINDINGS_PER_MODEL = 50
+claudeFindings = claudeFindings.slice(0, MAX_FINDINGS_PER_MODEL)
+codexFindings = codexFindings.slice(0, MAX_FINDINGS_PER_MODEL)
 ```
 
 ### Finding Schema

@@ -296,6 +296,6 @@ ${rendered}
 - Prompts are written to `{PROMPT_FILE_PATH}` (temp file), NEVER interpolated
   directly into shell commands. This prevents prompt injection via file content.
 - Codex always invoked with `--sandbox read-only --full-auto`.
-- Codex output stripped of ANCHOR/RE-ANCHOR markers before parsing.
+- Codex output stripped of ANCHOR/RE-ANCHOR markers before parsing: `content.replace(/<!-- (?:RE-)?ANCHOR.*?-->/gs, '')`
 - Findings with non-CDX- prefixes in Codex output are flagged SUSPICIOUS_PREFIX
   and excluded from cross-verification.

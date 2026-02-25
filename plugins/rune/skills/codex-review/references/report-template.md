@@ -232,8 +232,8 @@ _To fix findings: `/rune:mend {REVIEW_DIR}/CROSS-REVIEW.md`_
 
 3. Percentages calculated as: `count / (total_claude + total_codex) * 100`, rounded to 1 decimal
 
-4. Agreement rate = `cross_verified_count / min(total_claude, total_codex) * 100`
-   (bounded: 0% if either wing has 0 findings)
+4. Agreement rate = `cross_verified_count / max(1, total_claude + codex_only_count) * 100`
+   (bounded: 0% if no findings from either wing)
 
 5. RUNE:FINDING marker format: `<!-- RUNE:FINDING {id-lowercase} {priority} -->`
    This enables `/rune:mend` to parse CROSS-REVIEW.md identically to TOME.md

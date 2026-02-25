@@ -1343,9 +1343,10 @@ codex_review:
                                      # Codex Oracle counts as 1 toward this cap.
   focus_areas:                       # Limit review scope to specific concern areas (default: all areas)
     - security                       # Authentication, authorization, injection, secrets exposure
-    - correctness                    # Logic errors, off-by-one, null dereference, race conditions
+    - bugs                           # Logic errors, off-by-one, null dereference, race conditions
     - performance                    # Hot paths, N+1 queries, memory leaks, excessive allocations
-    - type_safety                    # Type errors, unsafe casts, unchecked nulls, schema drift
+    - quality                        # Code quality, maintainability, naming, complexity
+    - dead-code                      # Unused exports, unreachable code, orphaned files
 
 # ──────────────────────────────────────────────
 # Debug — ACH-based parallel debugging (/rune:debug)

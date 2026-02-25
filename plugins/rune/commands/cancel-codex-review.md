@@ -170,7 +170,7 @@ for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
   }
 }
 // Filesystem fallback with CHOME
-Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${team_name}/" "$CHOME/tasks/${team_name}/" 2>/dev/null`)
+Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && [[ "${team_name}" =~ ^[a-zA-Z0-9_-]+$ ]] && rm -rf "$CHOME/teams/${team_name}/" "$CHOME/tasks/${team_name}/" 2>/dev/null`)
 
 // NOTE: identifier is derived from team_name via .replace("rune-codex-review-", "").
 // The team_name regex guard above implicitly validates identifier (it's a substring).
@@ -188,7 +188,7 @@ Write(`tmp/.rune-codex-review-${identifier}.json`, {
 ```
 Codex Review cancelled.
 
-Partial results (if any) remain in: tmp/reviews/{identifier}/
+Partial results (if any) remain in: tmp/codex-review/{identifier}/
 - {list of files that were written before cancellation}
 
 To re-run: /rune:codex-review
