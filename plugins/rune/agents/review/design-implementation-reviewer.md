@@ -10,8 +10,8 @@ description: |
   coverage, accessibility attributes, component variant completeness, spacing/typography
   drift, visual region structural accuracy.
 
-  Activation: design_sync.enabled AND frontend stack detected AND Figma URL present
-  in task description or plan.
+  Used when design_sync.enabled is true, frontend stack detected, and Figma URL
+  present in task description or plan.
 
   <example>
   user: "Review the new dashboard card component against the Figma spec"
@@ -21,6 +21,8 @@ tools:
   - Read
   - Glob
   - Grep
+model: sonnet
+maxTurns: 30
 mcpServers:
   - echo-search
 ---
@@ -181,7 +183,7 @@ After completing analysis, verify:
 ### Pre-Flight
 Before writing output file, confirm:
 - [ ] Output follows the **prescribed Output Format** below
-- [ ] Finding prefixes match role (**DSGN-NNN** format)
+- [ ] Finding prefixes match role (**FIDE-NNN** format)
 - [ ] Priority levels (**P1/P2/P3**) assigned to every finding
 - [ ] **Evidence** section included for each finding
 - [ ] **Fix** suggestion included for each finding
@@ -195,21 +197,21 @@ Before writing output file, confirm:
 **Fidelity Score: {score}/100** (Token: {t}/100, Layout: {l}/100, Responsive: {r}/100, A11Y: {a}/100, Variants: {v}/100, States: {s}/100)
 
 ### P1 (Critical) — Design Contract Violations
-- [ ] **[DSGN-001] Hardcoded color bypasses design system** in `components/Card.tsx:42`
+- [ ] **[FIDE-001] Hardcoded color bypasses design system** in `components/Card.tsx:42`
   - **Evidence:** `background: #3B82F6` instead of `bg-primary` or `var(--color-primary)`
   - **Confidence**: HIGH (90)
   - **Assumption**: Design system tokens are the intended source of truth
   - **Fix:** Replace with `className="bg-primary"` or `style={{ background: 'var(--color-primary)' }}`
 
 ### P2 (High) — Fidelity Gaps
-- [ ] **[DSGN-002] Missing responsive breakpoint** in `components/Grid.tsx:18`
+- [ ] **[FIDE-002] Missing responsive breakpoint** in `components/Grid.tsx:18`
   - **Evidence:** Grid uses `grid-cols-3` without mobile fallback
   - **Confidence**: HIGH (85)
   - **Assumption**: Design specifies single-column on mobile
   - **Fix:** Add `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
 
 ### P3 (Medium) — Hardening Opportunities
-- [ ] **[DSGN-003] Missing empty state** in `components/DataTable.tsx`
+- [ ] **[FIDE-003] Missing empty state** in `components/DataTable.tsx`
   - **Evidence:** Component renders empty `<tbody>` when data array is empty
   - **Fix:** Add empty state with illustration and CTA per design spec
 ```

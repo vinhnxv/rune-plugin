@@ -64,10 +64,11 @@ for (const vsm of vsmFiles) {
   const componentName = vsm.replace(/.*\//, '').replace('.md', '')
   TaskCreate({
     subject: `Review fidelity: ${componentName}`,
+    activeForm: `Reviewing fidelity of ${componentName}`,
     description: `Score implementation of ${componentName} against VSM at ${vsm}.
       6 dimensions: token compliance, layout fidelity, responsive coverage, accessibility, variant completeness, state coverage.
       Write output to: tmp/arc/${id}/design-reviews/${componentName}.md
-      Use DSGN-NNN finding prefix. Classify P1/P2/P3.
+      Use FIDE-NNN finding prefix. Classify P1/P2/P3.
       Read design-sync/references/fidelity-scoring.md for scoring algorithm.`,
     metadata: { phase: "verification", vsm_path: vsm, component: componentName }
   })
@@ -113,17 +114,17 @@ for (const reviewFile of reviewFiles) {
   const componentName = reviewFile.replace(/.*\//, '').replace('.md', '')
 
   // Extract fidelity score from review output
-  const scoreMatch = content.match(/Fidelity Score:\s*(\d+)\/100/)
+  const scoreMatch = content.match(/\*?\*?Fidelity Score:\s*(\d+)\/100/)
   const score = scoreMatch ? parseInt(scoreMatch[1]) : 0
 
-  // Count P1 findings
-  const p1Matches = content.match(/\[DSGN-\d+\]/g) || []
-  const p1InSection = content.includes("### P1")
+  // Count P1 findings by checking for FIDE- prefixed findings within P1 section
+  const p1Section = content.split('### P1')[1]?.split('### P2')[0] ?? ''
+  const p1Findings = p1Section.match(/\[FIDE-\d+\]/g) || []
 
   componentScores[componentName] = score
   totalScore += score
   componentCount++
-  if (p1InSection) p1Count++
+  p1Count += p1Findings.length
 }
 
 const overallFidelity = componentCount > 0 ? Math.round(totalScore / componentCount) : 0

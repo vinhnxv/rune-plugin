@@ -76,6 +76,7 @@ updateCheckpoint({
 // Single task for extraction (design-sync-agent handles internal decomposition)
 TaskCreate({
   subject: `Extract VSM from Figma: ${figmaUrl}`,
+  activeForm: `Extracting VSM from Figma`,
   description: `Fetch Figma design data from ${figmaUrl}.
     Extract design tokens, region trees, variant maps, responsive specs.
     Write VSM files to: tmp/arc/${id}/vsm/

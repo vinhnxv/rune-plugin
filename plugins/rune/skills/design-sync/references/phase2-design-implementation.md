@@ -150,6 +150,6 @@ From VSM accessibility requirements:
 
 ## Cross-References
 
-- [../frontend-design-patterns/references/component-reuse-strategy.md] — REUSE > EXTEND > CREATE
-- [../frontend-design-patterns/references/layout-alignment.md] — Flex/Grid patterns
+- [component-reuse-strategy.md](../../frontend-design-patterns/references/component-reuse-strategy.md) — REUSE > EXTEND > CREATE
+- [layout-alignment.md](../../frontend-design-patterns/references/layout-alignment.md) — Flex/Grid patterns
 - [vsm-spec.md](vsm-spec.md) — VSM schema

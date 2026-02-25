@@ -491,13 +491,13 @@ rune-plugin/
     └── rune/                     # Main plugin
         ├── .claude-plugin/
         │   └── plugin.json       # Plugin manifest (v1.91.0)
-        ├── agents/               # 82 agent definitions
-        │   ├── review/           #   37 review agents
+        ├── agents/               # 85 agent definitions
+        │   ├── review/           #   38 review agents
         │   ├── investigation/    #   23 investigation agents
         │   ├── utility/          #   11 utility agents
         │   ├── research/         #    5 research agents
         │   ├── testing/          #    4 testing agents
-        │   └── work/             #    2 work agents
+        │   └── work/             #    4 work agents
         ├── skills/               # 33 skills
         ├── commands/             # 14 slash commands
         ├── hooks/                # Event-driven hooks

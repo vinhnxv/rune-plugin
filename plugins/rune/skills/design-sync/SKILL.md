@@ -37,14 +37,14 @@ allowed-tools:
 ---
 
 **Runtime context** (preprocessor snapshot):
-- Active workflows: !`ls tmp/.rune-*-*.json 2>/dev/null | grep -c '"active"' || echo 0`
+- Active workflows: !`grep -rl '"active"' tmp/.rune-*-*.json 2>/dev/null | wc -l | tr -d ' '`
 - Current branch: !`git branch --show-current 2>/dev/null || echo "unknown"`
 
 # /rune:design-sync — Figma Design Synchronization
 
 Extracts design specifications from Figma, creates Visual Spec Maps (VSM), coordinates implementation, and reviews design-to-code fidelity.
 
-**Load skills**: `frontend-design-patterns`, `figma-to-react`, `roundtable-circle`, `context-weaving`, `rune-orchestration`, `polling-guard`, `zsh-compat`
+**Load skills**: `frontend-design-patterns`, `figma-to-react`, `context-weaving`, `rune-orchestration`, `polling-guard`, `zsh-compat`
 
 ## Usage
 

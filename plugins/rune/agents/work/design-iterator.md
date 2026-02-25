@@ -101,7 +101,7 @@ WHILE currentIteration < maxIterations:
   Check for regressions in other dimensions
 
   IF regression detected:
-    Revert the change (git checkout -- <file>)
+    Revert the change (git restore <file>)
     Log: "Iteration {N}: reverted — regression in {dimension}"
     Try alternative approach in next iteration
 
@@ -131,7 +131,7 @@ IF currentIteration == maxIterations AND gaps remain:
 
 ## Iteration Report Format
 
-Write to `tmp/design-sync/{timestamp}/iterations/{component-name}.md`:
+Write to `tmp/arc/{id}/design-iterations/{component-name}.md`:
 
 ```markdown
 # Design Iteration Report: {component_name}

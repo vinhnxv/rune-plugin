@@ -151,7 +151,7 @@ computeContextManifest(task_type, file_scope, detected_stack, task_description):
     manifest.skills_to_load.push("patterns/di")
 
   # Step 5.7: Select design skills
-  if domains.design:
+  if domains.design OR domains.frontend:
     manifest.skills_to_load.push("frontend-design-patterns")
     if detected_stack?.frameworks:
       if "figma" in detected_stack.frameworks:

@@ -73,7 +73,7 @@ Complete registry of supported languages, frameworks, databases, libraries, and 
 
 | Tool | Detection Signal | Knowledge Skill | Agent |
 |------|-----------------|-----------------|-------|
-| Figma | `.figmarc`, `figma.config.json`, `@figma/` in deps | `design/figma.md` | `design-implementation-reviewer` (DSGN) |
+| Figma | `.figmarc`, `figma.config.json`, `@figma/` in deps | `design/figma.md` | `design-implementation-reviewer` (FIDE) |
 | Storybook | `.storybook/` dir, `storybook` or `@storybook/` in deps | `design/storybook.md` | (covered by frontend-design-patterns skill) |
 
 ## Finding Prefixes
@@ -98,12 +98,12 @@ All specialist agents produce findings with unique prefixes to enable dedup:
 | TDD | tdd-compliance-reviewer | Pattern |
 | DDD | ddd-reviewer | Pattern |
 | DI | di-reviewer | Pattern |
-| DSGN | design-implementation-reviewer | Design |
+| FIDE | design-implementation-reviewer | Design |
 
 **Dedup hierarchy position**: Stack specialist prefixes are positioned BELOW the core Roundtable Circle prefixes:
 
 ```
-SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > DSGN > CDX > PY > TSR > RST > AXUM > PHP > FAPI > DJG > LARV > SQLA > REACT > VUE > NEXT > VTE > TDD > DDD > DI
+SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > FIDE > CDX > PY > TSR > RST > AXUM > PHP > FAPI > DJG > LARV > SQLA > REACT > VUE > NEXT > VTE > TDD > DDD > DI
 ```
 
 When a stack specialist and a core Ash find the same issue, the core Ash's finding takes priority.

@@ -106,6 +106,7 @@ for (const [componentName, currentScore] of componentsToIterate) {
   const reviewPath = `tmp/arc/${id}/design-reviews/${componentName}.md`
   TaskCreate({
     subject: `Iterate on ${componentName} (fidelity: ${currentScore}/${fidelityThreshold})`,
+    activeForm: `Iterating on ${componentName} design fidelity`,
     description: `Run screenshot→analyze→improve loop on ${componentName}.
       VSM: ${vsmPath}
       Previous review: ${reviewPath}
