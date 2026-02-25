@@ -402,6 +402,62 @@ if [[ "$NEXT_PLAN" == *".."* ]] || [[ "$NEXT_PLAN" == /* ]] || [[ "$NEXT_PLAN" =
   exit 0
 fi
 
+# ── COMPACT INTERLUDE (v1.105.2): Force context compaction between iterations ──
+# Root cause: arc's 23-phase pipeline fills 80-90% of context window. Without
+# compaction, Plan 2+ starts in a nearly-full context and hits "Context limit
+# reached" within the first few phases.
+#
+# Two-phase state machine via compact_pending field:
+#   Phase A (compact_pending != "true"): set flag, inject lightweight checkpoint
+#     prompt to give auto-compaction a chance to fire between turns.
+#   Phase B (compact_pending == "true"): reset flag, inject actual arc prompt.
+#
+# Worst case: auto-compact doesn't fire (context was under threshold) — adds one
+# extra lightweight turn. Best case: full context reset between iterations.
+COMPACT_PENDING=$(get_field "compact_pending")
+
+if [[ "$COMPACT_PENDING" != "true" ]]; then
+  # Phase A: Set compact_pending and inject compaction trigger
+  _STATE_TMP=$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }
+  if grep -q '^compact_pending:' "$STATE_FILE" 2>/dev/null; then
+    sed 's/^compact_pending: .*$/compact_pending: true/' "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null
+  else
+    # Insert compact_pending field before closing --- of YAML frontmatter
+    awk 'NR>1 && /^---$/ && !done { print "compact_pending: true"; done=1 } { print }' "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null
+  fi
+  if ! mv -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null; then
+    rm -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null; exit 0
+  fi
+  _trace "Compact interlude Phase A: injecting checkpoint before iteration $((ITERATION + 1))"
+
+  COMPACT_PROMPT="Arc Batch — Context Checkpoint (iteration ${ITERATION}/${TOTAL_PLANS} completed)
+
+The previous arc iteration has completed. Acknowledge this checkpoint by responding with only:
+
+**Ready for next iteration.**
+
+Then STOP responding immediately. Do NOT execute any commands, read any files, or perform any actions."
+
+  SYSTEM_MSG="Arc batch: context compaction interlude between iterations. Next iteration will start after this turn."
+
+  jq -n \
+    --arg prompt "$COMPACT_PROMPT" \
+    --arg msg "$SYSTEM_MSG" \
+    '{
+      decision: "block",
+      reason: $prompt,
+      systemMessage: $msg
+    }'
+  exit 0
+fi
+
+# Phase B: compact_pending was true — reset and proceed to arc prompt
+_STATE_TMP=$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }
+sed 's/^compact_pending: true$/compact_pending: false/' "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null \
+  && mv -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null \
+  || { rm -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null; exit 0; }
+_trace "Compact interlude Phase B: context checkpointed, proceeding to arc prompt"
+
 # Increment iteration in state file (atomic: read → replace → mktemp + mv)
 NEW_ITERATION=$((ITERATION + 1))
 _STATE_TMP=$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }

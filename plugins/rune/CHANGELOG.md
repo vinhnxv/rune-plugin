@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.105.2] - 2026-02-26
+
+### Fixed
+- **Context overflow between arc-batch/arc-issues/arc-hierarchy iterations** — Each arc iteration's 23-phase pipeline fills 80-90% of the context window. Without compaction, subsequent plans start in a nearly-full context and hit "Context limit reached" within the first few phases. Fixed by adding a two-phase compact interlude state machine via `compact_pending` field in the Stop hook state file. Phase A (after arc completes): injects a lightweight checkpoint prompt to give auto-compaction a chance to fire between turns. Phase B (after checkpoint): resets flag and injects the actual arc prompt with refreshed context.
+- Affects: `scripts/arc-batch-stop-hook.sh`, `scripts/arc-issues-stop-hook.sh`, `scripts/arc-hierarchy-stop-hook.sh` (all three Stop hook loop drivers)
+
 ## [1.105.1] - 2026-02-26
 
 ### Fixed
