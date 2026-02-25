@@ -1,10 +1,10 @@
 # Initialize Checkpoint (ARC-2) — Full Algorithm
 
 Checkpoint initialization: config resolution (3-layer), session identity,
-checkpoint schema v15 creation, and initial state write.
+checkpoint schema v16 creation, and initial state write.
 
 **Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check
-**Outputs**: checkpoint object (schema v15), resolved arc config (`arcConfig`)
+**Outputs**: checkpoint object (schema v16), resolved arc config (`arcConfig`)
 **Error handling**: Fail arc if plan file missing or config invalid
 **Consumers**: SKILL.md checkpoint-init stub, resume logic in [arc-resume.md](arc-resume.md)
 
@@ -136,7 +136,13 @@ const changedFiles = diffStats.files || []
 const arcTotalTimeout = calculateDynamicTimeout(tier)
 ```
 
-## Checkpoint Schema v15
+## Checkpoint Schema v16
+
+Schema v16 adds `suspended_tasks` array to the `work` phase (v1.106.0+). Tracks tasks that
+workers suspended mid-execution via the context preservation protocol. On arc resume, suspended
+tasks are detected and their context injected into new worker spawn prompts.
+Backward compatible: v15 checkpoints get `suspended_tasks: []` on migration (FAIL-005).
+Context paths are scoped to `tmp/work/{timestamp}/context/{arc-checkpoint-id}/` (FAIL-008).
 
 Schema v15 adds `stagnation` field for the Stagnation Sentinel (v1.80.0+). Tracks error pattern
 fingerprints, file-change velocity across mend rounds, and budget forecast status. Non-blocking
@@ -173,7 +179,7 @@ const parentPlanMeta = {
 // The arc-hierarchy SKILL.md documents the injection protocol.
 
 Write(`.claude/arc/${id}/checkpoint.json`, {
-  id, schema_version: 15, plan_file: planFile,
+  id, schema_version: 16, plan_file: planFile,
   config_dir: configDir, owner_pid: ownerPid, session_id: "${CLAUDE_SESSION_ID}",
   flags: { approve: arcConfig.approve, no_forge: arcConfig.no_forge, skip_freshness: arcConfig.skip_freshness, confirm: arcConfig.confirm, no_test: arcConfig.no_test },
   arc_config: arcConfig,
@@ -195,7 +201,11 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     plan_refine:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     semantic_verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
-    work:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    work:         { status: "pending", artifact: null, artifact_hash: null, team_name: null,
+                    // Schema v16 (v1.106.0): suspended tasks from context preservation protocol.
+                    // Each entry: { task_id, context_path, reason }
+                    // context_path scoped to arc checkpoint id (FAIL-008): context/{id}/{task_id}.md
+                    suspended_tasks: [] },
     gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     codex_gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     gap_remediation: { status: "pending", artifact: null, artifact_hash: null, team_name: null, fixed_count: null, deferred_count: null },
@@ -224,6 +234,6 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
   updated_at: new Date().toISOString()
 })
 
-// Schema migration is handled in arc-resume.md (steps 3a through 3n).
-// Migrations v1→v15 are defined there. See arc-resume.md for the full chain.
+// Schema migration is handled in arc-resume.md (steps 3a through 3o).
+// Migrations v1→v16 are defined there. See arc-resume.md for the full chain.
 ```
