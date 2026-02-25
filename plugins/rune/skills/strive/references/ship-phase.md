@@ -147,19 +147,17 @@ ${decisions ? decisions : ""}
   return ""
 })()}
 ${(() => {
-  // Per-task file-todos status (when enabled)
+  // Per-task file-todos status
   const talisman = readTalisman()
-  const fileTodosEnabled = talisman?.file_todos?.enabled === true
   const todosDir = resolveTodosDir($ARGUMENTS, talisman, "work")
-  if (fileTodosEnabled) {
-    const todoFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
-    if (todoFiles.length > 0) {
-      const counts = { pending: 0, ready: 0, in_progress: 0, complete: 0, blocked: 0, wont_fix: 0 }
-      for (const f of todoFiles) {
-        const fm = parseFrontmatter(Read(f))
-        if (counts[fm.status] !== undefined) counts[fm.status]++
-      }
-      return `
+  const todoFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
+  if (todoFiles.length > 0) {
+    const counts = { pending: 0, ready: 0, in_progress: 0, complete: 0, blocked: 0, wont_fix: 0 }
+    for (const f of todoFiles) {
+      const fm = parseFrontmatter(Read(f))
+      if (counts[fm.status] !== undefined) counts[fm.status]++
+    }
+    return `
 ## File-Todos
 
 | Status | Count |
@@ -172,7 +170,6 @@ ${(() => {
 
 See \`${todosDir}\` for individual todo files.
 `
-    }
   }
   return ""
 })()}

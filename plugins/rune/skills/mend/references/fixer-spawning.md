@@ -190,21 +190,25 @@ for (const [file, deps] of Object.entries(fileGroupDeps || {})) {
 
 ## Phase 3: SUMMON FIXERS
 
-Summon mend-fixer teammates. When 6+ file groups, use sequential batching (max 5 concurrent fixers).
+Summon mend-fixer teammates using wave-based execution. Each wave spawns fresh fixers with bounded context (max 5 concurrent). Between waves, fixers are shut down and new ones spawned — ensuring each fixer starts with a clean context window. P1 findings are sorted into earlier waves.
 
 ```javascript
-const BATCH_SIZE = 5
+const WAVE_SIZE = 5
 const fixerEntries = inscription.fixers
-const totalBatches = Math.ceil(fixerEntries.length / BATCH_SIZE)
-let completedBefore = 0  // cumulative completed tasks from prior batches
+const totalWaves = Math.ceil(fixerEntries.length / WAVE_SIZE)
+const perWaveTimeout = Math.floor(innerPollingTimeout / totalWaves)
 
-for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
-  const batch = fixerEntries.slice(batchIdx * BATCH_SIZE, (batchIdx + 1) * BATCH_SIZE)
+for (let waveIdx = 0; waveIdx < totalWaves; waveIdx++) {
+  const wave = fixerEntries.slice(waveIdx * WAVE_SIZE, (waveIdx + 1) * WAVE_SIZE)
 
-  for (const fixer of batch) {
+  // Create tasks for this wave's fixers
+  for (const fixer of wave) {
+    const fixerName = totalWaves > 1
+      ? `mend-fixer-w${waveIdx + 1}-${fixer.name.split('-').pop()}`
+      : fixer.name
     Task({
       team_name: "rune-mend-{id}",
-      name: fixer.name,
+      name: fixerName,
       subagent_type: "rune:utility:mend-fixer",
       prompt: `You are Mend Fixer — a restricted code fixer for /rune:mend.
 
@@ -253,18 +257,25 @@ for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
     })
   }
 
-  // Per-batch monitoring: wait before starting next batch
-  if (totalBatches > 1) {
-    const perBatchTimeout = Math.floor(innerPollingTimeout / totalBatches)
-    const batchResult = waitForCompletion(teamName, completedBefore + batch.length, {
-      timeoutMs: perBatchTimeout,
-      staleWarnMs: Math.min(300_000, Math.floor(perBatchTimeout * 0.6)),
-      autoReleaseMs: Math.min(600_000, Math.floor(perBatchTimeout * 0.9)),
-      pollIntervalMs: 30_000,
-      label: `Mend batch ${batchIdx + 1}/${totalBatches}`
-    })
-    if (batchResult.timedOut) warn(`Batch ${batchIdx + 1} timed out — proceeding to next batch`)
-    completedBefore += batch.length  // advance offset for next batch
+  // Per-wave monitoring
+  const waveResult = waitForCompletion(teamName, wave.length, {
+    timeoutMs: perWaveTimeout,
+    staleWarnMs: Math.min(300_000, Math.floor(perWaveTimeout * 0.6)),
+    autoReleaseMs: Math.min(600_000, Math.floor(perWaveTimeout * 0.9)),
+    pollIntervalMs: 30_000,
+    label: `Mend wave ${waveIdx + 1}/${totalWaves}`
+  })
+  if (waveResult.timedOut) warn(`Wave ${waveIdx + 1} timed out — proceeding to next wave`)
+
+  // Inter-wave cleanup: shutdown fixers before spawning fresh ones
+  if (waveIdx < totalWaves - 1) {
+    for (const fixer of wave) {
+      const fixerName = totalWaves > 1
+        ? `mend-fixer-w${waveIdx + 1}-${fixer.name.split('-').pop()}`
+        : fixer.name
+      SendMessage({ type: "shutdown_request", recipient: fixerName, content: "Wave complete" })
+    }
+    Bash("sleep 5")  // Grace period — let fixers deregister
   }
 }
 ```

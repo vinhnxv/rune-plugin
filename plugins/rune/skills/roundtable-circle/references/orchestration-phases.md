@@ -353,23 +353,19 @@ Task({
 
 **TOME output format is identical for both scopes** — header differs only in `Scope:` field and `Files scanned:` vs `Files changed:`.
 
-## Phase 5.4: Todo Generation from TOME (Conditional)
+## Phase 5.4: Todo Generation from TOME
 
 Generate per-finding todo files from scope-tagged TOME. Runs AFTER Phase 5.3 (diff-scope tagging) so scope attributes are available.
 
-**Skip conditions**: `talisman.file_todos.enabled !== true` OR `talisman.file_todos.auto_generate.{workflow_type} !== true` OR `--todos=false` flag.
-
-**Activation**: `talisman.file_todos.auto_generate.review === true` (for appraise) or `talisman.file_todos.auto_generate.audit === true` (for audit), or `--todos` flag override.
+**Skip condition**: `--todos=false` flag only. File-todos are always generated unless explicitly suppressed.
 
 ```javascript
 // Phase 5.4: Todo Generation from TOME findings
-const fileTodosEnabled = talisman?.file_todos?.enabled === true  // opt-in (NOT !== false)
 const workflowType = workflow === "rune-review" ? "review" : "audit"
-const autoGenerate = talisman?.file_todos?.auto_generate?.[workflowType] === true
 const todosFlag = flags['--todos']
 
-// Skip if not enabled: master toggle + per-workflow toggle + flag override
-const generateTodos = fileTodosEnabled && (todosFlag === true || (autoGenerate && todosFlag !== false))
+// Always generate unless explicitly disabled via --todos=false
+const generateTodos = todosFlag !== false
 
 if (generateTodos) {
   // 1. Read scope-tagged TOME.md

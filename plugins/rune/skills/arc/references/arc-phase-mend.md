@@ -153,9 +153,8 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
 // - Arc-scoped todos: --todos-dir so Phase 5.9 scans tmp/arc/{id}/todos/*/
 // Delegation pattern: /rune:mend creates its own team (e.g., rune-mend-{id}).
 // Arc reads the team name from the mend state file or teammate idle notification.
-const fileTodosEnabled = talisman?.file_todos?.enabled === true
 const arcTodosBase = checkpoint.todos_base  // set by arc scaffolding (pre-Phase 5)
-const todosFlag = (fileTodosEnabled && arcTodosBase) ? `--todos-dir ${arcTodosBase}` : ''
+const todosFlag = arcTodosBase ? `--todos-dir ${arcTodosBase}` : ''
 // Invoke: /rune:mend {tomeSource} --timeout ${innerPolling} {todosFlag}
 ```
 
@@ -218,7 +217,7 @@ updateCheckpoint({
 })
 
 // Post-Phase 7 todos verification (non-blocking)
-if (fileTodosEnabled && arcTodosBase) {
+if (arcTodosBase) {
   const allTodos = Glob(`${arcTodosBase}*/[0-9][0-9][0-9]-*.md`)
   let completeCount = 0, pendingCount = 0
   for (const f of allTodos) {

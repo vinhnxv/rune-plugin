@@ -137,24 +137,19 @@ pending --> ready --> in_progress --> complete
 - `blocked` — Blocked by dependencies
 - `wont_fix` — Triaged and rejected
 
-## Opt-In Toggle
+## Configuration
 
-File-todos require explicit opt-in via talisman configuration:
+File-todos are always active in all Rune workflows. Use `--todos=false` on any command to disable for a single invocation.
 
 ```yaml
 # .claude/talisman.yml
 file_todos:
-  enabled: true              # MUST be === true to activate (opt-in)
-  dir: "todos/"              # relative to project root
-  auto_generate:
-    review: false            # default false — opt-in for safety
-    audit: false             # default false
-    work: false              # default false
+  dir: "todos/"              # relative to project root (default: "todos/")
   triage:
     auto_approve_p1: false   # auto-approve P1 findings (skip triage)
 ```
 
-**Check**: `talisman.file_todos.enabled === true` (NOT `!== false`).
+The `dir` key controls the base directory. The `triage` block controls auto-approval behavior.
 
 ## .gitignore Conflict
 
@@ -255,7 +250,7 @@ File-Todos Status
 
 **Scan pattern**: `Glob(\`${base}*/[0-9][0-9][0-9]-*.md\`)` where `base` is `resolveTodosBase($ARGUMENTS, talisman)`. Only scans the project-level `todos/` base — NOT `tmp/arc/*/todos/` (arc todos are ephemeral and excluded from CLI).
 
-**Zero-state**: "No todos found. Run `/rune:file-todos create` or enable `file_todos.auto_generate` in talisman.yml."
+**Zero-state**: "No todos found. Run `/rune:file-todos create` or run a review/work workflow to auto-generate todos."
 
 ### list — Filtered Listing
 
