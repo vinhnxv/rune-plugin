@@ -159,17 +159,14 @@ Write(`${signalDir}/inscription.json`, JSON.stringify({
 // Create output directories
 Bash(`mkdir -p "tmp/work/${timestamp}/patches" "tmp/work/${timestamp}/proposals" "tmp/work/${timestamp}/todos"`)
 
-// Per-task file-todos: create source-qualified todos directory if enabled
+// Per-task file-todos: create source-qualified todos directory
 // See file-todos/references/integration-guide.md for resolveTodosDir() contract
 const talisman = readTalisman()
-const fileTodosEnabled = talisman?.file_todos?.enabled === true
-const autoGenWork = fileTodosEnabled && (talisman?.file_todos?.auto_generate?.work === true)
 const todosDir = resolveTodosDir($ARGUMENTS, talisman, "work")
 //   standalone: "todos/work/"
 //   arc (--todos-dir tmp/arc/{id}/todos/): "tmp/arc/{id}/todos/work/"
-if (autoGenWork) {
-  Bash(`mkdir -p "${todosDir}"`)
-}
+Bash(`mkdir -p "${todosDir}"`)
+
 
 // Compute total worker count (scaling logic in worker-prompts.md)
 const workerCount = smithCount + forgerCount
@@ -253,7 +250,7 @@ See [worker-prompts.md](references/worker-prompts.md) for full worker prompt tem
 
 See [todo-protocol.md](references/todo-protocol.md) for the worker todo file protocol that MUST be included in all spawn prompts.
 
-**Per-task file-todos (v2)**: When `talisman.file_todos.enabled === true` and `talisman.file_todos.auto_generate.work === true`, the orchestrator creates per-task todo files in `{base}/work/` (resolved via `resolveTodosDir($ARGUMENTS, talisman, "work")`) alongside TaskCreate entries. Standalone: `todos/work/`. Arc: `tmp/arc/{id}/todos/work/` (via `--todos-dir`). Workers read their assigned todo for context and append Work Log entries. See `file-todos` skill for schema. The per-worker todo protocol in `tmp/work/{timestamp}/todos/` remains active as the session-level tracking layer.
+**Per-task file-todos (v2)**: The orchestrator creates per-task todo files in `{base}/work/` (resolved via `resolveTodosDir($ARGUMENTS, talisman, "work")`) alongside TaskCreate entries. Standalone: `todos/work/`. Arc: `tmp/arc/{id}/todos/work/` (via `--todos-dir`). Disable with `--todos=false`. Workers read their assigned todo for context and append Work Log entries. See `file-todos` skill for schema. The per-worker todo protocol in `tmp/work/{timestamp}/todos/` remains active as the session-level tracking layer.
 
 **SEC-002**: Sanitize plan content before interpolation into worker prompts using `sanitizePlanContent()` (strips HTML comments, code fences, image/link injection, markdown headings, Truthbinding markers, YAML frontmatter, inline HTML tags, and truncates to 8000 chars).
 
@@ -313,7 +310,7 @@ Read and execute [quality-gates.md](references/quality-gates.md) before proceedi
 
 **Phase 4 — Ward Check**: Discover wards from Makefile/package.json/pyproject.toml, execute each with SAFE_WARD validation, run 10-point verification checklist. On ward failure, create fix task and summon worker.
 
-**Phase 4.1 — Todo Summary**: Orchestrator generates `todos/_summary.md` after all workers exit. See [todo-protocol.md](references/todo-protocol.md) for full algorithm. When per-task file-todos are active (`talisman.file_todos.enabled === true`), also updates per-task todo frontmatter status to `complete` for finished tasks and `blocked` for failed tasks. Scans `resolveTodosDir($ARGUMENTS, talisman, "work")` only (not other source subdirectories).
+**Phase 4.1 — Todo Summary**: Orchestrator generates `todos/_summary.md` after all workers exit. See [todo-protocol.md](references/todo-protocol.md) for full algorithm. Also updates per-task todo frontmatter status to `complete` for finished tasks and `blocked` for failed tasks. Scans `resolveTodosDir($ARGUMENTS, talisman, "work")` only (not other source subdirectories).
 
 **Phase 4.3 — Doc-Consistency**: Non-blocking version/count drift detection. See `doc-consistency.md` in `roundtable-circle/references/`.
 
@@ -345,7 +342,7 @@ const allTasks = TaskList()
 //    Total budget: 15s grace + 15s retry = 30s max
 //    Filesystem fallback when TeamDelete fails
 // 3.5: Fix stale todo file statuses (FLAW-008 — active → interrupted)
-// 3.55: Per-task file-todos cleanup (when enabled):
+// 3.55: Per-task file-todos cleanup:
 //       Scope to resolveTodosDir($ARGUMENTS, talisman, "work") — work/ subdirectory only
 //       Filter by work_session == timestamp (session isolation)
 //       Mark in_progress todos as interrupted for this session's tasks
@@ -359,7 +356,7 @@ const allTasks = TaskList()
 
 See [ship-phase.md](references/ship-phase.md) for gh CLI pre-check, ship decision flow, PR template generation, and smart next steps.
 
-**Summary**: Offer to push branch and create PR. Generates PR body from plan metadata, task list, ward results, verification warnings, and todo summary. See [todo-protocol.md](references/todo-protocol.md) for PR body Work Session format. When per-task file-todos are active, the PR body also includes a file-todos status table sourced from `resolveTodosDir($ARGUMENTS, talisman, "work")` (counts by status/priority).
+**Summary**: Offer to push branch and create PR. Generates PR body from plan metadata, task list, ward results, verification warnings, and todo summary. See [todo-protocol.md](references/todo-protocol.md) for PR body Work Session format. The PR body also includes a file-todos status table sourced from `resolveTodosDir($ARGUMENTS, talisman, "work")` (counts by status/priority). Suppressed when `--todos=false`.
 
 ### Completion Report
 
