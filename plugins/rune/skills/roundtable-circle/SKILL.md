@@ -185,6 +185,31 @@ See [Rune Gaze](references/rune-gaze.md) for the full file classification algori
 | ALL files | Pattern Weaver (always) |
 | ALL files | Veil Piercer (always) |
 
+### Large-Diff Detection (Post-Phase 1)
+
+After file classification, check total file count against the large-diff threshold:
+
+```javascript
+const LARGE_DIFF_THRESHOLD = talisman?.review?.large_diff_threshold ?? 25
+const CHUNK_SIZE = talisman?.review?.chunk_size ?? 15
+
+if (totalFiles > LARGE_DIFF_THRESHOLD && depth !== "deep") {
+  // Standard depth only — deep mode uses wave-based chunking already
+  inscription.chunked = true
+  inscription.chunk_size = CHUNK_SIZE
+  inscription.chunks = splitIntoChunks(changedFiles, CHUNK_SIZE)
+  log(`Large diff detected (${totalFiles} files). Chunked review: ${inscription.chunks.length} chunks of up to ${CHUNK_SIZE} files.`)
+}
+```
+
+`splitIntoChunks(files, size)` partitions the files array into sequential slices, preserving classification order (high-priority files first). Each chunk is a sub-array passed as the file list to that chunk's Ash wave.
+
+**Conditions:**
+- Only activates when `totalFiles > LARGE_DIFF_THRESHOLD` (default: 25)
+- Skipped in `depth=deep` mode (wave system handles chunking natively)
+- Skipped in `scope=full` audit mode (audit uses importance-based priority, not diff-scoped chunking)
+- Talisman overrides: `review.large_diff_threshold` and `review.chunk_size`
+
 ## Phase 2: Forge Team
 
 ```
@@ -221,9 +246,75 @@ Each Ash prompt includes:
 - Glyph Budget enforcement
 - Seal Format for completion
 
+### Chunked Review Loop (standard depth, large diffs only)
+
+When `inscription.chunked === true` (standard depth + large diff), Phase 3 processes chunks sequentially. Each chunk gets its own Ash wave over the same team:
+
+```javascript
+// Chunked review — standard depth large-diff path
+if (inscription.chunked) {
+  const chunks = inscription.chunks  // set in Phase 1 large-diff detection
+
+  for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+    const chunkFiles = chunks[chunkIdx]
+    log(`Chunk ${chunkIdx + 1}/${chunks.length}: ${chunkFiles.length} files`)
+
+    // Spawn Ashes for this chunk — same roles, scoped file list
+    for (const ash of selectedAsh) {
+      Task({
+        team_name: teamName,
+        name: ash.slug,   // no chunk suffix — preserves hook compatibility
+        subagent_type: "general-purpose",
+        prompt: buildAshPrompt(ash, {
+          files: chunkFiles,
+          chunkContext: `Chunk ${chunkIdx + 1} of ${chunks.length}. Prior chunk findings are at ${outputDir}TOME-chunk-${chunkIdx}.md (if exists).`
+        }),
+        run_in_background: true
+      })
+    }
+
+    // Monitor this chunk's wave
+    const result = waitForCompletion(teamName, selectedAsh.length, {
+      timeoutMs: 600_000,
+      staleWarnMs: 300_000,
+      pollIntervalMs: 30_000,
+      label: `Review chunk ${chunkIdx + 1}/${chunks.length}`
+    })
+
+    // Write interim TOME for this chunk (Runebinder reads all at Phase 5)
+    Write(`${outputDir}TOME-chunk-${chunkIdx + 1}.md`,
+      `# Chunk ${chunkIdx + 1}/${chunks.length} Findings\n\nFiles: ${chunkFiles.join(", ")}\n\n` +
+      `(Partial — merged into final TOME.md by Runebinder in Phase 5)`)
+
+    // Shutdown Ashes before next chunk to reclaim context
+    for (const ash of selectedAsh) {
+      SendMessage({ type: "shutdown_request", recipient: ash.slug, content: `Chunk ${chunkIdx + 1} complete` })
+    }
+    if (selectedAsh.length > 0) Bash(`sleep 10`)
+  }
+} else {
+  // Standard single-pass (non-chunked) — spawn all Ashes once
+  for (const ash of selectedAsh) {
+    Task({
+      team_name: teamName,
+      name: ash.slug,
+      subagent_type: "general-purpose",
+      prompt: [from references/ash-prompts/{role}.md],
+      run_in_background: true
+    })
+  }
+}
+```
+
+**CRITICAL constraints (chunked path):**
+- Ash slug is never chunk-suffixed (hook compatibility)
+- Ashes are shut down between chunks to prevent context accumulation
+- Prior chunk TOME files are passed as context so Ashes build on prior findings
+- If any chunk times out, log the gap and continue with remaining chunks
+
 ### Wave Execution Loop (depth=deep only)
 
-When `depth === "deep"`, Phases 2-4 repeat for each wave. Standard depth executes a single pass (no loop).
+When `depth === "deep"`, Phases 2-4 repeat for each wave. Standard depth executes a single pass (no loop) — unless the large-diff chunked path is active (see above).
 
 ```javascript
 // Wave execution — depth=deep mode only
@@ -416,6 +507,8 @@ The Runebinder:
 3. Prioritizes: P1 first, then P2, then P3, then Q (questions), then N (nits)
 4. Reports gaps from crashed/stalled Ash
 5. Writes `tmp/reviews/{pr}/TOME.md`
+
+**Chunked review merging:** When `inscription.chunked === true`, Runebinder additionally reads all `TOME-chunk-N.md` interim files before deduplication. Findings from different chunks may overlap on shared utilities or common imports — Runebinder applies the same dedup hierarchy (see references/dedup-runes.md) across chunk boundaries. The final TOME.md notes how many chunks were merged.
 
 **Q/N Interaction Types (v1.60.0+):** Findings may carry an `interaction` attribute (`"question"` or `"nit"`) orthogonal to severity. Questions and nits appear in separate `## Questions` and `## Nits` sections in the TOME. They are excluded from convergence scoring and auto-mend. See [dedup-runes.md](references/dedup-runes.md) for Q/N dedup rules.
 

@@ -650,6 +650,8 @@ echoes:
   # max_chunks: 5              # Circuit breaker — max chunks before redistribution (default: 5, range: 1-20)
   # cross_cutting_pass: true   # Enable cross-cutting inter-module review pass (default: true)
   # chunk_strategy: "directory" # "directory" (group by dir) | "flat" (simple split) (default: directory) [RESERVED — not yet consumed]
+  # large_diff_threshold: 25   # File count triggering chunked review for standard depth (v1.51.0, default: 25, range: 5-200)
+  # chunk_size: 15             # Files per chunk in chunked review mode (v1.51.0, default: 15, range: 3-50)
   #
   # Convergence loop settings (adaptive 3-tier system)
   # convergence_enabled: true              # Enable review convergence loop (default: true)
@@ -703,6 +705,27 @@ echoes:
   #   convergence_threshold: 0.7     # Score >= this = converged (default: 0.7, range: 0.1-1.0)
   #   # QUAL-011: p3_dominance_threshold and noise_threshold removed — they had no effect in v1.38.0.
   #   # Per-component thresholds are planned for a future release. Current hardcoded weights: P3=0.4, preExisting=0.3, trend=0.2, base=0.1
+
+# ──────────────────────────────────────────────
+# Mend — Parallel finding resolution settings (v1.51.0+)
+# ──────────────────────────────────────────────
+mend:
+  cross_file_batch_size: 4     # Max files per batch in cross-file mend Phase 5.5 (v1.51.0, default: 3, range: 1-10)
+                               # Controls how many files are read at once during orchestrator-only cross-file fix.
+                               # Lower values reduce per-step context cost; higher values reduce round-trips.
+
+# ──────────────────────────────────────────────
+# Review active keys — Context Pressure Defense (v1.51.0+)
+# These keys are consumed by roundtable-circle large-diff chunked review.
+# For the full commented review: block, see the # review: section above.
+# ──────────────────────────────────────────────
+review:
+  large_diff_threshold: 25     # File count triggering chunked review for standard depth (v1.51.0)
+                               # When changed files exceed this number, standard depth review
+                               # switches to sequential chunk processing (default: 25, range: 5-200).
+  chunk_size: 15               # Files per chunk in chunked review mode (v1.51.0)
+                               # Each chunk gets a full Ash wave; Ashes shut down between chunks
+                               # to reclaim context (default: 15, range: 3-50).
 
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings
