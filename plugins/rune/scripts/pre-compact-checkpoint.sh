@@ -289,9 +289,26 @@ if [[ -n "$workflow_file" ]] && [[ -f "$workflow_file" ]]; then
 fi
 
 # 4. Arc checkpoint if it exists
+# BUG FIX (v1.107.0): Arc checkpoints live at .claude/arc/${id}/checkpoint.json,
+# NOT tmp/.arc-checkpoint.json (which never existed). Find newest checkpoint
+# belonging to current session (owner_pid matches $PPID).
 arc_checkpoint="{}"
-arc_file="${CWD}/tmp/.arc-checkpoint.json"
-if [[ -f "$arc_file" ]] && [[ ! -L "$arc_file" ]]; then
+arc_file=""
+_ckpt_dir="${CWD}/.claude/arc"
+if [[ -d "$_ckpt_dir" ]]; then
+  _newest_mtime=0
+  for _f in "$_ckpt_dir"/*/checkpoint.json; do
+    [[ -f "$_f" ]] && [[ ! -L "$_f" ]] || continue
+    _pid=$(jq -r '.owner_pid // empty' "$_f" 2>/dev/null) || continue
+    [[ "$_pid" == "$PPID" ]] || continue
+    _mt=$(stat -f %m "$_f" 2>/dev/null) || _mt=$(stat -c %Y "$_f" 2>/dev/null) || continue
+    if [[ "$_mt" -gt "$_newest_mtime" ]]; then
+      _newest_mtime="$_mt"
+      arc_file="$_f"
+    fi
+  done
+fi
+if [[ -n "$arc_file" ]] && [[ -f "$arc_file" ]] && [[ ! -L "$arc_file" ]]; then
   arc_checkpoint=$(jq -c '.' "$arc_file" 2>/dev/null || echo '{}')
 fi
 

@@ -161,6 +161,40 @@ validate_session_ownership() {
   fi
 }
 
+# ── _find_arc_checkpoint(): Find the most recent arc checkpoint for current session ──
+# Searches ${CWD}/.claude/arc/*/checkpoint.json for the newest checkpoint
+# belonging to the current session (owner_pid matches $PPID).
+# Args: none (uses CWD and PPID globals)
+# Returns: absolute path to checkpoint.json on stdout, or empty string if not found.
+# Exit code: 0 if found, 1 if not found.
+_find_arc_checkpoint() {
+  local ckpt_dir="${CWD}/.claude/arc"
+  [[ -d "$ckpt_dir" ]] || return 1
+
+  local newest="" newest_mtime=0
+  # bash glob: if no match, literal pattern is used; -f check skips it
+  for f in "$ckpt_dir"/*/checkpoint.json; do
+    [[ -f "$f" ]] && [[ ! -L "$f" ]] || continue
+    # Session isolation: only consider checkpoints owned by this session
+    local pid
+    pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null) || continue
+    [[ "$pid" == "$PPID" ]] || continue
+    # Get mtime (macOS: stat -f %m; Linux: stat -c %Y)
+    local mtime
+    mtime=$(stat -f %m "$f" 2>/dev/null) || mtime=$(stat -c %Y "$f" 2>/dev/null) || continue
+    if [[ "$mtime" -gt "$newest_mtime" ]]; then
+      newest_mtime="$mtime"
+      newest="$f"
+    fi
+  done
+
+  if [[ -n "$newest" ]]; then
+    echo "$newest"
+    return 0
+  fi
+  return 1
+}
+
 # ── validate_paths(): Path traversal + metachar rejection for relative paths ──
 # Args: One or more relative path values to validate.
 # Returns: 0 if all paths are safe, 1 if any path is unsafe.
