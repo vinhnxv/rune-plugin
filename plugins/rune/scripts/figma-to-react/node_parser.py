@@ -22,7 +22,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
-from .figma_types import (
+from figma_types import (
     BooleanOperationNode,
     Color,
     Effect,

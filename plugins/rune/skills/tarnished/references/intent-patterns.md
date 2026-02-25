@@ -24,8 +24,13 @@ These keywords at the START of `$ARGUMENTS` trigger immediate routing (no classi
 | `rest` | `/rune:rest` | Yes |
 | `echoes` | `/rune:echoes` | Yes |
 | `clean` | `/rune:rest` | Yes |
+| `arc-batch` | `/rune:arc-batch` | Yes |
+| `arc-issues` | `/rune:arc-issues` | Yes |
+| `arc-hierarchy` | `/rune:arc-hierarchy` | Yes |
 | `ship` | `/rune:arc` | Yes |
 | `fix` | `/rune:mend` | Yes — check for TOME prerequisite |
+| `debug` | `/rune:debug` | Yes |
+| `cancel` | (cancel mode) | Detect active workflow → route to correct cancel command |
 | `help` | (guidance mode) | Show Rune overview + suggest next action |
 | `status` | (guidance mode) | Scan artifacts + recommend next step |
 

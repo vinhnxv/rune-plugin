@@ -16,12 +16,12 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Optional
 
-from .figma_types import LayoutMode, NodeType, TypeStyle
-from .image_handler import ImageHandler, collect_image_refs
-from .layout_resolver import resolve_child_layout, resolve_container_layout
-from .node_parser import FigmaIRNode, StyledTextSegment
-from .style_builder import StyleBuilder
-from .tailwind_mapper import (
+from figma_types import LayoutMode, NodeType, TypeStyle
+from image_handler import ImageHandler, collect_image_refs
+from layout_resolver import resolve_child_layout, resolve_container_layout
+from node_parser import FigmaIRNode, StyledTextSegment
+from style_builder import StyleBuilder
+from tailwind_mapper import (
     TailwindMapper,
     map_font_size,
     map_font_weight,

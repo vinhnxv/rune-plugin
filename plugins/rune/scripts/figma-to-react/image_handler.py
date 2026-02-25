@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from .node_parser import FigmaIRNode
+from node_parser import FigmaIRNode
 
 
 # ---------------------------------------------------------------------------

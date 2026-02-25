@@ -217,6 +217,48 @@ Nếu review phát hiện vấn đề, sửa tự động:
 
 ---
 
+## `/rune:tarnished` — Lệnh thống nhất
+
+Không nhớ nên dùng lệnh nào? `/rune:tarnished` là lệnh thông minh điều hướng yêu cầu của bạn đến workflow Rune phù hợp. Hỗ trợ cả tiếng Anh và tiếng Việt.
+
+```bash
+# Chỉ cần nói bạn muốn gì — tarnished tự chọn lệnh đúng
+/rune:tarnished plan thêm xác thực người dùng
+/rune:tarnished work
+/rune:tarnished review
+/rune:tarnished arc plans/my-plan.md
+
+# Ghép nhiều bước với "rồi" / "sau đó" / "and" / "then"
+/rune:tarnished review rồi sửa
+/rune:tarnished plan rồi triển khai
+
+# Ngôn ngữ tự nhiên cũng được
+/rune:tarnished triển khai kế hoạch mới nhất
+/rune:tarnished sửa lỗi từ review trước
+
+# Hỏi hướng dẫn
+/rune:tarnished help
+/rune:tarnished tôi nên làm gì tiếp?
+/rune:tarnished khi nào nên dùng audit vs review?
+```
+
+Khi chạy không có tham số, `/rune:tarnished` quét trạng thái project (plans, reviews, git changes) và đề xuất hành động tiếp theo hợp lý nhất.
+
+| Từ khóa | Chuyển đến |
+|---------|-----------|
+| `plan` / `tạo plan` | `/rune:devise` |
+| `work` / `triển khai` | `/rune:strive` |
+| `review` / `kiểm tra` | `/rune:appraise` |
+| `arc` | `/rune:arc` |
+| `arc-batch` | `/rune:arc-batch` |
+| `arc-issues` | `/rune:arc-issues` |
+| `audit` / `đánh giá` | `/rune:audit` |
+| `forge` | `/rune:forge` |
+| `mend` / `sửa` | `/rune:mend` |
+| `help` / `giúp` | Chế độ hướng dẫn |
+
+---
+
 ## Tiến xa hơn
 
 Khi đã quen với quy trình cơ bản, hãy khám phá các lệnh nâng cao:

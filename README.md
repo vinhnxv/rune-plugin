@@ -7,7 +7,7 @@ Plan, implement, review, test, and audit your codebase using coordinated Agent T
 [![Version](https://img.shields.io/badge/version-1.96.0-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Agents](https://img.shields.io/badge/agents-82-purple)](#agents)
-[![Skills](https://img.shields.io/badge/skills-33-orange)](#skills)
+[![Skills](https://img.shields.io/badge/skills-34-orange)](#skills)
 
 ---
 
@@ -84,6 +84,35 @@ You ──► /rune:devise ──► Plan
 | `/rune:plan` | Plan a feature or task | `/rune:devise` |
 | `/rune:work` | Implement a plan with AI workers | `/rune:strive` |
 | `/rune:review` | Review your code changes | `/rune:appraise` |
+
+### `/rune:tarnished` — The Unified Entry Point
+
+Don't remember which command to use? `/rune:tarnished` is the intelligent master command that routes natural language to the correct Rune workflow. It understands both English and Vietnamese.
+
+```bash
+# Route by keyword — passes through to the right skill
+/rune:tarnished plan add user authentication
+/rune:tarnished work plans/my-plan.md
+/rune:tarnished review
+/rune:tarnished arc plans/my-plan.md
+/rune:tarnished arc-batch plans/*.md
+/rune:tarnished arc-issues --label "rune:ready"
+
+# Chain workflows — multi-step with confirmation between steps
+/rune:tarnished review and fix
+/rune:tarnished plan then work
+
+# Natural language — classifies intent automatically
+/rune:tarnished implement the latest plan
+/rune:tarnished fix the findings from the last review
+
+# Guidance — ask Rune anything
+/rune:tarnished help
+/rune:tarnished what should I do next?
+/rune:tarnished khi nào nên dùng audit vs review?
+```
+
+When run with no arguments, `/rune:tarnished` scans your project state (plans, reviews, git changes) and suggests the most logical next action.
 
 ### Core Commands
 
@@ -347,7 +376,7 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 
 ## Skills
 
-33 skills providing background knowledge, workflow orchestration, and tool integration:
+34 skills providing background knowledge, workflow orchestration, and tool integration:
 
 | Skill | Type | Purpose |
 |-------|------|---------|
@@ -371,6 +400,7 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 | `stacks` | Intelligence | Stack-aware detection and routing |
 | `inner-flame` | Quality | Universal self-review protocol |
 | `ash-guide` | Reference | Agent invocation guide |
+| `tarnished` | Routing | Unified entry point — natural language to workflow |
 | `using-rune` | Reference | Workflow discovery and routing |
 | `codex-cli` | Integration | Cross-model verification |
 | `testing` | Testing | 3-tier test orchestration |

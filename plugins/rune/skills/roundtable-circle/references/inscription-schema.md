@@ -155,6 +155,33 @@
       "frontend": "integer — max files for frontend reviewer",
       "docs": "integer — max files for docs reviewer"
     }
+  },
+
+  "sharding": {
+    "enabled": "boolean — true when diff exceeds shard_threshold and scope=diff",
+    "strategy": "string — always 'domain-affinity' (v1.98.0)",
+    "shard_count": "integer — number of shard reviewers spawned",
+    "shard_threshold": "integer — file count threshold used (from talisman or default 15)",
+    "shard_size": "integer — max files per shard (from talisman or default 12)",
+    "shards": [
+      {
+        "shard_id": "string — single uppercase letter A-E",
+        "files": ["array of file paths assigned to this shard"],
+        "file_count": "integer",
+        "primary_domain": "string — dominant domain (security_critical|backend|frontend|infra|config|docs|tests|mixed)",
+        "domains": ["array of domain strings present in this shard"],
+        "model": "string — sonnet|haiku",
+        "reviewer_name": "string — e.g. 'shard-reviewer-a'",
+        "output_file": "string — e.g. 'shard-a-findings.md'",
+        "summary_file": "string — e.g. 'shard-a-summary.json'"
+      }
+    ],
+    "cross_shard": {
+      "enabled": "boolean — whether Cross-Shard Sentinel is active",
+      "reviewer_name": "string — 'cross-shard-sentinel'",
+      "output_file": "string — 'cross-shard-findings.md'",
+      "input_files": ["array of shard summary JSON paths"]
+    }
   }
 }
 ```
@@ -249,3 +276,4 @@
 | `aggregator` | No | No aggregation |
 | `verification` | No | `{ "enabled": false }` |
 | `context_engineering` | No | Defaults applied |
+| `sharding` | No | `{ "enabled": false }` — when absent or `enabled: false`, `teammates[]` works exactly as before (fully backward-compatible). The `sharding` field is purely additive. (v1.98.0+, rune-review `scope=diff` only) |

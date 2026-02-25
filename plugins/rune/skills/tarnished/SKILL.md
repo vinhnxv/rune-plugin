@@ -14,6 +14,9 @@ description: |
     /rune:tarnished work plans/my-plan.md
     /rune:tarnished review
     /rune:tarnished review and fix
+    /rune:tarnished arc plans/my-plan.md
+    /rune:tarnished arc-batch plans/*.md
+    /rune:tarnished arc-issues --label "rune:ready"
     /rune:tarnished thảo luận rồi tạo plan cho feature X
 
   Also serves as a Rune expert — can explain how Rune works, recommend
@@ -30,6 +33,16 @@ description: |
   </example>
 
   <example>
+  user: "/rune:tarnished arc plans/feat-auth-plan.md"
+  assistant: "The Tarnished heeds your call. Routing to /rune:arc..."
+  </example>
+
+  <example>
+  user: "/rune:tarnished arc-batch plans/*.md"
+  assistant: "The Tarnished heeds your call. Routing to /rune:arc-batch..."
+  </example>
+
+  <example>
   user: "/rune:tarnished review and fix"
   assistant: "The Tarnished charts a two-step path: appraise → mend..."
   </example>
@@ -40,7 +53,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[plan|work|review|...] [args]"
+argument-hint: "[plan|work|review|arc|arc-batch|...] [args]"
 allowed-tools:
   - Read
   - Glob
@@ -88,8 +101,9 @@ Read `$ARGUMENTS`. Three paths:
 ```
 
 Fast-path keywords: `plan`, `work`, `review`, `devise`, `strive`, `appraise`,
-`audit`, `arc`, `forge`, `mend`, `inspect`, `goldmask`, `elicit`, `rest`,
-`echoes`, `clean`, `ship`, `fix`.
+`audit`, `arc`, `arc-batch`, `arc-issues`, `arc-hierarchy`, `forge`, `mend`,
+`inspect`, `goldmask`, `elicit`, `rest`, `echoes`, `clean`, `ship`, `fix`,
+`debug`, `cancel`.
 
 **Path C — Natural language** (no keyword match):
 ```
