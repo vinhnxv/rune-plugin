@@ -1,5 +1,55 @@
 # Changelog
 
+## [1.101.0] - 2026-02-25
+
+### Added
+- **Per-Source Todo Manifests** (`todos-{source}-manifest.json`): Each source (work/review/audit) gets its own focused manifest for minimal LLM context
+  - Dependency DAG with Kahn's topological sort, Coffman-Graham wave grouping, and critical path analysis
+  - Optional cross-source index (`todos-cross-index.json`) for inter-source edges and dedup
+  - Dedup candidate detection with Jaro-Winkler + Jaccard scoring
+  - Resolution log per source for false positives, duplicates, wont_fix decisions
+  - Session metadata (workflow type, session_id, started_at) in every manifest
+- **Schema v2**: 12 new frontmatter fields for resolution metadata, ownership audit, cross-source linking
+  - `resolution`, `resolution_reason`, `resolved_by`, `resolved_at` — structured resolution tracking
+  - `claimed_at`, `completed_by`, `completed_at` — ownership audit trail
+  - `duplicate_of`, `related_todos`, `workflow_chain` — cross-source linking
+  - `execution_order`, `wave` — computed ordering metadata
+- **Status History**: Structured audit trail (markdown table) appended to every todo on status transitions
+  - Pipe character escaping in reason text (prevents table corruption)
+- **`interrupted` status**: New lifecycle state for todos abandoned when session ends, transitions back to `ready` on resume
+- **Session context resolution** (6.0): Auto-detect active session for standalone `/rune:file-todos` subcommands
+- **6 new subcommands**: `manifest build` (per-source + cross-source), `manifest graph` (ASCII + Mermaid, source-scoped), `manifest validate`, `resolve` (with `--undo`), `dedup`
+- **Dedup detection**: Post-creation duplicate detection with 4 heuristic signals, three-phase pipeline (blocking → scoring → presentation)
+- **Triage v2**: Resolution-aware triage with 6 options (approve, defer, false_positive, duplicate, out_of_scope, superseded)
+- **Resume flow** (8.6): Reconstruct todo state from checkpoint, rebuild dirty manifests, re-ready interrupted todos
+- **Deprecated talisman key warnings**: Migration guidance when removed keys detected in config
+- 4 new talisman keys: `file_todos.manifest.*` and `file_todos.history.enabled`
+
+### Changed
+- **BREAKING: Session-scoped todos only** — removed standalone `todos/` at project root
+  - All workflows create todos inside their `tmp/{workflow}/{id}/todos/` directory
+  - Todos are mandatory for all workflows (removed `--todos=false` escape hatch)
+  - Per-worker session logs relocated from `tmp/work/{ts}/todos/` to `tmp/work/{ts}/worker-logs/`
+  - `_summary.md` relocated to `worker-logs/_summary.md`
+- Schema version bump: 1 → 2 (backward-compatible, v1 todos remain valid)
+- Replaced `.todo-index.json` cache with per-source `todos-{source}-manifest.json` files
+- Per-source dirty signals (`{source}/.dirty`) instead of global dirty
+- Updated strive, mend, appraise, audit, arc integrations for mandatory session-scoped todos
+- `resolveTodosBase()` simplified: single-arg session-scoped (removed 3-tier resolution chain)
+- `todo-update-phase.md` (mend) fully implemented with `mend_fixer_claim` lock and cross-write isolation
+- Self-dependency detection in DAG builder (auto-removed with warning)
+- Empty array guard on `criticalPath()` (prevents Math.max crash on empty Set)
+- Support for >999 todos per source (4-digit `NNNN` ID format)
+- `work_session` field deprecated (redundant with session-scoped directory)
+
+### Removed
+- `talisman.file_todos.dir` config key (session-scoped, no override)
+- `talisman.file_todos.enabled` config key (todos are mandatory)
+- `talisman.file_todos.auto_generate.work` config key (always generated)
+- `--todos=false` CLI flag across all workflows
+- `--todos-dir` CLI flag (arc passes output dir directly)
+- `archive` subcommand (obsolete in session-scoped model — no persistent storage to archive to)
+
 ## [1.100.0] - 2026-02-25
 
 ### Added

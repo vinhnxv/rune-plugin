@@ -39,7 +39,6 @@ Rune generates output files in directories that are typically gitignored. To let
 {
   "includedGitignorePatterns": [
     "plans/",
-    "todos/",
     "tmp/",
     "reviews/",
     ".claude/arc/",
@@ -661,7 +660,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | context-weaving | Context overflow/rot prevention |
 | debug | Structured debugging with ACH hypothesis investigation. 4-phase protocol (Observe → Narrow → Hypothesize → Fix) with evidence tiers and consistency matrix |
 | elicitation | Curated structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
-| file-todos | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Always active; suppress with `--todos=false` |
+| file-todos | Unified file-based todo tracking (schema v2, status history, per-source manifests, DAG ordering, 13 subcommands). Always active (mandatory). Session-scoped in `tmp/{workflow}/{id}/todos/`. |
 | forge | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer (Phase 1.5) for risk-aware section prioritization |
 | git-worktree | Worktree isolation for /rune:strive (experimental `--worktree` flag) |
 | goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers). Shared data discovery + risk context template reused by forge, mend, inspect, and devise for risk-aware workflows |

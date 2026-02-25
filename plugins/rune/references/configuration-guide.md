@@ -359,4 +359,53 @@ Per-workflow Goldmask configuration lives under the `goldmask:` key as flat sibl
 
 ---
 
+## file_todos — File-based todo tracking (v1.101.0+)
+
+All todos are session-scoped (mandatory). No project-root override. Todos always live in `tmp/{workflow}/{id}/todos/{source}/`.
+
+### Deprecated Keys (removed in v1.101.0)
+
+| Key | Removed In | Migration |
+|-----|-----------|-----------|
+| `file_todos.dir` | v1.101.0 | Remove from talisman.yml — todos are session-scoped, no project-root override needed |
+| `file_todos.enabled` | v1.101.0 | Remove from talisman.yml — todos are mandatory for all workflows |
+| `file_todos.auto_generate.work` | v1.101.0 | Remove from talisman.yml — work todos are always generated |
+
+When `readTalisman()` encounters these removed keys, it emits a one-time warning:
+
+```javascript
+const deprecated = {
+  'file_todos.dir': 'REMOVED in v1.101.0 — todos are session-scoped, no project-root override needed',
+  'file_todos.enabled': 'REMOVED in v1.101.0 — todos are now mandatory for all workflows',
+  'file_todos.auto_generate.work': 'REMOVED in v1.101.0 — work todos are always generated'
+}
+for (const [key, message] of Object.entries(deprecated)) {
+  if (getNestedKey(talisman, key) !== undefined) {
+    warn(`Deprecated talisman key "${key}": ${message}. Remove from .claude/talisman.yml.`)
+  }
+}
+```
+
+### `file_todos.triage` — Triage behavior
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `file_todos.triage.auto_approve_p1` | boolean | `false` | Auto-approve P1 items during triage without prompting |
+
+### `file_todos.manifest` — Per-source manifest settings (v1.101.0+)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `file_todos.manifest.auto_build` | boolean | `true` | Auto-rebuild per-source manifest when dirty signal is set |
+| `file_todos.manifest.dedup_on_build` | boolean | `false` | Run dedup candidate detection on every manifest build |
+| `file_todos.manifest.dedup_threshold` | float | `0.70` | Confidence threshold (0.0-1.0) for dedup candidates (Jaro-Winkler + Jaccard scoring) |
+
+### `file_todos.history` — Status History tracking (v1.101.0+)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `file_todos.history.enabled` | boolean | `true` | Track Status History entries (markdown table) on every status transition |
+
+---
+
 See `../skills/roundtable-circle/references/custom-ashes.md` for full schema and `talisman.example.yml` at plugin root.

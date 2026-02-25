@@ -120,10 +120,10 @@ Task({
     RETRY LIMIT: Do not reclaim a task you just released due to ward failure.
     Track failed task IDs internally and skip them when scanning TaskList.
     EXIT: No tasks after 3 retries (30s each) -> idle notification -> exit
-    SHUTDOWN: Update your todo file status to completed/interrupted, THEN approve immediately
+    SHUTDOWN: Update your todo file status to complete/interrupted, THEN approve immediately
 
-    TODO FILE PROTOCOL (mandatory):
-    1. On first task claim: create tmp/work/{timestamp}/todos/{your-name}.md
+    WORKER LOG PROTOCOL (mandatory):
+    1. On first task claim: create tmp/work/{timestamp}/worker-logs/{your-name}.md
        with YAML frontmatter:
        ---
        worker: {your-name}
@@ -138,19 +138,19 @@ Task({
        update Status to completed
     5. Record key decisions in "### Decisions" subsection — explain WHY, not just WHAT
     6. On failure: update Status to failed, add "### Failure reason" subsection
-    7. On exit (shutdown or idle): update frontmatter status to completed/interrupted
+    7. On exit (shutdown or idle): update frontmatter status to complete/interrupted
 
     NOTE: Use simplified v1 frontmatter (4 fields only: worker, role, status, plan_path).
     All counters are derived by the orchestrator during summary generation.
     Workers MUST NOT write counter fields.
-    Todo file write failure is non-blocking — warn orchestrator, continue without todo tracking.
+    Log file write failure is non-blocking — warn orchestrator, continue without log tracking.
 
-    PER-TASK FILE-TODOS (when enabled by orchestrator):
-    If the orchestrator created per-task todo files in todos/, you may also:
-    1. After claiming a task, search todos/ for a file with tag "task-{your-task-id}"
+    PER-TASK FILE-TODOS (mandatory, session-scoped):
+    The orchestrator created per-task todo files in tmp/work/{timestamp}/todos/work/.
+    1. After claiming a task, search todos/work/ for a file with tag "task-{your-task-id}"
     2. If found: append Work Log entries to that file as you progress
     3. Do NOT modify frontmatter status — the orchestrator handles status transitions
-    This is optional and non-blocking. Per-worker todo files above remain mandatory.
+    Per-task todos are mandatory (no --todos=false). Worker logs above are a separate system.
 
     SELF-REVIEW (Inner Flame):
     Before generating your patch, execute the Inner Flame Worker checklist:
@@ -244,10 +244,10 @@ Task({
     RETRY LIMIT: Do not reclaim a task you just released due to test failure.
     Track failed task IDs internally and skip them when scanning TaskList.
     EXIT: No tasks after 3 retries (30s each) -> idle notification -> exit
-    SHUTDOWN: Update your todo file status to completed/interrupted, THEN approve immediately
+    SHUTDOWN: Update your todo file status to complete/interrupted, THEN approve immediately
 
-    TODO FILE PROTOCOL (mandatory):
-    1. On first task claim: create tmp/work/{timestamp}/todos/{your-name}.md
+    WORKER LOG PROTOCOL (mandatory):
+    1. On first task claim: create tmp/work/{timestamp}/worker-logs/{your-name}.md
        with YAML frontmatter:
        ---
        worker: {your-name}
@@ -262,19 +262,19 @@ Task({
        update Status to completed
     5. Record key decisions in "### Decisions" subsection — explain WHY, not just WHAT
     6. On failure: update Status to failed, add "### Failure reason" subsection
-    7. On exit (shutdown or idle): update frontmatter status to completed/interrupted
+    7. On exit (shutdown or idle): update frontmatter status to complete/interrupted
 
     NOTE: Use simplified v1 frontmatter (4 fields only: worker, role, status, plan_path).
     All counters are derived by the orchestrator during summary generation.
     Workers MUST NOT write counter fields.
-    Todo file write failure is non-blocking — warn orchestrator, continue without todo tracking.
+    Log file write failure is non-blocking — warn orchestrator, continue without log tracking.
 
-    PER-TASK FILE-TODOS (when enabled by orchestrator):
-    If the orchestrator created per-task todo files in todos/, you may also:
-    1. After claiming a task, search todos/ for a file with tag "task-{your-task-id}"
+    PER-TASK FILE-TODOS (mandatory, session-scoped):
+    The orchestrator created per-task todo files in tmp/work/{timestamp}/todos/work/.
+    1. After claiming a task, search todos/work/ for a file with tag "task-{your-task-id}"
     2. If found: append Work Log entries to that file as you progress
     3. Do NOT modify frontmatter status — the orchestrator handles status transitions
-    This is optional and non-blocking. Per-worker todo files above remain mandatory.
+    Per-task todos are mandatory (no --todos=false). Worker logs above are a separate system.
 
     SELF-REVIEW (Inner Flame):
     Before generating your patch, execute the Inner Flame Worker checklist:
@@ -318,7 +318,7 @@ Replace the standard Step 8 (patch generation) with:
        IMPORTANT — ABSOLUTE PATHS:
        Your working directory is a git worktree (NOT the main project directory).
        Use absolute paths for:
-       - Todo files: {absolute_project_root}/tmp/work/{timestamp}/todos/{your-name}.md
+       - Worker log files: {absolute_project_root}/tmp/work/{timestamp}/worker-logs/{your-name}.md
        - Signal files: {absolute_project_root}/tmp/.rune-signals/...
        - Proposal files: {absolute_project_root}/tmp/work/{timestamp}/proposals/...
        Do NOT write these files relative to your CWD — they will end up in the worktree.`
@@ -348,7 +348,7 @@ Replace the standard Step 8 (patch generation) with:
        IMPORTANT — ABSOLUTE PATHS:
        Your working directory is a git worktree (NOT the main project directory).
        Use absolute paths for:
-       - Todo files: {absolute_project_root}/tmp/work/{timestamp}/todos/{your-name}.md
+       - Worker log files: {absolute_project_root}/tmp/work/{timestamp}/worker-logs/{your-name}.md
        - Signal files: {absolute_project_root}/tmp/.rune-signals/...
        Do NOT write these files relative to your CWD — they will end up in the worktree.`
 ```

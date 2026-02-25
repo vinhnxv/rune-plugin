@@ -150,12 +150,11 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
 // - Timeout propagation (--timeout ${mendTimeout})
 // - Team name prefix: arc-mend-{id}
 // - Root cause context: if elicitation-root-cause.md exists, pass to fixers
-// - Arc-scoped todos: --todos-dir so Phase 5.9 scans tmp/arc/{id}/todos/*/
+// No --todos-dir flag — mend resolves todos_base from TOME path (cross-write isolation)
+// Mend reads review's todos_base (from review state file) via TOME path resolution
 // Delegation pattern: /rune:mend creates its own team (e.g., rune-mend-{id}).
 // Arc reads the team name from the mend state file or teammate idle notification.
-const arcTodosBase = checkpoint.todos_base  // set by arc scaffolding (pre-Phase 5)
-const todosFlag = arcTodosBase ? `--todos-dir ${arcTodosBase}` : ''
-// Invoke: /rune:mend {tomeSource} --timeout ${innerPolling} {todosFlag}
+// Invoke: /rune:mend {tomeSource} --timeout ${innerPolling}
 ```
 
 ## Post-Delegation Team Name Discovery
@@ -217,8 +216,19 @@ updateCheckpoint({
 })
 
 // Post-Phase 7 todos verification (non-blocking)
-if (arcTodosBase) {
-  const allTodos = Glob(`${arcTodosBase}*/[0-9][0-9][0-9]-*.md`)
+// Mend updates the review's todos_base — read from the review state file
+const reviewStateFiles = Glob("tmp/.rune-review-*.json").filter(f => {
+  try {
+    const s = JSON.parse(Read(f))
+    return s.todos_base && s.status === "completed"
+  } catch { return false }
+}).sort().reverse()
+const reviewTodosBase = reviewStateFiles.length > 0
+  ? (() => { try { return JSON.parse(Read(reviewStateFiles[0])).todos_base || null } catch { return null } })()
+  : null
+
+if (reviewTodosBase) {
+  const allTodos = Glob(`${reviewTodosBase}*/[0-9][0-9][0-9]-*.md`)
   let completeCount = 0, pendingCount = 0
   for (const f of allTodos) {
     const fm = parseFrontmatter(Read(f))

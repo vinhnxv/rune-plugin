@@ -360,17 +360,14 @@ Task({
 
 Generate per-finding todo files from scope-tagged TOME. Runs AFTER Phase 5.3 (diff-scope tagging) so scope attributes are available.
 
-**Skip condition**: `--todos=false` flag only. File-todos are always generated unless explicitly suppressed.
+**Todos are mandatory** — file-todos are ALWAYS generated. There is no `--todos=false` escape hatch.
 
 ```javascript
-// Phase 5.4: Todo Generation from TOME findings
+// Phase 5.4: Todo Generation from TOME findings (mandatory)
 const workflowType = workflow === "rune-review" ? "review" : "audit"
-const todosFlag = flags['--todos']
 
-// Always generate unless explicitly disabled via --todos=false
-const generateTodos = todosFlag !== false
-
-if (generateTodos) {
+// Todos are always generated — no --todos=false gate
+{
   // 1. Read scope-tagged TOME.md
   const tomeContent = Read(`${outputDir}TOME.md`)
   const tomePath = `${outputDir}TOME.md`
@@ -425,13 +422,13 @@ if (generateTodos) {
     // Pre-existing P1 findings ARE kept (critical regardless of scope)
   )
 
-  // 4. Resolve source-qualified directory (per-source subdirectory convention)
+  // 4. Resolve source-qualified directory (session-scoped, no --todos-dir flag needed)
   // Uses resolveTodosDir() from integration-guide.md — inline implementation
-  // Priority: --todos-dir flag > talisman.file_todos.dir > "todos/"
-  const todosDir = resolveTodosDir($ARGUMENTS, talisman, workflowType)
-  //   standalone appraise: "todos/review/"
-  //   standalone audit:    "todos/audit/"
-  //   arc appraise:        "tmp/arc/{id}/todos/review/"  (via --todos-dir)
+  // outputDir is the workflow's session output dir (set in Phase 1)
+  const todosDir = resolveTodosDir(outputDir, workflowType)
+  //   standalone appraise: "tmp/reviews/{id}/todos/review/"
+  //   standalone audit:    "tmp/audit/{id}/todos/audit/"
+  //   arc appraise:        "tmp/arc/{id}/todos/review/"
   Bash(`mkdir -p "${todosDir}"`)
 
   // 5. Get next sequential ID — scoped to source subdirectory (independent per source)
@@ -465,7 +462,7 @@ if (generateTodos) {
 
     // Write from template (sole-orchestrator pattern — only orchestrator creates)
     Write(`${todosDir}${filename}`, generateTodoFromFinding(finding, {
-      schema_version: 1,
+      schema_version: 2,          // v2: resolution metadata + status history + workflow_chain
       status: "pending",
       priority,
       issue_id: paddedId,
@@ -475,15 +472,29 @@ if (generateTodos) {
       finding_severity: finding.severity,
       tags: finding.tags || [],
       files: finding.files || [],
+      workflow_chain: [`${workflowType === 'review' ? 'appraise' : 'audit'}:${identifier}`],
       created: new Date().toISOString().slice(0, 10),
       updated: new Date().toISOString().slice(0, 10)
     }))
+    // Append creation Status History entry (—→pending)
+    appendStatusHistory(`${todosDir}${filename}`, null, 'pending', 'orchestrator', 'Created from TOME finding')
 
     nextId++
     createdCount++
   }
 
+  // Build per-source manifest after all todos created
+  const todosBase = `${outputDir}todos/`
+  buildSourceManifest(todosBase, workflowType)
+
   log(`Phase 5.4: Generated ${createdCount} todo files from ${todoableFindings.length} actionable findings (${allFindings.length - todoableFindings.length} filtered out)`)
+
+  // Record todos_base in state file for mend consumption and resume support
+  const currentState = JSON.parse(Read(`${stateFilePrefix}-${identifier}.json`))
+  Write(`${stateFilePrefix}-${identifier}.json`, {
+    ...currentState,
+    todos_base: todosBase
+  })
 }
 ```
 

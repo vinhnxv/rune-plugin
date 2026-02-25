@@ -134,10 +134,10 @@ if (exists(verdictPath)) {
 // Actual team name will be discovered post-delegation from state file (see STEP 4.5 below).
 updateCheckpoint({ phase: "code_review", status: "in_progress", phase_sequence: 6, team_name: null })
 
-// Arc-scoped todos: pass --todos-dir so Phase 5.4 writes to tmp/arc/{id}/todos/review/
-const arcTodosBase = checkpoint.todos_base  // set by arc scaffolding (pre-Phase 5)
-const todosFlag = arcTodosBase ? `--todos-dir ${arcTodosBase}` : ''
-// Invoke: /rune:appraise --deep {todosFlag} {scopeFileFlag} {reviewContext}
+// No --todos-dir flag needed — appraise uses session-scoped todos automatically
+// outputDir = "tmp/reviews/{review-id}/" → todos at "tmp/reviews/{review-id}/todos/review/"
+// Arc reads todos_base from state file post-delegation (see STEP 4.5 verification below)
+// Invoke: /rune:appraise --deep {scopeFileFlag} {reviewContext}
 
 // BACK-5 FIX: Pass gap analysis context and review context to /rune:appraise
 // so reviewers can focus on areas where implementation may be incomplete.
@@ -213,14 +213,19 @@ updateCheckpoint({
 })
 
 // STEP 5.5: Post-Phase 6 todos verification (non-blocking)
-if (arcTodosBase) {
-  const reviewTodos = Glob(`${arcTodosBase}review/[0-9][0-9][0-9]-*.md`)
+// Read todos_base from review state file — set by Phase 5.4 in orchestration-phases.md
+const reviewStatePath = postReviewStateFiles.length > 0 ? postReviewStateFiles[0] : null
+const reviewTodosBase = reviewStatePath
+  ? (() => { try { return JSON.parse(Read(reviewStatePath)).todos_base || null } catch { return null } })()
+  : null
+if (reviewTodosBase) {
+  const reviewTodos = Glob(`${reviewTodosBase}review/[0-9][0-9][0-9]-*.md`)
   log(`Todos verification: ${reviewTodos.length} review todos generated from TOME`)
-  // Spot-check first todo frontmatter schema
+  // Spot-check first todo frontmatter schema (v2)
   if (reviewTodos.length > 0) {
     const fm = parseFrontmatter(Read(reviewTodos[0]))
-    if (fm.schema_version !== 1 || !fm.source || !fm.status) {
-      warn(`Todos verification: invalid frontmatter in ${reviewTodos[0]}`)
+    if (fm.schema_version !== 2 || !fm.source || !fm.status) {
+      warn(`Todos verification: invalid v2 frontmatter in ${reviewTodos[0]}`)
     }
   }
 }
