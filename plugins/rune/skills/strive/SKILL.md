@@ -344,6 +344,176 @@ const result = waitForCompletion(teamName, taskCount, {
 
 **Wave-aware monitoring (worktree mode)**: Sequential waves, each monitored independently via `waitForCompletion` with `taskFilter`, merge broker runs between waves. Per-wave timeout: 10 minutes.
 
+### Question Relay Detection (Phase 3 — Inline)
+
+During Phase 3, the orchestrator handles worker questions reactively. Worker questions arrive via
+`SendMessage` (auto-delivered — no polling required). Compaction recovery uses a fast-path signal
+scan. See [question-relay.md](references/question-relay.md) for full protocol details.
+
+**Talisman gate**: Check `question_relay.enabled` (default: `true`) before activating. If disabled,
+workers proceed on best-effort without question surfacing.
+
+```javascript
+// Question relay: read from talisman, initialize state
+const questionRelayEnabled = talisman?.question_relay?.enabled ?? true
+const maxQuestionsPerWorker = talisman?.question_relay?.max_questions_per_worker ?? 3
+const questionTimeoutSecs = talisman?.question_relay?.timeout_seconds ?? 180
+const autoAnswerOnTimeout = talisman?.question_relay?.auto_answer_on_timeout ?? true
+const workerQuestionCounts = {}  // { workerName: number } — per-worker cap tracking
+
+// Integrated into the waitForCompletion onCheckpoint callback:
+onCheckpoint: async (cp) => {
+  if (!questionRelayEnabled) return
+
+  // ── Fast-path: signal scan for compaction recovery (ASYNC-004) ──
+  // Runs every poll cycle. Detects unanswered .question files written by orchestrator
+  // ONLY for sessions that were interrupted by compaction.
+  const qFiles = Glob(`${signalDir}/*.question(N)`)
+  for (const qFile of qFiles(N)) {
+    const baseName = qFile.split('/').pop()
+    const answerFile = qFile.replace('.question', '.answer')
+    const alreadyAnswered = Glob(`${answerFile}(N)`).length > 0
+    if (alreadyAnswered) continue
+
+    try {
+      const question = JSON.parse(Read(qFile))   // FLAW-003: TOCTOU — wrapped in try/catch
+
+      // SEC-002: Validate task_id before any path construction
+      if (!/^[a-zA-Z0-9_-]+$/.test(question.task_id)) {
+        warn(`Invalid task_id in question file ${qFile} — skipping`)
+        continue
+      }
+
+      // ASYNC-001: Verify task still in_progress before surfacing to user
+      const tasks = TaskList()
+      const task = tasks.find(t => t.id === question.task_id)
+      if (!task || task.status !== 'in_progress') {
+        warn(`Task ${question.task_id} no longer in_progress — discarding stale question`)
+        continue
+      }
+
+      await relayQuestionToUser(question, signalDir, questionTimeoutSecs, autoAnswerOnTimeout)
+    } catch (e) {
+      warn(`Compaction recovery failed for ${qFile}: ${e.message} — skipping`)
+    }
+  }
+}
+
+// relayQuestionToUser — called from onCheckpoint (compaction recovery path)
+// AND directly when a worker SendMessage is received (live path)
+async function relayQuestionToUser(question, signalDir, timeoutSecs, autoAnswer) {
+  const workerName = question.worker_name
+  const taskId = question.task_id
+
+  // SEC-006: Question cap enforcement
+  const count = (workerQuestionCounts[workerName] || 0) + 1
+  if (count > maxQuestionsPerWorker) {
+    SendMessage({
+      type: "message",
+      recipient: workerName,
+      content: `ANSWER: Question cap exceeded (max ${maxQuestionsPerWorker} per worker). Make best-effort decision and mark as "assumed — needs review" in your Seal.\nTASK: ${taskId}\nDECIDED_BY: cap-exceeded`,
+      summary: `Question cap exceeded for ${workerName}`
+    })
+    return
+  }
+  workerQuestionCounts[workerName] = count
+
+  // ASYNC-001: Verify task status (live path)
+  const tasks = TaskList()
+  const task = tasks.find(t => t.id === taskId)
+  if (!task || task.status !== 'in_progress') {
+    warn(`Task ${taskId} not in_progress — discarding question from ${workerName}`)
+    return
+  }
+
+  // Surface to user
+  const answer = await AskUserQuestion(
+    `Worker question from ${workerName} (task #${taskId}):\n\n${question.question}\n\nOptions:\n${question.options}\n\nContext: ${question.context}`,
+    { timeout: timeoutSecs }
+  )
+  const decidedBy = answer ? "user" : "auto-timeout"
+  const answerText = answer ?? (autoAnswer ? (question.options?.split(",")[0]?.trim() ?? "proceed with best judgment") : null)
+
+  if (!answerText) {
+    warn(`Question timeout and auto_answer_on_timeout=false — leaving worker ${workerName} blocked`)
+    return
+  }
+
+  // Relay answer to worker
+  SendMessage({
+    type: "message",
+    recipient: workerName,
+    content: `ANSWER: ${answerText}\nTASK: ${taskId}\nDECIDED_BY: ${decidedBy}`,
+    summary: `Answer for task #${taskId} question`
+  })
+
+  // Persist answer (SEC-002: already validated taskId above)
+  // SEC-003: jq --arg for JSON construction; ARCH-004: mktemp + mv for atomicity
+  const seq = question.seq ?? 1
+  Bash(`
+    TMPFILE=$(mktemp "${signalDir}/.a-XXXXXX.tmp")
+    jq -n \
+      --arg task_id    "${taskId}" \
+      --arg answer     "${answerText.replace(/'/g, "'\\''")}" \
+      --arg decided_by "${decidedBy}" \
+      --arg seq        "${seq}" \
+      '{task_id: $task_id, answer: $answer, decided_by: $decided_by, seq: ($seq | tonumber)}' \
+      > "$TMPFILE" && mv "$TMPFILE" "${signalDir}/${taskId}.q${seq}.answer"
+  `)
+}
+```
+
+**Handling incoming SendMessage from worker**: When a worker's question arrives as a SendMessage
+during the polling loop, the orchestrator calls `relayQuestionToUser()` directly. The live path
+also writes the question to a `.question` file FIRST (persistence before relaying), so compaction
+recovery always has the question available:
+
+```javascript
+// On receiving worker question via SendMessage (live path):
+async function onWorkerQuestion(senderName, messageContent) {
+  if (!questionRelayEnabled) return
+
+  // Parse QUESTION/TASK/URGENCY/OPTIONS/CONTEXT from message content
+  const parsed = parseQuestionMessage(messageContent)
+  if (!parsed) return  // not a question message
+
+  // SEC-002: validate before any path construction
+  if (!/^[a-zA-Z0-9_-]+$/.test(parsed.task_id)) return
+
+  // Track sequence (ASYNC-002)
+  const seq = (questionSeq[parsed.task_id] || 0) + 1
+  questionSeq[parsed.task_id] = seq
+
+  // Persist question BEFORE relaying (so compaction recovery works)
+  // SEC-003: jq --arg; ARCH-004: mktemp + mv
+  Bash(`
+    TMPFILE=$(mktemp "${signalDir}/.q-XXXXXX.tmp")
+    jq -n \
+      --arg task_id     "${parsed.task_id}" \
+      --arg worker_name "${senderName}" \
+      --arg question    "${parsed.question}" \
+      --arg urgency     "${parsed.urgency}" \
+      --arg options     "${parsed.options}" \
+      --arg context     "${parsed.context}" \
+      --arg seq         "${seq}" \
+      '{task_id: $task_id, worker_name: $worker_name, question: $question,
+        urgency: $urgency, options: $options, context: $context, seq: ($seq | tonumber)}' \
+      > "$TMPFILE" && mv "$TMPFILE" "${signalDir}/${parsed.task_id}.q${seq}.question"
+  `)
+
+  parsed.worker_name = senderName
+  parsed.seq = seq
+  await relayQuestionToUser(parsed, signalDir, questionTimeoutSecs, autoAnswerOnTimeout)
+}
+```
+
+**Talisman configuration** (`question_relay`):
+- `enabled` (bool, default: `true`) — master switch
+- `timeout_seconds` (int, default: `180`) — AskUserQuestion timeout before auto-answer
+- `poll_interval_seconds` (int, default: `15`) — fast-path signal scan frequency
+- `auto_answer_on_timeout` (bool, default: `true`) — select option A on timeout
+- `max_questions_per_worker` (int, default: `3`) — per-worker cap to prevent question spam
+
 ### Phase 3.5: Commit Broker (Orchestrator-Only, Patch Mode)
 
 The Tarnished is the **sole committer** — workers generate patches, the orchestrator applies and commits them. Serializes all git index operations through a single writer, eliminating `.git/index.lock` contention.
