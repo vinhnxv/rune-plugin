@@ -86,6 +86,25 @@ Before diving into git log, query Rune Echoes for previously discovered historic
 - If an echo notes "this area was last major-refactored in v2.0," start analysis from that point
 - Include echo context in the Historical Context section of your report
 
+## Code Skimming Protocol
+
+When exploring source files alongside git history, use a two-pass strategy.
+
+### Pass 1: Structural Skim (default for exploration)
+- Use `Read(file_path, limit: 80)` to see file header
+- Focus on: imports, class definitions, function signatures, type declarations
+- Decision: relevant → deep-read. Not relevant → skip.
+- Track: note "skimmed N files, deep-read M files" in your output.
+
+### Pass 2: Deep Read (only when needed)
+- Full `Read(file_path)` for files confirmed relevant in Pass 1
+- Required for: files named in the task, files with matched Grep hits,
+  files imported by already-relevant files, config/manifest files
+
+### Budget Rule
+- Skim-to-deep ratio should be >= 2:1 (skim at least 2x more files than you deep-read)
+- If you're deep-reading every file, you're not skimming enough
+
 ## Output Budget
 
 Write findings to the designated output file. Return only a 1-sentence summary to the Tarnished via SendMessage (max 50 words).

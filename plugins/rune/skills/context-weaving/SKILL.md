@@ -384,6 +384,52 @@ context_monitor:
 - **Non-blocking**: all errors exit 0 — the monitor never blocks tool execution.
 - **Bridge file cleanup**: `on-session-stop.sh` scans `/tmp/rune-ctx-*.json` and removes files matching the current session's ownership markers.
 
+## Layer 6.1: Glyph Budget Hook Enforcement (v1.102.0)
+
+A `PostToolUse:SendMessage` hook (`scripts/enforce-glyph-budget.sh`) reinforces the Glyph Budget Protocol at the infrastructure layer. When any teammate sends a `SendMessage` call exceeding the word budget, the hook injects an advisory context message.
+
+**Threshold**: 300 words (configurable via `RUNE_GLYPH_BUDGET` environment variable or talisman `context_weaving.glyph_budget.word_limit`).
+
+**Behavior**: Advisory-only — PostToolUse cannot block. The advisory informs the orchestrator for corrective action on future messages.
+
+**Guard**: Only active when Rune workflow state files exist in `tmp/` (detection via explicit file path checks — not globs).
+
+```yaml
+# talisman.yml schema (optional config)
+context_weaving:
+  glyph_budget:
+    enabled: true              # Toggle enforcement
+    word_limit: 300            # Max words before advisory
+    enforcement: advisory      # advisory | warning | block (future)
+```
+
+## Layer 6.2: Adaptive Context Degradation (3-Tier System, v1.102.0)
+
+The `guard-context-critical.sh` PreToolUse hook now implements a 3-tier context degradation system that provides graduated responses as context approaches exhaustion:
+
+| Tier | Remaining % | Action | Block? |
+|------|-------------|--------|--------|
+| **Caution** | 35–40% | Advisory: compress messages, prefer file output | No |
+| **Warning** | 25–35% | Workflow-specific degradation suggestions | No |
+| **Critical** | ≤25% | Hard DENY for TeamCreate/Task (except Explore/Plan) | Yes |
+
+### Caution Tier (40% remaining)
+Injects `additionalContext` with general compression suggestions. No block. Applies to all TeamCreate/Task calls.
+
+### Warning Tier (35% remaining)
+Detects active workflow from state files (with session ownership check) and injects workflow-specific degradation suggestions:
+
+| Workflow | Suggestion |
+|----------|-----------|
+| review/appraise/audit | Reduce team to 3-4 Ashes |
+| work/strive | Complete current task, skip optional tasks |
+| arc | Skip optional phases, proceed to ship |
+| devise/plan | Skip forge enrichment |
+| unknown | Reduce scope, prefer file-based output |
+
+### Critical Tier (25% remaining, unchanged)
+Hard DENY for TeamCreate and Task tool calls. Explore/Plan agents remain exempt (read-only, minimal context cost). Escape hatches: `/rune:rest`, talisman disable flag, or Explore/Plan agent types.
+
 ## References
 
 - [Overflow Wards](references/overflow-wards.md) — Detailed pre-summon protocol

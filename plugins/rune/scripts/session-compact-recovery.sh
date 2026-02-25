@@ -274,6 +274,31 @@ fi
 # Team member count
 MEMBER_COUNT=$(echo "$CHECKPOINT_DATA" | jq -r '.team_config.members // [] | length' 2>/dev/null || echo "0")
 
+# [NEW] Arc phase summaries if present (Feature 5 — phase memory handoff)
+# These are paths to compressed phase group summaries written before compaction.
+# Re-injecting them tells the resumed session which groups are already summarized and
+# how to restore carry-forward state without re-reading verbose phase artifacts.
+PHASE_SUMMARY_INFO=""
+_raw_phase_summaries=$(echo "$CHECKPOINT_DATA" | jq -r '
+  .arc_phase_summaries // {} | to_entries[] | "\(.key):\(.value)"
+' 2>/dev/null || true)
+if [[ -n "$_raw_phase_summaries" ]]; then
+  _valid_summaries=""
+  while IFS= read -r _entry; do
+    _group="${_entry%%:*}"
+    _path="${_entry#*:}"
+    # Validate (allowlist chars, prevent traversal, verify file exists)
+    [[ "$_group" =~ ^[a-zA-Z0-9_-]{1,32}$ ]] || continue
+    [[ "$_path" =~ ^[a-zA-Z0-9._/-]{1,256}$ ]] || continue
+    [[ "$_path" == *".."* ]] && continue
+    [[ -f "${CWD}/${_path}" ]] && [[ ! -L "${CWD}/${_path}" ]] || continue
+    _valid_summaries="${_valid_summaries} ${_group}:${_path}"
+  done <<< "$_raw_phase_summaries"
+  if [[ -n "$_valid_summaries" ]]; then
+    PHASE_SUMMARY_INFO=" Arc phase summaries available (read these for carry-forward state):${_valid_summaries}."
+  fi
+fi
+
 # [NEW] Arc-batch state if present (v1.72.0)
 # v1.101.1 FIX (Finding #8): Cross-check with actual loop state file before injecting
 # resume context. Same guard as the teamless path above.
@@ -330,7 +355,7 @@ if [[ -n "$ISSUES_ITER" ]] && [[ "$ISSUES_ITER" =~ ^[0-9]+$ ]]; then
 fi
 
 # Build the context message — point to full file for detailed Read
-CONTEXT_MSG="RUNE COMPACT RECOVERY: Team '${TEAM_NAME}' state restored (saved at ${SAVED_AT}). Members: ${MEMBER_COUNT}. Tasks: ${TASK_SUMMARY}. Workflow: ${WORKFLOW_TYPE} (${WORKFLOW_STATUS}).${ARC_INFO}${BATCH_INFO}${ISSUES_INFO} Re-read team config and task list to resume coordination."
+CONTEXT_MSG="RUNE COMPACT RECOVERY: Team '${TEAM_NAME}' state restored (saved at ${SAVED_AT}). Members: ${MEMBER_COUNT}. Tasks: ${TASK_SUMMARY}. Workflow: ${WORKFLOW_TYPE} (${WORKFLOW_STATUS}).${ARC_INFO}${PHASE_SUMMARY_INFO}${BATCH_INFO}${ISSUES_INFO} Re-read team config and task list to resume coordination."
 
 # ── OUTPUT: hookSpecificOutput with hookEventName ──
 # PW-008 FIX: Output JSON first, THEN delete checkpoint. If jq fails, checkpoint is preserved.

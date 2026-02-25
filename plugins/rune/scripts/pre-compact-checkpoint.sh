@@ -165,6 +165,11 @@ fi
 
 _trace "Team discovery: active_team=${active_team:-<none>}"
 
+# Initialize arc_phase_summaries early — referenced in the teamless branch below
+# and reassigned in the team-present path (line ~297). Must be set before the
+# if [[ -z "$active_team" ]] branch to satisfy set -euo pipefail.
+arc_phase_summaries="{}"
+
 # NOTE: During arc-batch, teams are created/destroyed per-phase — compaction may
 # hit when no team is active. Summary files persist independently of team state.
 # Arc-batch state is captured regardless of team presence (see section below).
@@ -195,6 +200,7 @@ if [[ -z "$active_team" ]]; then
       --arg pid "${PPID:-}" \
       --argjson batch "$arc_batch_state" \
       --argjson issues "$arc_issues_state" \
+      --argjson phase_summaries "$arc_phase_summaries" \
       '{
         team_name: $team,
         saved_at: $ts,
@@ -205,7 +211,8 @@ if [[ -z "$active_team" ]]; then
         workflow_state: {},
         arc_checkpoint: {},
         arc_batch_state: $batch,
-        arc_issues_state: $issues
+        arc_issues_state: $issues,
+        arc_phase_summaries: $phase_summaries
       }' > "$CHECKPOINT_TMP" 2>/dev/null; then
       mv -f "$CHECKPOINT_TMP" "$CHECKPOINT_FILE" 2>/dev/null || rm -f "$CHECKPOINT_TMP" 2>/dev/null
       CHECKPOINT_TMP=""
@@ -288,6 +295,37 @@ if [[ -f "$arc_file" ]] && [[ ! -L "$arc_file" ]]; then
   arc_checkpoint=$(jq -c '.' "$arc_file" 2>/dev/null || echo '{}')
 fi
 
+# 4a. Arc phase summary paths from checkpoint.phase_summaries (Feature 5 — phase memory handoff)
+# Collects paths to all written phase group summaries so recovery can re-inject them as context.
+# phase_summaries is a map: { "forge": "tmp/arc/{id}/phase-summary-forge.md", ... }
+# We extract only paths that actually exist on disk (guards against stale checkpoint fields).
+arc_phase_summaries="{}"
+if [[ "$arc_checkpoint" != "{}" ]]; then
+  _raw_summaries=$(echo "$arc_checkpoint" | jq -r '.phase_summaries // {} | to_entries[] | "\(.key)\t\(.value)"' 2>/dev/null || true)
+  if [[ -n "$_raw_summaries" ]]; then
+    _valid_pairs="{"
+    _first=1
+    while IFS=$'\t' read -r _group _path; do
+      # Validate group name and path (SEC: allowlist chars, prevent traversal)
+      [[ "$_group" =~ ^[a-zA-Z0-9_-]{1,32}$ ]] || continue
+      [[ "$_path" =~ ^[a-zA-Z0-9._/-]{1,256}$ ]] || continue
+      [[ "$_path" == *".."* ]] && continue
+      # Verify file exists on disk
+      _full="${CWD}/${_path}"
+      [[ -f "$_full" ]] && [[ ! -L "$_full" ]] || continue
+      [[ "$_first" -eq 0 ]] && _valid_pairs="${_valid_pairs},"
+      _valid_pairs="${_valid_pairs}\"${_group}\":\"${_path}\""
+      _first=0
+    done <<< "$_raw_summaries"
+    _valid_pairs="${_valid_pairs}}"
+    # Only use if we got at least one entry
+    if [[ "$_valid_pairs" != "{}" ]]; then
+      arc_phase_summaries=$(echo "$_valid_pairs" | jq -c '.' 2>/dev/null || echo '{}')
+    fi
+  fi
+fi
+_trace "Arc phase summaries: ${arc_phase_summaries}"
+
 # 5. Arc-batch state if active (v1.72.0) — QUAL-005 FIX: shared extractor
 BATCH_STATE_FILE="${CWD}/.claude/arc-batch-loop.local.md"
 _capture_arc_batch_state
@@ -314,6 +352,7 @@ if ! jq -n \
   --argjson arc "$arc_checkpoint" \
   --argjson batch "$arc_batch_state" \
   --argjson issues "$arc_issues_state" \
+  --argjson phase_summaries "$arc_phase_summaries" \
   '{
     team_name: $team,
     saved_at: $ts,
@@ -324,7 +363,8 @@ if ! jq -n \
     workflow_state: $workflow,
     arc_checkpoint: $arc,
     arc_batch_state: $batch,
-    arc_issues_state: $issues
+    arc_issues_state: $issues,
+    arc_phase_summaries: $phase_summaries
   }' > "$CHECKPOINT_TMP" 2>/dev/null; then
   echo "WARN: Failed to write compact checkpoint" >&2
   rm -f "$CHECKPOINT_TMP" 2>/dev/null

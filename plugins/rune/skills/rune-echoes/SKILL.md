@@ -208,6 +208,22 @@ Same as review, writing to `.claude/echoes/auditor/MEMORY.md`.
 2. After work: persist TDD patterns, gotchas to .claude/echoes/workers/
 ```
 
+## Auto-Observation Recording (Automated)
+
+The `TaskCompleted` hook automatically appends lightweight observation entries to the appropriate role `MEMORY.md` when Rune workflow tasks complete. This requires zero orchestrator involvement.
+
+**Trigger**: Every `TaskCompleted` event for teams with prefix `rune-` or `arc-`.
+
+**Guards**: Only fires when `.claude/echoes/` exists, the role `MEMORY.md` is present, and the task subject is not a meta task (shutdown/cleanup/aggregate/monitor).
+
+**Role routing**: Inferred from team name (review/appraise/audit → `reviewer`, plan/devise → `planner`, work/strive/arc → `workers`, default → `orchestrator`).
+
+**Dedup**: Signal file `tmp/.rune-signals/.obs-{TEAM_NAME}_{TASK_ID}` prevents duplicate entries for the same task.
+
+**Tier**: Observations (weight=0.5) — NOT Inscribed. Auto-promotes to Inscribed after 3 access references.
+
+See [auto-observation.md](references/auto-observation.md) for the full protocol, role detection table, and security details.
+
 ## Codex Echo Validation (Optional)
 
 Before persisting a learning to `.claude/echoes/`, optionally ask Codex whether the insight is generalizable or context-specific. This prevents polluting echoes with one-off observations that don't transfer to future sessions. Gated by `talisman.codex.echo_validation.enabled`. Uses nonce-bounded prompt, codex-exec.sh wrapper, and non-JSON output guard.

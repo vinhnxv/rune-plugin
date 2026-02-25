@@ -888,6 +888,12 @@ testing:
 #   enabled: true                  # Kill switch — disables Inner Flame prompts globally (default: true)
 #   block_on_fail: false           # TaskCompleted hook exits 2 (blocking) when Self-Review Log missing (default: false = warn only)
 #   confidence_floor: 60           # Prompt-enforced: teammates with post-review confidence below this report blocker instead of completing (default: 60, not hook-enforced)
+#   completeness_scoring:
+#     enabled: true                # Enable completeness assessment in TaskCompleted haiku gate (default: true)
+#     threshold: 0.7               # Minimum score for implementation tasks (default: 0.7, range: 0.0-1.0)
+#     research_threshold: 0.5      # Minimum score for research/analysis tasks (default: 0.5, range: 0.0-1.0)
+#                                  # Score is computed by haiku model from task output structure.
+#                                  # Tasks below threshold are blocked with request for more complete output.
 
 # ──────────────────────────────────────────────
 # Doubt Seer — Evidence quality challenger (v1.61.0+)
@@ -1083,9 +1089,22 @@ context_monitor:
   enabled: true                    # Master toggle for context monitoring
   warning_threshold: 35            # Warn when remaining% <= this (default: 35)
   critical_threshold: 25           # Critical stop when remaining% <= this (default: 25)
+  caution_threshold: 40            # Advisory caution when remaining% <= this (default: 40, above warning — advisory only, no block)
   stale_seconds: 60                # Bridge file max age before ignoring (default: 60)
   debounce_calls: 5                # Tool uses between repeated warnings (default: 5)
+  degradation_suggestions: true    # Inject workflow-specific degradation suggestions at Warning tier (default: true)
   workflows: [review, audit, work, mend, arc, devise]  # Which workflows emit warnings
+
+# ──────────────────────────────────────────────
+# Context Weaving — Unified context management
+# ──────────────────────────────────────────────
+# Glyph budget enforces a maximum word count on teammate SendMessage calls.
+# Violations inject advisory context to the orchestrator (non-blocking).
+context_weaving:
+  glyph_budget:
+    enabled: true                  # Master switch — disables glyph budget monitoring when false (default: true)
+    word_limit: 300                # Maximum words per SendMessage before advisory is injected (default: 300)
+    enforcement: advisory          # "advisory" = inject context only (PostToolUse, non-blocking). No other values currently supported.
 
 # ──────────────────────────────────────────────
 # Arc — Cross-file consistency checks (v1.17.0+)
