@@ -111,15 +111,21 @@ class _TTLCache:
         return facets
 
     def put(self, key: str, facets: List[str]) -> None:
-        """Store facets with current timestamp. Evicts LRU if at capacity.
+        """Store facets with current timestamp. Evicts expired then LRU if at capacity.
 
         Args:
             key: Normalized query string.
             facets: List of keyword facet strings.
         """
+        # BACK-P3-005: Evict expired entries before LRU eviction
+        now = time.monotonic()
+        expired = [k for k, (_, ts) in self._store.items() if now - ts > self.ttl]
+        for k in expired:
+            del self._store[k]
+
         if key in self._store:
             self._store.move_to_end(key)
-        self._store[key] = (facets, time.monotonic())
+        self._store[key] = (facets, now)
         while len(self._store) > self.max_size:
             self._store.popitem(last=False)
 

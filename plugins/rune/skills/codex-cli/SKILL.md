@@ -20,6 +20,7 @@ description: |
   <commentary>Codex detection is a prerequisite step before Ash selection in review/audit/forge phases.</commentary>
   </example>
 user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Bash
   - Read

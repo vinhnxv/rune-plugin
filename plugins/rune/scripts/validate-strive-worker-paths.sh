@@ -76,6 +76,10 @@ shopt -u nullglob
 # Session isolation: verify config_dir and owner_pid match current session
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 CHOME=$(cd "$CHOME" 2>/dev/null && pwd -P 2>/dev/null || echo "$CHOME")
+# Source shared session identity for rune_pid_alive() (EPERM-safe PID check)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=resolve-session-identity.sh
+source "${SCRIPT_DIR}/resolve-session-identity.sh"
 STATE_CONFIG_DIR=$(jq -r '.config_dir // empty' "$WORK_STATE_FILE" 2>/dev/null || true)
 STATE_OWNER_PID=$(jq -r '.owner_pid // empty' "$WORK_STATE_FILE" 2>/dev/null || true)
 
@@ -86,8 +90,10 @@ if [[ -n "$STATE_CONFIG_DIR" && "$STATE_CONFIG_DIR" != "$CHOME" ]]; then
 fi
 
 # Check owner_pid is alive and matches (session isolation)
+# BACK-002 FIX: Use rune_pid_alive() for EPERM-safe PID liveness check
+# (raw kill -0 misinterprets EPERM as "dead" on multi-user systems)
 if [[ -n "$STATE_OWNER_PID" ]]; then
-  if kill -0 "$STATE_OWNER_PID" 2>/dev/null; then
+  if rune_pid_alive "$STATE_OWNER_PID"; then
     # PID is alive — check if it matches our parent
     if [[ "$STATE_OWNER_PID" != "$PPID" ]]; then
       # State belongs to another live session — skip

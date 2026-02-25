@@ -250,6 +250,19 @@
         ]
       }
     ],
+    "Notification": [
+      {
+        "matcher": "statusline",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/rune-statusline.sh",
+            "timeout": 5,
+            "statusMessage": "Updating context statusline..."
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

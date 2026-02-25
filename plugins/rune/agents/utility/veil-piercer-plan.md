@@ -20,6 +20,8 @@ tools:
   - Read
   - Glob
   - Grep
+mcpServers:
+  - echo-search
 ---
 
 # Veil Piercer Plan — Plan Truth-Teller Agent

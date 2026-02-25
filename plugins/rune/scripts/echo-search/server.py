@@ -74,6 +74,23 @@ STOPWORDS = frozenset([
 ])
 
 # ---------------------------------------------------------------------------
+# SQL helpers
+# ---------------------------------------------------------------------------
+
+
+def _in_clause(count):
+    # type: (int) -> str
+    """Build a parameterized IN-clause placeholder string.
+
+    Returns a string like ``?,?,?`` for *count* parameters.
+    SAFE: The output contains only literal ``?`` characters — never
+    user-supplied data — so %-formatting the result into SQL is
+    equivalent to parameterized queries.
+    """
+    return ",".join(["?"] * count)
+
+
+# ---------------------------------------------------------------------------
 # Dirty signal helpers (consumed from annotate-hook.sh)
 # ---------------------------------------------------------------------------
 
@@ -442,12 +459,11 @@ def _get_access_counts(conn: sqlite3.Connection, entry_ids: List[str]) -> Dict[s
         return {}
     # Cap to prevent oversized IN clause
     capped_ids = entry_ids[:200]
-    placeholders = ",".join(["?"] * len(capped_ids))
     cursor = conn.execute(
         """SELECT entry_id, COUNT(*) AS cnt
            FROM echo_access_log
            WHERE entry_id IN (%s)
-           GROUP BY entry_id""" % placeholders,
+           GROUP BY entry_id""" % _in_clause(len(capped_ids)),
         capped_ids,
     )
     return {row["entry_id"]: row["cnt"] for row in cursor.fetchall()}
@@ -701,6 +717,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
                 _migrate_v1(conn)
             if version < 2:
                 _migrate_v2(conn)
+            # SAFE: SCHEMA_VERSION is a module-level integer constant, not user input
             conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             conn.commit()
         except Exception:
@@ -908,11 +925,10 @@ def expand_semantic_groups(
     if not existing_ids:
         return scored_results
 
-    placeholders = ",".join(["?"] * len(existing_ids))
     id_list = list(existing_ids)
     try:
         group_rows = conn.execute(
-            "SELECT DISTINCT group_id FROM semantic_groups WHERE entry_id IN (%s)" % placeholders,
+            "SELECT DISTINCT group_id FROM semantic_groups WHERE entry_id IN (%s)" % _in_clause(len(id_list)),
             id_list,
         ).fetchall()
     except sqlite3.OperationalError:
@@ -923,8 +939,6 @@ def expand_semantic_groups(
         return scored_results
 
     # Batch-fetch all members of those groups NOT already in results
-    gid_placeholders = ",".join(["?"] * len(group_ids))
-    eid_placeholders = ",".join(["?"] * len(existing_ids))
     try:
         expanded_rows = conn.execute(
             """SELECT sg.group_id, e.id, e.source, e.layer, e.role, e.date,
@@ -933,7 +947,7 @@ def expand_semantic_groups(
                FROM semantic_groups sg
                JOIN echo_entries e ON e.id = sg.entry_id
                WHERE sg.group_id IN (%s)
-                 AND sg.entry_id NOT IN (%s)""" % (gid_placeholders, eid_placeholders),
+                 AND sg.entry_id NOT IN (%s)""" % (_in_clause(len(group_ids)), _in_clause(len(existing_ids))),
             group_ids + id_list,
         ).fetchall()
     except sqlite3.OperationalError:
@@ -1229,8 +1243,7 @@ def get_retry_entries(
         params: List[Any] = [token_fingerprint, _FAILURE_MAX_RETRIES, age_cutoff]
 
         if matched_ids:
-            placeholders = ",".join(["?"] * len(matched_ids))
-            sql += " AND f.entry_id NOT IN (%s)" % placeholders
+            sql += " AND f.entry_id NOT IN (%s)" % _in_clause(len(matched_ids))
             params.extend(matched_ids)
 
         cursor = conn.execute(sql, params)

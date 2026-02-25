@@ -13,6 +13,7 @@ description: |
   assistant: "Pattern persisted to .claude/echoes/reviewer/MEMORY.md as Inscribed entry"
   </example>
 user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Read
   - Write

@@ -7,7 +7,9 @@ description: |
   import dependency mismatches across shard boundaries.
   Spawned automatically after all shard reviewers complete.
   Use when: roundtable-circle sharding is active (inscription.sharding.enabled === true).
-tools: Read, Write
+tools:
+  - Read
+  - Write
 model: sonnet
 maxTurns: 15
 ---

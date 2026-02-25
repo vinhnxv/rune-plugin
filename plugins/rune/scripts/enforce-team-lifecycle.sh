@@ -144,9 +144,26 @@ cleaned_teams=()
 for team in "${stale_teams[@]}"; do
   # Double-validate before rm-rf (defense-in-depth)
   # SEC-1 FIX: Re-check symlink immediately before rm-rf (collapses TOCTOU window from scan loop)
+  # BACK-P3-012: Check for active state files referencing this team before cleanup
   if [[ "$team" =~ ^[a-zA-Z0-9_-]+$ ]] && [[ "$team" != *".."* ]] && [[ ! -L "$CHOME/teams/${team}" ]]; then
-    rm -rf "$CHOME/teams/${team}/" "$CHOME/tasks/${team}/" 2>/dev/null
-    cleaned_teams+=("$team")
+    # Skip if an active state file references this team (cross-check with project state)
+    _has_active_state=false
+    if [[ -n "${CWD:-}" ]]; then
+      for _sf in "${CWD}"/tmp/.rune-*.json; do
+        [[ -f "$_sf" ]] || continue
+        [[ -L "$_sf" ]] && continue
+        _sf_team=$(jq -r '.team_name // empty' "$_sf" 2>/dev/null || true)
+        _sf_status=$(jq -r '.status // empty' "$_sf" 2>/dev/null || true)
+        if [[ "$_sf_team" == "$team" && "$_sf_status" == "active" ]]; then
+          _has_active_state=true
+          break
+        fi
+      done
+    fi
+    if [[ "$_has_active_state" == "false" ]]; then
+      rm -rf "$CHOME/teams/${team}/" "$CHOME/tasks/${team}/" 2>/dev/null
+      cleaned_teams+=("$team")
+    fi
   fi
 done
 

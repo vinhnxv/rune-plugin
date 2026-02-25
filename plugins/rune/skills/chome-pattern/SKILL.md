@@ -24,6 +24,7 @@ description: |
   <commentary>CHOME skill provides the classification framework.</commentary>
   </example>
 user-invocable: false
+disable-model-invocation: false
 allowed-tools:
   - Read
   - Glob

@@ -252,6 +252,14 @@ if [[ "$CODEX_EXIT" -ne 0 ]]; then
     137)
       echo "CODEX_ERROR[KILL_TIMEOUT]: Codex killed after grace period — process hung" >&2
       ;;
+    134)
+      # BACK-P3-009: Distinguish abort (SIGABRT) from timeout
+      echo "CODEX_ERROR[CRASH_ABORT]: Codex process aborted (SIGABRT) — possible runtime panic" >&2
+      ;;
+    139)
+      # BACK-P3-009: Distinguish segfault (SIGSEGV) from timeout
+      echo "CODEX_ERROR[CRASH_SEGFAULT]: Codex process crashed (SIGSEGV)" >&2
+      ;;
     *)
       # Pattern-match stderr content for known errors
       if echo "$STDERR_CONTENT" | grep -qiE 'not authenticated|auth'; then

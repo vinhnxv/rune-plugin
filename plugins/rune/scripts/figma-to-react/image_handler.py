@@ -178,7 +178,9 @@ def _sanitize_image_url(url: str) -> str:
     """
     if not url:
         return ""
-    if not (url.startswith("https://") or url.startswith("http://")):
+    # SEC-AUDIT-004: Restrict to HTTPS only — Figma API always returns HTTPS URLs.
+    # Allowing http:// would create mixed content risk in deployed React apps.
+    if not url.startswith("https://"):
         return "about:blank"
     return url.replace('"', "%22")
 

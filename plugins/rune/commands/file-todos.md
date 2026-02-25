@@ -1,5 +1,5 @@
 ---
-name: file-todos
+name: rune:file-todos
 description: |
   Manage file-based todos — create, triage, list, search, archive, and track
   structured todo files in todos/ with YAML frontmatter and source-aware templates.

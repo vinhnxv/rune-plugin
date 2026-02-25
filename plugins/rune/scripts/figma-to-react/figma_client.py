@@ -36,8 +36,19 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _BASE_URL = "https://api.figma.com"
-_DEFAULT_FILE_CACHE_TTL = int(os.environ.get("FIGMA_FILE_CACHE_TTL", "1800"))
-_DEFAULT_IMAGE_CACHE_TTL = int(os.environ.get("FIGMA_IMAGE_CACHE_TTL", "86400"))
+def _int_env(name: str, default: int) -> int:
+    """Parse an integer environment variable with safe fallback."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except (ValueError, TypeError):
+        logger.warning("Invalid integer for %s=%r, using default %d", name, raw, default)
+        return default
+
+_DEFAULT_FILE_CACHE_TTL = _int_env("FIGMA_FILE_CACHE_TTL", 1800)
+_DEFAULT_IMAGE_CACHE_TTL = _int_env("FIGMA_IMAGE_CACHE_TTL", 86400)
 _DEFAULT_TIMEOUT = 30.0  # seconds
 
 
@@ -101,6 +112,9 @@ class _CacheEntry:
     expires_at: float
 
 
+_DEFAULT_MAX_CACHE_ENTRIES = 256  # BACK-P3-007: Prevent unbounded growth
+
+
 @dataclass
 class ResponseCache:
     """Two-tier in-memory cache for Figma API responses.
@@ -108,10 +122,14 @@ class ResponseCache:
     Separates file/node data (shorter TTL) from image export URLs
     (longer TTL) because image URLs are expensive to generate and
     remain valid for extended periods.
+
+    Bounded to ``max_entries`` to prevent unbounded memory growth in
+    long-running MCP server processes.
     """
 
     file_ttl: int = _DEFAULT_FILE_CACHE_TTL
     image_ttl: int = _DEFAULT_IMAGE_CACHE_TTL
+    max_entries: int = _DEFAULT_MAX_CACHE_ENTRIES
     _store: dict[str, _CacheEntry] = field(default_factory=dict)
 
     def get(self, key: str) -> Optional[Any]:
@@ -134,11 +152,17 @@ class ResponseCache:
     def set(self, key: str, data: Any, *, is_image: bool = False) -> None:
         """Store a value in the cache.
 
+        Evicts the oldest entry when the cache exceeds ``max_entries``.
+
         Args:
             key: The cache key.
             data: The data to cache.
             is_image: If True, uses the longer image TTL.
         """
+        # Evict oldest entry if at capacity (BACK-P3-007)
+        if len(self._store) >= self.max_entries and key not in self._store:
+            oldest_key = min(self._store, key=lambda k: self._store[k].expires_at)
+            del self._store[oldest_key]
         ttl = self.image_ttl if is_image else self.file_ttl
         self._store[key] = _CacheEntry(
             data=data,
@@ -224,7 +248,11 @@ def _handle_error_response(response: httpx.Response) -> None:
 
     if status == 429:
         retry_after_raw = response.headers.get("Retry-After")
-        retry_after = float(retry_after_raw) if retry_after_raw else None
+        try:
+            retry_after = float(retry_after_raw) if retry_after_raw else None
+        except (ValueError, TypeError):
+            # Retry-After can be an HTTP-date string per spec — fall back gracefully
+            retry_after = None
         rate_limit_type = response.headers.get("X-Figma-Rate-Limit-Type")
         plan_tier = response.headers.get("X-Figma-Plan-Tier")
 

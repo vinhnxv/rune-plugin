@@ -138,8 +138,8 @@ def _resolve_text_styles(style: Optional[TypeStyle]) -> List[str]:
 
     # Text color from fills
     if style.fills:
-        from .tailwind_mapper import snap_color
-        from .style_builder import _color_to_css
+        from tailwind_mapper import snap_color
+        from style_builder import _color_to_css
         visible = [f for f in style.fills if f.visible]
         if visible and visible[0].color:
             css_color = _color_to_css(visible[0].color)

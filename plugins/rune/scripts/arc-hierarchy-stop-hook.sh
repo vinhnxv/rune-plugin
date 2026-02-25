@@ -274,7 +274,9 @@ if [[ -z "$NEXT_CHILD" ]]; then
   PARTIAL_COUNT=$(echo "$UPDATED_TABLE" | jq '[.children[] | select(.status == "partial")] | length' 2>/dev/null || echo 0)
 
   if [[ "$PENDING_COUNT" -gt 0 ]] || [[ "$IN_PROGRESS_COUNT" -gt 0 ]]; then
-    # Deadlock: there are pending children but none are executable (unsatisfied dependencies)
+    # Deadlock: there are pending children but none are executable.
+    # BACK-P3-008: This covers both unsatisfied dependencies AND cycles
+    # (A depends on B, B depends on A). In both cases, no child is executable.
     BLOCKED_CHILDREN=$(echo "$UPDATED_TABLE" | jq -r '
       (.children | map(select(.status == "completed")) | map(.plan) | unique) as $done |
       [

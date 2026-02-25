@@ -63,6 +63,10 @@ if [[ ${#remaining[@]} -gt 0 ]]; then
   jq -n --arg ctx "$_msg" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
 fi
 
-[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-002 [${SHORT_SID:-no-sid}]: remaining team dirs after TeamDelete: ${#remaining[@]}" >> /tmp/rune-hook-trace.log
+# SEC-P3-002: Symlink guard before trace log append
+if [[ "${RUNE_TRACE:-}" == "1" ]]; then
+  RUNE_TRACE_LOG="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+  [[ ! -L "$RUNE_TRACE_LOG" ]] && echo "[$(date '+%H:%M:%S')] TLC-002 [${SHORT_SID:-no-sid}]: remaining team dirs after TeamDelete: ${#remaining[@]}" >> "$RUNE_TRACE_LOG"
+fi
 
 exit 0

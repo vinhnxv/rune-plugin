@@ -166,7 +166,7 @@ fi
 # verify those section headings appear in the output file.
 # Advisory only — warns but does NOT block (exit 0, not exit 2).
 if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
-  INSCRIPTION_PATH=""
+  SECTIONS_INSCRIPTION_PATH=""
   # Discover inscription.json from team output directory
   # Fix: Use ${CWD} prefix — hook cwd may differ from project root (P1 fix)
   for candidate in "${CWD}/tmp/reviews/"*/inscription.json "${CWD}/tmp/audit/"*/inscription.json; do
@@ -174,17 +174,17 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
     [[ -L "$candidate" ]] && continue
     # Match team name via structured jq lookup (not substring grep — P2 fix)
     if jq -e --arg tn "$TEAM_NAME" '.team_name == $tn' "$candidate" >/dev/null 2>/dev/null; then
-      INSCRIPTION_PATH="$candidate"
+      SECTIONS_INSCRIPTION_PATH="$candidate"
       break
     fi
   done
 
-  if [[ -n "$INSCRIPTION_PATH" ]]; then
+  if [[ -n "$SECTIONS_INSCRIPTION_PATH" ]]; then
     # Extract required_sections for this teammate (simplified jq per EC-2)
     # Fix: Use .teammates[] to match inscription schema (not .ashes[] — P2 fix)
     REQ_SECTIONS=$(jq -r --arg name "$TEAMMATE_NAME" \
       '.teammates[]? | select(.name == $name) | .required_sections // [] | .[]' \
-      "$INSCRIPTION_PATH" 2>/dev/null || true)
+      "$SECTIONS_INSCRIPTION_PATH" 2>/dev/null || true)
 
     if [[ -n "$REQ_SECTIONS" ]]; then
       MISSING_SECTIONS=""

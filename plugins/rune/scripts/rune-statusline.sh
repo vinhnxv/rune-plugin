@@ -45,15 +45,19 @@ if [[ -n "$SESSION_ID" && -n "$REMAINING" ]]; then
     # SB-IMPL-003: Include config_dir + owner_pid for session isolation (Core Rule 11)
     # GAP-1 FIX: Use resolved $RUNE_CURRENT_CFG (from resolve-session-identity.sh)
     # so bridge value matches what on-session-stop.sh compares against (both use pwd -P)
-    jq -n \
-      --arg sid "$SESSION_ID" \
-      --arg rem "$REMAINING" \
-      --arg used "$USED" \
-      --argjson ts "$(date +%s)" \
-      --arg cfg "$RUNE_CURRENT_CFG" \
-      --arg pid "${PPID:-0}" \
-      '{session_id: $sid, remaining_percentage: ($rem | tonumber), used_pct: ($used | tonumber), timestamp: $ts, config_dir: $cfg, owner_pid: $pid}' \
-      > "$BRIDGE_FILE" 2>/dev/null || true
+    # SEC-P3-001: Atomic write via mktemp+mv (prevents partial reads by consumers)
+    _BRIDGE_TMP=$(mktemp "${BRIDGE_FILE}.XXXXXX" 2>/dev/null) || true
+    if [[ -n "${_BRIDGE_TMP:-}" ]]; then
+      jq -n \
+        --arg sid "$SESSION_ID" \
+        --arg rem "$REMAINING" \
+        --arg used "$USED" \
+        --argjson ts "$(date +%s)" \
+        --arg cfg "$RUNE_CURRENT_CFG" \
+        --arg pid "${PPID:-0}" \
+        '{session_id: $sid, remaining_percentage: ($rem | tonumber), used_pct: ($used | tonumber), timestamp: $ts, config_dir: $cfg, owner_pid: $pid}' \
+        > "$_BRIDGE_TMP" 2>/dev/null && mv -f "$_BRIDGE_TMP" "$BRIDGE_FILE" 2>/dev/null || rm -f "$_BRIDGE_TMP" 2>/dev/null
+    fi
     _trace "BRIDGE written: $BRIDGE_FILE"
   fi
 fi
