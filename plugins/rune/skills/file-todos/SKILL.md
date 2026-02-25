@@ -49,7 +49,7 @@ Todos are session-scoped — each workflow session owns its own `todos/` subdire
 | `/rune:strive` | `tmp/work/{timestamp}/todos/` |
 | `/rune:appraise` | `tmp/reviews/{identifier}/todos/` |
 | `/rune:audit` | `tmp/audit/{identifier}/todos/` |
-| `/rune:mend` | `tmp/mend/{identifier}/todos/` |
+| `/rune:mend` | *(uses review/audit session todos — cross-write isolation)* |
 | `/rune:arc` | `tmp/arc/{id}/todos/` |
 
 Within each `todos_base`, per-source subdirectories organize todos by origin:
@@ -270,12 +270,12 @@ TODO_ID_PATTERN = /^[0-9]{3,4}$/
 ```
 
 1. Prompt for title/priority/source/files via AskUserQuestion (source selection determines subdirectory)
-2. Ensure source subdirectory exists: `mkdir -p todos/{source}/`
+2. Ensure source subdirectory exists: `mkdir -p {todos_base}/{source}/`
 3. Generate next sequential ID from source subdirectory (zsh-safe `(N)` glob, per-subdirectory sequence)
 4. Compute slug, write file using [todo-template.md](references/todo-template.md)
-5. Report: "Created `todos/{source}/{filename}`"
+5. Report: "Created `{todos_base}/{source}/{filename}`"
 
-**Zero-state**: Auto-creates `todos/{source}/` if missing.
+**Zero-state**: Auto-creates `{todos_base}/{source}/` if missing.
 
 ### triage — Batch Triage Pending Items (v2)
 
@@ -297,7 +297,7 @@ If `talisman.file_todos.triage.auto_approve_p1 === true`, P1 items auto-approve 
 /rune:file-todos status
 ```
 
-Scan all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`) and display counts grouped by source subdirectory, status, and priority. Output is PLAIN TEXT with no emoji.
+Scan all source subdirectories (`{todos_base}/*/[0-9][0-9][0-9]-*.md`) and display counts grouped by source subdirectory, status, and priority. Output is PLAIN TEXT with no emoji.
 
 ```
 File-Todos Status
@@ -331,7 +331,7 @@ File-Todos Status
 /rune:file-todos list [--status=pending] [--priority=p1] [--source=review] [--tags=security,api]
 ```
 
-Scans all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`). Filters compose as intersection. The `--source` filter restricts to a specific subdirectory (e.g., `--source=review` scans only `todos/review/`). Invalid filter values produce a clear error, not an empty list. Sort: priority (P1 first), then issue_id ascending. See [subcommands.md](references/subcommands.md) for filter parsing and intersection logic.
+Scans all source subdirectories (`{todos_base}/*/[0-9][0-9][0-9]-*.md`). Filters compose as intersection. The `--source` filter restricts to a specific subdirectory (e.g., `--source=review` scans only `{todos_base}/review/`). Invalid filter values produce a clear error, not an empty list. Sort: priority (P1 first), then issue_id ascending. See [subcommands.md](references/subcommands.md) for filter parsing and intersection logic.
 
 **Zero-state**: "No todos match the given filters." or "No todos found."
 
@@ -341,7 +341,7 @@ Scans all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`). Filters compos
 /rune:file-todos next [--auto]
 ```
 
-Scans all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`). Show highest-priority unblocked todo with `status: ready` and no `assigned_to`. Checks `dependencies` against non-complete todos.
+Scans all source subdirectories (`{todos_base}/*/[0-9][0-9][0-9]-*.md`). Show highest-priority unblocked todo with `status: ready` and no `assigned_to`. Checks `dependencies` against non-complete todos.
 
 **`--auto` flag**: Output JSON, claim atomically via lockfile guard (temp-file-then-rename, NOT flock). Sets `assigned_to`, `claimed_at`, `status: in_progress` in frontmatter. See [subcommands.md](references/subcommands.md) for atomic claim protocol.
 
@@ -358,9 +358,9 @@ Scans all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`). Show highest-p
 /rune:file-todos search <query>
 ```
 
-Case-insensitive search across all source subdirectories (`todos/*/[0-9][0-9][0-9]-*.md`). Searches todo titles, problem statements, and work logs. Validates query length (2-200 chars), sanitizes regex metacharacters before Grep. Results grouped by file with metadata, showing source subdirectory. See [subcommands.md](references/subcommands.md) for sanitization and display details.
+Case-insensitive search across all source subdirectories (`{todos_base}/*/[0-9][0-9][0-9]-*.md`). Searches todo titles, problem statements, and work logs. Validates query length (2-200 chars), sanitizes regex metacharacters before Grep. Results grouped by file with metadata, showing source subdirectory. See [subcommands.md](references/subcommands.md) for sanitization and display details.
 
-**Zero-state**: "No matches found for '{query}' in todos/."
+**Zero-state**: "No matches found for '{query}'."
 
 ### resolve — Mark Resolution with Metadata
 

@@ -78,13 +78,16 @@ function updateTodoForFinding(tomePath: string, fixing: {
     return
   }
 
-  const todoPath = (matchingTodo as any).file
+  // Reconstruct full path from filename-only manifest field + source directory
+  const todoPath = `${todosBase}${todoSource}/${(matchingTodo as any).file}`
   if (!todoPath || !exists(todoPath)) {
     warn(`Todo update: matching todo file not found: ${todoPath}`)
     return
   }
 
   // 3. Claim lock: set mend_fixer_claim before writing (prevents concurrent edits)
+  // MUST be called by orchestrator only — parallel fixer calls would create a
+  // TOCTOU race on mend_fixer_claim. Mirrors status-history concurrency rule.
   const content: string = Read(todoPath)
   const fmEnd: number = content.indexOf('---', content.indexOf('---') + 3)
   if (fmEnd === -1) {

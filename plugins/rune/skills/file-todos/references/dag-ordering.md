@@ -353,13 +353,19 @@ function criticalPath(
 
   // Forward pass: Earliest Start Time (EST)
   // EST for root nodes = 0; EST for dependent = max(EST of all deps) + 1
+  // NOTE: criticalPath operates on intra-source deps only. Cross-source refs
+  // (e.g., "review/001") are tracked via cross_source_refs in the manifest,
+  // not via critical path analysis. Cross-source deps are filtered out below
+  // to prevent silent miscalculation (they would default to 0/maxDepth).
   const est = new Map<string, number>()
+  const intraSourceIds = new Set(topologicalOrder)
   for (const id of topologicalOrder) {
     const deps = graph.get(id) || new Set()
-    if (deps.size === 0) {
+    const intraSourceDeps = [...deps].filter(d => intraSourceIds.has(d))
+    if (intraSourceDeps.length === 0) {
       est.set(id, 0)
     } else {
-      const depEsts = [...deps].map(d => est.get(d) ?? 0)
+      const depEsts = intraSourceDeps.map(d => est.get(d) ?? 0)
       est.set(id, Math.max(...depEsts) + 1)
     }
   }
@@ -371,10 +377,11 @@ function criticalPath(
   const lst = new Map<string, number>()
   for (const id of [...topologicalOrder].reverse()) {
     const dependents = reverse.get(id) || new Set()
-    if (dependents.size === 0) {
+    const intraSourceDependents = [...dependents].filter(d => intraSourceIds.has(d))
+    if (intraSourceDependents.length === 0) {
       lst.set(id, maxDepth)
     } else {
-      const depLsts = [...dependents].map(d => lst.get(d) ?? maxDepth)
+      const depLsts = intraSourceDependents.map(d => lst.get(d) ?? maxDepth)
       lst.set(id, Math.min(...depLsts) - 1)
     }
   }

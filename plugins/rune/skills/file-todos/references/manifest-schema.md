@@ -163,7 +163,7 @@ Each entry is a flattened projection of the todo's YAML frontmatter plus compute
 
 **`dependents` computation**: The `dependents` field is NEVER stored in todo frontmatter — it is computed by `manifest build` by inverting the adjacency list. Cross-source dependents (e.g., a `review` todo that depends on a `work` todo) appear in `cross_source_refs` of the dependency_graph, not in `dependents`.
 
-**`execution_order` semantics**: `null` means "not yet computed" (manifest build hasn't run). `0` is valid (first in topological order). Consumers MUST check `=== null`, not `!execution_order`.
+**`execution_order` semantics**: `null` means "not yet computed" (manifest build hasn't run). `0` is a reserved sentinel only — `1` is the first valid position (1-indexed, consistent with `wave`). Consumers MUST check `=== null`, not `!execution_order`.
 
 ### `dependency_graph` Object
 
@@ -302,12 +302,19 @@ function buildManifests(todosBase: string, options: BuildOptions): BuildResult {
       .concat(Glob(`${todosBase}/${source}/[0-9][0-9][0-9][0-9]-*.md`))
 
     // 2b. Parse frontmatter (v1 and v2 compatible)
-    const todos = files.map(f => parseTodoFile(f, source))
+    // Guard: skip files with corrupt or missing frontmatter (no silent ghost todos)
+    const todos = files.map(f => {
+      try { return parseTodoFile(f, source) }
+      catch (e) { warn(`WARN: skipped corrupt todo file ${f} (${e.message})`); return null }
+    }).filter(Boolean)
 
     // 2c. Build dependency graph + topological sort + wave assignment
     const dagResult = buildDependencyDAG(todos)
+    if (dagResult.hasCycles) {
+      warn(`WARN ${source}/: cycle detected — todos [${dagResult.unresolvedDeps.join(', ')}] excluded from wave assignment`)
+    }
     const waves = assignWaves(dagResult.order, todos)
-    const critPath = criticalPath(todos, dagResult.graph)
+    const critPath = criticalPath(todos, dagResult.graph, dagResult.reverse, dagResult.order)
 
     // 2d. Collect cross-source refs
     const crossSourceRefs = collectCrossSourceRefs(todos)

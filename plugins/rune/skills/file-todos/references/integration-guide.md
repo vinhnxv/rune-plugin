@@ -60,7 +60,7 @@ Resolves a **source-qualified** todos path for a specific workflow. Appends the 
 // workflowOutputDir: string — output directory for this workflow session
 // source: "work" | "review" | "audit"
 // Returns: string — source-qualified todos path ending with "/"
-const VALID_SOURCES = new Set(["work", "review", "audit"])
+const VALID_SOURCES = new Set(["work", "review", "audit", "pr-comment", "tech-debt"])
 
 function resolveTodosDir(workflowOutputDir: string, source: string): string {
   if (!VALID_SOURCES.has(source)) throw new Error(`Invalid todo source: ${source}`)

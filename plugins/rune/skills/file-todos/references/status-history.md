@@ -78,7 +78,15 @@ function appendStatusHistory(todoPath: string, fromStatus: string | null, toStat
   } else {
     // Append to existing table — find the last row of the Status History table
     // and insert after it. Uses section-targeted Edit for atomic replacement.
-    const lastTableRow = findLastStatusHistoryRow(content)
+    // findLastStatusHistoryRow: extract the Status History section, then find
+    // the last markdown table row (line matching /^\| .* \|$/).
+    const statusSection = content.substring(content.indexOf('## Status History'))
+    const tableRows = statusSection.match(/^\| .* \|$/gm) || []
+    const lastTableRow = tableRows[tableRows.length - 1]  // last data row (or header separator)
+    if (!lastTableRow) {
+      warn(`Todo update: no table rows found in Status History section of ${todoPath}`)
+      return
+    }
     Edit(todoPath, {
       old_string: lastTableRow,
       new_string: lastTableRow + '\n' + entry

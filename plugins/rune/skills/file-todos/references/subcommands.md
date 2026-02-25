@@ -24,7 +24,9 @@ function resolveSessionContext(args: string): string {
   }
 
   // 2. Auto-detect: find most recent active workflow from state files
-  const stateFiles = Glob("tmp/.rune-{work,review,audit,mend}-*.json")
+  // Use wildcard + filter instead of brace expansion (not universally supported)
+  const stateFiles = Glob("tmp/.rune-*-*.json")
+    .filter(f => /\.rune-(work|review|audit|mend)-/.test(f))
   const activeStates = stateFiles
     .map(f => { try { return JSON.parse(Read(f)) } catch { return null } })
     .filter(s => s && s.status === "active" && s.todos_base)

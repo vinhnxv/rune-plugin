@@ -120,7 +120,7 @@ Task({
     RETRY LIMIT: Do not reclaim a task you just released due to ward failure.
     Track failed task IDs internally and skip them when scanning TaskList.
     EXIT: No tasks after 3 retries (30s each) -> idle notification -> exit
-    SHUTDOWN: Update your todo file status to completed/interrupted, THEN approve immediately
+    SHUTDOWN: Update your todo file status to complete/interrupted, THEN approve immediately
 
     WORKER LOG PROTOCOL (mandatory):
     1. On first task claim: create tmp/work/{timestamp}/worker-logs/{your-name}.md
@@ -138,7 +138,7 @@ Task({
        update Status to completed
     5. Record key decisions in "### Decisions" subsection — explain WHY, not just WHAT
     6. On failure: update Status to failed, add "### Failure reason" subsection
-    7. On exit (shutdown or idle): update frontmatter status to completed/interrupted
+    7. On exit (shutdown or idle): update frontmatter status to complete/interrupted
 
     NOTE: Use simplified v1 frontmatter (4 fields only: worker, role, status, plan_path).
     All counters are derived by the orchestrator during summary generation.
@@ -244,7 +244,7 @@ Task({
     RETRY LIMIT: Do not reclaim a task you just released due to test failure.
     Track failed task IDs internally and skip them when scanning TaskList.
     EXIT: No tasks after 3 retries (30s each) -> idle notification -> exit
-    SHUTDOWN: Update your todo file status to completed/interrupted, THEN approve immediately
+    SHUTDOWN: Update your todo file status to complete/interrupted, THEN approve immediately
 
     WORKER LOG PROTOCOL (mandatory):
     1. On first task claim: create tmp/work/{timestamp}/worker-logs/{your-name}.md
@@ -262,7 +262,7 @@ Task({
        update Status to completed
     5. Record key decisions in "### Decisions" subsection — explain WHY, not just WHAT
     6. On failure: update Status to failed, add "### Failure reason" subsection
-    7. On exit (shutdown or idle): update frontmatter status to completed/interrupted
+    7. On exit (shutdown or idle): update frontmatter status to complete/interrupted
 
     NOTE: Use simplified v1 frontmatter (4 fields only: worker, role, status, plan_path).
     All counters are derived by the orchestrator during summary generation.

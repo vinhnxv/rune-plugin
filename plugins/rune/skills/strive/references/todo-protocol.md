@@ -37,10 +37,10 @@ TODO FILE PROTOCOL (mandatory):
    with Status: in_progress, Claimed timestamp, and initial subtask checklist
 3. As you complete each subtask: update the checkbox to [x]
 4. On task completion: add Files touched, Ward Result, Completed timestamp,
-   update Status to completed
+   update Status to complete
 5. Record key decisions in "### Decisions" subsection — explain WHY, not just WHAT
 6. On failure: update Status to failed, add "### Failure reason" subsection
-7. On exit (shutdown or idle): update frontmatter status to completed/interrupted
+7. On exit (shutdown or idle): update frontmatter status to complete/interrupted
 
 NOTE: Use simplified v1 frontmatter (4 fields only: worker, role, status, plan_path).
 All counters (tasks_completed, subtasks_total, etc.) are derived by the orchestrator
