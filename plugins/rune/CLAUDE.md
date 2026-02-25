@@ -40,6 +40,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **mend** | Parallel finding resolution from TOME. Goldmask data passthrough (risk-overlaid severity, risk context injection) + quick check (Phase 5.95) |
 | **devise** | Multi-agent planning: brainstorm, research, validate, synthesize, shatter, forge, review (+ `--quick`). Predictive Goldmask (2-8 agents, basic default) for pre-implementation risk assessment |
 | **appraise** | Multi-agent code review with up to 7 built-in Ashes (+ custom from talisman.yml). Default: standard. Use `--deep` for multi-wave deep review. |
+| **codex-review** | Cross-model code review — runs Claude and Codex agents in parallel, cross-verifies findings, merges consensus issues into a unified TOME. Use when you want a second opinion from an independent model on critical changes. |
 | **resolve-gh-pr-comment** | Resolve a single GitHub PR review comment — fetch, analyze, fix, reply, and resolve thread |
 | **resolve-all-gh-pr-comments** | Batch resolve all open PR review comments with pagination and progress tracking |
 | **strive** | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
@@ -49,6 +50,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | Command | Description |
 |---------|-------------|
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
+| `/rune:cancel-codex-review` | Cancel active codex review and shutdown teammates |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
 | `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 23 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend (convergence loop) → test → test coverage critique → pre-ship validation → release quality check → bot review wait → PR comment resolution → ship → merge |
 | `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.107.0] - 2026-02-26
+
+### Added
+- **`/rune:codex-review` skill** — Cross-model code review that runs Claude and Codex agents in parallel on the same diff. Merges findings from both models using a cross-verification algorithm to produce a unified TOME with consensus issues flagged at higher severity. Use for critical changes where independent model validation adds confidence.
+- **Cross-model cross-verification algorithm** — Findings from Claude Ashes and Codex are reconciled by matching file+line proximity and issue category. Consensus findings (reported by both models) are promoted to higher severity. Model-exclusive findings are preserved with provenance tags (`[claude-only]`, `[codex-only]`).
+- **Claude + Codex parallel agents** — Claude Ashes (Forge Warden, Pattern Weaver, Ward Sentinel) and the Codex Oracle run concurrently in the same Agent Team. Codex agent uses `codex review` CLI with structured JSON output. Results are written to `tmp/reviews/{id}/` per agent, then merged by the cross-verifier.
+- **`/rune:cancel-codex-review` command** — Cancel an active Codex Review workflow with graceful teammate shutdown. Follows the same retry-with-backoff and session isolation pattern as other cancel commands.
+- **`codex_review` talisman config block** — New configuration section for tuning cross-model review behavior: `disabled`, `timeout`, `cross_model_bonus`, `confidence_threshold`, `max_agents`, `focus_areas`.
+
 ## [1.106.0] - 2026-02-26
 
 ### Added

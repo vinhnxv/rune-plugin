@@ -1326,6 +1326,28 @@ context_weaving:
 #     - storybook                            # Storybook integration for component preview (optional)
 
 # ──────────────────────────────────────────────
+# Codex Review — Cross-model code review (/rune:codex-review) (v1.107.0+)
+# ──────────────────────────────────────────────
+# Runs Claude Ashes and Codex agents in parallel on the same diff, then cross-verifies
+# findings using a consensus algorithm. Consensus findings (reported by both models) are
+# promoted to higher severity. Model-exclusive findings are preserved with provenance tags.
+codex_review:
+  disabled: false                    # Set true to disable codex-review globally (default: false)
+  timeout: 600000                    # Per-agent timeout in ms (default: 600000 = 10 min)
+  cross_model_bonus: 15              # Severity boost applied to consensus findings (0-100, default: 15)
+                                     # When both Claude and Codex report the same issue, its severity score
+                                     # is increased by this amount to elevate it in the merged TOME.
+  confidence_threshold: 80           # Minimum confidence % to include a finding in the merged TOME (default: 80)
+                                     # Findings below this threshold are logged but excluded from output.
+  max_agents: 6                      # Maximum total agents (Claude + Codex combined, default: 6)
+                                     # Codex Oracle counts as 1 toward this cap.
+  focus_areas:                       # Limit review scope to specific concern areas (default: all areas)
+    - security                       # Authentication, authorization, injection, secrets exposure
+    - correctness                    # Logic errors, off-by-one, null dereference, race conditions
+    - performance                    # Hot paths, N+1 queries, memory leaks, excessive allocations
+    - type_safety                    # Type errors, unsafe casts, unchecked nulls, schema drift
+
+# ──────────────────────────────────────────────
 # Debug — ACH-based parallel debugging (/rune:debug)
 # ──────────────────────────────────────────────
 # debug:
