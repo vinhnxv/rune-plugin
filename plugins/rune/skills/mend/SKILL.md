@@ -412,7 +412,7 @@ See [resolution-report.md](references/resolution-report.md) for Codex verificati
 
 After all fixes are applied and verified, update corresponding file-todos for resolved findings. Scans all source subdirectories (`{base}*/[0-9][0-9][0-9]-*.md`) for cross-source `finding_id` matching, updates frontmatter status, and appends Work Log entries.
 
-**Skip conditions**: `talisman.file_todos.enabled` is not `=== true` (opt-in gate) OR no todo files found in any subdirectory OR no todo files match any resolved finding IDs.
+**Skip conditions**: No todo files found in any subdirectory OR no todo files match any resolved finding IDs. Suppress with `--todos=false`.
 
 See [todo-update-phase.md](references/todo-update-phase.md) for the full protocol — todo discovery, frontmatter parsing, claim lock, work log generation, and resolution-to-status mapping.
 

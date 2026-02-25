@@ -496,14 +496,11 @@ After semantic verification completes, before the first todos-producing phase (P
 
 ```javascript
 // Arc Todos Scaffolding — create base structure once
-const fileTodosEnabled = talisman?.file_todos?.enabled === true
 const arcTodosBase = `tmp/arc/${id}/todos/`
 
-if (fileTodosEnabled) {
-  Bash(`mkdir -p "${arcTodosBase}work/" "${arcTodosBase}review/"`)
-  // audit/ not created — arc Phase 6 uses appraise (source=review), not audit
-  updateCheckpoint({ todos_base: arcTodosBase })
-}
+Bash(`mkdir -p "${arcTodosBase}work/" "${arcTodosBase}review/"`)
+// audit/ not created — arc Phase 6 uses appraise (source=review), not audit
+updateCheckpoint({ todos_base: arcTodosBase })
 
 // On --resume, checkpoint.todos_base is read from checkpoint (set above).
 // If missing (pre-refactor checkpoint), fallback: arcTodosBase = `tmp/arc/${id}/todos/`
