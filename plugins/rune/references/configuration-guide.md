@@ -29,7 +29,7 @@ ashes:
 
 settings:
   max_ashes: 9                   # Hard cap (7 built-in + custom)
-  dedup_hierarchy: [SEC, BACK, VEIL, DOC, QUAL, FRONT, CDX]
+  dedup_hierarchy: [SEC, BACK, VEIL, DOUBT, "SH{X}", DOC, QUAL, FRONT, CDX, XSH]
 
 forge:                                 # Forge Gaze selection overrides
   threshold: 0.30                      # Score threshold (0.0-1.0)
@@ -280,6 +280,19 @@ Arc convergence keys live under the `review:` section (not `arc:`) and use the `
 | `arc_convergence_finding_threshold` | number | `0` | P1 findings at or below this count = converged (0-100). |
 | `arc_convergence_p2_threshold` | number | `0` | P2 findings at or below this count = eligible for convergence (0-100). Default 0 = any P2 blocks convergence. v1.41.0+. |
 | `arc_convergence_improvement_ratio` | number | `0.5` | Findings must decrease by this ratio to continue (0.1-0.9). |
+
+### `review` — Inscription Sharding settings (v1.98.0+)
+
+Sharding supersedes `large_diff_threshold` / `chunk_size` for `scope=diff` + standard-depth review. When `totalFiles > shard_threshold`, the diff is partitioned into non-overlapping domain-affinity shards reviewed in parallel. Chunked review continues to apply for `scope=full` audits.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `shard_threshold` | number | `15` | File count above which sharded review activates (range: 5-50). Set to `999` to disable sharding entirely (restore chunked behavior). |
+| `shard_size` | number | `12` | Max files per shard reviewer (range: 5-20). Lower = less context pressure per reviewer; higher = fewer shards = lower cost. |
+| `max_shards` | number | `5` | Maximum parallel shard reviewers (range: 2-8). Capped by available context budget. |
+| `cross_shard_sentinel` | boolean | `true` | Enable Cross-Shard Sentinel after shard reviewers complete. When true, spawns one extra agent that reads only shard summary JSONs for cross-file issues. |
+| `shard_model_policy` | string | `"auto"` | Model selection per shard: `auto` (sonnet for security/code, haiku for docs-only), `all-sonnet`, or `all-haiku`. |
+| `reshard_threshold` | number | `30` | Re-review scope guard for convergence loop. When mend re-review scope exceeds this, force standard review instead of re-sharding (preserves finding prefix continuity). |
 
 ### `arc.consistency` — Cross-file consistency checks (v1.17.0+)
 
