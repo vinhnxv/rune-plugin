@@ -62,7 +62,19 @@ Rune tạo các file output (plans, reviews, artifacts tạm) trong các thư m�
 >
 > Dùng `settings.local.json` nếu bạn không muốn commit các settings này vào repository.
 
-### 3. Xác nhận
+### 3. Cấu hình dự án (Tuỳ chọn)
+
+Tạo file `talisman.yml` phù hợp với tech stack dự án:
+
+```bash
+/rune:talisman init
+```
+
+Lệnh này tự detect stack (Python, TypeScript, Rust, PHP, Go, v.v.) và tạo `.claude/talisman.yml` với ward commands, phân loại file, và cài đặt agent phù hợp. Bạn có thể bỏ qua bước này — Rune hoạt động tốt với cấu hình mặc định.
+
+Xem [Hướng dẫn Talisman chi tiết](rune-talisman-deep-dive-guide.vi.md) cho tất cả tuỳ chọn.
+
+### 4. Xác nhận
 
 Sau khi lưu settings, khởi động lại Claude Code. Bạn sẽ có thể chạy `/rune:plan` và thấy các agent được tạo ra.
 

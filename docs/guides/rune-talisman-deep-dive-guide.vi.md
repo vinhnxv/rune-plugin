@@ -12,6 +12,33 @@ Hướng dẫn liên quan:
 
 ---
 
+## Thiết lập nhanh: `/rune:talisman` (v1.103.0+)
+
+Cách nhanh nhất để có talisman cấu hình đúng là dùng skill `/rune:talisman`:
+
+```bash
+# Tạo talisman.yml mới cho dự án (tự detect stack)
+/rune:talisman init
+
+# Kiểm tra talisman hiện tại có thiếu/lỗi thời không
+/rune:talisman audit
+
+# Thêm các section thiếu vào talisman hiện tại
+/rune:talisman update
+
+# Tìm hiểu về từng section cấu hình
+/rune:talisman guide codex
+/rune:talisman guide arc
+/rune:talisman guide review
+
+# Xem tổng quan tình trạng talisman
+/rune:talisman status
+```
+
+Subcommand `init` tự detect stack dự án (Python, TypeScript, Rust, PHP, Go, v.v.) và tạo talisman với `ward_commands`, `backend_extensions`, và `dedup_hierarchy` phù hợp.
+
+---
+
 ## 1. Thứ tự ưu tiên cấu hình
 
 Talisman tuân theo **chuỗi ưu tiên 3 lớp** (cao nhất thắng):
@@ -385,7 +412,62 @@ testing:
 
 ---
 
-## 13. Tham khảo nhanh: Tất cả key cấp cao nhất
+## 13. Mend
+
+```yaml
+mend:
+  cross_file_batch_size: 3    # Tối đa file mỗi batch cho cross-file mend (1-10)
+  todos_per_fixer: 5          # Tối đa file-todos mỗi fixer wave
+```
+
+---
+
+## 14. File Todos (Schema v2, v1.101.0+)
+
+Tất cả todos đều session-scoped và bắt buộc. Các key sau đã bị **xoá** trong v1.101.0:
+- `file_todos.enabled` — todos luôn bật
+- `file_todos.dir` — todos nằm trong `tmp/{workflow}/{id}/todos/`
+- `file_todos.auto_generate.work` — work todos luôn được tạo
+
+Schema hiện tại:
+
+```yaml
+file_todos:
+  triage:
+    auto_approve_p1: false
+  manifest:
+    auto_build: true
+    dedup_on_build: false
+    dedup_threshold: 0.70
+  history:
+    enabled: true
+```
+
+---
+
+## 15. Quản lý Context
+
+### Context Monitor
+
+```yaml
+context_monitor:
+  enabled: true
+  warning_threshold: 0.4          # Cảnh báo khi còn 40% context
+  critical_threshold: 0.25        # Hard deny khi còn 25%
+```
+
+### Context Weaving
+
+```yaml
+context_weaving:
+  glyph_budget: 300               # Tối đa chữ mỗi message agent
+  offload_threshold: 500          # Dòng trên ngưỡng này → offload ra file
+  rot_detection: true             # Detect context stale
+```
+
+---
+
+## 16. Tham khảo nhanh: Tất cả key cấp cao nhất
 
 | Key | Mục đích | Mặc định |
 |-----|---------|---------|
@@ -402,8 +484,17 @@ testing:
 | `work` | Ward commands, workers, branch | 3 workers |
 | `testing` | Test 3 tầng | Tất cả bật |
 | `goldmask` | Impact analysis theo workflow | Tất cả enabled |
-| `codex` | Cross-model verification | Tự detect |
+| `codex` | Cross-model verification (17 điểm) | Tự detect |
 | `elicitation` | Structured reasoning | Enabled |
 | `echoes` | Bộ nhớ agent | FTS enabled |
+| `mend` | Giải quyết finding song song | 3 batch, 5/fixer |
+| `file_todos` | File-based todo (schema v2) | Bắt buộc |
+| `horizon` | Đánh giá chiến lược | Enabled |
+| `context_monitor` | Giám sát context budget | 40% warn, 25% deny |
+| `context_weaving` | Glyph budget và offload | 300 từ budget |
+| `inner_flame` | Self-review protocol | Enabled |
+| `doubt_seer` | Verification chất lượng | Tắt (opt-in) |
+
+> **Mẹo**: Dùng `/rune:talisman audit` để so sánh config dự án với template mới nhất và tìm key thiếu.
 
 Xem [`talisman.example.yml`](../../plugins/rune/talisman.example.yml) để có schema đầy đủ.

@@ -1,5 +1,424 @@
 # Configuration Guide
 
+## Complete Config Key Reference
+
+All talisman config keys grouped by section with types, defaults, and descriptions. Use this as the canonical lookup when writing or auditing `talisman.yml`.
+
+### Root Keys
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `version` | number | `1` | Schema version (only `1` valid) |
+| `cost_tier` | string | `"balanced"` | Agent model selection: `opus`, `balanced`, `efficient`, `minimal` |
+
+### `rune-gaze` — File Classification
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `rune-gaze.backend_extensions` | string[] | `[.py, .go, .rs, .rb]` | Extensions mapped to backend Ash |
+| `rune-gaze.frontend_extensions` | string[] | `[.tsx, .ts, .jsx]` | Extensions mapped to frontend Ash |
+| `rune-gaze.infra_extensions` | string[] | `[.sh, .tf, .hcl, ...]` | Extensions mapped to infrastructure |
+| `rune-gaze.skip_patterns` | string[] | `[]` | Glob patterns to skip during review |
+| `rune-gaze.always_review` | string[] | `[]` | Files always included in review |
+| `rune-gaze.extra_backend_extensions` | string[] | `[]` | Additional backend extensions (merged) |
+| `rune-gaze.extra_frontend_extensions` | string[] | `[]` | Additional frontend extensions (merged) |
+
+### `ashes.custom[]` — Custom Review Agents
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `ashes.custom[].name` | string | — | Unique Ash name (required) |
+| `ashes.custom[].agent` | string | — | Agent file name in `.claude/agents/` |
+| `ashes.custom[].source` | string | `"local"` | `local` \| `global` \| `plugin` |
+| `ashes.custom[].workflows` | string[] | `[review]` | Workflows: `review`, `audit`, `forge` |
+| `ashes.custom[].trigger.extensions` | string[] | `[]` | File extensions to match |
+| `ashes.custom[].trigger.paths` | string[] | `[]` | Path prefixes to match |
+| `ashes.custom[].trigger.topics` | string[] | `[]` | Topic keywords for forge matching |
+| `ashes.custom[].forge.subsection` | string | — | Forge section name |
+| `ashes.custom[].forge.perspective` | string | — | Enrichment perspective |
+| `ashes.custom[].forge.budget` | string | `"enrichment"` | Budget allocation |
+| `ashes.custom[].context_budget` | number | `20` | Max files in context |
+| `ashes.custom[].finding_prefix` | string | — | Finding prefix (e.g., `"DOM"`) |
+| `ashes.custom[].cli` | object | — | CLI-backed Ash config (v1.57.0+) |
+
+### `settings` — Global Settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `settings.max_ashes` | number | `9` | Hard cap on total Ashes (built-in + custom) |
+| `settings.max_cli_ashes` | number | `2` | Sub-cap on CLI-backed Ashes |
+| `settings.dedup_hierarchy` | string[] | `[SEC, BACK, ...]` | Finding dedup priority order |
+| `settings.convergence_threshold` | number | `0.7` | Global convergence threshold |
+
+### `audit` — Audit Configuration
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `audit.dirs` | string[] | `[]` | Directory whitelist for scoped audits |
+| `audit.exclude_dirs` | string[] | `[]` | Directory blacklist |
+| `audit.deep_wave_count` | number | `2` | Deep audit wave count |
+| `audit.max_file_cap` | number | `200` | Max files per audit session |
+
+### `defaults` — Default Overrides
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `defaults.scope` | string | `"diff"` | `diff` \| `full` |
+| `defaults.depth` | string | `"standard"` | `standard` \| `deep` |
+
+### `forge` — Forge Gaze Selection
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `forge.threshold` | number | `0.30` | Gaze score threshold (0.0–1.0) |
+| `forge.max_per_section` | number | `3` | Max agents per forge section (cap: 5) |
+| `forge.max_total_agents` | number | `8` | Max total forge agents (cap: 15) |
+| `forge.model` | string | — | Override forge agent model |
+
+### `plan` — Plan Settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `plan.template` | string | `"standard"` | Plan template: `minimal`, `standard`, `comprehensive` |
+| `plan.brainstorm_agents` | number | `3` | Brainstorm agent count |
+| `plan.research_agents` | number | `4` | Research agent count |
+| `plan.synthesis_model` | string | — | Override synthesis model |
+| `plan.shatter.enabled` | boolean | `true` | Enable shatter assessment |
+| `plan.shatter.threshold` | number | `70` | Min shatter score to proceed |
+| `plan.forge_after_synthesis` | boolean | `true` | Auto-forge after synthesis |
+
+### `inspect` — Plan-vs-Code Audit
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `inspect.requirement_match_threshold` | number | `0.7` | Requirement matching confidence |
+| `inspect.completeness_threshold` | number | `0.8` | Min completeness to pass |
+| `inspect.dimension_weights` | object | — | Per-dimension scoring weights |
+| `inspect.model` | string | — | Override inspector model |
+| `inspect.max_inspectors` | number | `4` | Max inspector agents |
+
+### `arc` — Pipeline Configuration
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `arc.defaults.no_forge` | boolean | `false` | Skip forge phase (CLI: `--no-forge`) |
+| `arc.defaults.approve` | boolean | `false` | Auto-approve tasks (CLI: `--approve`) |
+| `arc.defaults.skip_freshness` | boolean | `false` | Skip freshness gate (CLI: `--skip-freshness`) |
+| `arc.defaults.confirm` | boolean | `false` | Require confirmation (CLI: `--confirm`) |
+| `arc.sharding.enabled` | boolean | `true` | Enable plan sharding |
+| `arc.sharding.exclude_parent` | boolean | `true` | Auto-exclude parent plans |
+| `arc.sharding.prerequisite_check` | boolean | `true` | Verify shard prerequisites |
+| `arc.sharding.shared_branch` | boolean | `true` | Share feature branch across shards |
+| `arc.ship.auto_pr` | boolean | `true` | Auto-create PR |
+| `arc.ship.auto_merge` | boolean | `false` | Auto-merge PR |
+| `arc.ship.merge_strategy` | string | `"squash"` | `squash` \| `merge` \| `rebase` |
+| `arc.ship.wait_ci` | boolean | `false` | Wait for CI before merge |
+| `arc.ship.draft` | boolean | `false` | Create PR as draft |
+| `arc.ship.labels` | string[] | `[]` | PR labels |
+| `arc.ship.pr_monitoring` | boolean | `false` | Post-deploy monitoring in PR |
+| `arc.ship.rebase_before_merge` | boolean | `true` | Rebase before merge |
+| `arc.ship.co_authors` | string[] | `[]` | Co-Authored-By for arc PRs (falls back to `work.co_authors`) |
+| `arc.pre_merge_checks.migration_conflict` | boolean | `true` | Check migration conflicts |
+| `arc.pre_merge_checks.schema_conflict` | boolean | `true` | Check schema drift |
+| `arc.pre_merge_checks.lock_file_conflict` | boolean | `true` | Check lock file conflicts |
+| `arc.pre_merge_checks.uncommitted_changes` | boolean | `true` | Check uncommitted changes |
+| `arc.pre_merge_checks.migration_paths` | string[] | `[]` | Additional migration scan paths |
+| `arc.gap_analysis.inspectors` | number\|string[] | `2` | Inspector count or name list |
+| `arc.gap_analysis.halt_threshold` | number | `50` | Score below this = halt |
+| `arc.gap_analysis.inspect_enabled` | boolean | `true` | Enable Inspector Ashes in gap analysis |
+| `arc.gap_analysis.remediation.enabled` | boolean | `true` | Enable auto-fix of gaps |
+| `arc.gap_analysis.remediation.max_fixes` | number | `20` | Cap on fixable gaps |
+| `arc.gap_analysis.remediation.timeout` | number | `600000` | Inner timeout (ms) |
+| `arc.batch.smart_ordering.enabled` | boolean | `true` | Enable smart plan ordering |
+| `arc.consistency.checks[]` | object[] | `[]` | Cross-file consistency checks |
+
+### `arc.timeouts` — Per-Phase Timeouts (ms)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `arc.timeouts.forge` | number | `900000` | Phase 1: Forge (15 min) |
+| `arc.timeouts.plan_review` | number | `900000` | Phase 2: Plan review (15 min) |
+| `arc.timeouts.plan_refine` | number | `180000` | Phase 2.5: Refinement (3 min) |
+| `arc.timeouts.verification` | number | `30000` | Phase 2.7: Verification (30s) |
+| `arc.timeouts.semantic_verification` | number | `180000` | Phase 2.8: Semantic (3 min) |
+| `arc.timeouts.task_decomposition` | number | `180000` | Phase 4.5: Task decomposition (3 min) |
+| `arc.timeouts.work` | number | `2100000` | Phase 5: Work (35 min) |
+| `arc.timeouts.gap_analysis` | number | `720000` | Phase 5.5: Gap analysis (12 min) |
+| `arc.timeouts.codex_gap_analysis` | number | `660000` | Phase 5.6: Codex gap (11 min) |
+| `arc.timeouts.gap_remediation` | number | `900000` | Phase 5.8: Remediation (15 min) |
+| `arc.timeouts.goldmask_verification` | number | `900000` | Phase 5.9: Goldmask verify (15 min) |
+| `arc.timeouts.code_review` | number | `900000` | Phase 6: Code review (15 min) |
+| `arc.timeouts.goldmask_correlation` | number | `60000` | Phase 6.5: Correlation (1 min) |
+| `arc.timeouts.mend` | number | `1380000` | Phase 7: Mend (23 min) |
+| `arc.timeouts.verify_mend` | number | `240000` | Phase 7.5: Verify mend (4 min) |
+| `arc.timeouts.test` | number | `900000` | Phase 7.7: Test (15 min) |
+| `arc.timeouts.ship` | number | `300000` | Phase 9: Ship (5 min) |
+| `arc.timeouts.merge` | number | `600000` | Phase 9.5: Merge (10 min) |
+| `arc.timeouts.design_extraction` | number | `300000` | Phase D1: Design extraction (5 min) |
+| `arc.timeouts.design_iteration` | number | `600000` | Phase D2: Design iteration (10 min) |
+| `arc.timeouts.design_verification` | number | `300000` | Phase D3: Design fidelity (5 min) |
+
+### `solution_arena` — Devise Arena Phase
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `solution_arena.enabled` | boolean | `true` | Enable Arena in `/rune:devise` |
+| `solution_arena.skip_for_types` | string[] | `["fix"]` | Types that skip Arena |
+| `solution_arena.weights.feasibility` | number | `0.25` | Feasibility weight |
+| `solution_arena.weights.complexity` | number | `0.20` | Complexity weight |
+| `solution_arena.weights.risk` | number | `0.20` | Risk weight |
+| `solution_arena.weights.maintainability` | number | `0.15` | Maintainability weight |
+| `solution_arena.weights.performance` | number | `0.10` | Performance weight |
+| `solution_arena.weights.innovation` | number | `0.10` | Innovation weight |
+| `solution_arena.convergence_threshold` | number | `0.05` | Tied-score margin |
+
+### `deployment_verification` — Deploy Artifact Generation
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `deployment_verification.enabled` | boolean | `true` | Enable deployment verification |
+| `deployment_verification.go_no_go` | boolean | `true` | Generate Go/No-Go checklist |
+| `deployment_verification.rollback_plan` | boolean | `true` | Generate rollback procedure |
+| `deployment_verification.monitoring_plan` | boolean | `true` | Generate monitoring plan |
+
+### `schema_drift` — Migration/Model Consistency
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `schema_drift.enabled` | boolean | `true` | Enable schema drift detection |
+| `schema_drift.frameworks` | string[] | `[auto]` | Framework auto-detection or explicit list |
+| `schema_drift.strict` | boolean | `false` | Strict mode (block on any drift) |
+| `schema_drift.ignore_patterns` | string[] | `[]` | Patterns to ignore in drift checks |
+
+### `elicitation` — Reasoning Methods
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `elicitation.enabled` | boolean | `true` | Enable sage invocations |
+
+### `echoes` — Memory Persistence
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `echoes.version_controlled` | boolean | `false` | Track echoes in git |
+| `echoes.fts_enabled` | boolean | `true` | Enable FTS5/MCP echo search |
+| `echoes.auto_observation` | boolean | `true` | Auto-record Observations after tasks |
+| `echoes.scoring.validation_mode` | boolean | `false` | Dual scoring for validation |
+| `echoes.groups.enabled` | boolean | `true` | Enable semantic groups |
+| `echoes.groups.similarity_threshold` | number | `0.60` | Clustering threshold |
+| `echoes.groups.max_group_size` | number | `10` | Max entries per group |
+| `echoes.groups.score_discount` | number | `0.85` | Score discount for expanded entries |
+| `echoes.reranking.enabled` | boolean | `true` | Enable Haiku reranking |
+| `echoes.reranking.top_n` | number | `10` | Entries to rerank |
+| `echoes.retry.enabled` | boolean | `true` | Enable retry injection |
+| `echoes.retry.max_retries` | number | `2` | Max retry suggestions |
+
+### `mend` — Finding Resolution
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `mend.cross_file_batch_size` | number | `3` | Files per cross-file batch |
+| `mend.todos_per_fixer` | number | `5` | Max file-todos per fixer wave |
+
+### `review` — Review Settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `review.diff_scope.enabled` | boolean | `true` | Enable diff range generation |
+| `review.diff_scope.expansion` | number | `8` | Context lines per hunk |
+| `review.diff_scope.tag_pre_existing` | boolean | `true` | Tag pre-existing findings |
+| `review.diff_scope.fix_pre_existing_p1` | boolean | `true` | Fix pre-existing P1 |
+| `review.convergence.smart_scoring` | boolean | `true` | Smart convergence scoring |
+| `review.convergence.convergence_threshold` | number | `0.7` | Score threshold |
+| `review.large_diff_threshold` | number | `25` | Chunked mode file threshold |
+| `review.chunk_size` | number | `15` | Files per chunk |
+| `review.shard_threshold` | number | `15` | Sharding activation threshold |
+| `review.shard_size` | number | `12` | Max files per shard |
+| `review.max_shards` | number | `5` | Max parallel shards |
+| `review.cross_shard_sentinel` | boolean | `true` | Enable cross-shard sentinel |
+| `review.shard_model_policy` | string | `"auto"` | Shard model selection |
+| `review.reshard_threshold` | number | `30` | Re-review shard guard |
+| `review.arc_convergence_tier_override` | string\|null | `null` | Force convergence tier |
+| `review.arc_convergence_max_cycles` | number\|null | `null` | Hard max cycles |
+| `review.arc_convergence_min_cycles` | number\|null | `null` | Min cycles before convergence |
+| `review.arc_convergence_finding_threshold` | number | `0` | P1 threshold for convergence |
+| `review.arc_convergence_p2_threshold` | number | `0` | P2 threshold |
+| `review.arc_convergence_improvement_ratio` | number | `0.5` | Required improvement ratio |
+
+### `work` — Swarm Execution
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `work.ward_commands` | string[] | `[]` | Quality gate commands |
+| `work.max_workers` | number | `3` | Max parallel workers |
+| `work.approve_timeout` | number | `180` | Task approval timeout (s) |
+| `work.commit_format` | string | `"rune: {subject} [ward-checked]"` | Commit template |
+| `work.skip_branch_check` | boolean | `false` | Skip branch check |
+| `work.branch_prefix` | string | `"rune/work"` | Branch name prefix |
+| `work.pr_monitoring` | boolean | `false` | PR monitoring section |
+| `work.co_authors` | string[] | `[]` | Co-Authored-By lines |
+| `work.todos_per_worker` | number | `3` | Todos per worker wave |
+| `work.unrestricted_shared_files` | string[] | `[]` | Files bypassing SEC-STRIVE-001 |
+| `work.worktree.enabled` | boolean | `false` | Default worktree mode |
+| `work.worktree.max_workers_per_wave` | number | `3` | Workers per worktree wave |
+| `work.worktree.merge_strategy` | string | `"sequential"` | Merge strategy |
+| `work.worktree.auto_cleanup` | boolean | `true` | Remove worktrees after merge |
+| `work.worktree.conflict_resolution` | string | `"escalate"` | `escalate` \| `abort` |
+| `work.hierarchy.enabled` | boolean | `true` | Hierarchical plan support |
+
+### `file_todos` — Todo Tracking
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `file_todos.triage.auto_approve_p1` | boolean | `false` | Auto-approve P1 items |
+| `file_todos.manifest.auto_build` | boolean | `true` | Auto-rebuild manifest |
+| `file_todos.manifest.dedup_on_build` | boolean | `false` | Dedup on build |
+| `file_todos.manifest.dedup_threshold` | number | `0.70` | Dedup confidence |
+| `file_todos.history.enabled` | boolean | `true` | Status History tracking |
+
+### `horizon` — Strategic Assessment
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `horizon.enabled` | boolean | `true` | Kill switch |
+| `horizon.intent_default` | string | `"long-term"` | Default strategic intent |
+
+### `testing` — Arc Phase 7.7
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `testing.enabled` | boolean | `true` | Master toggle |
+| `testing.tiers.unit.enabled` | boolean | `true` | Run unit tests |
+| `testing.tiers.unit.timeout_ms` | number | `300000` | Unit test timeout |
+| `testing.tiers.unit.coverage` | boolean | `true` | Collect coverage |
+| `testing.tiers.integration.enabled` | boolean | `true` | Run integration tests |
+| `testing.tiers.integration.timeout_ms` | number | `300000` | Integration timeout |
+| `testing.tiers.e2e.enabled` | boolean | `true` | Run E2E tests |
+
+### `inner_flame` — Self-Review Protocol
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `inner_flame.enabled` | boolean | `true` | Kill switch |
+| `inner_flame.block_on_fail` | boolean | `false` | Block on missing self-review |
+| `inner_flame.confidence_floor` | number | `60` | Minimum confidence |
+| `inner_flame.completeness_scoring.enabled` | boolean | `true` | Enable completeness scoring |
+
+### `doubt_seer` — Evidence Challenger
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `doubt_seer.enabled` | boolean | `false` | Opt-in |
+| `doubt_seer.workflows` | string[] | `[review, audit]` | Active workflows |
+| `doubt_seer.challenge_threshold` | string | `"P2"` | Min severity to challenge |
+| `doubt_seer.max_challenges` | number | `20` | Max findings to challenge |
+| `doubt_seer.block_on_unproven` | boolean | `false` | Block on unproven P1 |
+| `doubt_seer.unproven_threshold` | number | `0.8` | Evidence ratio threshold |
+
+### `codex` — Cross-Model Verification
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `codex.disabled` | boolean | `false` | Kill switch |
+| `codex.model` | string | `"gpt-5.3-codex"` | Codex model |
+| `codex.reasoning` | string | `"xhigh"` | Reasoning effort |
+| `codex.sandbox` | string | `"read-only"` | Sandbox mode |
+| `codex.context_budget` | number | `20` | Max files per session |
+| `codex.confidence_threshold` | number | `80` | Min confidence % |
+| `codex.timeout` | number | `600` | GNU timeout (s) |
+| `codex.stream_idle_timeout` | number | `540` | Stream idle timeout (s) |
+| `codex.workflows` | string[] | `[review, audit, arc, ...]` | Active workflows |
+| `codex.work_advisory.enabled` | boolean | `true` | Work advisory |
+| `codex.review_diff.enabled` | boolean | `true` | Diff-focused review |
+| `codex.verification.enabled` | boolean | `true` | Cross-model verification |
+| `codex.diff_verification.enabled` | boolean | `true` | Appraise diff verify |
+| `codex.test_coverage_critique.enabled` | boolean | `true` | Test coverage gaps |
+| `codex.release_quality_check.enabled` | boolean | `true` | CHANGELOG validation |
+| `codex.section_validation.enabled` | boolean | `true` | Forge section check |
+| `codex.research_tiebreaker.enabled` | boolean | `true` | Conflict resolution |
+| `codex.task_decomposition.enabled` | boolean | `true` | Task granularity |
+| `codex.risk_amplification.enabled` | boolean | `false` | Risk chains (opt-in) |
+| `codex.drift_detection.enabled` | boolean | `false` | Drift detection (opt-in) |
+| `codex.architecture_review.enabled` | boolean | `false` | Architecture review (opt-in) |
+| `codex.post_monitor_critique.enabled` | boolean | `false` | Post-work critique (opt-in) |
+| `codex.gap_analysis.enabled` | boolean | `true` | Gap analysis |
+| `codex.gap_analysis.remediation_threshold` | number | `5` | Remediation trigger |
+| `codex.trial_forger.enabled` | boolean | `true` | Test generation |
+| `codex.rune_smith.enabled` | boolean | `false` | Implementation advisory |
+
+### `context_monitor` — Token Usage Monitoring
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `context_monitor.enabled` | boolean | `true` | Master toggle |
+| `context_monitor.warning_threshold` | number | `35` | Warning at remaining% |
+| `context_monitor.critical_threshold` | number | `25` | Critical stop at remaining% |
+| `context_monitor.caution_threshold` | number | `40` | Advisory caution at remaining% |
+| `context_monitor.stale_seconds` | number | `60` | Bridge file max age |
+| `context_monitor.debounce_calls` | number | `5` | Calls between warnings |
+| `context_monitor.degradation_suggestions` | boolean | `true` | Inject degradation suggestions |
+| `context_monitor.workflows` | string[] | `[review, audit, ...]` | Active workflows |
+| `context_monitor.pretooluse_guard.enabled` | boolean | `true` | CTX-GUARD-001 toggle |
+
+### `context_weaving` — Context Management
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `context_weaving.glyph_budget.enabled` | boolean | `true` | Glyph budget monitoring |
+| `context_weaving.glyph_budget.word_limit` | number | `300` | Word limit per SendMessage |
+| `context_weaving.offload_threshold` | number | `0.6` | Context offload activation ratio |
+
+### `goldmask` — Impact Analysis
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `goldmask.enabled` | boolean | `true` | Master switch |
+| `goldmask.forge.enabled` | boolean | `true` | Lore Layer in forge |
+| `goldmask.mend.enabled` | boolean | `true` | Mend integration |
+| `goldmask.mend.inject_context` | boolean | `true` | Risk context in fixer prompts |
+| `goldmask.mend.quick_check` | boolean | `true` | Quick check after mend |
+| `goldmask.devise.depth` | string | `"enhanced"` | `basic` \| `enhanced` \| `full` |
+| `goldmask.inspect.enabled` | boolean | `true` | Lore Layer in inspect |
+| `goldmask.inspect.wisdom_passthrough` | boolean | `true` | Wisdom advisories |
+
+### `stack_awareness` — Stack Detection
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `stack_awareness.enabled` | boolean | `true` | Master switch |
+| `stack_awareness.confidence_threshold` | number | `0.6` | Detection threshold |
+| `stack_awareness.max_stack_ashes` | number | `3` | Max specialist Ashes |
+| `stack_awareness.override.primary_language` | string | — | Override detected language |
+| `stack_awareness.override.frameworks` | string[] | — | Override detected frameworks |
+| `stack_awareness.custom_rules[]` | object[] | `[]` | Project-specific routing rules |
+
+### `design_sync` — Figma Design Sync
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `design_sync.enabled` | boolean | `false` | Master switch |
+| `design_sync.max_extraction_workers` | number | `2` | Extraction workers |
+| `design_sync.max_implementation_workers` | number | `3` | Implementation workers |
+| `design_sync.max_iteration_workers` | number | `2` | Iteration workers |
+| `design_sync.max_iterations` | number | `5` | Max fidelity rounds |
+| `design_sync.iterate_enabled` | boolean | `false` | Enable iteration loop |
+| `design_sync.fidelity_threshold` | number | `80` | Min fidelity score |
+| `design_sync.token_snap_distance` | number | `20` | Color token snapping |
+| `design_sync.figma_cache_ttl` | number | `1800` | API cache TTL (s) |
+| `design_sync.design_tools` | string[] | `[figma]` | Tool integrations |
+
+### `debug` — ACH Parallel Debugging
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `debug.max_investigators` | number | `4` | Max parallel investigators (1-6) |
+| `debug.timeout_ms` | number | `420000` | Per-round timeout (7 min) |
+| `debug.model` | string | `"sonnet"` | Investigator model |
+| `debug.re_triage_rounds` | number | `1` | Max re-triage rounds |
+| `debug.echo_on_verdict` | boolean | `true` | Persist verdict to echoes |
+
+---
+
 Projects can override defaults via `.claude/talisman.yml` (project) or `~/.claude/talisman.yml` (global):
 
 ```yaml
@@ -47,7 +466,7 @@ codex:                                 # Codex CLI integration (see codex-cli sk
     enabled: true                      # Codex advisory in /rune:strive
   gap_analysis:
     remediation_threshold: 5           # Actionable Codex findings (MISSING/INCOMPLETE/DRIFT, excluding EXTRA) to trigger Phase 5.8 via Codex gate (default: 5, range: [1, 20] — RUIN-001 clamp)
-  # ── Codex Expansion (v1.51.0+) — 10 new inline cross-model verification points ──
+  # ── Codex Expansion (v1.51.0+) — 17 new inline cross-model verification points ──
   diff_verification:                   # Appraise Phase 6.2 — 3-way verdict on P1/P2 findings vs diff hunks
     enabled: true                      # ON by default (CDX-VERIFY prefix)
   test_coverage_critique:              # Arc Phase 7.8 — test coverage gaps after test phase
@@ -72,11 +491,19 @@ codex:                                 # Codex CLI integration (see codex-cli sk
 solution_arena:
   enabled: true                    # Enable Arena phase in /rune:devise
   skip_for_types: ["fix"]          # Feature types that skip Arena
-  # Additional config (weights, thresholds) available in future versions
+  # weights:                         # Arena scoring dimension weights (must sum to 1.0)
+  #   feasibility: 0.25
+  #   complexity: 0.20
+  #   risk: 0.20
+  #   maintainability: 0.15
+  #   performance: 0.10
+  #   innovation: 0.10
+  # convergence_threshold: 0.05      # Top 2 solutions within this margin = "tied"
 
 echoes:
   version_controlled: false
   fts_enabled: true                    # Enable FTS5/MCP echo search. Set false to disable MCP server.
+  # auto_observation: true             # Auto-record Observations-tier echoes after task completion
 
 review:
   # Diff-scope tagging (v1.38.0+) — generates line-level diff ranges for scope-aware review
@@ -259,6 +686,12 @@ Per-phase timeout values in milliseconds. Values are clamped to 10s–3600s rang
 | `ship` | number | 300000 | Phase 9: PR creation (5 min, v1.40.0+) |
 | `merge` | number | 600000 | Phase 9.5: Merge (10 min, v1.40.0+) |
 
+### `arc.batch.smart_ordering` — Smart plan ordering (v1.104.0)
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable smart plan ordering in `/rune:arc-batch`. When enabled, Phase 1.5 reorders plans by file overlap isolation and `version_target` to reduce merge conflicts. CLI flag `--no-smart-sort` overrides this setting. Skipped on `--resume` to preserve partially-completed batch order. |
+
 ### `review` — Chunked review settings (v1.51.0+)
 
 Controls how large diffs are split into reviewable chunks to limit per-step context cost.
@@ -405,6 +838,97 @@ for (const [key, message] of Object.entries(deprecated)) {
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `file_todos.history.enabled` | boolean | `true` | Track Status History entries (markdown table) on every status transition |
+
+---
+
+## debug — ACH parallel debugging (v1.90.0+)
+
+Top-level `debug:` configuration controls the `/rune:debug` ACH-based parallel debugging pipeline. Multiple hypothesis-investigator agents run in parallel to test competing hypotheses.
+
+### `debug` settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `max_investigators` | number | `4` | Max parallel investigators per round (1-6). More investigators = broader hypothesis coverage but higher cost. |
+| `timeout_ms` | number | `420000` | Per-investigation-round timeout in milliseconds (7 min). |
+| `model` | string | `"sonnet"` | Default investigator model; overridden by `cost_tier` setting. |
+| `re_triage_rounds` | number | `1` | Max re-triage rounds before escalating to user. After each round, unresolved hypotheses are re-triaged. |
+| `echo_on_verdict` | boolean | `true` | Persist debugging verdict to Rune Echoes after resolution. Enables learning from past debugging sessions. |
+
+**Usage**:
+```yaml
+debug:
+  max_investigators: 6     # More investigators for complex, multi-cause bugs
+  timeout_ms: 600000       # 10 min for deep investigation rounds
+  echo_on_verdict: true    # Learn from debugging sessions
+```
+
+---
+
+## work.worktree — Worktree isolation (v1.95.0+)
+
+Nested under the `work:` section. Controls worktree-based parallel execution for `/rune:strive --worktree` or when `work.worktree.enabled: true`.
+
+### `work.worktree` settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | boolean | `false` | Make worktree mode the default for `/rune:strive`. When true, workers run in isolated git worktrees instead of the main working directory. |
+| `max_workers_per_wave` | number | `3` | Max parallel workers per wave. Each worker gets its own worktree. |
+| `merge_strategy` | string | `"sequential"` | Only `"sequential"` currently supported. Workers merge back one at a time. |
+| `auto_cleanup` | boolean | `true` | Remove worktrees after successful merge. Set false to preserve for debugging. |
+| `conflict_resolution` | string | `"escalate"` | `"escalate"` (ask user) or `"abort"` (skip conflicting worker). |
+
+### `work.unrestricted_shared_files`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `unrestricted_shared_files` | string[] | `[]` | Files all workers can write to, bypassing SEC-STRIVE-001 path validation. Useful for shared config files that multiple tasks touch (e.g., `package.json`, `requirements.txt`). |
+
+---
+
+## solution_arena — Expanded settings (v1.105.0+)
+
+### `solution_arena.weights` — Arena scoring dimensions
+
+Weights must sum to 1.0. When omitted, default weights apply.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `weights.feasibility` | number | `0.25` | Can we build this with existing patterns? |
+| `weights.complexity` | number | `0.20` | Resource cost and difficulty (lower = higher score) |
+| `weights.risk` | number | `0.20` | Likelihood and severity of failure |
+| `weights.maintainability` | number | `0.15` | Long-term upkeep, readability |
+| `weights.performance` | number | `0.10` | Runtime efficiency under load |
+| `weights.innovation` | number | `0.10` | Novel approach longevity |
+
+### `solution_arena.convergence_threshold`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `convergence_threshold` | number | `0.05` | When the top 2 solutions are within this margin, they are considered "tied" and presented to the user for manual selection. |
+
+---
+
+## stack_awareness — Expanded settings (v1.105.0+)
+
+### `stack_awareness.override` — Manual stack override
+
+Use when auto-detection fails (monorepos, custom frameworks, polyglot projects).
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `override.primary_language` | string | — | Override detected primary language (e.g., `python`, `typescript`, `rust`). |
+| `override.frameworks` | string[] | — | Override detected frameworks (e.g., `[fastapi, sqlalchemy]`). |
+
+### `stack_awareness.custom_rules[]` — Project-specific routing
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `custom_rules[].path` | string | — | Path to custom skill SKILL.md |
+| `custom_rules[].domains` | string[] | — | Domain triggers: `backend`, `frontend`, `infra` |
+| `custom_rules[].workflows` | string[] | — | Active workflows: `review`, `work`, `audit` |
+| `custom_rules[].stacks` | string[] | — | Stack triggers: `python`, `typescript`, etc. |
 
 ---
 

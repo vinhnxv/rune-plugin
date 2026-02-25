@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.105.0] - 2026-02-25
+
+### Added
+- 25 missing config keys to `talisman.example.yml` across 6 sections (`debug`, `work.worktree`, `work.unrestricted_shared_files`, `solution_arena` weights, `stack_awareness` override/custom_rules, `arc` timeouts/ship/gap_analysis, `echoes`, `context_monitor`, `context_weaving`)
+- Comprehensive Config Key Reference table in `configuration-guide.md` covering all ~180+ talisman keys with types, defaults, and descriptions
+- `debug:` section documentation in configuration-guide.md for ACH parallel debugging
+- `work.worktree:` and `work.unrestricted_shared_files` documentation in configuration-guide.md
+- Expanded `solution_arena` documentation (weights, convergence_threshold)
+- Expanded `stack_awareness` documentation (override, custom_rules)
+
+### Fixed
+- Doc-code drift: 25 config keys referenced in skills but missing from `talisman.example.yml`
+- `talisman-sections.md` section count (21→24) and missing key fields
+- `configuration-guide.md` missing sections (debug, expanded solution_arena, expanded stack_awareness)
+- Arc Timeouts table updated with 4 missing entries (task_decomposition, design_extraction, design_iteration, design_verification)
+
+## [1.104.0] - 2026-02-25
+
+### Added
+- **Smart Plan Ordering for `/rune:arc-batch`** (Tier 1) — Phase 1.5 reorders plans by file overlap isolation and `version_target` to reduce merge conflicts and version collisions. Isolated plans (no shared file targets) execute first, then conflicting plans sorted by ascending version target. Memory-only reordering — no file writes until Phase 5.
+- **`--no-smart-sort` flag** for `/rune:arc-batch` — preserves raw glob/queue order when smart ordering is undesirable. Independent from `--no-shard-sort` (both can be combined).
+- **`arc.batch.smart_ordering.enabled`** talisman config key — kill switch for smart ordering (default: `true`).
+- **`smart-ordering.md`** reference — Tier 1 algorithm documentation (skip conditions, 7-step algorithm, shard interaction, flag coexistence, Tier 1 limitations).
+- **Flag coexistence table** in arc-batch SKILL.md — documents `--no-smart-sort` / `--no-shard-sort` interaction matrix.
+
+### Changed
+- Arc-batch pipeline overview now includes Phase 1.5 between Phase 1 (preflight) and Phase 2 (dry run).
+- Known Limitation #2 updated to note smart ordering mitigation for version bump coordination.
+
+### Migration
+- Users relying on queue file order should pass `--no-smart-sort` when upgrading to v1.104.0.
+
+## [1.103.0] - 2026-02-25
+
+### Added
+- **`/rune:talisman` skill** — Deep talisman.yml configuration expertise with 5 subcommands: `init` (stack-aware scaffolding from canonical template), `audit` (compare existing talisman against latest template), `update` (add missing sections), `guide` (explain configuration keys and best practices), `status` (talisman health summary). Detects project stack (Python, TypeScript, Rust, PHP, Go, Ruby, etc.) and generates customized ward commands, backend extensions, and dedup hierarchy prefixes.
+- **Talisman sections reference** (`skills/talisman/references/talisman-sections.md`) — documents all 21 top-level talisman sections, critical configuration keys, stack-specific configuration patterns, 17 Codex deep integration keys, and 18 arc phase timeouts.
+- **Tarnished routing for talisman** — fast-path keywords `talisman`, `config`, `setup` added to intent-patterns.md. Vietnamese keywords `cau hinh`, `thiet lap`, `tao talisman` also supported.
+
 ## [1.102.0] - 2026-02-25
 
 ### Added

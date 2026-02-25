@@ -26,6 +26,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **agent-browser** | Browser automation knowledge injection for E2E testing (non-invocable) |
 | **goldmask** | Cross-layer impact analysis with Wisdom Layer (WHY), Lore Layer (risk), Collateral Damage Detection. Shared data discovery + risk context template used by forge, mend, inspect, and devise |
 | **inner-flame** | Universal 3-layer self-review protocol (Grounding, Completeness, Self-Adversarial) for all teammates (non-invocable) |
+| **talisman** | Deep talisman.yml configuration expertise — initialize, audit, update, and guide project configuration. Stack-aware scaffolding from canonical template. 5 subcommands: init, audit, update, guide, status |
 | **tarnished** | Intelligent master command — unified entry point for all Rune workflows. Parses natural language (VN + EN), checks prerequisites, chains multi-step workflows. User-invocable |
 | **using-rune** | Workflow discovery and intent routing — suggests the correct /rune:* command for user intent |
 | **arc-batch** | Sequential batch arc execution — runs /rune:arc across multiple plans with crash recovery and progress tracking |

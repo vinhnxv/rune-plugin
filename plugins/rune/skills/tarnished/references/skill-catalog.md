@@ -24,6 +24,7 @@ Complete reference for `/rune:tarnished` routing decisions.
 | `elicit` | `/rune:elicit` | — | Topic (optional) | Structured reasoning output |
 | `rest` | `/rune:rest` | — | None | Cleans tmp/ |
 | `echoes` | `/rune:echoes` | — | Subcommand | Echo management |
+| `talisman` | `/rune:talisman` | — | Subcommand (init/audit/update/guide/status) | Talisman config |
 
 ## Skill Flags Quick Reference
 
@@ -68,4 +69,5 @@ Complete reference for `/rune:tarnished` routing decisions.
 | `mend` | Per file | 3-10 min |
 | `goldmask` | 8 tracers | 5-10 min |
 | `elicit` | None | 2-5 min |
+| `talisman` | None | 1-3 min |
 | `rest` | None | < 1 min |

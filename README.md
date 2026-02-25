@@ -4,10 +4,10 @@
 
 Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own dedicated context window.
 
-[![Version](https://img.shields.io/badge/version-1.101.2-blue)](.claude-plugin/marketplace.json)
+[![Version](https://img.shields.io/badge/version-1.105.0-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Agents](https://img.shields.io/badge/agents-88-purple)](#agents)
-[![Skills](https://img.shields.io/badge/skills-38-orange)](#skills)
+[![Skills](https://img.shields.io/badge/skills-39-orange)](#skills)
 
 ---
 
@@ -52,6 +52,18 @@ Rune requires [Agent Teams](https://code.claude.com/docs/en/agent-teams). Enable
 ```
 
 `includedGitignorePatterns` lets Claude Code read Rune's output directories that are typically gitignored.
+
+### Quick Configuration (Optional)
+
+Generate a `talisman.yml` tailored to your project's tech stack:
+
+```bash
+/rune:talisman init      # Auto-detect stack and generate .claude/talisman.yml
+/rune:talisman audit     # Check existing config for missing/outdated sections
+/rune:talisman status    # Overview of current configuration health
+```
+
+See the [Talisman deep dive](docs/guides/rune-talisman-deep-dive-guide.en.md) for all 21 configuration sections.
 
 ---
 
@@ -379,7 +391,7 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 
 ## Skills
 
-38 skills providing background knowledge, workflow orchestration, and tool integration:
+39 skills providing background knowledge, workflow orchestration, and tool integration:
 
 | Skill | Type | Purpose |
 |-------|------|---------|
@@ -419,12 +431,13 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 | `resolve-gh-pr-comment` | Workflow | Resolve a single GitHub PR review comment |
 | `resolve-all-gh-pr-comments` | Workflow | Batch resolve all open PR review comments |
 | `skill-testing` | Development | TDD for skill development |
+| `talisman` | Configuration | Deep talisman.yml management (init, audit, update, guide, status) |
 
 ---
 
 ## Configuration
 
-Rune is configured via `talisman.yml`:
+Rune is configured via `talisman.yml` (21 top-level sections, 100+ keys):
 
 ```bash
 # Project-level (highest priority)
@@ -434,39 +447,50 @@ Rune is configured via `talisman.yml`:
 ~/.claude/talisman.yml
 ```
 
+**Quickest way to configure:** Run `/rune:talisman init` to auto-detect your stack and generate a tailored config.
+
 <details>
 <summary>Example configuration</summary>
 
 ```yaml
 version: 1
 
-# Review settings
-review:
-  max_ashes: 7                  # Max concurrent review agents
-  max_cli_ashes: 2              # Max external-model agents
+# File classification — decides which Ashes get summoned
+rune-gaze:
+  backend_extensions: [.py]
+  skip_patterns: ["**/migrations/**", "**/__pycache__/**"]
 
-# Stack-aware intelligence
-stack_awareness:
-  enabled: true                 # Auto-detect tech stack
-  confidence_threshold: 0.6     # Minimum confidence for stack detection
+# Work execution
+work:
+  ward_commands: ["ruff check .", "mypy .", "pytest --tb=short -q"]
+  max_workers: 3
 
 # Arc pipeline
 arc:
   timeouts:
-    forge: 600000               # 10 min
-    work: 1800000               # 30 min
-    review: 600000              # 10 min
+    forge: 900000               # 15 min
+    work: 2100000               # 35 min
+    code_review: 900000         # 15 min
+  ship:
+    auto_pr: true
+    merge_strategy: "squash"
+
+# Review settings
+review:
+  diff_scope:
+    enabled: true
+    expansion: 8
 
 # Goldmask impact analysis
 goldmask:
   enabled: true
   devise:
-    enabled: true
-    depth: basic                # basic | enhanced | full
+    depth: enhanced             # basic | enhanced | full
 
-# Elicitation methods
-elicitation:
+# Cross-model verification
+codex:
   enabled: true
+  workflows: [devise, arc, appraise]
 
 # Custom Ashes
 ashes:
@@ -490,7 +514,7 @@ rune-plugin/
 └── plugins/
     └── rune/                     # Main plugin
         ├── .claude-plugin/
-        │   └── plugin.json       # Plugin manifest (v1.101.2)
+        │   └── plugin.json       # Plugin manifest (v1.105.0)
         ├── agents/               # 88 agent definitions
         │   ├── review/           #   40 review agents
         │   ├── investigation/    #   24 investigation agents
@@ -498,7 +522,7 @@ rune-plugin/
         │   ├── research/         #    5 research agents
         │   ├── testing/          #    4 testing agents
         │   └── work/             #    4 work agents
-        ├── skills/               # 38 skills
+        ├── skills/               # 39 skills
         ├── commands/             # 14 slash commands
         ├── hooks/                # Event-driven hooks
         │   └── hooks.json
@@ -550,8 +574,8 @@ rune-plugin/
 - [Hướng dẫn workflow nâng cao Rune (Tiếng Việt): arc-hierarchy + arc-issues + echoes](docs/guides/rune-advanced-workflows-guide.vi.md) — thực thi phân cấp, batch GitHub Issues, và bộ nhớ agent
 - [Rune getting started guide (English)](docs/guides/rune-getting-started.en.md) — quick start for first-time users
 - [Hướng dẫn bắt đầu nhanh Rune (Tiếng Việt)](docs/guides/rune-getting-started.vi.md) — hướng dẫn nhanh cho người mới
-- [Rune talisman deep dive (English)](docs/guides/rune-talisman-deep-dive-guide.en.md) — master all 15+ configuration sections
-- [Hướng dẫn talisman chuyên sâu Rune (Tiếng Việt)](docs/guides/rune-talisman-deep-dive-guide.vi.md) — làm chủ 15+ section cấu hình
+- [Rune talisman deep dive (English)](docs/guides/rune-talisman-deep-dive-guide.en.md) — master all 21 configuration sections
+- [Hướng dẫn talisman chuyên sâu Rune (Tiếng Việt)](docs/guides/rune-talisman-deep-dive-guide.vi.md) — làm chủ 21 section cấu hình
 - [Rune custom agents and extensions (English)](docs/guides/rune-custom-agents-and-extensions-guide.en.md) — build custom Ashes, CLI-backed reviewers, Forge Gaze integration
 - [Hướng dẫn custom agent và mở rộng Rune (Tiếng Việt)](docs/guides/rune-custom-agents-and-extensions-guide.vi.md) — xây dựng custom Ash, CLI reviewer, tích hợp Forge Gaze
 - [Rune troubleshooting and optimization (English)](docs/guides/rune-troubleshooting-and-optimization-guide.en.md) — debug failures, reduce token cost, tune performance

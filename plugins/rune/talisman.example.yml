@@ -422,6 +422,7 @@ arc:
     labels: []                   # Labels to apply to PR (e.g., ["rune", "auto-merge"])
     pr_monitoring: false         # Include post-deploy monitoring section in PR body
     rebase_before_merge: true    # Rebase onto target branch before merge (default: true)
+    # co_authors: []                   # Co-Authored-By for arc PRs (falls back to work.co_authors)
 
     # ── Bot Review (Phase 9.1 + 9.2, v1.88.0+) ──────
     # Controls bot review wait and PR comment resolution after PR creation.
@@ -474,11 +475,19 @@ arc:
       # max_content_lines: 30   # Reserved — currently hardcoded
       # dir: tmp/arc-batch/summaries  # Reserved — currently hardcoded
 
+    # Smart plan ordering (v1.104.0)
+    # Reorders plans by file overlap isolation and version_target to reduce merge conflicts.
+    # Runs as Phase 1.5 (after preflight, before dry-run). Memory-only — no file writes.
+    # CLI: --no-smart-sort overrides this setting.
+    smart_ordering:
+      enabled: true              # Enable smart plan ordering (default: true)
+
   # ── Gap Analysis settings (v1.51.0+) ──
   gap_analysis:
     inspectors: 2              # Number (1-4): spawn first N from priority list (grace-warden > ruin-prophet > sight-oracle > vigil-keeper). Or array of names: ["grace-warden", "ruin-prophet", "sight-oracle", "vigil-keeper"]
     halt_threshold: 50         # Score below this → halt or remediate (0-100)
     # halt_on_critical: false   # Halt pipeline on critical gap failures (default: false)
+    # inspect_enabled: true            # Enable Inspector Ashes in gap analysis
     remediation:
       enabled: true            # Enable auto-fix of FIXABLE gaps
       max_fixes: 20            # Cap on fixable gaps per run
@@ -499,8 +508,12 @@ arc:
     verify_mend: 240000          # 4 minutes (default, orchestrator-only)
     audit: 1200000               # 20 minutes (default: inner 15m + 5m setup)
     semantic_verification: 180000  # 3 minutes (default, v1.39.0+)
+    # task_decomposition: 180000       # Phase 4.5: Task decomposition (3 min)
     codex_gap_analysis: 660000   # 11 minutes (default, v1.39.0+)
     test: 900000                 # 15 minutes (default, v1.43.0+; 40 min with E2E: 2_400_000)
+    # design_extraction: 300000        # Phase D1: Figma design extraction (5 min)
+    # design_iteration: 600000         # Phase D2: Design iteration loop (10 min)
+    # design_verification: 300000      # Phase D3: Design fidelity review (5 min)
     goldmask_verification: 900000  # 15 minutes (default, v1.47.0+)
     goldmask_correlation: 60000    # 1 minute (default, v1.47.0+)
     ship: 300000                 # 5 minutes (default, v1.40.0+)
@@ -539,7 +552,14 @@ arc:
 solution_arena:
   enabled: true                      # Set false to disable Arena globally
   skip_for_types: ["fix"]           # Feature types that skip Arena (fix = simple bug fixes)
-  # Additional config (weights, thresholds) available in future versions
+  # weights:                           # Arena scoring dimension weights (must sum to 1.0)
+  #   feasibility: 0.25                # Can we build this with existing patterns?
+  #   complexity: 0.20                 # Resource cost and difficulty (lower = higher score)
+  #   risk: 0.20                       # Likelihood and severity of failure
+  #   maintainability: 0.15            # Long-term upkeep, readability
+  #   performance: 0.10                # Runtime efficiency under load
+  #   innovation: 0.10                 # Novel approach longevity
+  # convergence_threshold: 0.05        # Top 2 solutions within this margin = "tied"
 
 # ──────────────────────────────────────────────
 # Deployment Verification — Artifact generation (v1.88.0+)
@@ -579,6 +599,8 @@ elicitation:
 # ──────────────────────────────────────────────
 echoes:
   version_controlled: false    # Set true to track .claude/echoes/ in git
+  # fts_enabled: true                  # Enable FTS5/MCP echo search. Set false to disable MCP server.
+  # auto_observation: true             # Auto-record Observations-tier echoes after task completion
 
   # ── Scoring — Composite re-ranking (v1.81.0+) ──
   # 5-factor composite scoring blends BM25 relevance with importance, recency,
@@ -788,8 +810,20 @@ work:
   co_authors: []                # Additional Co-Authored-By lines in "Name <email>" format (default: [])
   # Example: ["Claude <noreply@anthropic.com>", "Alice <alice@example.com>"]
   todos_per_worker: 3            # Max file-todos per worker wave (default: 3)
+  # Files all workers can write to (bypass SEC-STRIVE-001 path validation)
+  # Useful for shared config files that multiple tasks touch
+  # unrestricted_shared_files: []      # e.g., ["package.json", "requirements.txt"]
   # consistency:                   # Doc-consistency checks for Phase 4.3 (v1.19.0+)
   #   checks: []                   # Same schema as arc.consistency.checks. If empty, falls back to arc checks, then defaults.
+
+  # ── Worktree isolation (v1.95.0+) ─────────────
+  # Use with /rune:strive --worktree or set enabled: true as default
+  # worktree:
+  #   enabled: false                    # Make worktree mode the default for /rune:strive
+  #   max_workers_per_wave: 3           # Max parallel workers per wave
+  #   merge_strategy: "sequential"      # Only "sequential" supported
+  #   auto_cleanup: true                # Remove worktrees after merge
+  #   conflict_resolution: "escalate"   # "escalate" (ask user) | "abort"
 
   # ── Hierarchical Plan Support (v1.79.0+) ──────────────
   # Controls behavior when running /rune:arc-hierarchy (parent + child plans).
@@ -949,7 +983,7 @@ codex:
   # Inner stream idle timeout — fires when model stops streaming (seconds).
   # Default: timeout - 60s. Must be < timeout.
   stream_idle_timeout: 540
-  workflows: [review, audit, plan, forge, work, mend, goldmask, inspect]
+  workflows: [review, audit, plan, forge, work, mend, goldmask, inspect, arc]
   # Work advisory settings (Phase 4.5 of /rune:strive — non-blocking plan-vs-implementation check)
   work_advisory:
     enabled: true                    # Set false to skip advisory in work pipeline
@@ -1094,6 +1128,8 @@ context_monitor:
   debounce_calls: 5                # Tool uses between repeated warnings (default: 5)
   degradation_suggestions: true    # Inject workflow-specific degradation suggestions at Warning tier (default: true)
   workflows: [review, audit, work, mend, arc, devise]  # Which workflows emit warnings
+  # pretooluse_guard:
+  #   enabled: true                    # Escape hatch to disable PreToolUse context guard (CTX-GUARD-001)
 
 # ──────────────────────────────────────────────
 # Context Weaving — Unified context management
@@ -1105,6 +1141,7 @@ context_weaving:
     enabled: true                  # Master switch — disables glyph budget monitoring when false (default: true)
     word_limit: 300                # Maximum words per SendMessage before advisory is injected (default: 300)
     enforcement: advisory          # "advisory" = inject context only (PostToolUse, non-blocking). No other values currently supported.
+  # offload_threshold: 0.6            # Context usage ratio above which offloading activates
 
 # ──────────────────────────────────────────────
 # Arc — Cross-file consistency checks (v1.17.0+)
@@ -1253,6 +1290,14 @@ context_weaving:
 #   max_stack_ashes: 3                     # Maximum stack specialist Ashes per review session (default: 3)
 #                                          # Controls how many language/framework/pattern specialists are added.
 #                                          # Does not affect core Ashes (Ward Sentinel, Pattern Weaver, etc.).
+#   override:                              # Override detected stack (monorepos, detection failures)
+#     primary_language: python
+#     frameworks: [fastapi, sqlalchemy]
+#   custom_rules:                          # Project-specific routing rules
+#     - path: ".claude/skills/my-patterns/SKILL.md"
+#       domains: [backend]
+#       workflows: [review, work]
+#       stacks: [python]
 
 # ── Figma Design Sync (v1.97.0+) ──
 # Controls the /rune:design-sync pipeline and arc design phases.
@@ -1279,3 +1324,13 @@ context_weaving:
 #   design_tools:                            # Stack-awareness design tool integration
 #     - figma                                # Figma MCP server (required for extraction)
 #     - storybook                            # Storybook integration for component preview (optional)
+
+# ──────────────────────────────────────────────
+# Debug — ACH-based parallel debugging (/rune:debug)
+# ──────────────────────────────────────────────
+# debug:
+#   max_investigators: 4        # Max parallel investigators (1-6)
+#   timeout_ms: 420000          # Per-investigation-round timeout in ms (7 min)
+#   model: sonnet               # Default investigator model; overridden by cost_tier
+#   re_triage_rounds: 1         # Max re-triage rounds before escalating to user
+#   echo_on_verdict: true       # Persist verdict to rune-echoes after resolution

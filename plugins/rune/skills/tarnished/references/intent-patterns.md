@@ -30,6 +30,9 @@ These keywords at the START of `$ARGUMENTS` trigger immediate routing (no classi
 | `ship` | `/rune:arc` | Yes |
 | `fix` | `/rune:mend` | Yes — check for TOME prerequisite |
 | `debug` | `/rune:debug` | Yes |
+| `talisman` | `/rune:talisman` | Yes |
+| `config` | `/rune:talisman` | Yes — alias for talisman |
+| `setup` | `/rune:talisman` | Yes — alias for talisman init |
 | `cancel` | (cancel mode) | Detect active workflow → route to correct cancel command |
 | `help` | (guidance mode) | Show Rune overview + suggest next action |
 | `status` | (guidance mode) | Scan artifacts + recommend next step |
@@ -43,6 +46,8 @@ These keywords at the START of `$ARGUMENTS` trigger immediate routing (no classi
 | `kiểm tra` / `đánh giá` | `/rune:appraise` |
 | `sửa` / `fix lỗi` | `/rune:mend` |
 | `dọn dẹp` | `/rune:rest` |
+| `cấu hình` / `thiết lập` | `/rune:talisman` |
+| `tạo talisman` / `init talisman` | `/rune:talisman init` |
 
 ## Intent Classification (for non-keyword input)
 

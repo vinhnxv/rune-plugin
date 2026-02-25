@@ -678,12 +678,28 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | skill-testing | TDD methodology for skills — pressure testing, rationalization counters, Iron Law (SKT-001). `disable-model-invocation: true` |
 | stacks | Stack-aware intelligence — 4-layer detection engine with 12 specialist reviewers (Python, TypeScript, Rust, PHP, Axum, FastAPI, Django, Laravel, SQLAlchemy, TDD, DDD, DI). Auto-loaded by Rune Gaze Phase 1A (non-invocable) |
 | systematic-debugging | 4-phase debugging methodology (Observe → Narrow → Hypothesize → Fix) for workers hitting repeated failures. Iron Law: no fixes without root cause investigation (DBG-001) |
+| talisman | Deep talisman.yml configuration expertise — init, audit, update, guide, status. Stack-aware scaffolding from canonical template |
+| tarnished | Intelligent master command — unified entry point for all Rune workflows. Parses natural language (VN + EN), checks prerequisites, chains multi-step workflows |
 | testing | Test orchestration pipeline knowledge for arc Phase 7.7 (non-invocable) |
 | using-rune | Workflow discovery and intent routing |
 | strive | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
 | zsh-compat | zsh shell compatibility (read-only vars, glob NOMATCH, word splitting) |
 
 ## Configuration
+
+### Quick Setup
+
+The fastest way to configure Rune for your project:
+
+```bash
+/rune:talisman init     # Auto-detect stack, generate .claude/talisman.yml
+/rune:talisman audit    # Check existing config for missing sections
+/rune:talisman guide    # Learn about configuration options
+```
+
+See the [Talisman Deep Dive guide (EN)](../../docs/guides/rune-talisman-deep-dive-guide.en.md) | [Hướng dẫn Talisman chi tiết (VI)](../../docs/guides/rune-talisman-deep-dive-guide.vi.md) for all configuration options.
+
+### Manual Configuration
 
 Override file classification defaults in your project:
 
@@ -845,6 +861,10 @@ plugins/rune/
 │   │   └── references/      # e.g. team-lifecycle-guard.md
 │   ├── stacks/              # Stack-aware intelligence (non-invocable)
 │   │   └── references/      # detection.md, stack-registry.md, context-router.md, languages/, frameworks/, databases/, libraries/, patterns/
+│   ├── talisman/            # /rune:talisman (config init, audit, update, guide, status)
+│   │   └── references/      # talisman-sections.md
+│   ├── tarnished/           # /rune:tarnished (unified entry point, natural language routing)
+│   │   └── references/      # intent-patterns.md, skill-catalog.md, rune-knowledge.md, workflow-chains.md
 │   ├── testing/             # Test orchestration pipeline (non-invocable)
 │   │   └── references/      # test-discovery.md, service-startup.md, etc.
 │   ├── using-rune/          # Workflow discovery and intent routing

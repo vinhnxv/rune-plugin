@@ -124,7 +124,12 @@ Use `/rune:arc --resume` — it reads the checkpoint file and continues from whe
 
 ### 7. "Can I customize which agents run?"
 Yes, via `talisman.yml` configuration. You can disable agents, add custom agents,
-adjust thresholds, and configure review behavior.
+adjust thresholds, and configure review behavior. Use `/rune:talisman` for deep
+configuration management:
+- `/rune:talisman init` — scaffold a new talisman.yml for your project
+- `/rune:talisman audit` — find missing or outdated configuration keys
+- `/rune:talisman guide codex` — learn about specific configuration sections
+- `/rune:talisman update` — add missing sections to existing talisman
 
 ## Advanced Workflows
 

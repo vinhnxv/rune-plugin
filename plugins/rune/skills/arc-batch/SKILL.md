@@ -24,7 +24,7 @@ description: |
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Skill
-argument-hint: "[plans/*.md | queue-file.txt] [--resume] [--dry-run] [--no-merge]"
+argument-hint: "[plans/*.md | queue-file.txt] [--resume] [--dry-run] [--no-merge] [--no-smart-sort]"
 ---
 
 # /rune:arc-batch — Sequential Batch Arc Execution
@@ -51,10 +51,20 @@ Executes `/rune:arc` across multiple plan files sequentially. Each arc run compl
 | `--no-merge` | Pass `--no-merge` to each arc run | Off (auto-merge enabled) |
 | `--resume` | Resume from `batch-progress.json` (pending plans only — failed/cancelled plans must be re-run individually) | Off |
 | `--no-shard-sort` | Process plans in raw order (disable shard auto-sorting) | Off |
+| `--no-smart-sort` | Disable smart plan ordering (preserve glob/queue order) | Off |
+
+### Flag Coexistence
+
+| `--no-smart-sort` | `--no-shard-sort` | Result |
+|-------------------|-------------------|--------|
+| false | false | Smart ordering + shard grouping (default) |
+| true | false | No smart ordering, shard grouping still active |
+| false | true | Smart ordering active, no shard grouping |
+| true | true | Raw glob/queue order preserved |
 
 ## Algorithm
 
-See [batch-algorithm.md](references/batch-algorithm.md) for full pseudocode.
+See [batch-algorithm.md](references/batch-algorithm.md) for full pseudocode. See [smart-ordering.md](references/smart-ordering.md) for the Tier 1 smart ordering algorithm.
 
 ## Inter-Iteration Summaries (v1.72.0)
 
@@ -76,7 +86,7 @@ Between arc iterations, the Stop hook writes a structured summary file capturing
 ## Known Limitations (V2 — Stop Hook Pattern)
 
 1. **Sequential only**: No parallel arc execution (SDK one-team-per-session constraint).
-2. **No version bump coordination**: Multiple arcs bumping plugin.json will conflict.
+2. **No version bump coordination**: Multiple arcs bumping plugin.json will conflict. Smart ordering (Phase 1.5) mitigates this by sorting plans by `version_target`, but cannot resolve conflicting bumps to the same version.
 3. **Shard ordering is sequential**: Shards are auto-sorted by number within groups but execute sequentially (no parallel shards). Use `--no-shard-sort` to disable auto-sorting.
 4. **Context growth**: Each arc runs as a native turn. Auto-compaction handles context window growth across multiple arcs. State is tracked in files, not context.
 5. **Compact recovery during arc-batch**: Teams are created/destroyed per phase. Compaction may hit when no team is active. Summary files persist independently — the compact checkpoint captures batch state even without an active team (C6 accepted limitation).
@@ -88,6 +98,7 @@ The skill orchestrates via `$ARGUMENTS` parsing. Phase 5 writes a state file and
 ```
 Phase 0: Parse arguments (glob expand or queue file read)
 Phase 1: Pre-flight validation (arc-batch-preflight.sh)
+Phase 1.5: Smart ordering (reorder planPaths by isolation + version_target)
 Phase 2: Dry run (if --dry-run)
 Phase 3: Initialize batch-progress.json
 Phase 4: Confirm batch with user
@@ -103,6 +114,7 @@ let planPaths = []
 let resumeMode = args.includes('--resume')
 let dryRun = args.includes('--dry-run')
 let noMerge = args.includes('--no-merge')
+let noSmartSort = args.includes('--no-smart-sort')
 
 if (resumeMode) {
   const progress = JSON.parse(Read("tmp/arc-batch/batch-progress.json"))
@@ -263,6 +275,115 @@ if (!noMerge) {
         multiSelect: false
       }]
     })
+  }
+}
+```
+
+### Phase 1.5: Smart Ordering
+
+Reorders `planPaths` in memory to reduce merge conflicts and version collisions. See [smart-ordering.md](references/smart-ordering.md) for the full algorithm.
+
+```javascript
+// noSmartSort parsed in Phase 0; talisman loaded in Phase 0 shard detection
+const smartConfig = talisman?.arc?.batch?.smart_ordering ?? {}
+const smartEnabled = smartConfig.enabled !== false  // default: true
+
+if (!noSmartSort && smartEnabled && !resumeMode && planPaths.length > 1) {
+  // Universal exclusion list — nearly every plan touches these
+  const UNIVERSAL_FILES = new Set([
+    'plugin.json', '.claude-plugin/plugin.json',
+    'CHANGELOG.md', 'CLAUDE.md', 'README.md',
+    'marketplace.json', '.claude-plugin/marketplace.json'
+  ])
+
+  // Step 1: Extract file targets from each plan
+  const planMeta = planPaths.map(path => {
+    const content = Read(path)
+    const frontmatter = extractYamlFrontmatter(content)
+    let fileTargets = new Set()
+
+    // Try frontmatter fields first: files_modified or scope
+    if (frontmatter?.files_modified) {
+      for (const f of frontmatter.files_modified) {
+        fileTargets.add(f.replace(/^\.\//, ''))
+      }
+    } else if (frontmatter?.scope) {
+      // scope is comma-separated paths, may include directories
+      for (const s of frontmatter.scope.split(',')) {
+        fileTargets.add(s.trim().replace(/^\.\//, ''))
+      }
+    }
+
+    // Fallback: grep backtick-wrapped paths from plan content
+    if (fileTargets.size === 0) {
+      const pathMatches = content.match(/`([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)`/g) || []
+      for (const m of pathMatches) {
+        const p = m.replace(/`/g, '').replace(/^\.\//, '')
+        if (p.includes('/') || p.includes('.')) {
+          fileTargets.add(p)
+        }
+      }
+    }
+
+    // Remove universal files from target set
+    for (const uf of UNIVERSAL_FILES) {
+      fileTargets.delete(uf)
+      // Also remove by basename for nested paths
+      for (const ft of fileTargets) {
+        if (ft.endsWith('/' + uf)) fileTargets.delete(ft)
+      }
+    }
+
+    const versionTarget = frontmatter?.version_target ?? null
+
+    return { path, fileTargets, versionTarget }
+  })
+
+  // Step 2-3: Build overlap map and classify isolation
+  for (const plan of planMeta) {
+    plan.isIsolated = true
+    for (const other of planMeta) {
+      if (other.path === plan.path) continue
+      for (const f of plan.fileTargets) {
+        if (other.fileTargets.has(f)) {
+          plan.isIsolated = false
+          break
+        }
+      }
+      if (!plan.isIsolated) break
+    }
+  }
+
+  // Step 4-5: Sort — isolated first, then version_target ASC, then filename
+  planMeta.sort((a, b) => {
+    // Isolated plans first
+    if (a.isIsolated !== b.isIsolated) return a.isIsolated ? -1 : 1
+    // Lower version_target first (null sorts last)
+    if (a.versionTarget !== b.versionTarget) {
+      if (a.versionTarget === null) return 1
+      if (b.versionTarget === null) return -1
+      return a.versionTarget.localeCompare(b.versionTarget, undefined, { numeric: true })
+    }
+    // Alphabetical filename tiebreaker
+    return a.path.localeCompare(b.path)
+  })
+
+  // Step 6: Replace planPaths (memory only — Phase 5 writes plan-list.txt)
+  const originalOrder = [...planPaths]
+  planPaths = planMeta.map(m => m.path)
+
+  // Step 7: Log summary
+  const isolated = planMeta.filter(m => m.isIsolated).length
+  const conflicting = planMeta.length - isolated
+  log(`Smart ordering: ${isolated} isolated + ${conflicting} conflicting plans`)
+  for (const [i, m] of planMeta.entries()) {
+    const tag = m.isIsolated ? "isolated" : "conflicting"
+    const ver = m.versionTarget ? `v${m.versionTarget}` : "no-version"
+    log(`  ${i + 1}. ${m.path} [${tag}, ${ver}]`)
+  }
+  const noVersion = planMeta.filter(m => m.versionTarget === null)
+  if (noVersion.length > 0) {
+    warn(`${noVersion.length} plan(s) missing version_target — sorted last within their group`)
   }
 }
 ```

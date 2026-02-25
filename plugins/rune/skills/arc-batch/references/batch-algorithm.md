@@ -8,6 +8,7 @@ Full orchestration pseudocode for `/rune:arc-batch`. The SKILL.md body contains 
 SKILL.md (orchestration layer)
   ├── Phase 0: Parse $ARGUMENTS → plan list
   ├── Phase 1: Pre-flight → arc-batch-preflight.sh (validation)
+  ├── Phase 1.5: Smart ordering → reorder planPaths by (is_isolated, version_target)
   ├── Phase 2: Dry run (if --dry-run) → early return
   ├── Phase 3: Initialize batch-progress.json
   ├── Phase 4: Confirm batch → AskUserQuestion
@@ -40,6 +41,49 @@ scripts/arc-batch-stop-hook.sh (Stop hook — loop driver)
 **Key difference from V1**: Each arc run executes as a native Claude Code turn. No subprocess spawning, no Bash tool timeout limit, no orphaned processes. The Stop hook intercepts session end and re-injects the next arc prompt.
 
 **Inspired by**: [ralph-wiggum plugin](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum) Stop hook pattern.
+
+## Phase 1.5: Smart Ordering (v1.104.0)
+
+Reorders the `planPaths` array in memory after pre-flight validation to reduce merge conflicts and version collisions. Memory-only — does NOT write `plan-list.txt` (Phase 5 writes it from the already-reordered array). The Stop hook reads `batch-progress.json` which reflects the smart-sorted order.
+
+See [smart-ordering.md](smart-ordering.md) for the full Tier 1 algorithm.
+
+**Skip conditions**: `--no-smart-sort`, `--resume`, `planPaths.length <= 1`, `talisman.arc.batch.smart_ordering.enabled === false`
+
+**Pseudocode**:
+```
+function smartOrderPlans(planPaths, talisman, resumeMode, noSmartSort):
+  if noSmartSort or resumeMode or planPaths.length <= 1:
+    return planPaths  // no-op
+
+  if talisman?.arc?.batch?.smart_ordering?.enabled === false:
+    return planPaths  // disabled by config
+
+  UNIVERSAL = {plugin.json, CHANGELOG.md, CLAUDE.md, marketplace.json, README.md}
+
+  // Extract metadata from each plan
+  for each plan in planPaths:
+    plan.fileTargets = extractFileTargets(plan) - UNIVERSAL
+    plan.versionTarget = extractYamlFrontmatter(plan).version_target ?? null
+
+  // Classify isolation
+  for each plan in planPaths:
+    plan.isIsolated = true
+    for each other in planPaths where other != plan:
+      if intersect(plan.fileTargets, other.fileTargets) is not empty:
+        plan.isIsolated = false
+        break
+
+  // Sort: isolated first → version_target ASC → filename ASC
+  sort planPaths by:
+    1. is_isolated DESC (true before false)
+    2. version_target ASC (null sorts last)
+    3. path alphabetical
+
+  return sorted planPaths
+```
+
+**Interaction with shard grouping**: Phase 0 (shard auto-sorting) runs FIRST on its subset, then Phase 1.5 (smart ordering) runs on the full plan list. Smart ordering respects shard grouping boundaries — shard plans within feature groups maintain their numeric order. Both are independently controlled (`--no-smart-sort` / `--no-shard-sort`).
 
 ## V1 Architecture (REMOVED — v1.59.0)
 
@@ -155,6 +199,11 @@ Final iteration:
 | Context window growth | Auto-compaction handles; state in file not context | Claude Code |
 | Cancel mid-batch | `/rune:cancel-arc-batch` removes state file | commands/cancel-arc-batch.md |
 | Cancel arc also cancels batch | `/rune:cancel-arc` Step 0 removes batch state file | commands/cancel-arc.md |
+| Smart ordering with 1 plan | Phase 1.5 skip (length <= 1) | SKILL.md Phase 1.5 |
+| Smart ordering + resume | Phase 1.5 skip (would reorder partial batch) | SKILL.md Phase 1.5 |
+| Plan without frontmatter | Backtick-path fallback for file targets; null version_target (sorted last) | SKILL.md Phase 1.5 |
+| All plans isolated | All classified as isolated; sorted by version_target then filename | SKILL.md Phase 1.5 |
+| All plans conflicting | All classified as conflicting; sorted by version_target then filename | SKILL.md Phase 1.5 |
 | on-session-stop.sh conflict | GUARD 5 defers when batch state file present | scripts/on-session-stop.sh |
 | Cross-session interference | Two-layer isolation: config_dir (installation) + owner_pid (process). Dead owner = orphaned batch cleanup | arc-batch-stop-hook.sh |
 | Concurrent batch creation | Pre-creation guard checks if state file exists with a live owner. Blocks with error if another session owns it | SKILL.md Phase 5 |

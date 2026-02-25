@@ -34,6 +34,7 @@ Do not auto-invoke heavyweight commands — suggest and let the user confirm.
 | "Deepen this plan" / "add more detail" / "enrich" | `/rune:forge plans/...` | Forge Gaze topic-aware enrichment |
 | "What changed?" / "blast radius" / "impact analysis" | `/rune:goldmask` | Cross-layer impact analysis (Impact + Wisdom + Lore) |
 | "Help me think through" / "structured reasoning" | `/rune:elicit` | Interactive elicitation method selection |
+| "Configure Rune" / "setup talisman" / "init talisman" / "rune config" | `/rune:talisman` | Initialize, audit, or guide talisman.yml configuration |
 | "Clean up" / "remove temp files" | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
 | "Cancel the review" / "stop the audit" | `/rune:cancel-review` or `/rune:cancel-audit` | Graceful shutdown of active workflows |
 
@@ -76,6 +77,7 @@ For users new to Rune, these simpler commands forward to the full versions:
 | `/rune:forge` | Yes (per section) | 5-15 min | Plan file path |
 | `/rune:goldmask` | Yes (8 tracers) | 5-10 min | Diff spec or file list |
 | `/rune:elicit` | No | 2-5 min | Topic |
+| `/rune:talisman` | No | 1-3 min | Subcommand (init/audit/update/guide/status) |
 | `/rune:rest` | No | <1 min | None |
 | `/rune:plan` | (alias for `/rune:devise`) |||
 | `/rune:work` | (alias for `/rune:strive`) |||
