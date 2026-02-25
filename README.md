@@ -6,7 +6,7 @@ Plan, implement, review, test, and audit your codebase using coordinated Agent T
 
 [![Version](https://img.shields.io/badge/version-1.99.0-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Agents](https://img.shields.io/badge/agents-88-purple)](#agents)
+[![Agents](https://img.shields.io/badge/agents-89-purple)](#agents)
 [![Skills](https://img.shields.io/badge/skills-38-orange)](#skills)
 
 ---
@@ -268,9 +268,9 @@ Compares a plan against its implementation across 9 quality dimensions:
 
 ## Agents
 
-**87 specialized agents** across 6 categories:
+**89 specialized agents** across 6 categories:
 
-### Review Agents (39)
+### Review Agents (40)
 
 Core reviewers that participate in `/rune:appraise` and `/rune:audit`:
 
@@ -491,10 +491,10 @@ rune-plugin/
     └── rune/                     # Main plugin
         ├── .claude-plugin/
         │   └── plugin.json       # Plugin manifest (v1.91.0)
-        ├── agents/               # 85 agent definitions
-        │   ├── review/           #   38 review agents
-        │   ├── investigation/    #   23 investigation agents
-        │   ├── utility/          #   11 utility agents
+        ├── agents/               # 89 agent definitions
+        │   ├── review/           #   40 review agents
+        │   ├── investigation/    #   24 investigation agents
+        │   ├── utility/          #   12 utility agents
         │   ├── research/         #    5 research agents
         │   ├── testing/          #    4 testing agents
         │   └── work/             #    4 work agents
