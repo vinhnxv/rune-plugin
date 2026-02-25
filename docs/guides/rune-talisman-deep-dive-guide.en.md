@@ -12,6 +12,33 @@ Related guides:
 
 ---
 
+## Quick Setup: `/rune:talisman` (v1.103.0+)
+
+The fastest way to get a properly configured talisman is the `/rune:talisman` skill:
+
+```bash
+# Scaffold a new talisman.yml for your project (auto-detects stack)
+/rune:talisman init
+
+# Check existing talisman for missing/outdated config
+/rune:talisman audit
+
+# Add missing sections to existing talisman
+/rune:talisman update
+
+# Learn about a specific configuration section
+/rune:talisman guide codex
+/rune:talisman guide arc
+/rune:talisman guide review
+
+# View talisman health summary
+/rune:talisman status
+```
+
+The `init` subcommand detects your project stack (Python, TypeScript, Rust, PHP, Go, etc.) and generates a customized talisman with appropriate `ward_commands`, `backend_extensions`, and `dedup_hierarchy` prefixes.
+
+---
+
 ## 1. Configuration Resolution Order
 
 Talisman follows a **3-layer priority chain** (highest wins):
@@ -418,9 +445,10 @@ codex:
   timeout: 600                 # Outer timeout in seconds
   stream_idle_timeout: 540     # Inner idle timeout
 
-  workflows: [review, audit, plan, forge, work, mend, goldmask, inspect]
+  # IMPORTANT: include "arc" for Codex to run in arc phases (v1.87.0+)
+  workflows: [review, audit, plan, forge, work, mend, goldmask, inspect, arc]
 
-  # 10 inline verification points (v1.51.0+)
+  # 17 inline verification points (v1.51.0+, expanded v1.87.0+)
   diff_verification:
     enabled: true              # P1/P2 findings vs diff hunks
   test_coverage_critique:
@@ -554,7 +582,62 @@ Valid names: `forge-warden`, `ward-sentinel`, `veil-piercer`, `pattern-weaver`, 
 
 ---
 
-## 15. Quick Reference: All Top-Level Keys
+## 15. Mend Settings
+
+```yaml
+mend:
+  cross_file_batch_size: 3    # Max files read per batch for cross-file mend (1-10)
+  todos_per_fixer: 5          # Max file-todos per fixer wave
+```
+
+---
+
+## 16. File Todos (Schema v2, v1.101.0+)
+
+All todos are session-scoped and mandatory. The following keys were **removed** in v1.101.0 — delete them if present:
+- `file_todos.enabled` — todos are now always on
+- `file_todos.dir` — todos live in `tmp/{workflow}/{id}/todos/`
+- `file_todos.auto_generate.work` — work todos are always generated
+
+Current schema:
+
+```yaml
+file_todos:
+  triage:
+    auto_approve_p1: false        # Auto-approve P1 items during triage
+  manifest:
+    auto_build: true              # Auto-rebuild manifest when dirty
+    dedup_on_build: false         # Dedup detection on each build
+    dedup_threshold: 0.70         # Jaro-Winkler + Jaccard threshold
+  history:
+    enabled: true                 # Track status transitions
+```
+
+---
+
+## 17. Context Management
+
+### Context Monitor
+
+```yaml
+context_monitor:
+  enabled: true                   # Enable context monitoring
+  warning_threshold: 0.4          # Warn at 40% context remaining
+  critical_threshold: 0.25        # Hard deny at 25% context remaining
+```
+
+### Context Weaving
+
+```yaml
+context_weaving:
+  glyph_budget: 300               # Max words per agent message
+  offload_threshold: 500          # Lines above which content offloads to file
+  rot_detection: true             # Detect stale context in long sessions
+```
+
+---
+
+## 18. Quick Reference: All Top-Level Keys
 
 | Key | Purpose | Default |
 |-----|---------|---------|
@@ -573,11 +656,17 @@ Valid names: `forge-warden`, `ward-sentinel`, `veil-piercer`, `pattern-weaver`, 
 | `work` | Ward commands, workers, branch | 3 workers |
 | `testing` | 3-tier test execution | All tiers on |
 | `goldmask` | Per-workflow impact analysis | All enabled |
-| `codex` | Cross-model verification | Auto-detect |
+| `codex` | Cross-model verification (17 inline points) | Auto-detect |
 | `elicitation` | Structured reasoning | Enabled |
 | `echoes` | Agent memory persistence | FTS enabled |
+| `mend` | Parallel finding resolution | 3 batch, 5 per fixer |
+| `file_todos` | File-based todo tracking (schema v2) | Mandatory |
 | `horizon` | Strategic depth assessment | Enabled |
+| `context_monitor` | Context budget monitoring | 40% warn, 25% deny |
+| `context_weaving` | Glyph budget and offloading | 300 words budget |
 | `inner_flame` | Self-review protocol | Enabled |
 | `doubt_seer` | Evidence quality challenger | Disabled (opt-in) |
+
+> **Tip**: Use `/rune:talisman audit` to compare your project config against the latest template and find missing keys.
 
 See [`talisman.example.yml`](../../plugins/rune/talisman.example.yml) for the complete schema with all options and ranges.

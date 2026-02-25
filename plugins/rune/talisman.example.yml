@@ -949,7 +949,7 @@ codex:
   # Inner stream idle timeout — fires when model stops streaming (seconds).
   # Default: timeout - 60s. Must be < timeout.
   stream_idle_timeout: 540
-  workflows: [review, audit, plan, forge, work, mend, goldmask, inspect]
+  workflows: [review, audit, plan, forge, work, mend, goldmask, inspect, arc]
   # Work advisory settings (Phase 4.5 of /rune:strive — non-blocking plan-vs-implementation check)
   work_advisory:
     enabled: true                    # Set false to skip advisory in work pipeline

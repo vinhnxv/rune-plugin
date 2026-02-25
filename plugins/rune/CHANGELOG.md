@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.103.0] - 2026-02-25
+
+### Added
+- **`/rune:talisman` skill** — Deep talisman.yml configuration expertise with 5 subcommands: `init` (stack-aware scaffolding from canonical template), `audit` (compare existing talisman against latest template), `update` (add missing sections), `guide` (explain configuration keys and best practices), `status` (talisman health summary). Detects project stack (Python, TypeScript, Rust, PHP, Go, Ruby, etc.) and generates customized ward commands, backend extensions, and dedup hierarchy prefixes.
+- **Talisman sections reference** (`skills/talisman/references/talisman-sections.md`) — documents all 21 top-level talisman sections, critical configuration keys, stack-specific configuration patterns, 17 Codex deep integration keys, and 18 arc phase timeouts.
+- **Tarnished routing for talisman** — fast-path keywords `talisman`, `config`, `setup` added to intent-patterns.md. Vietnamese keywords `cau hinh`, `thiet lap`, `tao talisman` also supported.
+
 ## [1.102.0] - 2026-02-25
 
 ### Added

@@ -62,7 +62,19 @@ Rune generates output files (plans, reviews, temporary artifacts) in directories
 >
 > Use `settings.local.json` if you don't want to commit these settings to your repository.
 
-### 3. Verify
+### 3. Configure Your Project (Optional)
+
+Generate a `talisman.yml` configuration file tailored to your project's tech stack:
+
+```bash
+/rune:talisman init
+```
+
+This auto-detects your stack (Python, TypeScript, Rust, PHP, Go, etc.) and generates `.claude/talisman.yml` with appropriate ward commands, file classification, and agent settings. You can skip this step — Rune works with sensible defaults.
+
+See the [Talisman Deep Dive](rune-talisman-deep-dive-guide.en.md) for all configuration options.
+
+### 4. Verify
 
 After saving the settings, restart Claude Code. You should now be able to run `/rune:plan` and see agents being spawned.
 
