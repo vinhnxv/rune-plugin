@@ -675,6 +675,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | audit | Full codebase audit with up to 7 built-in Ashes (+ custom from talisman.yml). Use `--deep` for two-pass investigation. Use `--incremental` for stateful 3-tier auditing (file, workflow, API) with persistent priority scoring and coverage tracking. Use `--dirs`/`--exclude-dirs` for directory-scoped audits (v1.91.0+). Use `--prompt`/`--prompt-file` for custom per-session Ash instructions (v1.91.0+) |
 | chome-pattern | CLAUDE_CONFIG_DIR resolution for multi-account support |
 | codex-cli | Canonical Codex CLI integration — detection, execution, error handling, talisman config |
+| codex-review | Cross-model code review — runs Claude and Codex agents in parallel, cross-verifies findings, merges consensus issues into a unified TOME. Use for critical changes where independent model validation adds confidence |
 | context-weaving | Context overflow/rot prevention |
 | debug | Structured debugging with ACH hypothesis investigation. 4-phase protocol (Observe → Narrow → Hypothesize → Fix) with evidence tiers and consistency matrix |
 | elicitation | Curated structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
@@ -833,6 +834,7 @@ plugins/rune/
 │   ├── cancel-arc-hierarchy.md # /rune:cancel-arc-hierarchy
 │   ├── cancel-arc-issues.md    # /rune:cancel-arc-issues
 │   ├── cancel-review.md        # /rune:cancel-review
+│   ├── cancel-codex-review.md  # /rune:cancel-codex-review
 │   ├── cancel-audit.md         # /rune:cancel-audit
 │   ├── elicit.md               # /rune:elicit
 │   ├── echoes.md               # /rune:echoes
@@ -856,6 +858,7 @@ plugins/rune/
 │   │   └── references/      # deep-mode.md
 │   ├── chome-pattern/       # CLAUDE_CONFIG_DIR resolution
 │   ├── codex-cli/           # Codex CLI integration
+│   ├── codex-review/        # /rune:codex-review (cross-model review)
 │   ├── context-weaving/     # Context management
 │   ├── elicitation/         # Curated structured reasoning methods
 │   │   └── references/      # methods.csv, examples.md, phase-mapping.md

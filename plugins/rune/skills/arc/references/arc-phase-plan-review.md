@@ -118,7 +118,7 @@ if (horizonEnabled) {
 // Arc-mode adaptation: if .codexignore is missing, skip Codex silently (no AskUserQuestion)
 // — AskUserQuestion would block the automated arc pipeline indefinitely.
 const codexDetected = detectCodexOracle()  // per roundtable-circle/references/codex-detection.md
-if (codexDetected && talisman?.codex?.workflows?.includes("plan")) {
+if (codexDetected && talisman?.codex?.workflows?.includes("arc")) {
   reviewers.push({
     name: "codex-plan-reviewer",
     agent: null,  // CLI-backed reviewer — uses codex exec directly, no agent file

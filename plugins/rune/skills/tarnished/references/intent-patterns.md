@@ -33,6 +33,7 @@ These keywords at the START of `$ARGUMENTS` trigger immediate routing (no classi
 | `talisman` | `/rune:talisman` | Yes |
 | `config` | `/rune:talisman` | Yes — alias for talisman |
 | `setup` | `/rune:talisman` | Yes — alias for talisman init |
+| `codex review` / `cross-model review` / `second opinion` / `codex check` | `/rune:codex-review` | Cross-model code review with Codex |
 | `cancel` | (cancel mode) | Detect active workflow → route to correct cancel command |
 | `help` | (guidance mode) | Show Rune overview + suggest next action |
 | `status` | (guidance mode) | Scan artifacts + recommend next step |

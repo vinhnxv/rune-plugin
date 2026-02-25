@@ -818,13 +818,12 @@ Cross-model gap detection using Codex to compare plan expectations against actua
 ```javascript
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
 const codexDisabled = talisman?.codex?.disabled === true
-const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
+const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
 const gapEnabled = talisman?.codex?.gap_analysis?.enabled !== false
 
-// BACK-003 FIX: Gate on "work" workflow — Codex gap analysis is a work-phase sub-step,
-// not a standalone workflow. The codexWorkflows array includes "mend" for mend-phase Codex
-// integration, but gap analysis specifically requires "work" to be enabled.
-if (!codexAvailable || codexDisabled || !codexWorkflows.includes("work") || !gapEnabled) {
+// BACK-003 FIX: Gate on "arc" workflow — all arc sub-phases register under "arc",
+// not individual workflow names. See arc-phase-test.md § Detection Gate.
+if (!codexAvailable || codexDisabled || !codexWorkflows.includes("arc") || !gapEnabled) {
   Write(`tmp/arc/${id}/codex-gap-analysis.md`, "Codex gap analysis skipped (unavailable or disabled).")
   updateCheckpoint({ phase: "codex_gap_analysis", status: "completed", phase_sequence: 5.6, team_name: null })
   return  // Skip to next phase
