@@ -61,6 +61,7 @@
         "./skills/debug",
         "./skills/devise",
         "./skills/elicitation",
+        "./skills/figma-to-react",
         "./skills/file-todos",
         "./skills/forge",
         "./skills/git-worktree",

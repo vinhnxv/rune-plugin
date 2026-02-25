@@ -61,12 +61,12 @@ SEC > COMP > BACK > RAIL > PERF > DOC > QUAL > FRONT > CDX
 - If `settings.dedup_hierarchy` is defined in config, use it as-is (user controls the order)
 - If NOT defined, append custom prefixes AFTER built-in hierarchy (lowest priority):
   ```
-  SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > {custom_1} > {custom_2} > ...
+  SEC > BACK > VEIL > DOUBT > SH{X} > DOC > QUAL > FRONT > CDX > XSH > {custom_1} > {custom_2} > ...
   ```
 - **External model prefix ordering (v1.57.0+):** CLI-backed Ash prefixes (from `ashes.custom[]` entries with `cli:` field) are positioned BELOW `CDX` in the default hierarchy. Built-in prefixes (`SEC`, `BACK`, `DOC`, `QUAL`, `FRONT`, `CDX`) MUST always precede external model prefixes. This enforcement applies ONLY to CLI-backed external model prefixes — agent-backed custom Ashes can be placed anywhere in a user-defined hierarchy.
   ```
   Default with external models:
-  SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX > {cli_ext_1} > {cli_ext_2} > {agent_custom_1} > ...
+  SEC > BACK > VEIL > DOUBT > SH{X} > DOC > QUAL > FRONT > CDX > XSH > {cli_ext_1} > {cli_ext_2} > {agent_custom_1} > ...
   ```
 - Every active Ash's prefix MUST appear in the hierarchy. Missing prefixes → warn and append at end
 - Prefix format: 2-5 uppercase alphanumeric characters (A-Z, 0-9)

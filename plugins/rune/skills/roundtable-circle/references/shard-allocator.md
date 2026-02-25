@@ -68,18 +68,23 @@ const PRIORITY_ORDER = [
   'security_critical', 'backend', 'frontend', 'infra', 'config', 'tests', 'docs'
 ]
 
+const LARGE_FILE_THRESHOLD = 400  // lines changed
+const LARGE_FILE_WEIGHT = 2       // large files count as 2 slots for context budget
+
 const shards = []
-let current = { files: [], domains: new Set() }
+let current = { files: [], domains: new Set(), effectiveSize: 0 }
 
 for (const groupName of PRIORITY_ORDER) {
   for (const file of groups[groupName]) {
-    if (current.files.length >= SHARD_SIZE) {
+    if (current.effectiveSize >= SHARD_SIZE) {
       current.primary_domain = dominantDomain(current.domains)
       shards.push(current)
-      current = { files: [], domains: new Set() }
+      current = { files: [], domains: new Set(), effectiveSize: 0 }
     }
+    const weight = (file.lines_changed ?? 0) > LARGE_FILE_THRESHOLD ? LARGE_FILE_WEIGHT : 1
     current.files.push(file)
     current.domains.add(groupName)
+    current.effectiveSize += weight
   }
 }
 if (current.files.length > 0) {
@@ -193,7 +198,7 @@ function isTestFile(path) {
 // Returns the highest-priority domain from a domain Set
 function dominantDomain(domains) {
   const DOMAIN_PRIORITY = [
-    'security_critical', 'backend', 'frontend', 'infra', 'config', 'docs', 'tests'
+    'security_critical', 'backend', 'frontend', 'infra', 'config', 'tests', 'docs'
   ]
   for (const d of DOMAIN_PRIORITY) {
     if (domains.has(d)) return d

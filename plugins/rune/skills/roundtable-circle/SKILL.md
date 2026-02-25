@@ -220,7 +220,7 @@ See [shard-allocator.md](references/shard-allocator.md) for the full algorithm.
 // Runs AFTER large-diff detection above. Sharding replaces chunking for standard depth.
 const SHARD_THRESHOLD  = talisman?.review?.shard_threshold    ?? 15
 const SHARD_SIZE       = talisman?.review?.shard_size         ?? 12
-const MAX_SHARDS       = talisman?.review?.max_shards         ?? 5
+const MAX_SHARDS       = Math.min(talisman?.review?.max_shards ?? 5, 26)  // Clamp to 26 (A-Z shard IDs)
 const CROSS_SHARD      = talisman?.review?.cross_shard_sentinel ?? true
 const MODEL_POLICY     = talisman?.review?.shard_model_policy  ?? "auto"
 
@@ -405,9 +405,11 @@ if (inscription.sharding?.enabled) {
   }
 
   // Step 4: Spawn Cross-Shard Sentinel (SEQUENTIAL, after all shards done)
-  // Note: subagent_type is "general-purpose" — the cross-shard-sentinel.md agent definition
-  // provides the system prompt; spawning always uses general-purpose with the sentinel prompt
-  // injected via buildCrossShardPrompt().
+  // Note: subagent_type is "general-purpose" per ATE-1 (Agent Teams Enforcement).
+  // The cross-shard-sentinel.md agent definition (tools: Read, Write) serves as
+  // the prompt template, NOT as a platform-enforced tool restriction. The metadata-only
+  // constraint is enforced via prompt ("MUST NOT read source files") — not platform-level.
+  // This is an accepted design tradeoff: ATE-1 requires general-purpose for all teammates.
   if (cross_shard?.enabled && availableSummaries.length > 0) {
     // Reset .expected count: shards.length → 1 (for sentinel monitoring)
     Write(`${signalDir}/.expected`, "1")
@@ -416,6 +418,7 @@ if (inscription.sharding?.enabled) {
       team_name: teamName,
       name: cross_shard.reviewer_name,
       subagent_type: "general-purpose",
+      model: "sonnet",  // Match cross-shard-sentinel.md agent definition
       prompt: buildCrossShardPrompt(availableSummaries, { outputDir }),
       run_in_background: true
     })
