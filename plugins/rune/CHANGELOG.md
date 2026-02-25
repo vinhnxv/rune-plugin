@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.106.0] - 2026-02-26
+
+### Added
+- **Worker Question Relay Protocol** — Workers use `SendMessage` to relay questions to the orchestrator (Forge Revision 1). Orchestrator writes `.question`/`.answer` files to `tmp/work/{timestamp}/questions/` for persistence. Workers detect unanswered questions via strive polling loop (question detection added to Phase 2 monitor). Question cap: max 3 questions per worker in background mode (SEC-006).
+- **Graceful Timeout with Context Preservation** (`strive/references/context-preservation.md`) — Workers detect approaching timeout via injected `timeout_at` ISO timestamp (FAIL-001). On timeout: write `context.md` to `tmp/work/{timestamp}/context/{arc-id}/{task-id}.md` with atomic `mktemp+mv` write and `content_sha256` integrity field (FAIL-002). Stash partial work via `git stash` (FAIL-006). Orchestrator injects Truthbinding-wrapped context into resume worker prompts (SEC-001). Context truncated to 4000 chars (FLAW-004). Max 2 suspensions per task via `resume_count` field (FAIL-004). Suspended state tracked in task metadata (ARCH-002).
+- **Non-Blocking Dispatch Mode** (`strive/references/background-dispatch.md`) — `/rune:strive --background (-bg)` dispatches workers after arc-batch Stop hook pattern (Forge Revision 3, REAL-005). Not a persistent daemon — one-shot wave dispatch via Stop hook. Dispatch state file at `tmp/.rune-dispatch-{timestamp}.json` with session isolation triple (SEC-004). Signal directory for progress detection (PERF-002). Dispatch lock enforces single active dispatch per session (PERF-005). Signal dir and lock created with `mkdir -m 700` owner-only perms (SEC-005). `--collect` flag gathers results after dispatch completes.
+- **`/rune:status` skill** — Check status of background-dispatched workers. Shows task completion %, pending questions, worker health, and stale dispatch warnings (>2h). Performs stale worker detection as a side effect (PERF-003). `disable-model-invocation: true` (ARCH-003). `allowed-tools: Read, Glob, Grep, Bash, TaskList`.
+- **Arc checkpoint schema v16** — Adds `suspended_tasks` array to `phases.work`: `{ task_id, context_path, reason }`. Context paths scoped to arc checkpoint id (FAIL-008). Explicit v15→v16 migration in arc-resume.md: `checkpoint.phases.work.suspended_tasks = checkpoint.phases.work.suspended_tasks ?? []` (FAIL-005). Resume logic detects suspended tasks, verifies integrity, reconciles git state before injection (FAIL-003), respects `resume_count` max 2 (FAIL-004).
+
+### Security
+- **SEC-001**: Context read-back wrapped in ANCHOR/RE-ANCHOR Truthbinding preamble in all resume injection paths
+- **SEC-002**: Context path validation in resume — reject paths that don't start with `tmp/work/` or contain `..`
+- **SEC-004**: Session isolation triple (`config_dir`, `owner_pid`, `session_id`) in dispatch state file; timestamp format validated before path construction
+- **SEC-005**: Signal directory and lock file created with `mkdir -m 700` (owner-only permissions)
+- **SEC-006**: Question cap (max 3 per worker in background mode) prevents unbounded blocking
+
+### Changed
+- `arc-checkpoint-init.md` schema updated from v15 to v16; `phases.work` now includes `suspended_tasks: []` field
+- `arc-resume.md` migration chain extended to v16 (`3o` step); step `7a` documents suspended task resume protocol
+
 ## [1.105.2] - 2026-02-26
 
 ### Fixed

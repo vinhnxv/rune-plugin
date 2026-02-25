@@ -467,6 +467,24 @@ When you run `/rune:strive`, Rune parses a plan into tasks and summons self-orga
 
 Workers scale automatically based on task count (1-5 tasks: 2 workers, 20+ tasks: 5 workers).
 
+### Background Dispatch Mode (v1.106.0+)
+
+Run workers non-blocking and check progress between sessions:
+
+```bash
+# Launch workers in background (returns after dispatch; workers run in next session turn)
+/rune:strive plans/feat-plan.md --background
+
+# Check progress (shows %, pending questions, stale worker detection)
+/rune:status
+/rune:status 20260226-014500  # Specific timestamp
+
+# Gather results once complete
+/rune:strive --collect 20260226-014500
+```
+
+See [`skills/strive/references/background-dispatch.md`](skills/strive/references/background-dispatch.md) for dispatch state schema and security requirements.
+
 New talisman work keys: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `co_authors`. Reserved for a future release: `pr_template`, `auto_push`. See [`talisman.example.yml`](talisman.example.yml) for defaults.
 
 ## Codex Oracle (Cross-Model Verification)
