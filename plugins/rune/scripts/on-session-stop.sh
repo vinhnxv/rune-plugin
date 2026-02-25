@@ -86,11 +86,23 @@ _check_loop_ownership() {
 }
 
 # ── GUARD 5: Defer to arc-batch stop hook (with ownership check) ──
+# v1.101.1 FIX (Finding #5): Add staleness check. If loop file is active but older
+# than 10 minutes, the loop hook likely crashed. Force cleanup instead of deferring
+# indefinitely, which would leave the session unable to stop.
+[[ -z "${NOW:-}" ]] && NOW=$(date +%s)
 if _check_loop_ownership "${CWD}/.claude/arc-batch-loop.local.md"; then
   _batch_active=$(_get_fm_field "$_LOOP_FM" "active")
   if [[ "$_batch_active" == "true" ]]; then
-    # This session owns an active batch — defer to arc-batch-stop-hook.sh
-    exit 0
+    # Check staleness — if file is older than 10 min, loop hook likely crashed
+    _batch_mtime=$(stat -f %m "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null || stat -c %Y "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null || echo 0)
+    _batch_age_min=$(( (NOW - _batch_mtime) / 60 ))
+    if [[ $_batch_age_min -gt 10 ]]; then
+      # Stale loop file — force cleanup instead of deferring
+      rm -f "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null
+    else
+      # Fresh active batch — defer to arc-batch-stop-hook.sh
+      exit 0
+    fi
   else
     # Not active (completed/cancelled) — clean up orphaned file
     rm -f "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null
@@ -101,7 +113,13 @@ fi
 if _check_loop_ownership "${CWD}/.claude/arc-hierarchy-loop.local.md"; then
   _hier_status=$(_get_fm_field "$_LOOP_FM" "status")
   if [[ "$_hier_status" == "active" ]]; then
-    exit 0
+    _hier_mtime=$(stat -f %m "${CWD}/.claude/arc-hierarchy-loop.local.md" 2>/dev/null || stat -c %Y "${CWD}/.claude/arc-hierarchy-loop.local.md" 2>/dev/null || echo 0)
+    _hier_age_min=$(( (NOW - _hier_mtime) / 60 ))
+    if [[ $_hier_age_min -gt 10 ]]; then
+      rm -f "${CWD}/.claude/arc-hierarchy-loop.local.md" 2>/dev/null
+    else
+      exit 0
+    fi
   else
     # Not active (completed/cancelled) — clean up orphaned file
     rm -f "${CWD}/.claude/arc-hierarchy-loop.local.md" 2>/dev/null
@@ -112,7 +130,13 @@ fi
 if _check_loop_ownership "${CWD}/.claude/arc-issues-loop.local.md"; then
   _issues_active=$(_get_fm_field "$_LOOP_FM" "active")
   if [[ "$_issues_active" == "true" ]]; then
-    exit 0
+    _issues_mtime=$(stat -f %m "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null || stat -c %Y "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null || echo 0)
+    _issues_age_min=$(( (NOW - _issues_mtime) / 60 ))
+    if [[ $_issues_age_min -gt 10 ]]; then
+      rm -f "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null
+    else
+      exit 0
+    fi
   else
     # Not active (completed/cancelled) — clean up orphaned file
     rm -f "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null

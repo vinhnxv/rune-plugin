@@ -1157,6 +1157,26 @@ See [post-arc.md](references/post-arc.md) for the full ARC-9 sweep algorithm.
 
 Catches zombie teammates from the last delegated phase. Uses 3-strategy cleanup: shutdown discovery → TeamDelete with backoff → filesystem fallback.
 
+**Time budget**: ARC-9 MUST complete within 30 seconds total. Do NOT spend more than one `sleep 15` call across ALL strategies. If cleanup is incomplete after the time budget, finish your response — the `on-session-stop.sh` Stop hook handles remaining cleanup automatically.
+
+## Response Completion (CRITICAL)
+
+> **MANDATORY**: After ARC-9 sweep completes (or after its 30-second time budget expires),
+> you MUST **finish your response immediately** and return control to the user. Do NOT:
+> - Process any further `TeammateIdle` notifications
+> - Respond to any teammate messages
+> - Attempt additional cleanup beyond ARC-9
+> - Use any tools after displaying the completion report
+>
+> The session stays open — the user can continue with further prompts. But your current
+> turn is DONE after the completion report + ARC-9. The `on-session-stop.sh` Stop hook
+> handles remaining team/state cleanup automatically in the background.
+>
+> **If zombie teammates are still sending notifications**: IGNORE THEM. They will be cleaned up
+> by the Stop hook's filesystem fallback. Responding to idle notifications creates an infinite
+> loop that prevents your turn from completing — the user sees "Vibing..." indefinitely
+> and cannot interact with the session.
+
 ## Error Handling
 
 | Error | Recovery |

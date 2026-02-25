@@ -15,6 +15,7 @@ Features:
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
 import re
@@ -239,7 +240,8 @@ async def _run_decompose_subprocess(query: str) -> Optional[List[str]]:
     Returns:
         List of facet strings, or None on error/timeout.
     """
-    prompt = _DECOMPOSE_PROMPT.format(query=query[:500])  # SEC: cap length
+    safe_query = html.escape(query[:500])  # SEC: cap length + escape XML chars
+    prompt = _DECOMPOSE_PROMPT.format(query=safe_query)
     proc: Optional[asyncio.subprocess.Process] = None
     try:
         proc = await asyncio.create_subprocess_exec(

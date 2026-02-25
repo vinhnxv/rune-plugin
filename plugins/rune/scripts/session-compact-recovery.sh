@@ -98,9 +98,43 @@ fi
 TEAM_NAME=$(echo "$CHECKPOINT_DATA" | jq -r '.team_name // empty' 2>/dev/null || true)
 
 # Check for arc-batch state (v1.72.0) — may exist even without an active team
-HAS_BATCH_STATE=$(echo "$CHECKPOINT_DATA" | jq -r 'if .arc_batch_state and .arc_batch_state != {} and (.arc_batch_state | has("iteration")) then "true" else "false" end' 2>/dev/null || echo "false")
+# v1.101.1 FIX (Finding #8): Verify the ACTUAL loop state file is still active before
+# injecting resume instructions. If the arc already completed but compaction happened
+# during ARC-9 cleanup, the checkpoint has stale loop state. Re-injecting "resume batch"
+# would cause Claude to restart a completed batch, preventing session from ending.
+HAS_BATCH_STATE="false"
+_batch_checkpoint=$(echo "$CHECKPOINT_DATA" | jq -r 'if .arc_batch_state and .arc_batch_state != {} and (.arc_batch_state | has("iteration")) then "true" else "false" end' 2>/dev/null || echo "false")
+if [[ "$_batch_checkpoint" == "true" ]]; then
+  # Cross-check with actual loop state file
+  if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
+    _batch_fm=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null | sed '1d;$d')
+    _batch_active_val=$(echo "$_batch_fm" | grep '^active:' | sed 's/^active:[[:space:]]*//' | head -1 || true)
+    if [[ "$_batch_active_val" == "true" ]]; then
+      HAS_BATCH_STATE="true"
+    else
+      _trace "Compact recovery: batch checkpoint in save but loop file not active — skipping resume"
+    fi
+  else
+    _trace "Compact recovery: batch checkpoint in save but loop file missing — skipping resume"
+  fi
+fi
+
 # Check for arc-issues state — may exist even without an active team
-HAS_ISSUES_STATE=$(echo "$CHECKPOINT_DATA" | jq -r 'if .arc_issues_state and .arc_issues_state != {} and (.arc_issues_state | has("iteration")) then "true" else "false" end' 2>/dev/null || echo "false")
+HAS_ISSUES_STATE="false"
+_issues_checkpoint=$(echo "$CHECKPOINT_DATA" | jq -r 'if .arc_issues_state and .arc_issues_state != {} and (.arc_issues_state | has("iteration")) then "true" else "false" end' 2>/dev/null || echo "false")
+if [[ "$_issues_checkpoint" == "true" ]]; then
+  if [[ -f "${CWD}/.claude/arc-issues-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-issues-loop.local.md" ]]; then
+    _issues_fm=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null | sed '1d;$d')
+    _issues_active_val=$(echo "$_issues_fm" | grep '^active:' | sed 's/^active:[[:space:]]*//' | head -1 || true)
+    if [[ "$_issues_active_val" == "true" ]]; then
+      HAS_ISSUES_STATE="true"
+    else
+      _trace "Compact recovery: issues checkpoint in save but loop file not active — skipping resume"
+    fi
+  else
+    _trace "Compact recovery: issues checkpoint in save but loop file missing — skipping resume"
+  fi
+fi
 
 if [[ -z "$TEAM_NAME" ]]; then
   # No team — but if arc-batch or arc-issues state exists, still inject loop context
@@ -241,22 +275,36 @@ fi
 MEMBER_COUNT=$(echo "$CHECKPOINT_DATA" | jq -r '.team_config.members // [] | length' 2>/dev/null || echo "0")
 
 # [NEW] Arc-batch state if present (v1.72.0)
+# v1.101.1 FIX (Finding #8): Cross-check with actual loop state file before injecting
+# resume context. Same guard as the teamless path above.
 BATCH_INFO=""
 BATCH_ITER=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.iteration // empty' 2>/dev/null || true)
 BATCH_TOTAL=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.total_plans // empty' 2>/dev/null || true)
 BATCH_SUMMARY=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_batch_state.latest_summary // empty' 2>/dev/null || true)
 
 if [[ -n "$BATCH_ITER" ]] && [[ "$BATCH_ITER" =~ ^[0-9]+$ ]]; then
-  if [[ ! "$BATCH_TOTAL" =~ ^[0-9]+$ ]]; then BATCH_TOTAL="unknown"; fi
-  BATCH_INFO=" Arc-batch iteration ${BATCH_ITER}/${BATCH_TOTAL}."
-  # SEC-008: Validate summary path before injecting into context message
-  if [[ -n "$BATCH_SUMMARY" ]] && [[ "$BATCH_SUMMARY" != "none" ]]; then
-    if [[ "$BATCH_SUMMARY" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
-      BATCH_INFO="${BATCH_INFO} Latest summary: ${BATCH_SUMMARY}."
-    else
-      _trace "Rejected invalid batch summary path: ${BATCH_SUMMARY}"
-      BATCH_SUMMARY=""
+  # Cross-check: only inject if loop state file is still active
+  _batch_still_active="false"
+  if [[ -f "${CWD}/.claude/arc-batch-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-batch-loop.local.md" ]]; then
+    _bfm=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-batch-loop.local.md" 2>/dev/null | sed '1d;$d')
+    _bav=$(echo "$_bfm" | grep '^active:' | sed 's/^active:[[:space:]]*//' | head -1 || true)
+    [[ "$_bav" == "true" ]] && _batch_still_active="true"
+  fi
+
+  if [[ "$_batch_still_active" == "true" ]]; then
+    if [[ ! "$BATCH_TOTAL" =~ ^[0-9]+$ ]]; then BATCH_TOTAL="unknown"; fi
+    BATCH_INFO=" Arc-batch iteration ${BATCH_ITER}/${BATCH_TOTAL}."
+    # SEC-008: Validate summary path before injecting into context message
+    if [[ -n "$BATCH_SUMMARY" ]] && [[ "$BATCH_SUMMARY" != "none" ]]; then
+      if [[ "$BATCH_SUMMARY" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
+        BATCH_INFO="${BATCH_INFO} Latest summary: ${BATCH_SUMMARY}."
+      else
+        _trace "Rejected invalid batch summary path: ${BATCH_SUMMARY}"
+        BATCH_SUMMARY=""
+      fi
     fi
+  else
+    _trace "Compact recovery: batch checkpoint in save but loop file not active — skipping batch info"
   fi
 fi
 
@@ -265,8 +313,20 @@ ISSUES_INFO=""
 ISSUES_ITER=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_issues_state.iteration // empty' 2>/dev/null || true)
 ISSUES_TOTAL=$(echo "$CHECKPOINT_DATA" | jq -r '.arc_issues_state.total_plans // empty' 2>/dev/null || true)
 if [[ -n "$ISSUES_ITER" ]] && [[ "$ISSUES_ITER" =~ ^[0-9]+$ ]]; then
-  if [[ ! "$ISSUES_TOTAL" =~ ^[0-9]+$ ]]; then ISSUES_TOTAL="unknown"; fi
-  ISSUES_INFO=" Arc-issues iteration ${ISSUES_ITER}/${ISSUES_TOTAL}. Re-read .claude/arc-issues-loop.local.md to resume."
+  # Cross-check: only inject if loop state file is still active
+  _issues_still_active="false"
+  if [[ -f "${CWD}/.claude/arc-issues-loop.local.md" ]] && [[ ! -L "${CWD}/.claude/arc-issues-loop.local.md" ]]; then
+    _ifm=$(sed -n '/^---$/,/^---$/p' "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null | sed '1d;$d')
+    _iav=$(echo "$_ifm" | grep '^active:' | sed 's/^active:[[:space:]]*//' | head -1 || true)
+    [[ "$_iav" == "true" ]] && _issues_still_active="true"
+  fi
+
+  if [[ "$_issues_still_active" == "true" ]]; then
+    if [[ ! "$ISSUES_TOTAL" =~ ^[0-9]+$ ]]; then ISSUES_TOTAL="unknown"; fi
+    ISSUES_INFO=" Arc-issues iteration ${ISSUES_ITER}/${ISSUES_TOTAL}. Re-read .claude/arc-issues-loop.local.md to resume."
+  else
+    _trace "Compact recovery: issues checkpoint in save but loop file not active — skipping issues info"
+  fi
 fi
 
 # Build the context message — point to full file for detailed Read

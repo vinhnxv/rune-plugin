@@ -55,8 +55,13 @@ def _normalize_node_id(raw: str) -> str:
     """
     # First decode any percent-encoding (%3A → :)
     decoded = unquote(raw)
-    # Then convert hyphens to colons (1-3 → 1:3)
-    normalized = decoded.replace("-", ":")
+    # Convert hyphens to colons only if the decoded string has no colons yet.
+    # If colons are already present (from %3A decoding), hyphens are literal.
+    # This prevents corrupting multi-segment node IDs (e.g., "1-3-5" → "1:3:5").
+    if ":" not in decoded:
+        normalized = decoded.replace("-", ":")
+    else:
+        normalized = decoded
     # Validate: Figma node IDs contain only digits, colons, and commas
     if not re.match(r"^[\d:,]+$", normalized):
         raise FigmaURLError(
