@@ -787,7 +787,7 @@ plugins/rune/
 │   └── plugin.json
 ├── agents/
 │   ├── investigation/       # 24 investigation agents (Goldmask + Inspect)
-│   ├── review/              # 38 review agents
+│   ├── review/              # 39 review agents
 │   │   └── references/      # Shared review checklists
 │   ├── research/            # 5 research agents (plan pipeline)
 │   ├── testing/             # 4 testing agents (arc Phase 7.7)

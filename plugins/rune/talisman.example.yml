@@ -716,17 +716,45 @@ mend:
   todos_per_fixer: 5           # Max file-todos per fixer wave (default: 5)
 
 # ──────────────────────────────────────────────
-# Review active keys — Context Pressure Defense (v1.51.0+)
-# These keys are consumed by roundtable-circle large-diff chunked review.
+# Review active keys — Context Pressure Defense (v1.51.0+) + Inscription Sharding (v1.98.0+)
+# These keys are consumed by roundtable-circle large-diff chunked review and sharding.
 # For the full commented review: block, see the # review: section above.
 # ──────────────────────────────────────────────
 review:
   large_diff_threshold: 25     # File count triggering chunked review for standard depth (v1.51.0)
                                # When changed files exceed this number, standard depth review
                                # switches to sequential chunk processing (default: 25, range: 5-200).
+                               # NOTE: For scope=diff, sharding (below) supersedes chunking when
+                               # totalFiles > shard_threshold. Chunked review only applies to scope=full.
   chunk_size: 15               # Files per chunk in chunked review mode (v1.51.0)
                                # Each chunk gets a full Ash wave; Ashes shut down between chunks
                                # to reclaim context (default: 15, range: 3-50).
+
+  # === Inscription Sharding (v1.98.0+) ===
+  # Replaces chunked review for scope=diff + standard depth when diff exceeds shard_threshold.
+  # Sharding is PARALLEL vs chunking which is SEQUENTIAL — strictly faster for large diffs.
+  # Domain affinity keeps related files together vs chunking's arbitrary slicing.
+  # Not active in depth=deep (wave scheduling) or scope=full (audit — uses chunking).
+  shard_threshold: 15          # Files above this trigger sharded review (default: 15, range: 5-50)
+                               # Below threshold: standard single-pass review unchanged.
+                               # Set to 999 to disable sharding entirely (escape hatch).
+  shard_size: 12               # Max files per shard reviewer (default: 12, range: 5-20)
+                               # Lower = fewer files per reviewer = less context pressure per agent.
+                               # Higher = fewer shards = fewer agents = lower cost.
+  max_shards: 5                # Maximum parallel shard reviewers (default: 5, range: 2-8)
+                               # Capped at 5 to stay within SHA-SHE prefix range (3-char, 2-5 char rule).
+                               # When file count requires more shards, smallest are merged first.
+  cross_shard_sentinel: true   # Enable Cross-Shard Sentinel after shard reviewers complete (default: true)
+                               # Sentinel reads only summary JSONs — zero source code reads.
+                               # Detects naming drift, import mismatches, auth boundary gaps.
+                               # Set false to skip cross-file analysis (reduces cost, reduces coverage).
+  shard_model_policy: auto     # Model selection per shard (default: auto)
+                               # auto       = sonnet for security/code, haiku for docs-only shards
+                               # all-sonnet = force sonnet for all shards (thorough, higher cost)
+                               # all-haiku  = force haiku for all shards (faster, lower cost)
+  reshard_threshold: 30        # Re-review scope for convergence loop re-sharding guard (default: 30)
+                               # When mend re-review scope > reshard_threshold, force standard review
+                               # to preserve SHA-/SHB- finding prefix continuity across rounds.
 
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings

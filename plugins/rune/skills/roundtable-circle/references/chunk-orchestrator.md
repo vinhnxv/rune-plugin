@@ -4,6 +4,23 @@
 > The inner Roundtable Circle (7-phase lifecycle) remains a black box — chunking wraps, never modifies it.
 > Lives in `review.md` Phase 0 (routing branch) and delegates detail to this reference.
 
+## Sharding Supersedes Chunking (v1.98.0+)
+
+When Inscription Sharding is active (`inscription.sharding.enabled === true`), chunked review
+is BYPASSED for that review session:
+
+```javascript
+// In SKILL.md Phase 1 — set after shard allocation:
+inscription.chunked = false  // sharding replaces chunking for standard depth
+```
+
+**Rationale:** Sharding is strictly superior to chunked review for standard depth + diff scope:
+- Sharding is parallel (shard reviewers run concurrently); chunking is sequential
+- Sharding uses domain affinity (related files stay together); chunking uses arbitrary slicing
+- Sharding has a dedicated cross-file analysis agent; chunking relies on individual Ash seeing all chunks
+
+Chunked review continues to apply for `scope=full` (audit) where sharding is not active.
+
 ## Chunk Decision Routing
 
 This routing check lives in **review.md Phase 0** as a conditional branch — not a separate phase.

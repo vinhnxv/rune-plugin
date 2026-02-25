@@ -124,6 +124,22 @@ When `--incremental` flag is set, the file list is pre-filtered by the increment
 
 **Audit-history-aware budget**: When `--incremental` is active, prefer assigning files to Ashes that have NOT previously audited them (from `state.json.files[path].audited_by`). This increases reviewer diversity across sessions.
 
+## Inscription Sharding vs Standard Selection (v1.98.0+)
+
+When `depth=standard` and `scope=diff` and `totalFiles > shard_threshold` (default 15),
+the standard Ash selection path is BYPASSED in favour of Inscription Sharding.
+
+| Condition | Path |
+|-----------|------|
+| `depth=deep` | Wave scheduling → specialist Ashes (standard, no sharding) |
+| `depth=standard`, `scope=diff`, `totalFiles > shard_threshold` | **Inscription Sharding** — domain-affinity shard reviewers |
+| `depth=standard`, `scope=diff`, `totalFiles <= shard_threshold` | Standard Ash selection (this section) |
+| `depth=standard`, `scope=full` (audit) | Standard Ash selection (this section) |
+
+When sharding is active, `selectedAsh` is NOT populated from Rune Gaze. Instead,
+`buildShardReviewerPrompt()` generates prompts per shard from `inscription.sharding.shards`.
+See [shard-allocator.md](shard-allocator.md) for domain group assignment and bin-packing.
+
 ## Wave Assignment
 
 After Rune Gaze selects Ashes based on file classification, wave scheduling determines execution order for `depth=deep` mode. Standard depth bypasses wave scheduling entirely.

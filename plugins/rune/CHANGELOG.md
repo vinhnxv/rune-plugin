@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.98.0] - 2026-02-25
+
+### Added
+- **Inscription Sharding** — MapReduce-style file distribution for large-diff review (`scope=diff`, `depth=standard`)
+  - **Shard Allocator** (`references/shard-allocator.md`) — Domain-affinity bin-packing algorithm that partitions `classifiedFiles` into non-overlapping shards (security_critical → backend → frontend → infra → config → tests → docs priority). Includes rebalancing step to prevent mega-shards when merging to MAX_SHARDS.
+  - **Shard Reviewer Prompt Template** (`references/ash-prompts/shard-reviewer.md`) — Universal reviewer covering all 4 dimensions (Security, Quality, Documentation, Correctness) per shard. Dimensional Minimum self-check rule prevents quality-dimension clustering. `buildShardReviewerPrompt()` contract with domain-adaptive emphasis sections.
+  - **Cross-Shard Sentinel** (`agents/review/cross-shard-sentinel.md`) — Metadata-only reviewer that reads only shard summary JSONs (never source code). 6 checks: import dependencies, pattern consistency, coverage blind spots, duplicate logic, security boundaries, test-source coverage. All findings default `confidence="LOW"`.
+  - **SKILL.md integration** — Phase 1 Inscription Sharding Decision block (decision matrix, shard allocation, inscription.json extension). Phase 3 Sharded Review Path (parallel shard spawning, Step 2.5 output validation with stub summary generation, sequential Cross-Shard Sentinel). `buildCrossShardPrompt()` contract.
+  - **Inscription Schema extension** (`references/inscription-schema.md`) — New `sharding` top-level field with shard metadata, cross-shard config. Fully backward-compatible — absent/`enabled:false` leaves `teammates[]` unchanged.
+  - **Dedup registry update** (`references/dedup-runes.md`) — `SH{X}-` (SHA- through SHE-) and `XSH-` prefixes registered. Position: `SEC > BACK > VEIL > DOUBT > SH{X} > DOC > QUAL > FRONT > CDX > XSH`. SHA-SHE and XSH added to reserved prefix list.
+  - **Smart-selection update** (`references/smart-selection.md`) — Decision table documenting when sharding activates vs standard Ash selection vs wave scheduling.
+  - **Chunk-orchestrator update** (`references/chunk-orchestrator.md`) — Sharding bypass note: sharding supersedes chunking for `scope=diff`, chunking continues for `scope=full`.
+  - **Convergence-gate update** (`references/convergence-gate.md`) — Sharding bypass note: chunk convergence gate skipped when `inscription.sharding.enabled`. Arc-level convergence remains shard-topology-agnostic.
+  - **Monitor-utility update** (`references/monitor-utility.md`) — Shard reviewer and Cross-Shard Sentinel polling parameters added to per-command table.
+  - **Circle-registry update** (`references/circle-registry.md`) — Shard Reviewers A-E and Cross-Shard Sentinel registered. SHA- prefix collision note (SHA-256 false-match prevention via RUNE:FINDING markers).
+  - **8 new talisman keys** — `shard_threshold` (15), `shard_size` (12), `max_shards` (5), `cross_shard_sentinel` (true), `shard_model_policy` (auto), `reshard_threshold` (30), plus large_diff_threshold annotation update, chunk_size annotation update
+- **Backward compatibility** — Diffs below `shard_threshold` use standard review unchanged. Deep mode uses wave scheduling (unchanged). Escape hatch: `shard_threshold: 999` disables sharding
+
+### Changed
+- `review.large_diff_threshold` and `review.chunk_size` annotations updated to note sharding supersedes chunking for `scope=diff`
+
 ## [1.97.0] - 2026-02-25
 
 ### Changed
