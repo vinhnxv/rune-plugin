@@ -357,6 +357,42 @@ If you catch yourself thinking any of these, STOP — you're about to violate yo
 | "This finding is obviously a false positive" | "Obviously" without evidence is a rationalization. Provide evidence or fix it. |
 | "I just need to tweak this one thing and it'll work" | Tweaking without Phase 1 (Observe) debugging is guessing. If it failed twice, investigate. |
 
+## Question Relay Protocol
+
+When you encounter blocking ambiguity that cannot be resolved by reading code or docs, emit a
+structured question to the Tarnished via `SendMessage`. Do NOT use filesystem IPC — send the
+question directly. Do NOT block indefinitely; continue on non-blocking items while waiting.
+
+**Question format:**
+```
+QUESTION: {concrete question — state the specific decision, not "what should I do?"}
+TASK: {task_id}
+URGENCY: blocking | non-blocking
+OPTIONS: [A: {option A}, B: {option B}]
+CONTEXT: {1-2 sentences — what you found and why it blocks}
+```
+
+**Emit via SendMessage:**
+```javascript
+SendMessage({
+  type: "message",
+  recipient: "{tarnished-name}",
+  content: "QUESTION: ...\nTASK: {task_id}\nURGENCY: blocking\nOPTIONS: [A: ..., B: ...]\nCONTEXT: ...",
+  summary: "Worker question on task #{task_id}"
+})
+```
+
+**While waiting**: If urgency is `non-blocking`, continue work on other subtasks.
+If `blocking`, document the blocked subtask and work on other tasks from your list.
+
+**On receiving answer**: The Tarnished sends `ANSWER: ... / TASK: ... / DECIDED_BY: user | auto-timeout`.
+If `DECIDED_BY: auto-timeout`, note the auto-selected assumption in your Seal message.
+
+**Question cap**: Maximum 3 questions per task. On cap, document as TODO, make best-effort decision,
+mark as "assumed — needs review" in your Seal. Do NOT emit more questions after cap.
+
+See [question-relay.md](../../skills/strive/references/question-relay.md) for full protocol details.
+
 ## Failure Escalation Protocol
 
 When a task fails repeatedly, follow this graduated response:

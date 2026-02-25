@@ -467,7 +467,25 @@ When you run `/rune:strive`, Rune parses a plan into tasks and summons self-orga
 
 Workers scale automatically based on task count (1-5 tasks: 2 workers, 20+ tasks: 5 workers).
 
-New talisman work keys: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `co_authors`. Reserved for a future release: `pr_template`, `auto_push`. See [`talisman.example.yml`](talisman.example.yml) for defaults.
+### Background Dispatch Mode (v1.106.0+)
+
+Run workers non-blocking and check progress between sessions:
+
+```bash
+# Launch workers in background (returns after dispatch; workers run in next session turn)
+/rune:strive plans/feat-plan.md --background
+
+# Check progress (shows %, pending questions, stale worker detection)
+/rune:status
+/rune:status 20260226-014500  # Specific timestamp
+
+# Gather results once complete
+/rune:strive --collect 20260226-014500
+```
+
+See [`skills/strive/references/background-dispatch.md`](skills/strive/references/background-dispatch.md) for dispatch state schema and security requirements.
+
+New in v1.106.0: `question_relay:`, `dispatch:`, and `context_preservation:` talisman sections. See [`skills/rune-orchestration/references/talisman-config.md`](skills/rune-orchestration/references/talisman-config.md) for all configuration keys. Work keys from v1.12.0: `skip_branch_check`, `branch_prefix`, `pr_monitoring`, `co_authors`. Reserved: `pr_template`, `auto_push`.
 
 ## Codex Oracle (Cross-Model Verification)
 
@@ -677,6 +695,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | rune-orchestration | Multi-agent coordination patterns |
 | skill-testing | TDD methodology for skills — pressure testing, rationalization counters, Iron Law (SKT-001). `disable-model-invocation: true` |
 | stacks | Stack-aware intelligence — 4-layer detection engine with 12 specialist reviewers (Python, TypeScript, Rust, PHP, Axum, FastAPI, Django, Laravel, SQLAlchemy, TDD, DDD, DI). Auto-loaded by Rune Gaze Phase 1A (non-invocable) |
+| status | Check status of background-dispatched workers — shows task completion %, pending questions, stale worker detection. Use after `/rune:strive --background`. `disable-model-invocation: true` |
 | systematic-debugging | 4-phase debugging methodology (Observe → Narrow → Hypothesize → Fix) for workers hitting repeated failures. Iron Law: no fixes without root cause investigation (DBG-001) |
 | talisman | Deep talisman.yml configuration expertise — init, audit, update, guide, status. Stack-aware scaffolding from canonical template |
 | tarnished | Intelligent master command — unified entry point for all Rune workflows. Parses natural language (VN + EN), checks prerequisites, chains multi-step workflows |
