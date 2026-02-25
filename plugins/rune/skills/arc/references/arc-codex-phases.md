@@ -25,9 +25,9 @@ updateCheckpoint({ phase: "semantic_verification", status: "in_progress", phase_
 
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
 const codexDisabled = talisman?.codex?.disabled === true
-const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
+const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
 
-if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan")) {
+if (codexAvailable && !codexDisabled && codexWorkflows.includes("arc")) {
   const semanticEnabled = talisman?.codex?.semantic_verification?.enabled !== false
 
   if (semanticEnabled) {
@@ -167,9 +167,9 @@ updateCheckpoint({ phase: "codex_gap_analysis", status: "in_progress", phase_seq
 
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
 const codexDisabled = talisman?.codex?.disabled === true
-const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
+const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
 
-if (codexAvailable && !codexDisabled && codexWorkflows.includes("work")) {
+if (codexAvailable && !codexDisabled && codexWorkflows.includes("arc")) {
   const gapEnabled = talisman?.codex?.gap_analysis?.enabled !== false
 
   if (gapEnabled) {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.107.1] - 2026-02-26
+
+### Fixed
+- **Codex arc workflow gate bug** — All Codex phases inside arc pipeline (`semantic_verification`, `codex_gap_analysis`, `plan_review`) were checking wrong workflow names (`"plan"`, `"work"`) instead of `"arc"`. This caused Codex phases to be silently skipped even when `codex.workflows` included `"arc"`. Fixed in `arc-codex-phases.md` (Phases 2.8, 5.6), `gap-analysis.md`, and `arc-phase-plan-review.md`. Canonical pattern: arc sub-phases register under `"arc"` (documented in `arc-phase-test.md`).
+- **Default codex workflow fallback arrays** — Added `"arc"` to default fallback arrays in `arc-codex-phases.md` and `gap-analysis.md` so Codex works in arc even without explicit `talisman.codex.workflows` config.
+
 ## [1.107.0] - 2026-02-26
 
 ### Added
