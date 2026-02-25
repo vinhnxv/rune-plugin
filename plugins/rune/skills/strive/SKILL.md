@@ -168,6 +168,13 @@ const todosDir = resolveTodosDir($ARGUMENTS, talisman, "work")
 Bash(`mkdir -p "${todosDir}"`)
 
 
+// Wave-based execution: bounded batches with fresh worker context
+const TODOS_PER_WORKER = talisman?.work?.todos_per_worker ?? 3
+const totalTodos = extractedTasks.length
+const maxWorkers = talisman?.work?.max_workers ?? 3
+const waveCapacity = maxWorkers * TODOS_PER_WORKER  // e.g. 3 workers * 3 = 9
+const totalWaves = Math.ceil(totalTodos / waveCapacity)
+
 // Compute total worker count (scaling logic in worker-prompts.md)
 const workerCount = smithCount + forgerCount
 
@@ -183,6 +190,8 @@ Write("tmp/.rune-work-{timestamp}.json", {
   session_id: "${CLAUDE_SESSION_ID}",
   plan: planPath,
   expected_workers: workerCount,
+  total_waves: totalWaves,
+  todos_per_worker: TODOS_PER_WORKER,
   ...(worktreeMode && { worktree_mode: true, waves: [], current_wave: 0, merged_branches: [] })
 })
 ```
@@ -246,9 +255,60 @@ Quality requirements (mandatory):
 
 See [worker-prompts.md](references/worker-prompts.md) for full worker prompt templates, scaling logic, and the scaling table.
 
-**Summary**: Summon rune-smith (implementation) and trial-forger (test) workers. Workers self-organize via TaskList, claim tasks, implement with TDD, self-review, run ward checks, generate patches, and send Seal messages. Commits are handled through the Tarnished's commit broker. Do not run `git add` or `git commit` directly.
+**Summary**: Summon rune-smith (implementation) and trial-forger (test) workers. Workers receive pre-assigned task lists and work through them sequentially. Commits are handled through the Tarnished's commit broker. Do not run `git add` or `git commit` directly.
 
 See [todo-protocol.md](references/todo-protocol.md) for the worker todo file protocol that MUST be included in all spawn prompts.
+
+### Wave-Based Execution
+
+When `totalWaves > 1`, workers are spawned per-wave with bounded task assignments. Each wave:
+1. Slice tasks for this wave from the priority-ordered list
+2. Distribute tasks across workers via `TaskUpdate({ owner })`
+3. Spawn fresh workers (named `rune-smith-w{wave}-{idx}`)
+4. Monitor this wave via `waitForCompletion` with `taskFilter`
+5. Shutdown workers after wave completes
+6. Apply commits via commit broker
+7. Proceed to next wave
+
+**Single-wave optimization**: When `totalWaves === 1`, all tasks are assigned upfront and the existing behavior applies (no wave overhead).
+
+```javascript
+// Wave loop (Phase 2 + 3 combined)
+for (let wave = 0; wave < totalWaves; wave++) {
+  const waveStart = wave * waveCapacity
+  const waveTasks = priorityOrderedTasks.slice(waveStart, waveStart + waveCapacity)
+
+  // Distribute tasks to workers for this wave
+  for (let i = 0; i < waveTasks.length; i++) {
+    const workerIdx = i % workerCount
+    const workerName = totalWaves === 1
+      ? `rune-smith-${workerIdx + 1}`
+      : `rune-smith-w${wave}-${workerIdx + 1}`
+    TaskUpdate({ taskId: waveTasks[i].id, owner: workerName })
+  }
+
+  // Spawn fresh workers for this wave
+  // Workers receive pre-assigned tasks (no dynamic claiming)
+  // See worker-prompts.md for wave-aware prompt template
+
+  // Monitor this wave
+  waitForCompletion(teamName, waveTasks.length, {
+    timeoutMs: totalWaves === 1 ? 1_800_000 : 600_000,  // 30 min single / 10 min per wave
+    staleWarnMs: 300_000,
+    pollIntervalMs: 30_000,
+    label: `Work wave ${wave + 1}/${totalWaves}`,
+    taskFilter: waveTasks.map(t => t.id)
+  })
+
+  // Apply commits for this wave via commit broker
+  commitBroker(waveTasks)
+
+  // Shutdown wave workers before next wave
+  if (wave < totalWaves - 1) {
+    shutdownWaveWorkers(wave)
+  }
+}
+```
 
 **Per-task file-todos (v2)**: The orchestrator creates per-task todo files in `{base}/work/` (resolved via `resolveTodosDir($ARGUMENTS, talisman, "work")`) alongside TaskCreate entries. Standalone: `todos/work/`. Arc: `tmp/arc/{id}/todos/work/` (via `--todos-dir`). Disable with `--todos=false`. Workers read their assigned todo for context and append Work Log entries. See `file-todos` skill for schema. The per-worker todo protocol in `tmp/work/{timestamp}/todos/` remains active as the session-level tracking layer.
 

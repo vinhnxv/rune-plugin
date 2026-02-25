@@ -48,8 +48,10 @@ Task({
     ${nonGoalsBlock}
 
     YOUR LIFECYCLE:
-    1. TaskList() -> find unblocked, unowned implementation tasks
-    2. Claim: TaskUpdate({ taskId, owner: "rune-smith", status: "in_progress" })
+    1. TaskList() -> find tasks assigned to you (owner matches your name)
+       If no tasks assigned yet, find unblocked, unowned implementation tasks and claim them.
+    2. Claim (if not pre-assigned): TaskUpdate({ taskId, owner: "{your-name}", status: "in_progress" })
+       If pre-assigned: TaskUpdate({ taskId, status: "in_progress" })
     3. Read task description and referenced plan
     4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before coding.
@@ -178,8 +180,10 @@ Task({
     ${nonGoalsBlock}
 
     YOUR LIFECYCLE:
-    1. TaskList() -> find unblocked, unowned test tasks
-    2. Claim: TaskUpdate({ taskId, owner: "trial-forger", status: "in_progress" })
+    1. TaskList() -> find tasks assigned to you (owner matches your name)
+       If no tasks assigned yet, find unblocked, unowned test tasks and claim them.
+    2. Claim (if not pre-assigned): TaskUpdate({ taskId, owner: "{your-name}", status: "in_progress" })
+       If pre-assigned: TaskUpdate({ taskId, status: "in_progress" })
     3. Read task description and the code to be tested
     4. IF --approve mode: write proposal to tmp/work/{timestamp}/proposals/{task-id}.md,
        send to the Tarnished via SendMessage, wait for approval before writing tests.
@@ -400,3 +404,19 @@ The `Branch:` field is appended (not replacing). Existing hooks that parse `"Sea
 | 6-10 | 2 | 1 |
 | 11-20 | 2 | 2 |
 | 20+ | 3 | 2 |
+
+## Wave-Based Worker Naming
+
+When `totalWaves > 1`, workers are named per-wave to distinguish fresh instances:
+
+| Wave | Worker Name | Purpose |
+|------|-------------|---------|
+| Single wave | `rune-smith-1`, `rune-smith-2` | Standard naming |
+| Wave 0 | `rune-smith-w0-1`, `rune-smith-w0-2` | First wave workers |
+| Wave 1 | `rune-smith-w1-1`, `rune-smith-w1-2` | Second wave workers (fresh context) |
+
+Workers receive pre-assigned tasks via `TaskUpdate({ owner })` before spawning. Each worker works through its assigned task list sequentially instead of dynamically claiming from the pool.
+
+**Talisman configuration**:
+- `work.todos_per_worker`: Maximum tasks per worker per wave (default: 3)
+- `work.max_workers`: Maximum workers per role (default: 3)

@@ -68,10 +68,10 @@ Phase 1: PLAN -> Analyze dependencies, determine fixer count
     |  (ENHANCED: overlay risk tiers on severity ordering)
 Phase 2: FORGE TEAM -> TeamCreate + TaskCreate per file group
     |
-Phase 3: SUMMON FIXERS -> One mend-fixer per file group
+Phase 3: SUMMON FIXERS -> Wave-based: fresh fixers per wave (max 5 concurrent)
     | (fixers read -> fix -> verify -> report)
     | (ENHANCED: inject risk/wisdom context into fixer prompts)
-Phase 4: MONITOR -> Poll TaskList, stale/timeout detection
+Phase 4: MONITOR -> Per-wave poll TaskList, stale/timeout detection
     |
 Phase 5: WARD CHECK -> Ward check + bisect on failure (MEND-1)
     |
@@ -171,17 +171,20 @@ Check for cross-file dependencies between findings:
 2. Within a file group, order by severity (P1 -> P2 -> P3), then by line number (top-down)
 3. Triage threshold: if total findings > 20, instruct fixers to FIX all P1, SHOULD FIX P2, MAY SKIP P3
 
-### Determine Fixer Count
+### Determine Fixer Count and Waves
 
-```
+```javascript
+const TODOS_PER_FIXER = talisman?.mend?.todos_per_fixer ?? 5
 fixer_count = min(file_groups.length, 5)
+totalWaves = Math.ceil(file_groups.length / fixer_count)
 ```
 
-| File Groups | Fixers |
-|-------------|--------|
-| 1 | 1 |
-| 2-5 | file_groups.length |
-| 6+ | 5 (sequential batches for remaining groups) |
+| File Groups | Fixers per Wave | Waves |
+|-------------|-----------------|-------|
+| 1 | 1 | 1 |
+| 2-5 | file_groups.length | 1 |
+| 6-10 | 5 | 2 |
+| 11+ | 5 | ceil(groups / 5) |
 
 **Zero-fixer guard**: If all findings were deduplicated, skipped, or marked FALSE_POSITIVE, skip directly to Phase 6 with "no actionable findings" summary.
 
@@ -247,7 +250,7 @@ Read and execute when Phase 2 runs.
 
 ## Phase 3: SUMMON FIXERS
 
-Summon mend-fixer teammates with ANCHOR/RE-ANCHOR Truthbinding. When 6+ file groups, use sequential batching (BATCH_SIZE=5) with per-batch waitForCompletion monitoring.
+Summon mend-fixer teammates with ANCHOR/RE-ANCHOR Truthbinding. When 6+ file groups, use wave-based execution: each wave spawns fresh fixers (named `mend-fixer-w{wave}-{idx}`), processes a bounded batch, then shuts down before the next wave starts. P1 findings are processed in the earliest waves.
 
 **Fixer tool set (RESTRICTED)**: Read, Write, Edit, Glob, Grep, TaskList, TaskGet, TaskUpdate, SendMessage. No Bash, no TeamCreate/TeamDelete/TaskCreate.
 
@@ -268,11 +271,11 @@ When Goldmask data is available from Phase 0.5, inject risk context into each fi
 
 See [goldmask-mend-context.md](references/goldmask-mend-context.md) for the full protocol — `renderRiskContextTemplate()`, `filterWisdomForFiles()`, `extractMustChangeFiles()`, `sanitizeFindingText()`, and SEC-001 sanitization rules.
 
-See [fixer-spawning.md](references/fixer-spawning.md) for full fixer prompt template and batch monitoring logic.
+See [fixer-spawning.md](references/fixer-spawning.md) for full fixer prompt template and wave-based execution logic.
 
 ## Phase 4: MONITOR
 
-Poll TaskList to track fixer progress. Applies to single-batch case only (when `totalBatches === 1`). Sequential batching handles its own per-batch monitoring inline in Phase 3.
+Poll TaskList to track fixer progress per wave. Each wave has its own monitoring cycle with proportional timeout (`totalTimeout / totalWaves`).
 
 ```javascript
 const SETUP_BUDGET = 300_000        // 5 min
