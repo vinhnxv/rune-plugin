@@ -4,7 +4,9 @@ All worker spawn prompts MUST include the following TODO FILE PROTOCOL block. Wo
 
 ## Todo File Location
 
-`tmp/work/{timestamp}/todos/{worker-name}.md`
+`tmp/work/{timestamp}/worker-logs/{worker-name}.md`
+
+> **Note**: Per-worker session logs moved from `todos/` to `worker-logs/` in v1.101.0. The `todos/` directory now holds only per-task file-todos (YAML frontmatter format, managed by the orchestrator).
 
 ## Required YAML Frontmatter (4 fields only)
 
@@ -23,7 +25,7 @@ plan_path: {planPath}
 
 ```
 TODO FILE PROTOCOL (mandatory):
-1. On first task claim: create tmp/work/{timestamp}/todos/{your-name}.md
+1. On first task claim: create tmp/work/{timestamp}/worker-logs/{your-name}.md
    with YAML frontmatter:
    ---
    worker: {your-name}
@@ -49,21 +51,21 @@ during summary generation. Workers MUST NOT write counter fields.
 
 ## Orchestrator: Summary Generation (Phase 4.1)
 
-After ward check passes and all workers have exited, the orchestrator generates `todos/_summary.md`.
+After ward check passes and all workers have exited, the orchestrator generates `worker-logs/_summary.md`.
 
-**Inputs**: All `todos/{worker-name}.md` files in `tmp/work/{timestamp}/todos/`
-**Outputs**: `tmp/work/{timestamp}/todos/_summary.md`
+**Inputs**: All `{worker-name}.md` files in `tmp/work/{timestamp}/worker-logs/`
+**Outputs**: `tmp/work/{timestamp}/worker-logs/_summary.md`
 **Preconditions**: Ward check passed (Phase 4), all workers completed/shutdown
-**Error handling**: Missing or unparseable todo file → skip that worker in summary (warn). Empty todos dir → skip summary generation entirely (non-blocking).
+**Error handling**: Missing or unparseable log file → skip that worker in summary (warn). Empty worker-logs dir → skip summary generation entirely (non-blocking).
 
 ```javascript
-const todoDir = `tmp/work/${timestamp}/todos`
-const todoFiles = Glob(`${todoDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
+const workerLogsDir = `tmp/work/${timestamp}/worker-logs`
+const todoFiles = Glob(`${workerLogsDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
 
-// SEC-002: Validate path containment — reject symlinks or paths outside todoDir
+// SEC-002: Validate path containment — reject symlinks or paths outside workerLogsDir
 const safeTodoFiles = todoFiles.filter(f => {
   const basename = f.split('/').pop().replace('.md', '')
-  return /^[a-zA-Z0-9_-]+$/.test(basename) && f.startsWith(todoDir)
+  return /^[a-zA-Z0-9_-]+$/.test(basename) && f.startsWith(workerLogsDir)
 })
 
 if (safeTodoFiles.length === 0) {
@@ -150,14 +152,14 @@ ${workers.map(w => `| ${sanitizeCell(w.name)} | ${sanitizeCell(w.role)} | ${w.ta
 
 ${workers.flatMap(w => w.decisions.map(d => `- **${sanitizeCell(w.name)}**: ${sanitizeCell(d)}`)).join('\n') || '- No decisions recorded'}
 `
-    Write(`${todoDir}/_summary.md`, summary)
+    Write(`${workerLogsDir}/_summary.md`, summary)
   }
 }
 ```
 
 ## PR Integration (Phase 6.5)
 
-If `todos/_summary.md` exists, append a collapsible Work Session section to the PR body:
+If `worker-logs/_summary.md` exists, append a collapsible Work Session section to the PR body:
 
 ```markdown
 ## Work Session
@@ -178,17 +180,19 @@ If `todos/_summary.md` exists, append a collapsible Work Session section to the 
 
 **Error handling**: Missing summary → fall back to existing PR body generation (non-blocking).
 
-## Per-Task File-Todos (v2)
+## Per-Task File-Todos (v2, mandatory)
 
-The orchestrator creates per-task todo files in `todos/` (project root) alongside the per-worker session logs. Suppressed when `--todos=false`.
+The orchestrator creates per-task todo files in `{todos_base}/work/` (session-scoped). File-todos are mandatory — there is no `--todos=false` option.
 
 ### Orchestrator: Per-Task Todo Creation (Phase 1)
 
 After creating TaskCreate entries, generate corresponding per-task todo files:
 
 ```javascript
-const talisman = readTalisman()
-const todosDir = resolveTodosDir($ARGUMENTS, talisman, "work")
+// Session-scoped: each strive session gets its own todos directory
+const workflowOutputDir = `tmp/work/${timestamp}/`
+const todosDir = resolveTodosDir(workflowOutputDir, "work")
+//   → "tmp/work/{timestamp}/todos/work/"
 Bash(`mkdir -p "${todosDir}"`)
 
 // Get next sequential ID — use max(existing IDs) + 1 to avoid collision when gaps exist
@@ -218,7 +222,7 @@ for (const task of extractedTasks) {
   const filename = `${issueId}-ready-${priority}-${slug}.md`
 
   Write(`${todosDir}${filename}`, generateTodoFromTask(task, {
-    schema_version: 1,
+    schema_version: 2,
     status: "ready",            // work tasks are pre-triaged
     priority,
     issue_id: issueId,
@@ -226,7 +230,8 @@ for (const task of extractedTasks) {
     source_ref: planPath,
     tags: [`task-${task.id}`],
     files: task.fileTargets || [],
-    work_session: timestamp,    // session correlation
+    wave: task.wave || null,    // from wave grouping (v2 field)
+    workflow_chain: [`strive:${timestamp}`],  // v2 field
     created: today,
     updated: today
   }))
@@ -257,8 +262,8 @@ After all workers exit, update per-task todo frontmatter:
 const todoFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
 for (const todoFile of todoFiles) {
   const fm = parseFrontmatter(Read(todoFile))
-  // Only update todos from THIS work session
-  if (fm.work_session !== timestamp) continue
+  // Session isolation: only update todos from THIS workflow output dir
+  if (!todoFile.startsWith(`tmp/work/${timestamp}/todos/`)) continue
   if (fm.source !== 'work') continue
 
   // Find corresponding TaskCreate entry
@@ -282,16 +287,17 @@ for (const todoFile of todoFiles) {
 
 ### Stale Cleanup (Phase 6, Step 3.55)
 
-Scoped to current session only via `work_session` field:
+Scoped to current session only via directory path (session-scoped model):
 
 ```javascript
 const todoFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
 for (const todoFile of todoFiles) {
+  // Path-based session isolation — todos are in session-scoped directory
+  if (!todoFile.startsWith(`tmp/work/${timestamp}/todos/`)) continue
   const fm = parseFrontmatter(Read(todoFile))
-  if (fm.work_session !== timestamp) continue  // Skip other sessions' todos
   if (fm.status === 'in_progress') {
-    Edit(todoFile, { old_string: 'status: in_progress', new_string: 'status: blocked' })
-    warn(`Per-task todo ${todoFile} was in_progress at cleanup — marked blocked`)
+    Edit(todoFile, { old_string: 'status: in_progress', new_string: 'status: interrupted' })
+    warn(`Per-task todo ${todoFile} was in_progress at cleanup — marked interrupted`)
   }
 }
 ```
@@ -301,9 +307,9 @@ for (const todoFile of todoFiles) {
 Workers may be killed before updating status. Phase 6 step 3.5 fixes any "active" files to "interrupted":
 
 ```javascript
-const todoDir = `tmp/work/${timestamp}/todos`
-const todoFiles = Glob(`${todoDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
-  .filter(f => /^[a-zA-Z0-9_-]+\.md$/.test(f.split('/').pop()) && f.startsWith(todoDir)) // SEC-002
+const workerLogsDir = `tmp/work/${timestamp}/worker-logs`
+const todoFiles = Glob(`${workerLogsDir}/*.md`).filter(f => !f.endsWith('_summary.md'))
+  .filter(f => /^[a-zA-Z0-9_-]+\.md$/.test(f.split('/').pop()) && f.startsWith(workerLogsDir)) // SEC-002
 for (const todoFile of todoFiles) {
   try {
     const content = Read(todoFile)

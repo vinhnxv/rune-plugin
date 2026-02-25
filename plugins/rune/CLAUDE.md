@@ -32,7 +32,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **arc-hierarchy** | Hierarchical plan execution — orchestrates parent/child plan decomposition with dependency DAGs, requires/provides contracts, and feature branch strategy. Use when a plan has been decomposed into child plans via /rune:devise Phase 2.5 Hierarchical option |
 | **arc-issues** | GitHub Issues-driven batch arc execution — fetches issues by label or number, generates plans in `tmp/gh-plans/`, runs /rune:arc for each, posts summary comments, closes issues via `Fixes #N`. Stop hook loop pattern (same resilience as arc-batch) |
 | **audit** | Full codebase audit — thin wrapper that sets scope=full, depth=deep, then delegates to shared Roundtable Circle orchestration phases. Default: deep. Use `--standard` to override. (v1.84.0+) Use `--incremental` for stateful 3-tier auditing (file, workflow, API) with persistent priority scoring and coverage tracking. (v1.91.0+) Use `--dirs`/`--exclude-dirs` for directory-scoped audits (Phase 0 pre-filter). Use `--prompt`/`--prompt-file` for custom per-session Ash instructions (Phase 0.5B injection). |
-| **file-todos** | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 7 subcommands). Always active; suppress with `--todos=false` |
+| **file-todos** | Unified file-based todo tracking (6-state lifecycle, YAML frontmatter, 13 subcommands including manifest, dedup, resolve). Always active (mandatory). Session-scoped in `tmp/{workflow}/{id}/todos/`. |
 | **forge** | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer integration (Phase 1.5) for risk-aware section prioritization |
 | **git-worktree** | Use when running /rune:strive with --worktree flag or when work.worktree.enabled is set in talisman. Covers worktree lifecycle, wave-based execution, merge strategy, and conflict resolution patterns |
 | **inspect** | Plan-vs-implementation deep audit with 4 Inspector Ashes (9 dimensions, 8 gap categories). Goldmask Lore Layer integration (Phase 1.3) for risk-aware gap prioritization |
@@ -58,7 +58,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | `/rune:cancel-arc-issues` | Cancel active arc-issues batch loop, remove state file, and optionally cleanup orphaned labels |
 | `/rune:echoes` | Manage Rune Echoes memory (show, prune, reset, init) + Remembrance |
 | `/rune:elicit` | Interactive elicitation method selection |
-| `/rune:file-todos` | Manage file-based todos (create, triage, status, list, next, search, archive) |
+| `/rune:file-todos` | Manage file-based todos (create, triage, status, list, next, search, manifest, dedup, resolve) |
 | `/rune:rest` | Remove tmp/ artifacts from completed workflows |
 | `/rune:plan` | Beginner alias for `/rune:devise` — plan a feature or task |
 | `/rune:work` | Beginner alias for `/rune:strive` — implement a plan |
@@ -73,8 +73,8 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 5. On compaction or session resume: re-read team config, task list, and inscription contract.
 6. Agent output goes to `tmp/` files (ephemeral). Echoes go to `.claude/echoes/` (persistent).
 6a. **Todo files**: Two distinct todo systems exist — do not confuse them:
-    - **Per-worker session todos** (`tmp/work/{timestamp}/todos/{worker-name}.md`): Created by `/rune:strive` workers during swarm execution. Ephemeral, session-scoped. The orchestrator generates `_summary.md` at Phase 4.1 and includes it in the PR body.
-    - **Project-level file-todos** (`todos/`): Persistent, project-scoped structured todos with YAML frontmatter (6-state lifecycle). Always active (suppress with `--todos=false`). Auto-generated from TOME findings (Phase 5.4 in review) and updated by mend (Phase 5.9). Managed via `/rune:file-todos`. See `skills/file-todos/references/integration-guide.md` for namespace disambiguation.
+    - **Per-worker session logs** (`tmp/work/{timestamp}/worker-logs/{worker-name}.md`): Created by `/rune:strive` workers during swarm execution. Ephemeral, session-scoped. The orchestrator generates `_summary.md` at Phase 4.1 in `worker-logs/` and includes it in the PR body.
+    - **Session-scoped file-todos** (`tmp/{workflow}/{id}/todos/{source}/`): Mandatory structured todos with YAML frontmatter (schema v2, status history, per-source manifests). Always active. Auto-generated from TOME findings (Phase 5.4 in review) and updated by mend (Phase 5.9). Managed via `/rune:file-todos`. See `skills/file-todos/references/integration-guide.md` for the session-scoped model and cross-write isolation pattern.
 7. `/rune:*` namespace — coexists with other plugins without conflicts.
 8. **zsh compatibility** (macOS default shell):
    - **Read-only variables**: Never use `status` as a Bash variable name — it is read-only in zsh. Use `task_status`, `tstat`, or `completion_status` instead. Also avoid: `pipestatus`, `ERRNO`, `signals`.
