@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.101.2] - 2026-02-25
+
+### Fixed
+- **P1: enforce-readonly.sh** — exit 2 (not 0) when jq missing; security gate was silently passing
+- **P1: file-todos.md** — command name corrected to `rune:file-todos` namespace prefix
+- **P2: echo-search/server.py** — `_in_clause()` helper replaces 4 SQL format string patterns
+- **P2: image_handler.py** — restrict URL scheme to `https://` only
+- **P2: hooks.json** — wire `Notification:statusline` hook for `rune-statusline.sh`
+- **P2: figma_client.py** — `_int_env()` safe env parsing + `try/except` on Retry-After `float()`
+- **P2: validate-strive-worker-paths.sh** — source `resolve-session-identity.sh` for `rune_pid_alive()`
+- **P2: on-teammate-idle.sh** — rename `INSCRIPTION_PATH` to `SECTIONS_INSCRIPTION_PATH` (variable shadowing)
+- **P2: react_generator.py** — dotted imports replaced with absolute imports
+- **P2: cross-shard-sentinel.md** — tools field converted to YAML list format
+- **P2: ash-guide/SKILL.md** — agent count corrected 67→89
+- **P2: 9 skills** — added `disable-model-invocation: false` frontmatter
+- **P3: rune-statusline.sh** — atomic `mktemp+mv` for bridge file write
+- **P3: verify-team-cleanup.sh** — symlink guard + user-scoped trace log path
+- **P3: session-start.sh** — strip remaining C0 control chars (`tr`) in jq fallback
+- **P3: advise-post-completion.sh** — `TMPDIR`-based debounce path
+- **P3: node_parser.py** — `_MAX_PARSE_DEPTH=100` recursion guard on `parse_node()` and `_has_vector_children()`
+- **P3: figma_client.py** — `ResponseCache` LRU eviction with `max_entries=256`
+- **P3: decomposer.py** — `TTLCache.put()` evicts expired entries before LRU eviction
+- **P3: codex-exec.sh** — separate SIGABRT (134) and SIGSEGV (139) exit code classification
+- **P3: enforce-team-lifecycle.sh** — check active state files before `rm -rf` cleanup
+- **P3: arc-hierarchy-stop-hook.sh** — documented cycle detection via deadlock path
+- **P3: 5 review agents** — added `mcpServers: echo-search`
+- **P3: naming-intent-analyzer.md** — removed stale `skills:` field
+- **P3: skill-testing/SKILL.md** — added `allowed-tools: Read, Glob, Grep`
+
+### Changed
+- README: corrected version badge (1.99.0→1.101.2), agent count (89→88), utility agents (12→11), skills count (33→38)
+
 ## [1.101.1] - 2026-02-25
 
 ### Fixed
