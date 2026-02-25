@@ -122,7 +122,60 @@ CRITICAL_THRESHOLD=25
 [[ "$CRITICAL_THRESHOLD" -lt 10 ]] && CRITICAL_THRESHOLD=10
 [[ "$CRITICAL_THRESHOLD" -gt 50 ]] && CRITICAL_THRESHOLD=50
 
-# Above threshold → allow silently
+# --- Tier 1: Caution (40%) — advisory only, no block ---
+CAUTION_THRESHOLD=40
+if [[ "$REM_INT" -le "$CAUTION_THRESHOLD" && "$REM_INT" -gt 35 ]]; then
+  jq -n \
+    --arg ctx "CTX-CAUTION: Context at $((100 - REM_INT))% used (${REM_INT}% remaining). Consider: (1) compress long messages, (2) avoid deep-reading files already seen, (3) prefer file-based output over inline responses." \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $ctx}}' 2>/dev/null || true
+  exit 0
+fi
+
+# --- Tier 2: Warning (35%) — advisory with workflow-specific degradation suggestions ---
+WARNING_THRESHOLD=35
+if [[ "$REM_INT" -le "$WARNING_THRESHOLD" && "$REM_INT" -gt "$CRITICAL_THRESHOLD" ]]; then
+  # Detect current workflow from state files (explicit paths — Concern C3)
+  WORKFLOW="unknown"
+  for sf in \
+    "$CWD/tmp/.rune-review-"*.json \
+    "$CWD/tmp/.rune-work-"*.json \
+    "$CWD/tmp/.rune-forge-"*.json \
+    "$CWD/tmp/.rune-plan-"*.json \
+    "$CWD/tmp/.rune-arc-"*.json; do
+    [[ -f "$sf" ]] || continue
+    # Session ownership check before reading
+    SF_CFG=$(jq -r '.config_dir // empty' < "$sf" 2>/dev/null || true)
+    SF_PID=$(jq -r '.owner_pid // empty' < "$sf" 2>/dev/null || true)
+    [[ -n "$SF_CFG" && "$SF_CFG" != "$RUNE_CURRENT_CFG" ]] && continue
+    if [[ -n "$SF_PID" && "$SF_PID" =~ ^[0-9]+$ && "$SF_PID" != "$PPID" ]]; then
+      rune_pid_alive "$SF_PID" && continue
+    fi
+    WORKFLOW=$(jq -r '.workflow // "unknown"' < "$sf" 2>/dev/null || echo "unknown")
+    break
+  done
+
+  SUGGESTION=""
+  case "$WORKFLOW" in
+    review|appraise|audit)
+      SUGGESTION="Reduce team to 3-4 Ashes. Skip deep review if standard suffices." ;;
+    work|strive)
+      SUGGESTION="Complete current task, skip optional tasks. Commit what is done." ;;
+    arc)
+      SUGGESTION="Skip optional phases (forge, codex-gap, test-coverage-critique). Proceed to ship." ;;
+    devise|plan)
+      SUGGESTION="Skip forge enrichment. Proceed directly to plan review." ;;
+    *)
+      SUGGESTION="Reduce scope. Prefer file-based output. Consider /compact." ;;
+  esac
+
+  jq -n \
+    --arg ctx "CTX-WARNING: Context at $((100 - REM_INT))% used (${REM_INT}% remaining). Workflow: ${WORKFLOW}. Suggested: ${SUGGESTION}. Escape: /compact or /rune:rest." \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $ctx}}' 2>/dev/null || true
+  exit 0
+fi
+
+# --- Tier 3: Critical (25%) — hard DENY ---
+# Above critical threshold → allow silently
 if [[ "$REM_INT" -gt "$CRITICAL_THRESHOLD" ]]; then
   exit 0
 fi
