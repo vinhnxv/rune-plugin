@@ -1075,6 +1075,18 @@ See [arc-phase-merge.md](references/arc-phase-merge.md) for the full algorithm.
 
 Read and execute the arc-phase-merge.md algorithm. Update checkpoint on completion.
 
+## Phase Summary Generation (Context Compression)
+
+See [phase-summary-template.md](references/phase-summary-template.md) for the template, phase group definitions, and checkpoint integration.
+
+The orchestrator writes a phase group summary after each group of phases completes. This compresses multi-phase history into ~50-line summaries before the next group begins, preventing context exhaustion across the 23-phase pipeline.
+
+**Phase groups**: `forge` (1–2.7), `verify` (2.8–4.5), `work` (5–5.8), `review` (6–7.5), `ship` (7.7–9.5)
+
+**Read-back gate (C11)**: After writing `phase-summary-{group}.md`, treat it as the sole reference for that group. Do NOT re-read individual phase artifacts from completed groups. On `--resume`, read `checkpoint.phase_summaries` to restore compressed state.
+
+**Cleanup note**: Summary files are persistent arc artifacts — excluded from `postPhaseCleanup`. They are removed only by `rest.md` arc session cleanup.
+
 ## Phase Transition Contracts (ARC-3)
 
 | From | To | Artifact | Contract |
