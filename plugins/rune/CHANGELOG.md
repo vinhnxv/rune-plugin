@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.101.1] - 2026-02-25
+
+### Fixed
+- **Response completion after arc**: Added explicit "Response Completion" section to arc SKILL.md with mandatory turn-end instruction after ARC-9 sweep. Prevents infinite TeammateIdle notification loop that kept Claude Code "Vibing..." after successful arc completion (session stays open for user input)
+- **ARC-9 time budget**: Consolidated shutdown_request pattern (send ALL at once + ONE sleep 15s) instead of per-phase sleep. Removed Strategy D prefix sweep from ARC-9 (delegated to on-session-stop.sh). Total ARC-9 budget reduced from 2+ minutes to 30 seconds max
+- **Arc-batch summary loop guard**: Added rm verification + chmod+truncate fallback in arc-batch-stop-hook.sh. If state file removal fails, prevents infinite `decision:"block"` summary loop (Finding #1)
+- **Stale loop file fallback in on-session-stop.sh**: Added 10-minute staleness check for arc-batch/arc-hierarchy/arc-issues loop state files. If loop hook crashed and file is stale, force cleanup instead of deferring indefinitely (Finding #5)
+- **Compact recovery stale state injection**: session-compact-recovery.sh now cross-checks actual loop state file (`.claude/arc-*-loop.local.md`) before injecting "resume batch" context. Prevents restarting completed batch after 500k+ token compaction (Finding #8)
+
 ## [1.101.0] - 2026-02-25
 
 ### Added

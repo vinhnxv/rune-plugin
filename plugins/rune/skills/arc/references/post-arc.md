@@ -103,106 +103,105 @@ Next steps:
 > but there is no subsequent phase to trigger cleanup after Phase 9.5 (the last phase).
 > Phases 9 and 9.5 are orchestrator-only so their cleanup is a no-op, but Phase 7 (MEND)
 > and Phase 6 (CODE REVIEW) summon teams that need cleanup.
+>
+> **TIME BUDGET: 30 seconds max.** ARC-9 must NOT become the bottleneck that prevents session
+> termination. Send all shutdown_requests at once, wait ONCE, then attempt TeamDelete.
+> If cleanup is incomplete, the `on-session-stop.sh` Stop hook handles remaining cleanup
+> automatically via filesystem fallback.
+>
+> **CRITICAL — Idle notification trap**: After ARC-9, do NOT process any `TeammateIdle`
+> notifications. Responding to zombie teammate idle messages creates an infinite loop that
+> prevents the session from ending. IGNORE all teammate messages after this point.
 
 ```javascript
 // POST-ARC FINAL SWEEP (ARC-9)
-// Catches zombie teammates from the last delegated phases (Phase 7: MEND and Phase 6: CODE REVIEW).
-// prePhaseCleanup only runs BEFORE each phase — nothing cleans up AFTER the last phase.
-// Without this, teammates survive and the lead spins on idle notifications indefinitely.
+// TIME BUDGET: 30 seconds max. Do NOT exceed this.
+// Catches zombie teammates from the last delegated phases.
+// If incomplete, on-session-stop.sh handles remaining cleanup.
 
 // Resolve config directory once (CLAUDE_CONFIG_DIR aware)
 const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
 
 try {
-  // Strategy A: Discover remaining teammates from checkpoint and shutdown
-  // Iterate ALL phases with recorded team_name (not just the last one —
-  // earlier phases may also have zombies if their cleanup was incomplete).
+  // ── Step 1: Collect ALL team members from ALL phases at once ──
+  // Do NOT sleep per-phase — collect all members first, then one single sleep.
+  const allMembers = []  // { name, teamName }
+  const allTeamNames = []
+
   for (const [phaseName, phaseInfo] of Object.entries(checkpoint.phases)) {
     if (FORBIDDEN_PHASE_KEYS.has(phaseName)) continue
     if (!phaseInfo?.team_name || typeof phaseInfo.team_name !== 'string') continue
     if (!/^[a-zA-Z0-9_-]+$/.test(phaseInfo.team_name)) continue
 
     const teamName = phaseInfo.team_name
+    allTeamNames.push(teamName)
 
-    // Try to read team config to discover live members
     try {
       const teamConfig = Read(`${CHOME}/teams/${teamName}/config.json`)
       const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-      const memberNames = members.map(m => m.name).filter(Boolean)
-
-      if (memberNames.length > 0) {
-        // Send shutdown_request to every discovered member
-        for (const member of memberNames) {
-          SendMessage({ type: "shutdown_request", recipient: member, content: "Arc pipeline complete — final sweep" })
-        }
-        // Grace period — let teammates deregister before TeamDelete (15s)
-        Bash(`sleep 15`)
+      for (const m of members) {
+        if (m.name) allMembers.push({ name: m.name, teamName })
       }
     } catch (e) {
       // Team config unreadable — dir may already be gone. That's fine.
     }
   }
 
-  // Strategy B: Clear SDK leadership state with retry-with-backoff
-  // Same pattern as prePhaseCleanup Strategy 1 — must clear SDK state
-  // so the session can exit cleanly without spinning on idle notifications.
-  // SYNC-POINT: team_name validation regex must stay in sync with arc-preflight.md
-  const SWEEP_DELAYS = [0, 3000, 5000]
+  // ── Step 2: Send ALL shutdown_requests at once (no sleep between) ──
+  for (const member of allMembers) {
+    SendMessage({ type: "shutdown_request", recipient: member.name, content: "Arc pipeline complete — final sweep" })
+  }
+
+  // ── Step 3: ONE single grace period (15s max) ──
+  if (allMembers.length > 0) {
+    Bash(`sleep 15`)
+  }
+
+  // ── Step 4: TeamDelete — single attempt ──
+  // If this fails, filesystem fallback handles it. No retry loop.
   let sweepCleared = false
-  for (let attempt = 0; attempt < SWEEP_DELAYS.length; attempt++) {
-    if (attempt > 0) Bash(`sleep ${SWEEP_DELAYS[attempt] / 1000}`)
-    try { TeamDelete(); sweepCleared = true; break } catch (e) {
-      // Expected if no active team — SDK state already clear
-    }
+  try { TeamDelete(); sweepCleared = true } catch (e) { /* expected if no active team */ }
+
+  // ── Step 5: Filesystem fallback — rm -rf all checkpoint-recorded teams ──
+  // Runs regardless of TeamDelete result to ensure dirs are cleaned.
+  // on-session-stop.sh also does this, but doing it here is faster.
+  if (allTeamNames.length > 0) {
+    const rmCommands = allTeamNames.map(tn =>
+      `rm -rf "$CHOME/teams/${tn}/" "$CHOME/tasks/${tn}/" 2>/dev/null`
+    ).join('; ')
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && ${rmCommands}`)
   }
 
-  // Strategy C: Filesystem fallback — rm -rf all checkpoint-recorded teams
-  // Only runs if TeamDelete didn't succeed (same CDX-003 gate as prePhaseCleanup)
+  // ── Step 6: Final TeamDelete after filesystem cleanup ──
   if (!sweepCleared) {
-    for (const [pn, pi] of Object.entries(checkpoint.phases)) {
-      if (FORBIDDEN_PHASE_KEYS.has(pn)) continue
-      if (!pi?.team_name || typeof pi.team_name !== 'string') continue
-      if (!/^[a-zA-Z0-9_-]+$/.test(pi.team_name)) continue
-
-      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${pi.team_name}/" "$CHOME/tasks/${pi.team_name}/" 2>/dev/null`)
-    }
-    // Final TeamDelete attempt after filesystem cleanup
-    try { TeamDelete() } catch (e) { /* SDK state cleared or was already clear */ }
+    try { TeamDelete() } catch (e) { /* done */ }
   }
 
-  // Strategy D (v1.68.0): Prefix-based sweep for any teams missed by checkpoint
-  // This catches teams where team_name was null (sub-command crash before state file).
-  // Strategy D runs last because prefix-scan targets sub-command teams where this
-  // session was never the leader — TeamDelete cannot release their SDK state.
-  // Only rm-rf is needed. (rune-architect #4: ordering rationale documented)
-  // Uses ARC_TEAM_PREFIXES from arc-preflight.md (loaded in dispatcher init context).
-  for (const prefix of ARC_TEAM_PREFIXES) {
-    if (!/^[a-z-]+$/.test(prefix)) continue
-    // Resolve CHOME inline within same Bash call (ward-sentinel #4: prevents quoting gap)
-    const dirs = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
-    for (const dir of dirs) {
-      const teamName = dir.split('/').pop()
-      if (!teamName || !/^[a-zA-Z0-9_-]+$/.test(teamName)) continue
-      if (teamName.includes('..')) continue
-      // Session ownership check (v1.68.0 mend fix — SEC-001)
-      const sessionMarker = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/${teamName}/.session" && cat "$CHOME/teams/${teamName}/.session" 2>/dev/null`).trim()
-      const currentSessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
-      if (!sessionMarker || sessionMarker !== currentSessionId) {
-        warn(`ARC-9 Strategy D: Skipping ${teamName} — no session marker or belongs to another session`)
-        continue
-      }
-      // SEC: Atomic symlink guard + rm-rf in single Bash call (closes TOCTOU window)
-      warn(`ARC-9 Strategy D: Cleaning orphan ${teamName}`)
-      // SEC: teamName validated above with /^[a-zA-Z0-9_-]+$/ — shell injection not possible
-      Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && [[ ! -L "$CHOME/teams/${teamName}" ]] && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
-    }
-  }
-  // Final TeamDelete after prefix sweep
-  try { TeamDelete() } catch (e) { /* done */ }
+  // NOTE: Strategy D (prefix-based sweep) is deliberately REMOVED from ARC-9.
+  // The on-session-stop.sh Stop hook handles prefix-based orphan cleanup
+  // automatically when the session ends. Keeping it here added 10-30s of
+  // find + cat + rm per prefix, which caused the session to hang.
 
 } catch (e) {
-  // Defensive — final sweep must NEVER halt the pipeline or prevent the completion
-  // report from being shown. If this fails, the user can still /rune:cancel-arc.
-  warn(`ARC-9: Final sweep failed (${e.message}) — use /rune:cancel-arc if session is stuck`)
+  // Defensive — final sweep must NEVER halt the pipeline or prevent response completion.
+  warn(`ARC-9: Final sweep failed (${e.message}) — on-session-stop.sh will handle cleanup`)
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// RESPONSE COMPLETE — FINISH YOUR TURN NOW
+// ══════════════════════════════════════════════════════════════════════
+// After this point, do NOT:
+//   - Process any TeammateIdle notifications (creates infinite loop)
+//   - Respond to any teammate messages
+//   - Use any tools
+//   - Attempt additional cleanup
+//
+// The on-session-stop.sh Stop hook automatically handles:
+//   - Remaining team dirs (prefix-based scan + rm-rf)
+//   - State files (active → stopped)
+//   - Arc checkpoints (in_progress → cancelled)
+//
+// Your turn ENDS HERE. Return control to the user.
+// The session stays open for further prompts.
+// ══════════════════════════════════════════════════════════════════════
 ```
