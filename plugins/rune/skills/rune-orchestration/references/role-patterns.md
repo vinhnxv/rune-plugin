@@ -76,7 +76,7 @@ Post-review agents that verify Ash output quality. Run AFTER all Ash complete.
 # Layer 2: Smart Verifier (summoned by lead after Ash complete)
 Task:
   subagent_type: "general-purpose"
-  model: haiku
+  model: resolveModelForAgent("truthseer-validator", talisman)  # Cost tier mapping
   description: "Truthsight Verifier"
   prompt: [from references/verifier-prompt.md]
   # Writes to: {output_dir}/truthsight-report.md
@@ -84,7 +84,7 @@ Task:
 # Re-verify agents (max 2 per workflow, summoned on hallucination detection)
 Task:
   subagent_type: "general-purpose"
-  model: haiku
+  model: resolveModelForAgent("truthseer-validator", talisman)  # Cost tier mapping (re-verify uses same category)
   description: "Re-verify {ash}-{finding}"
   # Writes to: {output_dir}/re-verify-{ash}-{finding}.md
 ```

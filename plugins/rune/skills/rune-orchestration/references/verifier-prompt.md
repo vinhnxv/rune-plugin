@@ -15,7 +15,7 @@
 ```
 Task:
   subagent_type: "general-purpose"
-  model: haiku
+  model: resolveModelForAgent("truthseer-validator", talisman)  # Cost tier mapping
   description: "Truthsight Verifier for review #{id}"
   prompt: [this template with variables filled]
 ```

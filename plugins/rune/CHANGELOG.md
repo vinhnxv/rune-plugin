@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.100.0] - 2026-02-25
+
+### Added
+- **Cost Tier Agent Model Selection** — Centralized `cost_tier` config in `talisman.yml` that controls which Claude model (opus/sonnet/haiku) each agent category uses when spawned. One switch, four profiles: `opus` (100% cost, maximum quality), `balanced` (default, ~35-40%), `efficient` (~20-25%), `minimal` (~15-20%)
+  - **8 agent categories** — Truth-tellers (10 agents), Deep analysis (18), Standard review (31), Code workers (5), Research (5), Tracers (6), Utility (8), Testing (4). 87 agents total classified
+  - **`resolveModelForAgent()` pseudo-function** — Maps agent name → category → tier → model string. Exception handling for `test-failure-analyst` (always elevated). Unknown agents fall back to tier defaults
+  - **Reference file** — `references/cost-tier-mapping.md` with full tier definitions, category-to-tier model map, agent-to-category assignments, and pseudocode implementation
+  - **Talisman config** — `cost_tier: balanced` (default). Added to `talisman.example.yml` with documented tier descriptions
+  - **20+ spawn site updates** — All hardcoded `model: "sonnet"`, `model: "haiku"`, `model: "opus"` replaced with `resolveModelForAgent()` calls across: `orchestration-phases.md` (3), `SKILL.md` (2), `worker-prompts.md` (2), `arc-phase-test.md` (4), `arc-phase-plan-review.md` (1), `gap-analysis.md` (2), `gap-remediation.md` (1), `inspector-prompts.md` (2), `verdict-synthesis.md` (1), `verifier-prompt.md` (1), `role-patterns.md` (2), `arc-phase-design-*.md` (3)
+  - **CLAUDE.md updated** — `resolveModelForAgent()` added to Core Pseudo-Functions section
+
+### Notes
+- Custom Ashes defined by users are NOT affected by `cost_tier` — they may use non-Claude models
+- Codex Oracle has its own `codex.model` config path — NOT affected
+- Main session model is controlled by Claude Code settings — NOT affected
+- Agent frontmatter `model:` becomes the fallback when `cost_tier` is not set in talisman
+
 ## [1.99.0] - 2026-02-25
 
 ### Added

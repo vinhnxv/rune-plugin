@@ -47,7 +47,7 @@ Task({
   subagent_type: "general-purpose",
   team_name: teamName,
   name: "verdict-binder",
-  model: "sonnet",
+  model: resolveModelForAgent("verdict-binder", talisman),  // Cost tier mapping
   run_in_background: true
 })
 ```

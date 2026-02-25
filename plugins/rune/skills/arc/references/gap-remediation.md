@@ -274,7 +274,7 @@ Task({
   subagent_type: "general-purpose",
   team_name: fixTeamName,
   name: "gap-fixer",
-  model: "sonnet",
+  model: resolveModelForAgent("gap-fixer", talisman),  // Cost tier mapping
   run_in_background: true
 })
 ```

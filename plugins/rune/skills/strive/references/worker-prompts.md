@@ -39,6 +39,7 @@ Task({
   team_name: "rune-work-{timestamp}",
   name: "rune-smith",
   subagent_type: "general-purpose",
+  model: resolveModelForAgent("rune-smith", talisman),  // Cost tier mapping (references/cost-tier-mapping.md)
   max_turns: 75,
   prompt: `You are Rune Smith -- a swarm implementation worker.
 
@@ -171,6 +172,7 @@ Task({
   team_name: "rune-work-{timestamp}",
   name: "trial-forger",
   subagent_type: "general-purpose",
+  model: resolveModelForAgent("trial-forger", talisman),  // Cost tier mapping (references/cost-tier-mapping.md)
   max_turns: 50,
   prompt: `You are Trial Forger -- a swarm test worker.
 

@@ -418,7 +418,7 @@ if (inscription.sharding?.enabled) {
       team_name: teamName,
       name: cross_shard.reviewer_name,
       subagent_type: "general-purpose",
-      model: "sonnet",  // Match cross-shard-sentinel.md agent definition
+      model: resolveModelForAgent("cross-shard-sentinel", talisman),  // Cost tier mapping (references/cost-tier-mapping.md)
       prompt: buildCrossShardPrompt(availableSummaries, { outputDir }),
       run_in_background: true
     })
@@ -756,7 +756,7 @@ Summon conditions: Roundtable Circle with 3+ Ashes, or audit with 5+ Ashes.
 ```
 Task({
   subagent_type: "general-purpose",
-  model: "haiku",
+  model: resolveModelForAgent("truthseer-validator", talisman),  // Cost tier mapping
   description: "Truthsight Verifier",
   prompt: [from ../rune-orchestration/references/verifier-prompt.md]
 })

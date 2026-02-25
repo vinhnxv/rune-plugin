@@ -61,7 +61,7 @@ investigators — each assigned ONE hypothesis to confirm or falsify with eviden
 debug:
   max_investigators: 4        # 1-6, default 4
   timeout_ms: 420_000         # 7 min per investigation round
-  model: sonnet               # investigators model (lead inherits session model)
+  model: sonnet               # default investigators model; overridden by cost_tier via resolveModelForAgent()
   re_triage_rounds: 1         # max re-triage rounds before escalating to user
   echo_on_verdict: true       # persist verdict to rune-echoes after resolution
 ```
