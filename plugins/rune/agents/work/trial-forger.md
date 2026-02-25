@@ -319,6 +319,42 @@ This is not a suggestion — it is your commitment to the team.
 
 Match existing test patterns. Do not introduce new test utilities or frameworks. If no test patterns exist, use the simplest possible approach for the detected framework.
 
+## Question Relay Protocol
+
+When you encounter blocking ambiguity during test generation — such as unclear behavior to test or
+missing source exports — emit a structured question to the Tarnished via `SendMessage`. Do NOT use
+filesystem IPC. Do NOT block indefinitely; continue on non-blocking test work while waiting.
+
+**Question format:**
+```
+QUESTION: {concrete question — state the specific decision, not "what should I do?"}
+TASK: {task_id}
+URGENCY: blocking | non-blocking
+OPTIONS: [A: {option A}, B: {option B}]
+CONTEXT: {1-2 sentences — what you found and why it blocks}
+```
+
+**Emit via SendMessage:**
+```javascript
+SendMessage({
+  type: "message",
+  recipient: "{tarnished-name}",
+  content: "QUESTION: ...\nTASK: {task_id}\nURGENCY: blocking\nOPTIONS: [A: ..., B: ...]\nCONTEXT: ...",
+  summary: "Worker question on task #{task_id}"
+})
+```
+
+**While waiting**: If urgency is `non-blocking`, continue writing other tests.
+If `blocking`, work on other tasks from your task list while waiting for the answer.
+
+**On receiving answer**: The Tarnished sends `ANSWER: ... / TASK: ... / DECIDED_BY: user | auto-timeout`.
+If `DECIDED_BY: auto-timeout`, note the auto-selected assumption in your Seal message.
+
+**Question cap**: Maximum 3 questions per task. On cap, make best-effort decision using discovered
+test patterns, mark as "assumed — needs review" in your Seal. Do NOT emit more questions after cap.
+
+See [question-relay.md](../../skills/strive/references/question-relay.md) for full protocol details.
+
 ## Test Generation Scenarios
 
 ### Scenario 1: No Existing Test Patterns
