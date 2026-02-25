@@ -380,6 +380,59 @@ if [[ "$NEXT_CHILD" == *".."* ]] || [[ "$NEXT_CHILD" == /* ]] || [[ "$NEXT_CHILD
   exit 0
 fi
 
+# ── COMPACT INTERLUDE (v1.105.2): Force context compaction between iterations ──
+# Root cause: arc's 23-phase pipeline fills 80-90% of context window. Without
+# compaction, the next child starts in a nearly-full context and hits "Context
+# limit reached" within the first few phases.
+#
+# Two-phase state machine via compact_pending field:
+#   Phase A (compact_pending != "true"): set flag, inject lightweight checkpoint
+#     prompt to give auto-compaction a chance to fire between turns.
+#   Phase B (compact_pending == "true"): reset flag, inject actual arc prompt.
+COMPACT_PENDING=$(get_field "compact_pending")
+
+if [[ "$COMPACT_PENDING" != "true" ]]; then
+  # Phase A: Set compact_pending and inject compaction trigger
+  _STATE_TMP=$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }
+  if grep -q '^compact_pending:' "$STATE_FILE" 2>/dev/null; then
+    sed 's/^compact_pending: .*$/compact_pending: true/' "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null
+  else
+    # Insert compact_pending field before closing --- of YAML frontmatter
+    awk 'NR>1 && /^---$/ && !done { print "compact_pending: true"; done=1 } { print }' "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null
+  fi
+  if ! mv -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null; then
+    rm -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null; exit 0
+  fi
+  _trace "Compact interlude Phase A: injecting checkpoint before next child ${NEXT_CHILD}"
+
+  COMPACT_PROMPT="Arc Hierarchy — Context Checkpoint (child ${CURRENT_CHILD} completed)
+
+The previous child arc has completed. Acknowledge this checkpoint by responding with only:
+
+**Ready for next child.**
+
+Then STOP responding immediately. Do NOT execute any commands, read any files, or perform any actions."
+
+  SYSTEM_MSG="Arc hierarchy: context compaction interlude between children. Next child will start after this turn."
+
+  jq -n \
+    --arg prompt "$COMPACT_PROMPT" \
+    --arg msg "$SYSTEM_MSG" \
+    '{
+      decision: "block",
+      reason: $prompt,
+      systemMessage: $msg
+    }'
+  exit 0
+fi
+
+# Phase B: compact_pending was true — reset and proceed to arc prompt
+_STATE_TMP=$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }
+sed 's/^compact_pending: true$/compact_pending: false/' "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null \
+  && mv -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null \
+  || { rm -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null; exit 0; }
+_trace "Compact interlude Phase B: context checkpointed, proceeding to child arc prompt"
+
 # ── Mark next child as in_progress in execution table ──
 NEXT_TABLE=$(echo "$UPDATED_TABLE" | jq \
   --arg child "$NEXT_CHILD" \
