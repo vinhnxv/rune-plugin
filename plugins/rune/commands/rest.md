@@ -230,6 +230,8 @@ rm -rf tmp/scratch/
 # Remove event-driven signal files with symlink guard (unconditional — ephemeral hook artifacts)
 # Created by Phase 2 BRIDGE orchestrators when hooks are active. Safe no-op if absent.
 if [[ ! -L "tmp/.rune-signals" ]] && [[ -d "tmp/.rune-signals" ]]; then
+  # Remove .obs-* dedup files older than 7 days (on-task-observation.sh dedup keys)
+  find tmp/.rune-signals -maxdepth 2 -name '.obs-*' -mtime +7 -delete 2>/dev/null || true
   rm -rf tmp/.rune-signals/ 2>/dev/null
 fi
 
