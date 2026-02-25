@@ -384,7 +384,7 @@ context_monitor:
 - **Non-blocking**: all errors exit 0 — the monitor never blocks tool execution.
 - **Bridge file cleanup**: `on-session-stop.sh` scans `/tmp/rune-ctx-*.json` and removes files matching the current session's ownership markers.
 
-## Layer 6.1: Glyph Budget Hook Enforcement (v1.97.0)
+## Layer 6.1: Glyph Budget Hook Enforcement (v1.102.0)
 
 A `PostToolUse:SendMessage` hook (`scripts/enforce-glyph-budget.sh`) reinforces the Glyph Budget Protocol at the infrastructure layer. When any teammate sends a `SendMessage` call exceeding the word budget, the hook injects an advisory context message.
 
@@ -403,7 +403,7 @@ context_weaving:
     enforcement: advisory      # advisory | warning | block (future)
 ```
 
-## Layer 6.2: Adaptive Context Degradation (3-Tier System, v1.97.0)
+## Layer 6.2: Adaptive Context Degradation (3-Tier System, v1.102.0)
 
 The `guard-context-critical.sh` PreToolUse hook now implements a 3-tier context degradation system that provides graduated responses as context approaches exhaustion:
 

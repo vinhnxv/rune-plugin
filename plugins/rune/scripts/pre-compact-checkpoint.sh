@@ -165,6 +165,11 @@ fi
 
 _trace "Team discovery: active_team=${active_team:-<none>}"
 
+# Initialize arc_phase_summaries early — referenced in the teamless branch below
+# and reassigned in the team-present path (line ~297). Must be set before the
+# if [[ -z "$active_team" ]] branch to satisfy set -euo pipefail.
+arc_phase_summaries="{}"
+
 # NOTE: During arc-batch, teams are created/destroyed per-phase — compaction may
 # hit when no team is active. Summary files persist independently of team state.
 # Arc-batch state is captured regardless of team presence (see section below).

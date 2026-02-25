@@ -56,6 +56,7 @@ WORD_COUNT=$(echo "$CONTENT" | wc -w | tr -d ' ')
 
 # --- Step 4: Configurable threshold (default 300 words) ---
 BUDGET="${RUNE_GLYPH_BUDGET:-300}"
+# Reads RUNE_GLYPH_BUDGET env var only (talisman context_weaving.glyph_budget.word_limit not read — hooks are fast-path)
 
 # Validate budget is numeric
 [[ "$BUDGET" =~ ^[0-9]+$ ]] || BUDGET=300

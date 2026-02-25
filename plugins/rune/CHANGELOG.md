@@ -1,14 +1,14 @@
 # Changelog
 
-## [1.96.0] - 2026-02-25
+## [1.102.0] - 2026-02-25
 
 ### Added
-- **Code Skimming Protocol** — 8 research/review/investigation agents updated with structured skimming strategy: read first 30 lines of each file for orientation before deep analysis. Agents: repo-surveyor, pattern-weaver, ward-sentinel, lore-scholar, decree-arbiter, ruin-prophet, sight-oracle, vigil-keeper. (Feature 1)
+- **Code Skimming Protocol** — 8 research/review/investigation agents updated with structured skimming strategy: read first 30 lines of each file for orientation before deep analysis. Agents: repo-surveyor, echo-reader, git-miner, lore-scholar, practice-seeker, api-contract-tracer, business-logic-tracer, data-layer-tracer. (Feature 1)
 - **Auto-observation recording** (`scripts/on-task-observation.sh`) — New `TaskCompleted` hook that auto-appends lightweight Observations-tier echo entries to `.claude/echoes/{role}/MEMORY.md` after Rune workflow tasks complete. Uses `${TEAM_NAME}_${TASK_ID}` as dedup key; signals echo-search dirty for auto-reindex. Non-blocking. (Feature 2)
 - **Glyph budget enforcement** (`scripts/enforce-glyph-budget.sh`) — New `PostToolUse:SendMessage` hook (GLYPH-BUDGET-001) that monitors teammate message word count and injects advisory context when over 300-word limit. Non-blocking advisory only. Configurable via `context_weaving.glyph_budget` in talisman. (Feature 3)
 - **3-tier adaptive token degradation** in `guard-context-critical.sh` — Three response levels: Caution (40% remaining, advisory only), Warning (35%, degradation suggestions injected), Critical (25%, hard DENY). Previously single hard-block only. (Feature 4)
 - **Arc phase memory handoff** — Arc phase transitions now emit structured summary templates that are persisted as Observations-tier echoes. Enables Tarnished to resume with full phase context after compaction. (Feature 5)
-- **Completeness assessment scorer** in `TaskCompleted` haiku gate — Evaluates structural completeness of task output (0.0–1.0 score). Research tasks require ≥0.5; implementation tasks require ≥0.7. Blocks premature task completion when output is insufficient. (Feature 6)
+- **Completeness assessment scorer** in `TaskCompleted` haiku gate — Evaluates structural completeness of task output (0.0–1.0 score). All tasks use a single threshold of 0.7. The research_threshold: 0.5 talisman key is reserved for future use. Blocks premature task completion when output is insufficient. (Feature 6)
 
 ### Changed
 - `guard-context-critical.sh` now has three tiers — Caution (40% remaining), Warning (35%), and Critical (25%) — replacing the previous single hard-block design. Caution and Warning are advisory; only Critical triggers DENY.

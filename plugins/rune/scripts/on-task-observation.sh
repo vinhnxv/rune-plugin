@@ -91,16 +91,22 @@ touch "$DEDUP_FILE" 2>/dev/null || exit 0
 # --- Step 9: Generate and append observation entry ---
 DATE=$(date +%Y-%m-%d)
 
-ENTRY=$(cat <<ENTRY_EOF
+ENTRY=$(cat <<'ENTRY_EOF'
 
-## Observations — Task: ${TASK_SUBJECT} ($DATE)
+## Observations — Task: __TASK_SUBJECT__ (__DATE__)
 - **layer**: observations
-- **source**: \`${TEAM_NAME}/${AGENT_NAME}\`
+- **source**: `__TEAM_NAME__/__AGENT_NAME__`
 - **Confidence**: LOW (auto-generated, unverified)
-- Task completed: ${TASK_SUBJECT}
-- Context: ${TASK_DESC}
+- Task completed: __TASK_SUBJECT__
+- Context: __TASK_DESC__
 ENTRY_EOF
 )
+# Inject actual values via variable replacement (safe — no shell expansion in heredoc body)
+ENTRY="${ENTRY//__TASK_SUBJECT__/$TASK_SUBJECT}"
+ENTRY="${ENTRY//__DATE__/$DATE}"
+ENTRY="${ENTRY//__TEAM_NAME__/$TEAM_NAME}"
+ENTRY="${ENTRY//__AGENT_NAME__/$AGENT_NAME}"
+ENTRY="${ENTRY//__TASK_DESC__/$TASK_DESC}"
 
 # Atomic append via temp file (prevent partial writes)
 TMPFILE=$(mktemp 2>/dev/null) || exit 0

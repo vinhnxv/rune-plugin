@@ -124,6 +124,7 @@ CRITICAL_THRESHOLD=25
 
 # --- Tier 1: Caution (40%) — advisory only, no block ---
 CAUTION_THRESHOLD=40
+# Hardcoded (talisman caution_threshold not read — hooks are fast-path)
 if [[ "$REM_INT" -le "$CAUTION_THRESHOLD" && "$REM_INT" -gt 35 ]]; then
   jq -n \
     --arg ctx "CTX-CAUTION: Context at $((100 - REM_INT))% used (${REM_INT}% remaining). Consider: (1) compress long messages, (2) avoid deep-reading files already seen, (3) prefer file-based output over inline responses." \

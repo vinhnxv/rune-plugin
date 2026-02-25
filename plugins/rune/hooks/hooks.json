@@ -174,7 +174,7 @@
     ],
     "TaskCompleted": [
       {
-        "_security_note": "WS-007 accepted risk: $ARGUMENTS is platform-substituted before hook execution — cannot be sanitized within prompt hooks. Defense-in-depth: ANCHOR/RE-ANCHOR Truthbinding pattern + structural-only evaluation scope + haiku model limits exploitability. The three command hooks above provide structural validation before the prompt hook runs.",
+        "_security_note": "WS-007 accepted risk: $ARGUMENTS is platform-substituted before hook execution — cannot be sanitized within prompt hooks. Defense-in-depth: ANCHOR/RE-ANCHOR Truthbinding pattern + structural-only evaluation scope + haiku model limits exploitability. The two validation command hooks (on-task-completed.sh, validate-inner-flame.sh) and one observation hook (on-task-observation.sh) run before the prompt hook.",
         "hooks": [
           {
             "type": "command",
