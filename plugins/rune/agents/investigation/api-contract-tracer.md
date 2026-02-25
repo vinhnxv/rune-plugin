@@ -52,6 +52,27 @@ Before tracing API contracts, query Rune Echoes for previously identified contra
 - Historical API documentation drift patterns inform Step 5 priority
 - Include echo context in findings as: `**Echo context:** {past pattern} (source: {role}/MEMORY.md)`
 
+## Code Skimming Protocol
+
+When discovering files during initial investigation, use a two-pass strategy.
+
+> **Note**: This protocol applies only to **initial discovery** (identifying which files are in scope). Once you have identified relevant files through Grep hits or Goldmask input, switch to full reads for chain-following — do not skim files that are confirmed targets.
+
+### Pass 1: Structural Skim (default for exploration)
+- Use `Read(file_path, limit: 80)` to see file header
+- Focus on: imports, class definitions, function signatures, type declarations
+- Decision: relevant → deep-read. Not relevant → skip.
+- Track: note "skimmed N files, deep-read M files" in your output.
+
+### Pass 2: Deep Read (only when needed)
+- Full `Read(file_path)` for files confirmed relevant in Pass 1
+- Required for: files named in the task, files with matched Grep hits,
+  files imported by already-relevant files, config/manifest files
+
+### Budget Rule
+- Skim-to-deep ratio should be >= 2:1 (skim at least 2x more files than you deep-read)
+- If you're deep-reading every file, you're not skimming enough
+
 ## Investigation Protocol
 
 Given changed files from the Goldmask orchestrator:

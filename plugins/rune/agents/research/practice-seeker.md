@@ -90,6 +90,27 @@ Before performing web searches, check Rune Echoes for previously discovered best
 
 Write findings to the designated output file. Return only a 1-sentence summary to the Tarnished via SendMessage (max 50 words).
 
+## Code Skimming Protocol
+
+When reading local files (fallback path when WebSearch/WebFetch are unavailable or for local codebase reference), use a two-pass strategy.
+
+> **Note**: This protocol applies when reading local files. Web research via WebSearch/WebFetch is the primary strategy and does not require file skimming.
+
+### Pass 1: Structural Skim (default for exploration)
+- Use `Read(file_path, limit: 80)` to see file header
+- Focus on: imports, class definitions, function signatures, type declarations
+- Decision: relevant → deep-read. Not relevant → skip.
+- Track: note "skimmed N files, deep-read M files" in your output.
+
+### Pass 2: Deep Read (only when needed)
+- Full `Read(file_path)` for files confirmed relevant in Pass 1
+- Required for: files named in the task, files with matched Grep hits,
+  files imported by already-relevant files, config/manifest files
+
+### Budget Rule
+- Skim-to-deep ratio should be >= 2:1 (skim at least 2x more files than you deep-read)
+- If you're deep-reading every file, you're not skimming enough
+
 ## Offline Fallback
 
 If WebSearch is unavailable or returns no results:
