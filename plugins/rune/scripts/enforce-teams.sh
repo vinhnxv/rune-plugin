@@ -91,7 +91,7 @@ if [[ -z "$active_workflow" ]]; then
   for f in "${CWD}"/tmp/.rune-review-*.json "${CWD}"/tmp/.rune-audit-*.json \
            "${CWD}"/tmp/.rune-work-*.json "${CWD}"/tmp/.rune-inspect-*.json \
            "${CWD}"/tmp/.rune-mend-*.json "${CWD}"/tmp/.rune-plan-*.json \
-           "${CWD}"/tmp/.rune-forge-*.json; do
+           "${CWD}"/tmp/.rune-forge-*.json "${CWD}"/tmp/.rune-goldmask-*.json; do
     # Skip files older than STALE_THRESHOLD_MIN minutes
     if [[ -f "$f" ]] && find "$f" -maxdepth 0 -mmin -${STALE_THRESHOLD_MIN} -print -quit 2>/dev/null | grep -q . && jq -e '.status == "active"' "$f" &>/dev/null; then
       # ── Ownership filter: skip state files from other sessions ──

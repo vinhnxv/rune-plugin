@@ -722,6 +722,7 @@ echoes:
 # ──────────────────────────────────────────────
 # Mend — Parallel finding resolution settings (v1.51.0+)
 # ──────────────────────────────────────────────
+# NOTE: mend: key must appear only ONCE in this file. YAML silently discards duplicate top-level keys.
 mend:
   cross_file_batch_size: 4     # Max files per batch in cross-file mend Phase 5.5 (v1.51.0, default: 3, range: 1-10)
                                # Controls how many files are read at once during orchestrator-only cross-file fix.
@@ -818,10 +819,9 @@ work:
   #                                   #   squash — squash child commits into one commit per child
 
 # ──────────────────────────────────────────────
-# Mend — Parallel finding resolution settings
+# Mend — (see primary mend: block above, line ~725)
+# Duplicate mend: key removed in v1.101.1 (SIMP-001 audit fix)
 # ──────────────────────────────────────────────
-mend:
-  todos_per_fixer: 5             # Max file-todos per fixer wave (default: 5)
 
 # ──────────────────────────────────────────────
 # File-Todos — Structured todo tracking (always active)

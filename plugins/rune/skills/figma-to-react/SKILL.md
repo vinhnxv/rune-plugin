@@ -114,3 +114,7 @@ When running `/rune:work` or `/rune:strive`, rune-smith worker Ashes have access
 Cache TTL environment variables (optional):
 - `FIGMA_FILE_CACHE_TTL` (default: 1800 seconds / 30 min)
 - `FIGMA_IMAGE_CACHE_TTL` (default: 86400 seconds / 24 hr)
+
+## References
+
+- [figma-workflow.md](references/figma-workflow.md) — Step-by-step usage guide for the 4 MCP tools

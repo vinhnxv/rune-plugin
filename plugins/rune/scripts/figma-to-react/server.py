@@ -31,12 +31,9 @@ from mcp.server.fastmcp.exceptions import ToolError
 
 from figma_client import FigmaAPIError, FigmaClient  # noqa: E402
 from figma_types import FigmaFileResponse, FigmaNodesResponse, NodeType  # noqa: E402
-from image_handler import ImageHandler, collect_image_refs  # noqa: E402
-from layout_resolver import resolve_child_layout, resolve_container_layout  # noqa: E402
+from image_handler import collect_image_refs  # noqa: E402
 from node_parser import FigmaIRNode, count_nodes, parse_node, walk_tree  # noqa: E402
 from react_generator import generate_component  # noqa: E402
-from style_builder import StyleBuilder  # noqa: E402
-from tailwind_mapper import TailwindMapper  # noqa: E402
 from url_parser import FigmaURLError, parse_figma_url  # noqa: E402
 
 # ---------------------------------------------------------------------------

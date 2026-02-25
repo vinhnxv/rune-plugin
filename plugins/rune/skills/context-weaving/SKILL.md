@@ -352,7 +352,7 @@ Even with overflow prevention and compression, a session can creep toward contex
 ### Components
 
 - **Statusline Bridge** — A statusline script that writes context metrics (percentage used, token counts) to a shared bridge file at `/tmp/rune-ctx-{session_id}.json`. Runs as a color-coded statusline with git branch and active workflow detection. The bridge file is the producer half of a producer/consumer pattern.
-- **Context Monitor** — A `PostToolUse` hook (`scripts/context-monitor.sh`) that reads the bridge file and injects agent-visible warnings when context usage crosses thresholds. Non-blocking (exits 0). Only injects when the bridge file is fresh (staleness guard: 5 minutes). The monitor is the consumer half of the pattern.
+- **Context Monitor** — A `PostToolUse` hook (`scripts/rune-context-monitor.sh`) that reads the bridge file and injects agent-visible warnings when context usage crosses thresholds. Non-blocking (exits 0). Only injects when the bridge file is fresh (staleness guard: 5 minutes). The monitor is the consumer half of the pattern.
 - **Plan Budget** — An optional `session_budget` frontmatter field in plan files that caps simultaneous agent spawning (`max_concurrent_agents`). Validated silently by `strive`/`arc` worker orchestration to prevent context saturation from large teams.
 
 ### Setup

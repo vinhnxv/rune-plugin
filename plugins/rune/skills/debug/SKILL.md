@@ -66,7 +66,7 @@ debug:
   echo_on_verdict: true       # persist verdict to rune-echoes after resolution
 ```
 
-Read config via `readTalisman()` — see [read-talisman.md](../roundtable-circle/references/read-talisman.md).
+Read config via `readTalisman()` — see [read-talisman.md](../../references/read-talisman.md).
 
 ---
 
