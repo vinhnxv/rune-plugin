@@ -258,6 +258,15 @@ Per-phase timeout values in milliseconds. Values are clamped to 10s–3600s rang
 | `ship` | number | 300000 | Phase 9: PR creation (5 min, v1.40.0+) |
 | `merge` | number | 600000 | Phase 9.5: Merge (10 min, v1.40.0+) |
 
+### `review` — Chunked review settings (v1.51.0+)
+
+Controls how large diffs are split into reviewable chunks to limit per-step context cost.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `large_diff_threshold` | number | `25` | File count above which standard-depth review triggers chunked mode (range: 5-200). When changed file count exceeds this value, the diff is automatically split into chunks before review agents are summoned. |
+| `chunk_size` | number | `15` | Target number of files per chunk in chunked review mode (range: 3-50). Actual chunk sizes may vary slightly to respect directory boundaries when `chunk_strategy: "directory"` is used. |
+
 ### `review.arc_convergence_*` — Review-mend convergence (v1.37.0+, enhanced v1.41.0)
 
 Arc convergence keys live under the `review:` section (not `arc:`) and use the `arc_` prefix to avoid collision with chunked review convergence keys.
@@ -274,6 +283,24 @@ Arc convergence keys live under the `review:` section (not `arc:`) and use the `
 ### `arc.consistency` — Cross-file consistency checks (v1.17.0+)
 
 See the consistency checks section in `talisman.example.yml` for schema and examples.
+
+---
+
+## mend — Parallel finding resolution settings (v1.51.0+)
+
+Top-level `mend:` configuration controls the parallel finding resolution pipeline (`/rune:mend` and arc Phase 7).
+
+### `mend` — Cross-file mend settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `cross_file_batch_size` | number | `3` | Max files read per batch during orchestrator-only cross-file mend (Phase 5.5, range: 1-10). Lower values reduce per-step context cost; higher values reduce round-trips for multi-file findings. |
+
+**Usage**:
+```yaml
+mend:
+  cross_file_batch_size: 4     # Increase for faster cross-file operations on large codebases
+```
 
 ---
 

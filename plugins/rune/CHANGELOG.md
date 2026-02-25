@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.96.0] - 2026-02-25
+
+### Added
+- **Context Pressure Defense System** — Multi-layer protection against context limit crashes in the arc pipeline when processing large diffs (>25 new files, >3,000 lines of new code)
+  - **MEND post-compaction delegation guard** (`arc-phase-mend.md`) — RE-ANCHOR block that prevents direct orchestrator mend even after auto-compaction. Phase-specific delegation hint in `session-compact-recovery.sh` for belt+suspenders protection
+  - **Mend cross-file batch reading** (`mend/SKILL.md`) — Phase 5.5 cross-file operations now batch file reads with configurable `CROSS_FILE_BATCH` size (default: 4). Talisman override: `mend.cross_file_batch_size`
+  - **Large-diff chunked review** (`roundtable-circle/SKILL.md`) — Standard-depth review now auto-chunks diffs >25 files into 15-file waves. Each chunk gets its own wave of Ashes. Talisman overrides: `review.large_diff_threshold`, `review.chunk_size`
+  - **Inter-phase context pressure advisory** (`arc/SKILL.md`) — Delegation Contract comment block + context advisory logs before heavy phases (work, code_review, mend). No new tool calls — log-only
+  - **Context monitoring bridge check** (`arc/SKILL.md`) — Arc pre-flight Phase 0 now warns when statusline bridge file is absent, enabling `guard-context-critical.sh` to detect approaching limits
+  - **Talisman configuration keys** — 3 new keys with backward-compatible defaults: `mend.cross_file_batch_size` (4), `review.large_diff_threshold` (25), `review.chunk_size` (15)
+
+### Fixed
+- **Post-compaction MEND crash** — After auto-compaction, arc orchestrator lost the Phase 7 MEND delegation instruction and tried direct edits in exhausted context. The RE-ANCHOR guard + compact recovery hint prevents this regression
+- **Reviewer context exhaustion on large diffs** — With 37 changed files (28 new) split across 2 reviewers, each reviewer read ~14 files (~52K tokens of content) pushing past the ~200K context limit. Chunked review distributes load across smaller waves
+
 ## [1.95.0] - 2026-02-25
 
 ### Added
