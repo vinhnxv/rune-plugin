@@ -104,6 +104,7 @@ work:
   # pr_template: default                 # Reserved for a future release (default | minimal)
   # auto_push: false                     # Reserved for a future release (auto-push without confirmation)
   co_authors: []                         # Co-Authored-By lines in "Name <email>" format
+  todos_per_worker: 3                    # Max tasks per worker per wave (default: 3)
 
 inner_flame:
   enabled: true                   # Kill switch (default: true)
@@ -295,11 +296,13 @@ Top-level `mend:` configuration controls the parallel finding resolution pipelin
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `cross_file_batch_size` | number | `3` | Max files read per batch during orchestrator-only cross-file mend (Phase 5.5, range: 1-10). Lower values reduce per-step context cost; higher values reduce round-trips for multi-file findings. |
+| `todos_per_fixer` | number | `5` | Max file-todos per fixer wave. Controls wave-based mend execution batch size. |
 
 **Usage**:
 ```yaml
 mend:
   cross_file_batch_size: 4     # Increase for faster cross-file operations on large codebases
+  todos_per_fixer: 5           # Max file-todos per fixer wave
 ```
 
 ---
