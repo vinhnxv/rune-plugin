@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.105.0] - 2026-02-25
+
+### Added
+- 25 missing config keys to `talisman.example.yml` across 6 sections (`debug`, `work.worktree`, `work.unrestricted_shared_files`, `solution_arena` weights, `stack_awareness` override/custom_rules, `arc` timeouts/ship/gap_analysis, `echoes`, `context_monitor`, `context_weaving`)
+- Comprehensive Config Key Reference table in `configuration-guide.md` covering all ~180+ talisman keys with types, defaults, and descriptions
+- `debug:` section documentation in configuration-guide.md for ACH parallel debugging
+- `work.worktree:` and `work.unrestricted_shared_files` documentation in configuration-guide.md
+- Expanded `solution_arena` documentation (weights, convergence_threshold)
+- Expanded `stack_awareness` documentation (override, custom_rules)
+
+### Fixed
+- Doc-code drift: 25 config keys referenced in skills but missing from `talisman.example.yml`
+- `talisman-sections.md` section count (21→24) and missing key fields
+- `configuration-guide.md` missing sections (debug, expanded solution_arena, expanded stack_awareness)
+- Arc Timeouts table updated with 4 missing entries (task_decomposition, design_extraction, design_iteration, design_verification)
+
 ## [1.104.0] - 2026-02-25
 
 ### Added
