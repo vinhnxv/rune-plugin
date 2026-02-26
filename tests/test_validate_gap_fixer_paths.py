@@ -6,6 +6,7 @@ Tests the shell script as a subprocess, verifying:
 - Allowed paths (src/, tests/, tmp/arc/{id}/ output directory, regular yml files)
 - Security properties (deny JSON structure, hookEventName presence, identifier validation)
 - Edge cases (release.yml blocked, deeply nested .claude paths, non-CI yml allowed)
+- Session isolation (owner_pid + config_dir cross-session safety)
 
 The script is a fail-open PreToolUse hook (SEC-GAP-001):
   - Exit 0 without JSON => tool call allowed
@@ -18,6 +19,7 @@ Requires: jq (tests marked @requires_jq skip gracefully when jq is absent)
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -61,12 +63,28 @@ def make_write_input(
     return payload
 
 
-def create_gap_state(project: Path, identifier: str = VALID_IDENTIFIER, status: str = "active") -> Path:
-    """Write a gap-fix state file into project/tmp/ and return its path."""
+def create_gap_state(
+    project: Path,
+    identifier: str = VALID_IDENTIFIER,
+    status: str = "active",
+    *,
+    config_dir: Path | None = None,
+    owner_pid: int | None = None,
+) -> Path:
+    """Write a gap-fix state file into project/tmp/ and return its path.
+
+    config_dir is stored as its resolved (symlink-free) path because
+    resolve-session-identity.sh uses ``pwd -P`` to canonicalize the path.
+    """
     tmp_dir = project / "tmp"
     tmp_dir.mkdir(exist_ok=True)
+    state: dict = {"status": status, "identifier": identifier}
+    if config_dir is not None:
+        state["config_dir"] = str(config_dir.resolve())
+    if owner_pid is not None:
+        state["owner_pid"] = owner_pid
     state_file = tmp_dir / f".rune-gap-fix-{identifier}.json"
-    state_file.write_text(json.dumps({"status": status, "identifier": identifier}))
+    state_file.write_text(json.dumps(state))
     return state_file
 
 
@@ -901,3 +919,112 @@ class TestGapFixerEdgeCases:
                 f"Script exited {result.returncode} for {blocked_path!r} — "
                 "must always exit 0 (deny via JSON, not exit code)"
             )
+
+
+# ===========================================================================
+# TestGapFixerSessionIsolation
+# ===========================================================================
+
+
+class TestGapFixerSessionIsolation:
+    """Session isolation: owner_pid + config_dir cross-session safety."""
+
+    @requires_jq
+    @pytest.mark.session_isolation
+    def test_matching_owner_pid_enforces(self, hook_runner, project_env) -> None:
+        """State file with owner_pid matching PPID -> enforcement active (deny blocked path)."""
+        project, config = project_env
+        create_gap_state(
+            project,
+            config_dir=config,
+            owner_pid=os.getpid(),  # Matches PPID set by hook_runner
+        )
+        result = hook_runner(
+            SCRIPT,
+            make_write_input(".claude/settings.json"),
+        )
+        assert result.returncode == 0
+        assert is_deny_json(result.stdout), (
+            "Expected deny for .claude/ path when owner_pid matches — "
+            f"stdout={result.stdout!r}"
+        )
+
+    @requires_jq
+    @pytest.mark.session_isolation
+    def test_mismatched_live_owner_pid_skips(self, hook_runner, project_env) -> None:
+        """State file with mismatched live owner_pid -> enforcement skipped (fail-open)."""
+        project, config = project_env
+        # PID 1 (init/launchd) is always alive but never our PPID
+        create_gap_state(
+            project,
+            config_dir=config,
+            owner_pid=1,
+        )
+        result = hook_runner(
+            SCRIPT,
+            make_write_input(".claude/settings.json"),
+        )
+        assert result.returncode == 0
+        assert not is_deny_json(result.stdout), (
+            "Expected allow (skip) when owner_pid is a different live process — "
+            f"stdout={result.stdout!r}"
+        )
+
+    @requires_jq
+    @pytest.mark.session_isolation
+    def test_no_owner_pid_enforces_backward_compat(self, hook_runner, project_env) -> None:
+        """State file without owner_pid/config_dir -> enforcement active (backward compat)."""
+        project, _ = project_env
+        # Legacy state file: no owner_pid, no config_dir
+        create_gap_state(project)
+        result = hook_runner(
+            SCRIPT,
+            make_write_input(".env"),
+        )
+        assert result.returncode == 0
+        assert is_deny_json(result.stdout), (
+            "Expected deny for .env when state file has no owner_pid (backward compat) — "
+            f"stdout={result.stdout!r}"
+        )
+
+    @requires_jq
+    @pytest.mark.session_isolation
+    def test_mismatched_config_dir_skips(self, hook_runner, project_env) -> None:
+        """State file with mismatched config_dir -> enforcement skipped (fail-open)."""
+        project, config = project_env
+        # Use a non-existent config_dir that won't match the test's CLAUDE_CONFIG_DIR
+        create_gap_state(
+            project,
+            config_dir=Path("/tmp/fake-other-claude-config"),
+            owner_pid=os.getpid(),
+        )
+        result = hook_runner(
+            SCRIPT,
+            make_write_input(".claude/settings.json"),
+        )
+        assert result.returncode == 0
+        assert not is_deny_json(result.stdout), (
+            "Expected allow (skip) when config_dir doesn't match — "
+            f"stdout={result.stdout!r}"
+        )
+
+    @requires_jq
+    @pytest.mark.session_isolation
+    def test_dead_owner_pid_skips(self, hook_runner, project_env) -> None:
+        """State file with dead owner_pid -> enforcement skipped (orphan recovery)."""
+        project, config = project_env
+        # Use a very high PID that's extremely unlikely to be alive
+        create_gap_state(
+            project,
+            config_dir=config,
+            owner_pid=4194304,  # Above typical PID_MAX on most systems
+        )
+        result = hook_runner(
+            SCRIPT,
+            make_write_input(".env"),
+        )
+        assert result.returncode == 0
+        assert not is_deny_json(result.stdout), (
+            "Expected allow (skip) for dead owner_pid (orphan state) — "
+            f"stdout={result.stdout!r}"
+        )

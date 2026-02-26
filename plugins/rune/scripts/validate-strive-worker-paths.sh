@@ -29,91 +29,21 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-# SEC-2: 1MB cap to prevent unbounded stdin read (DoS prevention)
-# BACK-004: Guard against SIGPIPE (exit 141) when stdin closes early under set -e
-INPUT=$(head -c 1048576 2>/dev/null || true)
+# Fail-open trap: any unexpected error allows the operation (mirrors stop-hook-common.sh)
+trap 'exit 0' ERR
 
-# Fast-path 1: Extract tool name and file path in one jq call
-IFS=$'\t' read -r TOOL_NAME FILE_PATH TRANSCRIPT_PATH <<< \
-  "$(printf '%s' "$INPUT" | jq -r '[.tool_name // "", .tool_input.file_path // "", .transcript_path // ""] | @tsv' 2>/dev/null)" || true
-
-# Only validate file-writing tools
-case "$TOOL_NAME" in
-  Write|Edit|NotebookEdit) ;;
-  *) exit 0 ;;
-esac
-
-# Fast-path 2: File path must be non-empty
-[[ -z "$FILE_PATH" ]] && exit 0
-
-# Fast-path 3: Only enforce for subagents (team-lead is the orchestrator — exempt)
-# transcript_path: documented common field (all hook events). Detection is best-effort.
-# If transcript_path is missing or doesn't contain /subagents/, allow the operation.
-if [[ -z "$TRANSCRIPT_PATH" ]] || [[ "$TRANSCRIPT_PATH" != */subagents/* ]]; then
-  exit 0
-fi
-
-# Fast-path 4: Canonicalize CWD
-CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
-[[ -z "$CWD" ]] && exit 0
-CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
-[[ -z "$CWD" || "$CWD" != /* ]] && exit 0
-
-# Check for active strive workflow via state file (rune-work-* pattern)
-shopt -s nullglob
-WORK_STATE_FILE=""
-for f in "${CWD}"/tmp/.rune-work-*.json; do
-  if [[ -f "$f" ]] && jq -e '.status == "active"' "$f" >/dev/null 2>&1; then
-    WORK_STATE_FILE="$f"
-    break
-  fi
-done
-shopt -u nullglob
-
-# No active strive workflow — allow (hook only applies during strive)
-[[ -z "$WORK_STATE_FILE" ]] && exit 0
-
-# Session isolation: verify config_dir and owner_pid match current session
-CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-CHOME=$(cd "$CHOME" 2>/dev/null && pwd -P 2>/dev/null || echo "$CHOME")
-# Source shared session identity for rune_pid_alive() (EPERM-safe PID check)
+# Source shared PreToolUse Write guard library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=resolve-session-identity.sh
-source "${SCRIPT_DIR}/resolve-session-identity.sh"
-STATE_CONFIG_DIR=$(jq -r '.config_dir // empty' "$WORK_STATE_FILE" 2>/dev/null || true)
-STATE_OWNER_PID=$(jq -r '.owner_pid // empty' "$WORK_STATE_FILE" 2>/dev/null || true)
+# shellcheck source=lib/pretooluse-write-guard.sh
+source "${SCRIPT_DIR}/lib/pretooluse-write-guard.sh"
 
-# Check config_dir matches (installation isolation)
-if [[ -n "$STATE_CONFIG_DIR" && "$STATE_CONFIG_DIR" != "$CHOME" ]]; then
-  # State belongs to a different installation — skip
-  exit 0
-fi
+# Common fast-path gates (sets INPUT, TOOL_NAME, FILE_PATH, TRANSCRIPT_PATH, CWD, CHOME)
+rune_write_guard_preflight "validate-strive-worker-paths.sh"
 
-# Check owner_pid is alive and matches (session isolation)
-# BACK-002 FIX: Use rune_pid_alive() for EPERM-safe PID liveness check
-# (raw kill -0 misinterprets EPERM as "dead" on multi-user systems)
-if [[ -n "$STATE_OWNER_PID" ]]; then
-  if rune_pid_alive "$STATE_OWNER_PID"; then
-    # PID is alive — check if it matches our parent
-    if [[ "$STATE_OWNER_PID" != "$PPID" ]]; then
-      # State belongs to another live session — skip
-      exit 0
-    fi
-  else
-    # PID is dead — orphan state, skip (orphan recovery handled elsewhere)
-    exit 0
-  fi
-fi
-
-# Extract identifier from .rune-work-{identifier}.json
-IDENTIFIER=$(basename "$WORK_STATE_FILE" .json | sed 's/^\.rune-work-//')
-
-# Security pattern: SAFE_IDENTIFIER — see security-patterns.md
-# Validate identifier format (safe chars + length cap)
-if [[ ! "$IDENTIFIER" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ ${#IDENTIFIER} -gt 64 ]]; then
-  # Invalid identifier — fail open (allow)
-  exit 0
-fi
+# Strive-specific: find active work state
+rune_find_active_state ".rune-work-*.json"
+rune_extract_identifier "$STATE_FILE" ".rune-work-"
+rune_verify_session_ownership "$STATE_FILE"
 
 # Read inscription.json to find task ownership mapping
 INSCRIPTION_PATH="${CWD}/tmp/.rune-signals/rune-work-${IDENTIFIER}/inscription.json"
@@ -157,18 +87,7 @@ if [[ -z "$ALLOWED_FILES" && -z "$ALLOWED_DIRS" && -z "$TALISMAN_SHARED" ]]; the
 fi
 
 # Normalize the target file path (resolve relative to CWD, strip ./)
-# NOTE: Absolute paths outside CWD (e.g., /tmp/scratch.txt) intentionally remain
-# absolute after prefix strip — they will never match relative allowlist entries,
-# effectively denying writes outside the project directory (security by design).
-if [[ "$FILE_PATH" == /* ]]; then
-  # Absolute path — make relative to CWD for comparison
-  REL_FILE_PATH="${FILE_PATH#"${CWD}/"}"
-else
-  REL_FILE_PATH="$FILE_PATH"
-fi
-
-# Strip leading ./ for consistent comparison
-REL_FILE_PATH="${REL_FILE_PATH#./}"
+rune_normalize_path "$FILE_PATH"
 
 # Also allow writes to the strive output directory (workers write reports/patches there)
 WORK_OUTPUT_PREFIX="tmp/work/${IDENTIFIER}/"
@@ -216,17 +135,6 @@ if [[ -n "$TALISMAN_SHARED" ]]; then
 fi
 
 # DENY: File is outside all assigned scopes
-DENY_MSG=$(jq -n \
-  --arg fp "$REL_FILE_PATH" \
-  --arg id "$IDENTIFIER" \
-  '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: ("SEC-STRIVE-001: Strive worker attempted to write outside assigned file scope. Target: " + $fp + ". Only files listed in task_ownership (inscription.json) are allowed."),
-      additionalContext: ("Strive workers are restricted to editing files in their assigned task scope (from tmp/.rune-signals/rune-work-" + $id + "/inscription.json task_ownership). If you need to edit this file, send a message to team-lead requesting a new task that includes this file, or mark it as a dependency in your task output.")
-    }
-  }')
-
-echo "$DENY_MSG"
-exit 0
+rune_deny_write \
+  "SEC-STRIVE-001: Strive worker attempted to write outside assigned file scope. Target: ${REL_FILE_PATH}. Only files listed in task_ownership (inscription.json) are allowed." \
+  "Strive workers are restricted to editing files in their assigned task scope (from tmp/.rune-signals/rune-work-${IDENTIFIER}/inscription.json task_ownership). If you need to edit this file, send a message to team-lead requesting a new task that includes this file, or mark it as a dependency in your task output."
