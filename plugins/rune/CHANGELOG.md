@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.109.0] - 2026-02-26
+
+### Added
+- **Deep Figma/Design Integration into Rune Core Workflows**
+  - Revived 3 dead arc design phases (`design_extraction`, `design_verification`, `design_iteration`) in PHASE_ORDER with PHASE_TIMEOUTS and PHASE_PREFIX_MAP entries
+  - Created Design Package reference document (`arc-phase-design-package.md`) with DCD schema and generation protocol
+  - Created design knowledge skills (`figma.md`, `storybook.md`) in stacks/references/design/
+  - Added frontend task classification to strive parse-plan for design-aware worker prompts
+  - Added design context discovery and injection for strive workers
+  - Wired `design-implementation-reviewer` into Forge Gaze topic registry (prefix: FIDE) and Roundtable Circle Stack Specialist table
+  - Added Figma URL detection and design section generation to devise
+  - Added `design_context` object to inscription schema (enabled, vsm_dir, dcd_dir, figma_url, fidelity_threshold, components, token_system)
+  - Added `design_tools` field to `detected_stack` in inscription schema
+  - Added Design Fidelity Gate to Rune Gaze Phase 1A (gated by `talisman.design_sync.enabled`)
+  - Added DESIGN CONTEXT COORDINATION section to Glyph Scribe prompt (skip token compliance when FIDE active)
+  - Added Design Stack Detection section to detection.md with Figma and Storybook signal tables
+
+### Fixed
+- Ghost skill references in context-router.md Step 5.7 (`design/figma`, `design/storybook`) — created missing files
+
+## [1.108.1] - 2026-02-26
+
+### Fixed
+- **PERF: `_find_arc_checkpoint()` timeout with many checkpoints** — Replaced per-file `jq` calls with `grep`-based PID matching in `stop-hook-common.sh`. With 100+ checkpoint directories, individual `jq` invocations exceeded the 15-second Stop hook timeout, causing the hook to silently exit without outputting `decision: block` — breaking the arc-batch loop chain. `grep` is ~100x faster than `jq` for simple string matching. Also limits scanning to the 20 most recently modified checkpoints (sorted by mtime).
+
 ## [1.108.0] - 2026-02-26
 
 ### Changed

@@ -1,4 +1,4 @@
-# Phase 5.3: DESIGN ITERATION — Arc Design Sync Integration
+# Phase 7.6: DESIGN ITERATION — Arc Design Sync Integration
 
 Runs screenshot→analyze→fix loop to improve design fidelity after Phase 5.2 DESIGN VERIFICATION.
 Gated by `design_sync.enabled` AND `design_sync.iterate_enabled` in talisman.

@@ -53,6 +53,7 @@
     "databases": ["array of detected database strings"],
     "tooling": ["array of detected tooling strings"],
     "patterns": ["array of detected pattern strings — tdd, ddd, di"],
+    "design_tools": ["array of available design MCP tool strings — e.g. figma_fetch_design, figma_inspect_node, figma_list_components"],
     "confidence": "number — 0.0-1.0 detection confidence"
   },
 
@@ -61,6 +62,16 @@
     "skills_to_load": ["array of skill paths to load for this context"],
     "agents_to_summon": ["array of stack-specialist agent names"],
     "reference_docs": ["array of reference doc paths relevant to detected stack"]
+  },
+
+  "design_context": {
+    "enabled": "boolean — true when design_sync.enabled AND frontend files AND VSM available",
+    "vsm_dir": "string | null — path to VSM directory (e.g., 'tmp/arc/{id}/vsm/')",
+    "dcd_dir": "string | null — path to DCD directory (e.g., 'tmp/arc/{id}/design/')",
+    "figma_url": "string | null — Figma file URL from plan frontmatter or talisman",
+    "fidelity_threshold": "number — minimum fidelity score (default: 0.8, from talisman.design_sync.fidelity_threshold)",
+    "components": ["array of component name strings extracted from VSM"],
+    "token_system": "string | null — design token system identifier (e.g., 'figma-tokens', 'style-dictionary')"
   },
 
   "specialist_ashes": ["array of stack-specialist Ash names selected by Phase 1A"],

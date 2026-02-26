@@ -174,13 +174,23 @@ _find_arc_checkpoint() {
   [[ -d "$ckpt_dir" ]] || return 1
 
   local newest="" newest_mtime=0
-  # bash glob: if no match, literal pattern is used; -f check skips it
-  for f in "$ckpt_dir"/*/checkpoint.json; do
+  # PERF FIX (v1.108.1): Use grep for fast PID matching instead of jq per file.
+  # With 100+ checkpoint dirs, individual jq calls exceeded the 15s hook timeout,
+  # causing the stop hook to silently exit and breaking the batch loop.
+  # grep is ~100x faster than jq for simple string matching.
+  #
+  # Scan only the 10 most recently modified dirs to bound worst-case time.
+  local candidates
+  candidates=$(ls -dt "$ckpt_dir"/*/checkpoint.json 2>/dev/null | head -20) || true
+  [[ -n "$candidates" ]] || return 1
+
+  while IFS= read -r f; do
     [[ -f "$f" ]] && [[ ! -L "$f" ]] || continue
-    # Session isolation: only consider checkpoints owned by this session
-    local pid
-    pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null) || continue
-    [[ "$pid" == "$PPID" ]] || continue
+    # Session isolation: fast grep for owner_pid (avoids jq startup per file)
+    if ! grep -q "\"owner_pid\"[[:space:]]*:[[:space:]]*\"${PPID}\"" "$f" 2>/dev/null; then
+      # Also try numeric (non-quoted) format
+      grep -q "\"owner_pid\"[[:space:]]*:[[:space:]]*${PPID}[^0-9]" "$f" 2>/dev/null || continue
+    fi
     # Get mtime (macOS: stat -f %m; Linux: stat -c %Y)
     local mtime
     mtime=$(stat -f %m "$f" 2>/dev/null) || mtime=$(stat -c %Y "$f" 2>/dev/null) || continue
@@ -188,7 +198,7 @@ _find_arc_checkpoint() {
       newest_mtime="$mtime"
       newest="$f"
     fi
-  done
+  done <<< "$candidates"
 
   if [[ -n "$newest" ]]; then
     echo "$newest"

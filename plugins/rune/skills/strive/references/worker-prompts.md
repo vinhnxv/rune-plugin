@@ -398,6 +398,101 @@ Worktree mode:  "Seal: task #{id} done. Branch: {branch}. Files: {list}"
 
 The `Branch:` field is appended (not replacing). Existing hooks that parse `"Seal: task #"` prefix continue to work. The orchestrator extracts `Branch:` when present for merge broker input.
 
+## Design Context Injection (conditional)
+
+When a task has `has_design_context === true`, inject design artifacts into the worker's spawn prompt. This adds design-specific guidance so workers match Figma specs during implementation. Zero overhead when no design context exists — `designContextBlock` is an empty string.
+
+**Inputs**: task (object with `has_design_context`, `design_artifacts`), signalDir (string)
+**Outputs**: `designContextBlock` (string, injected into worker prompt AFTER existing sections, BEFORE task list)
+**Preconditions**: Task extracted with design context annotation (parse-plan.md § Design Context Detection)
+**Error handling**: Read(VSM/DCD/design-package) failure → skip artifact, inject warning comment; content > 3000 chars → truncate with "[...truncated]" marker
+
+```javascript
+// Build design context block for worker prompt injection
+function buildDesignContextBlock(task) {
+  if (!task.has_design_context) return ''  // Zero cost — empty string
+
+  let block = `\n    DESIGN CONTEXT (auto-injected — design_sync enabled):\n`
+
+  // Step 1: Read design package if available (richest source)
+  if (task.design_artifacts?.design_package_path) {
+    block += `    ## Design Package\n`
+    block += `    Read the design package at: ${task.design_artifacts.design_package_path}\n`
+    block += `    Extract: component hierarchy, design tokens, variant mappings, responsive breakpoints.\n`
+    block += `    The design package is the AUTHORITATIVE source — prefer it over individual VSM/DCD files.\n\n`
+  }
+
+  // Step 2: Inject DCD (Design Component Document) if available
+  if (task.design_artifacts?.dcd_path) {
+    try {
+      let dcdContent = Read(task.design_artifacts.dcd_path)
+      if (dcdContent.length > 3000) {
+        dcdContent = dcdContent.slice(0, 3000) + '\n[...truncated to 3000 chars]'
+      }
+      block += `    ## Design Component Document\n${dcdContent}\n\n`
+    } catch (e) {
+      block += `    ## Design Component Document\n    [DCD unavailable: ${e.message}]\n\n`
+    }
+  }
+
+  // Step 3: Inject VSM (Visual Spec Map) summary if available
+  if (task.design_artifacts?.vsm_path) {
+    try {
+      let vsmContent = Read(task.design_artifacts.vsm_path)
+      if (vsmContent.length > 3000) {
+        vsmContent = vsmContent.slice(0, 3000) + '\n[...truncated to 3000 chars]'
+      }
+      block += `    ## Visual Spec Map Summary\n${vsmContent}\n\n`
+    } catch (e) {
+      block += `    ## Visual Spec Map Summary\n    [VSM unavailable: ${e.message}]\n\n`
+    }
+  }
+
+  // Step 4: Figma URL reference (for manual lookups)
+  if (task.design_artifacts?.figma_url) {
+    block += `    ## Figma Reference\n    URL: ${task.design_artifacts.figma_url}\n\n`
+  }
+
+  // Step 5: Design-specific quality checklist (appended to worker self-review)
+  block += `    DESIGN QUALITY CHECKLIST (mandatory when design context is active):
+    - [ ] Match design tokens (colors, spacing, typography, shadows)
+    - [ ] Verify responsive breakpoints match Figma frames
+    - [ ] Check accessibility attributes (aria-labels, roles, contrast ratios)
+    - [ ] Component structure matches VSM hierarchy
+    - [ ] Interactive states (hover, focus, active, disabled) match design specs\n`
+
+  return block
+}
+
+// Integration: append to rune-smith/trial-forger prompt in Phase 2
+// const designBlock = buildDesignContextBlock(task)
+// Insert AFTER the existing prompt sections, BEFORE the task assignment
+// prompt += designBlock  // No-op when empty string (zero overhead)
+```
+
+### Per-Task Step 4.7: DESIGN SPEC (conditional)
+
+When a task has `has_design_context === true`, inject step 4.7 into both rune-smith and trial-forger lifecycles between step 4.6 (Risk Tier) and step 5 (Read FULL target files). When `has_design_context === false`, this step is omitted entirely.
+
+```javascript
+// Injected into worker prompt when task.has_design_context === true
+// Placed between step 4.6 (RISK TIER VERIFICATION) and step 5 (Read FULL target files)
+`    4.7. DESIGN SPEC (from task metadata — design_sync active):
+         Read design artifacts referenced in your DESIGN CONTEXT section above:
+         a. If design_package_path is set: Read the design package JSON first (authoritative)
+         b. If dcd_path is set: Read the Design Component Document for component specs
+         c. If vsm_path is set: Read the Visual Spec Map for layout/token specs
+         d. Cross-reference design tokens with existing project tokens (avoid duplicates)
+         e. Note responsive breakpoints for implementation (mobile-first or desktop-first)
+         f. Record which design elements this task covers in your worker log
+         IMPORTANT: Design artifacts are READ-ONLY references. Do NOT modify them.
+         If the design conflicts with existing code patterns, follow existing patterns and
+         note the discrepancy in your Seal message for design review.`
+
+// Only inject this step when task.has_design_context === true
+// When false: step numbering goes 4.6 → 5 (no gap, no overhead)
+```
+
 ## Scaling Table
 
 | Task Count | Rune Smiths | Trial Forgers |

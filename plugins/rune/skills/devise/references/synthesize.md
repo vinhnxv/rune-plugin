@@ -48,6 +48,8 @@ strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: "{run: git rev-parse HEAD}"
 branch: "{run: git branch --show-current}"
+figma_url: ""          # Auto-populated when Figma URL detected in brainstorm (leave empty if none)
+design_sync: false     # Set to true when figma_url is detected (enables design context in strive workers)
 session_budget:
   max_concurrent_agents: 3      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
@@ -87,6 +89,8 @@ strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: "{run: git rev-parse HEAD}"
 branch: "{run: git branch --show-current}"
+figma_url: ""          # Auto-populated when Figma URL detected in brainstorm (leave empty if none)
+design_sync: false     # Set to true when figma_url is detected (enables design context in strive workers)
 session_budget:
   max_concurrent_agents: 5      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
@@ -147,6 +151,31 @@ session_budget:
 
 {What could block or complicate this}
 
+## Design Implementation (conditional — auto-generated when figma_url is detected)
+
+{Omit this entire section when figma_url is empty or design_sync is false.}
+
+- **Figma URL**: [{figma_url}]({figma_url})
+- **Design sync**: enabled (design_sync: true in frontmatter)
+- **Fidelity target**: {from talisman design_sync.fidelity_target or "0.85 (default)"}
+- **Design extraction**: Arc Phase 3 (design_extraction) will generate VSM/DCD artifacts
+- **Fidelity review**: design-implementation-reviewer will score across 6 dimensions
+- **Iteration**: Arc Phase 7.6 (design_iteration) for visual refinement loop
+
+### Component Inventory
+
+{Auto-populated by design-inventory-agent during Phase 0 if Figma MCP is available. Otherwise "Pending — will be populated during arc design_extraction phase."}
+
+| Component | Figma Node | Status |
+|-----------|-----------|--------|
+| {component-name} | {node-id} | pending |
+
+### Design References
+
+- Design tokens: {extracted from brainstorm or "auto-detect from Figma"}
+- Responsive breakpoints: {from brainstorm or "extract from Figma frames"}
+- Accessibility target: {from brainstorm or "WCAG 2.1 AA"}
+
 ## Documentation Impact
 
 Files that must be updated when this feature ships:
@@ -199,6 +228,8 @@ strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: "{run: git rev-parse HEAD}"
 branch: "{run: git branch --show-current}"
+figma_url: ""          # Auto-populated when Figma URL detected in brainstorm (leave empty if none)
+design_sync: false     # Set to true when figma_url is detected (enables design context in strive workers)
 session_budget:
   max_concurrent_agents: 8      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
@@ -309,6 +340,31 @@ erDiagram
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
 | {Risk 1} | H/M/L | H/M/L | {Strategy} |
+
+## Design Implementation (conditional — auto-generated when figma_url is detected)
+
+{Omit this entire section when figma_url is empty or design_sync is false.}
+
+- **Figma URL**: [{figma_url}]({figma_url})
+- **Design sync**: enabled (design_sync: true in frontmatter)
+- **Fidelity target**: {from talisman design_sync.fidelity_target or "0.85 (default)"}
+- **Design extraction**: Arc Phase 3 (design_extraction) will generate VSM/DCD artifacts
+- **Fidelity review**: design-implementation-reviewer will score across 6 dimensions
+- **Iteration**: Arc Phase 7.6 (design_iteration) for visual refinement loop
+
+### Component Inventory
+
+{Auto-populated by design-inventory-agent during Phase 0 if Figma MCP is available. Otherwise "Pending — will be populated during arc design_extraction phase."}
+
+| Component | Figma Node | Status |
+|-----------|-----------|--------|
+| {component-name} | {node-id} | pending |
+
+### Design References
+
+- Design tokens: {extracted from brainstorm or "auto-detect from Figma"}
+- Responsive breakpoints: {from brainstorm or "extract from Figma frames"}
+- Accessibility target: {from brainstorm or "WCAG 2.1 AA"}
 
 ## Cross-File Consistency
 

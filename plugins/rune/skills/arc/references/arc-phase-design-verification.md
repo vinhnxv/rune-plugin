@@ -1,15 +1,15 @@
 # Phase 5.2: DESIGN VERIFICATION — Arc Design Sync Integration
 
-Reviews implementation fidelity against Visual Spec Maps (VSM) produced by Phase 5.1.
+Reviews implementation fidelity against Visual Spec Maps (VSM) produced by Phase 3 (DESIGN EXTRACTION).
 Gated by `design_sync.enabled` in talisman. **Non-blocking** — design phases never halt the pipeline.
 
-**Team**: None (orchestrator-only — uses design-implementation-reviewer agent)
+**Team**: `arc-design-verify-{id}` (design-implementation-reviewer agent)
 **Tools**: Read, Write, Task, TaskCreate, TaskUpdate, TaskList, TeamCreate, SendMessage
 **Timeout**: 8 min (PHASE_TIMEOUTS.design_verification = 480_000)
-**Inputs**: id, VSM files from Phase 5.1 (`tmp/arc/{id}/vsm/`), implemented component files
+**Inputs**: id, VSM files from Phase 3 (`tmp/arc/{id}/vsm/`), implemented component files
 **Outputs**: `tmp/arc/{id}/design-verification-report.md`, `tmp/arc/{id}/design-findings.json`
-**Error handling**: Non-blocking. Skip if no VSM files from Phase 5.1. Reviewer failure → skip with warning.
-**Consumers**: Phase 5.3 DESIGN ITERATION (reads findings), WORK phase workers (consult findings for fixes)
+**Error handling**: Non-blocking. Skip if no VSM files from Phase 3. Reviewer failure → skip with warning.
+**Consumers**: Phase 7.6 DESIGN ITERATION (reads findings), WORK phase workers (consult findings for fixes)
 
 > **Note**: `sha256()`, `updateCheckpoint()`, `exists()`, and `warn()` are dispatcher-provided utilities
 > available in the arc orchestrator context. Phase reference files call these without import.
@@ -17,7 +17,7 @@ Gated by `design_sync.enabled` in talisman. **Non-blocking** — design phases n
 ## Pre-checks
 
 1. Skip gate — `arcConfig.design_sync?.enabled !== true` → skip
-2. Verify VSM files exist from Phase 5.1 — skip if none found
+2. Verify VSM files exist from Phase 3 — skip if none found
 3. Check design_extraction phase status — skip if "skipped"
 
 ## Algorithm
@@ -34,18 +34,18 @@ if (!designSyncEnabled) {
   return
 }
 
-// 1. Check upstream Phase 5.1 ran
+// 1. Check upstream Phase 3 ran
 const extractionPhase = checkpoint.phases?.design_extraction
 if (!extractionPhase || extractionPhase.status === "skipped") {
-  log("Design verification skipped — Phase 5.1 was skipped.")
+  log("Design verification skipped — Phase 3 (DESIGN EXTRACTION) was skipped.")
   updateCheckpoint({ phase: "design_verification", status: "skipped" })
   return
 }
 
 // 2. Verify VSM files exist
-const vsmFiles = Bash(`find "tmp/arc/${id}/vsm" -name "*.md" 2>/dev/null`).trim().split('\n').filter(Boolean)
+const vsmFiles = Bash(`find "tmp/arc/${id}/vsm" -name "*.json" 2>/dev/null`).trim().split('\n').filter(Boolean)
 if (vsmFiles.length === 0) {
-  warn("Design verification: No VSM files found from Phase 5.1. Skipping.")
+  warn("Design verification: No VSM files found from Phase 3. Skipping.")
   updateCheckpoint({ phase: "design_verification", status: "skipped" })
   return
 }
@@ -114,7 +114,7 @@ updateCheckpoint({
 | Error | Recovery |
 |-------|----------|
 | `design_sync.enabled` is false | Skip phase — status "skipped" |
-| No VSM files from Phase 5.1 | Skip phase — nothing to verify |
+| No VSM files from Phase 3 | Skip phase — nothing to verify |
 | Reviewer agent failure | Skip phase — design verification is non-blocking |
 | Fidelity score unavailable | Skip with warning — manual review recommended |
 
