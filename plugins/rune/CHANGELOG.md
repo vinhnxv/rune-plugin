@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.111.2] - 2026-02-27
+
+### Added
+- **3-tier adaptive compaction for arc-phase-stop-hook** — Replaces the previous "heavy phases only" compact interlude with a 3-tier trigger system: (1) Heavy phases — always compact before `work`, `code_review`, `mend` (unchanged); (2) Context-aware — reads the statusline bridge file and compacts when remaining context <= 50%; (3) Interval fallback — compacts every 6 completed phases when the bridge file is unavailable. This prevents context exhaustion during the 23 non-heavy phases in a 26-phase arc run, especially in batch mode where the outer loop needs context budget for plan transitions.
+- **Parameterized `_check_context_at_threshold()` in stop-hook-common.sh** — Refactored `_check_context_critical()` into a generic threshold checker. New `_check_context_compact_needed()` wrapper uses 50% threshold for compaction decisions. Both share identical bridge file reading, UID ownership, and freshness logic.
+
 ## [1.111.1] - 2026-02-27
 
 ### Fixed
