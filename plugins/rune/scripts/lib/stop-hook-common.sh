@@ -257,8 +257,11 @@ _check_context_critical() {
   fi
   [[ -n "$bridge_uid" && "$bridge_uid" != "$(id -u)" ]] && return 1
 
-  # Freshness check (60s — more lenient than PreToolUse's 30s because
-  # Stop hooks fire immediately after Claude responds, bridge may be slightly stale)
+  # Freshness check (180s — more lenient than PreToolUse's 30s because
+  # Stop hooks fire after Claude responds and may chain through multiple hooks.
+  # In phase-isolated arc, the statusline updates after each phase turn, but
+  # by the time the batch hook fires after the phase completion + summary turn,
+  # the bridge file can be 60-120s old. 180s provides safe margin.)
   local file_mtime now age
   if [[ "$(uname)" == "Darwin" ]]; then
     file_mtime=$(stat -f %m "$bridge_file" 2>/dev/null || echo 0)
@@ -267,7 +270,7 @@ _check_context_critical() {
   fi
   now=$(date +%s)
   age=$(( now - file_mtime ))
-  [[ "$age" -ge 0 && "$age" -lt 60 ]] || return 1
+  [[ "$age" -ge 0 && "$age" -lt 180 ]] || return 1
 
   # Parse remaining percentage
   local rem_int

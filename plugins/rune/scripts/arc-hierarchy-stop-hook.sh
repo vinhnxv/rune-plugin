@@ -83,6 +83,16 @@ if [[ "$STATUS" != "active" ]] && [[ "$ACTIVE" != "true" ]]; then
   exit 0
 fi
 
+# ── GUARD 7.5: Skip when phase loop is active (inner loop running) ──
+# When arc-phase-stop-hook.sh is driving the inner loop, this outer loop
+# should not run. The inner loop removes its state file only when ALL
+# phases are complete — that's when the outer loop should fire.
+_PHASE_STATE="${CWD}/.claude/arc-phase-loop.local.md"
+if [[ -f "$_PHASE_STATE" && ! -L "$_PHASE_STATE" ]]; then
+  _trace "GUARD 7.5: Phase loop active — skipping hierarchy hook"
+  exit 0
+fi
+
 # ── GUARD 8: Validate required fields ──
 if [[ -z "$CURRENT_CHILD" ]] || [[ -z "$FEATURE_BRANCH" ]] || [[ -z "$EXECUTION_TABLE_PATH" ]] || [[ -z "$CHILDREN_DIR" ]]; then
   _trace "Missing required fields in state file — cleaning up"
