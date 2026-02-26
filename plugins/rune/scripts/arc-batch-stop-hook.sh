@@ -97,6 +97,16 @@ if [[ "$ACTIVE" != "true" ]]; then
   exit 0
 fi
 
+# ── GUARD 6.5: Skip when phase loop is active (inner loop running) ──
+# When arc-phase-stop-hook.sh is driving the inner loop, this outer loop
+# should not run. The inner loop removes its state file only when ALL
+# phases are complete — that's when the outer loop should fire.
+_PHASE_STATE="${CWD}/.claude/arc-phase-loop.local.md"
+if [[ -f "$_PHASE_STATE" && ! -L "$_PHASE_STATE" ]]; then
+  _trace "GUARD 6.5: Phase loop active — skipping batch hook"
+  exit 0
+fi
+
 # ── GUARD 7: Validate numeric fields ──
 if ! [[ "$ITERATION" =~ ^[0-9]+$ ]] || ! [[ "$TOTAL_PLANS" =~ ^[0-9]+$ ]]; then
   # Corrupted numeric fields — fail-safe cleanup

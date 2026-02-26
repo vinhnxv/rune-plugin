@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.111.1] - 2026-02-27
+
+### Fixed
+- **Arc-batch stuck after 1 plan due to phase-isolated context exhaustion** — Since v1.110.0, `arc-phase-stop-hook.sh` always injected a summary prompt (`decision:"block"`) at phase loop completion, even when an outer batch/hierarchy/issues loop was active. This burned one extra context turn that the outer loop needed for the plan-to-plan transition, causing context exhaustion after Plan 1. Now exits silently when an outer loop state file is detected, preserving context budget for the transition.
+- **Outer loop hooks (batch/hierarchy/issues) ran expensive operations during phase turns** — Added GUARD 6.5 (batch/issues) and GUARD 7.5 (hierarchy) that fast-exits when `arc-phase-loop.local.md` exists. Prevents wasted checkpoint scanning, progress file updates, and summary writing during intermediate phase turns — operations that could exceed the 15s hook timeout and silently kill the hook.
+- **Bridge file freshness too tight for phase-isolated arc** — Increased `_check_context_critical()` freshness tolerance from 60s to 180s. In phase-isolated arc, the statusline bridge file can be 60-120s old by the time outer loop hooks fire (phase completion turn + hook chain processing time). 60s caused the context check to always fail-open, making GUARD 11 effectively inoperable.
+
 ## [1.111.0] - 2026-02-27
 
 ### Added

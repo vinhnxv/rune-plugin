@@ -213,9 +213,29 @@ if [[ -z "$NEXT_PHASE" ]]; then
     fi
   fi
 
-  _trace "All phases complete — removing state file, allowing stop"
+  _trace "All phases complete — removing state file"
 
-  # Inject a lightweight completion message
+  # Check if an outer loop (batch/hierarchy/issues) is active.
+  # If so, exit silently — the outer loop's Stop hook will fire next
+  # and handle the plan-to-plan transition. Injecting a summary prompt
+  # here would burn context that the outer loop needs for its transition.
+  _BATCH_STATE="${CWD}/.claude/arc-batch-loop.local.md"
+  _HIERARCHY_STATE="${CWD}/.claude/arc-hierarchy-loop.local.md"
+  _ISSUES_STATE="${CWD}/.claude/arc-issues-loop.local.md"
+  if [[ -f "$_BATCH_STATE" && ! -L "$_BATCH_STATE" ]] \
+     || [[ -f "$_HIERARCHY_STATE" && ! -L "$_HIERARCHY_STATE" ]] \
+     || [[ -f "$_ISSUES_STATE" && ! -L "$_ISSUES_STATE" ]]; then
+    _trace "Outer loop active — exiting silently to preserve context for plan transition"
+    exit 0
+  fi
+
+  # Standalone arc (no outer loop) — inject lightweight summary
+  # Add context check first to avoid injecting into exhausted context
+  if _check_context_critical 2>/dev/null; then
+    _trace "Context critical at standalone arc completion — allowing stop without summary"
+    exit 0
+  fi
+
   jq -n \
     --arg prompt "Arc pipeline complete — all phases finished. The checkpoint at ${CHECKPOINT_PATH} has been fully updated. Present a brief summary of the arc execution and STOP responding." \
     --arg msg "Arc phase loop complete. All phases processed." \
