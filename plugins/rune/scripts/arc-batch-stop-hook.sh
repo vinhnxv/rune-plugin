@@ -316,6 +316,10 @@ if [[ "$ARC_STATUS" == "failed" ]]; then
     if [[ "$PR_URL" == "none" ]]; then
       PR_URL=$(jq -r '.phases.ship.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
     fi
+    # Extract arc_id from checkpoint as fallback (v1.110.0: fills data gap)
+    if [[ -z "${ARC_SIGNAL_ARC_ID:-}" ]]; then
+      ARC_SIGNAL_ARC_ID=$(jq -r '.id // ""' "$ARC_CKPT" 2>/dev/null || true)
+    fi
     # Determine success from checkpoint evidence
     if [[ "$PR_URL" != "none" ]]; then
       ARC_STATUS="completed"
@@ -327,7 +331,7 @@ if [[ "$ARC_STATUS" == "failed" ]]; then
       fi
     fi
   fi
-  _trace "Arc status from checkpoint fallback: arc_status=${ARC_STATUS} pr_url=${PR_URL}"
+  _trace "Arc status from checkpoint fallback: arc_status=${ARC_STATUS} pr_url=${PR_URL} arc_id=${ARC_SIGNAL_ARC_ID:-}"
 fi
 
 # (v1.109.3 stale signal cleanup now happens immediately after consumption above — BACK-002 FIX)
@@ -361,13 +365,15 @@ UPDATED_PROGRESS=$(echo "$PROGRESS_CONTENT" | jq \
   --arg summary_path "$SUMMARY_PATH" \
   --arg pr_url "${PR_URL:-none}" \
   --arg current_path "$_CURRENT_PLAN_PATH" \
-  --arg arc_status "$ARC_STATUS" '
+  --arg arc_status "$ARC_STATUS" \
+  --arg arc_session_id "${ARC_SIGNAL_ARC_ID:-}" '
   .updated_at = $ts |
   (.plans[] | select(.status == "in_progress" and .path == $current_path)) |= (
     .status = $arc_status |
     .completed_at = $ts |
     .summary_file = $summary_path |
-    .pr_url = $pr_url
+    .pr_url = $pr_url |
+    .arc_session_id = $arc_session_id
   )
 ' 2>/dev/null || true)
 

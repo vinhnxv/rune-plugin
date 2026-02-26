@@ -108,10 +108,44 @@ stale_state_count=$(
 
 [[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: stale state files found: ${stale_state_count}" >> /tmp/rune-hook-trace.log
 
+# Count orphaned arc checkpoints (v1.110.0: Bug 2 fix)
+# Scan .claude/arc/ and tmp/arc/ for checkpoints with dead owner_pid
+orphan_checkpoint_count=0
+orphan_checkpoint_count=$(
+  count=0
+  for ckpt_dir in "${CWD}/.claude/arc" "${CWD}/tmp/arc"; do
+    [[ -d "$ckpt_dir" ]] || continue
+    setopt nullglob 2>/dev/null || shopt -s nullglob 2>/dev/null || true
+    for f in "$ckpt_dir"/*/checkpoint.json; do
+      [[ -f "$f" ]] && [[ ! -L "$f" ]] || continue
+      # Extract ownership fields
+      ckpt_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+      ckpt_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+      # Skip if no owner_pid (backward compat with pre-session-isolation checkpoints)
+      [[ -n "$ckpt_pid" && "$ckpt_pid" =~ ^[0-9]+$ ]] || continue
+      # Skip if different config_dir (different installation)
+      if [[ -n "$ckpt_cfg" && -n "$RUNE_CURRENT_CFG" && "$ckpt_cfg" != "$RUNE_CURRENT_CFG" ]]; then
+        continue
+      fi
+      # Skip if same session (ours — not orphaned)
+      [[ "$ckpt_pid" == "$PPID" ]] && continue
+      # Skip if owner is alive (another live session)
+      if rune_pid_alive "$ckpt_pid"; then
+        continue
+      fi
+      # Dead owner — orphaned checkpoint
+      count=$((count + 1))
+    done
+  done
+  echo "$count"
+)
+
+[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: orphaned checkpoints found: ${orphan_checkpoint_count}" >> /tmp/rune-hook-trace.log
+
 # Report if anything found
 # BACK-007 FIX: Conditionally append orphan list to avoid trailing "Orphans: " with no names
-if [[ $orphan_count -gt 0 ]] || [[ $stale_state_count -gt 0 ]]; then
-  msg="TLC-003 SESSION HYGIENE: Found ${orphan_count} orphaned team dir(s) and ${stale_state_count} stale state file(s) from prior sessions. Run /rune:rest --heal to clean up."
+if [[ $orphan_count -gt 0 ]] || [[ $stale_state_count -gt 0 ]] || [[ $orphan_checkpoint_count -gt 0 ]]; then
+  msg="TLC-003 SESSION HYGIENE: Found ${orphan_count} orphaned team dir(s), ${stale_state_count} stale state file(s), and ${orphan_checkpoint_count} orphaned checkpoint(s) from prior sessions. Run /rune:rest --heal to clean up."
   if [[ ${#orphan_names[@]} -gt 0 ]]; then
     msg+=" Orphans: ${orphan_names[*]:0:5}"
   fi

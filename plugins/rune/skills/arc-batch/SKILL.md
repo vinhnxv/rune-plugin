@@ -29,7 +29,7 @@ argument-hint: "[plans/*.md | queue-file.txt] [--resume] [--dry-run] [--no-merge
 
 # /rune:arc-batch — Sequential Batch Arc Execution
 
-Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 21-phase pipeline (forge through merge) before the next plan starts.
+Executes `/rune:arc` across multiple plan files sequentially. Each arc run completes the full 26-phase pipeline (forge through merge) before the next plan starts.
 
 **Core loop**: Stop hook pattern (ralph-wiggum). Each arc runs as a native Claude Code turn. Between arcs, the Stop hook intercepts session end, reads batch state from `.claude/arc-batch-loop.local.md`, determines the next plan, cleans git state, and re-injects the arc prompt.
 
@@ -128,8 +128,22 @@ let noSmartSort = args.includes('--no-smart-sort')
 
 if (resumeMode) {
   const progress = JSON.parse(Read("tmp/arc-batch/batch-progress.json"))
-  // P1-FIX: Filter to pending plans only — don't re-execute completed plans
   const allPlans = progress.plans
+
+  // Bug 4 FIX (v1.110.0): Reset in_progress plans from crashed sessions to pending.
+  // A plan stuck in "in_progress" means the previous session died mid-execution.
+  const staleInProgress = allPlans.filter(p => p.status === "in_progress")
+  if (staleInProgress.length > 0) {
+    warn(`Found ${staleInProgress.length} in_progress plan(s) from crashed session — resetting to pending`)
+    for (const plan of staleInProgress) {
+      plan.status = "pending"
+      plan.recovery_note = "reset_from_in_progress_on_resume"
+    }
+    progress.updated_at = new Date().toISOString()
+    Write("tmp/arc-batch/batch-progress.json", JSON.stringify(progress, null, 2))
+  }
+
+  // P1-FIX: Filter to pending plans only — don't re-execute completed plans
   const pendingPlans = allPlans.filter(p => p.status === "pending")
   planPaths = pendingPlans.map(p => p.path)
   log(`Resuming batch: ${allPlans.filter(p => p.status === "completed").length}/${allPlans.length} completed, ${planPaths.length} remaining`)
@@ -151,107 +165,13 @@ if (planPaths.length === 0) {
   return
 }
 
-// ── SHARD GROUP DETECTION (v1.66.0+, after initial plan list construction) ──
-const noShardSort = args.includes('--no-shard-sort')
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const talisman = readTalisman()
-const shardConfig = talisman?.arc?.sharding ?? {}
-const shardEnabled = shardConfig.enabled !== false  // default: true (PS-007 FIX: honor master enabled flag)
-const autoSort = shardConfig.auto_sort !== false  // default: true
-const excludeParent = shardConfig.exclude_parent !== false  // default: true
-
-if (!noShardSort && shardEnabled && autoSort && !resumeMode && planPaths.length > 1) {
-  // Separate shard plans from regular plans
-  const shardPlans = []
-  const regularPlans = []
-  const parentPlansToExclude = []
-
-  for (const path of planPaths) {
-    const shardMatch = path.match(/-shard-(\d+)-/)
-    if (shardMatch) {
-      shardPlans.push({
-        path,
-        shardNum: parseInt(shardMatch[1]),
-        // Extract feature prefix: everything before "-shard-N-{phase}-plan.md"
-        // Consistent regex with Task 1.1 and parse-plan.md
-        featurePrefix: path.replace(/-shard-\d+-[^-]+-plan\.md$/, '')
-      })
-    } else {
-      regularPlans.push(path)
-    }
-  }
-
-  // F-004 FIX: Declare shardGroups in outer scope to avoid block-scoping fragility
-  let shardGroups = new Map()
-
-  if (shardPlans.length > 0) {
-    // Check for parent plans in regularPlans (auto-exclude if shattered: true)
-    const filteredRegular = []
-    if (excludeParent) {
-      for (const path of regularPlans) {
-        try {
-          const content = Read(path)
-          const frontmatter = extractYamlFrontmatter(content)
-          if (frontmatter?.shattered === true) {
-            parentPlansToExclude.push(path)
-            continue
-          }
-        } catch (e) {
-          // Can't read — keep it
-        }
-        filteredRegular.push(path)
-      }
-    } else {
-      filteredRegular.push(...regularPlans)
-    }
-
-    if (parentPlansToExclude.length > 0) {
-      warn(`Auto-excluded ${parentPlansToExclude.length} parent plan(s) (shattered: true):`)
-      for (const p of parentPlansToExclude) {
-        warn(`  - ${p}`)
-      }
-    }
-
-    // Group shards by feature prefix
-    shardGroups = new Map()  // reset (outer-scope let)
-    for (const shard of shardPlans) {
-      if (!shardGroups.has(shard.featurePrefix)) {
-        shardGroups.set(shard.featurePrefix, [])
-      }
-      shardGroups.get(shard.featurePrefix).push(shard)
-    }
-
-    // Sort each group by shard number
-    for (const [prefix, shards] of shardGroups) {
-      shards.sort((a, b) => a.shardNum - b.shardNum)
-    }
-
-    // Detect missing shards within groups
-    for (const [prefix, shards] of shardGroups) {
-      const nums = shards.map(s => s.shardNum)
-      if (nums.length === 0) continue  // F-002 FIX: guard against Math.max() = -Infinity
-      const maxNum = Math.max(...nums)
-      const missing = []
-      for (let i = 1; i <= maxNum; i++) {
-        if (!nums.includes(i)) missing.push(i)
-      }
-      if (missing.length > 0) {
-        warn(`Shard group "${prefix.replace(/.*\//, '')}" has gaps: missing shard(s) ${missing.join(', ')}`)
-      }
-    }
-
-    // Rebuild plan paths: regular plans first, then shard groups in order
-    planPaths = [
-      ...filteredRegular,
-      ...Array.from(shardGroups.values()).flat().map(s => s.path)
-    ]
-
-    log(`Shard-aware ordering: ${filteredRegular.length} regular + ${shardPlans.length} shard plans across ${shardGroups.size} group(s)`)
-    if (parentPlansToExclude.length > 0) {
-      log(`Excluded ${parentPlansToExclude.length} parent plan(s)`)
-    }
-  }
-}
+// ── SHARD GROUP DETECTION (v1.66.0+) ──
+// Separates shard plans from regular, groups by feature prefix, sorts by shard number,
+// detects gaps, auto-excludes parent plans (shattered: true).
+// See [batch-shard-parsing.md](references/batch-shard-parsing.md) for full algorithm.
+// Outputs: reordered planPaths, shardGroups Map (used in Phase 3 progress file)
+Read("references/batch-shard-parsing.md")
+// Execute the shard detection algorithm. Sets planPaths and shardGroups.
 ```
 
 ### Phase 1: Pre-flight Validation
@@ -291,111 +211,14 @@ if (!noMerge) {
 
 ### Phase 1.5: Smart Ordering
 
-Reorders `planPaths` in memory to reduce merge conflicts and version collisions. See [smart-ordering.md](references/smart-ordering.md) for the full algorithm.
+Reorders `planPaths` in memory to reduce merge conflicts and version collisions. Skipped when `--no-smart-sort`, `--resume`, single plan, or `talisman.arc.batch.smart_ordering.enabled === false`.
+
+See [smart-ordering.md](references/smart-ordering.md) for the full algorithm.
 
 ```javascript
-// noSmartSort parsed in Phase 0; talisman loaded in Phase 0 shard detection
-const smartConfig = talisman?.arc?.batch?.smart_ordering ?? {}
-const smartEnabled = smartConfig.enabled !== false  // default: true
-
-if (!noSmartSort && smartEnabled && !resumeMode && planPaths.length > 1) {
-  // Universal exclusion list — nearly every plan touches these
-  const UNIVERSAL_FILES = new Set([
-    'plugin.json', '.claude-plugin/plugin.json',
-    'CHANGELOG.md', 'CLAUDE.md', 'README.md',
-    'marketplace.json', '.claude-plugin/marketplace.json'
-  ])
-
-  // Step 1: Extract file targets from each plan
-  const planMeta = planPaths.map(path => {
-    const content = Read(path)
-    const frontmatter = extractYamlFrontmatter(content)
-    let fileTargets = new Set()
-
-    // Try frontmatter fields first: files_modified or scope
-    if (frontmatter?.files_modified) {
-      for (const f of frontmatter.files_modified) {
-        fileTargets.add(f.replace(/^\.\//, ''))
-      }
-    } else if (frontmatter?.scope) {
-      // scope is comma-separated paths, may include directories
-      for (const s of frontmatter.scope.split(',')) {
-        fileTargets.add(s.trim().replace(/^\.\//, ''))
-      }
-    }
-
-    // Fallback: grep backtick-wrapped paths from plan content
-    if (fileTargets.size === 0) {
-      const pathMatches = content.match(/`([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)`/g) || []
-      for (const m of pathMatches) {
-        const p = m.replace(/`/g, '').replace(/^\.\//, '')
-        if (p.includes('/') || p.includes('.')) {
-          fileTargets.add(p)
-        }
-      }
-    }
-
-    // Remove universal files from target set
-    for (const uf of UNIVERSAL_FILES) {
-      fileTargets.delete(uf)
-      // Also remove by basename for nested paths
-      for (const ft of fileTargets) {
-        if (ft.endsWith('/' + uf)) fileTargets.delete(ft)
-      }
-    }
-
-    const versionTarget = frontmatter?.version_target ?? null
-
-    return { path, fileTargets, versionTarget }
-  })
-
-  // Step 2-3: Build overlap map and classify isolation
-  for (const plan of planMeta) {
-    plan.isIsolated = true
-    for (const other of planMeta) {
-      if (other.path === plan.path) continue
-      for (const f of plan.fileTargets) {
-        if (other.fileTargets.has(f)) {
-          plan.isIsolated = false
-          break
-        }
-      }
-      if (!plan.isIsolated) break
-    }
-  }
-
-  // Step 4-5: Sort — isolated first, then version_target ASC, then filename
-  planMeta.sort((a, b) => {
-    // Isolated plans first
-    if (a.isIsolated !== b.isIsolated) return a.isIsolated ? -1 : 1
-    // Lower version_target first (null sorts last)
-    if (a.versionTarget !== b.versionTarget) {
-      if (a.versionTarget === null) return 1
-      if (b.versionTarget === null) return -1
-      return a.versionTarget.localeCompare(b.versionTarget, undefined, { numeric: true })
-    }
-    // Alphabetical filename tiebreaker
-    return a.path.localeCompare(b.path)
-  })
-
-  // Step 6: Replace planPaths (memory only — Phase 5 writes plan-list.txt)
-  const originalOrder = [...planPaths]
-  planPaths = planMeta.map(m => m.path)
-
-  // Step 7: Log summary
-  const isolated = planMeta.filter(m => m.isIsolated).length
-  const conflicting = planMeta.length - isolated
-  log(`Smart ordering: ${isolated} isolated + ${conflicting} conflicting plans`)
-  for (const [i, m] of planMeta.entries()) {
-    const tag = m.isIsolated ? "isolated" : "conflicting"
-    const ver = m.versionTarget ? `v${m.versionTarget}` : "no-version"
-    log(`  ${i + 1}. ${m.path} [${tag}, ${ver}]`)
-  }
-  const noVersion = planMeta.filter(m => m.versionTarget === null)
-  if (noVersion.length > 0) {
-    warn(`${noVersion.length} plan(s) missing version_target — sorted last within their group`)
-  }
-}
+Read("references/smart-ordering.md")
+// Execute: extract file targets → build overlap map → classify isolation → sort
+// (isolated first, then version_target ASC, then filename)
 ```
 
 ### Phase 2: Dry Run
@@ -468,121 +291,12 @@ AskUserQuestion({
 
 ### Phase 5: Start Batch Loop (Stop Hook Pattern)
 
-Write state file for the Stop hook, mark the first plan as in_progress, and invoke `/rune:arc` natively. The Stop hook (`scripts/arc-batch-stop-hook.sh`) handles all subsequent plans and the final summary.
+Write state file, resolve session identity, check for existing batch, mark first plan as in_progress, and invoke `/rune:arc`. The Stop hook handles all subsequent plans and the final summary.
+
+See [batch-loop-init.md](references/batch-loop-init.md) for the full algorithm.
 
 ```javascript
-const pluginDir = Bash(`echo "${CLAUDE_PLUGIN_ROOT}"`).trim()
-const planListFile = "tmp/arc-batch/plan-list.txt"
-Write(planListFile, planPaths.join('\n'))
-
-// Merge resolution: CLI --no-merge (highest) → talisman auto_merge → default (true)
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const talisman = readTalisman()
-const batchConfig = talisman?.arc?.batch || {}
-const autoMerge = noMerge ? false : (batchConfig.auto_merge ?? true)
-const summaryEnabled = batchConfig?.summaries?.enabled !== false  // default: true
-
-// ── Resolve session identity for cross-session isolation ──
-// Two isolation layers prevent cross-session interference:
-//   Layer 1: config_dir — isolates different Claude Code installations
-//   Layer 2: owner_pid — isolates different sessions with same config dir
-// $PPID in Bash = Claude Code process PID (Bash runs as child of Claude Code)
-const configDir = Bash(`cd "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
-const ownerPid = Bash(`echo $PPID`).trim()
-
-// ── Pre-creation guard: check for existing batch from another session ──
-const existingState = Read(".claude/arc-batch-loop.local.md") // returns null/error if not found
-if (existingState && existingState.includes("active: true")) {
-  const existingPid = existingState.match(/owner_pid:\s*(\d+)/)?.[1]
-  const existingCfg = existingState.match(/config_dir:\s*(.+)/)?.[1]?.trim()
-
-  let ownedByOther = false
-  if (existingCfg && existingCfg !== configDir) {
-    ownedByOther = true
-  }
-  if (!ownedByOther && existingPid && /^\d+$/.test(existingPid) && existingPid !== ownerPid) {
-    // Check if other session is alive (SEC-1: numeric guard before shell interpolation)
-    const alive = Bash(`kill -0 ${existingPid} 2>/dev/null && echo "alive" || echo "dead"`).trim()
-    if (alive === "alive") {
-      ownedByOther = true
-    }
-  }
-
-  if (ownedByOther) {
-    error("Another session is already running arc-batch on this repo.")
-    error("Cancel it first with /rune:cancel-arc-batch, or wait for it to finish.")
-    return
-  }
-  // Owner is dead → orphaned state file. Safe to overwrite.
-  warn("Found orphaned batch state file (previous session crashed). Overwriting.")
-}
-
-// ── Write state file for Stop hook ──
-// Format matches ralph-wiggum's .local.md convention (YAML frontmatter)
-Write(".claude/arc-batch-loop.local.md", `---
-active: true
-iteration: 1
-max_iterations: 0
-total_plans: ${planPaths.length}
-no_merge: ${!autoMerge}
-plugin_dir: ${pluginDir}
-config_dir: ${configDir}
-owner_pid: ${ownerPid}
-session_id: ${CLAUDE_SESSION_ID}
-plans_file: ${planListFile}
-progress_file: ${progressFile}
-summary_enabled: ${summaryEnabled}
-summary_dir: tmp/arc-batch/summaries
-started_at: "${new Date().toISOString()}"
----
-
-Arc batch loop state. Do not edit manually.
-Use /rune:cancel-arc-batch to stop the batch loop.
-`)
-// NOTE: summary_enabled and summary_dir are read by the Stop hook via get_field().
-// summary_enabled defaults to true when missing (backward compat with old state files).
-// summary_dir is always "tmp/arc-batch/summaries" (flat path per C2 — no PID subdirectory).
-// Phase 6 synthetic resume summaries are NOT implemented (C11 — YAGNI).
-// On --resume, step 4.5 handles missing summaries via conditional injection.
-
-// ── Mark first pending plan as in_progress ──
-// P1-FIX: Find the correct plan entry in progress file by matching path,
-// not by index — planPaths[0] is the first *pending* plan (filtered in resume mode).
-const firstPlan = planPaths[0]
-const progress = JSON.parse(Read(progressFile))
-const planEntry = progress.plans.find(p => p.path === firstPlan && p.status === "pending")
-if (planEntry) {
-  planEntry.status = "in_progress"
-  planEntry.started_at = new Date().toISOString()
-  progress.updated_at = new Date().toISOString()
-  Write(progressFile, JSON.stringify(progress, null, 2))
-}
-
-// ── Invoke arc for first plan ──
-// Native skill invocation — no subprocess, no timeout limit.
-// Each arc runs as a full Claude Code turn with complete tool access.
-const mergeFlag = !autoMerge ? " --no-merge" : ""
-Skill("arc", `${firstPlan} --skip-freshness${mergeFlag}`)
-
-// After the first arc completes, Claude's response ends.
-// The Stop hook fires, reads the state file, marks plan 1 as completed,
-// finds plan 2, and re-injects the arc prompt for the next plan.
-// This continues until all plans are processed.
-```
-
-**How the loop works:**
-1. Phase 5 invokes `/rune:arc` for the first plan (native turn)
-2. When arc completes, Claude's response ends → Stop event fires
-3. `arc-batch-stop-hook.sh` reads `.claude/arc-batch-loop.local.md`
-4. Marks current plan as completed in `batch-progress.json`
-5. Finds next pending plan
-6. Re-injects arc prompt via `{"decision":"block","reason":"<prompt>"}`
-7. Claude receives the re-injected prompt → runs next arc
-8. Repeat until all plans done
-9. On final iteration: removes state file, releases workflow lock, injects summary prompt
-10. Summary turn completes → Stop hook finds no state file → allows session end
-
-**Lock release**: The stop hook releases the workflow lock on the final iteration:
-```bash
-source "${CWD}/plugins/rune/scripts/lib/workflow-lock.sh" && rune_release_lock "arc-batch"
+Read("references/batch-loop-init.md")
+// Execute: resolve session identity → pre-creation guard → write state file →
+// mark first plan in_progress → Skill("arc", firstPlan + flags)
 ```

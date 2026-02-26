@@ -297,6 +297,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/arc-phase-stop-hook.sh",
+            "timeout": 15,
+            "statusMessage": "Checking arc phase loop..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/arc-batch-stop-hook.sh",
             "timeout": 15,
             "statusMessage": "Checking arc batch loop..."

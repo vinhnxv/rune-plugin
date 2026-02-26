@@ -27,7 +27,39 @@ Cancel an active arc pipeline and gracefully shutdown all phase teammates. Compl
 
 ## Steps
 
-### 0. Cancel Arc-Batch Loop (if active and owned by this session)
+### 0. Cancel Arc Phase Loop and Arc-Batch Loop (if active and owned by this session)
+
+```javascript
+// Check for active arc-phase loop state file (innermost loop — check first)
+const phaseStateFile = ".claude/arc-phase-loop.local.md"
+const phaseExists = Bash(`test -f "${phaseStateFile}" && echo "yes" || echo "no"`).trim()
+
+if (phaseExists === "yes") {
+  const phaseContent = Read(phaseStateFile)
+  const ownerPidMatch = phaseContent.match(/owner_pid:\s*(\d+)/)
+  const configDirMatch = phaseContent.match(/config_dir:\s*(.+)/)
+  const ownerPid = ownerPidMatch ? ownerPidMatch[1].trim() : null
+  const storedCfg = configDirMatch ? configDirMatch[1].trim() : null
+  const currentCfg = Bash(`cd "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
+  const currentPid = Bash(`echo $PPID`).trim()
+
+  let isOwner = true
+  if (storedCfg && storedCfg !== currentCfg) isOwner = false
+  if (isOwner && ownerPid && /^\d+$/.test(ownerPid) && ownerPid !== currentPid) {
+    const alive = Bash(`kill -0 ${ownerPid} 2>/dev/null && echo "alive" || echo "dead"`).trim()
+    if (alive === "alive") isOwner = false
+  }
+
+  if (isOwner) {
+    Bash('rm -f .claude/arc-phase-loop.local.md')
+    log("Arc phase loop cancelled (Stop hook will no longer re-inject phases)")
+  } else {
+    warn(`Arc phase loop belongs to another session (PID: ${ownerPid}). Skipping.`)
+  }
+}
+```
+
+#### Cancel Arc-Batch Loop (if active and owned by this session)
 
 ```javascript
 // Check for active arc-batch loop state file
@@ -276,11 +308,16 @@ Do NOT delete any files from completed phases:
 const PHASE_LABELS = {
   forge: '1 (FORGE)', plan_review: '2 (PLAN REVIEW)', plan_refine: '2.5 (PLAN REFINEMENT)',
   verification: '2.7 (VERIFICATION)', semantic_verification: '2.8 (SEMANTIC VERIFICATION)',
-  work: '5 (WORK)', gap_analysis: '5.5 (GAP ANALYSIS)', codex_gap_analysis: '5.6 (CODEX GAP ANALYSIS)',
+  design_extraction: '3 (DESIGN EXTRACTION)', task_decomposition: '4.5 (TASK DECOMPOSITION)',
+  work: '5 (WORK)', design_verification: '5.2 (DESIGN VERIFICATION)',
+  gap_analysis: '5.5 (GAP ANALYSIS)', codex_gap_analysis: '5.6 (CODEX GAP ANALYSIS)',
   gap_remediation: '5.8 (GAP REMEDIATION)', goldmask_verification: '5.7 (GOLDMASK VERIFICATION)',
   code_review: '6 (CODE REVIEW)', goldmask_correlation: '6.5 (GOLDMASK CORRELATION)',
-  mend: '7 (MEND)', verify_mend: '7.5 (VERIFY MEND)', test: '7.7 (TEST)',
-  pre_ship_validation: '8.5 (PRE-SHIP VALIDATION)', ship: '9 (SHIP)', merge: '9.5 (MERGE)'
+  mend: '7 (MEND)', verify_mend: '7.5 (VERIFY MEND)', design_iteration: '7.6 (DESIGN ITERATION)',
+  test: '7.7 (TEST)', test_coverage_critique: '7.8 (TEST COVERAGE CRITIQUE)',
+  pre_ship_validation: '8.5 (PRE-SHIP VALIDATION)', release_quality_check: '8.55 (RELEASE QUALITY CHECK)',
+  ship: '9 (SHIP)', bot_review_wait: '9.1 (BOT REVIEW WAIT)',
+  pr_comment_resolution: '9.2 (PR COMMENT RESOLUTION)', merge: '9.5 (MERGE)'
 }
 
 let report = `Arc pipeline cancelled.\n\n`

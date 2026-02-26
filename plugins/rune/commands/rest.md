@@ -215,6 +215,20 @@ fi
 # Overwritten per arc run but stale signals can confuse future arc-batch/arc-issues runs.
 rm -f tmp/arc-result-current.json 2>/dev/null
 
+# Remove arc-phase loop artifacts (only if no active arc-phase loop)
+# State file is .claude/arc-phase-loop.local.md (not tmp/)
+arc_phase_state=".claude/arc-phase-loop.local.md"
+if [ -f "$arc_phase_state" ] && ! [[ -L "$arc_phase_state" ]]; then
+  active_phase=$(grep "^active:" "$arc_phase_state" 2>/dev/null | head -1 | sed 's/^active:[[:space:]]*//' || echo "")
+  if [[ "$active_phase" == "true" ]]; then
+    echo "SKIP: .claude/arc-phase-loop.local.md — active arc-phase loop detected"
+  else
+    rm -f "$arc_phase_state"
+  fi
+else
+  rm -f "$arc_phase_state" 2>/dev/null
+fi
+
 # Remove arc-issues artifacts (only if no active arc-issues loop)
 # State file is .claude/arc-issues-loop.local.md (not tmp/)
 arc_issues_state=".claude/arc-issues-loop.local.md"
@@ -408,15 +422,44 @@ for (const dir of teamDirs) {
   orphanedTeams.push(teamName)
 }
 
+// STEP 2.5: Scan for orphaned arc checkpoint directories (v1.110.0)
+// Checkpoints in .claude/arc/ and tmp/arc/ with dead owner_pid are orphaned.
+// Same ownership logic as session-team-hygiene.sh (Bug 2 fix).
+const orphanedCheckpoints = []
+const CHOME_RESOLVED = Bash(`cd "${CHOME}" 2>/dev/null && pwd -P`).trim()
+for (const baseDir of [".claude/arc", "tmp/arc"]) {
+  const checkpointFiles = Glob(`${baseDir}/*/checkpoint.json`)
+  for (const ckptFile of checkpointFiles) {
+    try {
+      const ckpt = JSON.parse(Read(ckptFile))
+      const ckptPid = ckpt.owner_pid
+      const ckptCfg = ckpt.config_dir
+      // Skip if no owner_pid (backward compat with pre-session-isolation checkpoints)
+      if (!ckptPid) continue
+      // Validate PID is numeric before shell interpolation (SEC-002)
+      if (!/^\d+$/.test(String(ckptPid))) continue
+      // Skip if different config_dir (different installation)
+      if (ckptCfg && CHOME_RESOLVED && ckptCfg !== CHOME_RESOLVED) continue
+      // Skip if owner is alive (another active session)
+      const isAlive = Bash(`kill -0 ${ckptPid} 2>/dev/null && echo alive`).includes("alive")
+      if (isAlive) continue
+      // Dead owner — orphaned checkpoint
+      orphanedCheckpoints.push(dirname(ckptFile))
+    } catch (e) {
+      warn(`${ckptFile}: unreadable — skipping`)
+    }
+  }
+}
+
 // STEP 3: Present and confirm
-if (staleStateFiles.length === 0 && orphanedTeams.length === 0) {
+if (staleStateFiles.length === 0 && orphanedTeams.length === 0 && orphanedCheckpoints.length === 0) {
   log("No orphaned resources found. System is clean.")
   return
 }
 
 AskUserQuestion({
   questions: [{
-    question: `Found ${staleStateFiles.length} stale state files and ${orphanedTeams.length} orphaned teams. Clean up?`,
+    question: `Found ${staleStateFiles.length} stale state files, ${orphanedTeams.length} orphaned teams, and ${orphanedCheckpoints.length} orphaned checkpoints. Clean up?`,
     header: "Heal",
     options: [
       { label: "Clean all (Recommended)", description: "Remove orphaned teams + reset stale state files" },
@@ -453,10 +496,17 @@ for (const dir of signalDirs) {
   }
 }
 
+// STEP 5.5: Remove orphaned arc checkpoint directories (v1.110.0)
+// Discovered in STEP 2.5 — execute cleanup here alongside other removals.
+for (const dir of orphanedCheckpoints) {
+  Bash(`rm -rf "${dir}" 2>/dev/null`)
+}
+
 // STEP 6: Report
 log(`Heal complete.`)
 log(`  Stale state files reset: ${staleStateFiles.length}`)
 log(`  Orphaned teams removed: ${orphanedTeams.length}`)
+log(`  Orphaned checkpoints removed: ${orphanedCheckpoints.length}`)
 ```
 
 **Staleness heuristic**: A state file is considered stale if `status === "active"` AND `started` is older than 30 minutes. This is 2x the longest inner timeout (15 min), providing margin for slow workflows while still catching genuine crashes.
