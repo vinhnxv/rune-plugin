@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.107.3] - 2026-02-26
+
+### Fixed
+- **GUARD 10: Rapid iteration detection** — All 3 Stop hook loop drivers (`arc-batch-stop-hook.sh`, `arc-issues-stop-hook.sh`, `arc-hierarchy-stop-hook.sh`) now detect when an arc iteration completes in under 90 seconds, indicating the arc pipeline never actually started (context exhaustion after compaction). Instead of cascading phantom failures through remaining plans, the batch is aborted immediately with a `context_exhaustion_abort` diagnostic. Saves $60+ in wasted API spend when context window is exhausted mid-batch.
+- **`_iso_to_epoch()` shared utility** — Cross-platform ISO-8601 to Unix epoch conversion (macOS BSD `date` + GNU `date` fallback) added to `scripts/lib/stop-hook-common.sh`. Used by GUARD 10 for elapsed time calculation. Strict format validation prevents shell injection via crafted timestamps.
+
 ## [1.107.2] - 2026-02-26
 
 ### Fixed
