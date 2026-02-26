@@ -266,9 +266,14 @@ if [[ -n "$ARC_PHASE" ]] && [[ "$ARC_PHASE" =~ ^[a-zA-Z0-9_:\ -]+$ ]] && [[ ${#A
       ARC_INFO="${ARC_INFO} DELEGATION HINT: Phase code_review is delegation-only — re-invoke /rune:appraise, do NOT review code directly."
       ;;
     work)
-      ARC_INFO="${ARC_INFO} DELEGATION HINT: Phase work is delegation-only — re-invoke /rune:strive, do NOT implement changes directly."
+      ARC_INFO="${ARC_INFO} DELEGATION HINT: Phase work is delegation-only — re-invoke /rune:strive via Skill(\"rune:strive\", ...), do NOT implement changes directly."
       ;;
   esac
+  # ARC PIPELINE CONTINUATION (v1.109.4): After completing the current phase,
+  # Claude MUST continue to the next arc phase. Without this instruction, context
+  # rot after 5+ compactions causes Claude to stop after one phase, believing the
+  # pipeline will "proceed automatically" (it won't — Claude is the orchestrator).
+  ARC_INFO="${ARC_INFO} PIPELINE CONTINUATION: You are in an active /rune:arc pipeline (phase: ${ARC_PHASE}). After completing this phase, you MUST continue to the NEXT arc phase. Re-invoke the arc skill via Skill(\"rune:arc\", \"--resume\") to reload the full 23-phase pipeline and continue from the checkpoint. DO NOT stop after completing just one phase."
 fi
 
 # Team member count

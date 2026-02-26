@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.109.4] - 2026-02-27
+
+### Fixed
+- **ARC-BATCH-001: Stop hook re-injection fails to activate arc skill** — After context compaction, Claude didn't recognize `/rune:arc` as a Skill tool invocation. Changed all 3 stop hook ARC_PROMPTs (arc-batch, arc-issues, arc-hierarchy) from ambiguous `Execute: /rune:arc ...` to explicit `Skill("rune:arc", "...")` with CRITICAL anti-skip instructions. Prevents Claude from jumping directly to code implementation instead of invoking the arc pipeline.
+- **ARC-BATCH-002: Arc pipeline stops after WORK phase on compaction** — After 5+ compactions, Claude lost the arc pipeline context and stopped after Phase 5 (WORK) instead of continuing to GAP ANALYSIS → ship → merge. Added PIPELINE CONTINUATION instruction to `session-compact-recovery.sh` that explicitly tells Claude to re-invoke `/rune:arc --resume` after completing the current phase. Applies to all arc phases, not just delegation-only phases.
+- **ARC-BATCH-003: Compact recovery work hint ignored** — The `DELEGATION HINT: re-invoke /rune:strive` was ignored after heavy compaction. Enhanced hint to include explicit `Skill("rune:strive", ...)` invocation syntax.
+
 ## [1.109.3] - 2026-02-26
 
 ### Fixed (mend from review)
