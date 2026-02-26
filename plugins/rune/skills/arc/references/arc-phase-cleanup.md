@@ -24,16 +24,20 @@ Multi-prefix entries cover both arc-owned and sub-command-owned team variants (E
 const PHASE_PREFIX_MAP = {
   forge:                  ["rune-forge-", "arc-forge-"],        // /rune:forge + arc variant
   plan_review:            ["arc-plan-review-"],
+  design_extraction:      ["arc-design-extract-"],              // Phase 3 (conditional — design_sync)
   work:                   ["rune-work-"],
+  design_verification:    ["arc-design-verify-"],               // Phase 5.2 (conditional — VSM fidelity check)
   gap_analysis:           ["rune-inspect-", "arc-inspect-"],    // both prefix variants
   // codex_gap_analysis removed in v1.74.0 — Phase 5.6 no longer creates teams (inline Bash pattern)
   gap_remediation:        ["arc-gap-fix-"],
   goldmask_verification:  ["goldmask-"],
   code_review:            ["rune-review-"],
   mend:                   ["rune-mend-"],
+  design_iteration:       ["arc-design-iter-"],                 // Phase 7.6 (conditional — fidelity < threshold)
   test:                   ["arc-test-"],
 }
-// NOTE: 9 delegated phases. Phases removed in v1.67.0 (audit, audit_mend) are NOT listed.
+// NOTE: 12 delegated phases (9 original + 3 design phases). Phases removed in v1.67.0 (audit, audit_mend) are NOT listed.
+// Design phases are conditional — only create teams when design_sync.enabled === true.
 // Orchestrator-only phases (plan_refine, verification, semantic_verification,
 // goldmask_correlation, verify_mend, ship, merge) do not create teams — no entries needed.
 ```

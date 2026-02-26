@@ -189,12 +189,14 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     plan_refine:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     semantic_verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    design_extraction: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     task_decomposition: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     work:         { status: "pending", artifact: null, artifact_hash: null, team_name: null,
                     // Schema v16 (v1.106.0): suspended tasks from context preservation protocol.
                     // Each entry: { task_id, context_path, reason }
                     // context_path scoped to arc checkpoint id (FAIL-008): context/{id}/{task_id}.md
                     suspended_tasks: [] },
+    design_verification: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     codex_gap_analysis: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     gap_remediation: { status: "pending", artifact: null, artifact_hash: null, team_name: null, fixed_count: null, deferred_count: null },
@@ -203,6 +205,7 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     goldmask_correlation: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     mend:         { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     verify_mend:  { status: "pending", artifact: null, artifact_hash: null, team_name: null },
+    design_iteration: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     test:         { status: "pending", artifact: null, artifact_hash: null, team_name: null, tiers_run: [], pass_rate: null, coverage_pct: null, has_frontend: false },
     test_coverage_critique: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     pre_ship_validation: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
@@ -211,10 +214,9 @@ Write(`.claude/arc/${id}/checkpoint.json`, {
     bot_review_wait: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     pr_comment_resolution: { status: "pending", artifact: null, artifact_hash: null, team_name: null },
     merge:        { status: "pending", artifact: null, artifact_hash: null, team_name: null },
-    design_extraction: { status: "pending", artifacts: null, artifact_hash: null },
-    design_verification: { status: "pending", artifacts: null, artifact_hash: null },
-    design_iteration: { status: "pending", artifacts: null, artifact_hash: null },
-    // Design phases conditionally set to "skipped" at runtime when design_sync.enabled === false
+    // Design phases (design_extraction, design_verification, design_iteration) are
+    // interleaved at their PHASE_ORDER positions above. Conditionally set to "skipped"
+    // at runtime when design_sync.enabled === false.
   },
   convergence: { round: 0, max_rounds: tier.maxCycles, tier: tier, history: [], original_changed_files: changedFiles },
   // NEW (v1.66.0): Shard metadata from pre-flight shard detection (null for non-shard arcs)

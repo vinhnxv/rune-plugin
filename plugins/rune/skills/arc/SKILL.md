@@ -3,19 +3,21 @@ name: arc
 description: |
   Use when running the full plan-to-merged-PR pipeline, when resuming an
   interrupted arc with --resume, or when any named phase fails (forge,
-  plan-review, plan-refinement, verification, semantic-verification, work,
+  plan-review, plan-refinement, verification, semantic-verification,
+  design-extraction, design-verification, design-iteration, work,
   gap-analysis, codex-gap-analysis, gap-remediation, goldmask-verification,
   code-review, goldmask-correlation, mend, verify-mend, test,
   pre-ship-validation, bot-review-wait, pr-comment-resolution, ship, merge).
   Use when checkpoint resume is needed after a crash or session end.
-  23-phase pipeline with convergence loops, Goldmask risk analysis,
-  pre-ship validation, bot review integration, and cross-model verification.
+  26-phase pipeline with convergence loops, Goldmask risk analysis,
+  pre-ship validation, bot review integration, cross-model verification,
+  and conditional design sync (Figma VSM extraction, fidelity verification, iteration).
   Keywords: arc, pipeline, --resume, checkpoint, convergence, forge, mend,
-  bot review, PR comments, ship, merge, 23 phases.
+  bot review, PR comments, ship, merge, design sync, Figma, VSM, 26 phases.
 
   <example>
   user: "/rune:arc plans/feat-user-auth-plan.md"
-  assistant: "The Tarnished begins the arc — 23 phases of forge, review, goldmask, test, mend, convergence, pre-ship validation, bot review, ship, and merge..."
+  assistant: "The Tarnished begins the arc — 26 phases of forge, review, design sync, goldmask, test, mend, convergence, pre-ship validation, bot review, ship, and merge..."
   </example>
 
   <example>
@@ -47,9 +49,9 @@ allowed-tools:
 
 # /rune:arc — End-to-End Orchestration Pipeline
 
-Chains twenty-three phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, task decomposition, work, gap analysis, codex gap analysis, gap remediation, goldmask verification, code review (deep), goldmask correlation, mend, verify mend (convergence controller), test, test coverage critique, pre-ship validation, release quality check, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 8.5, 9, and 9.5). Phase 5.5 is hybrid: deterministic STEP A + Inspector Ashes STEP B. Phase 6 invokes `/rune:appraise --deep` for multi-wave review. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Phase 8.5 is the pre-ship completion validator — dual-gate deterministic check before PR creation. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
+Chains twenty-six phases into a single automated pipeline: forge, plan review, plan refinement, verification, semantic verification, design extraction (conditional), task decomposition, work, design verification (conditional), gap analysis, codex gap analysis, gap remediation, goldmask verification, code review (deep), goldmask correlation, mend, verify mend (convergence controller), design iteration (conditional), test, test coverage critique, pre-ship validation, release quality check, ship (PR creation), and merge (rebase + auto-merge). Each phase summons its own team with fresh context (except orchestrator-only phases 2.5, 2.7, 8.5, 9, and 9.5). Phase 5.5 is hybrid: deterministic STEP A + Inspector Ashes STEP B. Phase 6 invokes `/rune:appraise --deep` for multi-wave review. Phase 7.5 is the convergence controller — it delegates full re-review cycles via dispatcher loop-back. Phase 8.5 is the pre-ship completion validator — dual-gate deterministic check before PR creation. Artifact-based handoff connects phases. Checkpoint state enables resume after failure. Config resolution uses 3 layers: hardcoded defaults → talisman.yml → inline CLI flags.
 
-**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`, `testing`, `agent-browser`, `polling-guard`, `zsh-compat`
+**Load skills**: `roundtable-circle`, `context-weaving`, `rune-echoes`, `rune-orchestration`, `elicitation`, `codex-cli`, `testing`, `agent-browser`, `polling-guard`, `zsh-compat`, `design-sync`
 
 ## CRITICAL — Agent Teams Enforcement (ATE-1)
 
@@ -120,10 +122,14 @@ Phase 2.7: VERIFICATION GATE → Deterministic plan checks (zero LLM)
     ↓ (verification-report.md)
 Phase 2.8: SEMANTIC VERIFICATION → Codex cross-model contradiction detection (v1.39.0)
     ↓ (codex-semantic-verification.md)
+Phase 3:   DESIGN EXTRACTION → Figma VSM extraction (conditional, v1.109.0)
+    ↓ (tmp/arc/{id}/vsm/) — conditional: design_sync.enabled + Figma URL in plan
 Phase 4.5: TASK DECOMPOSITION → Codex cross-model task validation (v1.51.0)
     ↓ (task-validation.md) — advisory, non-blocking
 Phase 5:   WORK → Swarm implementation + incremental commits
     ↓ (work-summary.md + committed code)
+Phase 5.2: DESIGN VERIFICATION → VSM fidelity check (conditional, v1.109.0)
+    ↓ (design-verification.md) — conditional: VSM files exist from Phase 3
 Phase 5.5: GAP ANALYSIS → Check plan criteria vs committed code (deterministic + LLM)
     ↓ (gap-analysis.md) — WARN only, never halts
 Phase 5.6: CODEX GAP ANALYSIS → Cross-model plan vs implementation check (v1.39.0)
@@ -140,6 +146,8 @@ Phase 7:   MEND → Parallel finding resolution
     ↓ (resolution-report.md) — HALT on >3 FAILED
 Phase 7.5: VERIFY MEND → Convergence controller (adaptive review-mend loop)
     ↓ converged → proceed | retry → loop to Phase 6+7 (tier-based max cycles) | halted → warn + proceed
+Phase 7.6: DESIGN ITERATION → Screenshot→analyze→fix loop (conditional, v1.109.0)
+    ↓ (design-iteration.md) — conditional: design_verification fidelity score < threshold
 Phase 7.7: TEST → 3-tier QA gate: unit → integration → E2E/browser (v1.43.0)
     ↓ (test-report.md) — WARN only, never halts
 Phase 7.8: TEST COVERAGE CRITIQUE → Codex cross-model test analysis (v1.51.0)
@@ -162,7 +170,7 @@ Post-arc: COMPLETION REPORT → Display summary to user
 Output: Implemented, reviewed, fixed, shipped, and merged feature
 ```
 
-**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 4.5, 5, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.7, 7.8, 8.5, 8.55, 9.1, 9.2, 9, 9.5) match the legacy pipeline phases from devise.md and appraise.md for cross-command consistency. Phases 3, 4, 8, and 8.7 are reserved (8/8.7 removed in v1.67.0 — audit coverage now handled by Phase 6 `--deep`; 8.5 re-activated in v1.80.0 as PRE-SHIP VALIDATION). Phases 4.5, 7.8, 8.55 are Codex cross-model inline phases added in v1.51.0. Phases 9.1, 9.2 are bot review integration phases added in v1.88.0.
+**Phase numbering note**: Phase numbers (1, 2, 2.5, 2.7, 2.8, 3, 4.5, 5, 5.2, 5.5, 5.6, 5.8, 5.7, 6, 6.5, 7, 7.5, 7.6, 7.7, 7.8, 8.5, 8.55, 9.1, 9.2, 9, 9.5) match the legacy pipeline phases from devise.md and appraise.md for cross-command consistency. Phase 4, 8, and 8.7 are reserved (8/8.7 removed in v1.67.0 — audit coverage now handled by Phase 6 `--deep`; 8.5 re-activated in v1.80.0 as PRE-SHIP VALIDATION). Phase 3 re-activated in v1.109.0 as DESIGN EXTRACTION. Phases 5.2, 7.6 are design sync phases added in v1.109.0 (conditional — gated by design_sync.enabled). Phases 4.5, 7.8, 8.55 are Codex cross-model inline phases added in v1.51.0. Phases 9.1, 9.2 are bot review integration phases added in v1.88.0.
 
 **WARNING — Non-monotonic execution order**: Phase 5.8 (GAP REMEDIATION) executes **before** Phase 5.7 (GOLDMASK VERIFICATION). The `PHASE_ORDER` array defines the canonical execution sequence using phase **names**, not numbers. Any tooling that sorts by numeric phase ID will get the wrong order. The non-sequential numbering preserves backward compatibility with older checkpoints — do NOT renumber. Always use `PHASE_ORDER` for iteration order.
 
@@ -196,7 +204,7 @@ The dispatcher reads only structured summary headers from artifacts, not full co
 ### Phase Constants
 
 ```javascript
-const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'task_decomposition', 'work', 'gap_analysis', 'codex_gap_analysis', 'gap_remediation', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'test', 'test_coverage_critique', 'pre_ship_validation', 'release_quality_check', 'ship', 'bot_review_wait', 'pr_comment_resolution', 'merge']
+const PHASE_ORDER = ['forge', 'plan_review', 'plan_refine', 'verification', 'semantic_verification', 'design_extraction', 'task_decomposition', 'work', 'design_verification', 'gap_analysis', 'codex_gap_analysis', 'gap_remediation', 'goldmask_verification', 'code_review', 'goldmask_correlation', 'mend', 'verify_mend', 'design_iteration', 'test', 'test_coverage_critique', 'pre_ship_validation', 'release_quality_check', 'ship', 'bot_review_wait', 'pr_comment_resolution', 'merge']
 
 // Heavy phases that MUST be delegated to sub-skills — never implemented inline.
 // These phases consume significant tokens and require fresh teammate context windows.
@@ -231,14 +239,17 @@ const PHASE_TIMEOUTS = {
   plan_refine:   talismanTimeouts.plan_refine ?? 180_000,    //  3 min (orchestrator-only, no team)
   verification:  talismanTimeouts.verification ?? 30_000,    // 30 sec (orchestrator-only, no team)
   semantic_verification: talismanTimeouts.semantic_verification ?? 180_000,  //  3 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
+  design_extraction: talismanTimeouts.design_extraction ?? 600_000,  // 10 min (conditional — gated by design_sync.enabled + Figma URL)
   task_decomposition: talismanTimeouts.task_decomposition ?? 300_000,  //  5 min (orchestrator-only, inline codex exec)
   work:          talismanTimeouts.work ?? 2_100_000,    // 35 min (inner 30m + 5m setup)
+  design_verification: talismanTimeouts.design_verification ?? 180_000,  //  3 min (conditional — gated by VSM files from design_extraction)
   gap_analysis:  talismanTimeouts.gap_analysis ?? 720_000,   // 12 min (inner 8m + 2m setup + 2m aggregate — hybrid: deterministic + Inspector Ashes)
   codex_gap_analysis: talismanTimeouts.codex_gap_analysis ?? 660_000,  // 11 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
   gap_remediation: talismanTimeouts.gap_remediation ?? 900_000,  // 15 min (inner 10m + 5m setup — spawns gap-fixer Ash)
   code_review:   talismanTimeouts.code_review ?? 900_000,    // 15 min (inner 10m + 5m setup)
   mend:          talismanTimeouts.mend ?? 1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
   verify_mend:   talismanTimeouts.verify_mend ?? 240_000,    //  4 min (orchestrator-only, no team)
+  design_iteration: talismanTimeouts.design_iteration ?? 600_000,  // 10 min (conditional — gated by design_verification fidelity score < threshold)
   test:          talismanTimeouts.test ?? 1_500_000,      // 25 min without E2E (inner 10m + 5m setup + 10m Phase 7.8 critique). Dynamic: 50 min with E2E (3_000_000)
   test_coverage_critique: talismanTimeouts.test_coverage_critique ?? 600_000,  // 10 min (orchestrator-only, inline codex exec — absorbed into test budget)
   pre_ship_validation: talismanTimeouts.pre_ship_validation ?? 360_000,  //  6 min (orchestrator-only, deterministic + Phase 8.55 release quality check)
@@ -252,16 +263,19 @@ const PHASE_TIMEOUTS = {
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// Base budget sum is ~226.5 min (recalculated v1.107.1):
+// Base budget sum is ~249.5 min (recalculated v1.109.0):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
-//   task_decomposition(5) + codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) +
-//   work(35) + gap_analysis(12) + goldmask_correlation(1) + test(25) + test_coverage_critique(10) +
+//   design_extraction(10) + task_decomposition(5) + work(35) + design_verification(3) +
+//   gap_analysis(12) + codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) +
+//   goldmask_correlation(1) + design_iteration(10) + test(25) + test_coverage_critique(10) +
 //   pre_ship_validation(6) + release_quality_check(5) + bot_review_wait(15) + pr_comment_resolution(20) +
-//   ship(5) + merge(10) = 226.5 min
-// With E2E: test grows to 50 min → 251.5 min base
-// LIGHT (2 cycles):    226.5 + 42 + 1×26 = 294.5 min
-// STANDARD (3 cycles): 226.5 + 42 + 2×26 = 320.5 min → hard cap at 320 min
-// THOROUGH (5 cycles): 226.5 + 42 + 4×26 = 372.5 min → hard cap at 320 min
+//   ship(5) + merge(10) = 249.5 min
+// With E2E: test grows to 50 min → 274.5 min base
+// NOTE: Design phases are conditional (gated by design_sync.enabled). When disabled,
+// effective budget is ~226.5 min (same as pre-design baseline).
+// LIGHT (2 cycles):    249.5 + 42 + 1×26 = 317.5 min
+// STANDARD (3 cycles): 249.5 + 42 + 2×26 = 343.5 min → hard cap at 320 min
+// THOROUGH (5 cycles): 249.5 + 42 + 4×26 = 395.5 min → hard cap at 320 min
 const ARC_TOTAL_TIMEOUT_DEFAULT = 17_670_000  // 294.5 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 19_200_000  // 320 min (5.33 hours) — absolute hard cap (raised from 310 for corrected bot review timeouts)
 const STALE_THRESHOLD = 300_000      // 5 min
@@ -279,14 +293,16 @@ const CYCLE_BUDGET = {
 function calculateDynamicTimeout(tier) {
   const basePhaseBudget = PHASE_TIMEOUTS.forge + PHASE_TIMEOUTS.plan_review +
     PHASE_TIMEOUTS.plan_refine + PHASE_TIMEOUTS.verification +
-    PHASE_TIMEOUTS.semantic_verification + PHASE_TIMEOUTS.task_decomposition +
+    PHASE_TIMEOUTS.semantic_verification + PHASE_TIMEOUTS.design_extraction +
+    PHASE_TIMEOUTS.task_decomposition + PHASE_TIMEOUTS.work +
+    PHASE_TIMEOUTS.design_verification + PHASE_TIMEOUTS.gap_analysis +
     PHASE_TIMEOUTS.codex_gap_analysis + PHASE_TIMEOUTS.gap_remediation +
     PHASE_TIMEOUTS.goldmask_verification + PHASE_TIMEOUTS.goldmask_correlation +
-    PHASE_TIMEOUTS.work + PHASE_TIMEOUTS.gap_analysis +
+    PHASE_TIMEOUTS.design_iteration +
     PHASE_TIMEOUTS.test + PHASE_TIMEOUTS.test_coverage_critique +
     PHASE_TIMEOUTS.pre_ship_validation + PHASE_TIMEOUTS.release_quality_check +
     PHASE_TIMEOUTS.bot_review_wait + PHASE_TIMEOUTS.pr_comment_resolution +
-    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~216.5 min (recalculated v1.91.2)
+    PHASE_TIMEOUTS.ship + PHASE_TIMEOUTS.merge  // ~249.5 min (recalculated v1.109.0, includes conditional design phases)
   const cycle1Budget = CYCLE_BUDGET.pass_1_review + CYCLE_BUDGET.pass_1_mend + CYCLE_BUDGET.convergence  // ~42 min
   const cycleNBudget = CYCLE_BUDGET.pass_N_review + CYCLE_BUDGET.pass_N_mend + CYCLE_BUDGET.convergence  // ~26 min
   const maxCycles = tier?.maxCycles ?? 3
@@ -508,6 +524,36 @@ See [arc-codex-phases.md](references/arc-codex-phases.md) § Phase 2.8 for the f
 
 Read and execute the arc-codex-phases.md § Phase 2.8 algorithm. Update checkpoint on completion.
 
+## Phase 3: DESIGN EXTRACTION (conditional, v1.109.0)
+
+See [arc-phase-design-extraction.md](references/arc-phase-design-extraction.md) for the full algorithm.
+
+**Condition**: `talisman.design_sync.enabled === true` AND Figma URL present in plan frontmatter
+**Skip**: Mark "skipped", log "No Figma URL or design_sync disabled"
+**Team**: `arc-design-{id}` — follows ATE-1 pattern
+**Output**: `tmp/arc/{id}/vsm/`, `tmp/arc/{id}/design/`
+**Failure**: Non-blocking — design phases never halt the pipeline. Skip with warning on timeout or error.
+
+```javascript
+// Phase 3: DESIGN EXTRACTION — conditional on design_sync config
+const designSyncEnabled = talisman?.design_sync?.enabled === true
+const planContent = Read(checkpoint.plan_file)
+const hasFigmaUrl = /figma_url:\s*https:\/\/www\.figma\.com\//.test(planContent)
+
+if (!designSyncEnabled || !hasFigmaUrl) {
+  const skipReason = !designSyncEnabled ? "design_sync.enabled is false" : "no Figma URL in plan"
+  log(`Design extraction skipped — ${skipReason}`)
+  updateCheckpoint({ phase: "design_extraction", status: "skipped" })
+  // Proceed to Phase 4.5 (TASK DECOMPOSITION)
+} else {
+  // ARC-6: Clean stale teams before creating design extraction team
+  prePhaseCleanup(checkpoint)
+
+  Read and execute the arc-phase-design-extraction.md algorithm. Update checkpoint on completion.
+  postPhaseCleanup(checkpoint, "design_extraction")
+}
+```
+
 ### Arc Todos Scaffolding (pre-Phase 5)
 
 After semantic verification completes, before the first todos-producing phase (Phase 5 WORK), create the base directory structure for arc-scoped file-todos. This ensures all subdirectories exist regardless of which phases run or fail.
@@ -643,6 +689,31 @@ prePhaseCleanup(checkpoint)
 
 Read and execute the arc-phase-work.md algorithm. Update checkpoint on completion.
 postPhaseCleanup(checkpoint, "work")
+
+## Phase 5.2: DESIGN VERIFICATION (conditional, v1.109.0)
+
+See [arc-phase-design-verification.md](references/arc-phase-design-verification.md) for the full algorithm.
+
+**Condition**: VSM files exist in `tmp/arc/{id}/vsm/` (produced by Phase 3 DESIGN EXTRACTION)
+**Skip**: Mark "skipped" if no VSM files or design_extraction was skipped
+**Team**: None (orchestrator-only — uses design-implementation-reviewer agent)
+**Output**: `tmp/arc/{id}/design-verification-report.md`
+**Failure**: Non-blocking — design phases never halt the pipeline. Skip with warning on reviewer failure.
+
+```javascript
+// Phase 5.2: DESIGN VERIFICATION — conditional on Phase 3 output
+const designExtractionStatus = checkpoint.phases?.design_extraction?.status
+const vsmDir = `tmp/arc/${id}/vsm/`
+const vsmFiles = Bash(`find "${vsmDir}" -name "*.json" 2>/dev/null | head -1`).trim()
+
+if (designExtractionStatus !== "completed" || !vsmFiles) {
+  log("Design verification skipped — no VSM files from design_extraction")
+  updateCheckpoint({ phase: "design_verification", status: "skipped" })
+  // Proceed to Phase 5.5 (GAP ANALYSIS)
+} else {
+  Read and execute the arc-phase-design-verification.md algorithm. Update checkpoint on completion.
+}
+```
 
 ## Phase 5.5: IMPLEMENTATION GAP ANALYSIS
 
@@ -790,6 +861,47 @@ Adaptive convergence controller that evaluates mend results and decides whether 
 
 See [verify-mend.md](references/verify-mend.md) for the full algorithm.
 See [review-mend-convergence.md](../roundtable-circle/references/review-mend-convergence.md) for shared tier selection and convergence evaluation logic.
+
+## Phase 7.6: DESIGN ITERATION (conditional, v1.109.0)
+
+See [arc-phase-design-iteration.md](references/arc-phase-design-iteration.md) for the full algorithm.
+
+**Condition**: `design_verification` phase produced fidelity score below threshold (from `tmp/arc/{id}/design-findings.json`)
+**Skip**: Mark "skipped" if design_verification was skipped or fidelity score >= threshold
+**Team**: `arc-design-iter-{id}` — follows ATE-1 pattern
+**Output**: `tmp/arc/{id}/design-iteration-report.md`
+**Failure**: Non-blocking — design phases never halt the pipeline. Skip with warning on timeout or agent-browser unavailable.
+
+```javascript
+// Phase 7.6: DESIGN ITERATION — conditional on Phase 5.2 findings
+const designVerificationStatus = checkpoint.phases?.design_verification?.status
+const designFindingsPath = `tmp/arc/${id}/design-findings.json`
+const hasDesignFindings = exists(designFindingsPath) && designVerificationStatus === "completed"
+
+// Check fidelity threshold — iterate only if below threshold
+let needsIteration = false
+if (hasDesignFindings) {
+  try {
+    const findings = JSON.parse(Read(designFindingsPath))
+    const fidelityScore = findings.fidelity_score ?? 1.0
+    const threshold = talisman?.design_sync?.fidelity_threshold ?? 0.8
+    needsIteration = fidelityScore < threshold
+  } catch (e) { /* parse error — skip iteration */ }
+}
+
+if (!needsIteration) {
+  const skipReason = !hasDesignFindings ? "no design findings from design_verification" : "fidelity score meets threshold"
+  log(`Design iteration skipped — ${skipReason}`)
+  updateCheckpoint({ phase: "design_iteration", status: "skipped" })
+  // Proceed to Phase 7.7 (TEST)
+} else {
+  // ARC-6: Clean stale teams before creating design iteration team
+  prePhaseCleanup(checkpoint)
+
+  Read and execute the arc-phase-design-iteration.md algorithm. Update checkpoint on completion.
+  postPhaseCleanup(checkpoint, "design_iteration")
+}
+```
 
 ## Phase 7.7: TEST (diff-scoped test execution)
 
@@ -1104,16 +1216,19 @@ The orchestrator writes a phase group summary after each group of phases complet
 | PLAN REVIEW | PLAN REFINEMENT | `plan-review.md` | 3 reviewer verdicts (PASS/CONCERN/BLOCK) |
 | PLAN REFINEMENT | VERIFICATION | `concern-context.md` | Extracted concern list. Plan not modified |
 | VERIFICATION | SEMANTIC VERIFICATION | `verification-report.md` | Deterministic check results (PASS/WARN) |
-| SEMANTIC VERIFICATION | TASK DECOMPOSITION | `codex-semantic-verification.md` | Codex contradiction findings (or skip) |
+| SEMANTIC VERIFICATION | DESIGN EXTRACTION | `codex-semantic-verification.md` | Codex contradiction findings (or skip) |
+| DESIGN EXTRACTION | TASK DECOMPOSITION | `tmp/arc/{id}/vsm/`, `tmp/arc/{id}/design/` | VSM files per component (or skipped if no Figma URL / design_sync disabled) |
 | TASK DECOMPOSITION | WORK | `task-validation.md` | Task granularity/dependency validation (or skip) |
-| WORK | GAP ANALYSIS | Working tree + `work-summary.md` | Git diff of committed changes + task summary |
+| WORK | DESIGN VERIFICATION | Working tree + `work-summary.md` | Git diff of committed changes + task summary |
+| DESIGN VERIFICATION | GAP ANALYSIS | `design-verification-report.md` | Fidelity report + design-findings.json (or skipped if no VSM files) |
 | GAP ANALYSIS | CODEX GAP ANALYSIS | `gap-analysis.md` | Criteria coverage (ADDRESSED/MISSING/PARTIAL) |
 | CODEX GAP ANALYSIS | GAP REMEDIATION | `codex-gap-analysis.md` | Cross-model gap findings + `codex_needs_remediation` checkpoint flag from Phase 5.6 + `needs_remediation` checkpoint flag from Phase 5.5 STEP D |
 | GAP REMEDIATION | GOLDMASK VERIFICATION | `gap-remediation-report.md` | Fixed findings list + deferred list. Skips cleanly if gate fails |
 | CODE REVIEW | MEND | `tome.md` | TOME with `<!-- RUNE:FINDING ... -->` markers |
 | MEND | VERIFY MEND | `resolution-report.md` | Fixed/FP/Failed finding list |
 | VERIFY MEND | MEND (retry) | `review-focus-round-{N}.json` | Phase 6+7 reset to pending, progressive focus scope |
-| VERIFY MEND | TEST | `resolution-report.md` + checkpoint convergence | Convergence verdict (converged/halted) |
+| VERIFY MEND | DESIGN ITERATION | `resolution-report.md` + checkpoint convergence | Convergence verdict (converged/halted) |
+| DESIGN ITERATION | TEST | `design-iteration-report.md` | Improved fidelity report (or skipped if score >= threshold) |
 | TEST | TEST COVERAGE CRITIQUE | `test-report.md` | Test results with pass_rate, coverage_pct, tiers_run (or skipped) |
 | TEST COVERAGE CRITIQUE | PRE-SHIP VALIDATION | `test-critique.md` | CDX-TEST findings + `test_critique_needs_attention` flag (or skip) |
 | PRE-SHIP VALIDATION | RELEASE QUALITY CHECK | `pre-ship-report.md` | Dual-gate validation verdict (PASS/WARN/BLOCK) + diagnostics |
@@ -1132,14 +1247,17 @@ The orchestrator writes a phase group summary after each group of phases complet
 | PLAN REFINEMENT | Non-blocking — proceed with deferred concerns | Advisory phase |
 | VERIFICATION | Non-blocking — proceed with warnings | Informational |
 | SEMANTIC VERIFICATION | Non-blocking — Codex timeout/unavailable → skip, proceed | Informational (v1.39.0) |
+| DESIGN EXTRACTION | Non-blocking — design_sync disabled or no Figma URL → skip cleanly. Timeout/MCP error → skip with warning | Conditional (v1.109.0) |
 | TASK DECOMPOSITION | Non-blocking — Codex timeout/unavailable → skip, proceed | Advisory (v1.51.0) |
 | WORK | Halt if <50% tasks complete. Partial commits preserved | `/rune:arc --resume` |
+| DESIGN VERIFICATION | Non-blocking — no VSM files from design_extraction → skip cleanly. Reviewer failure → skip with warning | Conditional (v1.109.0) |
 | GAP ANALYSIS | Non-blocking — WARN only | Advisory context for code review |
 | CODEX GAP ANALYSIS | Non-blocking — Codex timeout/unavailable → skip, proceed | Advisory (v1.39.0) |
 | GAP REMEDIATION | Non-blocking — gate miss (needs_remediation=false AND codex_needs_remediation=false, or talisman disabled) → skip cleanly. Fixer timeout → partial fixes, proceed | Advisory (v1.51.0) |
 | CODE REVIEW | Does not halt | Produces findings or clean report |
 | MEND | Halt if >3 FAILED findings | User fixes, `/rune:arc --resume` |
 | VERIFY MEND | Non-blocking — retries up to tier max cycles (LIGHT: 2, STANDARD: 3, THOROUGH: 5), then proceeds | Convergence gate is advisory |
+| DESIGN ITERATION | Non-blocking — fidelity score >= threshold → skip cleanly. Agent-browser unavailable → skip with warning. Timeout → proceed with partial improvements | Conditional (v1.109.0) |
 | TEST | Non-blocking WARN only. Test failures recorded in report | `--no-test` to skip entirely |
 | TEST COVERAGE CRITIQUE | Non-blocking — Codex timeout/unavailable → skip, proceed. CDX-TEST findings are advisory | Advisory (v1.51.0) |
 | PRE-SHIP VALIDATION | Non-blocking — BLOCK verdict proceeds with warning in PR body | Orchestrator-only |
