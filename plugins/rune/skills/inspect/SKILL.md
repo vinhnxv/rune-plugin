@@ -301,53 +301,7 @@ Read and execute [inspector-prompts.md](references/inspector-prompts.md) for the
 
 ### Step 3.1 — Risk Context Injection (Goldmask Enhancement)
 
-If `riskMap` is available from Phase 1.3, inject risk context into each inspector's prompt using the [risk-context-template.md](../goldmask/references/risk-context-template.md) template.
-
-```javascript
-for (const inspector of inspectors) {
-  const inspectorFiles = getFilesForInspector(inspector, requirements, scopeFiles)
-  let riskContext = ""
-
-  // Section 1+3: File Risk Tiers + Blast Radius from risk-map.json
-  if (riskMap) {
-    riskContext = renderRiskContextTemplate(riskMap, inspectorFiles)
-  }
-
-  // Section 2: Wisdom advisories passthrough
-  if (wisdomData) {
-    const advisories = filterWisdomForFiles(wisdomData, inspectorFiles)
-    if (advisories.length > 0) {
-      riskContext += "\n\n### Caution Zones\n\n"
-      for (const adv of advisories) {
-        riskContext += `- **\`${adv.file}\`** -- ${adv.intent} intent (caution: ${adv.cautionScore}). ${adv.advisory}\n`
-      }
-      riskContext += "\n**IMPORTANT**: Preserve the original design intent of these code sections."
-      riskContext += " Your inspection must flag changes that break defensive, constraint, or compatibility behavior.\n"
-    }
-  }
-
-  // Inspector-specific risk guidance notes
-  if (riskContext) {
-    if (inspector.name === 'grace-warden') {
-      riskContext += "\n**Grace-warden note**: Prioritize completeness checks on CRITICAL-tier files."
-      riskContext += " Requirements touching these files have outsized impact.\n"
-    } else if (inspector.name === 'ruin-prophet') {
-      riskContext += "\n**Ruin-prophet note**: CRITICAL-tier files with DEFENSIVE or CONSTRAINT intent"
-      riskContext += " require extra scrutiny. These files guard against known failure modes.\n"
-    } else if (inspector.name === 'sight-oracle') {
-      riskContext += "\n**Sight-oracle note**: CRITICAL-tier files with high churn suggest unstable"
-      riskContext += " architecture. Check for coupling issues.\n"
-    } else if (inspector.name === 'vigil-keeper') {
-      riskContext += "\n**Vigil-keeper note**: Files with ownership concentration (1-2 owners) have"
-      riskContext += " bus factor risk. Check test coverage and documentation.\n"
-    }
-
-    inspector.prompt += "\n\n" + riskContext
-  }
-}
-```
-
-**Rendering rule**: Only inject when `riskContext` is non-empty. Empty risk context = omit entirely. See [risk-context-template.md](../goldmask/references/risk-context-template.md) for rendering rules.
+If `riskMap` is available from Phase 1.3, inject risk context (file tiers, wisdom advisories, inspector-specific guidance) into each inspector's prompt. Only inject when non-empty. See [risk-context-injection.md](references/risk-context-injection.md) for the full injection protocol and [risk-context-template.md](../goldmask/references/risk-context-template.md) for rendering rules.
 
 ## Phase 4: Monitor
 
@@ -376,66 +330,7 @@ Read and execute [verdict-synthesis.md](references/verdict-synthesis.md) for the
 
 ### Phase 5-6 Enhancement: Historical Risk Assessment in VERDICT.md
 
-If `riskMap` is available from Phase 1.3, the Verdict Binder includes a Historical Risk Assessment section in VERDICT.md. This section is appended AFTER the standard verdict sections.
-
-```javascript
-if (riskMap) {
-  try {
-    const parsed = JSON.parse(riskMap)
-    const riskFiles = parsed?.files ?? []
-    const tierOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4 }
-
-    // Categorize files by tier
-    const criticalFiles = riskFiles.filter(f => f.tier === 'CRITICAL')
-    const highFiles = riskFiles.filter(f => f.tier === 'HIGH')
-    const mediumFiles = riskFiles.filter(f => f.tier === 'MEDIUM')
-    const lowFiles = riskFiles.filter(f => f.tier === 'LOW')
-
-    // Single-owner files (bus factor risk)
-    const singleOwnerFiles = riskFiles.filter(f =>
-      f.metrics?.ownership?.distinct_authors === 1
-    )
-
-    // Build Historical Risk section
-    let riskSection = "## Historical Risk Assessment (Goldmask Lore)\n\n"
-    riskSection += "### File Risk Distribution\n\n"
-    riskSection += "| Tier | Count | Files |\n"
-    riskSection += "|------|-------|-------|\n"
-    riskSection += `| CRITICAL | ${criticalFiles.length} | ${criticalFiles.map(f => '\`' + f.path + '\`').join(', ') || '--'} |\n`
-    riskSection += `| HIGH | ${highFiles.length} | ${highFiles.map(f => '\`' + f.path + '\`').join(', ') || '--'} |\n`
-    riskSection += `| MEDIUM | ${mediumFiles.length} | ... |\n`
-    riskSection += `| LOW | ${lowFiles.length} | ... |\n\n`
-
-    // Bus factor warnings
-    if (singleOwnerFiles.length > 0) {
-      riskSection += "### Bus Factor Warnings\n\n"
-      for (const f of singleOwnerFiles.slice(0, 10)) {
-        riskSection += `- \`${f.path}\`: single owner (${f.metrics?.ownership?.top_contributor ?? 'unknown'})\n`
-      }
-      riskSection += "\n"
-    }
-
-    // Inspection coverage vs risk
-    riskSection += "### Inspection Coverage vs Risk\n\n"
-    riskSection += "| Requirement | Risk Tier | Inspector Coverage | Finding Count |\n"
-    riskSection += "|-------------|-----------|-------------------|---------------|\n"
-    for (const req of requirements) {
-      const reqTier = req.inspectionPriority === 'HIGH' ? 'CRITICAL'
-        : req.inspectionPriority === 'ELEVATED' ? 'HIGH' : 'UNKNOWN'
-      riskSection += `| ${req.id ?? req.text?.slice(0, 40)} | ${reqTier} | ${req.assignedInspectors?.length ?? 1} | -- |\n`
-    }
-    riskSection += "\n**Note**: Requirements touching CRITICAL files with zero findings"
-    riskSection += " warrant manual review — they may represent gaps in inspection coverage.\n"
-
-    // Append to VERDICT.md
-    verdictContent += "\n\n" + riskSection
-  } catch (parseError) {
-    warn("Phase 5-6: risk-map parse error — omitting Historical Risk section from VERDICT")
-  }
-}
-```
-
-**Rendering rule**: The Historical Risk Assessment section is optional. If `riskMap` is null or parsing fails, the section is simply omitted from VERDICT.md. This is non-blocking.
+If `riskMap` is available from Phase 1.3, the Verdict Binder appends a Historical Risk Assessment section (file risk distribution, bus factor warnings, inspection coverage vs risk) to VERDICT.md. Optional — omitted on null/parse error. See [verdict-synthesis.md](references/verdict-synthesis.md) "Historical Risk Assessment" section.
 
 ## 9 Dimensions + 8 Gap Categories
 

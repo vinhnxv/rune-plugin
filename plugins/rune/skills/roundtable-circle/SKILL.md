@@ -188,44 +188,11 @@ See [Rune Gaze](references/rune-gaze.md) for the full file classification algori
 
 ### Large-Diff Detection (Post-Phase 1)
 
-After file classification, check total file count against the large-diff threshold:
-
-```javascript
-const LARGE_DIFF_THRESHOLD = talisman?.review?.large_diff_threshold ?? 25
-const CHUNK_SIZE = talisman?.review?.chunk_size ?? 15
-
-if (totalFiles > LARGE_DIFF_THRESHOLD && depth !== "deep") {
-  // Standard depth only — deep mode uses wave-based chunking already
-  inscription.chunked = true
-  inscription.chunk_size = CHUNK_SIZE
-  inscription.chunks = splitIntoChunks(changedFiles, CHUNK_SIZE)
-  log(`Large diff detected (${totalFiles} files). Chunked review: ${inscription.chunks.length} chunks of up to ${CHUNK_SIZE} files.`)
-}
-```
-
-`splitIntoChunks(files, size)` partitions the files array into sequential slices, preserving classification order (high-priority files first). Each chunk is a sub-array passed as the file list to that chunk's Ash wave.
-
-**Conditions:**
-- Only activates when `totalFiles > LARGE_DIFF_THRESHOLD` (default: 25)
-- Skipped in `depth=deep` mode (wave system handles chunking natively)
-- Skipped in `scope=full` audit mode (audit uses importance-based priority, not diff-scoped chunking)
-- Talisman overrides: `review.large_diff_threshold` and `review.chunk_size`
+When `totalFiles > LARGE_DIFF_THRESHOLD` (default: 25) in standard depth, the file list is partitioned into sequential chunks of `CHUNK_SIZE` (default: 15). Skipped in `depth=deep` (wave system) and `scope=full` (audit). Talisman overrides: `review.large_diff_threshold`, `review.chunk_size`. See [chunk-orchestrator.md](references/chunk-orchestrator.md).
 
 ### Inscription Sharding Decision (Post-Phase 1, v1.98.0+)
 
-After large-diff detection, run the shard decision for standard depth + diff scope. Sharding supersedes chunking — uses domain-affinity partitioning with parallel shard reviewers (A-E) and optional Cross-Shard Sentinel.
-
-**Decision matrix:**
-```
-depth=deep              → waves (existing) — sharding disabled
-depth=standard, scope=diff, totalFiles > SHARD_THRESHOLD → SHARDING
-depth=standard, scope=diff, totalFiles <= SHARD_THRESHOLD → standard single-pass
-depth=standard, scope=full → chunked review or single-pass (audit mode)
-```
-
-**Escape hatch:** Set `shard_threshold: 999` in talisman.yml to disable sharding.
-
-See [shard-allocator.md](references/shard-allocator.md) for the full allocation algorithm and inscription schema.
+For standard depth + diff scope with large diffs, sharding supersedes chunking — uses domain-affinity partitioning with parallel shard reviewers (A-E) and optional Cross-Shard Sentinel. Escape hatch: `shard_threshold: 999` in talisman.yml. See [shard-allocator.md](references/shard-allocator.md).
 
 ## Phase 2: Forge Team
 
@@ -285,37 +252,7 @@ See [wave-scheduling.md](references/wave-scheduling.md) for `selectWaves()`, `me
 
 ### Seal Format
 
-Each Ash writes a Seal at the end of their output file to signal completion:
-
-```
----
-SEAL: {
-  findings: 7,
-  evidence_verified: true,
-  confidence: 0.85,
-  self_reviewed: true,
-  self_review_actions: "confirmed: 5, revised: 1, deleted: 1"
-}
----
-```
-
-Then sends to the Tarnished (max 50 words — Glyph Budget enforced):
-```
-"Seal: forge-warden complete. Path: tmp/reviews/142/forge-warden.md.
-Findings: 2 P1, 3 P2, 2 P3, 1 Q, 0 N. Confidence: 0.85. Self-reviewed: yes."
-```
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `findings` | integer | Total P1+P2+P3+Q+N findings count |
-| `evidence_verified` | boolean | All findings have Rune Trace blocks |
-| `confidence` | float 0-1 | Self-assessed confidence (0.7+ = high) |
-| `self_reviewed` | boolean | Whether self-review pass was performed |
-| `self_review_actions` | string | confirmed/revised/deleted counts |
-
-Full spec: [Inscription Protocol](../rune-orchestration/references/inscription-protocol.md)
-
-See [ash-prompts/](references/ash-prompts/) for individual prompts.
+Each Ash writes a structured Seal (`SEAL: { findings, evidence_verified, confidence, self_reviewed, self_review_actions }`) at the end of their output file, then sends a max-50-word summary to the Tarnished. Full spec: [Inscription Protocol](../rune-orchestration/references/inscription-protocol.md). See [ash-prompts/](references/ash-prompts/) for individual prompts.
 
 ## Phase 4: Monitor
 
@@ -343,26 +280,7 @@ const result = waitForCompletion(teamName, ashCount, {
 
 ## Phase 4.5: Doubt Seer (Conditional)
 
-After Phase 4 Monitor completes, optionally spawn the Doubt Seer to cross-examine Ash findings for unsubstantiated claims.
-
-**Trigger condition** — ALL must be true:
-1. `doubt_seer.enabled !== false` in talisman (default: `false` — opt-in)
-2. `doubt_seer.workflows` includes current workflow type (`"review"` or `"audit"`)
-3. Total P1+P2 finding count across Ash outputs > 0
-
-**Registration vs Activation:** Doubt-seer is registered in `inscription.json` `teammates[]` at Phase 2 (unconditionally, when enabled) so hooks and Runebinder discover it. However, it is only **spawned** at Phase 4.5 (conditionally, when P1+P2 findings > 0). If not spawned, the inscription entry exists but no output file is written — Runebinder handles this as "missing" in Coverage Gaps.
-
-**Signal count:** `.expected` is set to `ashCount` at Phase 2 (excluding doubt-seer). At Phase 4.5, orchestrator increments `.expected` by 1 before spawning. Doubt-seer gets its own 5-minute polling loop. On timeout: write `[DOUBT SEER: TIMEOUT]` marker and proceed. If P1+P2 count == 0: write skip marker.
-
-**VERDICT parsing:**
-
-| Condition | Verdict | Action |
-|-----------|---------|--------|
-| `unproven_p1_count > 0` AND `block_on_unproven: true` | BLOCK | Halt workflow, report to user |
-| Any unproven claims (P1 or P2) | CONCERN | Continue, flag in TOME |
-| All findings have evidence | PASS | Continue normally |
-
-**Runebinder integration:** Runebinder reads all teammate output files including `doubt-seer.md` (discovered via `inscription.json`). Doubt-seer challenges appear in a `## Doubt Seer Challenges` section in the TOME after the main findings.
+Optional adversarial cross-examination of Ash findings. Opt-in via `doubt_seer.enabled` in talisman. Registered in inscription at Phase 2 but only spawned when P1+P2 count > 0. Verdicts: BLOCK (unproven P1), CONCERN (unproven any), PASS. See [doubt-seer.md](references/doubt-seer.md) for trigger conditions, signal protocol, and Runebinder integration.
 
 ## Phase 5: Aggregate
 
@@ -390,63 +308,17 @@ The Runebinder:
 
 ## Phase 6: Verify (Truthsight)
 
-If verification is enabled in inscription.json:
+Three-layer verification when enabled in inscription.json:
 
-### Layer 0: Inline Checks (Tarnished)
+| Layer | What | Circuit Breaker |
+|-------|------|-----------------|
+| **Layer 0** (Inline) | grep-based structure/evidence checks on each Ash output | 3+ files fail → systemic issue, pause |
+| **Layer 1** (Self-Review) | Each Ash self-reviews before Seal (embedded in prompts) | — |
+| **Layer 2** (Smart Verifier) | Samples 2-3 P1s per Ash, verifies against source. Marks: CONFIRMED / INACCURATE / HALLUCINATED | 2+ HALLUCINATED from same Ash → unreliable |
 
-For each Ash output file, run grep-based validation:
+Layer 2 summon: 3+ Ashes (review) or 5+ Ashes (audit). Full spec: [Truthsight Pipeline](../rune-orchestration/references/truthsight-pipeline.md)
 
-```bash
-# Required structure checks
-grep -c "## P1" {output_file}      # P1 section exists
-grep -c "## P2" {output_file}      # P2 section exists
-grep -c "## Reviewer Assumptions" {output_file} # Assumptions section exists
-grep -c "SEAL:" {output_file}      # Seal present
-
-# Evidence quality checks
-grep -c "Rune Trace" {output_file} # Evidence blocks exist
-```
-
-**Circuit breaker:** If 3+ files fail inline checks → systemic prompt issue. Pause and investigate.
-
-### Layer 1: Self-Review (Each Ash)
-
-Already performed by each Ash before sending Seal (embedded in prompts). Review the Self-Review Log section in each output file.
-
-### Layer 2: Smart Verifier (Summoned by Lead)
-
-Summon conditions: Roundtable Circle with 3+ Ashes, or audit with 5+ Ashes.
-
-```
-Task({
-  subagent_type: "general-purpose",
-  model: resolveModelForAgent("truthseer-validator", talisman),  // Cost tier mapping
-  description: "Truthsight Verifier",
-  prompt: [from ../rune-orchestration/references/verifier-prompt.md]
-})
-```
-
-The verifier:
-1. Reads each Ash's output file
-2. Samples 2-3 P1 findings per Ash
-3. Reads the actual source files cited in Rune Traces
-4. Compares evidence blocks against real code
-5. Marks each: CONFIRMED / INACCURATE / HALLUCINATED
-6. Writes `{output_dir}/truthsight-report.md`
-
-**Circuit breaker:** 2+ HALLUCINATED findings from same Ash → flag entire output as unreliable.
-
-**Legacy note:** `completion.json` is deprecated — use Seal metadata + TOME.md instead. Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/truthsight-pipeline.md)
-
-### Phase 6.2: Codex Diff Verification (Layer 3)
-
-Cross-model verification of P1/P2 findings against actual diff hunks. Uses 4-condition detection gate. Verdicts: CONFIRMED (+0.15 confidence), WEAKENED (no change), REFUTED (demote to P3).
-
-### Phase 6.3: Codex Architecture Review (Audit Mode Only)
-
-Cross-model analysis of TOME findings for cross-cutting architectural patterns (naming drift, layering violations, error handling inconsistency). 5-condition gate: 4-condition canonical + `scope=full`.
-
-See [codex-verification-phases.md](references/codex-verification-phases.md) for full pseudocode of both phases.
+**Phase 6.2** (Codex Diff Verification) and **Phase 6.3** (Codex Architecture Review, audit only): See [codex-verification-phases.md](references/codex-verification-phases.md).
 
 ## Phase 7: Cleanup
 

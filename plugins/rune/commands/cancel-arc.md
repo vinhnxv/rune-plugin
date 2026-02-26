@@ -4,9 +4,16 @@ description: |
   Cancel an active arc pipeline and gracefully shutdown all phase teammates.
   Completed phase artifacts are preserved. Only the currently-active phase is cancelled.
 
+  Use --status to inspect arc pipeline health without cancelling (runs rune-status.sh).
+
   <example>
   user: "/rune:cancel-arc"
   assistant: "The Tarnished halts the arc..."
+  </example>
+
+  <example>
+  user: "/rune:cancel-arc --status"
+  assistant: "Displays arc pipeline status report without cancelling."
   </example>
 user-invocable: true
 allowed-tools:
@@ -24,6 +31,25 @@ allowed-tools:
 # /rune:cancel-arc — Cancel Active Arc Pipeline
 
 Cancel an active arc pipeline and gracefully shutdown all phase teammates. Completed phase artifacts are preserved.
+
+## Flags
+
+| Flag | Description |
+|------|-------------|
+| `--status` | Display arc pipeline diagnostic status without cancelling. Runs `rune-status.sh` and returns. |
+
+## Step -1. Handle --status Flag (Early Return)
+
+```javascript
+const args = "$ARGUMENTS"
+if (args.includes('--status')) {
+  const output = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/rune-status.sh"`)
+  // Display output and return — no cancellation
+  return output
+}
+```
+
+If `--status` is detected, run `rune-status.sh` and display its output. Do not proceed with cancellation.
 
 ## Steps
 

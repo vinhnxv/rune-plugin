@@ -249,3 +249,70 @@ Verdict mapping:
 - `>= threshold` → **READY**
 - `>= threshold - 20` → **PARTIAL**
 - `< threshold - 20` → **NOT_READY**
+
+## Historical Risk Assessment (Goldmask Enhancement)
+
+If `riskMap` is available from Phase 1.3, the Verdict Binder appends a Historical Risk Assessment section to VERDICT.md AFTER the standard verdict sections. This section is optional — if `riskMap` is null or parsing fails, the section is simply omitted (non-blocking).
+
+### Content
+
+```javascript
+if (riskMap) {
+  try {
+    const parsed = JSON.parse(riskMap)
+    const riskFiles = parsed?.files ?? []
+    const tierOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, STALE: 4 }
+
+    // Categorize files by tier
+    const criticalFiles = riskFiles.filter(f => f.tier === 'CRITICAL')
+    const highFiles = riskFiles.filter(f => f.tier === 'HIGH')
+    const mediumFiles = riskFiles.filter(f => f.tier === 'MEDIUM')
+    const lowFiles = riskFiles.filter(f => f.tier === 'LOW')
+
+    // Single-owner files (bus factor risk)
+    const singleOwnerFiles = riskFiles.filter(f =>
+      f.metrics?.ownership?.distinct_authors === 1
+    )
+
+    // Build Historical Risk section
+    let riskSection = "## Historical Risk Assessment (Goldmask Lore)\n\n"
+    riskSection += "### File Risk Distribution\n\n"
+    riskSection += "| Tier | Count | Files |\n"
+    riskSection += "|------|-------|-------|\n"
+    riskSection += `| CRITICAL | ${criticalFiles.length} | ${criticalFiles.map(f => '\`' + f.path + '\`').join(', ') || '--'} |\n`
+    riskSection += `| HIGH | ${highFiles.length} | ${highFiles.map(f => '\`' + f.path + '\`').join(', ') || '--'} |\n`
+    riskSection += `| MEDIUM | ${mediumFiles.length} | ... |\n`
+    riskSection += `| LOW | ${lowFiles.length} | ... |\n\n`
+
+    // Bus factor warnings
+    if (singleOwnerFiles.length > 0) {
+      riskSection += "### Bus Factor Warnings\n\n"
+      for (const f of singleOwnerFiles.slice(0, 10)) {
+        riskSection += `- \`${f.path}\`: single owner (${f.metrics?.ownership?.top_contributor ?? 'unknown'})\n`
+      }
+      riskSection += "\n"
+    }
+
+    // Inspection coverage vs risk
+    riskSection += "### Inspection Coverage vs Risk\n\n"
+    riskSection += "| Requirement | Risk Tier | Inspector Coverage | Finding Count |\n"
+    riskSection += "|-------------|-----------|-------------------|---------------|\n"
+    for (const req of requirements) {
+      const reqTier = req.inspectionPriority === 'HIGH' ? 'CRITICAL'
+        : req.inspectionPriority === 'ELEVATED' ? 'HIGH' : 'UNKNOWN'
+      riskSection += `| ${req.id ?? req.text?.slice(0, 40)} | ${reqTier} | ${req.assignedInspectors?.length ?? 1} | -- |\n`
+    }
+    riskSection += "\n**Note**: Requirements touching CRITICAL files with zero findings"
+    riskSection += " warrant manual review — they may represent gaps in inspection coverage.\n"
+
+    // Append to VERDICT.md
+    verdictContent += "\n\n" + riskSection
+  } catch (parseError) {
+    warn("Phase 5-6: risk-map parse error — omitting Historical Risk section from VERDICT")
+  }
+}
+```
+
+### Rendering Rule
+
+The Historical Risk Assessment section is optional. If `riskMap` is null or parsing fails, the section is simply omitted from VERDICT.md. This is non-blocking.
