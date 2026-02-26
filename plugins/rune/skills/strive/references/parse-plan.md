@@ -366,6 +366,91 @@ Write(inscriptionPath, JSON.stringify(inscription, null, 2))
 - `owner` field is set to `"unassigned"` initially; can be updated when workers claim tasks (future enhancement)
 - Talisman `work.unrestricted_shared_files` array supplements the allowlist at hook evaluation time (not stored in inscription)
 
+## Frontend Task Classification
+
+After risk tier classification, classify each task as frontend or backend to enable conditional design context injection. This runs unconditionally (lightweight check) but only affects downstream behavior when design_sync is enabled.
+
+```javascript
+// SYNC: frontend-task-patterns — update patterns below AND design-sync/references/phase2-design-implementation.md
+const FRONTEND_FILE_PATTERN = /\.(tsx|jsx|css|scss|sass|less|svelte|vue|styled\.\w+)$/
+const FRONTEND_KEYWORD_PATTERN = /\b(component|ui|layout|style|render|view|page|screen|modal|dialog|button|form|input|dropdown|sidebar|navbar|header|footer|card|grid|flex|responsive|breakpoint|theme|design.?token|figma|css|tailwind|styled|animation|transition)\b/i
+
+function classifyFrontendTask(task) {
+  const files = task.fileTargets || []
+  const desc = (task.subject + " " + (task.description || "")).toLowerCase()
+
+  // Strategy 1: File extension match (high confidence)
+  const hasFeFiles = files.some(f => FRONTEND_FILE_PATTERN.test(f))
+
+  // Strategy 2: Directory-based heuristic (medium confidence)
+  const feDirs = files.some(f =>
+    /(components|views|pages|screens|layouts|ui|styles|public|assets|app\/.*\/(page|layout|loading|error))/.test(f)
+  )
+
+  // Strategy 3: Keyword match in description (low confidence, tiebreaker)
+  const hasFeKeywords = FRONTEND_KEYWORD_PATTERN.test(desc)
+
+  // Frontend if ANY file-based signal, OR strong keyword signal without contradicting files
+  const isFrontend = hasFeFiles || feDirs || (hasFeKeywords && files.length === 0)
+  return { isFrontend }
+}
+
+// Apply to all extracted tasks
+for (const task of tasks) {
+  const { isFrontend } = classifyFrontendTask(task)
+  task.isFrontend = isFrontend
+}
+```
+
+## Design Context Detection (conditional)
+
+After frontend classification, detect design signals from the plan. Triple-gated: `design_sync.enabled` + frontend task signals + design artifact presence. Zero cost when any gate is closed.
+
+**Inputs**: frontmatter (object, parsed from plan YAML), tasks (Task[], with `isFrontend` flag), talisman (object), designContext (from `discoverDesignContext()` in SKILL.md Phase 1)
+**Outputs**: `has_design_context` (boolean) per task, `design_artifacts` (object) per task
+**Preconditions**: Tasks extracted, classified (impl/test), frontend-tagged, talisman loaded
+**Error handling**: Glob failure → treat as no artifacts; Read failure on VSM/DCD → skip artifact, log warning
+
+```javascript
+// Gate 1: design_sync.enabled in talisman
+const designSyncEnabled = talisman?.design_sync?.enabled === true
+
+if (designSyncEnabled) {
+  // Gate 2: Any frontend tasks exist?
+  const hasFrontendTasks = tasks.some(t => t.isFrontend)
+
+  if (hasFrontendTasks) {
+    // Gate 3: Design artifacts discovered? (passed from discoverDesignContext() in SKILL.md)
+    // designContext = { strategy, designPackagePath?, vsmFiles?, dcdFiles?, figmaUrl? }
+    const hasArtifacts = designContext && designContext.strategy !== 'none'
+
+    for (const task of tasks) {
+      // Only frontend tasks get design context
+      task.has_design_context = task.isFrontend && hasArtifacts
+
+      if (task.has_design_context) {
+        task.design_artifacts = {
+          vsm_path: designContext.vsmFiles?.[0],
+          dcd_path: designContext.dcdFiles?.[0],
+          design_package_path: designContext.designPackagePath,
+          figma_url: designContext.figmaUrl
+        }
+      }
+    }
+  } else {
+    // No frontend tasks — skip annotation (zero overhead)
+    for (const task of tasks) {
+      task.has_design_context = false
+    }
+  }
+} else {
+  // design_sync disabled — no annotation (zero overhead)
+  for (const task of tasks) {
+    task.has_design_context = false
+  }
+}
+```
+
 ## Confirm with User
 
 Present extracted tasks with risk tiers and ask for confirmation:
