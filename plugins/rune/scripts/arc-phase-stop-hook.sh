@@ -357,6 +357,15 @@ You are executing a single phase of the arc pipeline. Each phase runs with fresh
 2. Read the checkpoint: ${CHECKPOINT_PATH}
 3. Read the plan: ${PLAN_FILE}
 4. Execute the phase algorithm as described in the reference file.
+   Before executing the phase:
+     checkpoint.phases.${NEXT_PHASE}.started_at = new Date().toISOString()
+     Write the checkpoint.
+   After the phase completes:
+     const completionTs = Date.now()
+     checkpoint.phases.${NEXT_PHASE}.completed_at = new Date(completionTs).toISOString()
+     const startMs = new Date(checkpoint.phases.${NEXT_PHASE}.started_at).getTime()
+     checkpoint.totals = checkpoint.totals ?? { phase_times: {}, total_duration_ms: null, cost_at_completion: null }
+     checkpoint.totals.phase_times["${NEXT_PHASE}"] = Number.isFinite(startMs) ? completionTs - startMs : null
 5. When done, update the checkpoint: set phases.${NEXT_PHASE}.status to \"completed\" (or \"skipped\" if the phase gate check says to skip).
 6. Write the updated checkpoint back to ${CHECKPOINT_PATH}.
 7. STOP responding immediately after updating the checkpoint.

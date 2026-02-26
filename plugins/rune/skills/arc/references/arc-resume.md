@@ -160,7 +160,7 @@ On resume, validate checkpoint integrity before proceeding:
    const designPhases = ['design_extraction', 'design_verification', 'design_iteration']
    for (const phase of designPhases) {
      if (!checkpoint.phases[phase]) {
-       checkpoint.phases[phase] = { status: "pending", artifacts: null, artifact_hash: null }
+       checkpoint.phases[phase] = { status: "pending", artifact: null, artifact_hash: null, team_name: null }
      }
    }
    ```
@@ -170,8 +170,9 @@ On resume, validate checkpoint integrity before proceeding:
    // Migration: v18 → v19 (step 3t) — per-phase timing fields + totals block
    if (checkpoint.schema_version < 19) {
      for (const [phase, data] of Object.entries(checkpoint.phases)) {
-       if (!data.started_at) data.started_at = null
-       if (!data.completed_at) data.completed_at = null
+       data.started_at = data.started_at ?? null
+       data.completed_at = data.completed_at ?? null
+       if ('artifacts' in data && !('artifact' in data)) { data.artifact = data.artifacts; delete data.artifacts; }
      }
      if (!checkpoint.totals) {
        checkpoint.totals = { phase_times: {}, total_duration_ms: null, cost_at_completion: null }
@@ -180,6 +181,7 @@ On resume, validate checkpoint integrity before proceeding:
      checkpoint.schema_version = 19
    }
    ```
+// NOTE: Step 3r runs after all schema migrations complete (steps 3a–3t). Step 3p was skipped in the original numbering.
 3r. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)

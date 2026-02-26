@@ -86,7 +86,10 @@ _fmt_ago() {
   elif date --version &>/dev/null 2>&1; then
     epoch_ts=$(date -d "$ts" +%s 2>/dev/null || echo 0)
   else
-    epoch_ts=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null || echo 0)
+    local ts_clean="${ts%%.*}"
+    ts_clean="${ts_clean%+*}"
+    ts_clean="${ts_clean%Z}Z"
+    epoch_ts=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts_clean" +%s 2>/dev/null || echo 0)
   fi
   local now elapsed
   now=$(date +%s)
@@ -156,6 +159,9 @@ if [[ -d "$ARC_DIR" ]]; then
           continue
         fi
         _trace "Skipping ${arc_id}: orphaned checkpoint (pid ${stored_pid} dead) — skipping"
+        if [[ "$JSON_MODE" != "true" ]]; then
+          echo "  [orphaned arc ${arc_id} from dead session ${stored_pid} — run /rune:rest to clean]"
+        fi
         continue
       fi
     fi
@@ -266,7 +272,7 @@ for ckpt in "${CHECKPOINT_FILES[@]}"; do
     FIRST=false
 
     # Build context sub-object
-    if [[ -n "$CTX_USED" && "$CTX_USED" =~ ^[0-9] ]]; then
+    if [[ "$CTX_USED" =~ ^[0-9]+(\.[0-9]+)?$ && "$CTX_REM" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
       ctx_obj="{\"used_pct\":${CTX_USED},\"remaining_pct\":${CTX_REM}}"
     else
       ctx_obj="null"
@@ -374,7 +380,7 @@ for ckpt in "${CHECKPOINT_FILES[@]}"; do
         # Calculate duration using date arithmetic
         if command -v gdate &>/dev/null; then
           ep_s=$(gdate -d "$ph_started" +%s%3N 2>/dev/null || echo 0)
-          if [[ -n "$ph_completed" && "$ph_completed" != "null" && -n "$ph_completed" ]]; then
+          if [[ -n "$ph_completed" && "$ph_completed" != "null" && "$ph_completed" =~ ^[0-9] ]]; then
             ep_e=$(gdate -d "$ph_completed" +%s%3N 2>/dev/null || echo 0)
           else
             ep_e=$(date +%s%3N 2>/dev/null || echo 0)

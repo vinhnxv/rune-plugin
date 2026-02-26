@@ -43,9 +43,7 @@ Cancel an active arc pipeline and gracefully shutdown all phase teammates. Compl
 ```javascript
 const args = "$ARGUMENTS"
 if (args.includes('--status')) {
-  const PLUGIN_ROOT = Bash(`echo "${CLAUDE_PLUGIN_ROOT}"`).trim()
-  const CWD = Bash(`pwd -P`).trim()
-  const output = Bash(`"${PLUGIN_ROOT}/scripts/rune-status.sh" "${CWD}"`)
+  const output = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/rune-status.sh"`)
   // Display output and return — no cancellation
   return output
 }

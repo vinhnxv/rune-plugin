@@ -1,7 +1,7 @@
 # Initialize Checkpoint (ARC-2) — Full Algorithm
 
 Checkpoint initialization: config resolution (3-layer), session identity,
-checkpoint schema v16 creation, and initial state write.
+checkpoint schema v19 creation, and initial state write.
 
 **Inputs**: plan path, talisman config, arc arguments, `freshnessResult` from Freshness Check
 **Outputs**: checkpoint object (schema v19), resolved arc config (`arcConfig`)

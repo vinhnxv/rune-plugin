@@ -221,10 +221,11 @@ Read(refFile)
 // Execute the phase algorithm as described in the reference file.
 // When done, update checkpoint.phases[firstPending].status to "completed".
 // Schema v19: stamp phase completion time and compute duration
-checkpoint.phases[firstPending].completed_at = new Date().toISOString()
+const completionTs = Date.now()
+checkpoint.phases[firstPending].completed_at = new Date(completionTs).toISOString()
 const phaseStartMs = new Date(checkpoint.phases[firstPending].started_at).getTime()
 checkpoint.totals = checkpoint.totals ?? { phase_times: {}, total_duration_ms: null, cost_at_completion: null }
-checkpoint.totals.phase_times[firstPending] = Date.now() - phaseStartMs
+checkpoint.totals.phase_times[firstPending] = Number.isFinite(phaseStartMs) ? completionTs - phaseStartMs : null
 // Then STOP responding — the Stop hook will advance to the next phase.
 ```
 
