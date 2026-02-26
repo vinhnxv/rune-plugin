@@ -1,6 +1,6 @@
 # Resume (`--resume`) — Full Algorithm
 
-Full `--resume` logic: checkpoint discovery, validation, schema migration (v1→v16),
+Full `--resume` logic: checkpoint discovery, validation, schema migration (v1→v19),
 hash integrity verification, orphan cleanup, and phase demotion.
 
 > Requires familiarity with checkpoint schema from [arc-checkpoint-init.md](arc-checkpoint-init.md).
@@ -165,6 +165,21 @@ On resume, validate checkpoint integrity before proceeding:
    }
    ```
    b. Set schema_version: 18
+3t. If schema_version < 19, migrate v18 → v19:
+   ```javascript
+   // Migration: v18 → v19 (step 3t) — per-phase timing fields + totals block
+   if (checkpoint.schema_version < 19) {
+     for (const [phase, data] of Object.entries(checkpoint.phases)) {
+       if (!data.started_at) data.started_at = null
+       if (!data.completed_at) data.completed_at = null
+     }
+     if (!checkpoint.totals) {
+       checkpoint.totals = { phase_times: {}, total_duration_ms: null, cost_at_completion: null }
+     }
+     if (!checkpoint.completed_at) checkpoint.completed_at = null
+     checkpoint.schema_version = 19
+   }
+   ```
 3r. Resume freshness re-check:
    a. Read plan file from checkpoint.plan_file
    b. Extract git_sha from plan frontmatter (use optional chaining: `extractYamlFrontmatter(planContent)?.git_sha` — returns null on parse error if plan was manually edited between sessions)

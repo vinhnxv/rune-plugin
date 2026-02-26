@@ -211,19 +211,51 @@ if (!firstPending) {
   return
 }
 
+// Schema v19: stamp phase start time before executing
+checkpoint.phases[firstPending].started_at = new Date().toISOString()
+Write(checkpointPath, checkpoint)
+
 // Read and execute the phase reference file
 const refFile = getPhaseReferenceFile(firstPending)
 Read(refFile)
 // Execute the phase algorithm as described in the reference file.
 // When done, update checkpoint.phases[firstPending].status to "completed".
+// Schema v19: stamp phase completion time and compute duration
+checkpoint.phases[firstPending].completed_at = new Date().toISOString()
+const phaseStartMs = new Date(checkpoint.phases[firstPending].started_at).getTime()
+checkpoint.totals = checkpoint.totals ?? { phase_times: {}, total_duration_ms: null, cost_at_completion: null }
+checkpoint.totals.phase_times[firstPending] = Date.now() - phaseStartMs
 // Then STOP responding — the Stop hook will advance to the next phase.
 ```
 
 **Phase-to-reference mapping**: See `arc-phase-stop-hook.sh` `_phase_ref()` function for the canonical phase → reference file mapping.
 
+**Timing instrumentation**: Each phase MUST stamp `started_at` before execution and `completed_at` + `totals.phase_times[phaseName]` (duration in ms) after. The Stop hook re-injects this same pattern for all subsequent phases via the phase prompt template. The `totals.phase_times` map accumulates durations across the full pipeline.
+
 ## Post-Arc (Final Phase)
 
 These steps run after Phase 9.5 MERGE (the last phase). The Stop hook injects a completion prompt when all phases are done.
+
+### Timing Totals + Completion Stamp (schema v19)
+
+Before calling the Plan Completion Stamp, record arc-level timing metrics:
+
+```javascript
+// Schema v19: record arc completion time and total duration
+const completedAtTs = new Date().toISOString()
+checkpoint.completed_at = completedAtTs
+checkpoint.totals = checkpoint.totals ?? { phase_times: {}, total_duration_ms: null, cost_at_completion: null }
+checkpoint.totals.total_duration_ms = Date.now() - new Date(checkpoint.started_at).getTime()
+
+// Read cost from statusline bridge file (non-blocking — skip if unavailable)
+if (ctxBridgeFile) {
+  try {
+    const bridge = JSON.parse(Bash(`cat "${ctxBridgeFile}" 2>/dev/null`))
+    checkpoint.totals.cost_at_completion = bridge.cost ?? null
+  } catch (e) { /* bridge unavailable — leave null */ }
+}
+Write(checkpointPath, checkpoint)
+```
 
 ### Plan Completion Stamp
 
@@ -256,7 +288,7 @@ After ARC-9 sweep, **finish your response immediately**. Do NOT process further 
 - [Architecture & Pipeline Overview](references/arc-architecture.md) — Pipeline diagram, orchestrator design, transition contracts
 - [Phase Constants](references/arc-phase-constants.md) — PHASE_ORDER, PHASE_TIMEOUTS, CYCLE_BUDGET, shared utilities
 - [Failure Policy](references/arc-failure-policy.md) — Per-phase failure handling matrix
-- [Checkpoint Init](references/arc-checkpoint-init.md) — Schema v17, 3-layer config resolution
+- [Checkpoint Init](references/arc-checkpoint-init.md) — Schema v19, 3-layer config resolution
 - [Resume](references/arc-resume.md) — Checkpoint restoration, schema migration
 - [Pre-flight](references/arc-preflight.md) — Git state, branch creation, stale team scan, prePhaseCleanup
 - [Phase Cleanup](references/arc-phase-cleanup.md) — postPhaseCleanup, PHASE_PREFIX_MAP
