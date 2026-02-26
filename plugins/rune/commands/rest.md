@@ -211,6 +211,10 @@ if [ -z "$active_batch" ]; then
   rm -rf tmp/arc-batch/
 fi
 
+# Remove arc result signal file (v1.109.2+)
+# Overwritten per arc run but stale signals can confuse future arc-batch/arc-issues runs.
+rm -f tmp/arc-result-current.json 2>/dev/null
+
 # Remove arc-issues artifacts (only if no active arc-issues loop)
 # State file is .claude/arc-issues-loop.local.md (not tmp/)
 arc_issues_state=".claude/arc-issues-loop.local.md"

@@ -1279,6 +1279,14 @@ See [arc-phase-completion-stamp.md](references/arc-phase-completion-stamp.md) fo
 
 Read and execute the arc-phase-completion-stamp.md algorithm. Appends a persistent completion record to the plan file with phase results, convergence history, and overall status.
 
+### Post-Arc Result Signal (v1.109.2 — automatic via PostToolUse hook)
+
+An explicit completion signal is written automatically by the `arc-result-signal-writer.sh` PostToolUse hook whenever a checkpoint file is written with `ship` or `merge` phase completed. **No manual Write() call is needed** — the hook fires deterministically on every checkpoint Write/Edit.
+
+See [arc-result-signal.md](references/arc-result-signal.md) for the signal schema and consumer contract.
+
+The signal lives at `tmp/arc-result-current.json` and is read by stop hook loop drivers (arc-batch, arc-issues) as the primary completion detection method, with checkpoint scan as fallback.
+
 ### Post-Arc Echo Persist
 
 See [post-arc.md](references/post-arc.md) for the echo persist algorithm.

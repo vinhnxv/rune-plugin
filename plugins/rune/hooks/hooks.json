@@ -160,6 +160,18 @@
         ]
       },
       {
+        "matcher": "Write|Edit",
+        "_rationale": "Deterministic arc completion signal writer. Fast-path exit (<5ms) for non-checkpoint writes via grep check. Only triggers full logic when the written file is an arc checkpoint with ship/merge completed. Decouples stop hooks from checkpoint internals.",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/arc-result-signal-writer.sh",
+            "timeout": 5,
+            "statusMessage": "Writing arc completion signal..."
+          }
+        ]
+      },
+      {
         "matcher": "Read|Write|Edit|Bash|Glob|Grep|Task|WebFetch",
         "_rationale": "Monitor high-frequency tools that indicate active work. Excludes TeamCreate/TeamDelete/SendMessage (low context impact). Task catches agent spawning (highest context cost).",
         "hooks": [

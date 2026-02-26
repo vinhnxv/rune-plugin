@@ -164,41 +164,53 @@ validate_session_ownership() {
 }
 
 # ── _find_arc_checkpoint(): Find the most recent arc checkpoint for current session ──
-# Searches ${CWD}/.claude/arc/*/checkpoint.json for the newest checkpoint
-# belonging to the current session (owner_pid matches $PPID).
+# Searches BOTH ${CWD}/.claude/arc/*/checkpoint.json AND ${CWD}/tmp/arc/*/checkpoint.json
+# for the newest checkpoint belonging to the current session (owner_pid matches $PPID).
+#
+# BUG FIX (v1.108.2): After session compaction, the arc pipeline may resume and
+# write its checkpoint to tmp/arc/ instead of .claude/arc/. Searching only .claude/arc/
+# would find a stale pre-compaction checkpoint (e.g., ship=pending) while the actual
+# completed checkpoint lives at tmp/arc/ (ship=completed, PR merged). This caused
+# arc-batch to misdetect successful arcs as "failed" and break the batch chain.
+#
 # Args: none (uses CWD and PPID globals)
 # Returns: absolute path to checkpoint.json on stdout, or empty string if not found.
 # Exit code: 0 if found, 1 if not found.
 _find_arc_checkpoint() {
-  local ckpt_dir="${CWD}/.claude/arc"
-  [[ -d "$ckpt_dir" ]] || return 1
-
   local newest="" newest_mtime=0
-  # PERF FIX (v1.108.1): Use grep for fast PID matching instead of jq per file.
-  # With 100+ checkpoint dirs, individual jq calls exceeded the 15s hook timeout,
-  # causing the stop hook to silently exit and breaking the batch loop.
-  # grep is ~100x faster than jq for simple string matching.
-  #
-  # Scan only the 10 most recently modified dirs to bound worst-case time.
-  local candidates
-  candidates=$(ls -dt "$ckpt_dir"/*/checkpoint.json 2>/dev/null | head -20) || true
-  [[ -n "$candidates" ]] || return 1
 
-  while IFS= read -r f; do
-    [[ -f "$f" ]] && [[ ! -L "$f" ]] || continue
-    # Session isolation: fast grep for owner_pid (avoids jq startup per file)
-    if ! grep -q "\"owner_pid\"[[:space:]]*:[[:space:]]*\"${PPID}\"" "$f" 2>/dev/null; then
-      # Also try numeric (non-quoted) format
-      grep -q "\"owner_pid\"[[:space:]]*:[[:space:]]*${PPID}[^0-9]" "$f" 2>/dev/null || continue
-    fi
-    # Get mtime (macOS: stat -f %m; Linux: stat -c %Y)
-    local mtime
-    mtime=$(stat -f %m "$f" 2>/dev/null) || mtime=$(stat -c %Y "$f" 2>/dev/null) || continue
-    if [[ "$mtime" -gt "$newest_mtime" ]]; then
-      newest_mtime="$mtime"
-      newest="$f"
-    fi
-  done <<< "$candidates"
+  # Search both canonical (.claude/arc/) and tmp (tmp/arc/) checkpoint locations.
+  # After compaction, arc may resume into tmp/arc/ — both must be checked.
+  local ckpt_dir
+  for ckpt_dir in "${CWD}/.claude/arc" "${CWD}/tmp/arc"; do
+    [[ -d "$ckpt_dir" ]] || continue
+
+    # PERF FIX (v1.108.1): Use grep for fast PID matching instead of jq per file.
+    # With 100+ checkpoint dirs, individual jq calls exceeded the 15s hook timeout,
+    # causing the stop hook to silently exit and breaking the batch loop.
+    # grep is ~100x faster than jq for simple string matching.
+    #
+    # Scan only the 20 most recently modified files per location to bound worst-case time.
+    local candidates
+    candidates=$(ls -dt "$ckpt_dir"/*/checkpoint.json 2>/dev/null | head -20) || true
+    [[ -n "$candidates" ]] || continue
+
+    while IFS= read -r f; do
+      [[ -f "$f" ]] && [[ ! -L "$f" ]] || continue
+      # Session isolation: fast grep for owner_pid (avoids jq startup per file)
+      if ! grep -q "\"owner_pid\"[[:space:]]*:[[:space:]]*\"${PPID}\"" "$f" 2>/dev/null; then
+        # Also try numeric (non-quoted) format
+        grep -qE "\"owner_pid\"[[:space:]]*:[[:space:]]*${PPID}([^0-9]|$)" "$f" 2>/dev/null || continue
+      fi
+      # Get mtime (macOS: stat -f %m; Linux: stat -c %Y)
+      local mtime
+      mtime=$(stat -f %m "$f" 2>/dev/null) || mtime=$(stat -c %Y "$f" 2>/dev/null) || continue
+      if [[ "$mtime" -gt "$newest_mtime" ]]; then
+        newest_mtime="$mtime"
+        newest="$f"
+      fi
+    done <<< "$candidates"
+  done
 
   if [[ -n "$newest" ]]; then
     echo "$newest"
@@ -267,6 +279,67 @@ _check_context_critical() {
   [[ "$rem_int" -le 25 ]] && return 0
 
   return 1
+}
+
+# ── _read_arc_result_signal(): Read explicit arc result signal (v1.109.2) ──
+# Primary arc completion detection method. Arc writes tmp/arc-result-current.json
+# at a deterministic path after each pipeline run. This decouples stop hooks from
+# checkpoint internals (location, field names, nesting).
+#
+# Args: none (uses CWD and PPID globals)
+# Sets: ARC_SIGNAL_STATUS ("completed"|"partial"), ARC_SIGNAL_PR_URL ("none"|url)
+# Returns: 0 if valid signal found for this session, 1 if not found/stale/wrong-session.
+# BACK-008: Only "completed" and "partial" are accepted (SEC-005 allowlist). Any other
+# status (including manually-crafted "failed") causes return 1, forcing callers to
+# fall back to _find_arc_checkpoint(). This is intentional — signal should only represent
+# positive completion evidence. Callers should NOT check ARC_SIGNAL_STATUS independently
+# of the return code; return 0 guarantees a valid, allowlisted status.
+# Fail-open: returns 1 on any error — callers fall back to _find_arc_checkpoint().
+_read_arc_result_signal() {
+  ARC_SIGNAL_STATUS=""
+  ARC_SIGNAL_PR_URL=""
+
+  local signal_file="${CWD}/tmp/arc-result-current.json"
+  [[ -f "$signal_file" ]] && [[ ! -L "$signal_file" ]] || return 1
+
+  # BACK-003: Single jq call extracts all 5 fields at once (tab-separated)
+  # Fields: schema_version, owner_pid, config_dir, status, pr_url
+  local jq_out
+  jq_out=$(jq -r '[(.schema_version // "" | tostring), (.owner_pid // ""), (.config_dir // ""), (.status // ""), (.pr_url // "none")] | join("\t")' "$signal_file" 2>/dev/null) || return 1
+
+  local signal_schema signal_pid signal_config signal_status signal_pr_url
+  IFS=$'\t' read -r signal_schema signal_pid signal_config signal_status signal_pr_url <<< "$jq_out"
+
+  # QUAL-001-SCHEMA: Validate schema version (forward-compat guard)
+  [[ "$signal_schema" == "1" ]] || return 1
+
+  # SEC-010: Numeric PID validation (parity with validate_session_ownership)
+  [[ -n "$signal_pid" && "$signal_pid" =~ ^[0-9]+$ ]] || return 1
+  # Session isolation: verify owner_pid matches current session
+  [[ "$signal_pid" == "$PPID" ]] || return 1
+
+  # Config-dir isolation: verify same Claude Code installation
+  if [[ -n "${RUNE_CURRENT_CFG:-}" && -n "$signal_config" && "$signal_config" != "$RUNE_CURRENT_CFG" ]]; then
+    return 1
+  fi
+
+  # SEC-005: Allowlist validation — only accept known status values
+  case "$signal_status" in
+    completed|partial) ;;
+    *) return 1 ;;
+  esac
+
+  ARC_SIGNAL_STATUS="$signal_status"
+  ARC_SIGNAL_PR_URL="$signal_pr_url"
+  # Belt-and-suspenders: handles edge case where pr_url is the literal string "null"
+  [[ "$ARC_SIGNAL_PR_URL" == "null" ]] && ARC_SIGNAL_PR_URL="none"
+
+  # BACK-003: Validate PR URL format (defense-in-depth, parity with consumer regex)
+  if [[ "$ARC_SIGNAL_PR_URL" != "none" ]]; then
+    [[ "$ARC_SIGNAL_PR_URL" =~ ^https://[a-zA-Z0-9._/-]+$ ]] || ARC_SIGNAL_PR_URL="none"
+  fi
+
+  return 0
 }
 
 # ── validate_paths(): Path traversal + metachar rejection for relative paths ──
