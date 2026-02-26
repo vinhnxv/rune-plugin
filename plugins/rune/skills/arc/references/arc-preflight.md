@@ -88,15 +88,12 @@ If already on a feature branch, use the current branch.
 
 ```bash
 # SEC-007: Use find instead of ls glob to avoid ARG_MAX issues
-# SEC-007 (P2): This checks for concurrent arc sessions only. Cross-command concurrency
-# (e.g., arc + review + work + mend running simultaneously) is not checked here.
-# LIMITATION: Multiple /rune:* commands can run concurrently on the same codebase,
-# potentially causing git index contention, file edit conflicts, and team name collisions.
-# TODO: Implement shared lock file check across all /rune:* commands. Proposed approach:
-#   1. Each /rune:* command creates a lock file: tmp/.rune-lock-{command}-{timestamp}.json
-#   2. Before team creation, scan tmp/.rune-lock-*.json for active sessions (< 30 min old)
-#   3. If active session found, warn user and offer: proceed (risk conflicts) or abort
-#   4. Lock file cleanup in each command's Phase 6/7 cleanup step
+# SEC-007 (P2): Cross-command concurrency is now handled by the shared workflow lock library
+# (scripts/lib/workflow-lock.sh). Each /rune:* command acquires a lock at entry and releases
+# it at cleanup. The lock check in arc/SKILL.md "Workflow Lock (writer)" section runs
+# rune_check_conflicts("writer") and rune_acquire_lock("arc", "writer") before reaching
+# this pre-flight code. The checks below are arc-specific concurrent session detection
+# (checkpoint-based) that complement the shared lock library.
 const MAX_CHECKPOINT_AGE = 604_800_000  // 7 days in ms — abandoned checkpoints ignored
 
 # ZSH-COMPAT: Resolve CHOME for CLAUDE_CONFIG_DIR support (avoids ~ expansion issues in zsh)
@@ -140,18 +137,16 @@ if [ -n "$active" ]; then
   exit 1
 fi
 
-# Advisory: check for other active rune workflows (not just arc)
-otherWorkflows=$(find tmp -maxdepth 1 -name ".rune-*.json" 2>/dev/null | while read f; do
-  if command -v jq >/dev/null 2>&1; then
-    # EXIT-CODE FIX: || true — same rationale as concurrent arc check above
-    jq -r 'select(.status == "active") | .status' "$f" 2>/dev/null || true
-  else
-    grep -q '"status"[[:space:]]*:[[:space:]]*"active"' "$f" 2>/dev/null && echo "active"
-  fi
-done | wc -l | tr -d ' ')
-if [ "$otherWorkflows" -gt 0 ] 2>/dev/null; then
-  echo "Advisory: $otherWorkflows active Rune workflow(s) detected (may include delegated sub-commands from this arc). Independent Rune commands may cause git index contention."
-fi
+# Cross-command concurrency check (via shared workflow lock library)
+# Supersedes the old state-file-scan advisory. The lock library provides:
+#   - Writer vs writer → CONFLICT (hard block with user prompt)
+#   - Writer vs reader/planner → ADVISORY (informational)
+#   - Reader vs reader → OK (no conflict)
+#   - PID liveness check (dead PIDs auto-cleaned)
+#   - Session re-entrancy (arc delegating to strive = same PID, no conflict)
+# The lock is acquired in arc/SKILL.md "Workflow Lock (writer)" section
+# BEFORE this pre-flight code runs. No additional check needed here.
+# See scripts/lib/workflow-lock.sh for the full API.
 ```
 
 ## Validate Plan Path
@@ -519,10 +514,11 @@ const activeTeams = Object.values(checkpoint.phases)
   .filter(p => p.status === "in_progress" && p.team_name)
   .map(p => p.team_name)
 
-// SEC-004 NOTE: Known limitation — this cross-workflow scan runs unconditionally during
-// prePhaseCleanup. Architecturally correct for arc (owns all phases, serial execution),
-// but could collide with concurrent non-arc workflows (e.g., standalone /rune:appraise).
-// KNOWN LIMITATION: See TODO at line 95 for proposed shared lock file approach.
+// SEC-004 NOTE: This cross-workflow scan runs unconditionally during prePhaseCleanup.
+// Architecturally correct for arc (owns all phases, serial execution). Cross-command
+// concurrency is now coordinated by the shared workflow lock library
+// (scripts/lib/workflow-lock.sh) — concurrent non-arc workflows hold their own locks,
+// preventing the stale team scan from interfering with active sessions (PID liveness check).
 for (const prefix of ARC_TEAM_PREFIXES) {
   const dirs = Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && find "$CHOME/teams" -maxdepth 1 -type d -name "${prefix}*" 2>/dev/null`).split('\n').filter(Boolean)
   for (const dir of dirs) {
