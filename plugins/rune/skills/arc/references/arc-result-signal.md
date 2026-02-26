@@ -64,7 +64,7 @@ Stop hooks read signal (primary) → checkpoint scan (fallback)
 | `schema_version` | number | yes | Always `1` |
 | `arc_id` | string | yes | Arc run identifier |
 | `plan_path` | string | yes | Relative path to plan file |
-| `status` | string | yes | `"completed"` \| `"failed"` \| `"partial"` |
+| `status` | string | yes | `"completed"` \| `"failed"`* \| `"partial"` |
 | `pr_url` | string\|null | no | PR URL if ship phase completed |
 | `completed_at` | string | yes | ISO-8601 timestamp |
 | `phases_completed` | number | yes | Count of phases with status "completed" |
@@ -82,6 +82,8 @@ phases_failed == 0 →  "completed"
 Note: The hook only fires when ship or merge phase is "completed" (Guard 5 in the script).
 The "failed" status is never written by the hook — it's only possible via consumer fallback logic.
 
+*`"failed"` is not produced by the hook; it exists only in consumer fallback logic when no signal is found.
+
 ## Consumer Contract
 
 Stop hooks MUST:
@@ -90,6 +92,10 @@ Stop hooks MUST:
 3. Verify `config_dir == $RUNE_CURRENT_CFG` (installation isolation)
 4. Fall back to `_find_arc_checkpoint()` if signal file is missing/stale/wrong-session
 5. Never modify the signal file (read-only consumer)
+
+**Note:** `arc-hierarchy-stop-hook.sh` does not consume this signal. Hierarchy completion
+is determined by provides/requires contract verification (child plan dependency DAG),
+not by individual arc status detection.
 
 ## Hook Guards (Fast-Path Design)
 

@@ -19,7 +19,8 @@
 # DEPENDENCIES: jq
 
 set -euo pipefail
-trap 'exit 0' ERR
+umask 077
+trap '[[ -n "${SIGNAL_TMP:-}" ]] && rm -f "$SIGNAL_TMP" 2>/dev/null; exit 0' EXIT ERR
 
 # ── GUARD 0: jq dependency ──
 command -v jq &>/dev/null || exit 0
@@ -53,8 +54,12 @@ if [[ "$_SHIP_STATUS" != "completed" ]] && [[ "$_MERGE_STATUS" != "completed" ]]
 fi
 
 # ── Extract CWD for signal file placement ──
+# Session identity (owner_pid, config_dir) is inherited from the checkpoint,
+# not from $PPID/$RUNE_CURRENT_CFG. This preserves attribution to the arc session
+# that wrote the checkpoint, ensuring correct session isolation in signal consumers.
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 [[ -n "$CWD" && "$CWD" == /* ]] || exit 0
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || exit 0
 
 # ── Extract checkpoint data ──
 # Single jq call to minimize subprocess overhead
@@ -72,6 +77,11 @@ CKPT_DATA=$(jq -r '[
 
 IFS=$'\t' read -r ARC_ID PLAN_PATH PR_URL OWNER_PID CONFIG_DIR PHASES_COMPLETED PHASES_TOTAL PHASES_FAILED <<< "$CKPT_DATA"
 
+# ── Validate numeric fields (SEC-005: prevent malformed JSON from empty/non-numeric values) ──
+[[ "$PHASES_COMPLETED" =~ ^[0-9]+$ ]] || PHASES_COMPLETED="0"
+[[ "$PHASES_TOTAL" =~ ^[0-9]+$ ]] || PHASES_TOTAL="0"
+[[ "$PHASES_FAILED" =~ ^[0-9]+$ ]] || PHASES_FAILED="0"
+
 # ── Determine status ──
 if [[ "$PHASES_FAILED" -gt 0 ]]; then
   SIGNAL_STATUS="partial"
@@ -79,29 +89,47 @@ else
   SIGNAL_STATUS="completed"
 fi
 
-# ── Normalize PR_URL ──
-[[ "$PR_URL" == "null" || "$PR_URL" == "none" || -z "$PR_URL" ]] && PR_URL="null" || PR_URL="\"${PR_URL}\""
+# ── Normalize PR_URL for jq --argjson ──
+# Validate URL format (QUAL-001 parity with arc-issues-stop-hook.sh BACK-005)
+if [[ "$PR_URL" == "null" || "$PR_URL" == "none" || -z "$PR_URL" ]]; then
+  PR_URL_JSON="null"
+elif [[ "$PR_URL" =~ ^https://[a-zA-Z0-9._/-]+$ ]]; then
+  PR_URL_JSON="\"${PR_URL}\""
+else
+  PR_URL_JSON="null"
+fi
 
 # ── Write signal atomically (mktemp + mv) ──
+# SEC-001 FIX: Use jq -n --arg for proper JSON escaping (replaces heredoc interpolation).
+# This prevents JSON injection from checkpoint fields containing quotes or backslashes.
 SIGNAL_DIR="${CWD}/tmp"
 mkdir -p "$SIGNAL_DIR" 2>/dev/null || exit 0
 SIGNAL_FILE="${SIGNAL_DIR}/arc-result-current.json"
 SIGNAL_TMP=$(mktemp "${SIGNAL_FILE}.XXXXXX" 2>/dev/null) || exit 0
 
-cat > "$SIGNAL_TMP" <<SIGNAL_EOF
-{
-  "schema_version": 1,
-  "arc_id": "${ARC_ID}",
-  "plan_path": "${PLAN_PATH}",
-  "status": "${SIGNAL_STATUS}",
-  "pr_url": ${PR_URL},
-  "completed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "phases_completed": ${PHASES_COMPLETED},
-  "phases_total": ${PHASES_TOTAL},
-  "owner_pid": "${OWNER_PID}",
-  "config_dir": "${CONFIG_DIR}"
-}
-SIGNAL_EOF
+jq -n \
+  --argjson schema_version 1 \
+  --arg arc_id "$ARC_ID" \
+  --arg plan_path "$PLAN_PATH" \
+  --arg status "$SIGNAL_STATUS" \
+  --argjson pr_url "$PR_URL_JSON" \
+  --arg completed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --argjson phases_completed "$PHASES_COMPLETED" \
+  --argjson phases_total "$PHASES_TOTAL" \
+  --arg owner_pid "$OWNER_PID" \
+  --arg config_dir "$CONFIG_DIR" \
+  '{
+    schema_version: $schema_version,
+    arc_id: $arc_id,
+    plan_path: $plan_path,
+    status: $status,
+    pr_url: $pr_url,
+    completed_at: $completed_at,
+    phases_completed: $phases_completed,
+    phases_total: $phases_total,
+    owner_pid: $owner_pid,
+    config_dir: $config_dir
+  }' > "$SIGNAL_TMP" 2>/dev/null || { rm -f "$SIGNAL_TMP" 2>/dev/null; exit 0; }
 
 mv -f "$SIGNAL_TMP" "$SIGNAL_FILE" 2>/dev/null || rm -f "$SIGNAL_TMP" 2>/dev/null
 exit 0

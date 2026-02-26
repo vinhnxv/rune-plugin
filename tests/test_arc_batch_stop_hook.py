@@ -702,3 +702,39 @@ class TestArcResultSignalDetection:
         updated = json.loads(progress_path.read_text())
         plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
         assert plan_a["status"] == "completed"
+
+    @requires_jq
+    def test_signal_symlink_rejected(self, project_env):
+        """DOC-007: Symlink signal file → rejected, falls back to checkpoint."""
+        project, config = project_env
+        pid = str(os.getpid())
+        write_state_file(project, config, owner_pid=pid)
+        # Create real signal in a different location, then symlink to expected path
+        real_signal = project / "tmp" / "arc-result-real.json"
+        real_signal.parent.mkdir(parents=True, exist_ok=True)
+        signal = {
+            "schema_version": 1,
+            "arc_id": f"arc-test-{pid}",
+            "plan_path": "plans/a.md",
+            "status": "completed",
+            "pr_url": "https://github.com/test/repo/pull/42",
+            "completed_at": "2026-02-26T12:00:00Z",
+            "phases_completed": 17,
+            "phases_total": 23,
+            "owner_pid": pid,
+            "config_dir": str(config.resolve()),
+        }
+        real_signal.write_text(json.dumps(signal, indent=2))
+        symlink_path = project / "tmp" / "arc-result-current.json"
+        symlink_path.symlink_to(real_signal)
+        # Write checkpoint as fallback (should be used since symlink is rejected)
+        write_checkpoint_file(project, owner_pid=pid, ship_status="completed")
+        progress_path = write_progress_file(project, [
+            {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
+            {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
+        ])
+        run_batch_hook(project, config)
+        updated = json.loads(progress_path.read_text())
+        plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
+        # Should be completed via checkpoint fallback (Layer 2) — symlink signal rejected
+        assert plan_a["status"] == "completed"

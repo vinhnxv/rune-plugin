@@ -1,11 +1,30 @@
 # Changelog
 
+## [1.109.3] - 2026-02-26
+
+### Fixed (mend from review)
+- **SEC-001: JSON injection via heredoc in signal writer** — Replaced `cat <<HEREDOC` shell interpolation with `jq -n --arg` for proper JSON escaping. Prevents malformed JSON from checkpoint fields containing quotes or backslashes.
+- **SEC-003: Missing `umask 077` and EXIT trap in signal writer** — Added `umask 077` (parity with stop hooks) and EXIT trap for temp file cleanup on signal/kill.
+- **SEC-004: CWD not canonicalized in signal writer** — Added `cd && pwd -P` canonicalization (parity with `resolve_cwd()` in stop-hook-common.sh).
+- **SEC-005: Numeric field validation in signal writer** — Added `^[0-9]+$` guards for `PHASES_COMPLETED`, `PHASES_TOTAL`, `PHASES_FAILED` after IFS split.
+- **SEC-006: arc-issues missing 3-tier state file removal** — Ported 3-tier persistence guard (rm → chmod+rm → truncate) from arc-batch to arc-issues "ALL PLANS DONE" block. Prevents infinite summary loop if `rm -f` fails.
+- **SEC-007: grep boundary anchor fails at EOF** — Fixed `_find_arc_checkpoint()` numeric PID grep to use `([^0-9]|$)` with `-E` flag for EOF handling.
+- **QUAL-001: PR_URL validation regex inconsistency** — Replaced permissive `^https?://` in arc-batch summary block with strict `^https://[a-zA-Z0-9._/-]+$` (parity with arc-issues BACK-005). Also added URL validation in signal writer.
+- **DOC-001: `rest.md` missing signal file cleanup** — Added `rm -f tmp/arc-result-current.json` to rest.md cleanup section.
+- **DOC-002: README.md missing script** — Added `arc-result-signal-writer.sh` to scripts directory tree.
+- **DOC-003/004: "failed" status documentation clarification** — Added footnote to schema table and clarified function comment that "failed" is not produced by the hook.
+- **DOC-005: arc-hierarchy exclusion rationale** — Added note explaining hierarchy uses provides/requires DAG, not signal-based detection.
+- **BACK-003: Multiple jq calls in `_read_arc_result_signal()`** — Consolidated 4 separate `jq` invocations into a single `jq` call with tab-separated output and `IFS` split. Reduces subprocess overhead by ~75%.
+- **QUAL-004: Missing "partial" count in summary blocks** — Both `arc-batch-stop-hook.sh` and `arc-issues-stop-hook.sh` summary templates now include partial plan count alongside completed/failed.
+- **DOC-007: Symlink rejection test** — Added `test_signal_symlink_rejected` to `TestArcResultSignalDetection` verifying that symlinked signal files are rejected and checkpoint fallback is used.
+- **BACK-005: Signal writer unit tests** — New `test_arc_result_signal_writer.py` with 12 tests covering fast-path exits (non-checkpoint, pending phases), completion detection (ship, merge, partial status, tmp/arc path), session identity preservation, and security guards (symlink rejection, PR URL validation).
+
 ## [1.109.2] - 2026-02-26
 
 ### Added
 - **Arc Result Signal: Deterministic PostToolUse hook** — New `arc-result-signal-writer.sh` PostToolUse:Write|Edit hook replaces LLM-instructed signal write with a deterministic shell hook. The hook fires on every Write/Edit, fast-path exits in <5ms for non-checkpoint writes (grep check), and only triggers full logic when the written file is an arc checkpoint with `ship` or `merge` phase completed. Writes `tmp/arc-result-current.json` atomically (mktemp + mv). This decouples stop hooks from checkpoint internals — arc writes checkpoint, hook detects completion, writes signal. Stop hooks read signal (primary) → checkpoint scan (fallback). Zero prompt tokens consumed. Survives session compaction.
 - **2-layer arc completion detection** — `arc-batch-stop-hook.sh` and `arc-issues-stop-hook.sh` now use `_read_arc_result_signal()` as primary detection (Layer 1), with `_find_arc_checkpoint()` as fallback (Layer 2) for crash recovery and pre-v1.109.2 arcs. This replaces the monolithic checkpoint-only detection.
-- **`_read_arc_result_signal()` shared function** — New function in `stop-hook-common.sh` reads the explicit arc result signal with full session isolation (owner_pid + config_dir verification). Returns status and PR URL. Fail-open: returns 1 on any error.
+- **`_read_arc_result_signal()` shared function** — New function in `stop-hook-common.sh` reads the explicit arc result signal with full session isolation (owner_pid + config_dir verification). Sets `ARC_SIGNAL_STATUS` and `ARC_SIGNAL_PR_URL` globals; returns 0 on success, 1 on fallback. Fail-open.
 
 ### Fixed
 - **PERF: Summary block checkpoint scan eating hook timeout** — `arc-batch-stop-hook.sh` summary block (line 191) previously called `_find_arc_checkpoint()` to extract PR_URL BEFORE the main detection block. With 100+ checkpoint dirs, this scan consumed the 15s hook timeout budget, causing the hook to be killed without any output — resulting in "idle" behavior where the batch couldn't advance to the next plan. Now reads `tmp/arc-result-current.json` signal file first (O(1)), falling back to checkpoint scan only when signal is unavailable.

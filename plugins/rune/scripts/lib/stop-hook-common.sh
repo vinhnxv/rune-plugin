@@ -200,7 +200,7 @@ _find_arc_checkpoint() {
       # Session isolation: fast grep for owner_pid (avoids jq startup per file)
       if ! grep -q "\"owner_pid\"[[:space:]]*:[[:space:]]*\"${PPID}\"" "$f" 2>/dev/null; then
         # Also try numeric (non-quoted) format
-        grep -q "\"owner_pid\"[[:space:]]*:[[:space:]]*${PPID}[^0-9]" "$f" 2>/dev/null || continue
+        grep -qE "\"owner_pid\"[[:space:]]*:[[:space:]]*${PPID}([^0-9]|$)" "$f" 2>/dev/null || continue
       fi
       # Get mtime (macOS: stat -f %m; Linux: stat -c %Y)
       local mtime
@@ -287,7 +287,7 @@ _check_context_critical() {
 # checkpoint internals (location, field names, nesting).
 #
 # Args: none (uses CWD and PPID globals)
-# Sets: ARC_SIGNAL_STATUS ("completed"|"failed"|"partial"|""), ARC_SIGNAL_PR_URL (""|url)
+# Sets: ARC_SIGNAL_STATUS ("completed"|"partial"|"" — passthrough; "failed" not produced by hook but not rejected), ARC_SIGNAL_PR_URL ("none"|url)
 # Returns: 0 if valid signal found for this session, 1 if not found/stale/wrong-session.
 # Fail-open: returns 1 on any error — callers fall back to _find_arc_checkpoint().
 _read_arc_result_signal() {
@@ -297,23 +297,25 @@ _read_arc_result_signal() {
   local signal_file="${CWD}/tmp/arc-result-current.json"
   [[ -f "$signal_file" ]] && [[ ! -L "$signal_file" ]] || return 1
 
+  # BACK-003: Single jq call extracts all 4 fields at once (tab-separated)
+  # Fields: owner_pid, config_dir, status, pr_url
+  local jq_out
+  jq_out=$(jq -r '[(.owner_pid // ""), (.config_dir // ""), (.status // ""), (.pr_url // "none")] | join("\t")' "$signal_file" 2>/dev/null) || return 1
+
+  local signal_pid signal_config signal_status signal_pr_url
+  IFS=$'\t' read -r signal_pid signal_config signal_status signal_pr_url <<< "$jq_out"
+
   # Session isolation: verify owner_pid matches current session
-  local signal_pid
-  signal_pid=$(jq -r '.owner_pid // empty' "$signal_file" 2>/dev/null || true)
   [[ -n "$signal_pid" && "$signal_pid" == "$PPID" ]] || return 1
 
   # Config-dir isolation: verify same Claude Code installation
-  if [[ -n "${RUNE_CURRENT_CFG:-}" ]]; then
-    local signal_config
-    signal_config=$(jq -r '.config_dir // empty' "$signal_file" 2>/dev/null || true)
-    if [[ -n "$signal_config" && "$signal_config" != "$RUNE_CURRENT_CFG" ]]; then
-      return 1
-    fi
+  if [[ -n "${RUNE_CURRENT_CFG:-}" && -n "$signal_config" && "$signal_config" != "$RUNE_CURRENT_CFG" ]]; then
+    return 1
   fi
 
-  # Read status and PR URL
-  ARC_SIGNAL_STATUS=$(jq -r '.status // empty' "$signal_file" 2>/dev/null || true)
-  ARC_SIGNAL_PR_URL=$(jq -r '.pr_url // "none"' "$signal_file" 2>/dev/null || echo "none")
+  ARC_SIGNAL_STATUS="$signal_status"
+  ARC_SIGNAL_PR_URL="$signal_pr_url"
+  # Belt-and-suspenders: handles edge case where pr_url is the literal string "null"
   [[ "$ARC_SIGNAL_PR_URL" == "null" ]] && ARC_SIGNAL_PR_URL="none"
 
   [[ -n "$ARC_SIGNAL_STATUS" ]] && return 0
