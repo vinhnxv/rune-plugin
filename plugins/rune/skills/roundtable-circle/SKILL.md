@@ -213,74 +213,19 @@ if (totalFiles > LARGE_DIFF_THRESHOLD && depth !== "deep") {
 
 ### Inscription Sharding Decision (Post-Phase 1, v1.98.0+)
 
-After existing large-diff detection, run the shard decision for standard depth + diff scope.
-See [shard-allocator.md](references/shard-allocator.md) for the full algorithm.
-
-```javascript
-// === Inscription Sharding Decision (Post-Phase 1) ===
-// Runs AFTER large-diff detection above. Sharding replaces chunking for standard depth.
-const SHARD_THRESHOLD  = talisman?.review?.shard_threshold    ?? 15
-const SHARD_SIZE       = talisman?.review?.shard_size         ?? 12
-const MAX_SHARDS       = Math.min(talisman?.review?.max_shards ?? 5, 26)  // Clamp to 26 (A-Z shard IDs)
-const CROSS_SHARD      = talisman?.review?.cross_shard_sentinel ?? true
-const MODEL_POLICY     = talisman?.review?.shard_model_policy  ?? "auto"
-
-let shards = null
-if (depth !== "deep" && scope === "diff" && totalFiles > SHARD_THRESHOLD) {
-  // Sharding only for standard depth + diff scope
-  // Deep mode uses wave-based specialists — sharding generalists over them is counterproductive
-  shards = allocateShards(classifiedFiles, { SHARD_SIZE, MAX_SHARDS, MODEL_POLICY })
-
-  if (shards) {
-    inscription.sharding = {
-      enabled: true,
-      strategy: "domain-affinity",
-      shard_count: shards.length,
-      shard_threshold: SHARD_THRESHOLD,
-      shard_size: SHARD_SIZE,
-      shards: shards.map((s, i) => ({
-        shard_id: String.fromCharCode(65 + i),           // A, B, C, D, E
-        files: s.files.map(f => f.path),
-        file_count: s.files.length,
-        primary_domain: s.primary_domain,
-        domains: [...s.domains],
-        model: s.model,
-        reviewer_name: `shard-reviewer-${String.fromCharCode(97 + i)}`,   // a, b, c, d, e
-        output_file:   `shard-${String.fromCharCode(97 + i)}-findings.md`,
-        summary_file:  `shard-${String.fromCharCode(97 + i)}-summary.json`
-      })),
-      cross_shard: CROSS_SHARD ? {
-        enabled: true,
-        reviewer_name: "cross-shard-sentinel",
-        output_file: "cross-shard-findings.md",
-        input_files: shards.map((_, i) => `shard-${String.fromCharCode(97 + i)}-summary.json`)
-      } : { enabled: false }
-    }
-
-    // Sharding supersedes chunking for standard depth
-    inscription.chunked = false
-
-    log(
-      `Inscription Sharding: ${shards.length} shards ` +
-      `(${shards.map(s => s.files.length).join('+')} files). ` +
-      `Cross-shard: ${CROSS_SHARD ? 'enabled' : 'disabled'}`
-    )
-  }
-} else if (depth === "deep") {
-  // Deep mode: waves handle file distribution. Sharding NOT used.
-  inscription.sharding = { enabled: false }
-}
-```
+After large-diff detection, run the shard decision for standard depth + diff scope. Sharding supersedes chunking — uses domain-affinity partitioning with parallel shard reviewers (A-E) and optional Cross-Shard Sentinel.
 
 **Decision matrix:**
 ```
 depth=deep              → waves (existing) — sharding disabled
-depth=standard, scope=diff, totalFiles > SHARD_THRESHOLD → SHARDING (new, v1.98.0+)
-depth=standard, scope=diff, totalFiles <= SHARD_THRESHOLD → standard single-pass (unchanged)
-depth=standard, scope=full → chunked review or single-pass (unchanged — audit mode)
+depth=standard, scope=diff, totalFiles > SHARD_THRESHOLD → SHARDING
+depth=standard, scope=diff, totalFiles <= SHARD_THRESHOLD → standard single-pass
+depth=standard, scope=full → chunked review or single-pass (audit mode)
 ```
 
-**Escape hatch:** Set `shard_threshold: 999` in talisman.yml to disable sharding for all diffs.
+**Escape hatch:** Set `shard_threshold: 999` in talisman.yml to disable sharding.
+
+See [shard-allocator.md](references/shard-allocator.md) for the full allocation algorithm and inscription schema.
 
 ## Phase 2: Forge Team
 
@@ -320,284 +265,23 @@ Each Ash prompt includes:
 
 ### Sharded Review Path (v1.98.0+, standard depth + large diff)
 
-When `inscription.sharding?.enabled === true`, Phase 3 spawns shard reviewers in parallel
-then a single Cross-Shard Sentinel after all shards complete.
-See [shard-allocator.md](references/shard-allocator.md) for allocator algorithm and
-[shard-reviewer.md](references/ash-prompts/shard-reviewer.md) for reviewer prompt template.
+When `inscription.sharding?.enabled === true`, Phase 3 spawns shard reviewers in parallel (Step 1-2), monitors them (Step 3), validates outputs with stub generation for crash/timeout (Step 3.5), then spawns Cross-Shard Sentinel sequentially (Step 4). Runebinder reads shard findings (`shard-*-findings.md`) and cross-shard findings without modification; summary JSONs are skipped.
 
-```javascript
-if (inscription.sharding?.enabled) {
-  // ─── SHARDED REVIEW PATH ───────────────────────────────────────────────────
-  const { shards, cross_shard } = inscription.sharding
-
-  // Step 1: Register shard reviewers in teammates[] for TeammateIdle hook
-  for (const shard of shards) {
-    inscription.teammates.push({
-      name: shard.reviewer_name,
-      output_file: shard.output_file,
-      required_sections: ["P1 (Critical)", "P2 (High)", "P3 (Medium)", "Self-Review Log"]
-    })
-  }
-
-  // Step 2: Spawn shard reviewers in PARALLEL
-  for (const shard of shards) {
-    const prompt = buildShardReviewerPrompt(shard, {
-      outputDir,
-      diffScope: inscription.diff_scope,
-      innerFlame: true,
-      seal: true
-    })
-    Task({
-      team_name: teamName,
-      name: shard.reviewer_name,
-      subagent_type: "general-purpose",
-      model: shard.model,
-      prompt,
-      run_in_background: true
-    })
-  }
-
-  // Step 3: Monitor shard reviewers
-  waitForCompletion(teamName, shards.length, {
-    timeoutMs: 600_000,
-    staleWarnMs: 300_000,
-    pollIntervalMs: 30_000,
-    label: `Shard review (${shards.length} shards)`
-  })
-
-  // Step 3.5: Validate shard outputs — handle timeout/crash gracefully
-  const availableSummaries = []
-  for (const shard of shards) {
-    const summaryPath = `${outputDir}${shard.summary_file}`
-    const findingsPath = `${outputDir}${shard.output_file}`
-    if (fileExists(summaryPath)) {
-      availableSummaries.push(summaryPath)
-    } else if (fileExists(findingsPath)) {
-      // Findings exist but summary missing — reviewer crashed mid-output
-      // Generate minimal stub summary for Cross-Shard Sentinel
-      log(`WARN: Shard ${shard.shard_id} missing summary JSON — generating stub`)
-      Write(summaryPath, JSON.stringify({
-        shard_id: shard.shard_id,
-        files_reviewed: 0,
-        finding_count: 0,
-        finding_ids: [],
-        file_summaries: [],
-        cross_shard_signals: [],
-        stub: true,
-        stub_reason: "crash"
-      }))
-      availableSummaries.push(summaryPath)
-    } else {
-      // Both missing — shard reviewer fully timed out
-      log(`WARN: Shard ${shard.shard_id} produced no output (timeout/crash)`)
-      // Write stub so Cross-Shard Sentinel treats as coverage blind spot
-      Write(summaryPath, JSON.stringify({
-        shard_id: shard.shard_id,
-        files_reviewed: 0,
-        finding_count: 0,
-        finding_ids: [],
-        file_summaries: [],
-        cross_shard_signals: [],
-        stub: true,
-        stub_reason: "timeout"
-      }))
-      availableSummaries.push(summaryPath)
-    }
-  }
-
-  // Step 4: Spawn Cross-Shard Sentinel (SEQUENTIAL, after all shards done)
-  // Note: subagent_type is "general-purpose" per ATE-1 (Agent Teams Enforcement).
-  // The cross-shard-sentinel.md agent definition (tools: Read, Write) serves as
-  // the prompt template, NOT as a platform-enforced tool restriction. The metadata-only
-  // constraint is enforced via prompt ("MUST NOT read source files") — not platform-level.
-  // This is an accepted design tradeoff: ATE-1 requires general-purpose for all teammates.
-  if (cross_shard?.enabled && availableSummaries.length > 0) {
-    // Reset .expected count: shards.length → 1 (for sentinel monitoring)
-    Write(`${signalDir}/.expected`, "1")
-
-    Task({
-      team_name: teamName,
-      name: cross_shard.reviewer_name,
-      subagent_type: "general-purpose",
-      model: resolveModelForAgent("cross-shard-sentinel", talisman),  // Cost tier mapping (references/cost-tier-mapping.md)
-      prompt: buildCrossShardPrompt(availableSummaries, { outputDir }),
-      run_in_background: true
-    })
-
-    waitForCompletion(teamName, 1, {
-      timeoutMs: 180_000,
-      staleWarnMs: 90_000,
-      pollIntervalMs: 30_000,
-      label: "Cross-shard analysis"
-    })
-  }
-
-} else {
-  // ─── NON-SHARDED PATH (chunked or standard single-pass — unchanged) ─────────
-```
-
-**Prompt builder contracts** (defined alongside `buildShardReviewerPrompt` in Phase 3 implementation):
-
-```javascript
-// buildCrossShardPrompt: generates the Cross-Shard Sentinel spawn prompt
-function buildCrossShardPrompt(summaryFiles, opts) {
-  // summaryFiles: array of absolute paths to shard-*-summary.json files
-  // opts: { outputDir }
-  // Returns: string — complete spawn prompt for the cross-shard sentinel
-  const fileList = summaryFiles.map((f, i) => `${i + 1}. ${f}`).join('\n')
-  return CROSS_SHARD_SENTINEL_TEMPLATE
-    .replace('{summary_file_list}', fileList)
-    .replace('{output_dir}', opts.outputDir)
-}
-```
-
-**Phase 5 aggregation note:** Runebinder already reads all `*.md` files in `outputDir`.
-Shard findings (`shard-a-findings.md`, etc.) and cross-shard findings (`cross-shard-findings.md`)
-are standard finding files — Runebinder reads them without modification.
-Shard summary JSONs (`shard-*-summary.json`) are skipped (JSON, not MD).
-Finding prefixes `SH{X}-` and `XSH-` follow the 2-5 char convention — no Runebinder changes.
+See [sharded-review-path.md](references/sharded-review-path.md) for the full orchestration pseudocode and prompt builder contracts.
 
 ### Chunked Review Loop (standard depth, large diffs only)
 
-When `inscription.chunked === true` (standard depth + large diff), Phase 3 processes chunks sequentially. Each chunk gets its own Ash wave over the same team:
+When `inscription.chunked === true` (standard depth + large diff), Phase 3 processes chunks sequentially. Each chunk spawns the same Ash roles with a scoped file list, writes interim `TOME-chunk-N.md`, then shuts down Ashes before the next chunk. Ash slug is never chunk-suffixed (hook compatibility). Prior chunk TOME files are passed as context.
 
-```javascript
-// Chunked review — standard depth large-diff path
-if (inscription.chunked) {
-  const chunks = inscription.chunks  // set in Phase 1 large-diff detection
-
-  for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
-    const chunkFiles = chunks[chunkIdx]
-    log(`Chunk ${chunkIdx + 1}/${chunks.length}: ${chunkFiles.length} files`)
-
-    // Spawn Ashes for this chunk — same roles, scoped file list
-    for (const ash of selectedAsh) {
-      Task({
-        team_name: teamName,
-        name: ash.slug,   // no chunk suffix — preserves hook compatibility
-        subagent_type: "general-purpose",
-        prompt: buildAshPrompt(ash, {
-          files: chunkFiles,
-          chunkContext: `Chunk ${chunkIdx + 1} of ${chunks.length}. Prior chunk findings are at ${outputDir}TOME-chunk-${chunkIdx}.md (if exists).`
-        }),
-        run_in_background: true
-      })
-    }
-
-    // Monitor this chunk's wave
-    const result = waitForCompletion(teamName, selectedAsh.length, {
-      timeoutMs: 600_000,
-      staleWarnMs: 300_000,
-      pollIntervalMs: 30_000,
-      label: `Review chunk ${chunkIdx + 1}/${chunks.length}`
-    })
-
-    // Write interim TOME for this chunk (Runebinder reads all at Phase 5)
-    Write(`${outputDir}TOME-chunk-${chunkIdx + 1}.md`,
-      `# Chunk ${chunkIdx + 1}/${chunks.length} Findings\n\nFiles: ${chunkFiles.join(", ")}\n\n` +
-      `(Partial — merged into final TOME.md by Runebinder in Phase 5)`)
-
-    // Shutdown Ashes before next chunk to reclaim context
-    for (const ash of selectedAsh) {
-      SendMessage({ type: "shutdown_request", recipient: ash.slug, content: `Chunk ${chunkIdx + 1} complete` })
-    }
-    if (selectedAsh.length > 0) Bash(`sleep 10`)
-  }
-} else {
-  // Standard single-pass (non-chunked) — spawn all Ashes once
-  for (const ash of selectedAsh) {
-    Task({
-      team_name: teamName,
-      name: ash.slug,
-      subagent_type: "general-purpose",
-      prompt: [from references/ash-prompts/{role}.md],
-      run_in_background: true
-    })
-  }
-}
-// End non-sharded path (closes the `} else {` from sharding decision above)
-}
-```
-
-**CRITICAL constraints (chunked path):**
-- Ash slug is never chunk-suffixed (hook compatibility)
-- Ashes are shut down between chunks to prevent context accumulation
-- Prior chunk TOME files are passed as context so Ashes build on prior findings
-- If any chunk times out, log the gap and continue with remaining chunks
+See [chunk-orchestrator.md](references/chunk-orchestrator.md) for the full chunked review pipeline and decision routing.
 
 ### Wave Execution Loop (depth=deep only)
 
-When `depth === "deep"`, Phases 2-4 repeat for each wave. Standard depth executes a single pass (no loop) — unless the large-diff chunked path is active (see above).
+When `depth === "deep"`, Phases 2-4 repeat for each wave. Standard depth executes a single pass (no loop). Each wave: TeamCreate → Summon → Monitor → inter-wave cleanup (shutdown + retry-with-backoff TeamDelete + filesystem fallback) → forward finding locations to next wave.
 
-```javascript
-// Wave execution — depth=deep mode only
-const waves = selectWaves(circleEntries, depth, selectedAsh)
+**CRITICAL constraints:** Waves run sequentially (no concurrent execution). Teammate naming uses `ash.slug` (no `-w1` suffix) for hook compatibility. Max 8 concurrent teammates per wave. Cross-wave context is limited to finding locations (file:line + severity).
 
-for (const wave of waves) {
-  // Phase 2: Forge Team (per wave)
-  TeamCreate({ team_name: `${teamBase}-w${wave.waveNumber}` })
-  for (const ash of wave.agents) {
-    TaskCreate({ subject: `Review as ${ash.name}`, ... })
-  }
-
-  // Phase 3: Summon Ash (per wave)
-  for (const ash of wave.agents) {
-    Task({ team_name, name: ash.slug, ... })  // NO -w1 suffix — preserves hook compat
-  }
-
-  // Phase 4: Monitor (per wave — uses wave.timeoutMs)
-  const result = waitForCompletion(teamName, wave.agents.length, {
-    timeoutMs: wave.timeoutMs,
-    ...opts
-  })
-
-  // Phase 4.5: Doubt Seer (per wave, if enabled)
-
-  // Inter-wave cleanup: shutdown all teammates, force-delete remaining tasks
-  for (const ash of wave.agents) {
-    SendMessage({ type: "shutdown_request", recipient: ash.slug })
-  }
-  // Grace period — let wave teammates deregister
-  if (wave.agents.length > 0) {
-    Bash(`sleep 15`)
-  }
-  // Force-delete remaining tasks to prevent zombie contamination
-  const remaining = TaskList().filter(t => t.status !== "completed")
-  for (const task of remaining) {
-    TaskUpdate({ taskId: task.id, status: "deleted" })
-  }
-  // Inter-wave TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
-  const WAVE_CLEANUP_DELAYS = [0, 5000, 10000]
-  let waveCleanupOk = false
-  for (let attempt = 0; attempt < WAVE_CLEANUP_DELAYS.length; attempt++) {
-    if (attempt > 0) Bash(`sleep ${WAVE_CLEANUP_DELAYS[attempt] / 1000}`)
-    try { TeamDelete(); waveCleanupOk = true; break } catch (e) {
-      if (attempt === WAVE_CLEANUP_DELAYS.length - 1) warn(`inter-wave cleanup: TeamDelete failed after ${WAVE_CLEANUP_DELAYS.length} attempts`)
-    }
-  }
-  if (!waveCleanupOk) {
-    const cleanupTeamName = wave.waveNumber === 1 ? teamName : `${teamName}-w${wave.waveNumber}`
-    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${cleanupTeamName}/" "$CHOME/tasks/${cleanupTeamName}/" 2>/dev/null`)
-  }
-
-  // Forward findings to next wave as read-only context
-  // Cross-wave context: finding locations (file:line + severity) ONLY — not interpretations
-  if (wave.waveNumber < waves.length) {
-    collectWaveFindings(outputDir, wave.waveNumber)  // file:line + severity summary
-  }
-}
-
-// After all waves: Phase 5 (Aggregate), Phase 6 (Verify), Phase 7 (Cleanup)
-```
-
-**CRITICAL constraints:**
-- Concurrent wave execution is NOT supported — waves run sequentially
-- Teammate naming uses `ash.slug` (no `-w1` suffix) to preserve hook compatibility
-- Max 8 concurrent teammates per wave (SDK limit)
-- Cross-wave context is limited to finding locations (file:line + severity), not full interpretations
-- If Wave 1 times out, pass `partial: true` flag to subsequent waves
-
-See [wave-scheduling.md](references/wave-scheduling.md) for `selectWaves()`, `mergeSmallWaves()`, and `distributeTimeouts()`.
+See [wave-scheduling.md](references/wave-scheduling.md) for `selectWaves()`, `mergeSmallWaves()`, `distributeTimeouts()`, and the full wave execution loop pseudocode.
 
 ### Seal Format
 
@@ -653,12 +337,9 @@ const result = waitForCompletion(teamName, ashCount, {
 })
 ```
 
-**Signal-based monitoring (Phase 2 BRIDGE):** When the orchestrator creates a signal directory (`tmp/.rune-signals/{teamName}/`) before spawning Ashes, the monitor switches to a fast path: 5-second filesystem checks for `.done` signal files written by `TaskCompleted` hooks, instead of 30-second `TaskList()` API polling. Completion is detected via an `.all-done` sentinel file written atomically by the hook when all expected tasks are done. If no signal directory exists, the monitor falls back to Phase 1 polling automatically. See [references/monitor-utility.md — Phase 2: Event-Driven Fast Path](references/monitor-utility.md#phase-2-event-driven-fast-path) for the dual-path pseudocode, signal directory setup, and performance characteristics.
+**Signal-based monitoring:** When signal directory exists (`tmp/.rune-signals/{teamName}/`), uses 5-second filesystem fast path instead of 30-second TaskList polling. Falls back to polling automatically. See [monitor-utility.md](references/monitor-utility.md) for dual-path pseudocode.
 
-**Stale detection:** If a task has been `in_progress` for > 5 minutes:
-- Check teammate status
-- Default: proceed with partial results
-- Gap will be reported in TOME.md
+**Stale detection:** Tasks `in_progress` > 5 minutes → proceed with partial results, report gap in TOME.md.
 
 ## Phase 4.5: Doubt Seer (Conditional)
 
@@ -671,25 +352,7 @@ After Phase 4 Monitor completes, optionally spawn the Doubt Seer to cross-examin
 
 **Registration vs Activation:** Doubt-seer is registered in `inscription.json` `teammates[]` at Phase 2 (unconditionally, when enabled) so hooks and Runebinder discover it. However, it is only **spawned** at Phase 4.5 (conditionally, when P1+P2 findings > 0). If not spawned, the inscription entry exists but no output file is written — Runebinder handles this as "missing" in Coverage Gaps.
 
-**Signal count:** The `.expected` signal count is set to `ashCount` at Phase 2 (Ashes only, NOT including doubt-seer). At Phase 4.5, AFTER Phase 4 Monitor confirms all Ashes complete, the orchestrator increments `.expected` by 1 before spawning doubt-seer. Doubt-seer gets its own separate 5-minute polling loop.
-
-**Spawn pattern (follows ATE-1):**
-
-```
-1. After Phase 4 Monitor completes (all Ashes done)
-2. Count P1+P2 findings across Ash output files
-3. If count > 0 AND doubt-seer enabled:
-   a. TaskCreate for doubt-seer challenge task
-   b. Task(team_name, name="doubt-seer", subagent_type="general-purpose",
-      prompt=doubt-seer system prompt + inscription.json path + output_dir)
-   c. Orchestrator polls until doubt-seer completes or 5-min timeout
-   d. On timeout: write `[DOUBT SEER: TIMEOUT — partial results preserved]` to the doubt-seer output slot. Proceed to Phase 5 (Aggregate) with whatever partial results exist. Do not block the pipeline.
-   e. Read doubt-seer.md output
-   f. If VERDICT:BLOCK AND block_on_unproven:true → set workflow_blocked flag
-4. If count == 0: Skip doubt-seer, write marker:
-   "[DOUBT SEER: No findings to challenge - skipped]"
-5. Proceed to Phase 5 (Runebinder)
-```
+**Signal count:** `.expected` is set to `ashCount` at Phase 2 (excluding doubt-seer). At Phase 4.5, orchestrator increments `.expected` by 1 before spawning. Doubt-seer gets its own 5-minute polling loop. On timeout: write `[DOUBT SEER: TIMEOUT]` marker and proceed. If P1+P2 count == 0: write skip marker.
 
 **VERDICT parsing:**
 
@@ -773,200 +436,28 @@ The verifier:
 
 **Circuit breaker:** 2+ HALLUCINATED findings from same Ash → flag entire output as unreliable.
 
-### completion.json (Legacy)
-
-> **Note:** `completion.json` was defined in early versions but is not written by review/audit commands. Use Seal metadata + TOME.md instead. The Seal metadata (embedded in each Ash output) + state files (`tmp/.rune-{type}-*.json`) serve the same purpose. The structured output from the rune-orchestration File-Based Handoff Pattern references it for custom workflows, but the built-in review/audit lifecycle relies on Seal + TOME.md instead.
-
-Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/truthsight-pipeline.md)
+**Legacy note:** `completion.json` is deprecated — use Seal metadata + TOME.md instead. Full verification spec: [Truthsight Pipeline](../rune-orchestration/references/truthsight-pipeline.md)
 
 ### Phase 6.2: Codex Diff Verification (Layer 3)
 
-Cross-model verification of P1/P2 findings against actual diff hunks. Adds a third verification layer after Layer 2 (Smart Verifier).
-
-```javascript
-// Phase 6.2: Codex Diff Verification (Layer 3)
-// 4-condition detection gate (canonical pattern)
-const codexAvailable = detectCodex()
-const codexDisabled = talisman?.codex?.disabled === true
-const diffVerifyEnabled = talisman?.codex?.diff_verification?.enabled !== false
-const workflowIncluded = (talisman?.codex?.workflows ?? []).includes("review")
-  || (talisman?.codex?.workflows ?? []).includes("audit")  // audit shares Roundtable Circle
-
-if (codexAvailable && !codexDisabled && diffVerifyEnabled && workflowIncluded) {
-  const { timeout, reasoning, model: codexModel } = resolveCodexConfig(talisman, "diff_verification", {
-    timeout: 300, reasoning: "high"  // high — structured 3-way verdict, not deep analysis
-  })
-
-  // Sample P1/P2 findings — prefer truthsight-report.md, fall back to TOME.md
-  let findingsSource = `${outputDir}truthsight-report.md`
-  if (!exists(findingsSource)) findingsSource = `${outputDir}TOME.md`  // Layer 2 skipped (<3 Ashes)
-  const findings = sampleP1P2Findings(Read(findingsSource), 3)
-
-  if (findings.length === 0) {
-    Write(`${outputDir}codex-diff-verification.md`, "# Codex Diff Verification\n\nSkipped: No P1/P2 findings to verify.")
-  } else {
-    // SEC-003: Build prompt via temp file (never inline string interpolation)
-    const nonce = Bash(`openssl rand -hex 16`).trim()
-    const promptTmpFile = `${outputDir}.codex-prompt-diff-verify.tmp`
-    try {
-      const sanitizedFindings = sanitizePlanContent(findings)
-      const diffContent = Bash(`git diff ${baseBranch}...HEAD`).substring(0, 15000)
-      const sanitizedDiff = sanitizeUntrustedText(diffContent)  // Unicode directional override protection
-      const promptContent = `SYSTEM: You are a cross-model diff verification specialist.
-
-For each finding below, compare against the actual diff hunk and respond with one of:
-- CONFIRMED: Finding accurately reflects code behavior in the diff
-- WEAKENED: Finding is partially valid but overstated
-- REFUTED: Finding does not match actual diff behavior
-
-=== FINDINGS ===
-<<<NONCE_${nonce}>>>
-${sanitizedFindings}
-<<<END_NONCE_${nonce}>>>
-
-=== DIFF ===
-<<<NONCE_${nonce}>>>
-${sanitizedDiff}
-<<<END_NONCE_${nonce}>>>
-
-For each finding, output: CDX-VERIFY-NNN: CONFIRMED|WEAKENED|REFUTED — reason
-Base verdicts on actual code, not assumptions.`
-
-      Write(promptTmpFile, promptContent)
-      const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${reasoning}" -t ${timeout} -j -g "${promptTmpFile}"`)
-      const classified = classifyCodexError(result)
-
-      if (classified === "SUCCESS") {
-        const verdicts = parseVerdicts(result.stdout)  // loose regex /CONFIRMED|WEAKENED|REFUTED/i
-        for (const v of verdicts) {
-          if (v.verdict === "CONFIRMED") adjustConfidence(v.findingId, +0.15)
-          else if (v.verdict === "REFUTED") demoteToP3(v.findingId)
-          // WEAKENED: no change
-        }
-      }
-      Write(`${outputDir}codex-diff-verification.md`, formatVerificationReport(classified, verdicts))
-    } finally {
-      Bash(`rm -f "${promptTmpFile}"`)  // Guaranteed cleanup
-    }
-  }
-} else {
-  const skipReason = !codexAvailable ? "codex not available"
-    : codexDisabled ? "codex.disabled=true"
-    : !diffVerifyEnabled ? "codex.diff_verification.enabled=false"
-    : "review/audit not in codex.workflows"
-  Write(`${outputDir}codex-diff-verification.md`, `# Codex Diff Verification\n\nSkipped: ${skipReason}`)
-}
-```
-
-**Confidence adjustments:**
-- CONFIRMED: +0.15 confidence bonus (same as `codex.verification.cross_model_bonus`)
-- WEAKENED: no change (finding is partially valid)
-- REFUTED: demote to P3 with `[CDX-REFUTED]` tag (still visible, lower priority)
+Cross-model verification of P1/P2 findings against actual diff hunks. Uses 4-condition detection gate. Verdicts: CONFIRMED (+0.15 confidence), WEAKENED (no change), REFUTED (demote to P3).
 
 ### Phase 6.3: Codex Architecture Review (Audit Mode Only)
 
-Cross-model analysis of TOME findings for cross-cutting architectural patterns. Only runs in audit mode (`scope=full`).
+Cross-model analysis of TOME findings for cross-cutting architectural patterns (naming drift, layering violations, error handling inconsistency). 5-condition gate: 4-condition canonical + `scope=full`.
 
-```javascript
-// Phase 6.3: Codex Architecture Review (audit mode only)
-// 5-condition gate: 4-condition canonical + scope check
-const codexAvailable = detectCodex()
-const codexDisabled = talisman?.codex?.disabled === true
-const archReviewEnabled = talisman?.codex?.architecture_review?.enabled !== false
-const workflowIncluded = (talisman?.codex?.workflows ?? []).includes("audit")
-const isAuditMode = scope === "full"
-
-if (codexAvailable && !codexDisabled && archReviewEnabled && workflowIncluded && isAuditMode) {
-  const { timeout, reasoning, model: codexModel } = resolveCodexConfig(talisman, "architecture_review", {
-    timeout: 600, reasoning: "xhigh"  // xhigh — cross-cutting pattern analysis
-  })
-
-  const tomeContent = Read(`${outputDir}TOME.md`).substring(0, 20000)
-  const nonce = Bash(`openssl rand -hex 16`).trim()
-  const promptTmpFile = `${outputDir}.codex-prompt-arch-review.tmp`
-  try {
-    const sanitizedTome = sanitizePlanContent(tomeContent)
-    const promptContent = `SYSTEM: You are a cross-model architecture consistency reviewer.
-
-Analyze the aggregated TOME findings below for cross-cutting architectural patterns that
-individual reviewers may have missed. Focus on:
-1. Naming drift — inconsistent naming conventions across modules
-2. Layering violations — direct dependencies between layers that should be decoupled
-3. Error handling inconsistency — mixed error strategies across the codebase
-
-=== TOME FINDINGS ===
-<<<NONCE_${nonce}>>>
-${sanitizedTome}
-<<<END_NONCE_${nonce}>>>
-
-For each finding, output: CDX-ARCH-NNN: [CRITICAL|HIGH|MEDIUM] — description
-Include evidence from the TOME findings that support each architectural observation.
-Base findings on actual patterns, not assumptions.`
-
-    Write(promptTmpFile, promptContent)
-    const result = Bash(`"${CLAUDE_PLUGIN_ROOT}/scripts/codex-exec.sh" -m "${codexModel}" -r "${reasoning}" -t ${timeout} -j -g "${promptTmpFile}"`)
-    const classified = classifyCodexError(result)
-
-    Write(`${outputDir}architecture-review.md`, formatArchReviewReport(classified, result))
-  } finally {
-    Bash(`rm -f "${promptTmpFile}"`)  // Guaranteed cleanup
-  }
-} else {
-  const skipReason = !codexAvailable ? "codex not available"
-    : codexDisabled ? "codex.disabled=true"
-    : !archReviewEnabled ? "codex.architecture_review.enabled=false"
-    : !isAuditMode ? "architecture review only runs in audit mode (scope=full)"
-    : "audit not in codex.workflows"
-  Write(`${outputDir}architecture-review.md`, `# Codex Architecture Review\n\nSkipped: ${skipReason}`)
-}
-```
+See [codex-verification-phases.md](references/codex-verification-phases.md) for full pseudocode of both phases.
 
 ## Phase 7: Cleanup
 
-```javascript
-// Resolve config directory once (CLAUDE_CONFIG_DIR aware)
-const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+1. **Dynamic member discovery** — read team config to find ALL teammates (fallback: Phase 1 selectedAsh list)
+2. **Shutdown all members** — `SendMessage(shutdown_request)` to each
+3. **Grace period** — `sleep 15` for teammate deregistration
+4. **TeamDelete with retry-with-backoff** (3 attempts: 0s, 5s, 10s) + filesystem fallback if all fail
+5. **Persist learnings** to Rune Echoes (`.claude/echoes/`)
+6. **Present TOME.md** to user
 
-// 0. Dynamic member discovery — reads team config to find ALL teammates
-// This catches Ashes summoned in any phase, not just the initial batch
-let allMembers = []
-try {
-  const teamConfig = Read(`${CHOME}/teams/${team_name}/config.json`)
-  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
-  allMembers = members.map(m => m.name).filter(Boolean)
-  // Defense-in-depth: SDK already excludes team-lead from config.members
-} catch (e) {
-  // FALLBACK: Config read failed — use known Ash list from Phase 1 (Rune Gaze)
-  allMembers = [...selectedAsh]
-}
-
-// 1. Shutdown all discovered members
-for (const member of allMembers) {
-  SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
-}
-
-// 2. Grace period — let teammates deregister before TeamDelete
-if (allMembers.length > 0) {
-  Bash(`sleep 15`)
-}
-
-// 3. Cleanup team with retry-with-backoff (3 attempts: 0s, 5s, 10s)
-const CLEANUP_DELAYS = [0, 5000, 10000]
-let cleanupSucceeded = false
-for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
-  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
-  try { TeamDelete(); cleanupSucceeded = true; break } catch (e) {
-    if (attempt === CLEANUP_DELAYS.length - 1) warn(`review cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
-  }
-}
-// Filesystem fallback if TeamDelete failed
-if (!cleanupSucceeded) {
-  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
-}
-
-// 4. Persist learnings to Rune Echoes (.claude/echoes/)
-// 5. Read TOME.md and present to user
-```
+See [orchestration-phases.md](references/orchestration-phases.md) Phase 7 and [team-lifecycle-guard.md](references/team-lifecycle-guard.md) for full cleanup pseudocode.
 
 ## Error Handling
 
@@ -1017,4 +508,6 @@ Partial results remain in `tmp/audit/{id}/`.
 - [Dedup Runes](references/dedup-runes.md) — Deduplication hierarchy (with cross-wave dedup)
 - [Standing Orders](references/standing-orders.md) — 6 anti-patterns for multi-agent orchestration (SO-1 through SO-6)
 - [Risk Tiers](references/risk-tiers.md) — 4-tier deterministic task classification (Grace/Ember/Rune/Elden)
+- [Sharded Review Path](references/sharded-review-path.md) — Phase 3 shard orchestration pseudocode (spawn, monitor, cross-shard)
+- [Codex Verification Phases](references/codex-verification-phases.md) — Phase 6.2 diff verification + Phase 6.3 architecture review
 - Companion: `rune-orchestration` (patterns), `context-weaving` (Glyph Budget)

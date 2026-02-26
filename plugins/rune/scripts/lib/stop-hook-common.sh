@@ -287,7 +287,8 @@ _check_context_critical() {
 # checkpoint internals (location, field names, nesting).
 #
 # Args: none (uses CWD and PPID globals)
-# Sets: ARC_SIGNAL_STATUS ("completed"|"partial"), ARC_SIGNAL_PR_URL ("none"|url)
+# Sets: ARC_SIGNAL_STATUS ("completed"|"partial"), ARC_SIGNAL_PR_URL ("none"|url),
+#        ARC_SIGNAL_ARC_ID (arc session ID from signal, or "" if unavailable)
 # Returns: 0 if valid signal found for this session, 1 if not found/stale/wrong-session.
 # BACK-008: Only "completed" and "partial" are accepted (SEC-005 allowlist). Any other
 # status (including manually-crafted "failed") causes return 1, forcing callers to
@@ -298,17 +299,18 @@ _check_context_critical() {
 _read_arc_result_signal() {
   ARC_SIGNAL_STATUS=""
   ARC_SIGNAL_PR_URL=""
+  ARC_SIGNAL_ARC_ID=""
 
   local signal_file="${CWD}/tmp/arc-result-current.json"
   [[ -f "$signal_file" ]] && [[ ! -L "$signal_file" ]] || return 1
 
-  # BACK-003: Single jq call extracts all 5 fields at once (tab-separated)
-  # Fields: schema_version, owner_pid, config_dir, status, pr_url
+  # BACK-003: Single jq call extracts all 6 fields at once (tab-separated)
+  # Fields: schema_version, owner_pid, config_dir, status, pr_url, arc_id
   local jq_out
-  jq_out=$(jq -r '[(.schema_version // "" | tostring), (.owner_pid // ""), (.config_dir // ""), (.status // ""), (.pr_url // "none")] | join("\t")' "$signal_file" 2>/dev/null) || return 1
+  jq_out=$(jq -r '[(.schema_version // "" | tostring), (.owner_pid // ""), (.config_dir // ""), (.status // ""), (.pr_url // "none"), (.arc_id // "")] | join("\t")' "$signal_file" 2>/dev/null) || return 1
 
-  local signal_schema signal_pid signal_config signal_status signal_pr_url
-  IFS=$'\t' read -r signal_schema signal_pid signal_config signal_status signal_pr_url <<< "$jq_out"
+  local signal_schema signal_pid signal_config signal_status signal_pr_url signal_arc_id
+  IFS=$'\t' read -r signal_schema signal_pid signal_config signal_status signal_pr_url signal_arc_id <<< "$jq_out"
 
   # QUAL-001-SCHEMA: Validate schema version (forward-compat guard)
   [[ "$signal_schema" == "1" ]] || return 1
@@ -331,6 +333,7 @@ _read_arc_result_signal() {
 
   ARC_SIGNAL_STATUS="$signal_status"
   ARC_SIGNAL_PR_URL="$signal_pr_url"
+  ARC_SIGNAL_ARC_ID="$signal_arc_id"
   # Belt-and-suspenders: handles edge case where pr_url is the literal string "null"
   [[ "$ARC_SIGNAL_PR_URL" == "null" ]] && ARC_SIGNAL_PR_URL="none"
 

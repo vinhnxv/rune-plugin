@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.110.0] - 2026-02-27
+
+### Added
+- **Phase-Isolated Context Architecture** — Each arc phase now runs as its own Claude Code turn with fresh context. New `arc-phase-stop-hook.sh` drives phase iteration via the Stop hook pattern. Each phase only loads its own reference file (~100-400 lines) instead of the full SKILL.md. Context resets fully between phases. The checkpoint serves as the inter-phase handoff mechanism.
+- **`arc-phase-stop-hook.sh`** — New Stop hook that iterates over phases within a single arc plan. Mirrors `arc-batch-stop-hook.sh` structure but operates at the phase level (inner loop). Includes guard chain (jq, input, CWD, state file, symlink, session isolation), PHASE_ORDER array (26 phases), phase-to-reference-file mapping, compact interlude before heavy phases, and completion handling.
+- **Arc reference files** — Extracted from SKILL.md: `arc-phase-constants.md` (PHASE_ORDER, timeouts, cycle budgets), `arc-architecture.md` (pipeline diagram, orchestrator design, transition contracts), `arc-failure-policy.md` (per-phase failure matrix, error handling table).
+- **Arc-batch reference files** — Extracted from SKILL.md: `batch-shard-parsing.md` (shard group detection algorithm), `batch-loop-init.md` (Phase 5 session isolation, state file, first arc invocation).
+- **Orphaned checkpoint cleanup** — `session-team-hygiene.sh` now scans `.claude/arc/` and `tmp/arc/` for checkpoints with dead `owner_pid`. `/rune:rest --heal` removes orphaned checkpoint directories.
+
+### Fixed
+- **Bug 1: `arc_session_id` never written to `batch-progress.json`** — `_read_arc_result_signal()` in `stop-hook-common.sh` now extracts `.arc_id` from the signal file. Both `arc-batch-stop-hook.sh` and `arc-issues-stop-hook.sh` write `arc_session_id` to progress entries. Checkpoint `.id` used as fallback when signal is unavailable.
+- **Bug 2: Orphaned checkpoints accumulate infinitely** — `session-team-hygiene.sh` detects and reports stale checkpoints at session start. `rest.md --heal` removes them.
+- **Bug 4: `in_progress` plans stuck forever on `--resume`** — `arc-batch` Phase 0 resume logic now resets stale `in_progress` plans to `pending` with `recovery_note` field before building the pending queue.
+
+### Changed
+- **Arc SKILL.md reduced from 1,383 to 274 lines** (80% reduction) — Now acts as a lightweight launcher: argument parsing, pre-flight, checkpoint creation, phase loop state file, and first phase invocation. All phase dispatch logic, constants, failure policy, and architecture diagrams moved to reference files.
+- **Arc-batch SKILL.md reduced from 602 to 302 lines** (50% reduction) — Shard parsing, smart ordering pseudocode, and batch loop initialization extracted to reference files with summary + link in SKILL.md.
+- **Stop hook ordering** — `arc-phase-stop-hook.sh` runs FIRST (inner loop), followed by `arc-batch-stop-hook.sh` (outer loop), `arc-hierarchy-stop-hook.sh`, `arc-issues-stop-hook.sh`, then `on-session-stop.sh`.
+- **`on-session-stop.sh`** — Added Guard 5d for `.claude/arc-phase-loop.local.md` deferral (before Guard 5 batch deferral).
+
 ## [1.109.4] - 2026-02-27
 
 ### Fixed

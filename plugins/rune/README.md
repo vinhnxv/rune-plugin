@@ -910,6 +910,7 @@ plugins/rune/
 │   ├── session-compact-recovery.sh  # Team state re-injection after compaction
 │   ├── on-session-stop.sh           # STOP-001: Active workflow detection on session end
 │   ├── arc-result-signal-writer.sh   # ARC-SIGNAL-001: Arc completion signal writer (PostToolUse hook)
+│   ├── arc-phase-stop-hook.sh       # ARC-PHASE-LOOP: Stop hook phase driver for arc pipeline
 │   ├── arc-batch-stop-hook.sh       # ARC-BATCH-STOP: Stop hook loop driver for arc-batch
 │   ├── arc-batch-preflight.sh       # Arc batch pre-flight validation
 │   ├── arc-hierarchy-stop-hook.sh   # ARC-HIERARCHY-LOOP: Stop hook loop driver for arc-hierarchy
