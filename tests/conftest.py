@@ -165,6 +165,7 @@ def project_env() -> Iterator[tuple[Path, Path]]:
             project = Path(project_dir)
             config = Path(config_dir)
             (project / "tmp").mkdir()
+            (project / ".git").mkdir()  # SEC-001: signal writer requires .git dir
             (project / ".claude").mkdir()
             (project / ".claude" / "arc").mkdir()
             (config / "teams").mkdir()

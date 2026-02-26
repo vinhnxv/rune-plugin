@@ -287,8 +287,13 @@ _check_context_critical() {
 # checkpoint internals (location, field names, nesting).
 #
 # Args: none (uses CWD and PPID globals)
-# Sets: ARC_SIGNAL_STATUS ("completed"|"partial"|"" — passthrough; "failed" not produced by hook but not rejected), ARC_SIGNAL_PR_URL ("none"|url)
+# Sets: ARC_SIGNAL_STATUS ("completed"|"partial"), ARC_SIGNAL_PR_URL ("none"|url)
 # Returns: 0 if valid signal found for this session, 1 if not found/stale/wrong-session.
+# BACK-008: Only "completed" and "partial" are accepted (SEC-005 allowlist). Any other
+# status (including manually-crafted "failed") causes return 1, forcing callers to
+# fall back to _find_arc_checkpoint(). This is intentional — signal should only represent
+# positive completion evidence. Callers should NOT check ARC_SIGNAL_STATUS independently
+# of the return code; return 0 guarantees a valid, allowlisted status.
 # Fail-open: returns 1 on any error — callers fall back to _find_arc_checkpoint().
 _read_arc_result_signal() {
   ARC_SIGNAL_STATUS=""
@@ -297,29 +302,44 @@ _read_arc_result_signal() {
   local signal_file="${CWD}/tmp/arc-result-current.json"
   [[ -f "$signal_file" ]] && [[ ! -L "$signal_file" ]] || return 1
 
-  # BACK-003: Single jq call extracts all 4 fields at once (tab-separated)
-  # Fields: owner_pid, config_dir, status, pr_url
+  # BACK-003: Single jq call extracts all 5 fields at once (tab-separated)
+  # Fields: schema_version, owner_pid, config_dir, status, pr_url
   local jq_out
-  jq_out=$(jq -r '[(.owner_pid // ""), (.config_dir // ""), (.status // ""), (.pr_url // "none")] | join("\t")' "$signal_file" 2>/dev/null) || return 1
+  jq_out=$(jq -r '[(.schema_version // "" | tostring), (.owner_pid // ""), (.config_dir // ""), (.status // ""), (.pr_url // "none")] | join("\t")' "$signal_file" 2>/dev/null) || return 1
 
-  local signal_pid signal_config signal_status signal_pr_url
-  IFS=$'\t' read -r signal_pid signal_config signal_status signal_pr_url <<< "$jq_out"
+  local signal_schema signal_pid signal_config signal_status signal_pr_url
+  IFS=$'\t' read -r signal_schema signal_pid signal_config signal_status signal_pr_url <<< "$jq_out"
 
+  # QUAL-001-SCHEMA: Validate schema version (forward-compat guard)
+  [[ "$signal_schema" == "1" ]] || return 1
+
+  # SEC-010: Numeric PID validation (parity with validate_session_ownership)
+  [[ -n "$signal_pid" && "$signal_pid" =~ ^[0-9]+$ ]] || return 1
   # Session isolation: verify owner_pid matches current session
-  [[ -n "$signal_pid" && "$signal_pid" == "$PPID" ]] || return 1
+  [[ "$signal_pid" == "$PPID" ]] || return 1
 
   # Config-dir isolation: verify same Claude Code installation
   if [[ -n "${RUNE_CURRENT_CFG:-}" && -n "$signal_config" && "$signal_config" != "$RUNE_CURRENT_CFG" ]]; then
     return 1
   fi
 
+  # SEC-005: Allowlist validation — only accept known status values
+  case "$signal_status" in
+    completed|partial) ;;
+    *) return 1 ;;
+  esac
+
   ARC_SIGNAL_STATUS="$signal_status"
   ARC_SIGNAL_PR_URL="$signal_pr_url"
   # Belt-and-suspenders: handles edge case where pr_url is the literal string "null"
   [[ "$ARC_SIGNAL_PR_URL" == "null" ]] && ARC_SIGNAL_PR_URL="none"
 
-  [[ -n "$ARC_SIGNAL_STATUS" ]] && return 0
-  return 1
+  # BACK-003: Validate PR URL format (defense-in-depth, parity with consumer regex)
+  if [[ "$ARC_SIGNAL_PR_URL" != "none" ]]; then
+    [[ "$ARC_SIGNAL_PR_URL" =~ ^https://[a-zA-Z0-9._/-]+$ ]] || ARC_SIGNAL_PR_URL="none"
+  fi
+
+  return 0
 }
 
 # ── validate_paths(): Path traversal + metachar rejection for relative paths ──

@@ -79,6 +79,8 @@ phases_failed > 0  →  "partial"
 phases_failed == 0 →  "completed"
 ```
 
+The `phases_failed` count is computed internally by the writer script and is **not emitted** in the signal JSON. Only the resulting `status` string (`"completed"` or `"partial"`) is written.
+
 Note: The hook only fires when ship or merge phase is "completed" (Guard 5 in the script).
 The "failed" status is never written by the hook — it's only possible via consumer fallback logic.
 

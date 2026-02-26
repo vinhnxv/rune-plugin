@@ -52,6 +52,12 @@ _MERGE_STATUS=$(jq -r '.phases.merge.status // "pending"' "$FILE_PATH" 2>/dev/nu
 if [[ "$_SHIP_STATUS" != "completed" ]] && [[ "$_MERGE_STATUS" != "completed" ]]; then
   exit 0
 fi
+# BACK-007: Warn on contradictory checkpoint (ship=failed + merge=completed)
+# This should not happen in normal pipeline flow (merge requires ship).
+# Signal is still written (status="partial" due to ship failure count) but logged.
+if [[ "$_SHIP_STATUS" == "failed" ]] && [[ "$_MERGE_STATUS" == "completed" ]]; then
+  echo "WARN: Contradictory checkpoint — ship=failed + merge=completed (corrupted?)" >&2
+fi
 
 # ── Extract CWD for signal file placement ──
 # Session identity (owner_pid, config_dir) is inherited from the checkpoint,
@@ -60,6 +66,8 @@ fi
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 [[ -n "$CWD" && "$CWD" == /* ]] || exit 0
 CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || exit 0
+# SEC-001: Defense-in-depth — verify CWD is inside a project (has .git)
+[[ -d "${CWD}/.git" ]] || exit 0
 
 # ── Extract checkpoint data ──
 # Single jq call to minimize subprocess overhead

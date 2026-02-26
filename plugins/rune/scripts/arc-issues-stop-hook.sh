@@ -151,7 +151,6 @@ fi
 # Layer 2 (FALLBACK): Scan checkpoint files if signal is missing.
 # Default: "failed" — only mark "completed" with positive evidence.
 ARC_STATUS="failed"
-ARC_CKPT_STATUS=""
 PR_URL="none"
 
 # Layer 1: Arc result signal (deterministic path, no scanning)
@@ -160,14 +159,16 @@ if _read_arc_result_signal; then
   if [[ "$ARC_SIGNAL_PR_URL" != "none" ]]; then
     PR_URL="$ARC_SIGNAL_PR_URL"
   fi
-  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL}"
+  # BACK-002 FIX: Immediately clean up signal after consumption (parity with arc-batch)
+  rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
+  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL} (signal consumed+cleaned)"
 fi
 
 # Layer 2: Checkpoint scan fallback (for crash recovery or pre-v1.109.2 arcs)
 if [[ "$ARC_STATUS" == "failed" ]]; then
   ARC_CKPT=$(_find_arc_checkpoint || true)
   if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
-    ARC_CKPT_STATUS=$(jq -r '.phases | to_entries | map(select(.value.status == "completed")) | length' "$ARC_CKPT" 2>/dev/null || echo "0")
+    # QUAL-004-CKPT: Removed unused ARC_CKPT_STATUS computation (parity with arc-batch)
     # Extract PR_URL from checkpoint if not already set
     if [[ "$PR_URL" == "none" ]]; then
       PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
@@ -186,7 +187,7 @@ if [[ "$ARC_STATUS" == "failed" ]]; then
       fi
     fi
   fi
-  _trace "Arc status from checkpoint fallback: arc_status=${ARC_STATUS} ckpt_status=${ARC_CKPT_STATUS} pr_url=${PR_URL}"
+  _trace "Arc status from checkpoint fallback: arc_status=${ARC_STATUS} pr_url=${PR_URL}"
 fi
 
 # Strict PR URL validation — only allow safe characters (no shell metacharacters)
@@ -194,18 +195,22 @@ fi
 
 _trace "Completing iteration ${ITERATION}: plan=${_CURRENT_PLAN_PATH} issue=#${_CURRENT_ISSUE_NUM:-?} arc_status=${ARC_STATUS} pr_url=${PR_URL}"
 
-# ── STALE SIGNAL CLEANUP (v1.109.3): Remove signal after consumption ──
-# BUG FIX: Without this, a successful iteration N leaves tmp/arc-result-current.json
-# with status="completed". If iteration N+1 fails (ship/merge never fires), the stop
-# hook reads the stale signal and incorrectly marks the failed plan as "completed".
-# Deleting after consumption ensures each iteration starts with a clean signal state.
-_signal_consumed="${CWD}/tmp/arc-result-current.json"
-if [[ -f "$_signal_consumed" ]] && [[ ! -L "$_signal_consumed" ]]; then
-  rm -f "$_signal_consumed" 2>/dev/null
-  _trace "Stale signal cleanup: removed ${_signal_consumed}"
-fi
+# (v1.109.3 stale signal cleanup now happens immediately after consumption above — BACK-002 FIX)
 
 # ── Mark current in_progress plan with detected status ──
+# BACK-004 FIX: Guard against ghost in_progress plans when no active plan found (parity with arc-batch)
+if [[ -z "$_CURRENT_PLAN_PATH" ]]; then
+  _trace "WARN: no in_progress plan found — marking orphaned in_progress plans as failed"
+  PROGRESS_CONTENT=$(echo "$PROGRESS_CONTENT" | jq \
+    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    (.plans[] | select(.status == "in_progress")) |= (
+      .status = "failed" |
+      .error = "no_active_plan_at_completion" |
+      .completed_at = $ts
+    )
+  ' 2>/dev/null || echo "$PROGRESS_CONTENT")
+fi
+
 # BACK-006 pattern: use path-scoped selector to prevent marking ALL in_progress plans
 UPDATED_PROGRESS=$(echo "$PROGRESS_CONTENT" | jq \
   --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

@@ -167,7 +167,7 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/arc-result-signal-writer.sh",
             "timeout": 5,
-            "statusMessage": "Checking arc completion signal..."
+            "statusMessage": "Writing arc completion signal..."
           }
         ]
       },
