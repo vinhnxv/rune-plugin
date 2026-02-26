@@ -292,6 +292,26 @@ if [[ -d "${CWD}/.claude/arc/" ]]; then
   shopt -u nullglob
 fi
 
+# ── F-19 FIX: Advise-post-completion flag file cleanup ──
+# These flag files are created by advise-post-completion.sh to debounce warnings
+# (one per session). They are never cleaned up, leading to /tmp accumulation.
+# Pattern: ${TMPDIR}/rune-postcomp-$(id -u)-${SESSION_ID}.json
+# We clean all owned flag files (matching UID) since the session is ending.
+shopt -s nullglob
+for f in "${TMPDIR:-/tmp}"/rune-postcomp-"$(id -u)"-*.json; do
+  [[ -f "$f" ]] || continue
+  [[ -L "$f" ]] && { rm -f "$f" 2>/dev/null; continue; }
+  # Ownership check via file content (config_dir + owner_pid)
+  F19_CFG=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+  F19_PID=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+  [[ -n "$F19_CFG" && "$F19_CFG" != "$RUNE_CURRENT_CFG" ]] && continue
+  if [[ -n "$F19_PID" && "$F19_PID" =~ ^[0-9]+$ && "$F19_PID" != "$PPID" ]]; then
+    rune_pid_alive "$F19_PID" && continue
+  fi
+  rm -f "$f" 2>/dev/null
+done
+shopt -u nullglob
+
 # ── Bridge file cleanup (context monitor) ──
 # Ownership-scan pattern — session_id not available in Stop hook
 # NOTE: $RUNE_CURRENT_CFG is already available (sourced at top of script)

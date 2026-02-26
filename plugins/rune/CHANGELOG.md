@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.107.4] - 2026-02-26
+
+### Fixed
+- **GUARD 11: Context-critical Stop hook defense (F-13)** — All 3 Stop hook loop drivers now check context level via statusline bridge file before injecting arc prompts. New `_check_context_critical()` shared function in `stop-hook-common.sh` reads the bridge file (60s freshness, UID-scoped, fail-open). Closes the blind spot where Stop hooks could inject massive prompts into a nearly-full context window, causing immediate exhaustion.
+- **GUARD 10 blind spot fix (F-07)** — Extended GUARD 10 with `else` branch for compact interlude turns where no `in_progress` plan exists (and thus `started_at` is unavailable). Falls back to `_check_context_critical()` bridge file check. Prevents one wasted iteration during compact interlude context exhaustion.
+- **Compact interlude staleness recovery (F-02)** — If `compact_pending=true` but state file hasn't been modified in >5 minutes, the compact interlude stalled (Phase A fired but Phase B never completed). All 3 Stop hooks now reset `compact_pending` to `false` to prevent infinite Phase A/B ping-pong loops.
+- **Compact interlude write verification (F-05)** — After Phase A sets `compact_pending: true` via `sed`, all 3 Stop hooks now verify the write succeeded via `grep`. Prevents infinite Phase A loops from empty file production by sed.
+- **GUARD 10 abort refactoring** — Extracted `_abort_batch()`, `_abort_issues_batch()`, `_pause_hierarchy()` helper functions in each Stop hook to share abort logic between elapsed-time and context-critical checks. Reduces duplication and ensures consistent abort behavior.
+- **Flag file cleanup (F-19)** — `on-session-stop.sh` now cleans up `rune-postcomp-*` flag files created by `advise-post-completion.sh`. Previously these accumulated in `/tmp` indefinitely.
+
 ## [1.107.3] - 2026-02-26
 
 ### Fixed

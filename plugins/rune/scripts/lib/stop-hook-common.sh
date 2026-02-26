@@ -14,6 +14,7 @@
 #   get_field()                  — Extract field from FRONTMATTER
 #   validate_session_ownership() — Guards 5.7/10: config_dir + owner_pid isolation check
 #   _iso_to_epoch()              — Cross-platform ISO-8601 to Unix epoch (macOS + Linux)
+#   _check_context_critical()    — Check context level via statusline bridge (GUARD 11)
 #   validate_paths()             — Path traversal + metachar rejection for relative file paths
 #
 # EXPORTED VARIABLES (set by functions):
@@ -208,6 +209,53 @@ _iso_to_epoch() {
   date -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null && return 0
   # GNU date fallback
   date -d "$ts" +%s 2>/dev/null && return 0
+  return 1
+}
+
+# ── _check_context_critical(): Check if context is at critical level (GUARD 11) ──
+# Reads the statusline bridge file to determine remaining context percentage.
+# Args: none (reads session_id from INPUT global, PID from PPID)
+# Returns: 0 if context is critical (<= 25% remaining), 1 if OK or unknown.
+# Fail-open: returns 1 on any error (missing file, stale data, parse failure).
+# Used by GUARD 10 extension in Stop hooks to prevent prompt injection at critical context.
+_check_context_critical() {
+  local session_id
+  session_id=$(echo "${INPUT:-}" | jq -r '.session_id // empty' 2>/dev/null || true)
+  [[ -n "$session_id" && "$session_id" =~ ^[a-zA-Z0-9_-]+$ ]] || return 1
+
+  local bridge_file="/tmp/rune-ctx-${session_id}.json"
+  [[ -f "$bridge_file" && ! -L "$bridge_file" ]] || return 1
+
+  # UID ownership check (prevent reading other users' bridge files)
+  local bridge_uid=""
+  if [[ "$(uname)" == "Darwin" ]]; then
+    bridge_uid=$(stat -f %u "$bridge_file" 2>/dev/null || true)
+  else
+    bridge_uid=$(stat -c %u "$bridge_file" 2>/dev/null || true)
+  fi
+  [[ -n "$bridge_uid" && "$bridge_uid" != "$(id -u)" ]] && return 1
+
+  # Freshness check (60s — more lenient than PreToolUse's 30s because
+  # Stop hooks fire immediately after Claude responds, bridge may be slightly stale)
+  local file_mtime now age
+  if [[ "$(uname)" == "Darwin" ]]; then
+    file_mtime=$(stat -f %m "$bridge_file" 2>/dev/null || echo 0)
+  else
+    file_mtime=$(stat -c %Y "$bridge_file" 2>/dev/null || echo 0)
+  fi
+  now=$(date +%s)
+  age=$(( now - file_mtime ))
+  [[ "$age" -ge 0 && "$age" -lt 60 ]] || return 1
+
+  # Parse remaining percentage
+  local rem_int
+  rem_int=$(jq -r '(.remaining_percentage // -1) | floor | tostring' "$bridge_file" 2>/dev/null || echo "-1")
+  [[ "$rem_int" =~ ^[0-9]+$ ]] || return 1
+  [[ "$rem_int" -le 100 ]] || return 1
+
+  # Critical threshold: 25% remaining (matches guard-context-critical.sh)
+  [[ "$rem_int" -le 25 ]] && return 0
+
   return 1
 }
 
