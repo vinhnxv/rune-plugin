@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.111.0] - 2026-02-27
+
+### Added
+- **Checkpoint schema v18→v19: per-phase timing timestamps** — Each phase now records `started_at` and `completed_at` ISO timestamps in the checkpoint. Enables accurate per-phase duration tracking, stagnation detection, and audit trails. Migration script upgrades existing v18 checkpoints on resume.
+- **`rune-status.sh` diagnostic script** — New `scripts/rune-status.sh` reports arc pipeline health: active arc detection, current phase, phase durations, stagnation indicators, team/task status, and loop state files. Readable summary for debugging stuck arcs without cancelling.
+- **`--status` flag on `/rune:cancel-arc`** — When `--status` is passed, the command runs `rune-status.sh` and displays the diagnostic report instead of cancelling. Provides a safe, read-only inspection path without risk of accidental cancellation.
+- **Stagnation sentinel adaptive budgeting** — Auto-detected from per-phase timing in v19 checkpoints. Stagnation patterns (phase exceeding 2× estimated duration) surface in `rune-status.sh` output and inform `arc-phase-stop-hook.sh` compact interlude decisions.
+
 ## [1.110.0] - 2026-02-27
 
 ### Added
