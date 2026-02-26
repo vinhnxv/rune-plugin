@@ -106,6 +106,16 @@ Phase 5: Write state file + invoke first arc (Stop hook handles rest)
 (Stop hook handles all subsequent plans + final summary)
 ```
 
+### Workflow Lock (writer)
+
+```javascript
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "writer"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "arc-batch" "writer"`)
+```
+
 ### Phase 0: Parse Arguments
 
 ```javascript
@@ -569,5 +579,10 @@ Skill("arc", `${firstPlan} --skip-freshness${mergeFlag}`)
 6. Re-injects arc prompt via `{"decision":"block","reason":"<prompt>"}`
 7. Claude receives the re-injected prompt → runs next arc
 8. Repeat until all plans done
-9. On final iteration: removes state file, injects summary prompt
+9. On final iteration: removes state file, releases workflow lock, injects summary prompt
 10. Summary turn completes → Stop hook finds no state file → allows session end
+
+**Lock release**: The stop hook releases the workflow lock on the final iteration:
+```bash
+source "${CWD}/plugins/rune/scripts/lib/workflow-lock.sh" && rune_release_lock "arc-batch"
+```

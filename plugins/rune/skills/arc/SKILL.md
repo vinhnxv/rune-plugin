@@ -331,6 +331,17 @@ function updateCascadeTracker(checkpoint, classified) {
 
 See [phase-tool-matrix.md](references/phase-tool-matrix.md) for per-phase tool restrictions and time budget details.
 
+## Workflow Lock (writer)
+
+```javascript
+// Acquire workflow lock BEFORE pre-flight — arc is a writer (modifies files, creates branches)
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "writer"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway (risk git index contention)?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "arc" "writer"`)
+```
+
 ## Pre-flight
 
 See [arc-preflight.md](references/arc-preflight.md) for the full pre-flight sequence.
@@ -1160,6 +1171,13 @@ Persists arc quality metrics (phases completed, findings, convergence cycles, ga
 See [post-arc.md](references/post-arc.md) for the full completion report template.
 
 Displays "The Tarnished has claimed the Elden Throne" with per-phase status, convergence summary, commit count, and next steps.
+
+## Post-Arc Lock Release
+
+```javascript
+// Release workflow lock after all phases complete (before ARC-9 sweep)
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "arc"`)
+```
 
 ## Post-Arc Final Sweep (ARC-9)
 

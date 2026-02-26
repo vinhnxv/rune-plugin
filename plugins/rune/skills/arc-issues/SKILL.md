@@ -95,6 +95,16 @@ This constant MUST be prepended to every `gh` CLI call in this skill.
 
 See [arc-issues-algorithm.md](references/arc-issues-algorithm.md) for full pseudocode.
 
+## Workflow Lock (writer)
+
+```javascript
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "writer"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "arc-issues" "writer"`)
+```
+
 ## Phase Structure
 
 ```
@@ -122,7 +132,12 @@ Phase 6 writes `.claude/arc-issues-loop.local.md` (state file) and invokes the f
 7. Re-injects arc prompt via `{"decision":"block","reason":"<prompt>"}`
 8. Claude receives the re-injected prompt → runs next arc
 9. Repeat until all issues done
-10. On final iteration: removes state file, injects summary prompt
+10. On final iteration: removes state file, releases workflow lock, injects summary prompt
+
+**Lock release**: The stop hook releases the workflow lock on the final iteration:
+```bash
+source "${CWD}/plugins/rune/scripts/lib/workflow-lock.sh" && rune_release_lock "arc-issues"
+```
 
 ## Error Handling
 

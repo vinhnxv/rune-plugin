@@ -264,6 +264,16 @@ if (!isArcContext) {
 // In arc context: proceed directly to Phase 4 (agent summoning)
 ```
 
+## Phase 3.5: Workflow Lock (writer)
+
+```javascript
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "writer"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "forge" "writer"`)
+```
+
 ## Phase 4: Summon Forge Agents
 
 Follow the `teamTransition` protocol (see `team-lifecycle-guard.md`):
@@ -355,7 +365,9 @@ See [forge-enrichment-protocol.md](references/forge-enrichment-protocol.md) for 
 
 ## Phase 6: Cleanup & Present
 
-Shuts down all forge teammates, cleans up team resources with retry-with-backoff and filesystem fallback, updates state file, presents completion report, and offers post-enhancement options (skipped in arc context).
+Shuts down all forge teammates, cleans up team resources with retry-with-backoff and filesystem fallback, updates state file, releases workflow lock, presents completion report, and offers post-enhancement options (skipped in arc context).
+
+Release workflow lock after TeamDelete: `Bash(\`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "forge"\`)`
 
 See [forge-cleanup.md](references/forge-cleanup.md) for the full protocol — member discovery, shutdown, TeamDelete retry, filesystem fallback, completion report, and post-enhancement AskUserQuestion.
 

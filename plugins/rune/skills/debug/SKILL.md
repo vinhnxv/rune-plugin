@@ -143,6 +143,18 @@ Cap hypotheses at `maxInvestigators`.
 
 ## Phase 1: INVESTIGATE (Parallel Agents)
 
+### Step 1.0 — Workflow Lock (writer)
+
+```bash
+CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+source "${CWD}/plugins/rune/scripts/lib/workflow-lock.sh"
+conflicts=$(rune_check_conflicts "writer")
+if echo "$conflicts" | grep -q "CONFLICT"; then
+  AskUserQuestion({ question: "Active workflow conflict:\n${conflicts}\nProceed anyway?" })
+fi
+rune_acquire_lock "debug" "writer"
+```
+
 ### Step 1.1 — Create Team
 
 ```
@@ -374,6 +386,9 @@ for N in 1..hypothesisCount:
 // Grace period for shutdown acknowledgment
 Bash("sleep 15")
 TeamDelete({ name: teamName })
+
+// Release workflow lock
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "debug"`)
 ```
 
 ### Step 4.2 — Report

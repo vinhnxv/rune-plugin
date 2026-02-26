@@ -131,6 +131,16 @@ Before forging the team, verify the git environment is safe for work. Checks bra
 
 See [env-setup.md](references/env-setup.md) for the full protocol — branch check, dirty tree detection, stash UX, and worktree validation.
 
+## Phase 0.7: Workflow Lock (writer)
+
+```javascript
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "writer"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "strive" "writer"`)
+```
+
 ## Phase 1: Forge Team
 
 ```javascript
@@ -582,6 +592,8 @@ const allTasks = TaskList()
 //      git worktree prune + remove orphaned worktrees matching rune-work-*
 // 3.7: Restore stashed changes if Phase 0.5 stashed (git stash pop)
 // 4. Update state file to completed (preserve session identity fields)
+// 5. Release workflow lock
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "strive"`)
 ```
 
 ## Phase 6.5: Ship (Optional)

@@ -96,6 +96,17 @@ Output: plans/YYYY-MM-DD-{type}-{name}-plan.md
         (or plans/YYYY-MM-DD-{type}-{name}-shard-N-plan.md if shattered)
 ```
 
+## Workflow Lock (planner)
+
+```javascript
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "planner"`)
+// Planner conflicts are ADVISORY only — inform, never block
+if (lockConflicts.includes("CONFLICT") || lockConflicts.includes("ADVISORY")) {
+  warn(`Active workflow(s) detected:\n${lockConflicts}`)
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "devise" "planner"`)
+```
+
 ## Phase 0: Gather Input
 
 Runs a structured brainstorm session by default. Auto-detects recent brainstorms in `docs/brainstorms/` and `tmp/plans/*/brainstorm-decisions.md`. Skips when requirements are already clear.
@@ -271,6 +282,9 @@ for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
   }
 }
 Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/rune-plan-${timestamp}/" "$CHOME/tasks/rune-plan-${timestamp}/" 2>/dev/null`)
+
+// 3.5. Release workflow lock
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "devise"`)
 
 // 4. Present plan to user
 Read("plans/YYYY-MM-DD-{type}-{feature-name}-plan.md")
