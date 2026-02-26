@@ -24,11 +24,18 @@ LOCK_BASE="${_RUNE_LOCK_ROOT}/tmp/.rune-locks"
 
 # SEC-003: jq dependency guard — fail-open stubs if jq missing
 if ! command -v jq &>/dev/null; then
+  echo "[rune-lock] WARNING: jq not found — workflow locking disabled" >&2
   rune_acquire_lock() { return 0; }
   rune_release_lock() { return 0; }
   rune_release_all_locks() { return 0; }
   rune_check_conflicts() { return 0; }
   return 0 2>/dev/null || exit 0
+fi
+
+# SEC-003: LOCK_BASE symlink guard — refuse to operate on symlinked base dir
+if [[ -L "$LOCK_BASE" ]]; then
+  echo "[rune-lock] ERROR: LOCK_BASE is a symlink — aborting" >&2
+  return 1 2>/dev/null || exit 1
 fi
 
 # SEC-001: Input validation — workflow name must be safe for filesystem

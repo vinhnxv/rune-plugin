@@ -242,6 +242,10 @@ if [[ ! -L "tmp/.rune-locks" ]] && [[ -d "tmp/.rune-locks" ]]; then
   for lock_dir in tmp/.rune-locks/*/; do
     [[ -d "$lock_dir" ]] || continue
     [[ -L "$lock_dir" ]] && continue  # skip symlinks
+    if [[ -f "$lock_dir/meta.json" ]] && ! command -v jq >/dev/null 2>&1; then
+      echo "  SKIP: $(basename "$lock_dir") — jq unavailable, cannot verify PID liveness"
+      continue
+    fi
     if [[ -f "$lock_dir/meta.json" ]] && command -v jq >/dev/null 2>&1; then
       stored_pid=$(jq -r '.pid // empty' "$lock_dir/meta.json" 2>/dev/null || true)
       if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ ]]; then

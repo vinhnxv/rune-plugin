@@ -1176,7 +1176,7 @@ Displays "The Tarnished has claimed the Elden Throne" with per-phase status, con
 
 ```javascript
 // Release workflow lock after all phases complete (before ARC-9 sweep)
-Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "arc"`)
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_all_locks`)
 ```
 
 ## Post-Arc Final Sweep (ARC-9)

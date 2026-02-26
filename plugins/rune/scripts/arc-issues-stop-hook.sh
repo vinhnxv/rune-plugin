@@ -310,6 +310,13 @@ if [[ -z "$NEXT_PLAN" ]]; then
   # Remove state file — next Stop event will allow session end
   rm -f "$STATE_FILE" 2>/dev/null
 
+  # Release workflow lock on final iteration
+  CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  if [[ -f "${CWD}/plugins/rune/scripts/lib/workflow-lock.sh" ]]; then
+    source "${CWD}/plugins/rune/scripts/lib/workflow-lock.sh"
+    rune_release_lock "arc-issues"
+  fi
+
   # ── CC-2/BACK-008: GitHub label cleanup injected into final prompt (NOT in hook body) ──
   # Stop hook has 15s timeout — GH API calls can take 5-10s each.
   # Move all gh issue comment/edit calls to the arc turn beginning.
