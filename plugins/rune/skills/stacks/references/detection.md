@@ -247,6 +247,42 @@ detectDesignTools(content):
 
 **Note**: Design tools are language-agnostic (`language: null`). They do not set a primary language. Detection also runs against `package.json` via `detectTypeScriptStack` for `@storybook/*` and `@figma/*` dependencies.
 
+## Design Stack Detection
+
+Design tools are detected through multiple signal types beyond manifest files. Unlike language stacks, design tools are **language-agnostic** and populate `detected_stack.frameworks` (not `tooling`).
+
+### Figma Detection Signals
+
+| Signal | Source | Detection Method |
+|--------|--------|-----------------|
+| Config files | `.figmarc`, `figma.config.js` | `detectDesignTools()` manifest scan |
+| Dependencies | `@figma/*`, `figma-api` in `package.json` | `detectTypeScriptStack()` |
+| Env vars | `FIGMA_TOKEN`, `FIGMA_ACCESS_TOKEN` | Environment check (pre-detection) |
+| MCP tools | `figma_fetch_design`, `figma_inspect_node` | MCP tool availability probe |
+
+When any signal is positive, `"figma"` is added to `detected_stack.frameworks`.
+
+### Storybook Detection Signals
+
+| Signal | Source | Detection Method |
+|--------|--------|-----------------|
+| Config dir | `.storybook/main.js`, `.storybook/main.ts` | Directory existence scan (Step 1c) |
+| Dependencies | `@storybook/react`, `@storybook/vue3` | `detectTypeScriptStack()` |
+| Story files | `*.stories.tsx`, `*.stories.jsx` | Heuristic (not in primary scan) |
+
+When any signal is positive, `"storybook"` is added to `detected_stack.frameworks`.
+
+### Design Detection Integration
+
+Design detection merges into the main `detectStack()` flow at three points:
+1. **Step 1b** — Standalone design config files (`.figmarc`, `figma.config.json`)
+2. **Step 1c** — Design tool directories (`.storybook/`)
+3. **Within `detectTypeScriptStack`** — `@figma/*` and `@storybook/*` dependencies in `package.json`
+
+All design signals land in `frameworks` — not `tooling`. This ensures Rune Gaze Phase 1A correctly routes to `design-implementation-reviewer` via framework matching.
+
+See [design/figma.md](design/figma.md) and [design/storybook.md](design/storybook.md) for full knowledge files.
+
 ## Helper Functions
 
 ### has_ddd_structure(repoRoot)
