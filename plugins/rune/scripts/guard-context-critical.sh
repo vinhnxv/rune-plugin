@@ -171,11 +171,14 @@ if [[ "$REM_INT" -le "$WARNING_THRESHOLD" && "$REM_INT" -gt "$CRITICAL_THRESHOLD
 
   # --- Layer 1 Shutdown Signal: Write signal file for orchestrator consumption ---
   # Idempotent — only write once per session (hook fires every tool call)
+  # Canonicalize CWD before use in signal file path (SEC-005)
+  CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || exit 0
+  [[ "$CWD" == /* ]] || exit 0
   SIGNAL_FILE="${CWD}/tmp/.rune-shutdown-signal-${SESSION_ID}.json"
   if [[ ! -f "$SIGNAL_FILE" ]]; then
     mkdir -p "${CWD}/tmp" 2>/dev/null
     jq -n \
-      --arg signal "context-warning" \
+      --arg signal "context_warning" \
       --argjson remaining_pct "$REM_INT" \
       --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       --arg config_dir "$RUNE_CURRENT_CFG" \

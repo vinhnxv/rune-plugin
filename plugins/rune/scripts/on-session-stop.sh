@@ -169,8 +169,23 @@ fi
 # Terminates child processes of this Claude Code session (node/claude/claude-*).
 # SIGTERM first (graceful), then SIGKILL survivors after 2s.
 # Only kills OUR session's children — PPID match guarantees this.
+# SEC-002: PPID scoping limits blast radius to children of this Claude Code process.
+# Command name filter (node|claude|claude-*) further narrows targets to teammate processes.
+# Intentional trade-off: command name could theoretically match non-teammate child processes,
+# but PPID + command name together keep false-positive risk acceptably low.
 _kill_stale_teammates() {
   local child_pids child_pid child_comm killed=0
+
+  # BACK-008: Validate that PPID is actually a Claude Code process before targeting its children.
+  # Hook execution model may vary — $PPID is the hook runner, which should be node or claude.
+  local ppid_cmd
+  ppid_cmd=$(ps -p "$PPID" -o comm= 2>/dev/null || true)
+  if [[ ! "$ppid_cmd" =~ ^(node|claude)$ ]]; then
+    # Not a Claude Code process — skip kill to avoid collateral damage
+    echo "0"
+    return 0
+  fi
+
   child_pids=$(pgrep -P "$PPID" 2>/dev/null || true)
   [[ -z "$child_pids" ]] && { echo "$killed"; return 0; }
 
@@ -300,7 +315,8 @@ if [[ -d "${CWD}/tmp/" ]]; then
            "${CWD}/tmp/"/.rune-mend-*.json \
            "${CWD}/tmp/"/.rune-plan-*.json \
            "${CWD}/tmp/"/.rune-forge-*.json \
-           "${CWD}/tmp/"/.rune-inspect-*.json; do
+           "${CWD}/tmp/"/.rune-inspect-*.json \
+           "${CWD}/tmp/"/.rune-arc-*.json; do
     [[ ! -f "$f" ]] && continue
     [[ -L "$f" ]] && continue
     if jq -e '.status == "active"' "$f" >/dev/null 2>&1; then

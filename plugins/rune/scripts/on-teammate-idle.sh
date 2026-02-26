@@ -7,6 +7,13 @@
 set -euo pipefail
 umask 077
 
+# Session isolation — source resolve-session-identity.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+if [[ -f "${SCRIPT_DIR}/resolve-session-identity.sh" ]]; then
+  # shellcheck source=resolve-session-identity.sh
+  source "${SCRIPT_DIR}/resolve-session-identity.sh"
+fi
+
 # RUNE_TRACE: opt-in trace logging (off by default, zero overhead in production)
 # NOTE(QUAL-007): _trace() is intentionally duplicated in on-task-completed.sh — each script
 # must be self-contained for hook execution. Sharing via source would add a dependency.
@@ -119,7 +126,9 @@ FULL_OUTPUT_PATH="${CWD}/${OUTPUT_DIR}${EXPECTED_OUTPUT}"
 # shell-based fallback for environments where neither is available.
 # The fallback is safe because .. is already rejected above (lines 72, 92).
 resolve_path() {
-  grealpath -m "$1" 2>/dev/null || realpath -m "$1" 2>/dev/null || { echo "WARN: realpath not available, skipping canonicalization" >&2; echo "$1"; }
+  grealpath -m "$1" 2>/dev/null || realpath -m "$1" 2>/dev/null || \
+    { command -v readlink >/dev/null 2>&1 && readlink -f "$1" 2>/dev/null; } || \
+    { echo "WARN: realpath not available, skipping canonicalization" >&2; echo "$1"; }
 }
 RESOLVED_OUTPUT=$(resolve_path "$FULL_OUTPUT_PATH")
 RESOLVED_OUTDIR=$(resolve_path "${CWD}/${OUTPUT_DIR}")
@@ -244,7 +253,11 @@ if [[ -d "$TASK_DIR" ]]; then
   if [[ "$ALL_DONE" == "true" && "$found_any_task" == "true" ]]; then
     sig="${CWD}/tmp/.rune-signals/${TEAM_NAME}/all-tasks-done"
     mkdir -p "$(dirname "$sig")" 2>/dev/null
-    date -u +%Y-%m-%dT%H:%M:%SZ > "${sig}.tmp.$$" 2>/dev/null && mv "${sig}.tmp.$$" "${sig}" 2>/dev/null || true
+    printf '{"timestamp":"%s","config_dir":"%s","owner_pid":"%s"}\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      "${RESOLVED_CONFIG_DIR:-unknown}" \
+      "${PPID:-0}" \
+      > "${sig}.tmp.$$" 2>/dev/null && mv "${sig}.tmp.$$" "${sig}" 2>/dev/null || true
     _trace "SIGNAL all-tasks-done for team $TEAM_NAME"
   fi
 fi
