@@ -262,18 +262,25 @@ async def _run(args: argparse.Namespace) -> str:
     token = _resolve_token(args)
     _verbose(f"Using token: {_dim(_mask_token(token))}", args)
 
-    # Set token in environment for FigmaClient (reads FIGMA_TOKEN lazily)
+    # FigmaClient reads FIGMA_TOKEN from env — set before construction.
+    old_token = os.environ.get("FIGMA_TOKEN")
     os.environ["FIGMA_TOKEN"] = token
 
     t0 = time.monotonic()
-    client = FigmaClient()
+    client = None
     try:
+        client = FigmaClient()
         result = await args.func(client, args)
         elapsed = time.monotonic() - t0
         _verbose(f"Done ({elapsed:.1f}s)", args)
         return json.dumps(result, indent=2 if args.pretty else None, ensure_ascii=False)
     finally:
-        await client.close()
+        if client is not None:
+            await client.close()
+        if old_token is None:
+            os.environ.pop("FIGMA_TOKEN", None)
+        else:
+            os.environ["FIGMA_TOKEN"] = old_token
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -297,9 +304,10 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(3)
 
     if args.output:
-        Path(args.output).write_text(output, encoding="utf-8")
+        out_path = Path(args.output).resolve()
+        out_path.write_text(output, encoding="utf-8")
         if args.verbose:
-            print(f"  {ARROW} Written to {args.output}", file=sys.stderr)
+            print(f"  {ARROW} Written to {out_path}", file=sys.stderr)
     else:
         print(output)
 

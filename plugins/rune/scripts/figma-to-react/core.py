@@ -53,9 +53,9 @@ def ir_to_dict(node: FigmaIRNode, max_depth: int = 20) -> dict[str, Any]:
     }
 
     # Geometry
-    if node.width or node.height:
-        result["width"] = round(node.width, 1)
-        result["height"] = round(node.height, 1)
+    if node.width is not None or node.height is not None:
+        result["width"] = round(node.width or 0.0, 1)
+        result["height"] = round(node.height or 0.0, 1)
 
     # Visibility
     if not node.visible:
@@ -222,7 +222,8 @@ def _parse_url(url: str) -> tuple[str, str | None, str | None]:
     """
     parsed = parse_figma_url(url)
     file_key = parsed["file_key"]
-    assert file_key is not None  # always present from parse_figma_url
+    if file_key is None:
+        raise FigmaURLError("URL is missing a file key — check the URL format.")
     return file_key, parsed["node_id"], parsed["branch_key"]
 
 
@@ -341,8 +342,8 @@ async def list_components(
             "name": n.name,
             "type": n.node_type.value,
         }
-        if n.width or n.height:
-            entry["size"] = f"{round(n.width)}x{round(n.height)}"
+        if n.width is not None or n.height is not None:
+            entry["size"] = f"{round(n.width or 0)}x{round(n.height or 0)}"
 
         if n.node_type.value in ("COMPONENT", "COMPONENT_SET"):
             components.append(entry)
@@ -401,7 +402,7 @@ async def to_react(
 
     # Collect image refs for resolution
     image_refs = collect_image_refs(ir_root)
-    image_urls: dict[str, Any] = {}
+    image_urls: dict[str, str] = {}
 
     if image_refs:
         try:
