@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.113.0] - 2026-02-27
+
+### Added
+- **Evidence-based plan validation with grounding gate** — New `evidence-verifier` utility agent that systematically validates every factual claim in plan documents against the actual codebase, documentation, and external sources. Produces quantitative per-claim and per-section grounding scores with a weighted overall plan grounding score.
+  - 3-layer verification protocol: Codebase (weight 1.0) > Documentation (weight 0.8) > External (weight 0.6)
+  - 7 claim types: file existence, API/function existence, pattern references, dependency claims, structural claims, count claims, behavior claims
+  - Verdict mapping: >= 0.6 PASS, >= 0.4 CONCERN, < 0.4 BLOCK. Any FALSE claim forces BLOCK
+  - Integrated into `/rune:devise` Phase 4C (plan-review.md) and `/rune:arc` Phase 2 (arc-phase-plan-review.md)
+  - Talisman gate: `evidence.enabled` (default: true, opt-out). External search gated by `evidence.external_search` (default: false)
+  - Evidence Chain section support in plan templates (synthesize.md)
+  - Echo integration for historical verification pattern awareness
+- New talisman config section: `evidence` with `enabled`, `external_search`, `require_evidence_chain`, `block_threshold`, `concern_threshold`
+
 ## [1.112.0] - 2026-02-27
 
 ### Added

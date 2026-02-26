@@ -965,6 +965,19 @@ doubt_seer:
   unproven_threshold: 0.8            # Evidence ratio below this triggers CONCERN (default: 0.8, range: 0.0-1.0)
 
 # ──────────────────────────────────────────────
+# Evidence — Evidence-based plan validation (v1.113.0)
+# ──────────────────────────────────────────────
+# Grounding gate for plan validation. Verifies that plan decisions
+# are backed by codebase evidence, documentation, or external sources.
+# Evidence types ordered by strength: CODEBASE > DOCUMENTATION > EXTERNAL > OBSERVED > NOVEL
+evidence:
+  enabled: true              # Master switch — set false to disable grounding gate
+  external_search: false     # Allow WebSearch/WebFetch for external evidence verification
+  block_threshold: 0.4       # Grounding score below this → BLOCK
+  concern_threshold: 0.6     # Grounding score below this → CONCERN
+  require_evidence_chain: true  # Require ## Evidence Chain section in Standard/Comprehensive plans
+
+# ──────────────────────────────────────────────
 # Codex Oracle — Cross-model verification (v1.18.0+)
 # ──────────────────────────────────────────────
 # Codex Oracle is auto-detected when the `codex` CLI is installed
