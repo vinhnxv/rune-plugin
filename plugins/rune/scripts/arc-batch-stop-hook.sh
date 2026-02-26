@@ -323,6 +323,17 @@ if [[ "$ARC_STATUS" == "failed" ]]; then
   _trace "Arc status from checkpoint fallback: arc_status=${ARC_STATUS} ckpt_status=${ARC_CKPT_STATUS} pr_url=${PR_URL}"
 fi
 
+# ── STALE SIGNAL CLEANUP (v1.109.3): Remove signal after consumption ──
+# BUG FIX: Without this, a successful iteration N leaves tmp/arc-result-current.json
+# with status="completed". If iteration N+1 fails (ship/merge never fires), the stop
+# hook reads the stale signal and incorrectly marks the failed plan as "completed".
+# Deleting after consumption ensures each iteration starts with a clean signal state.
+_signal_consumed="${CWD}/tmp/arc-result-current.json"
+if [[ -f "$_signal_consumed" ]] && [[ ! -L "$_signal_consumed" ]]; then
+  rm -f "$_signal_consumed" 2>/dev/null
+  _trace "Stale signal cleanup: removed ${_signal_consumed}"
+fi
+
 # ── Mark current in_progress plan with detected status ──
 # BACK-006: Extract current in_progress plan path for path-scoped selector (prevents marking ALL in_progress plans)
 _CURRENT_PLAN_PATH=$(echo "$PROGRESS_CONTENT" | jq -r '[.plans[] | select(.status == "in_progress")] | first | .path // empty' 2>/dev/null || true)

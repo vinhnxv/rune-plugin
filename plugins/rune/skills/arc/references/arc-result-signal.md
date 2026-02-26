@@ -91,7 +91,7 @@ Stop hooks MUST:
 2. Verify `owner_pid == $PPID` (session isolation)
 3. Verify `config_dir == $RUNE_CURRENT_CFG` (installation isolation)
 4. Fall back to `_find_arc_checkpoint()` if signal file is missing/stale/wrong-session
-5. Never modify the signal file (read-only consumer)
+5. **Delete the signal file after consumption** (`rm -f`) to prevent stale signal reuse across batch iterations. A signal from iteration N with `status: "completed"` must not bleed into iteration N+1 if that iteration fails before ship/merge.
 
 **Note:** `arc-hierarchy-stop-hook.sh` does not consume this signal. Hierarchy completion
 is determined by provides/requires contract verification (child plan dependency DAG),
