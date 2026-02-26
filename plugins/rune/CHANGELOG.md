@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.112.0] - 2026-02-27
+
+### Added
+- **4-layer defense against stuck teammates** — prevents teammates from hanging indefinitely when team lead context is exhausted
+  - Layer 1: Proactive context-aware early shutdown signal at 35% remaining context (`guard-context-critical.sh`)
+  - Layer 2: `maxTurns` safety net on ALL 88 agents (58 agents previously missing)
+  - Layer 3: Process-level SIGTERM/SIGKILL cleanup in `on-session-stop.sh`
+  - Layer 4: TeammateIdle "all tasks done" coordination signal (`on-teammate-idle.sh`)
+- New talisman config section: `teammate_lifecycle` with `max_turns`, `shutdown_signal_threshold`, `process_cleanup`
+- Shutdown signal file: `tmp/.rune-shutdown-signal-{SESSION_ID}.json` written at context warning level
+- All-tasks-done signal: `tmp/.rune-signals/{TEAM_NAME}/all-tasks-done` for faster completion detection
+
+### Changed
+- `guard-context-critical.sh`: WARNING tier (35%) now writes shutdown signal file in addition to advisory
+- `on-session-stop.sh`: New AUTO-CLEAN PHASE 0 kills orphaned teammate processes before filesystem cleanup
+- `on-teammate-idle.sh`: Writes coordination signal when all team tasks are completed
+- 58 agent files: Added `maxTurns` frontmatter (4 work, 11 utility, 5 research, 38 review)
+
 ## [1.111.2] - 2026-02-27
 
 ### Added

@@ -11,6 +11,7 @@ tools:
   - Glob
   - Grep
   - SendMessage
+maxTurns: 40
 mcpServers:
   - echo-search
 ---

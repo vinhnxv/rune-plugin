@@ -31,6 +31,7 @@ mcpServers:
   - echo-search
 # TRUST BOUNDARY: Bash disallowed at agent level. Truthbinding Protocol provides additional defense-in-depth.
 disallowedTools: Bash
+maxTurns: 40
 ---
 
 # Elicitation Sage — Structured Reasoning Specialist

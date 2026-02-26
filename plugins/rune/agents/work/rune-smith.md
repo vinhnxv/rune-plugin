@@ -23,7 +23,7 @@ tools:
   - TaskGet
   - TaskUpdate
   - SendMessage
-maxTurns: 75
+maxTurns: 120
 mcpServers:
   - echo-search
   - figma-to-react

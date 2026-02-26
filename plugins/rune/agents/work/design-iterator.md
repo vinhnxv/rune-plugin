@@ -26,7 +26,7 @@ tools:
   - TaskUpdate
   - SendMessage
 model: sonnet
-maxTurns: 50
+maxTurns: 120
 mcpServers:
   - echo-search
 ---

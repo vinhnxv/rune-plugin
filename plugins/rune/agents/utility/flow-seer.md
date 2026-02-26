@@ -16,6 +16,7 @@ tools:
   - SendMessage
 disallowedTools:
   - Bash
+maxTurns: 40
 mcpServers:
   - echo-search
 ---

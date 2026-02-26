@@ -20,6 +20,7 @@ tools:
 mcpServers:
   - echo-search
 model: sonnet
+maxTurns: 30
 ---
 <!-- NOTE: allowed-tools enforced only in standalone mode. When embedded in Ash
      (general-purpose subagent_type), tool restriction relies on prompt instructions. -->

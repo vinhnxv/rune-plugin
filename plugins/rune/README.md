@@ -582,7 +582,7 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 
 ### Review Agents
 
-37 specialized agents that Ash embed as perspectives:
+40 specialized agents that Ash embed as perspectives:
 
 | Agent | Focus |
 |-------|-------|
@@ -623,6 +623,9 @@ Each Ash embeds several review agents as specialized perspectives. For example, 
 | schema-drift-detector | Schema drift between migrations and ORM/model definitions (DRIFT) |
 | agent-parity-reviewer | Agent-native parity, orphan features, context starvation (PARITY) |
 | senior-engineer-reviewer | Persona-based senior engineer review, production thinking (SENIOR) |
+| axum-reviewer | Axum/SQLx specialist — extractor ordering, N+1 queries, IDOR prevention, transaction boundaries (AXUM) |
+| cross-shard-sentinel | Cross-shard consistency — naming drift, pattern inconsistency, auth boundary gaps across shard boundaries (SHARD) |
+| design-implementation-reviewer | Design-to-code fidelity review — token compliance, layout, a11y, responsiveness (DSGN) |
 
 ### Research Agents
 
@@ -644,6 +647,8 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 |-------|---------|
 | rune-smith | Code implementation (TDD-aware, claims tasks from pool) |
 | trial-forger | Test generation (follows existing test patterns) |
+| design-iterator | Iterative design refinement — screenshot-analyze-improve loop for component fidelity convergence |
+| design-sync-agent | Figma design extraction worker — produces Visual Spec Maps (VSM) from Figma MCP data |
 
 ### Utility Agents
 
@@ -678,8 +683,11 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | codex-review | Cross-model code review — runs Claude and Codex agents in parallel, cross-verifies findings, merges consensus issues into a unified TOME. Use for critical changes where independent model validation adds confidence |
 | context-weaving | Context overflow/rot prevention |
 | debug | Structured debugging with ACH hypothesis investigation. 4-phase protocol (Observe → Narrow → Hypothesize → Fix) with evidence tiers and consistency matrix |
+| design-sync | Figma design synchronization — 3-phase pipeline (PLAN: extraction → WORK: implementation → REVIEW: fidelity). VSM format, fidelity scoring (6 dimensions), iterative refinement. Gated by `design_sync.enabled` |
 | elicitation | Curated structured reasoning methods (Tree of Thoughts, Pre-mortem, Red Team, 5 Whys, etc.) with phase-aware auto-selection |
 | file-todos | Unified file-based todo tracking (schema v2, status history, per-source manifests, DAG ordering, 13 subcommands). Always active (mandatory). Session-scoped in `tmp/{workflow}/{id}/todos/`. |
+| figma-to-react | Figma-to-React MCP server — 4 tools (figma_fetch_design, figma_inspect_node, figma_list_components, figma_to_react) for converting Figma designs to React + Tailwind CSS v4 components (non-invocable) |
+| frontend-design-patterns | Frontend design implementation — design tokens, accessibility (WCAG 2.1 AA), responsive patterns, component reuse (REUSE > EXTEND > CREATE), layout alignment, variant mapping, Storybook. Auto-loaded by Stacks for frontend files (non-invocable) |
 | forge | Deepen existing plan with Forge Gaze enrichment (+ `--exhaustive`). Goldmask Lore Layer (Phase 1.5) for risk-aware section prioritization |
 | git-worktree | Worktree isolation for /rune:strive (experimental `--worktree` flag) |
 | goldmask | Cross-layer impact analysis (Impact + Wisdom + Lore layers). Shared data discovery + risk context template reused by forge, mend, inspect, and devise for risk-aware workflows |
@@ -965,6 +973,17 @@ Rune uses Elden Ring-inspired theming:
 - **Rune Echoes** are memories that persist across sessions
 - The **Elden Throne** is the ultimate goal — successful pipeline completion
 - See CLAUDE.md for the full Lore Glossary
+
+## Teammate Lifecycle Safety
+
+Rune includes a 4-layer defense system to prevent teammates from hanging indefinitely when the team lead's context is exhausted:
+
+1. **Layer 1 — Shutdown Signal**: `guard-context-critical.sh` writes a shutdown signal file at 35% remaining context, enabling orchestrators to initiate early teammate shutdown
+2. **Layer 2 — maxTurns**: All 88 agents have `maxTurns` in their YAML frontmatter, providing a platform-level safety net
+3. **Layer 3 — Process Kill**: `on-session-stop.sh` sends SIGTERM/SIGKILL to orphaned teammate processes before filesystem cleanup
+4. **Layer 4 — All-Tasks-Done Signal**: `on-teammate-idle.sh` writes a coordination signal when all team tasks are completed, enabling faster completion detection
+
+Configure via `talisman.yml` → `teammate_lifecycle` section.
 
 ## Known Limitations
 

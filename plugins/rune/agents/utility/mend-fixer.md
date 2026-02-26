@@ -24,6 +24,7 @@ tools:
   - TaskGet
   - TaskUpdate
   - SendMessage
+maxTurns: 60
 mcpServers:
   - echo-search
 ---

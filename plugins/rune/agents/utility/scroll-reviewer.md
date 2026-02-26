@@ -10,6 +10,7 @@ tools:
   - Glob
   - Grep
   - SendMessage
+maxTurns: 30
 mcpServers:
   - echo-search
 ---

@@ -19,6 +19,7 @@ tools:
   - Grep
   - Write
   - SendMessage
+maxTurns: 60
 mcpServers:
   - echo-search
 ---

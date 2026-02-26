@@ -21,6 +21,7 @@ tools:
   - Glob
   - Grep
 model: sonnet
+maxTurns: 40
 mcpServers:
   - echo-search
 ---
