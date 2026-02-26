@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.107.5] - 2026-02-26
+
+### Fixed
+- **BUG-1: `_STATE_TMP` temp file leak in EXIT traps** — All 3 Stop hook loop drivers (`arc-batch-stop-hook.sh`, `arc-issues-stop-hook.sh`, `arc-hierarchy-stop-hook.sh`) now clean `_STATE_TMP` in their EXIT trap. Previously, if the ERR trap fired during a `sed`/`awk` compact interlude rewrite, `_STATE_TMP` leaked as an orphaned 0-byte file (e.g., `.claude/arc-batch-loop.local.md.eZPhOf`). The `arc-issues-stop-hook.sh` EXIT trap was a no-op (`trap 'exit' EXIT`) — now properly cleans up.
+- **BUG-2: `_abort_batch` too aggressive on context exhaustion** — GUARD 10 `else` branch and GUARD 11 in `arc-batch-stop-hook.sh` and `arc-issues-stop-hook.sh` now call `_graceful_stop_batch()` / `_graceful_stop_issues_batch()` instead of `_abort_batch()` / `_abort_issues_batch()`. The graceful variant sets batch status to `"stopped"` with `stop_reason: "context_exhaustion_graceful"` but leaves pending plans as-is (not marked `"failed"`), making them resumable via `--resume` from a fresh session. `arc-hierarchy-stop-hook.sh` already used `_pause_hierarchy()` — no change needed.
+- **BUG-3: No pre-read guard before compact interlude rewrites** — Added `[[ ! -s "$STATE_FILE" ]]` pre-read guards before all `sed`/`awk` calls that read the state file in the compact interlude (Phase A, Phase B, and iteration increment). If the state file was empty or deleted between guards and the rewrite, `sed` would write 0 bytes to the temp file, `mv` would succeed, and F-05 verification would delete the now-empty state file — leaving orphaned temp files and corrupted state.
+
 ## [1.107.4] - 2026-02-26
 
 ### Fixed

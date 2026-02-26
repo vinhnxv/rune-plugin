@@ -22,7 +22,7 @@
 
 set -euo pipefail
 trap 'exit 0' ERR
-trap '[[ -n "${_TMPFILE:-}" ]] && rm -f "${_TMPFILE}" 2>/dev/null; exit' EXIT
+trap '[[ -n "${_TMPFILE:-}" ]] && rm -f "${_TMPFILE}" 2>/dev/null; [[ -n "${_STATE_TMP:-}" ]] && rm -f "${_STATE_TMP}" 2>/dev/null; exit' EXIT
 umask 077
 
 # ── Opt-in trace logging (consistent with arc-batch-stop-hook.sh) ──
@@ -484,6 +484,11 @@ fi
 
 if [[ "$COMPACT_PENDING" != "true" ]]; then
   # Phase A: Set compact_pending and inject compaction trigger
+  # BUG-3 FIX: Pre-read guard — if state file is empty/deleted, sed writes 0 bytes → corruption
+  if [[ ! -s "$STATE_FILE" ]]; then
+    _trace "BUG-3: State file empty/missing before Phase A — aborting"
+    exit 0
+  fi
   _STATE_TMP=$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }
   if grep -q '^compact_pending:' "$STATE_FILE" 2>/dev/null; then
     sed 's/^compact_pending: .*$/compact_pending: true/' "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null
@@ -524,6 +529,11 @@ Then STOP responding immediately. Do NOT execute any commands, read any files, o
 fi
 
 # Phase B: compact_pending was true — reset and proceed to arc prompt
+# BUG-3 FIX: Pre-read guard — if state file is empty/deleted, sed writes 0 bytes → corruption
+if [[ ! -s "$STATE_FILE" ]]; then
+  _trace "BUG-3: State file empty/missing before Phase B — aborting"
+  exit 0
+fi
 _STATE_TMP=$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }
 sed 's/^compact_pending: true$/compact_pending: false/' "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null \
   && mv -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null \
@@ -556,6 +566,11 @@ fi
 
 # ── Update state file: set current_child to next child (atomic: mktemp + mv) ──
 # Replace current_child field in YAML frontmatter
+# BUG-3 FIX: Pre-read guard — if state file is empty/deleted, sed writes 0 bytes → corruption
+if [[ ! -s "$STATE_FILE" ]]; then
+  _trace "BUG-3: State file empty/missing before current_child update — aborting"
+  exit 0
+fi
 _STATE_TMP=$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null) || { rm -f "$STATE_FILE" 2>/dev/null; exit 0; }
 # CURRENT_CHILD guaranteed safe by earlier validation
 sed "s|^current_child: .*$|current_child: ${NEXT_CHILD}|" "$STATE_FILE" > "$_STATE_TMP" 2>/dev/null \
