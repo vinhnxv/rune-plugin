@@ -234,13 +234,15 @@ _iso_to_epoch() {
   return 1
 }
 
-# ── _check_context_critical(): Check if context is at critical level (GUARD 11) ──
+# ── _check_context_at_threshold(): Parameterized context threshold check ──
 # Reads the statusline bridge file to determine remaining context percentage.
-# Args: none (reads session_id from INPUT global, PID from PPID)
-# Returns: 0 if context is critical (<= 25% remaining), 1 if OK or unknown.
+# Args: $1 = threshold (integer, 0-100). Returns 0 when remaining% <= threshold.
 # Fail-open: returns 1 on any error (missing file, stale data, parse failure).
-# Used by GUARD 10 extension in Stop hooks to prevent prompt injection at critical context.
-_check_context_critical() {
+# Callers: _check_context_critical (25%), _check_context_compact_needed (50%).
+_check_context_at_threshold() {
+  local threshold="${1:-25}"
+  [[ "$threshold" =~ ^[0-9]+$ ]] || return 1
+
   local session_id
   session_id=$(echo "${INPUT:-}" | jq -r '.session_id // empty' 2>/dev/null || true)
   [[ -n "$session_id" && "$session_id" =~ ^[a-zA-Z0-9_-]+$ ]] || return 1
@@ -278,10 +280,24 @@ _check_context_critical() {
   [[ "$rem_int" =~ ^[0-9]+$ ]] || return 1
   [[ "$rem_int" -le 100 ]] || return 1
 
-  # Critical threshold: 25% remaining (matches guard-context-critical.sh)
-  [[ "$rem_int" -le 25 ]] && return 0
-
+  [[ "$rem_int" -le "$threshold" ]] && return 0
   return 1
+}
+
+# ── _check_context_critical(): Check if context is at critical level (GUARD 11) ──
+# Returns: 0 if context is critical (<= 25% remaining), 1 if OK or unknown.
+# Used by GUARD 10 extension in Stop hooks to prevent prompt injection at critical context.
+_check_context_critical() {
+  _check_context_at_threshold 25
+}
+
+# ── _check_context_compact_needed(): Check if context needs compaction ──
+# Returns: 0 if context remaining <= 50% (compaction beneficial), 1 if OK or unknown.
+# Used by arc-phase-stop-hook.sh adaptive compact interlude to trigger compaction
+# based on actual context pressure rather than only before heavy phases.
+# Fail-open: returns 1 when bridge file is unavailable (caller should use fallback).
+_check_context_compact_needed() {
+  _check_context_at_threshold 50
 }
 
 # ── _read_arc_result_signal(): Read explicit arc result signal (v1.109.2) ──

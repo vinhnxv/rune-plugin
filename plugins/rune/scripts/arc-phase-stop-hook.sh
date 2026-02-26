@@ -137,8 +137,12 @@ PHASE_ORDER=(
   ship bot_review_wait pr_comment_resolution merge
 )
 
-# Heavy phases that benefit from compact interlude before them
+# Heavy phases that ALWAYS trigger compact interlude (tier 1)
 HEAVY_PHASES="work code_review mend"
+
+# Compact interval fallback (tier 3): when bridge file is unavailable,
+# compact every COMPACT_INTERVAL completed phases as a safety net.
+COMPACT_INTERVAL=6
 
 # ── Phase-to-reference-file mapping ──
 # Maps each phase name to its reference file path (relative to plugin root).
@@ -265,13 +269,47 @@ if [[ "$COMPACT_PENDING" == "true" ]]; then
   fi
 fi
 
-# Check if next phase is heavy and compact interlude hasn't fired yet
-_is_heavy="false"
+# ── 3-tier adaptive compaction trigger ──
+# Tier 1: Heavy phases (always compact before work, code_review, mend)
+# Tier 2: Context-aware (compact when remaining <= 50% via bridge file)
+# Tier 3: Interval fallback (compact every COMPACT_INTERVAL phases when bridge unavailable)
+_needs_compact="false"
+_compact_reason=""
+
+# Tier 1: Heavy phase check
 case " $HEAVY_PHASES " in
-  *" $NEXT_PHASE "*) _is_heavy="true" ;;
+  *" $NEXT_PHASE "*)
+    _needs_compact="true"
+    _compact_reason="heavy phase: ${NEXT_PHASE}"
+    ;;
 esac
 
-if [[ "$_is_heavy" == "true" ]] && [[ "$COMPACT_PENDING" != "true" ]] && [[ "$ITERATION" -gt 0 ]]; then
+# Tier 2: Context-aware (only if tier 1 didn't trigger)
+if [[ "$_needs_compact" == "false" ]] && [[ "$ITERATION" -gt 0 ]]; then
+  if _check_context_compact_needed 2>/dev/null; then
+    _needs_compact="true"
+    _compact_reason="context pressure: remaining <= 50%"
+  fi
+fi
+
+# Tier 3: Interval fallback (only if tiers 1-2 didn't trigger AND bridge was unavailable)
+if [[ "$_needs_compact" == "false" ]] && [[ "$ITERATION" -gt 0 ]]; then
+  # Tier 3 fires when: (a) ITERATION is a multiple of COMPACT_INTERVAL, and
+  # (b) the bridge file check didn't return a definitive "context is fine" answer.
+  # If tier 2 checked successfully and said "no need", we trust it. Tier 3 is
+  # only for when the bridge file is missing/stale (tier 2 returns 1 = unknown).
+  if [[ $(( ITERATION % COMPACT_INTERVAL )) -eq 0 ]]; then
+    # Double-check: if bridge file gave us a definitive "context OK" (remaining > 50%),
+    # skip tier 3. We only want tier 3 when bridge data is UNAVAILABLE.
+    if ! _check_context_at_threshold 100 2>/dev/null; then
+      # Bridge file unavailable — use interval as safety net
+      _needs_compact="true"
+      _compact_reason="interval fallback: iteration ${ITERATION} (every ${COMPACT_INTERVAL})"
+    fi
+  fi
+fi
+
+if [[ "$_needs_compact" == "true" ]] && [[ "$COMPACT_PENDING" != "true" ]] && [[ "$ITERATION" -gt 0 ]]; then
   # Phase A: Set compact_pending and inject compaction trigger
   if [[ ! -s "$STATE_FILE" ]]; then
     _trace "State file empty before compact Phase A — aborting"
@@ -291,7 +329,7 @@ if [[ "$_is_heavy" == "true" ]] && [[ "$COMPACT_PENDING" != "true" ]] && [[ "$IT
     rm -f "$STATE_FILE" 2>/dev/null
     exit 0
   fi
-  _trace "Compact interlude Phase A before heavy phase: ${NEXT_PHASE}"
+  _trace "Compact interlude Phase A [${_compact_reason}] before: ${NEXT_PHASE}"
 
   jq -n \
     --arg prompt "Arc Pipeline — Context Checkpoint (phase: ${NEXT_PHASE} upcoming)
