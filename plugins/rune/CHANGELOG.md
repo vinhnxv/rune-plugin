@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.108.0] - 2026-02-26
+
+### Changed
+- Extract shared PreToolUse validation library (`scripts/lib/pretooluse-write-guard.sh`) from 3 worker path scripts (DRY) — ~50 lines saved per script
+- Add session isolation to `validate-mend-fixer-paths.sh` and `validate-gap-fixer-paths.sh` (previously missing — only strive had it)
+- Standardize stdin handling on `printf '%s'` across all validation scripts (replaces `echo "$INPUT"` in mend-fixer)
+
 ## [1.107.5] - 2026-02-26
 
 ### Fixed
