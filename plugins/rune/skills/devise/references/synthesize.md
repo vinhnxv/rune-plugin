@@ -151,17 +151,30 @@ session_budget:
 
 {What could block or complicate this}
 
-## Design Integration (conditional — only when figma_url is detected)
+## Design Implementation (conditional — auto-generated when figma_url is detected)
 
-{Omit this entire section when figma_url is empty or not set.}
+{Omit this entire section when figma_url is empty or design_sync is false.}
 
-- Figma URL: [{figma_url}]({figma_url})
-- Design extraction: Arc Phase 3 (design_extraction) will generate VSM/DCD artifacts
-- Review: design-implementation-reviewer will score fidelity (6 dimensions)
-- Iteration: Arc Phase 7.6 (design_iteration) for visual refinement loop
-- Design tokens: {extracted or "auto-detect from Figma"}
+- **Figma URL**: [{figma_url}]({figma_url})
+- **Design sync**: enabled (design_sync: true in frontmatter)
+- **Fidelity target**: {from talisman design_sync.fidelity_target or "0.85 (default)"}
+- **Design extraction**: Arc Phase 3 (design_extraction) will generate VSM/DCD artifacts
+- **Fidelity review**: design-implementation-reviewer will score across 6 dimensions
+- **Iteration**: Arc Phase 7.6 (design_iteration) for visual refinement loop
+
+### Component Inventory
+
+{Auto-populated by design-inventory-agent during Phase 0 if Figma MCP is available. Otherwise "Pending — will be populated during arc design_extraction phase."}
+
+| Component | Figma Node | Status |
+|-----------|-----------|--------|
+| {component-name} | {node-id} | pending |
+
+### Design References
+
+- Design tokens: {extracted from brainstorm or "auto-detect from Figma"}
 - Responsive breakpoints: {from brainstorm or "extract from Figma frames"}
-- Accessibility: {from brainstorm or "WCAG 2.1 AA"}
+- Accessibility target: {from brainstorm or "WCAG 2.1 AA"}
 
 ## Documentation Impact
 
@@ -328,17 +341,30 @@ erDiagram
 |------|-------------|--------|------------|
 | {Risk 1} | H/M/L | H/M/L | {Strategy} |
 
-## Design Integration (conditional — only when figma_url is detected)
+## Design Implementation (conditional — auto-generated when figma_url is detected)
 
-{Omit this entire section when figma_url is empty or not set.}
+{Omit this entire section when figma_url is empty or design_sync is false.}
 
-- Figma URL: [{figma_url}]({figma_url})
-- Design extraction: Arc Phase 3 (design_extraction) will generate VSM/DCD artifacts
-- Review: design-implementation-reviewer will score fidelity (6 dimensions)
-- Iteration: Arc Phase 7.6 (design_iteration) for visual refinement loop
-- Design tokens: {extracted or "auto-detect from Figma"}
+- **Figma URL**: [{figma_url}]({figma_url})
+- **Design sync**: enabled (design_sync: true in frontmatter)
+- **Fidelity target**: {from talisman design_sync.fidelity_target or "0.85 (default)"}
+- **Design extraction**: Arc Phase 3 (design_extraction) will generate VSM/DCD artifacts
+- **Fidelity review**: design-implementation-reviewer will score across 6 dimensions
+- **Iteration**: Arc Phase 7.6 (design_iteration) for visual refinement loop
+
+### Component Inventory
+
+{Auto-populated by design-inventory-agent during Phase 0 if Figma MCP is available. Otherwise "Pending — will be populated during arc design_extraction phase."}
+
+| Component | Figma Node | Status |
+|-----------|-----------|--------|
+| {component-name} | {node-id} | pending |
+
+### Design References
+
+- Design tokens: {extracted from brainstorm or "auto-detect from Figma"}
 - Responsive breakpoints: {from brainstorm or "extract from Figma frames"}
-- Accessibility: {from brainstorm or "WCAG 2.1 AA"}
+- Accessibility target: {from brainstorm or "WCAG 2.1 AA"}
 
 ## Cross-File Consistency
 

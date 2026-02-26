@@ -119,25 +119,74 @@ Runs a structured brainstorm session by default. Auto-detects recent brainstorms
 
 ### Design Signal Detection (Phase 0 pre-step)
 
-Before brainstorm questions, scan the user description for Figma URLs. When detected, enables design-aware planning throughout the pipeline.
+Before brainstorm questions, scan the user description for Figma URLs. When detected, enables design-aware planning throughout the pipeline. With `--quick` (Phase 0 skipped), a fallback applies `FIGMA_URL_PATTERN` to the feature description before Phase 1 agents spawn.
 
 ```javascript
-// Design signal detection — scan user request for Figma URLs
-const figmaUrlMatch = userDescription.match(/https?:\/\/[^\s]*figma\.com\/[^\s]+/)
-const figmaUrl = figmaUrlMatch ? figmaUrlMatch[0] : null
+// SYNC: figma-url-pattern — shared with brainstorm-phase.md Step 3.2
+const FIGMA_URL_PATTERN = /https?:\/\/[^\s]*figma\.com\/[^\s]+/g
+const DESIGN_KEYWORD_PATTERN = /\b(figma|design|mockup|wireframe|prototype|ui\s*kit|design\s*system|style\s*guide|component\s*library)\b/i
+
+// Phase 0 detection (brainstorm mode)
+const figmaUrls = userDescription.match(FIGMA_URL_PATTERN) || []
+const figmaUrl = figmaUrls.length > 0 ? figmaUrls[0] : null
 const designAware = figmaUrl !== null
 
-// Pass designAware and figmaUrl to brainstorm phase (Step 3.7 design questions)
-// Pass designAware and figmaUrl to synthesize phase (frontmatter + Design Integration section)
-// If designAware, add design-sync to loaded skills list (for context)
+// --quick fallback: Phase 0 is skipped, so apply detection before Phase 1
+// The feature description is still available from the user prompt
+if (quickMode && !designAware) {
+  // Re-scan: user may have provided Figma URL as part of quick description
+  const quickFigma = featureDescription.match(FIGMA_URL_PATTERN)
+  if (quickFigma) {
+    figmaUrl = quickFigma[0]
+    designAware = true
+  }
+}
+
+// Pass designAware and figmaUrl to brainstorm phase (Step 3.2 design asset detection)
+// Pass designAware and figmaUrl to synthesize phase (frontmatter + Design Implementation section)
+let design_sync_candidate = designAware
+
 if (designAware) {
-  // Load design-sync skill for design token/VSM/DCD knowledge
-  // This gives brainstorm and synthesize phases access to design patterns
   loadedSkills.push('design-sync')
+  loadedSkills.push('frontend-design-patterns')
 }
 ```
 
-See [brainstorm-phase.md](references/brainstorm-phase.md) for the full protocol — all steps, elicitation sage spawning, decision capture templates, design question injection (Step 3.7), and ATE-1 compliance notes.
+### Design Inventory Agent (conditional, Phase 0 post-step)
+
+When `design_sync_candidate === true` AND `talisman.design_sync.enabled === true`, spawn a lightweight design-inventory-agent that calls `figma_list_components` MCP tool to pre-populate the component inventory for the plan.
+
+```javascript
+// Conditional design research agent — only when design_sync_candidate + talisman enabled
+const designSyncEnabled = talisman?.design_sync?.enabled === true
+
+if (design_sync_candidate && designSyncEnabled && figmaUrl) {
+  // ATE-1 EXEMPTION: Plan team not yet created at Phase 0. enforce-teams.sh passes
+  // because no plan state file (tmp/.rune-plan-*.json) exists at this point.
+  // Same exemption pattern as elicitation sages (Step 3.5).
+  Task({
+    name: 'design-inventory-agent',
+    subagent_type: 'general-purpose',
+    prompt: `You are a design inventory specialist.
+
+      ## Assignment
+      Figma URL: ${figmaUrl}
+
+      ## Lifecycle
+      1. Call the figma_list_components MCP tool with the Figma URL
+      2. Extract component names, node IDs, and hierarchy
+      3. Write component inventory to: tmp/plans/${timestamp}/design-inventory.json
+         Format: { "components": [{ "name": "...", "node_id": "...", "type": "..." }] }
+      4. If figma_list_components fails (MCP unavailable), write:
+         { "components": [], "error": "Figma MCP not available", "figma_url": "${figmaUrl}" }
+      5. Do not write implementation code. Inventory only.`,
+    run_in_background: true
+  })
+  // Output is read during Phase 2 (Synthesize) to populate Component Inventory table
+}
+```
+
+See [brainstorm-phase.md](references/brainstorm-phase.md) for the full protocol — all steps, elicitation sage spawning, decision capture templates, design asset detection (Step 3.2), and ATE-1 compliance notes.
 
 Read and execute when Phase 0 runs.
 
@@ -171,7 +220,7 @@ Tarnished consolidates research findings into a plan document. User selects deta
 **Outputs**: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 **Error handling**: Missing research files -> proceed with available data
 **Comprehensive only**: Re-runs flow-seer on the drafted plan for a second SpecFlow pass
-**Design-aware**: When `designAware === true`, adds `figma_url` and `design_sync: true` to frontmatter, and emits a "Design Integration" section in the plan body
+**Design-aware**: When `design_sync_candidate === true`, adds `figma_url` and `design_sync: true` to frontmatter, and emits a "Design Implementation" section in the plan body (with component inventory from design-inventory-agent if available)
 
 See [synthesize.md](references/synthesize.md) for the full protocol.
 
