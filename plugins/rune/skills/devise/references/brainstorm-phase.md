@@ -269,59 +269,6 @@ for (let i = 0; i < sageCount; i++) {
 
 Exit condition: All sage outputs written (or user explicitly skips).
 
-### Step 3.7: Figma URL Detection (conditional)
-
-During brainstorm, scan the user's feature description for Figma URLs. When detected, inject design-specific brainstorm questions to surface design considerations early in the planning pipeline.
-
-```javascript
-// Figma URL detection — scan user description for Figma links
-const figmaUrlMatch = featureDescription.match(/https?:\/\/[^\s]*figma\.com\/[^\s]+/)
-const figmaUrl = figmaUrlMatch ? figmaUrlMatch[0] : null
-const designAware = figmaUrl !== null
-
-if (designAware) {
-  // Record figma_url in brainstorm context for downstream phases
-  brainstormContext.figma_url = figmaUrl
-
-  // Inject design-specific brainstorm questions (after approach selection)
-  AskUserQuestion({
-    questions: [
-      {
-        question: "What design tokens should be extracted from the Figma file?",
-        header: "Design Tokens",
-        options: [
-          { label: "Auto-detect from Figma (Recommended)", description: "Extract colors, spacing, typography, shadows automatically" },
-          { label: "Specify manually", description: "I'll list the tokens to extract" },
-          { label: "Skip design tokens", description: "No design token extraction needed" }
-        ],
-        multiSelect: false
-      },
-      {
-        question: "Are there responsive breakpoints to consider?",
-        header: "Responsive Design",
-        options: [
-          { label: "Yes — extract from Figma frames", description: "Multiple frame sizes detected" },
-          { label: "Desktop only", description: "Single viewport target" },
-          { label: "Skip responsive", description: "Not applicable" }
-        ],
-        multiSelect: false
-      },
-      {
-        question: "What accessibility requirements apply?",
-        header: "Accessibility",
-        options: [
-          { label: "WCAG 2.1 AA (Recommended)", description: "Standard web accessibility compliance" },
-          { label: "WCAG 2.1 AAA", description: "Highest accessibility standard" },
-          { label: "Minimal", description: "Basic keyboard navigation and screen reader support" }
-        ],
-        multiSelect: false
-      }
-    ]
-  })
-}
-// When designAware === false: no design questions injected (zero overhead)
-```
-
 ### Step 4: Capture Decisions
 
 Record brainstorm output for research phase:
