@@ -183,14 +183,30 @@ if [[ "$SUMMARY_ENABLED" != "false" ]]; then
       GIT_LOG_STAT=$(cd "$CWD" && git --no-pager log --no-color --oneline -5 2>/dev/null || echo "unavailable")
     fi
 
-    # Extract PR URL from arc checkpoint if available
+    # Extract PR URL from arc result signal (v1.109.2) or checkpoint (fallback).
+    # PERF FIX (v1.109.2): Previously called _find_arc_checkpoint() here which scans
+    # 20+ checkpoint dirs with grep — consuming timeout budget BEFORE the main detection
+    # block. This was the root cause of "idle" behavior: summary checkpoint scan ate the
+    # 15s timeout, hook got killed, no output → session stopped instead of advancing.
+    # Now uses signal file first (O(1) read at deterministic path).
     PR_URL="none"
-    # BUG FIX (v1.107.0): Arc checkpoints live at .claude/arc/${id}/checkpoint.json,
-    # NOT tmp/.arc-checkpoint.json (which never existed). Use _find_arc_checkpoint()
-    # from lib/stop-hook-common.sh to find the correct checkpoint for this session.
-    ARC_CKPT=$(_find_arc_checkpoint || true)
-    if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
-      PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+    _SUM_SIG_FILE="${CWD}/tmp/arc-result-current.json"
+    if [[ -f "$_SUM_SIG_FILE" ]] && [[ ! -L "$_SUM_SIG_FILE" ]]; then
+      _SUM_SIG_PID=$(jq -r '.owner_pid // empty' "$_SUM_SIG_FILE" 2>/dev/null || true)
+      if [[ -n "$_SUM_SIG_PID" && "$_SUM_SIG_PID" == "$PPID" ]]; then
+        PR_URL=$(jq -r '.pr_url // "none"' "$_SUM_SIG_FILE" 2>/dev/null || echo "none")
+        [[ "$PR_URL" == "null" ]] && PR_URL="none"
+      fi
+    fi
+    # Fallback: checkpoint scan (only if signal didn't have PR_URL)
+    if [[ "$PR_URL" == "none" ]]; then
+      ARC_CKPT=$(_find_arc_checkpoint || true)
+      if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
+        PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+        if [[ "$PR_URL" == "none" ]]; then
+          PR_URL=$(jq -r '.phases.ship.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+        fi
+      fi
     fi
 
     # Extract current branch (FORGE2-003: --no-color not needed for branch --show-current)
@@ -263,36 +279,48 @@ ${PR_URL}
   fi
 fi
 
-# ── Detect arc failure before marking plan status (parity with arc-issues-stop-hook.sh) ──
-# Check arc checkpoint status and PR URL to determine success vs failure.
-# BUG FIX (v1.107.0): Default to "failed" instead of "completed".
-# Only mark "completed" with positive evidence (PR URL or checkpoint success status).
-# Previous bug: defaulted "completed" + read non-existent tmp/.arc-checkpoint.json,
-# causing phantom "completed" for plans that never actually ran.
+# ── Detect arc completion status ──
+# ARCHITECTURE (v1.109.2): 2-layer detection with explicit signal as primary.
+# Layer 1 (PRIMARY): Read arc result signal at deterministic path (decoupled from checkpoint internals).
+# Layer 2 (FALLBACK): Scan checkpoint files if signal is missing (crash recovery, pre-v1.109.2 arcs).
+# Default: "failed" — only mark "completed" with positive evidence.
 ARC_STATUS="failed"
-# BUG FIX (v1.107.0): Use _find_arc_checkpoint() to locate the real checkpoint
-# at .claude/arc/${id}/checkpoint.json (session-scoped, newest by mtime).
-ARC_CKPT=$(_find_arc_checkpoint || true)
 ARC_CKPT_STATUS=""
-if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
-  ARC_CKPT_STATUS=$(jq -r '.phases | to_entries | map(select(.value.status == "completed")) | length' "$ARC_CKPT" 2>/dev/null || echo "0")
-  # Also extract PR_URL from checkpoint if not already set by summary block
-  if [[ "$PR_URL" == "none" ]]; then
-    PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+
+# Layer 1: Arc result signal (deterministic path, no scanning)
+if _read_arc_result_signal; then
+  ARC_STATUS="$ARC_SIGNAL_STATUS"
+  if [[ "$PR_URL" == "none" && "$ARC_SIGNAL_PR_URL" != "none" ]]; then
+    PR_URL="$ARC_SIGNAL_PR_URL"
   fi
+  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL}"
 fi
-# Determine success: PR URL exists (arc reached SHIP) or checkpoint shows ship/merge completed
-if [[ "$PR_URL" != "none" ]]; then
-  ARC_STATUS="completed"
-elif [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]]; then
-  # Check if ship or merge phase completed
-  _ship_status=$(jq -r '.phases.ship.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
-  _merge_status=$(jq -r '.phases.merge.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
-  if [[ "$_ship_status" == "completed" ]] || [[ "$_merge_status" == "completed" ]]; then
-    ARC_STATUS="completed"
+
+# Layer 2: Checkpoint scan fallback (for crash recovery or pre-v1.109.2 arcs)
+if [[ "$ARC_STATUS" == "failed" ]]; then
+  ARC_CKPT=$(_find_arc_checkpoint || true)
+  if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
+    ARC_CKPT_STATUS=$(jq -r '.phases | to_entries | map(select(.value.status == "completed")) | length' "$ARC_CKPT" 2>/dev/null || echo "0")
+    # Extract PR_URL from checkpoint if not already set
+    if [[ "$PR_URL" == "none" ]]; then
+      PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+    fi
+    if [[ "$PR_URL" == "none" ]]; then
+      PR_URL=$(jq -r '.phases.ship.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+    fi
+    # Determine success from checkpoint evidence
+    if [[ "$PR_URL" != "none" ]]; then
+      ARC_STATUS="completed"
+    else
+      _ship_status=$(jq -r '.phases.ship.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
+      _merge_status=$(jq -r '.phases.merge.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
+      if [[ "$_ship_status" == "completed" ]] || [[ "$_merge_status" == "completed" ]]; then
+        ARC_STATUS="completed"
+      fi
+    fi
   fi
+  _trace "Arc status from checkpoint fallback: arc_status=${ARC_STATUS} ckpt_status=${ARC_CKPT_STATUS} pr_url=${PR_URL}"
 fi
-_trace "Arc status determination: arc_status=${ARC_STATUS} ckpt_status=${ARC_CKPT_STATUS} pr_url=${PR_URL}"
 
 # ── Mark current in_progress plan with detected status ──
 # BACK-006: Extract current in_progress plan path for path-scoped selector (prevents marking ALL in_progress plans)

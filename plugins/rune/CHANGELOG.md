@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.109.2] - 2026-02-26
+
+### Added
+- **Arc Result Signal: Deterministic PostToolUse hook** — New `arc-result-signal-writer.sh` PostToolUse:Write|Edit hook replaces LLM-instructed signal write with a deterministic shell hook. The hook fires on every Write/Edit, fast-path exits in <5ms for non-checkpoint writes (grep check), and only triggers full logic when the written file is an arc checkpoint with `ship` or `merge` phase completed. Writes `tmp/arc-result-current.json` atomically (mktemp + mv). This decouples stop hooks from checkpoint internals — arc writes checkpoint, hook detects completion, writes signal. Stop hooks read signal (primary) → checkpoint scan (fallback). Zero prompt tokens consumed. Survives session compaction.
+- **2-layer arc completion detection** — `arc-batch-stop-hook.sh` and `arc-issues-stop-hook.sh` now use `_read_arc_result_signal()` as primary detection (Layer 1), with `_find_arc_checkpoint()` as fallback (Layer 2) for crash recovery and pre-v1.109.2 arcs. This replaces the monolithic checkpoint-only detection.
+- **`_read_arc_result_signal()` shared function** — New function in `stop-hook-common.sh` reads the explicit arc result signal with full session isolation (owner_pid + config_dir verification). Returns status and PR URL. Fail-open: returns 1 on any error.
+
+### Fixed
+- **PERF: Summary block checkpoint scan eating hook timeout** — `arc-batch-stop-hook.sh` summary block (line 191) previously called `_find_arc_checkpoint()` to extract PR_URL BEFORE the main detection block. With 100+ checkpoint dirs, this scan consumed the 15s hook timeout budget, causing the hook to be killed without any output — resulting in "idle" behavior where the batch couldn't advance to the next plan. Now reads `tmp/arc-result-current.json` signal file first (O(1)), falling back to checkpoint scan only when signal is unavailable.
+
+### Changed
+- **Arc SKILL.md**: Replaced LLM-instructed `Write("tmp/arc-result-current.json", ...)` pseudocode with documentation that the signal is now written automatically by the PostToolUse hook. No manual Write() call needed.
+
+## [1.109.1] - 2026-02-26
+
+### Fixed
+- **BUG: Checkpoint path divergence after session compaction** — `_find_arc_checkpoint()` in `stop-hook-common.sh` now searches BOTH `.claude/arc/` AND `tmp/arc/` directories. After session compaction, the arc pipeline may resume and write its checkpoint to `tmp/arc/` instead of the canonical `.claude/arc/`. Previously, searching only `.claude/arc/` would find a stale pre-compaction checkpoint (e.g., `ship=pending`) while the actual completed checkpoint lived at `tmp/arc/` (e.g., `ship=completed`, PR merged). This caused arc-batch and arc-issues to misdetect successful arcs as "failed" and break the batch chain.
+- **BUG: `pr_url` nested location fallback** — `arc-batch-stop-hook.sh` and `arc-issues-stop-hook.sh` now check `phases.ship.pr_url` as fallback when top-level `pr_url` is null. After compaction, arc may store the PR URL only in the nested location.
+- **Test: Add `write_checkpoint_file()` helper** — Tests that verify plan completion status now create mock checkpoint files with success evidence. Without a checkpoint, `ARC_STATUS` defaults to "failed" (v1.107.0 safe default), causing false test failures.
+- **Test: Fix compact interlude phase awareness** — Tests expecting arc prompt output (`test_arc_prompt_contains_plan_path`, `test_arc_prompt_includes_truthbinding`, `test_no_merge_flag_included`, `test_processes_own_batch`) now use `compact_pending=True` to simulate Phase B (prompt injection) instead of Phase A (compact checkpoint).
+
 ## [1.109.0] - 2026-02-26
 
 ### Added

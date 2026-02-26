@@ -32,6 +32,7 @@ def write_state_file(
     total_plans: int = 3,
     no_merge: bool = False,
     owner_pid: str | None = None,
+    compact_pending: bool = False,
 ) -> Path:
     """Create a .claude/arc-batch-loop.local.md state file."""
     state_file = project / ".claude" / "arc-batch-loop.local.md"
@@ -54,6 +55,7 @@ def write_state_file(
     plans_file: tmp/arc-batch/batch-progress.json
     progress_file: tmp/arc-batch/batch-progress.json
     started_at: "2026-02-22T00:00:00.000Z"
+    compact_pending: {"true" if compact_pending else "false"}
     ---
 
     Arc batch loop state. Do not edit manually.
@@ -79,6 +81,72 @@ def write_progress_file(
     }
     path = progress_dir / "batch-progress.json"
     path.write_text(json.dumps(progress, indent=2))
+    return path
+
+
+def write_checkpoint_file(
+    project: Path,
+    *,
+    owner_pid: str | None = None,
+    ship_status: str = "completed",
+    pr_url: str | None = "https://github.com/test/repo/pull/99",
+) -> Path:
+    """Create a mock arc checkpoint under .claude/arc/ for _find_arc_checkpoint().
+
+    The stop hook uses _find_arc_checkpoint() to locate the newest checkpoint
+    matching the current session's PPID. Without a checkpoint, ARC_STATUS
+    defaults to "failed" and plans get marked as failed instead of completed.
+    """
+    pid = owner_pid or str(os.getpid())
+    arc_id = f"arc-test-{pid}"
+    ckpt_dir = project / ".claude" / "arc" / arc_id
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint = {
+        "id": arc_id,
+        "schema_version": 17,
+        "owner_pid": pid,
+        "pr_url": pr_url,
+        "phases": {
+            "ship": {"status": ship_status, "pr_url": pr_url},
+            "merge": {"status": ship_status if ship_status == "completed" else "pending"},
+        },
+    }
+    path = ckpt_dir / "checkpoint.json"
+    path.write_text(json.dumps(checkpoint, indent=2))
+    return path
+
+
+def write_arc_result_signal(
+    project: Path,
+    config: Path,
+    *,
+    owner_pid: str | None = None,
+    arc_status: str = "completed",
+    pr_url: str | None = "https://github.com/test/repo/pull/99",
+    plan_path: str = "plans/a.md",
+) -> Path:
+    """Create tmp/arc-result-current.json (v1.109.2 explicit completion signal).
+
+    Stop hooks read this signal FIRST as the primary arc completion detection.
+    Falls back to _find_arc_checkpoint() if signal is missing.
+    """
+    pid = owner_pid or str(os.getpid())
+    signal_dir = project / "tmp"
+    signal_dir.mkdir(parents=True, exist_ok=True)
+    signal = {
+        "schema_version": 1,
+        "arc_id": f"arc-test-{pid}",
+        "plan_path": plan_path,
+        "status": arc_status,
+        "pr_url": pr_url,
+        "completed_at": "2026-02-26T12:00:00Z",
+        "phases_completed": 17,
+        "phases_total": 23,
+        "owner_pid": pid,
+        "config_dir": str(config.resolve()),
+    }
+    path = signal_dir / "arc-result-current.json"
+    path.write_text(json.dumps(signal, indent=2))
     return path
 
 
@@ -227,9 +295,13 @@ class TestArcBatchSessionIsolation:
     @requires_jq
     @pytest.mark.session_isolation
     def test_processes_own_batch(self, project_env):
-        """Same PPID and config_dir → processes normally."""
+        """Same PPID and config_dir → processes normally.
+
+        Uses compact_pending=True to skip Phase A (compact interlude checkpoint)
+        and go directly to Phase B which injects the arc prompt for the next plan.
+        """
         project, config = project_env
-        write_state_file(project, config, owner_pid=str(os.getpid()))
+        write_state_file(project, config, owner_pid=str(os.getpid()), compact_pending=True)
         write_progress_file(project, [
             {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
             {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
@@ -252,7 +324,11 @@ class TestArcBatchProgressTracking:
     @requires_jq
     def test_marks_current_plan_completed(self, project_env):
         project, config = project_env
-        write_state_file(project, config, owner_pid=str(os.getpid()))
+        pid = str(os.getpid())
+        write_state_file(project, config, owner_pid=pid)
+        # Checkpoint required: _find_arc_checkpoint() needs evidence of success,
+        # otherwise ARC_STATUS defaults to "failed" (v1.107.0 safe default).
+        write_checkpoint_file(project, owner_pid=pid, ship_status="completed")
         progress_path = write_progress_file(project, [
             {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
             {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
@@ -282,8 +358,16 @@ class TestArcBatchProgressTracking:
 
     @requires_jq
     def test_increments_iteration(self, project_env):
+        """Iteration increments in Phase B (compact_pending=true).
+
+        Phase A marks plan status and sets compact_pending=true.
+        Phase B (this test) resets compact_pending, increments iteration,
+        and injects the next arc prompt.
+        """
         project, config = project_env
-        write_state_file(project, config, iteration=2, owner_pid=str(os.getpid()))
+        pid = str(os.getpid())
+        write_state_file(project, config, iteration=2, owner_pid=pid, compact_pending=True)
+        write_checkpoint_file(project, owner_pid=pid, ship_status="completed")
         write_progress_file(project, [
             {"path": "plans/a.md", "status": "completed", "error": None, "completed_at": "2026-02-22T00:00:00Z"},
             {"path": "plans/b.md", "status": "in_progress", "error": None, "completed_at": None},
@@ -316,7 +400,7 @@ class TestArcBatchNextPlanInjection:
     @requires_jq
     def test_arc_prompt_contains_plan_path(self, project_env):
         project, config = project_env
-        write_state_file(project, config, owner_pid=str(os.getpid()))
+        write_state_file(project, config, owner_pid=str(os.getpid()), compact_pending=True)
         write_progress_file(project, [
             {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
             {"path": "plans/next-plan.md", "status": "pending", "error": None, "completed_at": None},
@@ -328,7 +412,7 @@ class TestArcBatchNextPlanInjection:
     @requires_jq
     def test_arc_prompt_includes_truthbinding(self, project_env):
         project, config = project_env
-        write_state_file(project, config, owner_pid=str(os.getpid()))
+        write_state_file(project, config, owner_pid=str(os.getpid()), compact_pending=True)
         write_progress_file(project, [
             {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
             {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
@@ -341,7 +425,7 @@ class TestArcBatchNextPlanInjection:
     @requires_jq
     def test_no_merge_flag_included(self, project_env):
         project, config = project_env
-        write_state_file(project, config, no_merge=True, owner_pid=str(os.getpid()))
+        write_state_file(project, config, no_merge=True, owner_pid=str(os.getpid()), compact_pending=True)
         write_progress_file(project, [
             {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
             {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
@@ -465,3 +549,156 @@ class TestArcBatchEdgeCases:
         result = run_batch_hook(project, config)
         assert result.returncode == 0
         assert not (project / ".claude" / "arc-batch-loop.local.md").exists()
+
+
+# ---------------------------------------------------------------------------
+# Arc Result Signal Detection (v1.109.2)
+# ---------------------------------------------------------------------------
+
+
+class TestArcResultSignalDetection:
+    """Tests for 2-layer arc completion detection:
+    Layer 1 (PRIMARY): _read_arc_result_signal() — explicit signal at deterministic path
+    Layer 2 (FALLBACK): _find_arc_checkpoint() — checkpoint scan
+    """
+
+    @requires_jq
+    def test_signal_primary_marks_plan_completed(self, project_env):
+        """Signal file (Layer 1) → plan marked as completed without needing checkpoint."""
+        project, config = project_env
+        pid = str(os.getpid())
+        write_state_file(project, config, owner_pid=pid)
+        # Only write signal — NO checkpoint file. Signal should be sufficient.
+        write_arc_result_signal(project, config, owner_pid=pid, arc_status="completed",
+                                pr_url="https://github.com/test/repo/pull/42")
+        progress_path = write_progress_file(project, [
+            {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
+            {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
+        ])
+        run_batch_hook(project, config)
+        updated = json.loads(progress_path.read_text())
+        plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
+        assert plan_a["status"] == "completed"
+        assert plan_a["completed_at"] is not None
+
+    @requires_jq
+    def test_signal_pr_url_used(self, project_env):
+        """PR URL from signal is recorded in progress file."""
+        project, config = project_env
+        pid = str(os.getpid())
+        write_state_file(project, config, owner_pid=pid)
+        write_arc_result_signal(project, config, owner_pid=pid,
+                                pr_url="https://github.com/test/repo/pull/42")
+        progress_path = write_progress_file(project, [
+            {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
+            {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
+        ])
+        run_batch_hook(project, config)
+        updated = json.loads(progress_path.read_text())
+        plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
+        assert plan_a.get("pr_url") == "https://github.com/test/repo/pull/42"
+
+    @requires_jq
+    def test_signal_wrong_pid_ignored(self, project_env):
+        """Signal with different owner_pid → ignored, falls back to checkpoint scan."""
+        project, config = project_env
+        pid = str(os.getpid())
+        write_state_file(project, config, owner_pid=pid)
+        # Write signal with WRONG PID
+        write_arc_result_signal(project, config, owner_pid="99999", arc_status="completed")
+        # Write checkpoint with correct PID (fallback should find this)
+        write_checkpoint_file(project, owner_pid=pid, ship_status="completed")
+        progress_path = write_progress_file(project, [
+            {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
+            {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
+        ])
+        run_batch_hook(project, config)
+        updated = json.loads(progress_path.read_text())
+        plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
+        # Should still be completed via checkpoint fallback (Layer 2)
+        assert plan_a["status"] == "completed"
+
+    @requires_jq
+    def test_signal_wrong_config_dir_ignored(self, project_env):
+        """Signal with different config_dir → ignored."""
+        project, config = project_env
+        pid = str(os.getpid())
+        write_state_file(project, config, owner_pid=pid)
+        # Create signal with wrong config_dir by writing manually
+        signal_dir = project / "tmp"
+        signal_dir.mkdir(parents=True, exist_ok=True)
+        signal = {
+            "schema_version": 1,
+            "arc_id": "arc-wrong",
+            "plan_path": "plans/a.md",
+            "status": "completed",
+            "pr_url": "https://github.com/test/repo/pull/42",
+            "completed_at": "2026-02-26T12:00:00Z",
+            "phases_completed": 17,
+            "phases_total": 23,
+            "owner_pid": pid,
+            "config_dir": "/different/config/dir",
+        }
+        (signal_dir / "arc-result-current.json").write_text(json.dumps(signal))
+        # Also write checkpoint as fallback
+        write_checkpoint_file(project, owner_pid=pid, ship_status="completed")
+        progress_path = write_progress_file(project, [
+            {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
+            {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
+        ])
+        run_batch_hook(project, config)
+        updated = json.loads(progress_path.read_text())
+        plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
+        # Completed via checkpoint fallback
+        assert plan_a["status"] == "completed"
+
+    @requires_jq
+    def test_no_signal_no_checkpoint_defaults_failed(self, project_env):
+        """No signal AND no checkpoint → ARC_STATUS defaults to 'failed'."""
+        project, config = project_env
+        pid = str(os.getpid())
+        write_state_file(project, config, owner_pid=pid)
+        # Don't write signal or checkpoint
+        progress_path = write_progress_file(project, [
+            {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
+            {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
+        ])
+        run_batch_hook(project, config)
+        updated = json.loads(progress_path.read_text())
+        plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
+        assert plan_a["status"] == "failed"
+
+    @requires_jq
+    def test_signal_partial_status(self, project_env):
+        """Signal with 'partial' status → plan marked as partial."""
+        project, config = project_env
+        pid = str(os.getpid())
+        write_state_file(project, config, owner_pid=pid)
+        write_arc_result_signal(project, config, owner_pid=pid, arc_status="partial")
+        progress_path = write_progress_file(project, [
+            {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
+            {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
+        ])
+        run_batch_hook(project, config)
+        updated = json.loads(progress_path.read_text())
+        plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
+        # Partial arcs should be marked as "partial" (not "completed")
+        assert plan_a["status"] == "partial"
+
+    @requires_jq
+    def test_checkpoint_fallback_when_no_signal(self, project_env):
+        """No signal file → falls back to checkpoint scan (Layer 2)."""
+        project, config = project_env
+        pid = str(os.getpid())
+        write_state_file(project, config, owner_pid=pid)
+        # Only write checkpoint — no signal file
+        write_checkpoint_file(project, owner_pid=pid, ship_status="completed",
+                              pr_url="https://github.com/test/repo/pull/55")
+        progress_path = write_progress_file(project, [
+            {"path": "plans/a.md", "status": "in_progress", "error": None, "completed_at": None},
+            {"path": "plans/b.md", "status": "pending", "error": None, "completed_at": None},
+        ])
+        run_batch_hook(project, config)
+        updated = json.loads(progress_path.read_text())
+        plan_a = next(p for p in updated["plans"] if p["path"] == "plans/a.md")
+        assert plan_a["status"] == "completed"

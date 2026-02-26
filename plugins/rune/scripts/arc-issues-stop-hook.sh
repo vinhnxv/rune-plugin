@@ -128,14 +128,24 @@ if [[ -z "$PROGRESS_CONTENT" ]]; then
   exit 0
 fi
 
-# ── Extract arc checkpoint data (PR URL, branch) ──
+# ── Extract arc completion data (PR URL, status) ──
 PR_URL="none"
-# BUG FIX (v1.107.0): Arc checkpoints live at .claude/arc/${id}/checkpoint.json,
-# NOT tmp/.arc-checkpoint.json (which never existed). Use _find_arc_checkpoint()
-# from lib/stop-hook-common.sh to find the correct checkpoint for this session.
-ARC_CKPT=$(_find_arc_checkpoint || true)
-if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
-  PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+# ARCHITECTURE (v1.109.2): Signal-first, checkpoint-fallback (same as arc-batch).
+# Layer 1: Arc result signal (deterministic path)
+if _read_arc_result_signal; then
+  if [[ "$ARC_SIGNAL_PR_URL" != "none" ]]; then
+    PR_URL="$ARC_SIGNAL_PR_URL"
+  fi
+fi
+# Layer 2: Checkpoint scan fallback (crash recovery, pre-v1.109.2 arcs)
+if [[ "$PR_URL" == "none" ]]; then
+  ARC_CKPT=$(_find_arc_checkpoint || true)
+  if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
+    PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+    if [[ "$PR_URL" == "none" ]]; then
+      PR_URL=$(jq -r '.phases.ship.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+    fi
+  fi
 fi
 # BACK-005: Strict PR URL validation — only allow safe characters (no shell metacharacters)
 [[ "$PR_URL" =~ ^https://[a-zA-Z0-9._/-]+$ ]] || PR_URL="none"
@@ -157,24 +167,27 @@ fi
 
 _trace "Completing iteration ${ITERATION}: plan=${_CURRENT_PLAN_PATH} issue=#${_CURRENT_ISSUE_NUM:-?} pr_url=${PR_URL}"
 
-# ── SEC-002: Detect arc failure before marking plan status ──
-# Check arc checkpoint status and PR URL to determine success vs failure.
-# BUG FIX (v1.107.0): Default to "failed" instead of "completed".
-# Only mark "completed" with positive evidence (PR URL or checkpoint success status).
+# ── SEC-002: Detect arc completion status ──
+# ARCHITECTURE (v1.109.2): Signal-first, checkpoint-fallback.
 ARC_STATUS="failed"
 ARC_CKPT_STATUS=""
-if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
-  ARC_CKPT_STATUS=$(jq -r '.phases | to_entries | map(select(.value.status == "completed")) | length' "$ARC_CKPT" 2>/dev/null || echo "0")
+
+# Layer 1: Arc result signal (already read above for PR_URL extraction)
+if [[ -n "${ARC_SIGNAL_STATUS:-}" ]]; then
+  ARC_STATUS="$ARC_SIGNAL_STATUS"
 fi
-# Determine success: PR URL exists (arc reached SHIP) or checkpoint shows ship/merge completed
-if [[ "$PR_URL" != "none" ]]; then
-  ARC_STATUS="completed"
-elif [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]]; then
-  # Check if ship or merge phase completed
-  _ship_status=$(jq -r '.phases.ship.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
-  _merge_status=$(jq -r '.phases.merge.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
-  if [[ "$_ship_status" == "completed" ]] || [[ "$_merge_status" == "completed" ]]; then
+
+# Layer 2: Checkpoint-based detection (fallback)
+if [[ "$ARC_STATUS" == "failed" ]]; then
+  if [[ "$PR_URL" != "none" ]]; then
     ARC_STATUS="completed"
+  elif [[ -n "${ARC_CKPT:-}" ]] && [[ -f "${ARC_CKPT:-}" ]]; then
+    ARC_CKPT_STATUS=$(jq -r '.phases | to_entries | map(select(.value.status == "completed")) | length' "$ARC_CKPT" 2>/dev/null || echo "0")
+    _ship_status=$(jq -r '.phases.ship.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
+    _merge_status=$(jq -r '.phases.merge.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
+    if [[ "$_ship_status" == "completed" ]] || [[ "$_merge_status" == "completed" ]]; then
+      ARC_STATUS="completed"
+    fi
   fi
 fi
 _trace "Arc status determination: arc_status=${ARC_STATUS} ckpt_status=${ARC_CKPT_STATUS} pr_url=${PR_URL}"
