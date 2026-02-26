@@ -13,6 +13,7 @@
 #   parse_frontmatter()          — Parse YAML frontmatter from state file, sets FRONTMATTER
 #   get_field()                  — Extract field from FRONTMATTER
 #   validate_session_ownership() — Guards 5.7/10: config_dir + owner_pid isolation check
+#   _iso_to_epoch()              — Cross-platform ISO-8601 to Unix epoch (macOS + Linux)
 #   validate_paths()             — Path traversal + metachar rejection for relative file paths
 #
 # EXPORTED VARIABLES (set by functions):
@@ -192,6 +193,21 @@ _find_arc_checkpoint() {
     echo "$newest"
     return 0
   fi
+  return 1
+}
+
+# ── _iso_to_epoch(): Cross-platform ISO-8601 to Unix epoch (macOS + Linux) ──
+# Args: $1 = ISO-8601 timestamp (must match YYYY-MM-DDTHH:MM:SSZ exactly)
+# Returns: epoch seconds via stdout, exit 1 on failure.
+# SEC-GUARD10: Validates format to prevent shell injection via crafted timestamps.
+_iso_to_epoch() {
+  local ts="$1"
+  # Validate strict format: YYYY-MM-DDTHH:MM:SSZ (no other chars allowed)
+  [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || return 1
+  # macOS BSD date
+  date -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null && return 0
+  # GNU date fallback
+  date -d "$ts" +%s 2>/dev/null && return 0
   return 1
 }
 
