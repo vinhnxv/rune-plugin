@@ -264,6 +264,13 @@ Bash(`mkdir -p "tmp/inspect/${identifier}"`)
 // Includes context budgets: grace-warden=40, ruin-prophet=30, sight-oracle=35, vigil-keeper=30
 // instruction_anchoring: true, reanchor_interval: 5
 
+// Step 2.3.5 — Workflow lock (reader)
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "reader"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "inspect" "reader"`)
+
 // Step 2.4 — Pre-create guard (teamTransition pattern)
 //   Step A: TeamDelete with retry-with-backoff (3 attempts: 0s, 3s, 8s)
 //   Step B: Filesystem fallback if Step A failed (CDX-003 gate: !teamDeleteSucceeded)
@@ -467,9 +474,10 @@ See [verdict-synthesis.md](references/verdict-synthesis.md) for full cleanup pro
 1. Shutdown all inspectors + verdict-binder (`SendMessage shutdown_request`)
 2. `TeamDelete` with filesystem fallback (CHOME pattern)
 3. Update state file to "completed" (preserve `config_dir`, `owner_pid`, `session_id`, verdict, completion)
-4. Persist echo if P1 findings exist
-5. If `--fix`: run Phase 7.5 remediation (gap-fixer team, 2-min timeout, append results to VERDICT.md)
-6. Post-inspection: `AskUserQuestion` with options (View VERDICT, Fix gaps /rune:strive, /rune:appraise, Done)
+4. Release workflow lock: `Bash(\`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "inspect"\`)`
+5. Persist echo if P1 findings exist
+6. If `--fix`: run Phase 7.5 remediation (gap-fixer team, 2-min timeout, append results to VERDICT.md)
+7. Post-inspection: `AskUserQuestion` with options (View VERDICT, Fix gaps /rune:strive, /rune:appraise, Done)
 
 ## Error Handling
 

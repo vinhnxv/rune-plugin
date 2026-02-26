@@ -100,6 +100,16 @@ let incrementalLockAcquired = false  // Tracks whether THIS session owns the loc
 const sessionId = "${CLAUDE_SESSION_ID}"  // Standalone variable for use in state writes (Finding 3 fix)
 ```
 
+## Workflow Lock (reader)
+
+```javascript
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "reader"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "audit" "reader"`)
+```
+
 ## Phase 0: Pre-flight
 
 <!-- DELEGATION-CONTRACT: Changes to Phase 0 steps must be reflected in skills/arc/references/arc-delegation-checklist.md -->
@@ -284,6 +294,7 @@ const params = {
 // Phase 5: Aggregate (Runebinder → TOME.md)
 // Phase 6: Verify (Truthsight)
 // Phase 7: Cleanup (shutdown, TeamDelete, state update, Echo persist)
+//   Includes: Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "audit"`)
 ```
 
 ### Audit-Specific Post-Orchestration

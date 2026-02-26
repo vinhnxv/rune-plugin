@@ -88,6 +88,16 @@ Parse with `extractYamlFrontmatter(content)`. If frontmatter is missing either f
 
 ## Orchestration Loop
 
+### Workflow Lock (writer)
+
+```javascript
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "writer"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "arc-hierarchy" "writer"`)
+```
+
 ### Phase 0: Parse Arguments
 
 ```javascript
@@ -274,6 +284,9 @@ if (completedCount === totalChildren) {
 
 // Clean up state file and JSON sidecar
 Bash(`rm -f "${stateFile}" ".claude/arc-hierarchy-exec-table.json"`)
+
+// Release workflow lock
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "arc-hierarchy"`)
 ```
 
 ---

@@ -234,6 +234,16 @@ if (parsedRiskMap) {
 
 **Skip condition**: When `parsedRiskMap` is `null`, original severity ordering (P1 > P2 > P3, then by line number) is preserved unchanged.
 
+## Phase 1.5: Workflow Lock (writer)
+
+```javascript
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "writer"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "mend" "writer"`)
+```
+
 ## Phase 2: FORGE TEAM
 
 Creates team, captures pre-mend SHA, writes state file with session isolation fields, snapshots pre-mend working tree, creates inscription contracts, and links cross-group dependencies via `blockedBy`.
@@ -533,6 +543,9 @@ if (!cleanupSucceeded) {
 
 // Update state file status → "completed" or "partial"
 Write("tmp/.rune-mend-{id}.json", { status: mendStatus, completed: timestamp, ... })
+
+// Release workflow lock
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "mend"`)
 
 // Persist learnings to Rune Echoes (TRACED layer)
 if (exists(".claude/echoes/workers/")) { appendEchoEntry("...", { layer: "traced", ... }) }

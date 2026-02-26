@@ -188,6 +188,18 @@ Create output directory and write `inscription.json`:
 }
 ```
 
+### 2.5. Workflow Lock (reader)
+
+```bash
+CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+source "${CWD}/plugins/rune/scripts/lib/workflow-lock.sh"
+conflicts=$(rune_check_conflicts "reader")
+if echo "$conflicts" | grep -q "CONFLICT"; then
+  AskUserQuestion({ question: "Active workflow conflict:\n${conflicts}\nProceed anyway?" })
+fi
+rune_acquire_lock "goldmask" "reader"
+```
+
 ### 3. Pre-Create Guard + Team Lifecycle
 
 Follow the 3-step pre-create guard from `team-lifecycle-guard.md`:
@@ -394,6 +406,11 @@ fi
 
 # Clean up state file
 rm -f "tmp/.rune-goldmask-${session_id}.json" 2>/dev/null
+
+# Release workflow lock
+CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+source "${CWD}/plugins/rune/scripts/lib/workflow-lock.sh"
+rune_release_lock "goldmask"
 ```
 
 ### 8. Report

@@ -98,6 +98,16 @@ const params = {
 | `--deep + --max-agents N` | Applies to Wave 1 only. Wave 2/3 agents are not subject to --max-agents cap (they are deepOnly). |
 | `--deep + --no-converge` | Deep waves still execute. `--no-converge` affects per-chunk convergence, not wave scheduling. |
 
+## Workflow Lock (reader)
+
+```javascript
+const lockConflicts = Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_check_conflicts "reader"`)
+if (lockConflicts.includes("CONFLICT")) {
+  AskUserQuestion({ question: `Active workflow conflict:\n${lockConflicts}\nProceed anyway?` })
+}
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_acquire_lock "appraise" "reader"`)
+```
+
 ## Phase 0: Pre-flight
 
 Collect changed files and generate diff ranges. For detailed scope algorithms, staged/unstaged/HEAD~N detection, chunk routing, and `--scope-file` override logic — see [review-scope.md](references/review-scope.md).
@@ -308,7 +318,10 @@ if (allMembers.length > 0) {
 // 3. TeamDelete with retry-with-backoff (CLEANUP_DELAYS: [0, 5000, 10000])
 //    On failure: filesystem fallback (CHOME pattern)
 
-// 3. Update state file to "completed" (preserve config_dir, owner_pid, session_id)
+// 3.5. Release workflow lock
+Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "appraise"`)
+
+// 3.6. Update state file to "completed" (preserve config_dir, owner_pid, session_id)
 
 // 4. Persist P1/P2 patterns to .claude/echoes/reviewer/MEMORY.md (if exists)
 

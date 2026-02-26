@@ -38,6 +38,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/gh-issues/` | GitHub Issues batch progress, issue list JSON | Yes (if no active arc-issues loop) |
 | `tmp/gh-plans/` | Auto-generated plan files from GitHub Issues | Yes (if no active arc-issues loop) |
 | `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional, symlink-guarded) |
+| `tmp/.rune-locks/` | Workflow lock directories (PID-guarded) | Yes (dead PIDs only; live PIDs preserved) |
 | `~/.claude/teams/{rune-*/arc-*}/` (or `$CLAUDE_CONFIG_DIR/teams/` if set) | Orphaned team configs from crashed workflows | `--heal` only |
 | `~/.claude/tasks/{rune-*/arc-*}/` (or `$CLAUDE_CONFIG_DIR/tasks/` if set) | Orphaned task lists from crashed workflows | `--heal` only |
 
@@ -233,6 +234,31 @@ if [[ ! -L "tmp/.rune-signals" ]] && [[ -d "tmp/.rune-signals" ]]; then
   # Remove .obs-* dedup files older than 7 days (on-task-observation.sh dedup keys)
   find tmp/.rune-signals -maxdepth 2 -name '.obs-*' -mtime +7 -delete 2>/dev/null || true
   rm -rf tmp/.rune-signals/ 2>/dev/null
+fi
+
+# Clean up stale workflow lock directories (PID-guarded)
+# Only remove locks whose owning PID is dead — live session locks are preserved.
+if [[ ! -L "tmp/.rune-locks" ]] && [[ -d "tmp/.rune-locks" ]]; then
+  for lock_dir in tmp/.rune-locks/*/; do
+    [[ -d "$lock_dir" ]] || continue
+    [[ -L "$lock_dir" ]] && continue  # skip symlinks
+    if [[ -f "$lock_dir/meta.json" ]] && ! command -v jq >/dev/null 2>&1; then
+      echo "  SKIP: $(basename "$lock_dir") — jq unavailable, cannot verify PID liveness"
+      continue
+    fi
+    if [[ -f "$lock_dir/meta.json" ]] && command -v jq >/dev/null 2>&1; then
+      stored_pid=$(jq -r '.pid // empty' "$lock_dir/meta.json" 2>/dev/null || true)
+      if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ ]]; then
+        if kill -0 "$stored_pid" 2>/dev/null; then
+          echo "SKIP: $lock_dir — PID $stored_pid still alive"
+          continue
+        fi
+      fi
+    fi
+    rm -rf "$lock_dir" 2>/dev/null
+  done
+  # Remove empty locks dir
+  rmdir tmp/.rune-locks 2>/dev/null || true
 fi
 
 # Clean up stale git worktrees from mend bisection (if any)
