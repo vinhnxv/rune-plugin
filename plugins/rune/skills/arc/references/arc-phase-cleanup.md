@@ -24,7 +24,7 @@ Multi-prefix entries cover both arc-owned and sub-command-owned team variants (E
 const PHASE_PREFIX_MAP = {
   forge:                  ["rune-forge-", "arc-forge-"],        // /rune:forge + arc variant
   plan_review:            ["arc-plan-review-"],
-  design_extraction:      ["arc-design-extract-"],              // Phase 3 (conditional — design_sync)
+  design_extraction:      ["arc-design-"],                       // Phase 3 (conditional — design_sync)
   work:                   ["rune-work-"],
   design_verification:    ["arc-design-verify-"],               // Phase 5.2 (conditional — VSM fidelity check)
   gap_analysis:           ["rune-inspect-", "arc-inspect-"],    // both prefix variants

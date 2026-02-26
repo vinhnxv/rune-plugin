@@ -1,4 +1,4 @@
-# Phase 5.1: DESIGN EXTRACTION — Arc Design Sync Integration
+# Phase 3: DESIGN EXTRACTION — Arc Design Sync Integration
 
 Extracts Figma design specifications and creates Visual Spec Maps (VSM) for the arc pipeline.
 Gated by `design_sync.enabled` in talisman. **Non-blocking** — design phases never halt the pipeline.
@@ -88,7 +88,7 @@ const maxWorkers = designSyncConfig.max_extraction_workers ?? 2
 for (const component of components.slice(0, 20)) {  // cap at 20 components
   TaskCreate({
     subject: `Extract VSM for ${component.name}`,
-    description: `Fetch Figma node ${component.id} from ${figmaUrl}. Extract design tokens, region tree, variant map. Output to: tmp/arc/${id}/vsm/${component.name}.md`,
+    description: `Fetch Figma node ${component.id} from ${figmaUrl}. Extract design tokens, region tree, variant map. Output to: tmp/arc/${id}/vsm/${component.name}.json`,
     metadata: { phase: "extraction", node_id: component.id, figma_url: figmaUrl }
   })
 }
@@ -124,7 +124,7 @@ try {
 }
 
 // 11. Collect VSM output paths
-const vsmFiles = Bash(`find "tmp/arc/${id}/vsm" -name "*.md" 2>/dev/null`).trim().split('\n').filter(Boolean)
+const vsmFiles = Bash(`find "tmp/arc/${id}/vsm" -name "*.json" 2>/dev/null`).trim().split('\n').filter(Boolean)
 
 updateCheckpoint({
   phase: "design_extraction", status: "completed",
@@ -149,7 +149,7 @@ updateCheckpoint({
 
 | Resource | Location |
 |----------|----------|
-| VSM files | `tmp/arc/{id}/vsm/*.md` |
+| VSM files | `tmp/arc/{id}/vsm/*.json` |
 | Team config | `$CHOME/teams/arc-design-{id}/` |
 | Task list | `$CHOME/tasks/arc-design-{id}/` |
 | Checkpoint state | `.claude/arc/{id}/checkpoint.json` (phase: "design_extraction") |

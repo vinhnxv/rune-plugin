@@ -242,14 +242,14 @@ const PHASE_TIMEOUTS = {
   design_extraction: talismanTimeouts.design_extraction ?? 600_000,  // 10 min (conditional — gated by design_sync.enabled + Figma URL)
   task_decomposition: talismanTimeouts.task_decomposition ?? 300_000,  //  5 min (orchestrator-only, inline codex exec)
   work:          talismanTimeouts.work ?? 2_100_000,    // 35 min (inner 30m + 5m setup)
-  design_verification: talismanTimeouts.design_verification ?? 180_000,  //  3 min (conditional — gated by VSM files from design_extraction)
+  design_verification: talismanTimeouts.design_verification ?? 480_000,  //  8 min (conditional — gated by VSM files from design_extraction)
   gap_analysis:  talismanTimeouts.gap_analysis ?? 720_000,   // 12 min (inner 8m + 2m setup + 2m aggregate — hybrid: deterministic + Inspector Ashes)
   codex_gap_analysis: talismanTimeouts.codex_gap_analysis ?? 660_000,  // 11 min (orchestrator-only, inline codex exec — Architecture Rule #1 lightweight inline exception)
   gap_remediation: talismanTimeouts.gap_remediation ?? 900_000,  // 15 min (inner 10m + 5m setup — spawns gap-fixer Ash)
   code_review:   talismanTimeouts.code_review ?? 900_000,    // 15 min (inner 10m + 5m setup)
   mend:          talismanTimeouts.mend ?? 1_380_000,    // 23 min (inner 15m + 5m setup + 3m ward/cross-file)
   verify_mend:   talismanTimeouts.verify_mend ?? 240_000,    //  4 min (orchestrator-only, no team)
-  design_iteration: talismanTimeouts.design_iteration ?? 600_000,  // 10 min (conditional — gated by design_verification fidelity score < threshold)
+  design_iteration: talismanTimeouts.design_iteration ?? 900_000,  // 15 min (conditional — gated by design_verification fidelity score < threshold)
   test:          talismanTimeouts.test ?? 1_500_000,      // 25 min without E2E (inner 10m + 5m setup + 10m Phase 7.8 critique). Dynamic: 50 min with E2E (3_000_000)
   test_coverage_critique: talismanTimeouts.test_coverage_critique ?? 600_000,  // 10 min (orchestrator-only, inline codex exec — absorbed into test budget)
   pre_ship_validation: talismanTimeouts.pre_ship_validation ?? 360_000,  //  6 min (orchestrator-only, deterministic + Phase 8.55 release quality check)
@@ -263,19 +263,20 @@ const PHASE_TIMEOUTS = {
 }
 // Tier-based dynamic timeout — replaces fixed ARC_TOTAL_TIMEOUT.
 // See review-mend-convergence.md for tier selection logic.
-// Base budget sum is ~249.5 min (recalculated v1.109.0):
+// Base budget sum is ~259.5 min (recalculated v1.109.0):
 //   forge(15) + plan_review(15) + plan_refine(3) + verification(0.5) + semantic_verification(3) +
-//   design_extraction(10) + task_decomposition(5) + work(35) + design_verification(3) +
+//   design_extraction(10) + task_decomposition(5) + work(35) + design_verification(8) +
 //   gap_analysis(12) + codex_gap_analysis(11) + gap_remediation(15) + goldmask_verification(15) +
-//   goldmask_correlation(1) + design_iteration(10) + test(25) + test_coverage_critique(10) +
+//   goldmask_correlation(1) + design_iteration(15) + test(25) + test_coverage_critique(10) +
 //   pre_ship_validation(6) + release_quality_check(5) + bot_review_wait(15) + pr_comment_resolution(20) +
-//   ship(5) + merge(10) = 249.5 min
-// With E2E: test grows to 50 min → 274.5 min base
+//   ship(5) + merge(10) = 259.5 min
+// With E2E: test grows to 50 min → 284.5 min base
 // NOTE: Design phases are conditional (gated by design_sync.enabled). When disabled,
 // effective budget is ~226.5 min (same as pre-design baseline).
-// LIGHT (2 cycles):    249.5 + 42 + 1×26 = 317.5 min
-// STANDARD (3 cycles): 249.5 + 42 + 2×26 = 343.5 min → hard cap at 320 min
-// THOROUGH (5 cycles): 249.5 + 42 + 4×26 = 395.5 min → hard cap at 320 min
+// NOTE: code_review and mend are excluded from base budget — covered by CYCLE_BUDGET.
+// LIGHT (2 cycles):    259.5 + 42 + 1×26 = 327.5 min → hard cap at 320 min
+// STANDARD (3 cycles): 259.5 + 42 + 2×26 = 353.5 min → hard cap at 320 min
+// THOROUGH (5 cycles): 259.5 + 42 + 4×26 = 405.5 min → hard cap at 320 min
 const ARC_TOTAL_TIMEOUT_DEFAULT = 17_670_000  // 294.5 min fallback (LIGHT tier minimum — used before tier selection)
 const ARC_TOTAL_TIMEOUT_HARD_CAP = 19_200_000  // 320 min (5.33 hours) — absolute hard cap (raised from 310 for corrected bot review timeouts)
 const STALE_THRESHOLD = 300_000      // 5 min
@@ -696,7 +697,7 @@ See [arc-phase-design-verification.md](references/arc-phase-design-verification.
 
 **Condition**: VSM files exist in `tmp/arc/{id}/vsm/` (produced by Phase 3 DESIGN EXTRACTION)
 **Skip**: Mark "skipped" if no VSM files or design_extraction was skipped
-**Team**: None (orchestrator-only — uses design-implementation-reviewer agent)
+**Team**: `arc-design-verify-{id}` (design-implementation-reviewer agent)
 **Output**: `tmp/arc/{id}/design-verification-report.md`
 **Failure**: Non-blocking — design phases never halt the pipeline. Skip with warning on reviewer failure.
 
@@ -884,7 +885,7 @@ if (hasDesignFindings) {
   try {
     const findings = JSON.parse(Read(designFindingsPath))
     const fidelityScore = findings.fidelity_score ?? 1.0
-    const threshold = talisman?.design_sync?.fidelity_threshold ?? 0.8
+    const threshold = talisman?.design_sync?.fidelity_threshold ?? 80
     needsIteration = fidelityScore < threshold
   } catch (e) { /* parse error — skip iteration */ }
 }
@@ -1216,7 +1217,7 @@ The orchestrator writes a phase group summary after each group of phases complet
 | PLAN REVIEW | PLAN REFINEMENT | `plan-review.md` | 3 reviewer verdicts (PASS/CONCERN/BLOCK) |
 | PLAN REFINEMENT | VERIFICATION | `concern-context.md` | Extracted concern list. Plan not modified |
 | VERIFICATION | SEMANTIC VERIFICATION | `verification-report.md` | Deterministic check results (PASS/WARN) |
-| SEMANTIC VERIFICATION | DESIGN EXTRACTION | `codex-semantic-verification.md` | Codex contradiction findings (or skip) |
+| SEMANTIC VERIFICATION | DESIGN EXTRACTION | `codex-semantic-verification.md` | Codex contradiction findings (or skip). Design extraction reads enriched-plan.md (not semantic verification output) |
 | DESIGN EXTRACTION | TASK DECOMPOSITION | `tmp/arc/{id}/vsm/`, `tmp/arc/{id}/design/` | VSM files per component (or skipped if no Figma URL / design_sync disabled) |
 | TASK DECOMPOSITION | WORK | `task-validation.md` | Task granularity/dependency validation (or skip) |
 | WORK | DESIGN VERIFICATION | Working tree + `work-summary.md` | Git diff of committed changes + task summary |
