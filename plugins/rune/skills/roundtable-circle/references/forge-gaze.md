@@ -80,6 +80,7 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 | laravel-reviewer | laravel, eloquent, blade, middleware, gates, artisan | [laravel, php] | Laravel Patterns | Laravel Eloquent, Blade security, and authorization patterns |
 | sqlalchemy-reviewer | sqlalchemy, orm, session, migration, eager-loading, n-plus-one | [sqlalchemy, python] | SQLAlchemy Patterns | SQLAlchemy session management, N+1 detection, and migration safety |
 | tdd-compliance-reviewer | testing, tdd, coverage, test-first, assertion, pytest | [python, typescript, rust, php] | TDD Compliance | Test-first development, coverage thresholds, and assertion quality |
+| design-implementation-reviewer | design-system, design-tokens, ui-layout, responsive-design, visual-fidelity, component-variants, figma, accessibility-design, component-states, design-spec | [react, vue, svelte, nextjs, typescript] | Design Implementation | Design fidelity, token usage, responsive compliance, and accessibility |
 
 ### Elicitation Methods (Agent Budget — elicitation-sage)
 

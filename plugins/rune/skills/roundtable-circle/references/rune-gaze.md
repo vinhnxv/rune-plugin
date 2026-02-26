@@ -121,14 +121,31 @@ if stack.confidence >= confidence_threshold:
   if stack.libraries intersects ["dishka", "dependency-injector", "tsyringe"]:
     specialist_selections.add("di-reviewer")
 
-  # 4. Enforce cap
+  # 4. Design Fidelity Gate (conditional on talisman + frontend + VSM)
+  hasFrontend = any(file.ext in [".tsx", ".jsx", ".css", ".scss", ".vue", ".svelte"] for file in changed_files)
+  hasVSM = exists("tmp/arc/*/vsm/") OR exists("tmp/design/")
+  if talisman.design_sync?.enabled AND hasFrontend:
+    if "figma" in stack.frameworks OR hasVSM:
+      specialist_selections.add("design-implementation-reviewer")
+      # Write design context to inscription
+      inscription.design_context = {
+        enabled: true,
+        vsm_dir: find_vsm_dir() ?? null,
+        dcd_dir: find_dcd_dir() ?? null,
+        figma_url: talisman.design_sync?.figma_url ?? null,
+        fidelity_threshold: talisman.design_sync?.fidelity_threshold ?? 0.8,
+        components: parse_vsm_components() ?? [],
+        token_system: detect_token_system() ?? null
+      }
+
+  # 5. Enforce cap
   specialist_selections = specialist_selections[:max_stack_ashes]
 
-  # 5. Add to ash_selections
+  # 6. Add to ash_selections
   for specialist in specialist_selections:
     ash_selections.add(specialist)
 
-  # 6. Store stack context in inscription
+  # 7. Store stack context in inscription
   inscription.detected_stack = stack
   inscription.specialist_ashes = specialist_selections
 

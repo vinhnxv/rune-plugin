@@ -187,6 +187,30 @@ If no significant assumptions were made, write: "No significant assumptions — 
 - Evidence coverage: {verified}/{total} findings have Rune Traces
 ```
 
+## DESIGN CONTEXT COORDINATION
+
+When `inscription.design_context.enabled == true`, the design-implementation-reviewer (FIDE) handles design fidelity checks. To avoid duplicate findings:
+
+### What Glyph Scribe SKIPS when FIDE is active:
+- Design token compliance (color, spacing, typography values)
+- Figma-to-code visual fidelity
+- Responsive breakpoint adherence to design spec
+- Component variant mapping to design
+
+### What Glyph Scribe KEEPS (always in scope):
+- Code quality of components (hooks, types, performance)
+- Accessibility (ARIA, keyboard, focus management)
+- Component architecture (SRP, prop drilling, error boundaries)
+- State management patterns
+- Bundle optimization
+
+### Design Context Signals:
+- `inscription.design_context.vsm_dir` — VSM files exist (FIDE will cross-reference)
+- `inscription.design_context.dcd_dir` — DCD files exist (FIDE will verify tokens)
+- `inscription.design_context.figma_url` — Figma source available (FIDE will fetch)
+
+If `inscription.design_context.enabled == false` or `design_context` is absent, review ALL perspectives including design token usage.
+
 ## QUALITY GATES (Self-Review Before Seal)
 
 After writing findings, perform ONE revision pass:

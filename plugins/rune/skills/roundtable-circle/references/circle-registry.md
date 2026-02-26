@@ -127,6 +127,22 @@ Each Ash entry carries two scheduling fields used by [wave-scheduling.md](wave-s
 **Audit file priority:** entry points > new files > services > abstractions > infrastructure
 **Context budget:** max 30 files (all file types)
 
+### Stack Specialist Ashes (v1.86.0+)
+
+> Stack specialist Ashes are conditionally summoned based on detected project stack. They run alongside Wave 1 Ashes when their activation condition is met. See `skills/stacks/references/detection.md` for detection logic.
+
+| Ash | Agent | Activation Condition | Prefix | Context Budget |
+|-----|-------|---------------------|--------|---------------|
+| python-reviewer | python-reviewer | `detected_stack.primary_language == 'python'` | PY | 25 files |
+| fastapi-reviewer | fastapi-reviewer | `detected_stack.frameworks.includes('fastapi')` | FAPI | 20 files |
+| django-reviewer | django-reviewer | `detected_stack.frameworks.includes('django')` | DJG | 20 files |
+| laravel-reviewer | laravel-reviewer | `detected_stack.frameworks.includes('laravel')` | LARV | 20 files |
+| sqlalchemy-reviewer | sqlalchemy-reviewer | `detected_stack.frameworks.includes('sqlalchemy')` | SQLA | 20 files |
+| tdd-compliance-reviewer | tdd-compliance-reviewer | Test files in diff | TDD | 25 files |
+| design-implementation-reviewer | design-implementation-reviewer | `talisman.design_sync?.enabled AND hasFrontend AND (detected_stack.frameworks.includes('figma') \|\| vsm_files_exist)` | FIDE | 25 files |
+
+**Cap**: `max_stack_ashes` (default: 3) from `talisman.stack_awareness.max_stack_ashes`.
+
 ### Shard Reviewers (Inscription Sharding, v1.98.0+)
 
 **Wave:** N/A — parallel, no wave scheduling | **Deep only:** false (exclusive to standard depth)
