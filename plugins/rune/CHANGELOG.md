@@ -18,6 +18,7 @@
 - **QUAL-004: Missing "partial" count in summary blocks** — Both `arc-batch-stop-hook.sh` and `arc-issues-stop-hook.sh` summary templates now include partial plan count alongside completed/failed.
 - **DOC-007: Symlink rejection test** — Added `test_signal_symlink_rejected` to `TestArcResultSignalDetection` verifying that symlinked signal files are rejected and checkpoint fallback is used.
 - **BACK-005: Signal writer unit tests** — New `test_arc_result_signal_writer.py` with 12 tests covering fast-path exits (non-checkpoint, pending phases), completion detection (ship, merge, partial status, tmp/arc path), session identity preservation, and security guards (symlink rejection, PR URL validation).
+- **QUAL-003: Structural divergence in arc-issues detection** — Restructured arc-issues 2-layer detection from split pattern (PR_URL and status extracted in 2 separate blocks 40 lines apart) to unified single-block pattern matching arc-batch. Eliminates maintenance risk from structural divergence.
 
 ## [1.109.2] - 2026-02-26
 

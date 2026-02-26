@@ -128,28 +128,6 @@ if [[ -z "$PROGRESS_CONTENT" ]]; then
   exit 0
 fi
 
-# ── Extract arc completion data (PR URL, status) ──
-PR_URL="none"
-# ARCHITECTURE (v1.109.2): Signal-first, checkpoint-fallback (same as arc-batch).
-# Layer 1: Arc result signal (deterministic path)
-if _read_arc_result_signal; then
-  if [[ "$ARC_SIGNAL_PR_URL" != "none" ]]; then
-    PR_URL="$ARC_SIGNAL_PR_URL"
-  fi
-fi
-# Layer 2: Checkpoint scan fallback (crash recovery, pre-v1.109.2 arcs)
-if [[ "$PR_URL" == "none" ]]; then
-  ARC_CKPT=$(_find_arc_checkpoint || true)
-  if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
-    PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
-    if [[ "$PR_URL" == "none" ]]; then
-      PR_URL=$(jq -r '.phases.ship.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
-    fi
-  fi
-fi
-# BACK-005: Strict PR URL validation — only allow safe characters (no shell metacharacters)
-[[ "$PR_URL" =~ ^https://[a-zA-Z0-9._/-]+$ ]] || PR_URL="none"
-
 # ── Extract current in_progress plan metadata (BEFORE marking completed) ──
 _CURRENT_PLAN_PATH=$(echo "$PROGRESS_CONTENT" | jq -r '
   [.plans[] | select(.status == "in_progress")] | first | .path // empty
@@ -165,32 +143,67 @@ if [[ -n "$_CURRENT_ISSUE_NUM" ]] && [[ ! "$_CURRENT_ISSUE_NUM" =~ ^[0-9]{1,7}$ 
   _CURRENT_ISSUE_NUM=""
 fi
 
-_trace "Completing iteration ${ITERATION}: plan=${_CURRENT_PLAN_PATH} issue=#${_CURRENT_ISSUE_NUM:-?} pr_url=${PR_URL}"
-
-# ── SEC-002: Detect arc completion status ──
-# ARCHITECTURE (v1.109.2): Signal-first, checkpoint-fallback.
+# ── Detect arc completion status + PR URL (unified single-block) ──
+# QUAL-003 FIX: Restructured to match arc-batch's single-block pattern.
+# Previously split across 2 locations 40 lines apart — now unified.
+# ARCHITECTURE (v1.109.2): 2-layer detection with explicit signal as primary.
+# Layer 1 (PRIMARY): Read arc result signal at deterministic path.
+# Layer 2 (FALLBACK): Scan checkpoint files if signal is missing.
+# Default: "failed" — only mark "completed" with positive evidence.
 ARC_STATUS="failed"
 ARC_CKPT_STATUS=""
+PR_URL="none"
 
-# Layer 1: Arc result signal (already read above for PR_URL extraction)
-if [[ -n "${ARC_SIGNAL_STATUS:-}" ]]; then
+# Layer 1: Arc result signal (deterministic path, no scanning)
+if _read_arc_result_signal; then
   ARC_STATUS="$ARC_SIGNAL_STATUS"
+  if [[ "$ARC_SIGNAL_PR_URL" != "none" ]]; then
+    PR_URL="$ARC_SIGNAL_PR_URL"
+  fi
+  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL}"
 fi
 
-# Layer 2: Checkpoint-based detection (fallback)
+# Layer 2: Checkpoint scan fallback (for crash recovery or pre-v1.109.2 arcs)
 if [[ "$ARC_STATUS" == "failed" ]]; then
-  if [[ "$PR_URL" != "none" ]]; then
-    ARC_STATUS="completed"
-  elif [[ -n "${ARC_CKPT:-}" ]] && [[ -f "${ARC_CKPT:-}" ]]; then
+  ARC_CKPT=$(_find_arc_checkpoint || true)
+  if [[ -n "$ARC_CKPT" ]] && [[ -f "$ARC_CKPT" ]] && [[ ! -L "$ARC_CKPT" ]]; then
     ARC_CKPT_STATUS=$(jq -r '.phases | to_entries | map(select(.value.status == "completed")) | length' "$ARC_CKPT" 2>/dev/null || echo "0")
-    _ship_status=$(jq -r '.phases.ship.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
-    _merge_status=$(jq -r '.phases.merge.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
-    if [[ "$_ship_status" == "completed" ]] || [[ "$_merge_status" == "completed" ]]; then
+    # Extract PR_URL from checkpoint if not already set
+    if [[ "$PR_URL" == "none" ]]; then
+      PR_URL=$(jq -r '.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+    fi
+    if [[ "$PR_URL" == "none" ]]; then
+      PR_URL=$(jq -r '.phases.ship.pr_url // "none"' "$ARC_CKPT" 2>/dev/null || echo "none")
+    fi
+    # Determine success from checkpoint evidence
+    if [[ "$PR_URL" != "none" ]]; then
       ARC_STATUS="completed"
+    else
+      _ship_status=$(jq -r '.phases.ship.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
+      _merge_status=$(jq -r '.phases.merge.status // "pending"' "$ARC_CKPT" 2>/dev/null || echo "pending")
+      if [[ "$_ship_status" == "completed" ]] || [[ "$_merge_status" == "completed" ]]; then
+        ARC_STATUS="completed"
+      fi
     fi
   fi
+  _trace "Arc status from checkpoint fallback: arc_status=${ARC_STATUS} ckpt_status=${ARC_CKPT_STATUS} pr_url=${PR_URL}"
 fi
-_trace "Arc status determination: arc_status=${ARC_STATUS} ckpt_status=${ARC_CKPT_STATUS} pr_url=${PR_URL}"
+
+# Strict PR URL validation — only allow safe characters (no shell metacharacters)
+[[ "$PR_URL" =~ ^https://[a-zA-Z0-9._/-]+$ ]] || PR_URL="none"
+
+_trace "Completing iteration ${ITERATION}: plan=${_CURRENT_PLAN_PATH} issue=#${_CURRENT_ISSUE_NUM:-?} arc_status=${ARC_STATUS} pr_url=${PR_URL}"
+
+# ── STALE SIGNAL CLEANUP (v1.109.3): Remove signal after consumption ──
+# BUG FIX: Without this, a successful iteration N leaves tmp/arc-result-current.json
+# with status="completed". If iteration N+1 fails (ship/merge never fires), the stop
+# hook reads the stale signal and incorrectly marks the failed plan as "completed".
+# Deleting after consumption ensures each iteration starts with a clean signal state.
+_signal_consumed="${CWD}/tmp/arc-result-current.json"
+if [[ -f "$_signal_consumed" ]] && [[ ! -L "$_signal_consumed" ]]; then
+  rm -f "$_signal_consumed" 2>/dev/null
+  _trace "Stale signal cleanup: removed ${_signal_consumed}"
+fi
 
 # ── Mark current in_progress plan with detected status ──
 # BACK-006 pattern: use path-scoped selector to prevent marking ALL in_progress plans
