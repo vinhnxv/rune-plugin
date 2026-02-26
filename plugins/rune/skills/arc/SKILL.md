@@ -204,6 +204,29 @@ Write('.claude/arc-phase-loop.local.md', stateContent)
 Execute the first pending phase from the checkpoint. The Stop hook (`arc-phase-stop-hook.sh`) handles all subsequent phases automatically.
 
 ```javascript
+// Check for context-critical shutdown signal before starting next phase (Layer 1)
+const shutdownSignalCheck = (() => {
+  try {
+    const sid = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
+    const signalPath = `tmp/.rune-shutdown-signal-${sid}.json`
+    const signal = JSON.parse(Read(signalPath))
+    return signal?.signal === "context_warning"
+  } catch { return false }
+})()
+
+if (shutdownSignalCheck) {
+  warn("CTX-WARNING: Context pressure detected between phases. Skipping remaining phases.")
+  // Mark remaining phases as skipped in checkpoint
+  for (const p of PHASE_ORDER) {
+    if (checkpoint.phases[p]?.status === 'pending') {
+      checkpoint.phases[p].status = 'skipped'
+      checkpoint.phases[p].skip_reason = 'context_pressure'
+    }
+  }
+  Write(checkpointPath, checkpoint)
+  return
+}
+
 // Find first pending phase
 const firstPending = PHASE_ORDER.find(p => checkpoint.phases[p]?.status === 'pending')
 if (!firstPending) {

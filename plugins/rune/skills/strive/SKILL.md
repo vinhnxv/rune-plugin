@@ -252,6 +252,40 @@ const result = waitForCompletion(teamName, taskCount, {
 })
 ```
 
+### Signal Checks (Phase 3 — Inline)
+
+Two signal checks run inside the monitoring loop, checked each poll cycle after `TaskList`:
+
+```javascript
+// Check for context-critical shutdown signal (Layer 1)
+const shutdownSignal = (() => {
+  try {
+    const sessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
+    const signalPath = `tmp/.rune-shutdown-signal-${sessionId}.json`
+    const signal = JSON.parse(Read(signalPath))
+    return signal?.signal === "context_warning"
+  } catch { return false }
+})()
+
+if (shutdownSignal) {
+  warn("CTX-WARNING: Context pressure detected. Initiating early teammate shutdown.")
+  goto_cleanup = true
+  break
+}
+
+// Check for "all tasks done" signal from TeammateIdle hook (Layer 4)
+const allDoneSignal = (() => {
+  try {
+    Read(`tmp/.rune-signals/${teamName}/all-tasks-done`)
+    return true
+  } catch { return false }
+})()
+
+if (allDoneSignal) {
+  break
+}
+```
+
 **Wave-aware monitoring (worktree mode)**: Sequential waves, each monitored independently via `waitForCompletion` with `taskFilter`, merge broker runs between waves. Per-wave timeout: 10 minutes.
 
 ### Question Relay Detection (Phase 3 — Inline)

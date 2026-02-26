@@ -966,6 +966,17 @@ Rune uses Elden Ring-inspired theming:
 - The **Elden Throne** is the ultimate goal — successful pipeline completion
 - See CLAUDE.md for the full Lore Glossary
 
+## Teammate Lifecycle Safety
+
+Rune includes a 4-layer defense system to prevent teammates from hanging indefinitely when the team lead's context is exhausted:
+
+1. **Layer 1 — Shutdown Signal**: `guard-context-critical.sh` writes a shutdown signal file at 35% remaining context, enabling orchestrators to initiate early teammate shutdown
+2. **Layer 2 — maxTurns**: All 88 agents have `maxTurns` in their YAML frontmatter, providing a platform-level safety net
+3. **Layer 3 — Process Kill**: `on-session-stop.sh` sends SIGTERM/SIGKILL to orphaned teammate processes before filesystem cleanup
+4. **Layer 4 — All-Tasks-Done Signal**: `on-teammate-idle.sh` writes a coordination signal when all team tasks are completed, enabling faster completion detection
+
+Configure via `talisman.yml` → `teammate_lifecycle` section.
+
 ## Known Limitations
 
 - **Agent Teams is experimental** — Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` environment variable. Behavior may change across Claude Code releases.

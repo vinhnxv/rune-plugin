@@ -98,6 +98,23 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
     - Cancel commands: Warn if cancelling another session's workflow
     - Pattern: `resolve-session-identity.sh` provides `RUNE_CURRENT_CFG`; `$PPID` = Claude Code PID
 
+## Teammate Lifecycle Safety
+
+All agents MUST have `maxTurns` in their YAML frontmatter. This is a platform-level safety net
+that ensures teammates exit even when the team lead's context is exhausted.
+
+| Agent Category | Default maxTurns | Rationale |
+|----------------|------------------|-----------|
+| Work           | 120              | Long implementation tasks |
+| Aggregation    | 60               | Bounded read-write scope |
+| Research       | 40               | Natural completion |
+| Utility        | 40               | Single-pass analysis |
+| Review         | 30               | Single-file scope |
+| Investigation  | 20-40            | Per-agent (already set) |
+| Testing        | 15-40            | Per-agent (already set) |
+
+Override via `talisman.yml` → `teammate_lifecycle.max_turns.{category}`.
+
 ## Core Pseudo-Functions
 
 ### readTalisman()
@@ -199,7 +216,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `Stop` | `scripts/arc-batch-stop-hook.sh` | ARC-BATCH-STOP: Drives the arc-batch loop via Stop hook pattern. Reads `.claude/arc-batch-loop.local.md` state file, marks current plan completed, constructs next arc prompt, re-injects via blocking JSON. Includes session isolation guard. Runs BEFORE on-session-stop.sh. |
 | `Stop` | `scripts/arc-hierarchy-stop-hook.sh` | ARC-HIERARCHY-LOOP: Drives the arc-hierarchy loop via Stop hook pattern. Reads `.claude/arc-hierarchy-loop.local.md` state file, verifies child provides() contracts, constructs next child arc prompt, re-injects via blocking JSON. Includes session isolation guard. Runs BEFORE on-session-stop.sh. |
 | `Stop` | `scripts/arc-issues-stop-hook.sh` | ARC-ISSUES-LOOP: Drives the arc-issues loop via Stop hook pattern. Reads `.claude/arc-issues-loop.local.md` state file, marks current issue completed, posts GitHub comment, updates labels, constructs next arc prompt. Includes session isolation guard. Runs BEFORE on-session-stop.sh. |
-| `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. Filters cleanup by session ownership. One-shot design prevents infinite loops via `stop_hook_active` flag. |
+| `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. Filters cleanup by session ownership. One-shot design prevents infinite loops via `stop_hook_active` flag. Layer 3 process kill: AUTO-CLEAN PHASE 0 sends SIGTERM/SIGKILL to orphaned teammate processes before filesystem cleanup. |
 | `Notification:statusline` | `scripts/rune-statusline.sh` | Context statusline producer. Writes session metrics (used%, remaining%, cost) to bridge file for `rune-context-monitor.sh` consumer. Outputs colored progress bar with workflow status. |
 
 **Seal Convention**: Ashes emit `<seal>TAG</seal>` as the last line of output for deterministic completion detection. See `roundtable-circle/references/monitor-utility.md` "Seal Convention" section.

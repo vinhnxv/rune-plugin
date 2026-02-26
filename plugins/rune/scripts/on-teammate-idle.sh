@@ -219,5 +219,35 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
 fi
 
 _trace "PASS all gates for $TEAMMATE_NAME"
+
+# --- Layer 4: All-Tasks-Done Signal ---
+# After quality gates pass, check if ALL tasks in this team are done.
+# If so, write a signal file so orchestrators can skip remaining poll cycles.
+CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+TASK_DIR="$CHOME/tasks/$TEAM_NAME"
+if [[ -d "$TASK_DIR" ]]; then
+  ALL_DONE=true
+  found_any_task=false
+  shopt -s nullglob
+  for task_file in "$TASK_DIR"/*.json; do
+    [[ -L "$task_file" ]] && continue
+    [[ -f "$task_file" ]] || continue
+    found_any_task=true
+    task_status=$(jq -r '.status // empty' "$task_file" 2>/dev/null || true)
+    if [[ "$task_status" != "completed" && "$task_status" != "deleted" ]]; then
+      ALL_DONE=false
+      break
+    fi
+  done
+  shopt -u nullglob
+
+  if [[ "$ALL_DONE" == "true" && "$found_any_task" == "true" ]]; then
+    sig="${CWD}/tmp/.rune-signals/${TEAM_NAME}/all-tasks-done"
+    mkdir -p "$(dirname "$sig")" 2>/dev/null
+    date -u +%Y-%m-%dT%H:%M:%SZ > "${sig}.tmp.$$" 2>/dev/null && mv "${sig}.tmp.$$" "${sig}" 2>/dev/null || true
+    _trace "SIGNAL all-tasks-done for team $TEAM_NAME"
+  fi
+fi
+
 # All gates passed — allow idle
 exit 0

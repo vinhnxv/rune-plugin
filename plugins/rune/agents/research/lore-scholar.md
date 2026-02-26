@@ -13,6 +13,7 @@ tools:
   - WebSearch
   - WebFetch
   - SendMessage
+maxTurns: 40
 mcpServers:
   - echo-search
 ---

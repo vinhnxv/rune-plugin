@@ -4,9 +4,11 @@
 #
 # When a session ends, this hook automatically cleans up orphaned resources
 # instead of blocking the user. Resources cleaned:
+#   0. Stale teammate processes (node/claude/claude-*) — SIGTERM then SIGKILL
 #   1. Team dirs (rune-*/arc-*) — rm team + task dirs
 #   2. State files (.rune-*.json with status "active") — set status to "stopped"
 #   3. Arc checkpoints with in_progress phases — set to "cancelled"
+#   4. Shutdown signal files (.rune-shutdown-signal-*.json) — rm owned signals
 #
 # DESIGN PRINCIPLES:
 #   1. Fail-open — if anything goes wrong, allow the stop (exit 0)
@@ -162,6 +164,47 @@ if _check_loop_ownership "${CWD}/.claude/arc-issues-loop.local.md"; then
     rm -f "${CWD}/.claude/arc-issues-loop.local.md" 2>/dev/null
   fi
 fi
+
+# ── Helper: Kill stale teammate processes ──
+# Terminates child processes of this Claude Code session (node/claude/claude-*).
+# SIGTERM first (graceful), then SIGKILL survivors after 2s.
+# Only kills OUR session's children — PPID match guarantees this.
+_kill_stale_teammates() {
+  local child_pids child_pid child_comm killed=0
+  child_pids=$(pgrep -P "$PPID" 2>/dev/null || true)
+  [[ -z "$child_pids" ]] && { echo "$killed"; return 0; }
+
+  # Phase 1: SIGTERM eligible children
+  local sigterm_pids=()
+  while IFS= read -r child_pid; do
+    [[ -z "$child_pid" ]] && continue
+    [[ ! "$child_pid" =~ ^[0-9]+$ ]] && continue
+    child_comm=$(ps -p "$child_pid" -o comm= 2>/dev/null || true)
+    case "$child_comm" in
+      node|claude|claude-*) ;;
+      *) continue ;;
+    esac
+    kill -TERM "$child_pid" 2>/dev/null || true
+    sigterm_pids+=("$child_pid")
+  done <<< "$child_pids"
+
+  [[ ${#sigterm_pids[@]} -eq 0 ]] && { echo "0"; return 0; }
+
+  # Phase 2: Wait 2s, then SIGKILL survivors
+  sleep 2
+  for child_pid in "${sigterm_pids[@]}"; do
+    if kill -0 "$child_pid" 2>/dev/null; then
+      kill -KILL "$child_pid" 2>/dev/null || true
+    fi
+    killed=$((killed + 1))
+  done
+
+  echo "$killed"
+  return 0
+}
+
+# ── AUTO-CLEAN PHASE 0: Terminate stale teammate processes ──
+cleaned_processes=$(_kill_stale_teammates)
 
 # ── CHOME resolution ──
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
@@ -352,8 +395,25 @@ for f in /tmp/rune-ctx-*-warned.json /tmp/rune-ctx-*.json; do
 done
 shopt -u nullglob
 
+# ── Shutdown signal file cleanup ──
+# Clean up .rune-shutdown-signal-*.json files created by guard-context-critical.sh (Layer 1)
+shopt -s nullglob
+for f in "${CWD}/tmp/"/.rune-shutdown-signal-*.json; do
+  [[ -f "$f" ]] || continue
+  [[ -L "$f" ]] && continue
+  # Session ownership check
+  SS_CFG=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+  SS_PID=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+  [[ -n "$SS_CFG" && "$SS_CFG" != "$RUNE_CURRENT_CFG" ]] && continue
+  if [[ -n "$SS_PID" && "$SS_PID" =~ ^[0-9]+$ && "$SS_PID" != "$PPID" ]]; then
+    rune_pid_alive "$SS_PID" && continue
+  fi
+  rm -f "$f" 2>/dev/null
+done
+shopt -u nullglob
+
 # ── REPORT ──
-total=$((${#cleaned_teams[@]} + ${#cleaned_states[@]} + ${#cleaned_arcs[@]}))
+total=$((${#cleaned_teams[@]} + ${#cleaned_states[@]} + ${#cleaned_arcs[@]} + cleaned_processes))
 
 if [[ $total -eq 0 ]]; then
   # Nothing to clean — allow stop silently
@@ -379,6 +439,10 @@ fi
 if [[ ${#cleaned_arcs[@]} -gt 0 ]]; then
   arc_list="${cleaned_arcs[*]:0:3}"
   summary="${summary} Arcs: [${arc_list}]."
+fi
+
+if [[ "$cleaned_processes" -gt 0 ]]; then
+  summary="${summary} Processes: ${cleaned_processes} terminated."
 fi
 
 # Log to trace file for debugging (always, not just RUNE_TRACE)

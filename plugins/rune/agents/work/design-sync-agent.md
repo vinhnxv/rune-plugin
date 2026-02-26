@@ -25,7 +25,7 @@ tools:
   - TaskUpdate
   - SendMessage
 model: sonnet
-maxTurns: 40
+maxTurns: 120
 mcpServers:
   - echo-search
   - figma-to-react

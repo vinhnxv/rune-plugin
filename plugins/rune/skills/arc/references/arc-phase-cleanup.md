@@ -116,6 +116,18 @@ function postPhaseCleanup(checkpoint, phaseName) {
       try { TeamDelete() } catch (e) { /* expected if no active team */ }
     }
 
+    // Step 4: Clean up signal files from this phase's team
+    // Removes team-specific signals and session-owned shutdown signals
+    if (phaseInfo.team_name && typeof phaseInfo.team_name === 'string'
+        && /^[a-zA-Z0-9_-]+$/.test(phaseInfo.team_name)) {
+      Bash(`rm -rf "tmp/.rune-signals/${phaseInfo.team_name}/" 2>/dev/null`)
+    }
+    // Clean session-owned shutdown signal (Layer 1 defense — written by guard-context-critical.sh)
+    const sessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
+    if (sessionId && /^[a-zA-Z0-9_-]+$/.test(sessionId)) {
+      Bash(`rm -f "tmp/.rune-shutdown-signal-${sessionId}.json" 2>/dev/null`)
+    }
+
   } catch (e) {
     warn(`postPhaseCleanup(${phaseName}): ${e.message} — proceeding`)
   }

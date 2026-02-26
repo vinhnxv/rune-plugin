@@ -169,8 +169,24 @@ if [[ "$REM_INT" -le "$WARNING_THRESHOLD" && "$REM_INT" -gt "$CRITICAL_THRESHOLD
       SUGGESTION="Reduce scope. Prefer file-based output. Consider /compact." ;;
   esac
 
+  # --- Layer 1 Shutdown Signal: Write signal file for orchestrator consumption ---
+  # Idempotent — only write once per session (hook fires every tool call)
+  SIGNAL_FILE="${CWD}/tmp/.rune-shutdown-signal-${SESSION_ID}.json"
+  if [[ ! -f "$SIGNAL_FILE" ]]; then
+    mkdir -p "${CWD}/tmp" 2>/dev/null
+    jq -n \
+      --arg signal "context-warning" \
+      --argjson remaining_pct "$REM_INT" \
+      --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --arg config_dir "$RUNE_CURRENT_CFG" \
+      --arg owner_pid "$PPID" \
+      --arg session_id "$SESSION_ID" \
+      '{signal: $signal, remaining_pct: $remaining_pct, timestamp: $timestamp, config_dir: $config_dir, owner_pid: $owner_pid, session_id: $session_id}' \
+      > "${SIGNAL_FILE}.tmp.$$" 2>/dev/null && mv "${SIGNAL_FILE}.tmp.$$" "$SIGNAL_FILE" 2>/dev/null || true
+  fi
+
   jq -n \
-    --arg ctx "CTX-WARNING: Context at $((100 - REM_INT))% used (${REM_INT}% remaining). Workflow: ${WORKFLOW}. Suggested: ${SUGGESTION}. Escape: /compact or /rune:rest." \
+    --arg ctx "CTX-WARNING: Context at $((100 - REM_INT))% used (${REM_INT}% remaining). Workflow: ${WORKFLOW}. Suggested: ${SUGGESTION}. SHUTDOWN SIGNAL written to ${SIGNAL_FILE}. Orchestrators: check for this file and initiate early teammate shutdown. Escape: /compact or /rune:rest." \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $ctx}}' 2>/dev/null || true
   exit 0
 fi

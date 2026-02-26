@@ -20,6 +20,7 @@ tools:
   - Read
   - Glob
   - Grep
+maxTurns: 30
 mcpServers:
   - echo-search
 ---
