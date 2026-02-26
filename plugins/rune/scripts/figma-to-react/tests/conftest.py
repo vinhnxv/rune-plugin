@@ -45,6 +45,8 @@ for _mod_name in [
     "image_handler",
     "layout_resolver",
     "react_generator",
+    "core",
+    "cli",
 ]:
     _mod_path = _PKG_DIR / f"{_mod_name}.py"
     if _mod_path.exists():
