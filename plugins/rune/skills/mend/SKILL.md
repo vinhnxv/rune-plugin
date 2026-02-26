@@ -343,31 +343,9 @@ Only include the `Todo` column when at least one finding has a corresponding tod
 
 When Phase 0.5 found Goldmask data or Phase 5.95 produced quick check results, add a Goldmask section to the resolution report.
 
-```javascript
-// Add Goldmask section to resolution report (after Codex section, before completion summary)
-if (parsedRiskMap || quickCheckResults) {
-  report += "\n## Goldmask Integration\n\n"
-
-  if (parsedRiskMap) {
-    const criticalCount = allFindings.filter(f => f.riskTier === 'CRITICAL').length
-    const promotedCount = allFindings.filter(f => f.promotedReason).length
-
-    report += `### Risk Overlay\n`
-    report += `- Risk data source: \`${goldmaskData.riskMapPath}\`\n`
-    report += `- Findings in CRITICAL-tier files: ${criticalCount}\n`
-    report += `- P3 findings promoted to effective P2: ${promotedCount}\n\n`
-  }
-
-  if (quickCheckResults) {
-    report += `### Quick Check Results\n`
-    report += `- MUST-CHANGE files in scope: ${quickCheckResults.scopedMustChange.length}\n`
-    report += `- Verified (modified by mend): ${quickCheckResults.scopedMustChange.length - quickCheckResults.untouchedMustChange.length}\n`
-    report += `- Untouched MUST-CHANGE: ${quickCheckResults.untouchedMustChange.length}\n`
-    report += `- Unexpected modifications: ${quickCheckResults.unexpectedTouches.length}\n`
-    report += `- Full report: \`${quickCheckResults.reportPath}\`\n\n`
-  }
-}
-```
+When `parsedRiskMap` or `quickCheckResults` exist, append a `## Goldmask Integration` section with:
+- **Risk Overlay** subsection: data source path, CRITICAL-tier finding count, promoted P3→P2 count
+- **Quick Check Results** subsection: MUST-CHANGE files in scope, verified/untouched/unexpected counts, link to full report
 
 See [resolution-report.md](references/resolution-report.md) for the full report format, convergence logic, and Codex verification section.
 

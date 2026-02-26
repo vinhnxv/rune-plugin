@@ -115,7 +115,7 @@ orphan_checkpoint_count=$(
   count=0
   for ckpt_dir in "${CWD}/.claude/arc" "${CWD}/tmp/arc"; do
     [[ -d "$ckpt_dir" ]] || continue
-    shopt -s nullglob 2>/dev/null
+    setopt nullglob 2>/dev/null || shopt -s nullglob 2>/dev/null || true
     for f in "$ckpt_dir"/*/checkpoint.json; do
       [[ -f "$f" ]] && [[ ! -L "$f" ]] || continue
       # Extract ownership fields

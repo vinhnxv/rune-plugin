@@ -215,6 +215,20 @@ fi
 # Overwritten per arc run but stale signals can confuse future arc-batch/arc-issues runs.
 rm -f tmp/arc-result-current.json 2>/dev/null
 
+# Remove arc-phase loop artifacts (only if no active arc-phase loop)
+# State file is .claude/arc-phase-loop.local.md (not tmp/)
+arc_phase_state=".claude/arc-phase-loop.local.md"
+if [ -f "$arc_phase_state" ] && ! [[ -L "$arc_phase_state" ]]; then
+  active_phase=$(grep "^active:" "$arc_phase_state" 2>/dev/null | head -1 | sed 's/^active:[[:space:]]*//' || echo "")
+  if [[ "$active_phase" == "true" ]]; then
+    echo "SKIP: .claude/arc-phase-loop.local.md — active arc-phase loop detected"
+  else
+    rm -f "$arc_phase_state"
+  fi
+else
+  rm -f "$arc_phase_state" 2>/dev/null
+fi
+
 # Remove arc-issues artifacts (only if no active arc-issues loop)
 # State file is .claude/arc-issues-loop.local.md (not tmp/)
 arc_issues_state=".claude/arc-issues-loop.local.md"
@@ -422,6 +436,8 @@ for (const baseDir of [".claude/arc", "tmp/arc"]) {
       const ckptCfg = ckpt.config_dir
       // Skip if no owner_pid (backward compat with pre-session-isolation checkpoints)
       if (!ckptPid) continue
+      // Validate PID is numeric before shell interpolation (SEC-002)
+      if (!/^\d+$/.test(String(ckptPid))) continue
       // Skip if different config_dir (different installation)
       if (ckptCfg && CHOME_RESOLVED && ckptCfg !== CHOME_RESOLVED) continue
       // Skip if owner is alive (another active session)

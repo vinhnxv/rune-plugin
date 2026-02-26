@@ -87,6 +87,9 @@ _check_loop_ownership() {
 
 # ── GUARD 5d: Defer to arc-phase stop hook (with ownership check) ──
 # v1.110.0: Phase loop is the innermost loop — defer here BEFORE batch/hierarchy/issues.
+# If loop file is active but older than 10 min, the loop hook likely crashed.
+# Force cleanup instead of deferring indefinitely, which would leave the session unable to stop.
+[[ -z "${NOW:-}" ]] && NOW=$(date +%s)
 if _check_loop_ownership "${CWD}/.claude/arc-phase-loop.local.md"; then
   _phase_active=$(_get_fm_field "$_LOOP_FM" "active")
   if [[ "$_phase_active" == "true" ]]; then

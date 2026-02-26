@@ -65,6 +65,8 @@ CHECKPOINT_PATH=$(get_field "checkpoint_path")
 PLAN_FILE=$(get_field "plan_file")
 BRANCH=$(get_field "branch")
 ARC_FLAGS=$(get_field "arc_flags")
+# Validate ARC_FLAGS before prompt embedding (SEC-001: only allow known flag characters)
+[[ "$ARC_FLAGS" =~ ^[a-zA-Z0-9\ _.=-]{0,256}$ ]] || ARC_FLAGS=""
 
 # ── GUARD 5.5: Validate CHECKPOINT_PATH (SEC-001: path traversal prevention) ──
 if [[ -z "$CHECKPOINT_PATH" ]] || [[ "$CHECKPOINT_PATH" == *".."* ]] || [[ "$CHECKPOINT_PATH" == /* ]]; then
@@ -87,7 +89,9 @@ if [[ -n "$HOOK_SESSION_ID" ]] && [[ ! "$HOOK_SESSION_ID" =~ ^[a-zA-Z0-9_-]{1,12
   HOOK_SESSION_ID=""
 fi
 
-# ── GUARD 5.7: Session isolation ──
+# ── GUARD 5.7: Session isolation (between 5.5 and 6 — intentional; phase hook
+# requires session check after CHECKPOINT_PATH validation, unlike batch/issues hooks) ──
+# "phase" mode: no progress file to update on orphan — falls through to "skip" (remove state + exit 0)
 validate_session_ownership "$STATE_FILE" "" "phase"
 
 # ── GUARD 6: Validate active flag ──
@@ -122,7 +126,8 @@ fi
 
 # ── Phase order (must match SKILL.md PHASE_ORDER exactly) ──
 # WARNING: Non-monotonic execution order — Phase 5.8 (gap_remediation) executes
-# BEFORE Phase 5.7 (goldmask_verification). This array is the canonical source.
+# BEFORE Phase 5.7 (goldmask_verification).
+# Must match arc-phase-constants.md PHASE_ORDER exactly (shell-side copy).
 PHASE_ORDER=(
   forge plan_review plan_refine verification semantic_verification
   design_extraction task_decomposition work design_verification
@@ -332,7 +337,7 @@ if [[ -z "$REF_FILE" ]] || [[ "$REF_FILE" =~ [^a-zA-Z0-9._/-] ]]; then
 fi
 
 # Validate PLAN_FILE and CHECKPOINT_PATH for prompt
-[[ "$PLAN_FILE" =~ ^[a-zA-Z0-9._/ -]+$ ]] || PLAN_FILE="unknown"
+[[ "$PLAN_FILE" =~ ^[a-zA-Z0-9._/-]+$ ]] || PLAN_FILE="unknown"
 [[ "$BRANCH" =~ ^[a-zA-Z0-9._/-]+$ ]] || BRANCH="unknown"
 
 # Build section hint line if applicable
