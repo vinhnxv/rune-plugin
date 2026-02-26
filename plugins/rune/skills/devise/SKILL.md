@@ -117,7 +117,27 @@ Runs a structured brainstorm session by default. Auto-detects recent brainstorms
 
 **Output**: `tmp/plans/{timestamp}/brainstorm-decisions.md` with mandatory sections: Non-Goals, Constraint Classification, Success Criteria, Scope Boundary.
 
-See [brainstorm-phase.md](references/brainstorm-phase.md) for the full protocol — all steps, elicitation sage spawning, decision capture templates, and ATE-1 compliance notes.
+### Design Signal Detection (Phase 0 pre-step)
+
+Before brainstorm questions, scan the user description for Figma URLs. When detected, enables design-aware planning throughout the pipeline.
+
+```javascript
+// Design signal detection — scan user request for Figma URLs
+const figmaUrlMatch = userDescription.match(/https?:\/\/[^\s]*figma\.com\/[^\s]+/)
+const figmaUrl = figmaUrlMatch ? figmaUrlMatch[0] : null
+const designAware = figmaUrl !== null
+
+// Pass designAware and figmaUrl to brainstorm phase (Step 3.7 design questions)
+// Pass designAware and figmaUrl to synthesize phase (frontmatter + Design Integration section)
+// If designAware, add design-sync to loaded skills list (for context)
+if (designAware) {
+  // Load design-sync skill for design token/VSM/DCD knowledge
+  // This gives brainstorm and synthesize phases access to design patterns
+  loadedSkills.push('design-sync')
+}
+```
+
+See [brainstorm-phase.md](references/brainstorm-phase.md) for the full protocol — all steps, elicitation sage spawning, decision capture templates, design question injection (Step 3.7), and ATE-1 compliance notes.
 
 Read and execute when Phase 0 runs.
 
@@ -147,10 +167,11 @@ See [solution-arena.md](references/solution-arena.md) for full protocol (sub-ste
 
 Tarnished consolidates research findings into a plan document. User selects detail level (Minimal/Standard/Comprehensive). Includes plan templates, formatting best practices, and the Plan Section Convention (contracts before pseudocode).
 
-**Inputs**: Research outputs from `tmp/plans/{timestamp}/research/`, user detail level selection
+**Inputs**: Research outputs from `tmp/plans/{timestamp}/research/`, user detail level selection, `designAware` (boolean from Phase 0), `figmaUrl` (string or null)
 **Outputs**: `plans/YYYY-MM-DD-{type}-{feature-name}-plan.md`
 **Error handling**: Missing research files -> proceed with available data
 **Comprehensive only**: Re-runs flow-seer on the drafted plan for a second SpecFlow pass
+**Design-aware**: When `designAware === true`, adds `figma_url` and `design_sync: true` to frontmatter, and emits a "Design Integration" section in the plan body
 
 See [synthesize.md](references/synthesize.md) for the full protocol.
 

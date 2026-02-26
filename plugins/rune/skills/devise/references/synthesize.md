@@ -48,6 +48,8 @@ strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: "{run: git rev-parse HEAD}"
 branch: "{run: git branch --show-current}"
+figma_url: ""          # Auto-populated when Figma URL detected in brainstorm (leave empty if none)
+design_sync: false     # Set to true when figma_url is detected (enables design context in strive workers)
 session_budget:
   max_concurrent_agents: 3      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
@@ -87,6 +89,8 @@ strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: "{run: git rev-parse HEAD}"
 branch: "{run: git branch --show-current}"
+figma_url: ""          # Auto-populated when Figma URL detected in brainstorm (leave empty if none)
+design_sync: false     # Set to true when figma_url is detected (enables design context in strive workers)
 session_budget:
   max_concurrent_agents: 5      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
@@ -147,6 +151,18 @@ session_budget:
 
 {What could block or complicate this}
 
+## Design Integration (conditional — only when figma_url is detected)
+
+{Omit this entire section when figma_url is empty or not set.}
+
+- Figma URL: [{figma_url}]({figma_url})
+- Design extraction: Arc Phase 3 (design_extraction) will generate VSM/DCD artifacts
+- Review: design-implementation-reviewer will score fidelity (6 dimensions)
+- Iteration: Arc Phase 7.6 (design_iteration) for visual refinement loop
+- Design tokens: {extracted or "auto-detect from Figma"}
+- Responsive breakpoints: {from brainstorm or "extract from Figma frames"}
+- Accessibility: {from brainstorm or "WCAG 2.1 AA"}
+
 ## Documentation Impact
 
 Files that must be updated when this feature ships:
@@ -199,6 +215,8 @@ strategic_intent: "long-term"  # Options: long-term | quick-win | auto
 non_goals: []  # List of explicitly out-of-scope items (from brainstorm or manual entry)
 git_sha: "{run: git rev-parse HEAD}"
 branch: "{run: git branch --show-current}"
+figma_url: ""          # Auto-populated when Figma URL detected in brainstorm (leave empty if none)
+design_sync: false     # Set to true when figma_url is detected (enables design context in strive workers)
 session_budget:
   max_concurrent_agents: 8      # Cap on simultaneous teammates (applied silently); see sizing guide
 ---
@@ -309,6 +327,18 @@ erDiagram
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
 | {Risk 1} | H/M/L | H/M/L | {Strategy} |
+
+## Design Integration (conditional — only when figma_url is detected)
+
+{Omit this entire section when figma_url is empty or not set.}
+
+- Figma URL: [{figma_url}]({figma_url})
+- Design extraction: Arc Phase 3 (design_extraction) will generate VSM/DCD artifacts
+- Review: design-implementation-reviewer will score fidelity (6 dimensions)
+- Iteration: Arc Phase 7.6 (design_iteration) for visual refinement loop
+- Design tokens: {extracted or "auto-detect from Figma"}
+- Responsive breakpoints: {from brainstorm or "extract from Figma frames"}
+- Accessibility: {from brainstorm or "WCAG 2.1 AA"}
 
 ## Cross-File Consistency
 

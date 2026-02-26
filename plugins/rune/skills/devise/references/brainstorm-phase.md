@@ -98,6 +98,69 @@ AskUserQuestion({
 })
 ```
 
+### Step 3.2: Design Asset Detection (conditional)
+
+After approach selection, scan user input for Figma URLs and design-related keywords. When design assets are detected, append a "## Design Assets" section to the brainstorm context for downstream phases.
+
+```javascript
+// SYNC: figma-url-pattern — used in brainstorm-phase.md and devise SKILL.md Phase 0
+const FIGMA_URL_PATTERN = /https?:\/\/[^\s]*figma\.com\/[^\s]+/g
+const DESIGN_KEYWORD_PATTERN = /\b(figma|design|mockup|wireframe|prototype|ui\s*kit|design\s*system|style\s*guide|component\s*library|sketch|adobe\s*xd)\b/i
+
+// Strategy 1: Explicit Figma URL detected
+const figmaUrls = (featureDescription + " " + selectedApproach).match(FIGMA_URL_PATTERN) || []
+const figmaUrl = figmaUrls.length > 0 ? figmaUrls[0] : null
+
+// Strategy 2: Design keywords detected but no URL — prompt user
+const hasDesignKeywords = DESIGN_KEYWORD_PATTERN.test(featureDescription + " " + selectedApproach)
+
+let design_sync_candidate = false
+
+if (figmaUrl) {
+  // Figma URL found — auto-mark as design-sync candidate
+  design_sync_candidate = true
+  brainstormContext.figma_url = figmaUrl
+  brainstormContext.design_urls = figmaUrls
+
+  // Append Design Assets section to brainstorm context
+  brainstormContext.design_assets = `## Design Assets\n- Figma URL: ${figmaUrl}\n- Status: auto-detected\n`
+
+  // Inject design-specific brainstorm questions
+  AskUserQuestion({
+    questions: [{
+      question: "Design tokens and responsive breakpoints?",
+      header: "Design Context",
+      options: [
+        { label: "Auto-extract from Figma (Recommended)", description: "Colors, spacing, typography, breakpoints from Figma frames" },
+        { label: "Specify manually", description: "I'll provide design token requirements" },
+        { label: "Skip design details", description: "Handle during implementation" }
+      ],
+      multiSelect: false
+    }]
+  })
+} else if (hasDesignKeywords) {
+  // Design keywords but no Figma URL — ask user
+  const designResponse = AskUserQuestion({
+    questions: [{
+      question: "Your description mentions design elements. Do you have a Figma file?",
+      header: "Design Assets",
+      options: [
+        { label: "Yes — I'll provide the URL", description: "Paste your Figma URL" },
+        { label: "No design file", description: "Proceed without design sync" },
+        { label: "Will add later", description: "Skip for now, add Figma URL to plan later" }
+      ],
+      multiSelect: false
+    }]
+  })
+  // If user provides URL, set design_sync_candidate = true
+  if (designResponse === "Yes — I'll provide the URL") {
+    // Follow-up: ask for the URL
+    design_sync_candidate = true
+  }
+}
+// When neither URL nor keywords detected: zero overhead
+```
+
 ### Step 3.5: Elicitation Methods (Mandatory)
 
 After approach selection, summon 1-3 elicitation-sage teammates for multi-perspective structured reasoning. Skippable via talisman key `elicitation.enabled: false` or user opt-out.
@@ -205,6 +268,59 @@ for (let i = 0; i < sageCount; i++) {
 ```
 
 Exit condition: All sage outputs written (or user explicitly skips).
+
+### Step 3.7: Figma URL Detection (conditional)
+
+During brainstorm, scan the user's feature description for Figma URLs. When detected, inject design-specific brainstorm questions to surface design considerations early in the planning pipeline.
+
+```javascript
+// Figma URL detection — scan user description for Figma links
+const figmaUrlMatch = featureDescription.match(/https?:\/\/[^\s]*figma\.com\/[^\s]+/)
+const figmaUrl = figmaUrlMatch ? figmaUrlMatch[0] : null
+const designAware = figmaUrl !== null
+
+if (designAware) {
+  // Record figma_url in brainstorm context for downstream phases
+  brainstormContext.figma_url = figmaUrl
+
+  // Inject design-specific brainstorm questions (after approach selection)
+  AskUserQuestion({
+    questions: [
+      {
+        question: "What design tokens should be extracted from the Figma file?",
+        header: "Design Tokens",
+        options: [
+          { label: "Auto-detect from Figma (Recommended)", description: "Extract colors, spacing, typography, shadows automatically" },
+          { label: "Specify manually", description: "I'll list the tokens to extract" },
+          { label: "Skip design tokens", description: "No design token extraction needed" }
+        ],
+        multiSelect: false
+      },
+      {
+        question: "Are there responsive breakpoints to consider?",
+        header: "Responsive Design",
+        options: [
+          { label: "Yes — extract from Figma frames", description: "Multiple frame sizes detected" },
+          { label: "Desktop only", description: "Single viewport target" },
+          { label: "Skip responsive", description: "Not applicable" }
+        ],
+        multiSelect: false
+      },
+      {
+        question: "What accessibility requirements apply?",
+        header: "Accessibility",
+        options: [
+          { label: "WCAG 2.1 AA (Recommended)", description: "Standard web accessibility compliance" },
+          { label: "WCAG 2.1 AAA", description: "Highest accessibility standard" },
+          { label: "Minimal", description: "Basic keyboard navigation and screen reader support" }
+        ],
+        multiSelect: false
+      }
+    ]
+  })
+}
+// When designAware === false: no design questions injected (zero overhead)
+```
 
 ### Step 4: Capture Decisions
 
