@@ -255,7 +255,7 @@ if [[ -d "$TASK_DIR" ]]; then
     mkdir -p "$(dirname "$sig")" 2>/dev/null
     printf '{"timestamp":"%s","config_dir":"%s","owner_pid":"%s"}\n' \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      "${RESOLVED_CONFIG_DIR:-unknown}" \
+      "${RUNE_CURRENT_CFG:-unknown}" \
       "${PPID:-0}" \
       > "${sig}.tmp.$$" 2>/dev/null && mv "${sig}.tmp.$$" "${sig}" 2>/dev/null || true
     _trace "SIGNAL all-tasks-done for team $TEAM_NAME"

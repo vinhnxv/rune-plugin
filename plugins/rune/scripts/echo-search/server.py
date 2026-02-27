@@ -868,6 +868,11 @@ def upsert_semantic_group(
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if similarities is None:
         similarities = [0.0] * len(entry_ids)
+    elif len(similarities) != len(entry_ids):
+        raise ValueError(
+            f"entry_ids ({len(entry_ids)}) and similarities ({len(similarities)}) "
+            f"must have the same length"
+        )
     count = 0
     conn.execute("BEGIN")
     try:

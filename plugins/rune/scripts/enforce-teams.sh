@@ -33,7 +33,7 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
+INPUT=$(head -c 1048576 2>/dev/null || true)  # SEC-2: 1MB cap to prevent unbounded stdin read
 
 # Fast path: if caller is team-lead (not subagent), check for team_name in input.
 # Team leads MUST also use team_name — this is the whole point of ATE-1.

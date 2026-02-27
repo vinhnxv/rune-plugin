@@ -399,6 +399,7 @@ class FigmaClient:
         Returns:
             The Figma file JSON response.
         """
+        depth = min(depth, 10)  # SEC-P3-002: clamp depth to prevent oversized API responses
         cache_key = f"file:{file_key}:{branch_key}:{depth}"
         cached = self._cache.get(cache_key)
         if cached is not None:
