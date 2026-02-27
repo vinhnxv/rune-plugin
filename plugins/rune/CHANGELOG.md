@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.113.2] - 2026-02-27
+
+### Fixed
+- **PreCompact hook uses systemMessage instead of unsupported hookSpecificOutput** — Simplified `pre-compact-checkpoint.sh` to use `systemMessage` field directly, removing the `hookSpecificOutput` wrapper that caused hook errors since PreCompact does not support `hookSpecificOutput`.
+- **SEC-P2-001: stdin pipe safety in enforcement hooks** — Added `2>/dev/null || true` to `head -c 1048576` in `enforce-readonly.sh`, `enforce-teams.sh`, `enforce-polling.sh`. Prevents silent script termination under `set -euo pipefail` when stdin is empty.
+- **SEC-P2-002: echo→printf in enforce-readonly.sh** — Replaced `echo "$INPUT"` with `printf '%s\n' "$INPUT"` for jq piping to prevent escape sequence interpretation.
+- **SEC-P1-001: PID recycling guard in on-session-stop.sh** — Re-verifies process command name before SIGKILL after 2s grace period to prevent killing unrelated processes due to PID recycling.
+- **BACK-P2-001: double kill -0 in resolve-session-identity.sh** — Consolidated `rune_pid_alive()` into a single `kill -0` call that captures both exit code and stderr, eliminating TOCTOU window.
+- **BACK-P2-007: undefined RESOLVED_CONFIG_DIR in on-teammate-idle.sh** — Replaced `${RESOLVED_CONFIG_DIR:-unknown}` with `${RUNE_CURRENT_CFG:-unknown}` to restore session isolation in all-tasks-done signal.
+- **BACK-P2-003: silent array truncation in echo-search upsert_semantic_group** — Added length validation between `entry_ids` and `similarities` arrays; raises `ValueError` instead of silently truncating via `zip()`.
+- **QUAL-P2-004: silent ValueError in node_parser.py** — Added `logger.debug()` to 6 `except ValueError: pass` blocks for unrecognized Figma API enum values, providing diagnostic visibility.
+- **SEC-P3-002: Figma API depth clamp** — Added `depth = min(depth, 10)` in `figma_client.py:get_file()` as defense-in-depth.
+
+### Changed
+- Updated README badges and component counts to reflect actual totals (89 agents, 41 skills)
+
 ## [1.113.1] - 2026-02-27
 
 ### Fixed

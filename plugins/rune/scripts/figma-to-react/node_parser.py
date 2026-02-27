@@ -666,7 +666,7 @@ def _apply_frame_properties(ir_node: FigmaIRNode, raw: Dict[str, Any]) -> None:
         try:
             ir_node.layout_wrap = LayoutWrap(wrap_str)
         except ValueError:
-            pass
+            logger.debug("Unknown layoutWrap value: %s", wrap_str)
 
     # Alignment
     pa = raw.get("primaryAxisAlignItems")
@@ -674,21 +674,21 @@ def _apply_frame_properties(ir_node: FigmaIRNode, raw: Dict[str, Any]) -> None:
         try:
             ir_node.primary_axis_align = LayoutAlign(pa)
         except ValueError:
-            pass
+            logger.debug("Unknown primaryAxisAlignItems value: %s", pa)
 
     ca = raw.get("counterAxisAlignItems")
     if ca:
         try:
             ir_node.counter_axis_align = LayoutAlign(ca)
         except ValueError:
-            pass
+            logger.debug("Unknown counterAxisAlignItems value: %s", ca)
 
     cac = raw.get("counterAxisAlignContent")
     if cac:
         try:
             ir_node.counter_axis_align_content = LayoutAlign(cac)
         except ValueError:
-            pass
+            logger.debug("Unknown counterAxisAlignContent value: %s", cac)
 
     # Spacing
     ir_node.item_spacing = raw.get("itemSpacing", 0.0)
@@ -708,14 +708,14 @@ def _apply_frame_properties(ir_node: FigmaIRNode, raw: Dict[str, Any]) -> None:
         try:
             ir_node.layout_sizing_horizontal = LayoutSizingMode(lsh)
         except ValueError:
-            pass
+            logger.debug("Unknown layoutSizingHorizontal value: %s", lsh)
 
     lsv = raw.get("layoutSizingVertical")
     if lsv:
         try:
             ir_node.layout_sizing_vertical = LayoutSizingMode(lsv)
         except ValueError:
-            pass
+            logger.debug("Unknown layoutSizingVertical value: %s", lsv)
 
     ir_node.layout_grow = raw.get("layoutGrow")
 

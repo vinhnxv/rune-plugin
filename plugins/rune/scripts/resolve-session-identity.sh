@@ -37,13 +37,12 @@ fi
 # Returns: 0 if alive (or EPERM), 1 if dead
 rune_pid_alive() {
   local pid="$1"
-  # Fast path: kill -0 succeeds → definitely alive
-  if kill -0 "$pid" 2>/dev/null; then
-    return 0
-  fi
+  # Single kill -0 call — captures both exit code and stderr in one shot.
+  # Fixes BACK-P2-001: eliminates TOCTOU window from double kill -0 calls.
+  local err rc
+  err=$(kill -0 "$pid" 2>&1); rc=$?
+  [[ $rc -eq 0 ]] && return 0  # definitely alive
   # kill -0 failed — distinguish ESRCH (dead) from EPERM (alive, different user)
-  local err
-  err=$(kill -0 "$pid" 2>&1) || true
   case "$err" in
     *"Operation not permitted"*|*"EPERM"*|*"permission"*)
       return 0  # alive but owned by another user

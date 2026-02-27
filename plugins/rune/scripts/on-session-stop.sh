@@ -206,10 +206,22 @@ _kill_stale_teammates() {
   [[ ${#sigterm_pids[@]} -eq 0 ]] && { echo "0"; return 0; }
 
   # Phase 2: Wait 2s, then SIGKILL survivors
+  # SEC-P1-001 FIX: Re-verify process identity before SIGKILL to prevent
+  # killing unrelated processes due to PID recycling in the 2s window.
   sleep 2
   for child_pid in "${sigterm_pids[@]}"; do
     if kill -0 "$child_pid" 2>/dev/null; then
-      kill -KILL "$child_pid" 2>/dev/null || true
+      # Re-check command name — PID could have been recycled during sleep
+      local survivor_comm
+      survivor_comm=$(ps -p "$child_pid" -o comm= 2>/dev/null || true)
+      case "$survivor_comm" in
+        node|claude|claude-*)
+          kill -KILL "$child_pid" 2>/dev/null || true
+          ;;
+        *)
+          # PID recycled to a non-Claude process — do NOT kill
+          ;;
+      esac
     fi
     killed=$((killed + 1))
   done

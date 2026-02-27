@@ -4,10 +4,10 @@
 
 Plan, implement, review, test, and audit your codebase using coordinated Agent Teams — each teammate with its own dedicated context window.
 
-[![Version](https://img.shields.io/badge/version-1.105.0-blue)](.claude-plugin/marketplace.json)
+[![Version](https://img.shields.io/badge/version-1.113.2-blue)](.claude-plugin/marketplace.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Agents](https://img.shields.io/badge/agents-88-purple)](#agents)
-[![Skills](https://img.shields.io/badge/skills-39-orange)](#skills)
+[![Agents](https://img.shields.io/badge/agents-89-purple)](#agents)
+[![Skills](https://img.shields.io/badge/skills-41-orange)](#skills)
 
 ---
 
@@ -280,7 +280,7 @@ Compares a plan against its implementation across 9 quality dimensions:
 
 ## Agents
 
-**88 specialized agents** across 6 categories:
+**89 specialized agents** across 6 categories:
 
 ### Review Agents (40)
 
@@ -391,7 +391,7 @@ Used by `/rune:goldmask`, `/rune:inspect`, and `/rune:audit --deep`:
 
 ## Skills
 
-39 skills providing background knowledge, workflow orchestration, and tool integration:
+41 skills providing background knowledge, workflow orchestration, and tool integration:
 
 | Skill | Type | Purpose |
 |-------|------|---------|
@@ -514,15 +514,15 @@ rune-plugin/
 └── plugins/
     └── rune/                     # Main plugin
         ├── .claude-plugin/
-        │   └── plugin.json       # Plugin manifest (v1.105.0)
-        ├── agents/               # 88 agent definitions
+        │   └── plugin.json       # Plugin manifest (v1.113.2)
+        ├── agents/               # 89 agent definitions
         │   ├── review/           #   40 review agents
         │   ├── investigation/    #   24 investigation agents
         │   ├── utility/          #   11 utility agents
         │   ├── research/         #    5 research agents
         │   ├── testing/          #    4 testing agents
         │   └── work/             #    4 work agents
-        ├── skills/               # 39 skills
+        ├── skills/               # 41 skills
         ├── commands/             # 14 slash commands
         ├── hooks/                # Event-driven hooks
         │   └── hooks.json

@@ -23,7 +23,7 @@ if ! command -v jq &>/dev/null; then
   exit 2
 fi
 
-INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
+INPUT=$(head -c 1048576 2>/dev/null || true)  # SEC-2: 1MB cap to prevent unbounded stdin read
 
 # Fast path: if not a subagent, allow immediately.
 # Team leads and direct user sessions have transcript paths at root level,
@@ -32,7 +32,7 @@ INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
 # via /subagents/ path segment. If absent or format changes, check fails open.
 # The .readonly-active marker provides the primary enforcement;
 # this check determines WHO is subject to it (subagents only, not team leads).
-TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
+TRANSCRIPT_PATH=$(printf '%s\n' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 if [[ -z "$TRANSCRIPT_PATH" ]] || [[ "$TRANSCRIPT_PATH" != */subagents/* ]]; then
   exit 0
 fi
@@ -41,7 +41,7 @@ fi
 # Detection differs from enforce-teams.sh: this script checks transcript_path
 # (subagent vs team-lead) while enforce-teams checks tool_name (Task calls only).
 # QUAL-5: Canonicalize CWD to resolve symlinks (matches on-task-completed.sh pattern)
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then
   exit 0
 fi
