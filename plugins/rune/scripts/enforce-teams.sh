@@ -26,6 +26,28 @@
 set -euo pipefail
 umask 077
 
+# --- Fail-forward guard (OPERATIONAL hook) ---
+# Crash before validation → allow operation (don't stall workflows).
+_rune_fail_forward() {
+  # BACK-003 FIX: Always emit stderr warning for enforcement hooks.
+  # Silent fail-forward in a security-adjacent hook masks mid-validation crashes.
+  printf 'WARNING: %s: ERR trap — fail-forward activated (line %s). ATE-1 check skipped.\n' \
+    "${BASH_SOURCE[0]##*/}" \
+    "${BASH_LINENO[0]:-?}" \
+    >&2 2>/dev/null || true
+  if [[ "${RUNE_TRACE:-}" == "1" ]]; then
+    # SEC-004 FIX: Use ${UID} shell builtin to avoid subprocess fork
+    local _log="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-${UID:-$(id -u)}.log}"
+    [[ ! -L "$_log" ]] && printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
+      "$(date +%H:%M:%S 2>/dev/null || true)" \
+      "${BASH_SOURCE[0]##*/}" \
+      "${BASH_LINENO[0]:-?}" \
+      >> "$_log" 2>/dev/null
+  fi
+  exit 0
+}
+trap '_rune_fail_forward' ERR
+
 # Pre-flight: jq is required for JSON parsing.
 # If missing, exit 0 (non-blocking) — allow rather than crash.
 if ! command -v jq &>/dev/null; then
@@ -38,13 +60,14 @@ INPUT=$(head -c 1048576 2>/dev/null || true)  # SEC-2: 1MB cap to prevent unboun
 # Fast path: if caller is team-lead (not subagent), check for team_name in input.
 # Team leads MUST also use team_name — this is the whole point of ATE-1.
 
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
+# BACK-003 FIX: Use printf instead of echo to avoid flag interpretation if $INPUT starts with '-'
+TOOL_NAME=$(printf '%s\n' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 if [[ "$TOOL_NAME" != "Task" ]]; then
   exit 0
 fi
 
 # QUAL-5: Canonicalize CWD to resolve symlinks (matches on-task-completed.sh pattern)
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then
   exit 0
 fi
@@ -65,7 +88,18 @@ active_workflow=""
 # ── Session identity for cross-session ownership filtering ──
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=resolve-session-identity.sh
-source "${SCRIPT_DIR}/resolve-session-identity.sh"
+# SEC-001/VEIL-005 FIX: Guard against missing resolve-session-identity.sh.
+# Without this guard, a missing file triggers the ERR trap which exits 0,
+# leaving RUNE_CURRENT_CFG unset and silently allowing bare Task calls.
+if [[ -f "${SCRIPT_DIR}/resolve-session-identity.sh" ]]; then
+  source "${SCRIPT_DIR}/resolve-session-identity.sh"
+else
+  # File missing — log warning and set safe defaults
+  printf '[%s] enforce-teams.sh: resolve-session-identity.sh not found at %s — ownership filtering disabled\n' \
+    "$(date +%H:%M:%S 2>/dev/null || true)" "${SCRIPT_DIR}" >&2
+  RUNE_CURRENT_CFG=""
+  rune_pid_alive() { return 1; }  # treat all PIDs as dead (conservative: own everything)
+fi
 
 # Check arc checkpoints (skip stale files older than STALE_THRESHOLD_MIN)
 if [[ -d "${CWD}/.claude/arc" ]]; then
@@ -74,7 +108,9 @@ if [[ -d "${CWD}/.claude/arc" ]]; then
       # ── Ownership filter: skip checkpoints from other sessions ──
       stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
       stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
-      if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+      # VEIL-007 FIX: Guard against empty RUNE_CURRENT_CFG — when identity script is missing,
+      # "$stored_cfg" != "" is always true for any non-empty stored_cfg → skip ALL files.
+      if [[ -n "$stored_cfg" && -n "$RUNE_CURRENT_CFG" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
         rune_pid_alive "$stored_pid" && continue  # alive = different session
       fi
@@ -97,7 +133,8 @@ if [[ -z "$active_workflow" ]]; then
       # ── Ownership filter: skip state files from other sessions ──
       stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
       stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
-      if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+      # VEIL-007 FIX: Guard against empty RUNE_CURRENT_CFG (see arc checkpoint block above)
+      if [[ -n "$stored_cfg" && -n "$RUNE_CURRENT_CFG" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
       if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
         rune_pid_alive "$stored_pid" && continue  # alive = different session
       fi
@@ -115,7 +152,7 @@ fi
 
 # Active workflow detected — verify Task input includes team_name
 # BACK-2 FIX: Single-pass jq extraction (avoids fragile double-parse of tool_input)
-HAS_TEAM_NAME=$(echo "$INPUT" | jq -r 'if .tool_input.team_name and (.tool_input.team_name | length > 0) then "yes" else "no" end' 2>/dev/null || echo "no")
+HAS_TEAM_NAME=$(printf '%s\n' "$INPUT" | jq -r 'if .tool_input.team_name and (.tool_input.team_name | length > 0) then "yes" else "no" end' 2>/dev/null || echo "no")
 
 if [[ "$HAS_TEAM_NAME" == "yes" ]]; then
   exit 0
@@ -125,7 +162,7 @@ fi
 # Explore (Haiku, read-only) and Plan (read-only) agents produce bounded output
 # and cannot modify files — no risk of context explosion. The orchestrator needs
 # these for quick codebase queries during workflow phases.
-SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null || true)
+SUBAGENT_TYPE=$(printf '%s\n' "$INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null || true)
 if [[ "$SUBAGENT_TYPE" == "Explore" || "$SUBAGENT_TYPE" == "Plan" ]]; then
   exit 0
 fi

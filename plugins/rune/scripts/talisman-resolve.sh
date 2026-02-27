@@ -13,12 +13,35 @@
 set -euo pipefail
 umask 077
 
+# --- Fail-forward guard (OPERATIONAL hook) ---
+# Crash before validation → allow operation (don't stall workflows).
+_rune_fail_forward() {
+  # BACK-003 FIX: Always emit stderr warning so fail-forward bypasses are observable.
+  printf 'WARNING: %s: ERR trap — fail-forward activated (line %s). Talisman resolution skipped.\n' \
+    "${BASH_SOURCE[0]##*/}" \
+    "${BASH_LINENO[0]:-?}" \
+    >&2 2>/dev/null || true
+  if [[ "${RUNE_TRACE:-}" == "1" ]]; then
+    local _log="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+    [[ ! -L "$_log" ]] && printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
+      "$(date +%H:%M:%S 2>/dev/null || true)" \
+      "${BASH_SOURCE[0]##*/}" \
+      "${BASH_LINENO[0]:-?}" \
+      >> "$_log" 2>/dev/null
+  fi
+  exit 0
+}
+trap '_rune_fail_forward' ERR
+
 # ── Guard: jq dependency ──
 if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
 # ── Timing (macOS-safe — no date +%s%3N) ──
+# NOTE: $SECONDS is integer-precision only in bash. Sub-second runs report 0.
+# This is intentionally coarse-grained: it detects pathological stalls (>3s),
+# not sub-second performance regressions. Typical resolve time: 0.3-1.5s.
 RESOLVE_START=$SECONDS
 
 # ── Trace logging ──
@@ -46,8 +69,9 @@ INPUT=$(head -c 1048576 2>/dev/null || true)
 CWD=""
 SESSION_ID=""
 if [[ -n "$INPUT" ]]; then
-  CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
-  SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+  # BACK-005 FIX: Use printf instead of echo to avoid flag interpretation if $INPUT starts with '-'
+  CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+  SESSION_ID=$(printf '%s\n' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 fi
 
 # Fallback CWD
@@ -62,9 +86,10 @@ SHARD_DIR="${CWD}/tmp/.talisman-resolved"
 PROJECT_TALISMAN="${CWD}/.claude/talisman.yml"
 GLOBAL_TALISMAN="${CHOME}/talisman.yml"
 
-# ── Guard: defaults file must exist ──
-if [[ ! -f "$DEFAULTS_FILE" ]]; then
-  _trace "WARN: talisman-defaults.json not found at $DEFAULTS_FILE"
+# ── Guard: defaults file must exist and not be a symlink ──
+# SEC-004 FIX: Add symlink check to prevent symlink-based content injection
+if [[ ! -f "$DEFAULTS_FILE" ]] || [[ -L "$DEFAULTS_FILE" ]]; then
+  _trace "WARN: talisman-defaults.json not found or is a symlink at $DEFAULTS_FILE"
   exit 0
 fi
 
@@ -284,17 +309,18 @@ else
   rm -f "$tmp_meta" 2>/dev/null
 fi
 
-# ── Timing check ──
+# ── Timing check (integer precision — see RESOLVE_START comment) ──
 ELAPSED=$((SECONDS - RESOLVE_START))
 if [[ $ELAPSED -gt 3 ]]; then
-  _trace "WARN: resolver took ${ELAPSED}s (>80% of 5s budget)"
+  _trace "WARN: resolver took ${ELAPSED}s (>80% of 5s budget, integer precision)"
 fi
 
-_trace "OK: resolved $shard_count shards to $SHARD_DIR in ${ELAPSED}s (status=$RESOLVER_STATUS)"
+_trace "OK: resolved $shard_count shards to $SHARD_DIR in ~${ELAPSED}s (status=$RESOLVER_STATUS, timing=coarse)"
 
-# ── Output hook-specific JSON ──
-cat <<EOF
-{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"[Talisman Shards] Resolved ${shard_count} config shards to tmp/.talisman-resolved/ (status: ${RESOLVER_STATUS}). Use readTalismanSection(section) for shard-aware config access."}}
-EOF
+# ── Output hook-specific JSON (SEC-006: jq --arg instead of heredoc interpolation) ──
+jq -n \
+  --arg count "$shard_count" \
+  --arg status "$RESOLVER_STATUS" \
+  '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":("[Talisman Shards] Resolved " + $count + " config shards to tmp/.talisman-resolved/ (status: " + $status + "). Use readTalismanSection(section) for shard-aware config access.")}}'
 
 exit 0

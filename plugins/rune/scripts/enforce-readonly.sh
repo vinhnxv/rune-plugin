@@ -15,6 +15,11 @@
 set -euo pipefail
 umask 077
 
+# --- SECURITY hook (fail-closed) --- NO ERR trap ---
+# This hook MUST crash-to-block. Failing open would bypass SEC-001 read-only enforcement.
+# Unlike OPERATIONAL hooks, this script intentionally has NO _rune_fail_forward ERR trap.
+# See CLAUDE.md "Hook Crash Classification" for the SECURITY vs OPERATIONAL distinction.
+
 # Pre-flight: jq is required for JSON parsing.
 # If missing, exit 2 (blocking) — deny rather than silently disable enforcement.
 # This is a SECURITY-CRITICAL hook: failing open would bypass SEC-001 protection.

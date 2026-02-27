@@ -9,7 +9,10 @@ set -euo pipefail
 # Do NOT replace this with a direct python3 call in .mcp.json — it will
 # fail silently because ECHO_DIR/DB_PATH would be unset.
 
+# SEC-006: Canonicalize PROJECT_DIR and validate absoluteness
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+PROJECT_DIR=$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P) || { echo "ERROR: invalid PROJECT_DIR" >&2; exit 1; }
+[[ "$PROJECT_DIR" == /* ]] || { echo "ERROR: PROJECT_DIR not absolute: $PROJECT_DIR" >&2; exit 1; }
 export ECHO_DIR="$PROJECT_DIR/.claude/echoes"
 export DB_PATH="$PROJECT_DIR/.claude/echoes/.search-index.db"
 

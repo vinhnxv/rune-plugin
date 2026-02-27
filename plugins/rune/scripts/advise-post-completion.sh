@@ -117,7 +117,7 @@ if [[ "$FOUND_COMPLETED" != "true" ]]; then
 fi
 
 # --- Write debounce flag (atomic mktemp + mv per EC-H4) ---
-TEMP_FLAG=$(mktemp "/tmp/rune-postcomp-XXXXXX" 2>/dev/null) || exit 0
+TEMP_FLAG=$(mktemp "${TMPDIR:-/tmp}/rune-postcomp-XXXXXX" 2>/dev/null) || exit 0
 jq -n --arg cfg "$RUNE_CURRENT_CFG" --arg pid "$PPID" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   '{config_dir: $cfg, owner_pid: $pid, created_at: $ts}' > "$TEMP_FLAG" 2>/dev/null || exit 0
 mv "$TEMP_FLAG" "$FLAG_FILE" 2>/dev/null || { rm -f "$TEMP_FLAG" 2>/dev/null; exit 0; }
