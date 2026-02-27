@@ -292,7 +292,18 @@ After all fixes are applied and verified, update corresponding file-todos for re
 
 **Skip conditions**: No todo files found in any subdirectory OR no todo files match any resolved finding IDs.
 
-See [todo-update-phase.md](references/todo-update-phase.md) for the full protocol — todo discovery, frontmatter parsing, claim lock, work log generation, and resolution-to-status mapping.
+**Read and execute** the full protocol from [todo-update-phase.md](references/todo-update-phase.md).
+
+**Algorithm summary** (7 steps):
+1. **Resolve `todos_base`** — from state file (`todos_base` field set in Phase 5.4) or `--todos-dir` flag
+2. **Read manifest** — parse `{todos_base}{source}/manifest.json` for indexed todo entries
+3. **Set claim** — mark matched todo as `in_progress` (orchestrator claim lock)
+4. **Update frontmatter** — set `status`, `resolution`, `resolution_reason`, `updated` date
+5. **Append `workflow_chain`** — add `mend:{identifier}` to the chain array
+6. **Mark dirty** — signal manifest rebuild needed
+7. **Rebuild manifest** — call `buildSourceManifest()` after all updates complete
+
+**Note**: `resolution` and `resolution_reason` values come from fixer SEAL messages (Phase 3 output).
 
 **Resolution-to-status mapping**:
 
