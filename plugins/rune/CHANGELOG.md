@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.116.1] - 2026-02-27
+
+### Fixed
+- **Fix parallel Stop hook race condition in GUARD 6.5** — Claude Code fires Stop hooks in parallel, not sequentially. When the arc phase loop completes (all phases done), the phase hook removes its state file while the outer loop hooks (batch/hierarchy/issues) simultaneously check for it. Due to the race, outer hooks see the file still exists and skip via GUARD 6.5/7.5, causing the batch to get stuck after the final phase (merge). Fix adds a 2-second retry loop (4x500ms) in GUARD 6.5/7.5 to wait for the phase state file to be removed by the parallel phase hook before skipping. Affects `arc-batch-stop-hook.sh`, `arc-hierarchy-stop-hook.sh`, and `arc-issues-stop-hook.sh`.
+
 ## [1.116.0] - 2026-02-27
 
 ### Added
