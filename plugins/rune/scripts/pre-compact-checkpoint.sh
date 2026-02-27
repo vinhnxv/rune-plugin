@@ -222,21 +222,11 @@ if [[ -z "$active_team" ]]; then
     _context_msg="No active Rune team but loop state captured in compact checkpoint."
     [[ "$arc_batch_state" != "{}" ]] && _context_msg="No active Rune team but arc-batch state captured in compact checkpoint."
     [[ "$arc_issues_state" != "{}" ]] && _context_msg="No active Rune team but arc-issues state captured in compact checkpoint."
-    jq -n --arg ctx "$_context_msg" '{
-      hookSpecificOutput: {
-        hookEventName: "PreCompact",
-        additionalContext: $ctx
-      }
-    }'
+    jq -n --arg msg "$_context_msg" '{ systemMessage: $msg }'
     exit 0
   fi
 
-  jq -n '{
-    hookSpecificOutput: {
-      hookEventName: "PreCompact",
-      additionalContext: "No active Rune team found — compact checkpoint skipped."
-    }
-  }'
+  jq -n '{ systemMessage: "No active Rune team found — compact checkpoint skipped." }'
   exit 0
 fi
 
@@ -398,11 +388,8 @@ mv -f "$CHECKPOINT_TMP" "$CHECKPOINT_FILE" 2>/dev/null || {
 }
 CHECKPOINT_TMP=""  # Clear for cleanup trap — file was moved successfully
 
-# ── OUTPUT: hookSpecificOutput with hookEventName ──
+# ── OUTPUT: systemMessage (PreCompact does not support hookSpecificOutput) ──
 jq -n --arg team "$active_team" '{
-  hookSpecificOutput: {
-    hookEventName: "PreCompact",
-    additionalContext: ("Rune compact checkpoint saved for team " + $team + ". State will be restored after compaction via session-compact-recovery.sh.")
-  }
+  systemMessage: ("Rune compact checkpoint saved for team " + $team + ". State will be restored after compaction via session-compact-recovery.sh.")
 }'
 exit 0
