@@ -77,7 +77,7 @@ if [[ -d "$CHOME/teams/" ]]; then
   done < <(find "$CHOME/teams/" -maxdepth 1 -type d \( -name "rune-*" -o -name "arc-*" -o -name "goldmask-*" \) -mmin +30 2>/dev/null)
 fi
 
-[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: orphan team dirs found: ${orphan_count}" >> /tmp/rune-hook-trace.log
+[[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: orphan team dirs found: ${orphan_count}" >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
 
 # Count stale state files
 stale_state_count=0
@@ -120,7 +120,7 @@ stale_state_count=$(
   echo "$count"
 )
 
-[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: stale state files found: ${stale_state_count}" >> /tmp/rune-hook-trace.log
+[[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: stale state files found: ${stale_state_count}" >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
 
 # Count orphaned arc checkpoints (v1.110.0: Bug 2 fix)
 # Scan .claude/arc/ and tmp/arc/ for checkpoints with dead owner_pid
@@ -129,7 +129,7 @@ orphan_checkpoint_count=$(
   count=0
   for ckpt_dir in "${CWD}/.claude/arc" "${CWD}/tmp/arc"; do
     [[ -d "$ckpt_dir" ]] || continue
-    setopt nullglob 2>/dev/null || shopt -s nullglob 2>/dev/null || true
+    shopt -s nullglob 2>/dev/null || true
     for f in "$ckpt_dir"/*/checkpoint.json; do
       [[ -f "$f" ]] && [[ ! -L "$f" ]] || continue
       # Extract ownership fields
@@ -154,7 +154,7 @@ orphan_checkpoint_count=$(
   echo "$count"
 )
 
-[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: orphaned checkpoints found: ${orphan_checkpoint_count}" >> /tmp/rune-hook-trace.log
+[[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: orphaned checkpoints found: ${orphan_checkpoint_count}" >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
 
 # Report if anything found
 # BACK-007 FIX: Conditionally append orphan list to avoid trailing "Orphans: " with no names

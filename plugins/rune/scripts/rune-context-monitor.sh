@@ -2,7 +2,19 @@
 # Rune Context Monitor — Consumer half of context monitoring pipeline
 # PostToolUse hook: reads bridge file, injects warnings when context runs low
 set -euo pipefail
-trap 'exit 0' ERR    # P1-2 FIX: fail-open — monitor must never exit non-zero
+# --- Fail-forward guard (OPERATIONAL hook) ---
+# Crash before validation → allow operation (don't stall workflows).
+_rune_fail_forward() {
+  if [[ "${RUNE_TRACE:-}" == "1" ]]; then
+    printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
+      "$(date +%H:%M:%S 2>/dev/null || true)" \
+      "${BASH_SOURCE[0]##*/}" \
+      "${BASH_LINENO[0]:-?}" \
+      >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" 2>/dev/null
+  fi
+  exit 0
+}
+trap '_rune_fail_forward' ERR    # fail-open — monitor must never exit non-zero
 umask 077
 
 # Session identity — resolved config_dir for cross-session isolation (Core Rule 11)
@@ -44,8 +56,8 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 [[ ! "$SESSION_ID" =~ ^[a-zA-Z0-9_-]+$ ]] && exit 0
 
 # P1-1 FIX: Define WARN_STATE and BRIDGE_FILE early (before any reference)
-BRIDGE_FILE="/tmp/rune-ctx-${SESSION_ID}.json"
-WARN_STATE="/tmp/rune-ctx-${SESSION_ID}-warned.json"
+BRIDGE_FILE="${TMPDIR:-/tmp}/rune-ctx-${SESSION_ID}.json"
+WARN_STATE="${TMPDIR:-/tmp}/rune-ctx-${SESSION_ID}-warned.json"
 
 # --- Read talisman config (optional) ---
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)

@@ -36,7 +36,7 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-INPUT=$(head -c 1048576)
+INPUT=$(head -c 1048576 2>/dev/null || true)
 
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 if [[ "$TOOL_NAME" != "TeamDelete" ]]; then

@@ -12,9 +12,11 @@ tools:
   - Write
 model: sonnet
 maxTurns: 15
+mcpServers:
+  - echo-search
 ---
 
-# ANCHOR — TRUTHBINDING PROTOCOL
+## ANCHOR --- TRUTHBINDING PROTOCOL
 You are the Cross-Shard Sentinel. Your role is to detect cross-cutting issues that
 individual shard reviewers cannot see because each reviewer only reads their own shard.
 

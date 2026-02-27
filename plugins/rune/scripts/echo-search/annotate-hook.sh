@@ -33,6 +33,8 @@ if [[ "$FILE_PATH" == *".claude/echoes/"*"MEMORY.md" ]]; then
   # Write dirty signal for next echo-reader invocation to pick up
   # Prefer .cwd from hook input (reliable), then CLAUDE_PROJECT_DIR, then $(pwd)
   HOOK_CWD=$(printf '%s' "$TOOL_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+  # SEC-005: Canonicalize CWD before use in file paths
+  [[ -n "$HOOK_CWD" ]] && HOOK_CWD=$(cd "$HOOK_CWD" 2>/dev/null && pwd -P) || HOOK_CWD=""
   SIGNAL_DIR="${HOOK_CWD:-${CLAUDE_PROJECT_DIR:-$(pwd)}}/tmp/.rune-signals"
   mkdir -p "$SIGNAL_DIR" 2>/dev/null
   printf '1' > "$SIGNAL_DIR/.echo-dirty" 2>/dev/null
