@@ -7,7 +7,8 @@
       "max_retries": 3,
       "max_turns": 200,
       "smart_ordering": {
-        "enabled": true
+        "enabled": true,
+        "mode": "ask"
       },
       "stop_on_divergence": false,
       "summaries": {

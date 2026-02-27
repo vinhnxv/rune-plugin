@@ -686,11 +686,12 @@ Per-phase timeout values in milliseconds. Values are clamped to 10s–3600s rang
 | `ship` | number | 300000 | Phase 9: PR creation (5 min, v1.40.0+) |
 | `merge` | number | 600000 | Phase 9.5: Merge (10 min, v1.40.0+) |
 
-### `arc.batch.smart_ordering` — Smart plan ordering (v1.104.0)
+### `arc.batch.smart_ordering` — Smart plan ordering (v1.104.0, opt-in v1.118.0)
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `enabled` | boolean | `true` | Enable smart plan ordering in `/rune:arc-batch`. When enabled, Phase 1.5 reorders plans by file overlap isolation and `version_target` to reduce merge conflicts. CLI flag `--no-smart-sort` overrides this setting. Skipped on `--resume` to preserve partially-completed batch order. |
+| `enabled` | boolean | `true` | Master kill switch for smart plan ordering. When `false`, Phase 1.5 is skipped entirely regardless of `mode` or CLI flags. |
+| `mode` | string | `"ask"` | Controls ordering behavior. `"ask"` (default): prompt user on glob input, skip on queue files. `"auto"`: always apply smart ordering (pre-v1.118.0 behavior). `"off"`: disable ordering (equivalent to `enabled: false` but preferred for new configs). CLI flags `--smart-sort` and `--no-smart-sort` override this setting. |
 
 ### `review` — Chunked review settings (v1.51.0+)
 

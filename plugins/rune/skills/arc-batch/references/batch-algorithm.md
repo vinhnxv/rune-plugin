@@ -8,7 +8,7 @@ Full orchestration pseudocode for `/rune:arc-batch`. The SKILL.md body contains 
 SKILL.md (orchestration layer)
   ├── Phase 0: Parse $ARGUMENTS → plan list
   ├── Phase 1: Pre-flight → arc-batch-preflight.sh (validation)
-  ├── Phase 1.5: Smart ordering → reorder planPaths by (is_isolated, version_target)
+  ├── Phase 1.5: Plan ordering → input-type-aware (queue→skip, glob→ask, --smart-sort→force)
   ├── Phase 2: Dry run (if --dry-run) → early return
   ├── Phase 3: Initialize batch-progress.json
   ├── Phase 4: Confirm batch → AskUserQuestion
@@ -42,31 +42,60 @@ scripts/arc-batch-stop-hook.sh (Stop hook — loop driver)
 
 **Inspired by**: [ralph-wiggum plugin](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum) Stop hook pattern.
 
-## Phase 1.5: Smart Ordering (v1.104.0)
+## Phase 1.5: Plan Ordering (v1.104.0, opt-in v1.118.0)
 
-Reorders the `planPaths` array in memory after pre-flight validation to reduce merge conflicts and version collisions. Memory-only — does NOT write `plan-list.txt` (Phase 5 writes it from the already-reordered array). The Stop hook reads `batch-progress.json` which reflects the smart-sorted order.
+Input-type-aware ordering with 3 modes. Queue files respect user order by default. Glob inputs present ordering options. CLI flags override all modes. Memory-only — does NOT write `plan-list.txt` (Phase 5 writes it from the already-reordered array). The Stop hook reads `batch-progress.json` which reflects the ordered result.
 
-See [smart-ordering.md](smart-ordering.md) for the full Tier 1 algorithm.
+See [smart-ordering.md](smart-ordering.md) for the full Tier 1 smart ordering algorithm (applied when smart ordering is selected).
 
-**Skip conditions**: `--no-smart-sort`, `--resume`, `planPaths.length <= 1`, `talisman.arc.batch.smart_ordering.enabled === false`
+**Decision tree** (evaluated top-to-bottom, first match wins):
 
-**Pseudocode**:
 ```
-function smartOrderPlans(planPaths, talisman, resumeMode, noSmartSort):
-  if noSmartSort or resumeMode or planPaths.length <= 1:
-    return planPaths  // no-op
+function resolveOrdering(planPaths, inputType, talisman, resumeMode, noSmartSort, forceSmartSort):
+  // Priority 1: CLI flags
+  if noSmartSort:
+    return planPaths  // raw order
+  if forceSmartSort and planPaths.length > 1:
+    return smartOrderPlans(planPaths)  // force even on queue files
 
+  // Priority 1.5: Resume guard (before talisman)
+  if resumeMode:
+    return planPaths  // preserve partial batch order
+
+  // Priority 2: Kill switch
   if talisman?.arc?.batch?.smart_ordering?.enabled === false:
-    return planPaths  // disabled by config
+    return planPaths  // master kill switch
 
+  // Priority 3: Talisman mode
+  mode = talisman?.arc?.batch?.smart_ordering?.mode ?? "ask"
+  if mode === "off":
+    return planPaths
+  if mode === "auto" and planPaths.length > 1:
+    return smartOrderPlans(planPaths)
+
+  // Priority 4: Input-type heuristic (mode="ask")
+  if inputType === "queue":
+    return planPaths  // respect user's explicit order
+  if inputType === "glob" and planPaths.length > 1:
+    answer = AskUserQuestion("Smart ordering / Alphabetical / As discovered")
+    if answer === "Smart ordering":
+      return smartOrderPlans(planPaths)
+    if answer === "Alphabetical":
+      return planPaths.sort(alphabetical)
+    return planPaths  // as discovered
+
+  return planPaths  // single plan or no action needed
+```
+
+**`smartOrderPlans()` subroutine** (unchanged from v1.104.0):
+```
+function smartOrderPlans(planPaths):
   UNIVERSAL = {plugin.json, CHANGELOG.md, CLAUDE.md, marketplace.json, README.md}
 
-  // Extract metadata from each plan
   for each plan in planPaths:
     plan.fileTargets = extractFileTargets(plan) - UNIVERSAL
     plan.versionTarget = extractYamlFrontmatter(plan).version_target ?? null
 
-  // Classify isolation
   for each plan in planPaths:
     plan.isIsolated = true
     for each other in planPaths where other != plan:
@@ -74,7 +103,6 @@ function smartOrderPlans(planPaths, talisman, resumeMode, noSmartSort):
         plan.isIsolated = false
         break
 
-  // Sort: isolated first → version_target ASC → filename ASC
   sort planPaths by:
     1. is_isolated DESC (true before false)
     2. version_target ASC (null sorts last)
@@ -83,7 +111,7 @@ function smartOrderPlans(planPaths, talisman, resumeMode, noSmartSort):
   return sorted planPaths
 ```
 
-**Interaction with shard grouping**: Phase 0 (shard auto-sorting) runs FIRST on its subset, then Phase 1.5 (smart ordering) runs on the full plan list. Smart ordering respects shard grouping boundaries — shard plans within feature groups maintain their numeric order. Both are independently controlled (`--no-smart-sort` / `--no-shard-sort`).
+**Interaction with shard grouping**: Phase 0 (shard auto-sorting) runs FIRST on its subset, then Phase 1.5 (plan ordering) runs on the full plan list. Smart ordering respects shard grouping boundaries — shard plans within feature groups maintain their numeric order. Both are independently controlled (`--no-smart-sort` / `--no-shard-sort`).
 
 ## V1 Architecture (REMOVED — v1.59.0)
 

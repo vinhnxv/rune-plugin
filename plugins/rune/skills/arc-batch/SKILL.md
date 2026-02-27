@@ -24,7 +24,7 @@ description: |
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Skill
-argument-hint: "[plans/*.md | queue-file.txt] [--resume] [--dry-run] [--no-merge] [--no-smart-sort]"
+argument-hint: "[plans/*.md | queue-file.txt] [--resume] [--dry-run] [--no-merge] [--no-shard-sort] [--no-smart-sort] [--smart-sort]"
 ---
 
 # /rune:arc-batch — Sequential Batch Arc Execution
@@ -52,15 +52,20 @@ Executes `/rune:arc` across multiple plan files sequentially. Each arc run compl
 | `--resume` | Resume from `batch-progress.json` (pending plans only — failed/cancelled plans must be re-run individually) | Off |
 | `--no-shard-sort` | Process plans in raw order (disable shard auto-sorting) | Off |
 | `--no-smart-sort` | Disable smart plan ordering (preserve glob/queue order) | Off |
+| `--smart-sort` | Force smart ordering even on queue file input | Off |
 
 ### Flag Coexistence
 
-| `--no-smart-sort` | `--no-shard-sort` | Result |
-|-------------------|-------------------|--------|
-| false | false | Smart ordering + shard grouping (default) |
-| true | false | No smart ordering, shard grouping still active |
-| false | true | Smart ordering active, no shard grouping |
-| true | true | Raw glob/queue order preserved |
+| `--smart-sort` | `--no-smart-sort` | `--no-shard-sort` | Result |
+|----------------|-------------------|-------------------|--------|
+| false | false | false | Input-type detection + shard grouping (default) |
+| false | true | false | Raw order, shard grouping still active |
+| true | false | false | Force smart ordering + shard grouping |
+| true | true | false | Conflicting — `--no-smart-sort` wins (warn user) |
+| false | false | true | Input-type detection, no shard grouping |
+| true | false | true | Force smart ordering, no shard grouping |
+| false | true | true | Raw glob/queue order preserved |
+| true | true | true | Conflicting — `--no-smart-sort` wins (warn user) |
 
 ## Algorithm
 
@@ -98,7 +103,7 @@ The skill orchestrates via `$ARGUMENTS` parsing. Phase 5 writes a state file and
 ```
 Phase 0: Parse arguments (glob expand or queue file read)
 Phase 1: Pre-flight validation (arc-batch-preflight.sh)
-Phase 1.5: Smart ordering (reorder planPaths by isolation + version_target)
+Phase 1.5: Plan ordering (input-type-aware: queue→skip, glob→ask, --smart-sort→force)
 Phase 2: Dry run (if --dry-run)
 Phase 3: Initialize batch-progress.json
 Phase 4: Confirm batch with user
@@ -121,12 +126,22 @@ Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_ac
 ```javascript
 const args = "$ARGUMENTS".trim()
 let planPaths = []
+let inputType = "glob"  // "queue" | "glob" | "resume"
 let resumeMode = args.includes('--resume')
 let dryRun = args.includes('--dry-run')
 let noMerge = args.includes('--no-merge')
 let noSmartSort = args.includes('--no-smart-sort')
+// Token-based parsing: prevents substring match collision with --no-smart-sort
+let forceSmartSort = args.split(/\s+/).includes('--smart-sort')
+
+// Conflicting flags: --no-smart-sort wins (fail-safe)
+if (forceSmartSort && noSmartSort) {
+  warn("Conflicting flags: --smart-sort and --no-smart-sort both present. Using --no-smart-sort.")
+  forceSmartSort = false
+}
 
 if (resumeMode) {
+  inputType = "resume"
   const progress = JSON.parse(Read("tmp/arc-batch/batch-progress.json"))
   const allPlans = progress.plans
 
@@ -154,8 +169,10 @@ if (resumeMode) {
 } else {
   const inputArg = args.replace(/--\S+/g, '').trim()
   if (inputArg.endsWith('.txt')) {
+    inputType = "queue"
     planPaths = Read(inputArg).split('\n').filter(l => l.trim() && !l.startsWith('#'))
   } else {
+    inputType = "glob"
     planPaths = Glob(inputArg)
   }
 }
@@ -209,16 +226,90 @@ if (!noMerge) {
 }
 ```
 
-### Phase 1.5: Smart Ordering
+### Phase 1.5: Plan Ordering (Opt-In Smart Ordering)
 
-Reorders `planPaths` in memory to reduce merge conflicts and version collisions. Skipped when `--no-smart-sort`, `--resume`, single plan, or `talisman.arc.batch.smart_ordering.enabled === false`.
+Input-type-aware ordering with 3 modes. Queue files respect user order by default. Glob inputs present ordering options. CLI flags override all modes.
 
-See [smart-ordering.md](references/smart-ordering.md) for the full algorithm.
+See [smart-ordering.md](references/smart-ordering.md) for the full algorithm when smart ordering is selected.
 
 ```javascript
-Read("references/smart-ordering.md")
-// Execute: extract file targets → build overlap map → classify isolation → sort
-// (isolated first, then version_target ASC, then filename)
+// ── Phase 1.5: Plan Ordering (opt-in smart ordering) ──
+// Decision tree: CLI flags > resume guard > talisman mode > input-type heuristic
+
+// readTalismanSection: "arc"
+const arcConfig = readTalismanSection("arc")
+const smartOrderingConfig = arcConfig?.batch?.smart_ordering || {}
+const smartOrderingEnabled = smartOrderingConfig.enabled !== false  // default: true
+const smartOrderingMode = smartOrderingConfig.mode || "ask"        // "ask" | "auto" | "off"
+
+// Validate mode
+if (!["ask", "auto", "off"].includes(smartOrderingMode)) {
+  warn(`Unknown smart_ordering.mode: '${smartOrderingMode}', defaulting to 'ask'.`)
+}
+const effectiveMode = ["ask", "auto", "off"].includes(smartOrderingMode) ? smartOrderingMode : "ask"
+
+// ── Priority 1: CLI flags (always win) ──
+if (noSmartSort) {
+  log("Plan ordering: --no-smart-sort flag — preserving raw order")
+} else if (forceSmartSort && planPaths.length > 1) {
+  log("Plan ordering: --smart-sort flag — applying smart ordering")
+  Read("references/smart-ordering.md")
+  // Execute smart ordering algorithm
+}
+// ── Priority 1.5: Resume guard (before talisman — prevents reordering partial batches) ──
+else if (resumeMode) {
+  log("Plan ordering: resume mode — preserving batch order")
+}
+// ── Priority 2: Kill switch ──
+else if (!smartOrderingEnabled) {
+  log("Plan ordering: disabled by talisman (arc.batch.smart_ordering.enabled: false)")
+}
+// ── Priority 3: Talisman mode ──
+else if (effectiveMode === "off") {
+  log("Plan ordering: talisman mode='off' — preserving raw order")
+} else if (effectiveMode === "auto" && planPaths.length > 1) {
+  log("Plan ordering: talisman mode='auto' — auto-applying smart ordering")
+  Read("references/smart-ordering.md")
+  // Execute smart ordering algorithm
+}
+// ── Priority 4: Input-type heuristic (mode="ask" or default) ──
+else if (inputType === "queue") {
+  log("Plan ordering: queue file detected — respecting user-specified order")
+} else if (inputType === "glob" && planPaths.length > 1) {
+  // Present ordering options to user
+  const answer = AskUserQuestion({
+    questions: [{
+      question: `How should the ${planPaths.length} plans be ordered for execution?`,
+      header: "Order",
+      options: [
+        {
+          label: "Smart ordering (Recommended)",
+          description: "Dependency-aware: isolated plans first, then by version target. Reduces merge conflicts."
+        },
+        {
+          label: "Alphabetical",
+          description: "Sort by filename A→Z. Deterministic and predictable."
+        },
+        {
+          label: "As discovered",
+          description: "Keep the default glob expansion order."
+        }
+      ],
+      multiSelect: false
+    }]
+  })
+
+  if (answer === "Smart ordering (Recommended)") {
+    Read("references/smart-ordering.md")
+    // Execute smart ordering algorithm
+  } else if (answer === "Alphabetical") {
+    planPaths.sort((a, b) => a.localeCompare(b))
+    log(`Plan ordering: alphabetical — ${planPaths.length} plans sorted A→Z`)
+  } else {
+    log("Plan ordering: discovery order — preserving glob expansion order")
+  }
+}
+// Single plan or no action needed
 ```
 
 ### Phase 2: Dry Run

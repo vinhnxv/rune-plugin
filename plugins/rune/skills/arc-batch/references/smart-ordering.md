@@ -2,13 +2,35 @@
 
 Phase 1.5 reorders the `planPaths` array in memory to reduce merge conflicts and version collisions when running multiple plans in batch. Executes after Phase 1 (pre-flight validation), before Phase 2 (dry run).
 
-## Skip Conditions
+## Activation Conditions
 
-Smart ordering is skipped entirely when ANY of:
-- `--no-smart-sort` flag is present
-- `--resume` mode (would reorder a partially-completed batch)
+Smart ordering activates only when explicitly selected. The decision tree:
+
+### CLI Flags (highest priority)
+- `--no-smart-sort` → Skip all ordering (preserve raw order)
+- `--smart-sort` → Force smart ordering (even on queue files)
+- Conflicting (`--smart-sort` + `--no-smart-sort`) → `--no-smart-sort` wins (warn user)
+
+### Resume Guard (before talisman)
+- `--resume` mode → Skip (preserve partial batch order)
+
+### Talisman Mode (second priority)
+- `arc.batch.smart_ordering.enabled: false` → Skip all ordering
+- `arc.batch.smart_ordering.mode: "off"` → Skip all ordering
+- `arc.batch.smart_ordering.mode: "auto"` → Auto-apply (pre-v1.118.0 default behavior)
+
+### Input-Type Heuristic (default, mode="ask")
+- Queue file (`.txt`) → Skip (respect user's explicit order)
+- Glob pattern → AskUserQuestion with 3 options:
+  1. Smart ordering (Recommended)
+  2. Alphabetical
+  3. As discovered (glob default)
+
+### Always Skip
 - `planPaths.length <= 1` (nothing to reorder)
-- `talisman.arc.batch.smart_ordering.enabled === false`
+
+### Note on `enabled` vs `mode: "off"`
+Both achieve identical behavior (skip ordering). `enabled: false` is the master kill switch with absolute precedence. `mode: "off"` is the preferred path for new configurations.
 
 ## Algorithm
 
@@ -78,12 +100,16 @@ Phase 0 (shard auto-sorting) runs FIRST on its subset. Phase 1.5 (smart ordering
 
 ## Flag Coexistence
 
-| `--no-smart-sort` | `--no-shard-sort` | Result |
-|-------------------|-------------------|--------|
-| false | false | Smart ordering + shard grouping (default) |
-| true | false | No smart ordering, shard grouping still active |
-| false | true | Smart ordering active, no shard grouping |
-| true | true | Raw glob/queue order preserved |
+| `--smart-sort` | `--no-smart-sort` | `--no-shard-sort` | Result |
+|----------------|-------------------|-------------------|--------|
+| false | false | false | Input-type detection + shard grouping (default) |
+| false | true | false | Raw order, shard grouping still active |
+| true | false | false | Force smart ordering + shard grouping |
+| true | true | false | Conflicting — `--no-smart-sort` wins (warn user) |
+| false | false | true | Input-type detection, no shard grouping |
+| true | false | true | Force smart ordering, no shard grouping |
+| false | true | true | Raw glob/queue order preserved |
+| true | true | true | Conflicting — `--no-smart-sort` wins (warn user) |
 
 ## Limitations (Tier 1)
 
