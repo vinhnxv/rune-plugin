@@ -792,6 +792,17 @@ review:
                                # When mend re-review scope > reshard_threshold, force standard review
                                # to preserve SHA-/SHB- finding prefix continuity across rounds.
 
+  # === Pre-Aggregation Compression (Phase 5.0, v1.116.0+) ===
+  # Extracts structured findings from Ash outputs before Runebinder ingestion.
+  # Activates when combined Ash output exceeds threshold_bytes.
+  # See roundtable-circle/references/pre-aggregate.md for algorithm.
+  pre_aggregate:
+    enabled: true                # Master toggle (default: true — opt-OUT)
+    threshold_bytes: 25000       # Auto-trigger threshold in bytes (default: 25KB)
+    preserve_priorities: ["P1", "P2"]  # Full preservation priorities (zero info loss)
+    truncate_trace_lines: 3      # Max Rune Trace lines for P3 findings
+    nit_summary_only: true       # Convert N findings to 1-line summaries
+
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings
 # ──────────────────────────────────────────────
