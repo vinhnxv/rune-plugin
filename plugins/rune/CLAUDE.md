@@ -7,7 +7,7 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | Skill | Purpose |
 |-------|---------|
 | **rune-orchestration** | Core coordination patterns, file-based handoff, output formats, conflict resolution |
-| **context-weaving** | Unified context management (overflow prevention, rot, compression, offloading) |
+| **context-weaving** | Unified context management (overflow prevention, rot, compression, offloading, inter-agent output compression via Layer 1.5 Pre-Aggregation) |
 | **roundtable-circle** | Review/audit orchestration with Agent Teams (7-phase lifecycle) |
 | **rune-echoes** | Smart Memory Lifecycle — 5-tier project memory (Etched/Notes/Inscribed/Observations/Traced) |
 | **ash-guide** | Agent invocation reference and Ash selection guide |

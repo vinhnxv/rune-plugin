@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.116.0] - 2026-02-27
+
+### Added
+- **Phase 5.0 Pre-Aggregate** — Deterministic marker-based extraction of Ash findings before Runebinder ingestion. Threshold-gated (default 25KB combined Ash output). Expected 40-60% byte reduction on large reviews. Configurable via `review.pre_aggregate.*` talisman keys. Runs at Tarnished level (no subagent, no LLM call). Per-wave support for deep reviews.
+- **Context-weaving Layer 1.5** — Inter-Agent Output Compression documentation in context-weaving skill
+- **Compression metrics report** — `condensed/_compression-report.md` with per-Ash breakdown (original bytes, condensed bytes, finding count, ratio)
+- **Pre-aggregate reference algorithm** — `roundtable-circle/references/pre-aggregate.md` with complete pseudocode for 9 functions (preAggregate, extractFindingBlocks, parseMarkerAttributes, compressFinding, truncateRuneTrace, convertToOneLiner, extractSection, extractHeader, writeCompressionReport)
+- New talisman config section: `review.pre_aggregate` with `enabled`, `threshold_bytes`, `preserve_priorities`, `truncate_trace_lines`, `nit_summary_only`
+
+### Changed
+- **Phase 5 (Aggregate)** — Runebinder reads from `condensed/` directory when Phase 5.0 pre-aggregation was applied. Prompt updated to acknowledge pre-compressed inputs.
+- **Overflow wards** — Pre-aggregation is now first-line defense before manual Runebinder fallback
+- Runebinder agent definition and prompt template updated with condensed input documentation
+
 ## [1.115.1] - 2026-02-27
 
 ### Fixed
