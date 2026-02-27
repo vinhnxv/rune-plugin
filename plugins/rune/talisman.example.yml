@@ -965,13 +965,14 @@ testing:
 # Layer 4: TeammateIdle "all tasks done" coordination (on-teammate-idle.sh)
 teammate_lifecycle:
   max_turns:
-    work: 120
+    work: 60
     review: 30
     research: 40
     utility: 40
     aggregation: 60
     investigation: 0
     testing: 0
+  max_runtime_minutes: 20    # Max minutes per worker before shutdown_request. Set to 999 to disable.
   shutdown_signal_threshold: 35
   process_cleanup: true
 

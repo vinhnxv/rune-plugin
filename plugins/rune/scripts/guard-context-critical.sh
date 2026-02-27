@@ -203,9 +203,26 @@ fi
 # --- DENY: Context at critical level ---
 USED_PCT=$(( 100 - REM_INT ))
 
+# --- Force Shutdown Signal: Write signal file for orchestrator emergency shutdown ---
+# Stronger than context_warning — orchestrators should send shutdown_request to ALL workers.
+# Idempotent — only write once per session.
+FORCE_SIGNAL="${CWD}/tmp/.rune-force-shutdown-${SESSION_ID}.json"
+if [[ ! -f "$FORCE_SIGNAL" ]]; then
+  mkdir -p "${CWD}/tmp" 2>/dev/null
+  jq -n \
+    --arg signal "force_shutdown" \
+    --argjson remaining_pct "$REM_INT" \
+    --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg config_dir "$RUNE_CURRENT_CFG" \
+    --arg owner_pid "$PPID" \
+    --arg session_id "$SESSION_ID" \
+    '{signal: $signal, remaining_pct: $remaining_pct, timestamp: $timestamp, config_dir: $config_dir, owner_pid: $owner_pid, session_id: $session_id}' \
+    > "${FORCE_SIGNAL}.tmp.$$" 2>/dev/null && mv "${FORCE_SIGNAL}.tmp.$$" "$FORCE_SIGNAL" 2>/dev/null || true
+fi
+
 jq -n \
   --arg reason "Context at ${USED_PCT}% (${REM_INT}% remaining). Spawning new agents risks session freeze. Finish current work, then start fresh." \
-  --arg ctx "BLOCKED by guard-context-critical.sh. Escape hatches: (1) /rune:rest to free artifacts, (2) talisman: context_monitor.pretooluse_guard.enabled: false, (3) Explore/Plan agents remain available for read-only research." \
+  --arg ctx "BLOCKED by guard-context-critical.sh. FORCE SHUTDOWN SIGNAL written to ${FORCE_SIGNAL}. Escape hatches: (1) /rune:rest to free artifacts, (2) talisman: context_monitor.pretooluse_guard.enabled: false, (3) Explore/Plan agents remain available for read-only research." \
   '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $reason, additionalContext: $ctx}}' 2>/dev/null || true
 
 exit 0

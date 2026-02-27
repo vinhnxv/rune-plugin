@@ -54,6 +54,8 @@ Executes `/rune:arc` across multiple plan files sequentially. Each arc run compl
 | `--no-smart-sort` | Disable smart plan ordering (preserve glob/queue order) | Off |
 | `--smart-sort` | Force smart ordering even on queue file input | Off |
 
+> **Note**: `--smart-sort` is a positive override flag — unlike the `--no-*` disable family. Use it to force smart ordering on input types that would otherwise preserve order (e.g., queue files). When both `--smart-sort` and `--no-smart-sort` are present, `--no-smart-sort` takes precedence (fail-safe).
+
 ### Flag Coexistence
 
 | `--smart-sort` | `--no-smart-sort` | `--no-shard-sort` | Result |
@@ -137,6 +139,7 @@ let forceSmartSort = args.split(/\s+/).includes('--smart-sort')
 // Conflicting flags: --no-smart-sort wins (fail-safe)
 if (forceSmartSort && noSmartSort) {
   warn("Conflicting flags: --smart-sort and --no-smart-sort both present. Using --no-smart-sort.")
+  log("Conflicting flags detected: --smart-sort and --no-smart-sort. Using --no-smart-sort.")
   forceSmartSort = false
 }
 
@@ -240,17 +243,21 @@ See [smart-ordering.md](references/smart-ordering.md) for the full algorithm whe
 const arcConfig = readTalismanSection("arc")
 const smartOrderingConfig = arcConfig?.batch?.smart_ordering || {}
 const smartOrderingEnabled = smartOrderingConfig.enabled !== false  // default: true
-const smartOrderingMode = smartOrderingConfig.mode || "ask"        // "ask" | "auto" | "off"
+const smartOrderingMode = smartOrderingConfig.mode || "off"        // "ask" | "auto" | "off" — default "off" ensures smart ordering is truly opt-in
 
-// Validate mode
-if (!["ask", "auto", "off"].includes(smartOrderingMode)) {
-  warn(`Unknown smart_ordering.mode: '${smartOrderingMode}', defaulting to 'ask'.`)
+// Validate mode (single check)
+const validModes = ["ask", "auto", "off"]
+const modeIsValid = validModes.includes(smartOrderingMode)
+if (!modeIsValid) {
+  warn(`Unknown smart_ordering.mode: '${smartOrderingMode}', defaulting to 'off'.`)
 }
-const effectiveMode = ["ask", "auto", "off"].includes(smartOrderingMode) ? smartOrderingMode : "ask"
+const effectiveMode = modeIsValid ? smartOrderingMode : "off"
 
 // ── Priority 1: CLI flags (always win) ──
 if (noSmartSort) {
   log("Plan ordering: --no-smart-sort flag — preserving raw order")
+} else if (forceSmartSort && planPaths.length === 1) {
+  warn("--smart-sort flag ignored: only 1 plan file, no ordering needed")
 } else if (forceSmartSort && planPaths.length > 1) {
   log("Plan ordering: --smart-sort flag — applying smart ordering")
   Read("references/smart-ordering.md")
@@ -273,7 +280,9 @@ else if (effectiveMode === "off") {
   // Execute smart ordering algorithm
 }
 // ── Priority 4: Input-type heuristic (mode="ask" or default) ──
-else if (inputType === "queue") {
+else if (inputType === "resume") {
+  // skip — resume mode already handled above (Priority 1.5 resume guard)
+} else if (inputType === "queue") {
   log("Plan ordering: queue file detected — respecting user-specified order")
 } else if (inputType === "glob" && planPaths.length > 1) {
   // Present ordering options to user
@@ -305,9 +314,14 @@ else if (inputType === "queue") {
   } else if (answer === "Alphabetical") {
     planPaths.sort((a, b) => a.localeCompare(b))
     log(`Plan ordering: alphabetical — ${planPaths.length} plans sorted A→Z`)
+  } else if (answer === "As discovered") {
+    log("Plan ordering: discovery order — preserving glob expansion order")
   } else {
+    warn(`Plan ordering: unrecognized answer '${answer}', using discovery order`)
     log("Plan ordering: discovery order — preserving glob expansion order")
   }
+} else {
+  warn("Plan ordering: no applicable rule matched, preserving order")
 }
 // Single plan or no action needed
 ```

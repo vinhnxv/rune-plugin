@@ -106,7 +106,7 @@ that ensures teammates exit even when the team lead's context is exhausted.
 
 | Agent Category | Default maxTurns | Rationale |
 |----------------|------------------|-----------|
-| Work           | 120              | Long implementation tasks |
+| Work           | 60               | Implementation tasks (safety cap) |
 | Aggregation    | 60               | Bounded read-write scope |
 | Research       | 40               | Natural completion |
 | Utility        | 40               | Single-pass analysis |
@@ -202,7 +202,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. Filters by session ownership. |
 | `PreToolUse:TeamCreate` | `scripts/enforce-team-lifecycle.sh` | TLC-001: Validates team name (hard block on invalid), detects stale teams (30-min threshold), auto-cleans filesystem orphans, injects advisory context. |
 | `PreToolUse:Write\|Edit\|NotebookEdit\|Task\|TeamCreate` | `scripts/advise-post-completion.sh` | POST-COMP-001: Advisory warning when heavy tools are used after arc pipeline completion. Debounced once per session. Fail-open. Never blocks. |
-| `PreToolUse:TeamCreate\|Task` | `scripts/guard-context-critical.sh` | CTX-GUARD-001: 3-tier adaptive token degradation — Caution (40% remaining): advisory only; Warning (35%): degradation suggestions injected; Critical (25%): hard DENY on TeamCreate/Task. Reads statusline bridge file. Explore/Plan exempt (Task only). Fail-open on missing data. |
+| `PreToolUse:TeamCreate\|Task` | `scripts/guard-context-critical.sh` | CTX-GUARD-001: 3-tier adaptive token degradation — Caution (40% remaining): advisory only; Warning (35%): degradation suggestions injected + `context_warning` signal; Critical (25%): hard DENY on TeamCreate/Task + `force_shutdown` signal for emergency worker shutdown. Reads statusline bridge file. Explore/Plan exempt (Task only). Fail-open on missing data. |
 | `PostToolUse:TeamDelete` | `scripts/verify-team-cleanup.sh` | TLC-002: Verifies team dir removal after TeamDelete, reports zombie dirs. |
 | `PostToolUse:TeamCreate` | `scripts/stamp-team-session.sh` | TLC-004: Writes `.session` marker file inside team directory containing `session_id`. Enables session ownership verification during stale scans. Atomic write (tmp+mv). Fail-open. |
 | `PostToolUse:Write\|Edit` | `scripts/echo-search/annotate-hook.sh` | Marks echo search index as dirty when echo files are modified. Triggers re-indexing on next search. |

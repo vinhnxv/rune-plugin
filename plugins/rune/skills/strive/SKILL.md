@@ -291,7 +291,64 @@ const allDoneSignal = (() => {
 if (allDoneSignal) {
   break
 }
+
+// Check for force_shutdown signal from guard-context-critical.sh (Layer 3)
+const forceShutdownSignal = (() => {
+  try {
+    const sessionId = Bash(`echo "$CLAUDE_SESSION_ID"`).trim()
+    const signalPath = `tmp/.rune-force-shutdown-${sessionId}.json`
+    const signal = JSON.parse(Read(signalPath))
+    return signal?.signal === "force_shutdown"
+  } catch { return false }
+})()
+
+if (forceShutdownSignal) {
+  warn("FORCE SHUTDOWN: Context critically low. Sending shutdown_request to ALL workers.")
+  // Send shutdown_request to all workers
+  for (const worker of activeWorkers) {
+    SendMessage({ type: "shutdown_request", recipient: worker.name, content: "Context critically low — emergency shutdown." })
+  }
+  goto_cleanup = true
+  break
+}
 ```
+
+### Stuck Worker Detection (Phase 3 — Inline)
+
+Track worker spawn times and enforce `max_runtime_minutes` (default: 20). Workers exceeding the runtime budget receive a `shutdown_request` and have their tasks released for reclaim.
+
+**Setup**: In Phase 2, record spawn timestamps:
+```javascript
+// After spawning each worker in Phase 2:
+const workerSpawnTimes = {}  // Map<workerName, Date>
+// When spawning:
+workerSpawnTimes[workerName] = Date.now()
+```
+
+**Detection** (runs per poll cycle in Phase 3, after signal checks):
+```javascript
+const maxRuntimeMinutes = readTalismanSection("teammate_lifecycle")?.max_runtime_minutes ?? 20
+const maxRuntimeMs = maxRuntimeMinutes * 60 * 1000
+
+for (const [workerName, spawnTime] of Object.entries(workerSpawnTimes)) {
+  const elapsed = Date.now() - spawnTime
+  if (elapsed > maxRuntimeMs) {
+    warn(`STUCK WORKER: ${workerName} exceeded ${maxRuntimeMinutes}min runtime (${Math.round(elapsed/60000)}min). Sending shutdown_request.`)
+    SendMessage({ type: "shutdown_request", recipient: workerName, content: `Runtime budget exceeded (${maxRuntimeMinutes}min). Shutting down.` })
+    // Release any in_progress task owned by this worker
+    const tasks = TaskList()
+    for (const task of tasks) {
+      if (task.owner === workerName && task.status === "in_progress") {
+        TaskUpdate({ taskId: task.id, status: "pending", owner: "" })
+        warn(`Released task #${task.id} from stuck worker ${workerName}`)
+      }
+    }
+    delete workerSpawnTimes[workerName]  // Don't re-trigger
+  }
+}
+```
+
+**Talisman config**: `teammate_lifecycle.max_runtime_minutes` (default: `20`). Set to `999` to effectively disable.
 
 **Wave-aware monitoring (worktree mode)**: Sequential waves, each monitored independently via `waitForCompletion` with `taskFilter`, merge broker runs between waves. Per-wave timeout: 10 minutes.
 

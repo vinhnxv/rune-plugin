@@ -58,22 +58,22 @@ function resolveOrdering(planPaths, inputType, talisman, resumeMode, noSmartSort
   if forceSmartSort and planPaths.length > 1:
     return smartOrderPlans(planPaths)  // force even on queue files
 
-  // Priority 1.5: Resume guard (before talisman)
+  // Priority 2: Resume guard (before talisman)
   if resumeMode:
     return planPaths  // preserve partial batch order
 
-  // Priority 2: Kill switch
+  // Priority 3: Kill switch
   if talisman?.arc?.batch?.smart_ordering?.enabled === false:
     return planPaths  // master kill switch
 
-  // Priority 3: Talisman mode
+  // Priority 4: Talisman mode
   mode = talisman?.arc?.batch?.smart_ordering?.mode ?? "ask"
   if mode === "off":
     return planPaths
   if mode === "auto" and planPaths.length > 1:
     return smartOrderPlans(planPaths)
 
-  // Priority 4: Input-type heuristic (mode="ask")
+  // Priority 5: Input-type heuristic (mode="ask")
   if inputType === "queue":
     return planPaths  // respect user's explicit order
   if inputType === "glob" and planPaths.length > 1:
