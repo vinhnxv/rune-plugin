@@ -177,8 +177,15 @@ const workflowOutputDir = `tmp/work/${timestamp}/`
 const todosBase = resolveTodosBase(workflowOutputDir)   // "tmp/work/{timestamp}/todos/"
 const todosDir = resolveTodosDir(workflowOutputDir, "work")  // "tmp/work/{timestamp}/todos/work/"
 Bash(`mkdir -p "${todosDir}"`)
+```
 
+### Per-Task File-Todo Creation (Phase 1, mandatory)
 
+Read and execute [todo-protocol.md](references/todo-protocol.md) § "Orchestrator: Per-Task Todo Creation (Phase 1)" to generate per-task todo files in `{todosDir}` for each extracted task.
+
+After creating all per-task todo files, build the work source manifest using `buildSourceManifest()` from [manifest-schema.md](../file-todos/references/manifest-schema.md) to compute `todos-work-manifest.json` with DAG ordering and wave assignment.
+
+```javascript
 // Wave-based execution: bounded batches with fresh worker context
 const TODOS_PER_WORKER = talisman?.work?.todos_per_worker ?? 3
 const totalTodos = extractedTasks.length
