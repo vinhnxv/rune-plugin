@@ -481,6 +481,7 @@ arc:
     # CLI: --no-smart-sort overrides this setting.
     smart_ordering:
       enabled: true              # Enable smart plan ordering (default: true)
+      mode: "ask"                # "ask" (default: prompt on glob input), "auto" (always apply), "off" (disable)
 
   # ── Gap Analysis settings (v1.51.0+) ──
   gap_analysis:

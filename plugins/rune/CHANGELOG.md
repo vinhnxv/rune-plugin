@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.118.0] - 2026-02-28
+
+### Changed
+- **Arc-batch smart ordering is now opt-in** — Smart plan ordering in `/rune:arc-batch`
+  Phase 1.5 is no longer forced on all inputs. New behavior:
+  - Glob inputs prompt the user with 3 options (Smart ordering / Alphabetical / As discovered)
+  - Queue files (`.txt`) respect user-specified order by default
+  - `--smart-sort` flag forces smart ordering on any input type
+  - `--no-smart-sort` flag disables ordering (unchanged)
+  - New talisman key `arc.batch.smart_ordering.mode` controls behavior:
+    `"ask"` (default, prompt user), `"auto"` (pre-v1.118.0 behavior), `"off"` (disable)
+  - Token-based flag parsing prevents `--smart-sort` substring collision with `--no-smart-sort`
+  - Resume mode guard runs before talisman checks (prevents reordering partial batches)
+
 ## [1.117.0] - 2026-02-28
 
 ### Added
