@@ -66,6 +66,7 @@ MAX_ITERATIONS=$(get_field "max_iterations")
 TOTAL_PLANS=$(get_field "total_plans")
 NO_MERGE=$(get_field "no_merge")
 PROGRESS_FILE=$(get_field "progress_file")
+COMPACT_PENDING=$(get_field "compact_pending")
 
 # ── GUARD 5.5: Validate PROGRESS_FILE path (SEC-001: path traversal prevention) ──
 if [[ -z "$PROGRESS_FILE" ]] || [[ "$PROGRESS_FILE" == *".."* ]] || [[ "$PROGRESS_FILE" == /* ]]; then
@@ -169,9 +170,13 @@ if _read_arc_result_signal; then
   if [[ "$ARC_SIGNAL_PR_URL" != "none" ]]; then
     PR_URL="$ARC_SIGNAL_PR_URL"
   fi
-  # BACK-002 FIX: Immediately clean up signal after consumption (parity with arc-batch)
-  rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
-  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL} (signal consumed+cleaned)"
+  # PERF-FIX: Defer signal deletion to Phase B. Phase A preserves the signal so
+  # Phase B gets O(1) read instead of falling back to _find_arc_checkpoint() O(N) scan.
+  # With 20+ checkpoint files, the scan exceeded the 15s hook timeout → stuck session.
+  if [[ "$COMPACT_PENDING" == "true" ]]; then
+    rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
+  fi
+  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL} compact_pending=${COMPACT_PENDING} (signal consumed)"
 fi
 
 # Layer 2: Checkpoint scan fallback (for crash recovery or pre-v1.109.2 arcs)
@@ -406,6 +411,9 @@ if [[ -z "$NEXT_PLAN" ]]; then
     fi
   fi
 
+  # Clean up arc result signal (deferred from Phase A consumption)
+  rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
+
   # Release workflow lock on final iteration
   CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   if [[ -f "${CWD}/plugins/rune/scripts/lib/workflow-lock.sh" ]]; then
@@ -469,7 +477,8 @@ fi
 #   Phase A (compact_pending != "true"): set flag, inject lightweight checkpoint
 #     prompt to give auto-compaction a chance to fire between turns.
 #   Phase B (compact_pending == "true"): reset flag, inject actual arc prompt.
-COMPACT_PENDING=$(get_field "compact_pending")
+# NOTE: COMPACT_PENDING already read early (after PROGRESS_FILE) for conditional
+# signal deletion. Re-read removed to avoid stale value from frontmatter re-parse.
 
 # ── F-02 FIX: Stale compact_pending recovery ──
 if [[ "$COMPACT_PENDING" == "true" ]]; then

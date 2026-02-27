@@ -72,6 +72,7 @@ plans_file: ${planListFile}
 progress_file: ${progressFile}
 summary_enabled: ${summaryEnabled}
 summary_dir: tmp/arc-batch/summaries
+compact_pending: false
 started_at: "${new Date().toISOString()}"
 ---
 
