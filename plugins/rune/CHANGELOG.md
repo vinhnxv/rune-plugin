@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.115.0] - 2026-02-27
+
+### Added
+- **Fail-forward ERR trap guards for all OPERATIONAL hooks** — Added `_rune_fail_forward` ERR trap to 16 hook scripts. Prevents unexpected script crashes from stalling workflows by converting crashes to `exit 0` (allow). Trace-enabled logging to `$RUNE_TRACE_LOG` when `RUNE_TRACE=1` captures crash location (`BASH_LINENO[0]`) and script name (`${BASH_SOURCE[0]##*/}`). Based on rlm-claude-code ADR-002 "Fail-Forward Behavior".
+  - Phase 1 (HIGH PRIORITY — 7 blocking PreToolUse hooks): `enforce-polling.sh`, `enforce-zsh-compat.sh`, `enforce-teams.sh`, `enforce-team-lifecycle.sh`, `on-teammate-idle.sh`, `on-task-completed.sh`, `validate-inner-flame.sh`
+  - Phase 2 (MEDIUM PRIORITY — 9 non-blocking hooks): `stamp-team-session.sh`, `verify-team-cleanup.sh`, `session-start.sh`, `session-team-hygiene.sh`, `session-compact-recovery.sh`, `pre-compact-checkpoint.sh`, `echo-search/annotate-hook.sh`, `talisman-invalidate.sh`, `talisman-resolve.sh`
+- **Hook Crash Classification in CLAUDE.md** — New "Hook Crash Classification (ADR: Fail-Forward)" subsection documenting SECURITY vs OPERATIONAL hook categories, fail-closed vs fail-forward behavior, and ERR trap semantics.
+- **SECURITY hook annotation for `enforce-readonly.sh`** — Explicit fail-closed classification comment. This is the sole hook that intentionally has NO ERR trap (crash → blocks operation for SEC-001 protection).
+
 ## [1.114.0] - 2026-02-27
 
 ### Added

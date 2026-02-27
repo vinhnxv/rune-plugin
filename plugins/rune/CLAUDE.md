@@ -225,6 +225,17 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 
 **Seal Convention**: Ashes emit `<seal>TAG</seal>` as the last line of output for deterministic completion detection. See `roundtable-circle/references/monitor-utility.md` "Seal Convention" section.
 
+### Hook Crash Classification (ADR: Fail-Forward)
+
+Based on rlm-claude-code ADR-002 "Fail-Forward Behavior". Hooks should guide, not gate.
+
+| Category | Behavior | Scripts |
+|----------|----------|---------|
+| SECURITY | Fail-closed (no ERR trap). Crash → blocks operation. | `enforce-readonly.sh` |
+| OPERATIONAL | Fail-forward (`_rune_fail_forward` ERR trap). Crash → allows operation. | All other 33 scripts |
+
+The `_rune_fail_forward` function logs crash location (`BASH_LINENO[0]`) to `$RUNE_TRACE_LOG` when `RUNE_TRACE=1`. Uses `${BASH_SOURCE[0]##*/}` for script name (pure bash, no subprocess fork). Intentional `exit 2` paths (validation denials, quality gates) are unaffected — ERR traps fire on **failed commands**, not explicit `exit N`.
+
 All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL hooks (`enforce-readonly.sh`) exit 2 (blocking). Non-security hooks exit 0 (non-blocking, fail-open). The 3 `validate-*-paths.sh` scripts and `pretooluse-write-guard.sh` (shared library) all exit 0 when jq is missing. A `SessionStart` hook validates `jq` availability and warns if missing. Hook configuration lives in `hooks/hooks.json`.
 
 **Trace logging**: Set `RUNE_TRACE=1` to enable append-mode trace output to `/tmp/rune-hook-trace.log`. Applies to event-driven hooks (`on-task-completed.sh`, `on-teammate-idle.sh`). Enforcement hooks (`enforce-readonly.sh`, `enforce-polling.sh`, `enforce-zsh-compat.sh`, `enforce-teams.sh`, `enforce-team-lifecycle.sh`) emit deny/allow decisions directly. Informational hooks (`verify-team-cleanup.sh`, `session-team-hygiene.sh`) emit messages directly to stdout; their output appears in the session transcript. Off by default — zero overhead in production. **Timeout rationale**: PreToolUse 5s (fast-path guard), PostToolUse 5s (fast-path verify), SessionStart 5s (startup scan), TaskCompleted 15s (signal I/O + haiku gate + observation recording), TeammateIdle 15s (inscription parse + output validation), PreCompact 10s (team state checkpoint with filesystem discovery), SessionStart:compact 5s (JSON parse + context injection), Stop 15s (arc-phase loop + arc-batch loop + arc-hierarchy loop + arc-issues loop: git ops + progress file I/O + gh API calls) and 5s (on-session-stop: workflow state file scan).
