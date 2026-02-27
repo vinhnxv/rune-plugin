@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.115.1] - 2026-02-27
+
+### Fixed
+- **Defer arc-result signal deletion to Phase B** — Prevents stuck session when arc-batch/arc-issues stop hooks read `tmp/arc-result-current.json` before Phase B cleanup. Signal file is now deleted in Phase B (batch loop iteration) instead of Phase A (arc-phase stop hook), ensuring stop hook chain reads valid data. Adds fail-forward guards to `arc-batch-stop-hook.sh`, `arc-issues-stop-hook.sh`, `enforce-glyph-budget.sh`, `on-task-observation.sh`, and other operational scripts.
+
 ## [1.115.0] - 2026-02-27
 
 ### Added
