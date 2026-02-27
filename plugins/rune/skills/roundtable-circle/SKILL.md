@@ -58,6 +58,7 @@ Phase 3:   Summon           → Fan-out Ash with self-organizing prompts
 Phase 4:   Monitor         → TaskList polling, 5-min stale detection
 Phase 4.5: Doubt Seer     → Cross-examine Ash findings (conditional)
 Phase 5:   Aggregate       → Summon Runebinder → writes TOME.md
+Phase 5.4: Todo Generation → Per-finding todo files from TOME (mandatory)
 Phase 6:   Verify          → Truthsight validation on P1 findings
 Phase 6.2: Diff Verify     → Codex cross-model P1/P2 verification (v1.51.0+)
 Phase 6.3: Arch Review     → Codex architecture review (audit mode only, v1.51.0+)
@@ -306,6 +307,23 @@ The Runebinder:
 
 **Q/N Interaction Types (v1.60.0+):** Findings may carry an `interaction` attribute (`"question"` or `"nit"`) orthogonal to severity. Questions and nits appear in separate `## Questions` and `## Nits` sections in the TOME. They are excluded from convergence scoring and auto-mend. See [dedup-runes.md](references/dedup-runes.md) for Q/N dedup rules.
 
+## Phase 5.4: Todo Generation from TOME
+
+Generate per-finding todo files from scope-tagged TOME. Runs after Phase 5 (Aggregate) and before Phase 5.5 (Truthseer Validator). Todos are **mandatory** — there is no `--todos=false` escape hatch.
+
+Read and execute the Phase 5.4 pseudocode from [orchestration-phases.md](references/orchestration-phases.md) § Phase 5.4.
+
+**File format**: Todo files use YAML frontmatter (schema v2) with 6-state lifecycle. See [../file-todos/references/todo-template.md](../file-todos/references/todo-template.md) for the canonical template.
+
+**Manifest**: After writing all todo files, call `buildManifests(todosBase, { all: true })` (per-source manifest creation) as specified in [../file-todos/references/manifest-schema.md](../file-todos/references/manifest-schema.md).
+
+**Key behaviors**:
+- Findings with `interaction="question"` or `interaction="nit"` are filtered out (non-actionable)
+- Pre-existing P2/P3 findings are filtered out (noise reduction); pre-existing P1 findings are kept
+- `FALSE_POSITIVE` findings are skipped (already dismissed)
+- Idempotency: duplicate detection via `finding_id` + `source_ref` in existing todo frontmatter
+- `todos_base` is recorded in the state file for downstream mend consumption
+
 ## Phase 6: Verify (Truthsight)
 
 Three-layer verification when enabled in inscription.json:
@@ -382,4 +400,5 @@ Partial results remain in `tmp/audit/{id}/`.
 - [Risk Tiers](references/risk-tiers.md) — 4-tier deterministic task classification (Grace/Ember/Rune/Elden)
 - [Sharded Review Path](references/sharded-review-path.md) — Phase 3 shard orchestration pseudocode (spawn, monitor, cross-shard)
 - [Codex Verification Phases](references/codex-verification-phases.md) — Phase 6.2 diff verification + Phase 6.3 architecture review
+- [File-Todos Integration](../file-todos/references/integration-guide.md) — Phase 5.4 todo generation from TOME
 - Companion: `rune-orchestration` (patterns), `context-weaving` (Glyph Budget)
