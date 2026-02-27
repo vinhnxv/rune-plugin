@@ -9,6 +9,11 @@
       "type": "stdio",
       "command": "${CLAUDE_PLUGIN_ROOT}/scripts/figma-to-react/start.sh",
       "args": []
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@^1.0.0"]
     }
   }
 }

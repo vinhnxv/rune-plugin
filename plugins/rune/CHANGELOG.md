@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.120.0] - 2026-02-28
+
+### Added
+- **Context7 MCP integration** — Added `context7` MCP server (`@upstash/context7-mcp`) for live
+  framework and library documentation. Research agents (practice-seeker, lore-scholar) now use
+  Context7's `resolve-library-id` and `get-library-docs` tools as their primary documentation
+  source during `/rune:devise` Phase 1C external research, with WebSearch/WebFetch as fallback.
+- **Talisman `plan` config section** — New talisman configuration for research control:
+  - `plan.external_research`: Controls research agent behavior (`always`/`never`/`auto`/
+    `context7_only`/`web_search`/`all`/`none`). Bypass modes skip Phase 1B scoring entirely.
+  - `plan.research_urls`: User-provided URLs fed to research agents with SSRF-defensive
+    sanitization (IP blocklist, private TLD blocklist, sensitive param stripping, max 10 URLs,
+    2048 char limit per URL). URLs wrapped in `<url-list>` tags with data-not-instructions marker.
+- **Phase 1B scoring enhancements** — Two new risk signals:
+  - User-provided URLs (+0.30 weight) — presence of `research_urls` strongly signals external
+    context is needed
+  - Unfamiliar framework (+0.20 weight) — framework mentioned in feature description but absent
+    from project dependencies
+- **Practice-seeker fallback chain** — Context7 MCP → WebSearch → WebFetch → offline knowledge.
+  Graceful degradation when MCP tools are unavailable.
+- **Lore-scholar fallback chain** — Context7 MCP → WebSearch → WebFetch → offline knowledge.
+  Same resilient fallback pattern as practice-seeker.
+
+### Changed
+- **Phase 1B threshold backwards compatibility** — LOW_RISK threshold lowered from 0.35 to 0.25,
+  but ONLY when `plan.external_research` is explicitly set to `"auto"`. When the plan talisman
+  section is absent (legacy behavior), the original 0.35 threshold is preserved. This ensures
+  zero behavior change for existing users without talisman plan config.
+- **Risk signal weight redistribution** — Adjusted weights to accommodate new signals:
+  Keywords 40%→35%, File paths 30%→25%, External API 20%→15%, Framework 10%→10%,
+  User URLs 0%→10%, Unfamiliar framework 0%→5%.
+
+### Upgrading
+- **No action required** for existing users. Absent `plan` section in talisman preserves all
+  prior behavior (legacy 0.35 LOW_RISK threshold, no URL injection, original risk weights).
+- To opt in: add `plan:` section to `.claude/talisman.yml` — see `talisman.example.yml` for
+  the full schema with `external_research` and `research_urls` fields.
+- Context7 MCP server is auto-connected via `.mcp.json` — no manual setup needed. Requires
+  Node.js for `npx` execution.
+
 ## [1.119.0] - 2026-02-28
 
 ### Fixed

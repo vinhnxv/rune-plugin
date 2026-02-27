@@ -1,6 +1,6 @@
 # Talisman Sections Reference
 
-All 24 top-level sections in `talisman.example.yml` with purpose and key fields.
+All 25 top-level sections in `talisman.example.yml` with purpose and key fields.
 
 ## Section Map
 
@@ -30,6 +30,7 @@ All 24 top-level sections in `talisman.example.yml` with purpose and key fields.
 | 22 | `codex` | Cross-model verification | `model`, `workflows`, `timeout`, 17 deep integration keys |
 | 23 | `context_monitor` + `context_weaving` | Context management | `enabled`, `warning_threshold`, `glyph_budget`, `offload_threshold`, `pretooluse_guard.enabled` |
 | 24 | `debug` | ACH parallel debugging | `max_investigators`, `timeout_ms`, `model`, `re_triage_rounds`, `echo_on_verdict` |
+| 25 | `plan` | Research & planning config | `external_research` (`"always"` / `"auto"` / `"never"`), `research_urls[]` |
 
 ## Critical Sections (Must-Have)
 

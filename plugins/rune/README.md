@@ -997,6 +997,26 @@ Rune includes an MCP server (`figma-to-react`) for converting Figma designs to R
 
 Configuration lives in `.mcp.json`. See `skills/figma-to-react/SKILL.md` for usage details and the `skills/design-sync/SKILL.md` for the full design synchronization workflow.
 
+## Context7 MCP Server
+
+Rune includes an MCP server (`context7`) for live framework and library documentation lookup via [Context7](https://context7.com). Research agents (practice-seeker, lore-scholar) use Context7 as their primary documentation source during `/rune:devise` Phase 1C external research, with WebSearch/WebFetch as fallback when MCP is unavailable.
+
+**Requirements:** Node.js (uses `npx -y @upstash/context7-mcp@^1.0.0`)
+
+**Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `resolve-library-id` | Resolve a library name (e.g., "react", "express") to a Context7-compatible library ID. |
+| `get-library-docs` | Fetch version-specific documentation, API references, and migration guides for a resolved library. |
+
+**Integration points:**
+- **practice-seeker** — Uses Context7 for best practices and pattern documentation. Falls back to WebSearch → WebFetch → offline knowledge.
+- **lore-scholar** — Uses Context7 for framework docs and API references. Falls back to WebSearch → WebFetch → offline knowledge.
+- **forge agents** — Uses Context7 for framework-specific enrichment during `/rune:forge`.
+
+Control research tool availability via `talisman.yml` → `plan.external_research` (`context7_only`, `web_search`, `all`, `none`). Configuration lives in `.mcp.json`.
+
 ## Lore
 
 Rune uses Elden Ring-inspired theming:
