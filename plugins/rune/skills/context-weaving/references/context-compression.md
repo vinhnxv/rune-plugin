@@ -77,6 +77,22 @@ Watch for these quality signals:
 
 **Progressive disclosure:** Load information only when needed, not upfront.
 
+## Pre-Aggregation Compression (Inter-Agent)
+
+Pre-aggregation compression operates at a different level than session-level compression:
+
+| Dimension | Session Compression (Layer 3) | Pre-Aggregation (Layer 1.5) |
+|-----------|------------------------------|----------------------------|
+| **Trigger** | Message count (50+ messages) | Combined file size (>25KB) |
+| **Mechanism** | Anchored iterative summarization | Deterministic marker extraction |
+| **Scope** | In-context message history | On-disk Ash output files |
+| **LLM cost** | None (text manipulation) | None (regex-based extraction) |
+| **Target** | Tarnished context window | Runebinder input volume |
+
+Pre-aggregation complements session compression — they address different bottlenecks. Session compression prevents the Tarnished's context from growing too large. Pre-aggregation prevents the Runebinder's input files from exceeding its processing capacity.
+
+See [roundtable-circle/references/pre-aggregate.md](../../roundtable-circle/references/pre-aggregate.md) for the full extraction algorithm.
+
 ## Quality Verification
 
 After compression, verify with probes:
