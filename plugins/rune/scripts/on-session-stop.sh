@@ -460,6 +460,23 @@ for f in "${CWD}/tmp/"/.rune-shutdown-signal-*.json; do
 done
 shopt -u nullglob
 
+# ── Force shutdown signal file cleanup ──
+# Clean up .rune-force-shutdown-*.json files created by guard-context-critical.sh (Tier 3)
+shopt -s nullglob
+for f in "${CWD}/tmp/"/.rune-force-shutdown-*.json; do
+  [[ -f "$f" ]] || continue
+  [[ -L "$f" ]] && continue
+  # Session ownership check
+  FS_CFG=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
+  FS_PID=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
+  [[ -n "$FS_CFG" && "$FS_CFG" != "$RUNE_CURRENT_CFG" ]] && continue
+  if [[ -n "$FS_PID" && "$FS_PID" =~ ^[0-9]+$ && "$FS_PID" != "$PPID" ]]; then
+    rune_pid_alive "$FS_PID" && continue
+  fi
+  rm -f "$f" 2>/dev/null
+done
+shopt -u nullglob
+
 # ── REPORT ──
 total=$((${#cleaned_teams[@]} + ${#cleaned_states[@]} + ${#cleaned_arcs[@]} + cleaned_processes))
 

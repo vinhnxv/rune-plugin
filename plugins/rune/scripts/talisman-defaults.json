@@ -663,8 +663,9 @@
       "review": 30,
       "testing": 0,
       "utility": 40,
-      "work": 120
+      "work": 60
     },
+    "max_runtime_minutes": 20,
     "process_cleanup": true,
     "shutdown_signal_threshold": 35
   },

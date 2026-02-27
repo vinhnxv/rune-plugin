@@ -111,6 +111,8 @@ Phase 0 (shard auto-sorting) runs FIRST on its subset. Phase 1.5 (smart ordering
 | false | true | true | Raw glob/queue order preserved |
 | true | true | true | Conflicting — `--no-smart-sort` wins (warn user) |
 
+When both `--smart-sort` and `--no-smart-sort` are present, `--no-smart-sort` takes precedence and the user is warned.
+
 ## Limitations (Tier 1)
 
 - **File-level granularity only**: Two plans modifying different functions in the same file are treated as conflicting

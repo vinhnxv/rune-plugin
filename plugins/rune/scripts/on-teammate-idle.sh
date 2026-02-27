@@ -82,6 +82,16 @@ if [[ -z "$CWD" || "$CWD" != /* ]]; then
   exit 0
 fi
 
+# --- Guard: Skip output file gate for work teams ---
+# Work agents communicate via SendMessage (Seal) and TaskUpdate, not output files.
+# Inscription includes output_file entries for signal tracking but work agents
+# should NOT be blocked for missing output files. (FIX: stuck rune-smith agents)
+# Layer 4 all-tasks-done signal (below) still applies to work teams.
+if [[ "$TEAM_NAME" =~ ^(rune|arc)-work- ]]; then
+  _trace "SKIP output file gate for work team: $TEAM_NAME"
+  # Fall through to Layer 4 all-tasks-done signal below
+else
+
 # --- Quality Gate: Check if teammate wrote its output file ---
 # Rune teammates are expected to write output files before going idle.
 # The expected output path is stored in the inscription.
@@ -242,6 +252,8 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
     fi
   fi
 fi
+
+fi  # end: skip output file gate for work teams
 
 _trace "PASS all gates for $TEAMMATE_NAME"
 

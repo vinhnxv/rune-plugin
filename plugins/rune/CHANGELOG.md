@@ -1,9 +1,29 @@
 # Changelog
 
+## [1.119.0] - 2026-02-28
+
+### Fixed
+- **Fix stuck rune-smith agents in agent teams** — Work agents (`rune-smith`, `trial-forger`,
+  `design-iterator`, `design-sync-agent`) could get stuck in infinite active loops during
+  `/rune:strive` and `/rune:arc` workflows, consuming massive tokens without completing tasks.
+  Three-layer fix:
+  - **TeammateIdle hook bypass for work teams**: `on-teammate-idle.sh` no longer blocks work
+    agents from going idle due to missing output files. Work agents communicate via SendMessage
+    (Seal) and TaskUpdate, not output files. The Layer 4 "all tasks done" signal remains active
+    for all team types.
+  - **maxTurns reduction**: Work agents reduced from `maxTurns: 120` to `maxTurns: 60` as a
+    safety cap. Typical workload (5-6 tasks x 8-10 turns) fits within 60 turns. Override via
+    `talisman.yml` → `teammate_lifecycle.max_turns.work`.
+  - **Runtime budget enforcement**: Strive Phase 3 now tracks worker spawn times and sends
+    `shutdown_request` to workers exceeding `max_runtime_minutes` (default: 20). Released tasks
+    become available for reclaim. `guard-context-critical.sh` writes a `force_shutdown` signal
+    at critical threshold (25% remaining) for emergency worker shutdown.
+- New talisman key: `teammate_lifecycle.max_runtime_minutes` (default: `20`, set to `999` to disable)
+
 ## [1.118.0] - 2026-02-28
 
 ### Changed
-- **Arc-batch smart ordering is now opt-in** — Smart plan ordering in `/rune:arc-batch`
+- **Arc-batch smart ordering is now behavior opt-in (user-controlled, not forced on glob inputs)** — Smart plan ordering in `/rune:arc-batch`
   Phase 1.5 is no longer forced on all inputs. New behavior:
   - Glob inputs prompt the user with 3 options (Smart ordering / Alphabetical / As discovered)
   - Queue files (`.txt`) respect user-specified order by default
