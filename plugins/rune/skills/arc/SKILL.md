@@ -151,7 +151,7 @@ Read and execute the arc-checkpoint-init.md algorithm.
 
 ### Session-Scoped Todos (auto-resolve)
 
-Each delegated phase resolves its own `todosDir` via `resolveTodosBase(workflowOutputDir)` where `workflowOutputDir = tmp/arc/{id}/`. No `--todos-dir` flag is passed. See [arc-delegation-checklist.md](references/arc-delegation-checklist.md) § Phase 5, 6, 7 for per-phase todo resolution contracts.
+Each delegated phase resolves `todos_base` via `resolveTodosBase(workflowOutputDir)`, then resolves the source-qualified `todosDir` via `resolveTodosDir(workflowOutputDir, source)` where `workflowOutputDir = tmp/arc/{id}/`. No `--todos-dir` flag is passed. See [arc-delegation-checklist.md](references/arc-delegation-checklist.md) § Phase 5, 6, 7 for per-phase todo resolution contracts.
 
 ### Inter-Phase Cleanup Guard (ARC-6)
 

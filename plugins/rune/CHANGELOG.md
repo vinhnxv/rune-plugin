@@ -3,7 +3,7 @@
 ## [1.113.1] - 2026-02-27
 
 ### Fixed
-- **Wire file-todos integration into strive, roundtable-circle, mend, and arc SKILL.md** — Added explicit "Read and execute" directives for per-task todo creation (strive Phase 1), TOME-to-todo conversion (roundtable-circle Phase 5.4), and mend todo status updates (mend Phase 5.9). Added session-scoped todos documentation to arc SKILL.md. References `buildSourceManifest()` from `manifest-schema.md` for work source manifest computation. No behavioral change — wiring clarification only.
+- **Wire file-todos integration into strive, roundtable-circle, mend, and arc SKILL.md** — Added Phase 5.4 Todo Generation section to roundtable-circle SKILL.md (mandatory todo creation from TOME findings). Added Per-Task File-Todo Creation directive to strive SKILL.md Phase 1. Upgraded mend Phase 5.9 from passive reference to explicit algorithm summary. Added session-scoped todos documentation to arc SKILL.md. References `buildManifests()` from `manifest-schema.md` for work source manifest computation.
 
 ## [1.113.0] - 2026-02-27
 

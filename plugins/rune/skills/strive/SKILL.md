@@ -183,7 +183,7 @@ Bash(`mkdir -p "${todosDir}"`)
 
 Read and execute [todo-protocol.md](references/todo-protocol.md) § "Orchestrator: Per-Task Todo Creation (Phase 1)" to generate per-task todo files in `{todosDir}` for each extracted task.
 
-After creating all per-task todo files, build the work source manifest using `buildSourceManifest()` from [manifest-schema.md](../file-todos/references/manifest-schema.md) to compute `todos-work-manifest.json` with DAG ordering and wave assignment.
+After creating all per-task todo files, build the work source manifest using `buildManifests(todosBase, { all: true })` from [manifest-schema.md](../file-todos/references/manifest-schema.md) to compute `todos-work-manifest.json` with DAG ordering and wave assignment.
 
 ```javascript
 // Wave-based execution: bounded batches with fresh worker context

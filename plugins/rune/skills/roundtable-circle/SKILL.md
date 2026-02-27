@@ -315,7 +315,7 @@ Read and execute the Phase 5.4 pseudocode from [orchestration-phases.md](referen
 
 **File format**: Todo files use YAML frontmatter (schema v2) with 6-state lifecycle. See [../file-todos/references/todo-template.md](../file-todos/references/todo-template.md) for the canonical template.
 
-**Manifest**: After writing all todo files, call `buildSourceManifest()` (per-source manifest creation) as specified in [../file-todos/references/manifest-schema.md](../file-todos/references/manifest-schema.md).
+**Manifest**: After writing all todo files, call `buildManifests(todosBase, { all: true })` (per-source manifest creation) as specified in [../file-todos/references/manifest-schema.md](../file-todos/references/manifest-schema.md).
 
 **Key behaviors**:
 - Findings with `interaction="question"` or `interaction="nit"` are filtered out (non-actionable)
