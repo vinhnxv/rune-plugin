@@ -20,6 +20,9 @@ umask 077
 # --- Fail-forward guard (OPERATIONAL hook) ---
 # Crash before validation → allow operation (don't stall workflows).
 _rune_fail_forward() {
+  # VEIL-003/BACK-005: Always emit stderr warning so crash-through-compaction is observable
+  printf 'WARN: pre-compact-checkpoint.sh: ERR trap — fail-forward activated (line %s)\n' \
+    "${BASH_LINENO[0]:-?}" >&2 2>/dev/null || true
   if [[ "${RUNE_TRACE:-}" == "1" ]]; then
     printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
       "$(date +%H:%M:%S 2>/dev/null || true)" \
@@ -145,7 +148,8 @@ else
 fi
 
 # ── GUARD 3: CWD extraction and canonicalization ──
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+# BACK-005 FIX: Use printf instead of echo to avoid flag interpretation if $INPUT starts with '-'
+CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then exit 0; fi
 CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || { exit 0; }
 if [[ -z "$CWD" || "$CWD" != /* ]]; then exit 0; fi
@@ -301,6 +305,8 @@ arc_file=""
 _ckpt_dir="${CWD}/.claude/arc"
 if [[ -d "$_ckpt_dir" ]]; then
   _newest_mtime=0
+  # BACK-006 FIX: Protect glob with nullglob to prevent literal-path iteration on no match
+  shopt -s nullglob 2>/dev/null || true
   for _f in "$_ckpt_dir"/*/checkpoint.json; do
     [[ -f "$_f" ]] && [[ ! -L "$_f" ]] || continue
     _pid=$(jq -r '.owner_pid // empty' "$_f" 2>/dev/null) || continue
@@ -311,6 +317,7 @@ if [[ -d "$_ckpt_dir" ]]; then
       arc_file="$_f"
     fi
   done
+  shopt -u nullglob 2>/dev/null || true
 fi
 if [[ -n "$arc_file" ]] && [[ -f "$arc_file" ]] && [[ ! -L "$arc_file" ]]; then
   arc_checkpoint=$(jq -c '.' "$arc_file" 2>/dev/null || echo '{}')
@@ -322,7 +329,8 @@ fi
 # We extract only paths that actually exist on disk (guards against stale checkpoint fields).
 arc_phase_summaries="{}"
 if [[ "$arc_checkpoint" != "{}" ]]; then
-  _raw_summaries=$(echo "$arc_checkpoint" | jq -r '.phase_summaries // {} | to_entries[] | "\(.key)\t\(.value)"' 2>/dev/null || true)
+  # BACK-005 FIX: Use printf instead of echo to avoid flag interpretation
+  _raw_summaries=$(printf '%s\n' "$arc_checkpoint" | jq -r '.phase_summaries // {} | to_entries[] | "\(.key)\t\(.value)"' 2>/dev/null || true)
   if [[ -n "$_raw_summaries" ]]; then
     _valid_pairs="{"
     _first=1
@@ -341,7 +349,8 @@ if [[ "$arc_checkpoint" != "{}" ]]; then
     _valid_pairs="${_valid_pairs}}"
     # Only use if we got at least one entry
     if [[ "$_valid_pairs" != "{}" ]]; then
-      arc_phase_summaries=$(echo "$_valid_pairs" | jq -c '.' 2>/dev/null || echo '{}')
+      # BACK-005 FIX: Use printf instead of echo to avoid flag interpretation
+      arc_phase_summaries=$(printf '%s\n' "$_valid_pairs" | jq -c '.' 2>/dev/null || echo '{}')
     fi
   fi
 fi

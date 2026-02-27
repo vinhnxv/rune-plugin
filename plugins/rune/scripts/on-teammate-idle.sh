@@ -10,6 +10,9 @@ umask 077
 # --- Fail-forward guard (OPERATIONAL hook) ---
 # Crash before validation → allow operation (don't stall workflows).
 _rune_fail_forward() {
+  # VEIL-003: Always emit stderr warning so quality-gate bypasses are observable
+  printf 'WARN: on-teammate-idle.sh: ERR trap — fail-forward activated (line %s)\n' \
+    "${BASH_LINENO[0]:-?}" >&2 2>/dev/null || true
   if [[ "${RUNE_TRACE:-}" == "1" ]]; then
     printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
       "$(date +%H:%M:%S 2>/dev/null || true)" \
@@ -41,11 +44,11 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
+INPUT=$(head -c 1048576 2>/dev/null || true)  # SEC-2: 1MB cap to prevent unbounded stdin read
 _trace "ENTER"
 
-TEAM_NAME=$(echo "$INPUT" | jq -r '.team_name // empty' 2>/dev/null || true)
-TEAMMATE_NAME=$(echo "$INPUT" | jq -r '.teammate_name // empty' 2>/dev/null || true)
+TEAM_NAME=$(printf '%s\n' "$INPUT" | jq -r '.team_name // empty' 2>/dev/null || true)
+TEAMMATE_NAME=$(printf '%s\n' "$INPUT" | jq -r '.teammate_name // empty' 2>/dev/null || true)
 
 # Validate TEAMMATE_NAME characters
 if [[ -n "$TEAMMATE_NAME" && ! "$TEAMMATE_NAME" =~ ^[a-zA-Z0-9_:-]+$ ]]; then
@@ -69,7 +72,7 @@ if [[ "$TEAM_NAME" != rune-* && "$TEAM_NAME" != arc-* ]]; then
 fi
 
 # Derive absolute path from hook input CWD (not relative — CWD is not guaranteed)
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then
   echo "WARN: TeammateIdle hook input missing 'cwd' field" >&2
   exit 0
@@ -102,8 +105,8 @@ EXPECTED_OUTPUT=$(jq -r --arg name "$TEAMMATE_NAME" \
 # SEC-C01: Fast-fail heuristic only — rejects obvious traversal patterns early.
 # The real security boundary is the realpath+prefix canonicalization at lines 104-110.
 if [[ "$EXPECTED_OUTPUT" == *".."* || "$EXPECTED_OUTPUT" == /* ]]; then
-  echo "ERROR: inscription output_file contains path traversal: ${EXPECTED_OUTPUT}" >&2
-  exit 2  # CDX-006: fail-closed — block idle on security violation
+  # SEC-003: exit 2 before echo — prevents ERR trap preemption on broken stderr
+  { echo "ERROR: inscription output_file contains path traversal: ${EXPECTED_OUTPUT}" >&2; } 2>/dev/null; exit 2
 fi
 
 if [[ -z "$EXPECTED_OUTPUT" ]]; then
@@ -122,12 +125,12 @@ if [[ -z "$OUTPUT_DIR" ]]; then
 fi
 # SEC-003: Path traversal check for OUTPUT_DIR
 if [[ "$OUTPUT_DIR" == *".."* ]]; then
-  echo "ERROR: inscription output_dir contains path traversal: ${OUTPUT_DIR}" >&2
-  exit 2  # CDX-006: fail-closed — block idle on security violation
+  # SEC-003: exit 2 before echo — prevents ERR trap preemption on broken stderr
+  { echo "ERROR: inscription output_dir contains path traversal: ${OUTPUT_DIR}" >&2; } 2>/dev/null; exit 2
 fi
 if [[ "$OUTPUT_DIR" != tmp/* ]]; then
-  echo "ERROR: inscription output_dir outside tmp/: ${OUTPUT_DIR}" >&2
-  exit 2  # CDX-006: fail-closed — block idle on security violation
+  # SEC-003: exit 2 before echo — prevents ERR trap preemption on broken stderr
+  { echo "ERROR: inscription output_dir outside tmp/: ${OUTPUT_DIR}" >&2; } 2>/dev/null; exit 2
 fi
 
 # Normalize trailing slash
@@ -147,15 +150,14 @@ resolve_path() {
 RESOLVED_OUTPUT=$(resolve_path "$FULL_OUTPUT_PATH")
 RESOLVED_OUTDIR=$(resolve_path "${CWD}/${OUTPUT_DIR}")
 if [[ "$RESOLVED_OUTPUT" != "$RESOLVED_OUTDIR"* ]]; then
-  echo "ERROR: output_file resolves outside output_dir" >&2
-  exit 2  # CDX-006: fail-closed — block idle on security violation (consistent with lines 105, 109)
+  # SEC-003: exit 2 before echo — prevents ERR trap preemption on broken stderr
+  { echo "ERROR: output_file resolves outside output_dir" >&2; } 2>/dev/null; exit 2
 fi
 
 if [[ ! -f "$FULL_OUTPUT_PATH" ]]; then
   _trace "BLOCK output missing: $FULL_OUTPUT_PATH"
-  # Output file missing — block idle, tell teammate to finish work
-  echo "Output file not found: ${OUTPUT_DIR}${EXPECTED_OUTPUT}. Please complete your review and write findings before stopping." >&2
-  exit 2
+  # SEC-003: exit 2 guarded — prevents ERR trap preemption on broken stderr
+  { echo "Output file not found: ${OUTPUT_DIR}${EXPECTED_OUTPUT}. Please complete your review and write findings before stopping." >&2; } 2>/dev/null; exit 2
 fi
 
 # BACK-007: Minimum output size gate
@@ -164,8 +166,8 @@ FILE_SIZE=$(wc -c < "$FULL_OUTPUT_PATH" 2>/dev/null | tr -dc '0-9')
 [[ -z "$FILE_SIZE" ]] && FILE_SIZE=0
 if [[ "$FILE_SIZE" -lt "$MIN_OUTPUT_SIZE" ]]; then
   _trace "BLOCK output too small: ${FILE_SIZE} bytes < ${MIN_OUTPUT_SIZE}"
-  echo "Output file is empty or too small: ${FULL_OUTPUT_PATH} (${FILE_SIZE} bytes). Please write your findings." >&2
-  exit 2
+  # SEC-003: exit 2 guarded — prevents ERR trap preemption on broken stderr
+  { echo "Output file is empty or too small: ${FULL_OUTPUT_PATH} (${FILE_SIZE} bytes). Please write your findings." >&2; } 2>/dev/null; exit 2
 fi
 
 # --- Quality Gate: Check for SEAL marker (Roundtable Circle only) ---
@@ -179,8 +181,8 @@ if [[ "$TEAM_NAME" =~ ^(rune|arc)-(review|audit)- ]]; then
   # Check for SEAL in output file: YAML format (^SEAL:), XML tag (<seal>), or Inner Flame self-review marker
   if ! grep -q "^SEAL:" "$FULL_OUTPUT_PATH" 2>/dev/null && ! grep -q "<seal>" "$FULL_OUTPUT_PATH" 2>/dev/null && ! grep -q "^Inner Flame:" "$FULL_OUTPUT_PATH" 2>/dev/null; then
     _trace "BLOCK SEAL missing: $FULL_OUTPUT_PATH"
-    echo "SEAL marker missing in ${FULL_OUTPUT_PATH}. Review output incomplete — add SEAL block." >&2
-    exit 2  # Block idle until Ash adds SEAL
+    # SEC-003: exit 2 guarded — prevents ERR trap preemption on broken stderr
+    { echo "SEAL marker missing in ${FULL_OUTPUT_PATH}. Review output incomplete — add SEAL block." >&2; } 2>/dev/null; exit 2
   fi
 fi
 
@@ -267,11 +269,13 @@ if [[ -d "$TASK_DIR" ]]; then
   if [[ "$ALL_DONE" == "true" && "$found_any_task" == "true" ]]; then
     sig="${CWD}/tmp/.rune-signals/${TEAM_NAME}/all-tasks-done"
     mkdir -p "$(dirname "$sig")" 2>/dev/null
-    printf '{"timestamp":"%s","config_dir":"%s","owner_pid":"%s"}\n' \
-      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      "${RUNE_CURRENT_CFG:-unknown}" \
-      "${PPID:-0}" \
-      > "${sig}.tmp.$$" 2>/dev/null && mv "${sig}.tmp.$$" "${sig}" 2>/dev/null || true
+    # SEC-002 FIX: Use jq for JSON-safe construction instead of printf interpolation
+    jq -n --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --arg cfg "${RUNE_CURRENT_CFG:-unknown}" \
+      --arg pid "${PPID:-0}" \
+      '{timestamp: $ts, config_dir: $cfg, owner_pid: $pid}' \
+      > "${sig}.tmp.$$" 2>/dev/null && mv "${sig}.tmp.$$" "${sig}" 2>/dev/null || \
+      { printf 'WARN: on-teammate-idle.sh: all-tasks-done signal write failed for team %s\n' "$TEAM_NAME" >&2 2>/dev/null || true; }
     _trace "SIGNAL all-tasks-done for team $TEAM_NAME"
   fi
 fi

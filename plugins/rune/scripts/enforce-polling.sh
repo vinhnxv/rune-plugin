@@ -22,12 +22,19 @@ umask 077
 # --- Fail-forward guard (OPERATIONAL hook) ---
 # Crash before validation → allow operation (don't stall workflows).
 _rune_fail_forward() {
+  # SEC-002 FIX: Always emit stderr warning for enforcement hooks.
+  # Silent fail-forward in a security-adjacent hook masks mid-validation crashes.
+  printf 'WARNING: %s: ERR trap — fail-forward activated (line %s). sleep+echo check skipped.\n' \
+    "${BASH_SOURCE[0]##*/}" \
+    "${BASH_LINENO[0]:-?}" \
+    >&2 2>/dev/null || true
   if [[ "${RUNE_TRACE:-}" == "1" ]]; then
-    printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
+    local _log="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+    [[ ! -L "$_log" ]] && printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
       "$(date +%H:%M:%S 2>/dev/null || true)" \
       "${BASH_SOURCE[0]##*/}" \
       "${BASH_LINENO[0]:-?}" \
-      >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" 2>/dev/null
+      >> "$_log" 2>/dev/null
   fi
   exit 0
 }
@@ -89,7 +96,9 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
   # Threshold: only block sleep >= 10s (startup probes use sleep 1-5)
   # Extract the sleep value specifically from the anti-pattern match (sleep N && echo / sleep N ; echo)
   # not just the first sleep token in the command — avoids bypass via "sleep 1 && setup; sleep 60 && echo poll"
-  SLEEP_NUM=$(printf '%s\n' "$NORMALIZED" | grep -oE 'sleep[[:space:]]+[0-9]+[[:space:]]*(&&|;)[[:space:]]*(echo|printf)' | grep -oE 'sleep[[:space:]]+[0-9]+' | head -1 | grep -oE '[0-9]+')
+  # VEIL-009 FIX: Use sort -rn to extract the MAXIMUM sleep value from all anti-pattern matches,
+  # not just the first — prevents bypass via "sleep 1 && echo setup; sleep 60 && echo poll"
+  SLEEP_NUM=$(printf '%s\n' "$NORMALIZED" | grep -oE 'sleep[[:space:]]+[0-9]+[[:space:]]*(&&|;)[[:space:]]*(echo|printf)' | grep -oE 'sleep[[:space:]]+[0-9]+' | grep -oE '[0-9]+' | sort -rn | head -1)
   [[ "${SLEEP_NUM:-0}" -lt 10 ]] && exit 0
 
   # Check for active Rune workflow (THIS session only)
@@ -97,8 +106,20 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
 
   # ── Session identity for cross-session ownership filtering ──
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  # shellcheck source=resolve-session-identity.sh
-  source "${SCRIPT_DIR}/resolve-session-identity.sh"
+  # VEIL-005 FIX: Guard against missing resolve-session-identity.sh.
+  # Without this, a missing file triggers ERR trap → fail-forward → anti-pattern allowed.
+  if [[ -f "${SCRIPT_DIR}/resolve-session-identity.sh" ]]; then
+    # shellcheck source=resolve-session-identity.sh
+    source "${SCRIPT_DIR}/resolve-session-identity.sh"
+  else
+    # VEIL-001 FIX: PID-based fallback instead of disabling ownership entirely.
+    # Without this, _rune_skip_ownership=1 treated ALL active workflows as "ours",
+    # causing cross-session interference (session A blocks session B's polling).
+    printf 'WARNING: %s: resolve-session-identity.sh not found — using PID-based ownership fallback\n' \
+      "${BASH_SOURCE[0]##*/}" >&2 2>/dev/null || true
+    RUNE_CURRENT_CFG=""
+    rune_pid_alive() { return 1; }  # treat all PIDs as dead (conservative: own everything)
+  fi
 
   # Arc checkpoint detection
   if [[ -d "${CWD}/.claude/arc" ]]; then
@@ -114,7 +135,7 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
         # ── Ownership filter: skip checkpoints from other sessions ──
         stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
         stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
-        if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+        if [[ -n "$stored_cfg" && -n "$RUNE_CURRENT_CFG" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
         if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
           rune_pid_alive "$stored_pid" && continue  # alive = different session
         fi
@@ -138,7 +159,7 @@ if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&(])sleep[[:space:]]+[
         # ── Ownership filter: skip state files from other sessions ──
         stored_cfg=$(jq -r '.config_dir // empty' "$f" 2>/dev/null || true)
         stored_pid=$(jq -r '.owner_pid // empty' "$f" 2>/dev/null || true)
-        if [[ -n "$stored_cfg" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
+        if [[ -n "$stored_cfg" && -n "$RUNE_CURRENT_CFG" && "$stored_cfg" != "$RUNE_CURRENT_CFG" ]]; then continue; fi
         if [[ -n "$stored_pid" && "$stored_pid" =~ ^[0-9]+$ && "$stored_pid" != "$PPID" ]]; then
           rune_pid_alive "$stored_pid" && continue  # alive = different session
         fi

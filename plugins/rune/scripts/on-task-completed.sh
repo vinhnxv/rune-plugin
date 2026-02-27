@@ -9,13 +9,29 @@ umask 077
 
 # --- Fail-forward guard (OPERATIONAL hook) ---
 # Crash before validation → allow operation (don't stall workflows).
+# VEIL-002: Always warn on stderr (signal file loss causes 30-60 min orchestrator stalls).
+# Also write a .crash-detected marker so the orchestrator can distinguish "hook crashed"
+# from "hook never ran" — prevents silent polling until maxIterations.
 _rune_fail_forward() {
+  local _crash_line="${BASH_LINENO[0]:-?}"
+  # Always emit warning — signal file loss is operationally significant
+  printf 'WARN: on-task-completed.sh ERR trap at line %s — signal file may not have been written\n' \
+    "$_crash_line" >&2
   if [[ "${RUNE_TRACE:-}" == "1" ]]; then
     printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
       "$(date +%H:%M:%S 2>/dev/null || true)" \
       "${BASH_SOURCE[0]##*/}" \
-      "${BASH_LINENO[0]:-?}" \
+      "$_crash_line" \
       >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" 2>/dev/null
+  fi
+  # Best-effort crash marker — if SIGNAL_DIR and TASK_ID are set, write a marker
+  # the orchestrator can check to detect "hook ran but crashed before signal write"
+  if [[ -n "${SIGNAL_DIR:-}" && -d "${SIGNAL_DIR:-}" && -n "${TASK_ID:-}" ]]; then
+    # SEC-003 FIX: Sanitize TASK_ID for JSON — fail-forward runs before input validation
+    _safe_tid=$(printf '%s' "${TASK_ID}" | tr -cd 'a-zA-Z0-9_-')
+    printf '{"task_id":"%s","crash_line":%s,"timestamp":"%s"}\n' \
+      "$_safe_tid" "$_crash_line" "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" \
+      > "${SIGNAL_DIR}/${TASK_ID}.crash-detected" 2>/dev/null || true
   fi
   exit 0
 }
@@ -39,18 +55,18 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # Read hook input from stdin
-INPUT=$(head -c 1048576)  # SEC-2: 1MB cap to prevent unbounded stdin read
+INPUT=$(head -c 1048576 2>/dev/null || true)  # SEC-2: 1MB cap to prevent unbounded stdin read
 _trace "ENTER"
 
 # BACK-101: Validate JSON before attempting field extraction
-if ! echo "$INPUT" | jq empty 2>/dev/null; then
+if ! printf '%s\n' "$INPUT" | jq empty 2>/dev/null; then
   echo "WARN: Hook input is not valid JSON — signal file will not be written" >&2
   exit 0
 fi
 
 # Extract fields with safe defaults via single jq call (BACK-204)
 # Uses tab-separated output to avoid eval — each field is read into its own variable.
-IFS=$'\t' read -r TEAM_NAME TASK_ID TEAMMATE_NAME TASK_SUBJECT <<< "$(echo "$INPUT" | jq -r '[.team_name // "", .task_id // "", .teammate_name // "", .task_subject // ""] | @tsv' 2>/dev/null)" || true
+IFS=$'\t' read -r TEAM_NAME TASK_ID TEAMMATE_NAME TASK_SUBJECT <<< "$(printf '%s\n' "$INPUT" | jq -r '[.team_name // "", .task_id // "", .teammate_name // "", .task_subject // ""] | @tsv' 2>/dev/null)" || true
 # SEC-C05: Truncate subject to prevent oversized values in signal files
 TASK_SUBJECT="${TASK_SUBJECT:0:256}"
 # BACK-012: Default empty subject
@@ -86,7 +102,7 @@ if [[ ! "$TASK_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
 fi
 
 # Derive absolute path from hook input CWD (not relative — CWD is not guaranteed)
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 # BACK-009: Add warning when CWD is missing
 if [[ -z "$CWD" ]]; then
   echo "WARN: TaskCompleted hook input missing 'cwd' field" >&2

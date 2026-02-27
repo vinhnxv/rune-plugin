@@ -5,6 +5,7 @@
 # Exit 0 to allow (non-blocking or soft enforcement).
 
 set -euo pipefail
+umask 077
 
 # --- Fail-forward guard (OPERATIONAL hook) ---
 # Crash before validation → allow operation (don't stall workflows).
@@ -20,11 +21,11 @@ _rune_fail_forward() {
 }
 trap '_rune_fail_forward' ERR
 
-# Pre-flight: yq dependency guard (needed for talisman config parsing)
-command -v yq &>/dev/null || exit 0
+# BACK-004 FIX: Removed early yq guard (was: exit 0 before stdin read).
+# yq is only needed for talisman config parsing (lines 68-81), guarded there.
 
 # Read hook input (64KB cap — sufficient for TaskCompleted JSON payloads)
-INPUT=$(head -c 65536)
+INPUT=$(head -c 65536 2>/dev/null || true)
 
 # Pre-flight: jq required
 if ! command -v jq &>/dev/null; then
@@ -32,13 +33,13 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # Validate JSON
-if ! echo "$INPUT" | jq empty 2>/dev/null; then
+if ! printf '%s\n' "$INPUT" | jq empty 2>/dev/null; then
   exit 0
 fi
 
 # Extract fields
 IFS=$'\t' read -r TEAM_NAME TASK_ID TEAMMATE_NAME <<< \
-  "$(echo "$INPUT" | jq -r '[.team_name // "", .task_id // "", .teammate_name // ""] | @tsv' 2>/dev/null)" || true
+  "$(printf '%s\n' "$INPUT" | jq -r '[.team_name // "", .task_id // "", .teammate_name // ""] | @tsv' 2>/dev/null)" || true
 
 # Guard: only process Rune teams
 if [[ -z "$TEAM_NAME" || -z "$TASK_ID" ]]; then
@@ -49,11 +50,11 @@ if [[ "$TEAM_NAME" != rune-* && "$TEAM_NAME" != arc-* ]]; then
 fi
 
 # Guard: validate ALL identifiers (SEC-001: TEAMMATE_NAME was missing)
-if [[ ! "$TEAM_NAME" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ ! "$TASK_ID" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ ! "$TEAMMATE_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+if [[ ! "$TEAM_NAME" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ ! "$TASK_ID" =~ ^[a-zA-Z0-9_-]+$ ]] || [[ ! "$TEAMMATE_NAME" =~ ^[a-zA-Z0-9_:-]+$ ]]; then
   exit 0
 fi
 
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then
   exit 0
 fi
@@ -67,8 +68,11 @@ INNER_FLAME_ENABLED=true
 for TALISMAN_PATH in "${CWD}/.claude/talisman.yml" "${CHOME}/talisman.yml"; do
   if [[ -f "$TALISMAN_PATH" ]]; then
     if command -v yq &>/dev/null; then
-      INNER_FLAME_ENABLED=$(yq -r '.inner_flame.enabled // true' "$TALISMAN_PATH" 2>/dev/null || echo "true")
-      BLOCK_ON_FAIL=$(yq -r '.inner_flame.block_on_fail // true' "$TALISMAN_PATH" 2>/dev/null || echo "true")
+      INNER_FLAME_ENABLED=$(yq -r '.inner_flame.enabled // true' "$TALISMAN_PATH" 2>/dev/null) || INNER_FLAME_ENABLED="true"
+      BLOCK_ON_FAIL=$(yq -r '.inner_flame.block_on_fail // true' "$TALISMAN_PATH" 2>/dev/null) || BLOCK_ON_FAIL="true"
+      # VEIL-004: If yq returned empty (v3/v4 mismatch), default to safe values
+      [[ -z "$INNER_FLAME_ENABLED" ]] && INNER_FLAME_ENABLED="true"
+      [[ -z "$BLOCK_ON_FAIL" ]] && BLOCK_ON_FAIL="true"
     else
       echo "Inner Flame: yq not found — cannot read talisman config, defaulting to soft enforcement" >&2
     fi
@@ -85,15 +89,20 @@ fi
 OUTPUT_DIR=""
 if [[ "$TEAM_NAME" == rune-review-* ]]; then
   REVIEW_ID="${TEAM_NAME#rune-review-}"
+  # SEC-008 FIX: Guard against empty ID after prefix strip
+  [[ -z "$REVIEW_ID" ]] && exit 0
   OUTPUT_DIR="${CWD}/tmp/reviews/${REVIEW_ID}"
 elif [[ "$TEAM_NAME" == arc-review-* ]]; then
   REVIEW_ID="${TEAM_NAME#arc-review-}"
+  [[ -z "$REVIEW_ID" ]] && exit 0
   OUTPUT_DIR="${CWD}/tmp/reviews/${REVIEW_ID}"
 elif [[ "$TEAM_NAME" == rune-audit-* ]]; then
   AUDIT_ID="${TEAM_NAME#rune-audit-}"
+  [[ -z "$AUDIT_ID" ]] && exit 0
   OUTPUT_DIR="${CWD}/tmp/audit/${AUDIT_ID}"
 elif [[ "$TEAM_NAME" == arc-audit-* ]]; then
   AUDIT_ID="${TEAM_NAME#arc-audit-}"
+  [[ -z "$AUDIT_ID" ]] && exit 0
   OUTPUT_DIR="${CWD}/tmp/audit/${AUDIT_ID}"
 elif [[ "$TEAM_NAME" == rune-work-* || "$TEAM_NAME" == arc-work-* ]]; then
   # Workers don't write to output files in the same way — skip for now

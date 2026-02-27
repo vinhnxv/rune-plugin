@@ -19,12 +19,16 @@ umask 077
 
 # --- Fail-forward guard (OPERATIONAL hook) ---
 # Crash before validation → allow operation (don't stall workflows).
+# BACK-002: Always warn on stderr so crashes are observable in production.
 _rune_fail_forward() {
+  local _crash_line="${BASH_LINENO[0]:-?}"
+  printf 'WARN: enforce-team-lifecycle.sh ERR trap at line %s — fail-forward activated\n' \
+    "$_crash_line" >&2
   if [[ "${RUNE_TRACE:-}" == "1" ]]; then
     printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
       "$(date +%H:%M:%S 2>/dev/null || true)" \
       "${BASH_SOURCE[0]##*/}" \
-      "${BASH_LINENO[0]:-?}" \
+      "$_crash_line" \
       >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" 2>/dev/null
   fi
   exit 0
@@ -37,8 +41,8 @@ trap '_rune_fail_forward' ERR
 if ! command -v jq &>/dev/null; then
   echo "WARNING: jq not found — enforce-team-lifecycle.sh using fallback validation" >&2
   # Best-effort: extract team_name from raw JSON input using grep/sed
-  RAW_INPUT=$(head -c 1048576)
-  RAW_NAME=$(echo "$RAW_INPUT" | grep -o '"team_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"team_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+  RAW_INPUT=$(head -c 1048576 2>/dev/null || true)
+  RAW_NAME=$(printf '%s\n' "$RAW_INPUT" | grep -o '"team_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"team_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
   if [[ -n "$RAW_NAME" ]] && [[ ! "$RAW_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
     echo "TLC-001: BLOCKED — invalid team name (jq-free fallback validation)" >&2
     # Output deny JSON manually (no jq available)
@@ -48,27 +52,27 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # ── GUARD 2: Input size cap (SEC-2: 1MB DoS prevention) ──
-INPUT=$(head -c 1048576)
+INPUT=$(head -c 1048576 2>/dev/null || true)
 
 # ── GUARD 3: Tool name match (fast path) ──
 # SEC-5 NOTE: Exact string match here provides defense-in-depth against any
 # SDK matcher ambiguity (hooks.json "TeamCreate" matcher is regex-based).
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
+TOOL_NAME=$(printf '%s\n' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 if [[ "$TOOL_NAME" != "TeamCreate" ]]; then
   exit 0
 fi
 
 # ── GUARD 4: CWD canonicalization (QUAL-5) ──
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then exit 0; fi
 CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || {
-  [[ "${RUNE_TRACE:-}" == "1" ]] && echo "TLC-001: CWD canonicalization failed for original CWD" >> /tmp/rune-hook-trace.log
+  [[ "${RUNE_TRACE:-}" == "1" ]] && echo "TLC-001: CWD canonicalization failed for original CWD" >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" 2>/dev/null
   exit 0
 }
 if [[ -z "$CWD" || "$CWD" != /* ]]; then exit 0; fi
 
 # ── EXTRACT: team_name from tool_input (single-pass jq) ──
-TEAM_NAME=$(echo "$INPUT" | jq -r '.tool_input.team_name // empty' 2>/dev/null || true)
+TEAM_NAME=$(printf '%s\n' "$INPUT" | jq -r '.tool_input.team_name // empty' 2>/dev/null || true)
 if [[ -z "$TEAM_NAME" ]]; then
   exit 0  # No team_name — let SDK handle the error
 fi
@@ -109,7 +113,7 @@ if [[ ${#TEAM_NAME} -gt 128 ]]; then
 fi
 
 # ── EXTRACT: session_id from hook input (for session-scoped stale scan) ──
-HOOK_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+HOOK_SESSION_ID=$(printf '%s\n' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 
 # ── STALE TEAM DETECTION (Advisory — D-1, D-2) ──
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
