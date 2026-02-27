@@ -84,10 +84,10 @@ if (!/^[a-zA-Z0-9][a-zA-Z0-9._\/-]*$/.test(defaultBranch)) {
 }
 const diffStat = Bash(`git diff --stat "${defaultBranch}"..."${currentBranch}"`).trim()
 
-// 4. Read talisman for PR overrides
-const talisman = readTalisman()
-const monitoringRequired = talisman?.work?.pr_monitoring ?? false
-const coAuthors = talisman?.work?.co_authors ?? []
+// readTalismanSection: "work"
+const work = readTalismanSection("work")
+const monitoringRequired = work?.pr_monitoring ?? false
+const coAuthors = work?.co_authors ?? []
 
 // 5. Build co-author lines
 const validCoAuthors = coAuthors.filter(a => /^[^<>\n]+\s+<[^@\n]+@[^>\n]+>$/.test(a))
@@ -147,8 +147,7 @@ ${decisions ? decisions : ""}
   return ""
 })()}
 ${(() => {
-  // Per-task file-todos status
-  const talisman = readTalisman()
+  // Per-task file-todos status (no talisman read needed — deduped)
   const todosDir = resolveTodosDir(workflowOutputDir, "work")
   const todoFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
     .concat(Glob(`${todosDir}[0-9][0-9][0-9][0-9]-*.md`))

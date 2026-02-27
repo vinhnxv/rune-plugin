@@ -112,9 +112,10 @@ After discovering test patterns (Step 4) and before writing tests (Step 5), opti
 ```javascript
 // Step 4.5: Codex Edge Case Suggestions (optional)
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
-const talisman = readTalisman()
-const codexDisabled = talisman?.codex?.disabled === true
-const trialForgerEnabled = talisman?.codex?.trial_forger?.enabled !== false
+// readTalismanSection: "codex"
+const codex = readTalismanSection("codex")
+const codexDisabled = codex?.disabled === true
+const trialForgerEnabled = codex?.trial_forger?.enabled !== false
 
 if (codexAvailable && !codexDisabled && trialForgerEnabled) {
   // CDX-002 FIX: .codexignore pre-flight check before --full-auto (consistent with mend.md/arc SKILL.md)

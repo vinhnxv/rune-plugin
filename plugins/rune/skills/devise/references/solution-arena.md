@@ -190,11 +190,12 @@ Cross-model solution evaluation. Codex provides an independent assessment of the
 ```javascript
 // Codex detection + talisman gate
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
-const talisman = readTalisman()
-const codexDisabled = talisman?.codex?.disabled === true
-const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
-const arenaEnabled = talisman?.codex?.arena?.enabled !== false
-const arenaRole = talisman?.codex?.arena?.role ?? "judge"  // "judge" | "generator" | "both"
+// readTalismanSection: "codex"
+const codex = readTalismanSection("codex")
+const codexDisabled = codex?.disabled === true
+const codexWorkflows = codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "mend"]
+const arenaEnabled = codex?.arena?.enabled !== false
+const arenaRole = codex?.arena?.role ?? "judge"  // "judge" | "generator" | "both"
 
 if (codexAvailable && !codexDisabled && codexWorkflows.includes("plan") && arenaEnabled) {
   // Security: CODEX_MODEL_ALLOWLIST

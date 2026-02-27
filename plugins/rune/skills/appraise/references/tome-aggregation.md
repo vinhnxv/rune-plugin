@@ -7,9 +7,8 @@ This reference covers Phase 4.5 (Doubt Seer), Phase 5 (Runebinder aggregation), 
 After Phase 4 Monitor completes, optionally spawn the Doubt Seer to cross-examine Ash findings. See `roundtable-circle` SKILL.md Phase 4.5 for the full specification.
 
 ```javascript
-// Phase 4.5: Doubt Seer — conditional cross-examination of Ash findings
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const doubtConfig = readTalisman()?.doubt_seer
+// readTalismanSection: "gates"
+const doubtConfig = readTalismanSection("gates")?.doubt_seer
 const doubtEnabled = doubtConfig?.enabled === true  // strict opt-in (default: false)
 const doubtWorkflows = doubtConfig?.workflows ?? ["review", "audit"]
 

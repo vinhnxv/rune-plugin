@@ -109,13 +109,16 @@ const reviewers = [
   { name: "veil-piercer-plan", agent: "agents/utility/veil-piercer-plan.md", focus: "Plan truth-telling (reality vs fiction)" }
 ]
 
+// readTalismanSection: "gates"
+const gates = readTalismanSection("gates")
+
 // Horizon Sage — strategic depth assessment (v1.47.0+)
 // Skipped if talisman horizon.enabled === false
-const horizonEnabled = readTalisman()?.horizon?.enabled !== false
+const horizonEnabled = gates?.horizon?.enabled !== false
 if (horizonEnabled) {
   const planFrontmatter = extractYamlFrontmatter(Read(`tmp/arc/${id}/enriched-plan.md`))
   const VALID_INTENTS = ["long-term", "quick-win", "auto"]
-  const intentDefault = readTalisman()?.horizon?.intent_default ?? "long-term"
+  const intentDefault = gates?.horizon?.intent_default ?? "long-term"
   const strategicIntent = VALID_INTENTS.includes(planFrontmatter?.strategic_intent)
     ? planFrontmatter.strategic_intent : intentDefault
   reviewers.push({
@@ -127,9 +130,9 @@ if (horizonEnabled) {
 
 // Evidence Verifier — evidence-based plan validation (v1.113.0)
 // Skipped if talisman evidence.enabled === false
-const evidenceEnabled = readTalisman()?.evidence?.enabled !== false
+const evidenceEnabled = gates?.evidence?.enabled !== false
 if (evidenceEnabled) {
-  const evidenceExternalSearch = readTalisman()?.evidence?.external_search === true
+  const evidenceExternalSearch = gates?.evidence?.external_search === true
   reviewers.push({
     name: "evidence-verifier",
     agent: "agents/utility/evidence-verifier.md",
@@ -157,7 +160,7 @@ for (const reviewer of reviewers) {
       Output: tmp/arc/${id}/reviews/${reviewer.name}-verdict.md
       Include structured verdict marker: <!-- VERDICT:${reviewer.name}:{PASS|CONCERN|BLOCK} -->`
   if (reviewer.name === "evidence-verifier") {
-    const evConfig = readTalisman()?.evidence ?? {}
+    const evConfig = gates?.evidence ?? {}
     reviewerPrompt = `<!-- ANCHOR: You are evidence-verifier. Your ONLY role is grounding verification. -->
       Review plan for: ${reviewer.focus}
       Plan: tmp/arc/${id}/enriched-plan.md

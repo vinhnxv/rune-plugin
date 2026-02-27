@@ -129,12 +129,15 @@ if (findingMarkers.some(m => /scope="(in-diff|pre-existing)"/.test(m))) {
 Uses shared `evaluateConvergence()` from review-mend-convergence.md. Passes `p2Count` (v1.41.0+) for P2 awareness and `scopeStats` (v1.38.0+) for smart convergence scoring when diff-scope data is available.
 
 ```javascript
-const talisman = readTalisman()
+// readTalismanSection: "review"
+const review = readTalismanSection("review")
+// Wrap in {review} to match evaluateConvergence() expected shape
+const talisman = { review }
 const verdict = evaluateConvergence(currentFindingCount, p1Count, p2Count, checkpoint, talisman, scopeStats)
 
 // v1.38.0: Compute convergence score for history record (observability — R6 mitigation)
 let convergenceScore = null
-if (scopeStats && talisman?.review?.diff_scope?.enabled !== false) {
+if (scopeStats && review?.diff_scope?.enabled !== false) {
   convergenceScore = computeConvergenceScore(scopeStats, checkpoint, talisman)
 }
 

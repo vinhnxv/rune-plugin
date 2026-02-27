@@ -36,10 +36,9 @@ fi
 Generate line-level diff ranges for downstream TOME tagging (Phase 5.3) and scope-aware mend filtering. See `rune-orchestration/references/diff-scope.md` for the full algorithm.
 
 ```javascript
-// Read talisman config for diff scope settings
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const talisman = readTalisman()
-const diffScopeEnabled = talisman?.review?.diff_scope?.enabled !== false  // Default: true
+// readTalismanSection: "review"
+const review = readTalismanSection("review")
+const diffScopeEnabled = review?.diff_scope?.enabled !== false  // Default: true
 
 let diffScope = { enabled: false }
 
@@ -51,7 +50,7 @@ if (diffScopeEnabled && changed_files.length > 0) {
   } else {
     // Single-invocation diff — O(1) shell calls (see diff-scope.md STEP 2-3)
     // SEC-010 FIX: Clamp to 0-50 (aligned with docs). SEC-004 FIX: Type-guard.
-    const rawExpansion = talisman?.review?.diff_scope?.expansion ?? 8
+    const rawExpansion = review?.diff_scope?.expansion ?? 8
     const EXPANSION_ZONE = Math.max(0, Math.min(50, typeof rawExpansion === 'number' ? rawExpansion : 8))
     let diffOutput
     if (flags['--partial']) {
@@ -126,10 +125,9 @@ if (flags['--scope-file']) {
 After file collection, determine review path:
 
 ```javascript
-// Read chunk config from talisman (review: section)
-const talisman = readTalisman()
+// DEDUP: reuse `review` from readTalismanSection("review") above
 // SEC-004 FIX: Guard against prototype pollution on talisman config access
-const reviewConfig = Object.hasOwn(talisman ?? {}, 'review') ? talisman.review : {}
+const reviewConfig = review ?? {}
 // SEC-006 FIX: parseInt with explicit radix 10
 // BACK-012 FIX: --chunk-size overrides CHUNK_THRESHOLD (file count trigger), not CHUNK_TARGET_SIZE
 const rawChunkSize = flags['--chunk-size'] ? parseInt(flags['--chunk-size'], 10) : NaN
@@ -252,7 +250,7 @@ if (cycleCount > 1) {
   }
 
   // Auto-mend for multi-pass
-  const autoMendMulti = flags['--auto-mend'] || (talisman?.review?.auto_mend === true)
+  const autoMendMulti = flags['--auto-mend'] || (review?.auto_mend === true)
   const mergedTomePath = `tmp/reviews/${identifier}/TOME.md`
   if (autoMendMulti && exists(mergedTomePath)) {
     const mergedTome = Read(mergedTomePath)

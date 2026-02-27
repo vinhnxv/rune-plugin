@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.114.0] - 2026-02-27
+
+### Added
+- **Talisman Shard Resolver** — SessionStart hook pre-processes `talisman.yml` into per-namespace JSON shards for 94% token reduction. 12 data shards (`arc`, `codex`, `review`, `work`, `goldmask`, `plan`, `gates`, `settings`, `inspect`, `testing`, `audit`, `misc`) + `_meta.json` commit signal. Includes `talisman-invalidate.sh` PostToolUse hook for mid-session talisman edits, graceful YAML parser fallback chain (python3+PyYAML → yq → skip), defaults registry (`talisman-defaults.json`), and atomic shard writes via `mktemp`+`mv`.
+- New `readTalismanSection()` pseudo-function — reads pre-resolved JSON shards with automatic fallback to full-file read. Replaces `readTalisman()` as the preferred talisman access pattern.
+- New build script `build-talisman-defaults.py` — generates `talisman-defaults.json` from `talisman.example.yml` with documented defaults injection.
+- `/rune:rest` now cleans up `tmp/.talisman-resolved/` (regenerated at next SessionStart).
+
+### Changed
+- **readTalisman() → readTalismanSection()** — All 50+ talisman read sites migrated to shard-aware access pattern. Composite shards group co-accessed sections: `gates` (elicitation, horizon, evidence, doubt_seer), `settings` (version, cost_tier, rune-gaze, ashes, echoes), `misc` (15 low-frequency sections). Duplicate reads in `ship-phase.md` and `plan-review.md` eliminated.
+
 ## [1.113.2] - 2026-02-27
 
 ### Fixed

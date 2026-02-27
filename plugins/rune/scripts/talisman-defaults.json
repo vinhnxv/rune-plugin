@@ -1,0 +1,735 @@
+{
+  "_schema_version": 1,
+  "arc": {
+    "batch": {
+      "auto_merge": true,
+      "max_budget": 15.0,
+      "max_retries": 3,
+      "max_turns": 200,
+      "smart_ordering": {
+        "enabled": true
+      },
+      "stop_on_divergence": false,
+      "summaries": {
+        "enabled": true
+      },
+      "total_budget": null,
+      "total_timeout": null
+    },
+    "consistency": {
+      "checks": []
+    },
+    "defaults": {
+      "approve": false,
+      "confirm": false,
+      "no_forge": false,
+      "no_test": false,
+      "skip_freshness": false
+    },
+    "gap_analysis": {
+      "halt_threshold": 50,
+      "inspectors": 2,
+      "remediation": {
+        "enabled": true,
+        "max_fixes": 20,
+        "timeout": 600000
+      }
+    },
+    "pre_merge_checks": {
+      "lock_file_conflict": true,
+      "migration_conflict": true,
+      "migration_paths": [],
+      "schema_conflict": true,
+      "uncommitted_changes": true
+    },
+    "sharding": {
+      "auto_sort": true,
+      "enabled": true,
+      "exclude_parent": true,
+      "prerequisite_check": true,
+      "shared_branch": true
+    },
+    "ship": {
+      "auto_merge": false,
+      "auto_pr": true,
+      "draft": false,
+      "labels": [],
+      "merge_strategy": "squash",
+      "pr_monitoring": false,
+      "rebase_before_merge": true,
+      "wait_ci": false
+    },
+    "timeouts": {
+      "audit": 1200000,
+      "bot_review_wait": 900000,
+      "code_review": 900000,
+      "codex_gap_analysis": 660000,
+      "forge": 900000,
+      "gap_analysis": 720000,
+      "gap_remediation": 900000,
+      "goldmask_correlation": 60000,
+      "goldmask_verification": 900000,
+      "mend": 1380000,
+      "merge": 600000,
+      "plan_refine": 180000,
+      "plan_review": 900000,
+      "pr_comment_resolution": 1200000,
+      "semantic_verification": 180000,
+      "ship": 300000,
+      "test": 900000,
+      "verification": 30000,
+      "verify_mend": 240000,
+      "work": 2100000
+    }
+  },
+  "arc_hierarchy": {
+    "cleanup_child_branches": true
+  },
+  "ashes": {
+    "custom": [
+      {
+        "agent": "domain-logic-reviewer",
+        "context_budget": 20,
+        "finding_prefix": "DOM",
+        "name": "domain-logic-reviewer",
+        "required_sections": [
+          "P1 (Critical)",
+          "P2 (High)",
+          "P3 (Medium)",
+          "Reviewer Assumptions",
+          "Self-Review Log"
+        ],
+        "source": "local",
+        "trigger": {
+          "extensions": [
+            ".py",
+            ".rb",
+            ".go"
+          ],
+          "paths": [
+            "src/domain/",
+            "src/services/",
+            "app/models/"
+          ]
+        },
+        "workflows": [
+          "review",
+          "audit"
+        ]
+      },
+      {
+        "agent": "perf-deep-scan",
+        "context_budget": 20,
+        "finding_prefix": "PERF",
+        "name": "perf-deep-scan",
+        "source": "global",
+        "trigger": {
+          "extensions": [
+            ".py",
+            ".ts",
+            ".tsx",
+            ".rb"
+          ],
+          "min_files": 10
+        },
+        "workflows": [
+          "audit"
+        ]
+      },
+      {
+        "agent": "api-contract-reviewer",
+        "context_budget": 15,
+        "finding_prefix": "API",
+        "forge": {
+          "budget": "enrichment",
+          "perspective": "API design, contract compatibility, and endpoint patterns",
+          "subsection": "API Contract Analysis"
+        },
+        "name": "api-contract-reviewer",
+        "source": "local",
+        "trigger": {
+          "extensions": [
+            ".py",
+            ".ts"
+          ],
+          "paths": [
+            "src/api/",
+            "api/"
+          ],
+          "topics": [
+            "api",
+            "contract",
+            "endpoints",
+            "rest",
+            "graphql"
+          ]
+        },
+        "workflows": [
+          "review",
+          "audit",
+          "forge"
+        ]
+      }
+    ]
+  },
+  "audit": {
+    "always_deep": false,
+    "deep": {
+      "ashes": [
+        "rot-seeker",
+        "strand-tracer",
+        "decree-auditor",
+        "fringe-watcher"
+      ],
+      "dimensions": [
+        "truth-seeker",
+        "ruin-watcher",
+        "breach-hunter",
+        "order-auditor",
+        "ember-seer",
+        "signal-watcher",
+        "decay-tracer"
+      ],
+      "enabled": true,
+      "max_deep_ashes": 4,
+      "max_dimension_agents": 7,
+      "timeout_multiplier": 1.5
+    },
+    "dirs": null,
+    "exclude_dirs": null,
+    "incremental": {
+      "enabled": false
+    }
+  },
+  "codex": {
+    "architecture_review": {
+      "enabled": false,
+      "reasoning": "xhigh",
+      "timeout": 600
+    },
+    "arena": {
+      "cross_model_bonus": 0.15,
+      "enabled": true,
+      "role": "judge",
+      "timeout": 300
+    },
+    "confidence_threshold": 80,
+    "context_budget": 20,
+    "diff_verification": {
+      "enabled": true,
+      "reasoning": "high",
+      "timeout": 300
+    },
+    "disabled": false,
+    "drift_detection": {
+      "enabled": false,
+      "reasoning": "xhigh",
+      "timeout": 600
+    },
+    "echo_validation": {
+      "enabled": true,
+      "reasoning": "xhigh",
+      "timeout": 300
+    },
+    "elicitation": {
+      "enabled": true,
+      "methods": [],
+      "timeout": 300
+    },
+    "gap_analysis": {
+      "enabled": true,
+      "timeout": 600
+    },
+    "mend_verification": {
+      "enabled": true,
+      "max_diff_size": 15000
+    },
+    "model": "gpt-5.3-codex",
+    "post_monitor_critique": {
+      "enabled": false,
+      "reasoning": "high",
+      "timeout": 300
+    },
+    "reasoning": "xhigh",
+    "release_quality_check": {
+      "enabled": true,
+      "reasoning": "high",
+      "timeout": 300
+    },
+    "research_tiebreaker": {
+      "enabled": true,
+      "reasoning": "high",
+      "timeout": 300
+    },
+    "review_diff": {
+      "context_lines": 5,
+      "enabled": true,
+      "include_new_files_full": true,
+      "max_diff_size": 15000
+    },
+    "risk_amplification": {
+      "enabled": false,
+      "reasoning": "xhigh",
+      "timeout": 600
+    },
+    "rune_smith": {
+      "confidence_threshold": 90,
+      "enabled": false,
+      "min_diff_size": 100,
+      "reasoning": "xhigh",
+      "timeout": 300
+    },
+    "sandbox": "read-only",
+    "section_validation": {
+      "enabled": true,
+      "reasoning": "medium",
+      "timeout": 300
+    },
+    "semantic_verification": {
+      "enabled": true,
+      "reasoning": "xhigh",
+      "timeout": 300
+    },
+    "shatter": {
+      "enabled": true,
+      "weight": 0.3
+    },
+    "stream_idle_timeout": 540,
+    "task_decomposition": {
+      "enabled": true,
+      "reasoning": "high",
+      "timeout": 300
+    },
+    "test_coverage_critique": {
+      "enabled": true,
+      "reasoning": "xhigh",
+      "timeout": 600
+    },
+    "timeout": 600,
+    "trial_forger": {
+      "enabled": true,
+      "reasoning": "xhigh",
+      "timeout": 300
+    },
+    "verification": {
+      "cross_model_bonus": 0.15,
+      "enabled": true,
+      "fuzzy_match_threshold": 0.7
+    },
+    "work_advisory": {
+      "enabled": true,
+      "max_diff_size": 15000
+    },
+    "workflows": [
+      "review",
+      "audit",
+      "plan",
+      "forge",
+      "work",
+      "mend",
+      "goldmask",
+      "inspect",
+      "arc"
+    ]
+  },
+  "codex_review": {
+    "confidence_threshold": 80,
+    "cross_model_bonus": 15,
+    "disabled": false,
+    "focus_areas": [
+      "security",
+      "bugs",
+      "performance",
+      "quality",
+      "dead-code"
+    ],
+    "max_agents": 6,
+    "timeout": 600000
+  },
+  "context_monitor": {
+    "caution_threshold": 40,
+    "critical_threshold": 25,
+    "debounce_calls": 5,
+    "degradation_suggestions": true,
+    "enabled": true,
+    "stale_seconds": 60,
+    "warning_threshold": 35,
+    "workflows": [
+      "review",
+      "audit",
+      "work",
+      "mend",
+      "arc",
+      "devise"
+    ]
+  },
+  "context_weaving": {
+    "glyph_budget": {
+      "enabled": true,
+      "enforcement": "advisory",
+      "word_limit": 300
+    }
+  },
+  "cost_tier": "balanced",
+  "debug": {
+    "echo_on_verdict": true,
+    "max_investigators": 4,
+    "model": "sonnet",
+    "re_triage_rounds": 1,
+    "timeout_ms": 420000
+  },
+  "defaults": {
+    "disable_ashes": []
+  },
+  "deployment_verification": {
+    "auto_run_on_migrations": false,
+    "enabled": false,
+    "monitoring_stack": null,
+    "output_dir": "tmp/deploy/"
+  },
+  "design_sync": {
+    "enabled": false,
+    "fidelity_threshold": 80,
+    "figma_cache_ttl": 1800,
+    "iterate_enabled": false,
+    "max_extraction_workers": 2,
+    "max_implementation_workers": 3,
+    "max_iteration_workers": 2,
+    "max_iterations": 5,
+    "token_snap_distance": 20
+  },
+  "doubt_seer": {
+    "block_on_unproven": false,
+    "challenge_threshold": "P2",
+    "enabled": false,
+    "max_challenges": 20,
+    "unproven_threshold": 0.8,
+    "workflows": [
+      "review",
+      "audit"
+    ]
+  },
+  "echoes": {
+    "auto_observation": true,
+    "fts_enabled": true,
+    "version_controlled": false
+  },
+  "elicitation": {
+    "enabled": true
+  },
+  "evidence": {
+    "block_threshold": 0.4,
+    "concern_threshold": 0.6,
+    "enabled": true,
+    "external_search": false,
+    "require_evidence_chain": true
+  },
+  "file_todos": {
+    "history": {
+      "enabled": true
+    },
+    "manifest": {
+      "auto_build": true,
+      "dedup_on_build": false,
+      "dedup_threshold": 0.7
+    },
+    "triage": {
+      "auto_approve_p1": false
+    }
+  },
+  "goldmask": {
+    "coordinator_model": "sonnet",
+    "devise": {
+      "depth": "basic",
+      "enabled": true
+    },
+    "double_check_top_n": 5,
+    "enabled": true,
+    "forge": {
+      "enabled": true
+    },
+    "inspect": {
+      "enabled": true,
+      "wisdom_passthrough": true
+    },
+    "layers": {
+      "cdd": {
+        "enabled": true,
+        "noisy_or_threshold": 0.6,
+        "swarm_detection": true,
+        "swarm_lookback_commits": 50
+      },
+      "impact": {
+        "enabled": true,
+        "max_tracers": 5,
+        "tracer_model": "haiku",
+        "tracer_timeout": 120000
+      },
+      "lore": {
+        "churn_threshold": 10,
+        "co_change_min_support": 3,
+        "enabled": true,
+        "lookback_days": 180,
+        "model": "haiku",
+        "ownership_concentration_warn": 0.8
+      },
+      "wisdom": {
+        "caution_threshold": 0.7,
+        "enabled": true,
+        "intent_classification": true,
+        "max_blame_files": 50,
+        "max_findings_to_investigate": 20,
+        "model": "sonnet"
+      }
+    },
+    "mend": {
+      "enabled": true,
+      "inject_context": true,
+      "quick_check": true
+    },
+    "modes": {
+      "deep": false,
+      "quick": false
+    },
+    "priority_weights": {
+      "impact": 0.4,
+      "lore": 0.25,
+      "wisdom": 0.35
+    }
+  },
+  "horizon": {
+    "enabled": true,
+    "intent_default": "long-term"
+  },
+  "inner_flame": {
+    "block_on_fail": false,
+    "completeness_scoring": {
+      "enabled": true,
+      "research_threshold": 0.5,
+      "threshold": 0.7
+    },
+    "confidence_floor": 60,
+    "enabled": true
+  },
+  "inspect": {
+    "completion_threshold": 80,
+    "fix_timeout": 600000,
+    "gap_threshold": 20,
+    "max_fixes": 20,
+    "max_inspectors": 4
+  },
+  "mend": {
+    "cross_file_batch_size": 4,
+    "todos_per_fixer": 5
+  },
+  "plan": {
+    "freshness": {
+      "block_threshold": 0.4,
+      "enabled": true,
+      "max_commit_distance": 100,
+      "warn_threshold": 0.7
+    },
+    "verification_patterns": []
+  },
+  "question_relay": {
+    "max_questions_per_worker": 3,
+    "timeout_seconds": 120
+  },
+  "review": {
+    "arc_convergence_finding_threshold": 0,
+    "arc_convergence_improvement_ratio": 0.5,
+    "arc_convergence_max_cycles": null,
+    "arc_convergence_min_cycles": null,
+    "arc_convergence_p2_threshold": 0,
+    "arc_convergence_tier_override": null,
+    "auto_mend": false,
+    "chunk_size": 15,
+    "chunk_target_size": 15,
+    "chunk_threshold": 20,
+    "context_intelligence": {
+      "enabled": true,
+      "fetch_linked_issues": true,
+      "max_pr_body_chars": 3000,
+      "scope_warning_threshold": 1000
+    },
+    "convergence": {
+      "convergence_threshold": 0.7,
+      "smart_scoring": true
+    },
+    "cross_cutting_pass": true,
+    "cross_shard_sentinel": true,
+    "diff_scope": {
+      "enabled": true,
+      "expansion": 8,
+      "fix_pre_existing_p1": true,
+      "tag_pre_existing": true
+    },
+    "enforcement_asymmetry": {
+      "enabled": true,
+      "high_risk_import_count": 5,
+      "new_file_threshold": 0.3,
+      "security_always_strict": true
+    },
+    "large_diff_threshold": 25,
+    "linter_awareness": {
+      "always_review": [],
+      "enabled": true
+    },
+    "max_chunks": 5,
+    "max_shards": 5,
+    "reshard_threshold": 30,
+    "shard_model_policy": "auto",
+    "shard_size": 12,
+    "shard_threshold": 15
+  },
+  "rune-gaze": {
+    "always_review": [
+      "CLAUDE.md",
+      ".claude/**/*.md"
+    ],
+    "backend_extensions": [
+      ".py",
+      ".go",
+      ".rs",
+      ".rb"
+    ],
+    "frontend_extensions": [
+      ".tsx",
+      ".ts",
+      ".jsx"
+    ],
+    "skip_patterns": [
+      "**/migrations/**",
+      "**/*.generated.ts",
+      "**/vendor/**"
+    ]
+  },
+  "schema_drift": {
+    "enabled": true,
+    "frameworks": [],
+    "ignore_paths": [],
+    "strict_mode": false
+  },
+  "settings": {
+    "dedup_hierarchy": [
+      "SEC",
+      "BACK",
+      "VEIL",
+      "DOUBT",
+      "PY",
+      "TSR",
+      "RST",
+      "PHP",
+      "FAPI",
+      "DJG",
+      "LARV",
+      "SQLA",
+      "TDD",
+      "DDD",
+      "DI",
+      "API",
+      "DOM",
+      "PERF",
+      "DOC",
+      "QUAL",
+      "FRONT",
+      "CDX"
+    ],
+    "max_ashes": 9,
+    "max_cli_ashes": 2,
+    "verification": {
+      "layer_2_custom_agents": true
+    }
+  },
+  "solution_arena": {
+    "enabled": true,
+    "skip_for_types": [
+      "fix"
+    ]
+  },
+  "stack_awareness": {
+    "confidence_threshold": 0.6,
+    "custom_rules": [],
+    "enabled": true,
+    "max_stack_ashes": 3,
+    "override": null
+  },
+  "teammate_lifecycle": {
+    "max_turns": {
+      "aggregation": 60,
+      "investigation": 0,
+      "research": 40,
+      "review": 30,
+      "testing": 0,
+      "utility": 40,
+      "work": 120
+    },
+    "process_cleanup": true,
+    "shutdown_signal_threshold": 35
+  },
+  "testing": {
+    "enabled": true,
+    "service": {
+      "health_endpoint": null,
+      "startup_command": null,
+      "startup_timeout": 180000
+    },
+    "tiers": {
+      "e2e": {
+        "base_url": "http://localhost:3000",
+        "enabled": true,
+        "headed": false,
+        "max_routes": 3,
+        "timeout_ms": 300000
+      },
+      "integration": {
+        "enabled": true,
+        "timeout_ms": 300000
+      },
+      "unit": {
+        "coverage": true,
+        "enabled": true,
+        "timeout_ms": 300000
+      }
+    }
+  },
+  "version": 1,
+  "work": {
+    "approve_timeout": 180,
+    "branch_prefix": "rune/work",
+    "co_authors": [],
+    "commit_format": "rune: {subject} [ward-checked]",
+    "consistency": {
+      "checks": []
+    },
+    "hierarchy": {
+      "cleanup_child_branches": true,
+      "conflict_resolution": "pause",
+      "enabled": true,
+      "integration_failure": "pause",
+      "max_backtracks": 1,
+      "max_children": 12,
+      "merge_strategy": "merge",
+      "missing_prerequisite": "pause",
+      "require_all_children": true,
+      "sync_main_before_pr": true,
+      "test_timeout_ms": 300000
+    },
+    "max_workers": 3,
+    "pr_monitoring": false,
+    "skip_branch_check": false,
+    "todos_per_worker": 3,
+    "unrestricted_shared_files": [],
+    "ward_commands": [
+      "make check",
+      "npm test"
+    ],
+    "worktree": {
+      "auto_cleanup": true,
+      "conflict_resolution": "escalate",
+      "enabled": false,
+      "max_workers_per_wave": 3,
+      "merge_strategy": "sequential"
+    }
+  }
+}

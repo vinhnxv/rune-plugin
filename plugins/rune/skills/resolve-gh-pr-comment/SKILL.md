@@ -203,9 +203,9 @@ if (!commentData) {
 Detect whether the comment is from a known bot or a human reviewer. Parse structured feedback.
 
 ```javascript
-// readTalisman: SDK Read() with project->global fallback. See references/read-talisman.md
-const talisman = readTalisman()
-const botReviewConfig = talisman?.arc?.ship?.bot_review ?? {}
+// readTalismanSection: "arc"
+const arc = readTalismanSection("arc")
+const botReviewConfig = arc?.ship?.bot_review ?? {}
 
 const knownBots = botReviewConfig.known_bots ?? [
   "gemini-code-assist[bot]",

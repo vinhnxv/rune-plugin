@@ -97,9 +97,8 @@ if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
 After Phase 4 Monitor completes, optionally spawn the Doubt Seer to cross-examine Ash findings.
 
 ```javascript
-// Phase 4.5: Doubt Seer — conditional cross-examination of Ash findings
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const doubtConfig = readTalisman()?.doubt_seer
+// readTalismanSection: "gates"
+const doubtConfig = readTalismanSection("gates")?.doubt_seer
 const doubtEnabled = doubtConfig?.enabled === true  // strict opt-in (default: false)
 const doubtWorkflows = doubtConfig?.workflows ?? ["review", "audit"]
 

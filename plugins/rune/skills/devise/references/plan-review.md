@@ -56,9 +56,10 @@ If scroll-reviewer reports HIGH severity issues:
 After scroll review and refinement, run deterministic checks with zero LLM hallucination risk:
 
 ```javascript
-// 1. Check for project-specific verification patterns in talisman.yml
-const talisman = readTalisman()  // .claude/talisman.yml or ~/.claude/talisman.yml
-const customPatterns = talisman?.plan?.verification_patterns || []
+// readTalismanSection: "plan", "gates"
+const plan = readTalismanSection("plan")
+const gates = readTalismanSection("gates")
+const customPatterns = plan?.verification_patterns || []
 
 // 2. Run custom patterns (if configured)
 // Phase filtering: each pattern may specify a `phase` array (e.g., ["plan", "post-work"]).
@@ -217,8 +218,8 @@ Task({
 // Doubt Seer — cross-agent claim verification (v1.61.0+)
 // Skipped if talisman doubt_seer.enabled === false or doubt_seer.workflows excludes "plan"
 // Scope: doubt-seer = individual claim validity, decree-arbiter = structural soundness
-const doubtSeerEnabled = readTalisman()?.doubt_seer?.enabled === true
-const doubtSeerWorkflows = readTalisman()?.doubt_seer?.workflows ?? ["review", "audit"]
+const doubtSeerEnabled = gates?.doubt_seer?.enabled === true
+const doubtSeerWorkflows = gates?.doubt_seer?.workflows ?? ["review", "audit"]
 if (doubtSeerEnabled && doubtSeerWorkflows.includes("plan")) {
   reviewerCount++
   TaskCreate({
@@ -257,13 +258,13 @@ if (doubtSeerEnabled && doubtSeerWorkflows.includes("plan")) {
 
 // Horizon Sage — strategic depth assessment (v1.47.0+)
 // Skipped if talisman horizon.enabled === false
-const horizonEnabled = readTalisman()?.horizon?.enabled !== false
+const horizonEnabled = gates?.horizon?.enabled !== false
 if (horizonEnabled) {
   reviewerCount++
   // Read strategic intent from plan frontmatter — validate against allowlist
   const planFrontmatter = extractYamlFrontmatter(Read(planPath))
   const VALID_INTENTS = ["long-term", "quick-win", "auto"]
-  const intentDefault = readTalisman()?.horizon?.intent_default ?? "long-term"
+  const intentDefault = gates?.horizon?.intent_default ?? "long-term"
   const strategicIntent = VALID_INTENTS.includes(planFrontmatter?.strategic_intent)
     ? planFrontmatter.strategic_intent : intentDefault
   if (!VALID_INTENTS.includes(planFrontmatter?.strategic_intent)) {
@@ -303,7 +304,7 @@ if (horizonEnabled) {
 
 // Evidence Verifier — evidence-based plan claim validation (v1.113.0+)
 // Skipped if talisman evidence.enabled === false (default: enabled, opt-out pattern matching horizonEnabled)
-const evidenceEnabled = readTalisman()?.evidence?.enabled !== false
+const evidenceEnabled = gates?.evidence?.enabled !== false
 if (evidenceEnabled) {
   reviewerCount++
   TaskCreate({
@@ -328,8 +329,8 @@ if (evidenceEnabled) {
       You MUST explore the actual codebase (Glob/Grep/Read) to verify every claim.
       A review without codebase exploration is worthless.
 
-      External search gated by talisman: ${readTalisman()?.evidence?.external_search === true ? "ENABLED" : "DISABLED (default)"}.
-      ${readTalisman()?.evidence?.external_search !== true ? "Do NOT use WebSearch/WebFetch." : ""}
+      External search gated by talisman: ${gates?.evidence?.external_search === true ? "ENABLED" : "DISABLED (default)"}.
+      ${gates?.evidence?.external_search !== true ? "Do NOT use WebSearch/WebFetch." : ""}
 
       Write review to tmp/plans/{timestamp}/evidence-verifier-review.md.
       Include machine-parseable verdict: <!-- VERDICT:evidence-verifier:{PASS|CONCERN|BLOCK} -->
@@ -351,7 +352,7 @@ if (evidenceEnabled) {
 // plan:4 methods: Self-Consistency Validation (#14), Challenge from Critical
 // Perspective (#36), Critique and Refine (#42)
 // ATE-1: subagent_type: "general-purpose", identity via prompt
-const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+const elicitEnabled = gates?.elicitation?.enabled !== false
 if (elicitEnabled) {
   // Keyword count determines sage count (simplified threshold — no float scoring)
   // Canonical keyword list — see elicitation-sage.md § Canonical Keyword List for the source of truth

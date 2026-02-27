@@ -66,7 +66,7 @@ debug:
   echo_on_verdict: true       # persist verdict to rune-echoes after resolution
 ```
 
-Read config via `readTalisman()` — see [read-talisman.md](../../references/read-talisman.md).
+Read config via `readTalismanSection("misc")` — see [read-talisman.md](../../references/read-talisman.md).
 
 ---
 
@@ -130,11 +130,12 @@ fall back to single-agent `systematic-debugging` methodology. Do NOT spawn a tea
 ### Step 0.5 — Read Config
 
 ```
-talisman = readTalisman()
-maxInvestigators = talisman?.debug?.max_investigators ?? 4
-timeoutMs = talisman?.debug?.timeout_ms ?? 420000
-investigatorModel = talisman?.debug?.model ?? "sonnet"
-maxReTriageRounds = talisman?.debug?.re_triage_rounds ?? 1
+// readTalismanSection: "misc"
+const misc = readTalismanSection("misc")
+maxInvestigators = misc?.debug?.max_investigators ?? 4
+timeoutMs = misc?.debug?.timeout_ms ?? 420000
+investigatorModel = misc?.debug?.model ?? "sonnet"
+maxReTriageRounds = misc?.debug?.re_triage_rounds ?? 1
 ```
 
 Cap hypotheses at `maxInvestigators`.

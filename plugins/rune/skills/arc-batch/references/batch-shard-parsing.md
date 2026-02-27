@@ -21,9 +21,9 @@ Shard detection is skipped when ANY of:
 
 ```javascript
 const noShardSort = args.includes('--no-shard-sort')
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const talisman = readTalisman()
-const shardConfig = talisman?.arc?.sharding ?? {}
+// readTalismanSection: "arc"
+const arc = readTalismanSection("arc")
+const shardConfig = arc?.sharding ?? {}
 const shardEnabled = shardConfig.enabled !== false  // default: true (PS-007 FIX: honor master enabled flag)
 const autoSort = shardConfig.auto_sort !== false  // default: true
 const excludeParent = shardConfig.exclude_parent !== false  // default: true

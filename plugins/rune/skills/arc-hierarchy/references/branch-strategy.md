@@ -257,9 +257,9 @@ Delete child branches after successful merge. Controlled by talisman configurati
 
 ```javascript
 function cleanupChildBranches(featureBranch) {
-  // readTalisman: SDK Read() with project→global fallback (see chome-pattern skill)
-  const talisman = readTalisman()
-  const cleanupEnabled = talisman?.arc_hierarchy?.cleanup_child_branches !== false  // default: true
+  // readTalismanSection: "misc"
+  const misc = readTalismanSection("misc")
+  const cleanupEnabled = misc?.arc_hierarchy?.cleanup_child_branches !== false  // default: true
 
   if (!cleanupEnabled) {
     log("Child branch cleanup disabled via talisman.arc_hierarchy.cleanup_child_branches: false")

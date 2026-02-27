@@ -30,9 +30,11 @@ const HEAVY_PHASES = ['work', 'code_review', 'mend']
 ## Phase Timeouts
 
 ```javascript
+// readTalismanSection: "arc"
+const arc = readTalismanSection("arc")
 // Talisman-aware phase timeouts (v1.40.0+): talisman overrides → hardcoded defaults
 // CFG-DECREE-002: Clamp each talisman timeout to sane range (10s - 1hr)
-const talismanTimeouts = talisman?.arc?.timeouts ?? {}
+const talismanTimeouts = arc?.timeouts ?? {}
 for (const [key, val] of Object.entries(talismanTimeouts)) {
   if (typeof val === 'number') {
     talismanTimeouts[key] = Math.max(10_000, Math.min(val, 3_600_000))

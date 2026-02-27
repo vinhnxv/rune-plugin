@@ -190,9 +190,9 @@ Runs after plan path validation, before freshness gate. Non-shard plans bypass e
 ```javascript
 // ── SHARD DETECTION (after path validation, before freshness gate) ──
 
-// readTalisman: SDK Read() with project→global fallback
-const talisman = readTalisman()
-const shardConfig = talisman?.arc?.sharding ?? {}
+// readTalismanSection: "arc"
+const arc = readTalismanSection("arc")
+const shardConfig = arc?.sharding ?? {}
 const shardEnabled = shardConfig.enabled !== false  // default: true
 const prereqCheck = shardConfig.prerequisite_check !== false  // default: true
 const sharedBranch = shardConfig.shared_branch !== false  // default: true

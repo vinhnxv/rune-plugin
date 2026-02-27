@@ -90,7 +90,8 @@ updateCheckpoint({ phase: "mend", status: "in_progress", phase_sequence: 7, team
 // ATE-1: subagent_type: "general-purpose", identity via prompt
 // Decree-arbiter P2: sage must complete BEFORE mend-fixers start.
 // Run synchronously (no run_in_background) to ensure output exists.
-const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+// readTalismanSection: "gates"
+const elicitEnabled = readTalismanSection("gates")?.elicitation?.enabled !== false
 // SEC-012 FIX: Validate TOME path before reading.
 // Defense-in-depth: id already validated at arc init (/^arc-[a-zA-Z0-9_-]+$/); this validates path construction.
 if (!tomeSource.startsWith('tmp/arc/') || tomeSource.includes('..')) {
