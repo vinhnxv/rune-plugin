@@ -93,6 +93,21 @@ Pre-aggregation complements session compression — they address different bottl
 
 See [roundtable-circle/references/pre-aggregate.md](../../roundtable-circle/references/pre-aggregate.md) for the full extraction algorithm.
 
+### Integration Contract
+
+These two mechanisms operate at **different layers and do not conflict**:
+
+| Property | Pre-Aggregation (Layer 1.5) | Session Compression (Layer 3) |
+|----------|----------------------------|-------------------------------|
+| **Phase** | Phase 5.0 — before Runebinder ingestion | Any point where message count exceeds threshold |
+| **Trigger timing** | Runs once, deterministically, before Phase 5 | Runs on-demand based on context pressure |
+| **Scope of output** | Writes compressed `.md` files to `condensed/` on disk | Rewrites in-memory message history |
+| **Conflict risk** | None — operates on files, not context | None — operates on context, not files |
+
+**Ordering guarantee**: Pre-aggregation (Phase 5.0) always completes before Runebinder (Phase 5) begins. If session compression triggers simultaneously, it compresses message history only — it does not touch `condensed/` directories or Ash output files. The two mechanisms are independent: a session compression event will not cancel or interrupt pre-aggregation, and pre-aggregation will not re-trigger session compression.
+
+**Simultaneous activation**: If both triggers fire in the same turn (e.g., message count hits 50 while a review with >25KB Ash output is starting Phase 5.0), they execute in sequence — session compression first (reducing context pressure for the upcoming Runebinder call), then pre-aggregation. There is no shared state between them.
+
 ## Quality Verification
 
 After compression, verify with probes:

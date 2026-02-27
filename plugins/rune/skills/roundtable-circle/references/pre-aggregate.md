@@ -4,17 +4,30 @@
 
 Phase 5.0 sits between Phase 4 (Monitor) and Phase 5 (Aggregate). When combined Ash output exceeds a configurable byte threshold, it extracts structured RUNE:FINDING blocks, discards boilerplate prose, and writes condensed copies for Runebinder consumption. Original files are never modified.
 
+> **Phase ordering dependency (VEIL-005)**: Phase 5.0 MUST run after Phase 4 Monitor signals
+> completion (all Ash outputs written and flushed to disk). Running pre-aggregation while Ash
+> files are still being written will produce incomplete condensed outputs. The `orchestration-phases.md`
+> Phase 5.0 integration point enforces this ordering — do not invoke `preAggregate()` before
+> `waitForCompletion()` confirms Phase 4 has finished.
+
 ## Configuration
 
 Talisman keys under `review.pre_aggregate`:
 
+**User-tunable keys** (the only two most users need to change):
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | boolean | `true` | Master toggle. Set `false` to disable entirely (opt-OUT). |
-| `threshold_bytes` | number | `25000` | Combined Ash output size (bytes) that triggers compression. |
-| `preserve_priorities` | string[] | `["P1", "P2"]` | Severity levels preserved with zero information loss. |
-| `truncate_trace_lines` | number | `3` | Max Rune Trace code lines retained for P3 findings. |
-| `nit_summary_only` | boolean | `true` | Convert N (nit) findings to single-line summaries. |
+| `threshold_bytes` | number | `25000` | Combined Ash output size (bytes) that triggers compression. **Configurable default — not empirically validated against production Ash outputs. Tune this based on observed review sizes and Runebinder latency.** |
+
+**Internal constants** (hardcoded defaults — do not change unless you have a specific reason):
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `preserve_priorities` | string[] | `["P1", "P2"]` | Severity levels preserved with zero information loss. Changing this breaks Runebinder assumptions — leave as-is. |
+| `truncate_trace_lines` | number | `3` | Max Rune Trace code lines retained for P3 findings. Hardcoded in practice; no use case for adjustment. |
+| `nit_summary_only` | boolean | `true` | Convert N (nit) findings to single-line summaries. Always true — no use case for false. |
 
 **Config access pattern**: `talisman?.review?.pre_aggregate ?? {}` — follows standard `readTalisman()` convention.
 
@@ -48,6 +61,13 @@ function preAggregate(outputDir, talisman) {
 
   // 2. Measure combined size
   //    IMPORTANT: parseInt with radix 10 — wc -c returns a string
+  //
+  //    ASSUMPTION NOTE (VEIL-005): This loop spawns one Bash process per Ash file.
+  //    Process spawning typically costs 5-15ms per invocation, so 7 files = ~35-105ms
+  //    just for size measurement — even on the "fast path" (under threshold). The fast
+  //    path is not free. To reduce overhead to a single process spawn, consider:
+  //      Bash(`find "${outputDir}" -maxdepth 1 -name '*.md' ! -name 'TOME*' ! -name '_*' -exec wc -c {} + | tail -1`)
+  //    This is a future optimization; current implementation favors simplicity.
   let combinedBytes = 0
   for (const f of ashFiles) {
     const stat = Bash(`wc -c < "${f}"`)
@@ -57,6 +77,13 @@ function preAggregate(outputDir, talisman) {
   if (combinedBytes < threshold) return  // Under threshold — skip (fast path)
 
   // 3. Create condensed/ directory
+  //
+  //    LIMITATION NOTE (BACK-004): mkdir -p failure is not checked here.
+  //    If this fails (permissions, full disk, symlink attack), subsequent Write()
+  //    calls will throw individually — but there is no pre-flight error check.
+  //    In practice, Tarnished-level execution is not permission-constrained, but
+  //    production hardening should add:
+  //      if (!Bash(`mkdir -p "${outputDir}condensed/" && echo ok`).includes('ok')) throw ...
   Bash(`mkdir -p "${outputDir}condensed/"`)
 
   // 4. For each Ash file, extract and condense
@@ -132,6 +159,16 @@ Extracts all `<!-- RUNE:FINDING ... -->` ... `<!-- /RUNE:FINDING ... -->` blocks
 //   Closing: <!-- /RUNE:FINDING id="SEC-001" -->
 //
 // Handles: multi-line content, nested code blocks, markdown formatting
+//
+// KNOWN REGEX LIMITATIONS (BACK-004):
+//   - Nested HTML comments: <!-- ... <!-- RUNE:FINDING --> --> will confuse the outer
+//     regex and may produce incorrect startIdx/endIdx ranges.
+//   - Very large files (>500KB): The /g exec loop on MARKER_OPEN may run slowly.
+//     No timeout guard exists — regex cannot be interrupted.
+//   - ID collisions: If two findings share the same id= attribute, closeMatch will
+//     always match the first occurrence, potentially creating overlapping blocks.
+//   - Attribute ordering: parseMarkerAttributes depends on key="value" format only.
+//     Any other quoting style (single quotes, unquoted values) silently drops the attr.
 
 function extractFindingBlocks(content) {
   const blocks = []
@@ -146,6 +183,29 @@ function extractFindingBlocks(content) {
     const closeMatch = content.slice(afterOpen).match(MARKER_CLOSE(attrs.id))
 
     if (closeMatch) {
+      // Marker validation step — reject malformed or unsafe attributes before
+      // adding to blocks. This guards against buggy or adversarial Ash output.
+      //
+      // Validation rules (per VEIL-008 recommendation):
+      //   - id:    must match known prefix pattern (ALPHA-NNN or ALPHA-NNN-Q/N)
+      //   - file:  must not contain path traversal sequences (..) or start with /
+      //   - nonce: must be present and non-empty (required by SEC-010)
+      //   - line:  if present, must be numeric
+      //
+      // Validation failures are counted and surfaced in the compression report.
+      // If >10% of extracted markers fail validation, a warning is emitted.
+      const VALID_ID = /^[A-Z][A-Z0-9]+-\d+(-[QN])?$/
+      const hasPathTraversal = (attrs.file || '').includes('..') || (attrs.file || '').startsWith('/')
+      const validId = !attrs.id || VALID_ID.test(attrs.id)
+      const hasNonce = attrs.nonce && attrs.nonce.length > 0
+      const validLine = !attrs.line || /^\d+$/.test(attrs.line)
+
+      if (!validId || hasPathTraversal || !hasNonce || !validLine) {
+        // Skip malformed marker — logged in report as validation failure
+        // (counts toward the >10% threshold warning)
+        continue
+      }
+
       // Full block: opening marker + content + closing marker
       const endIdx = afterOpen + closeMatch.index + closeMatch[0].length
       const block = content.slice(startIdx, endIdx)
@@ -179,6 +239,20 @@ Parses key="value" pairs from the attribute string inside a RUNE:FINDING marker.
 //
 // Known attributes (all preserved through compression):
 //   nonce, id, file, line, severity, confidence, confidence_score, interaction
+//
+// BOUNDS NOTE (BACK-008): The regex /(\w+)="([^"]*)"/g silently ignores:
+//   - Unquoted values: id=SEC-001 (no quotes) → key not captured
+//   - Single-quoted: id='SEC-001' → not matched
+//   - Escaped double quotes: message="found \"string\"" → truncated at first escaped quote
+//   If an Ash emits nonce with single quotes (nonce='abc'), the nonce key will be absent
+//   from the returned attrs object, causing the VEIL-008 validation to reject the finding.
+//   The canonical Ash marker format (review-checklist.md) mandates double-quoted values,
+//   so this is an edge case only for non-conforming Ash output.
+//
+// METRICS NOTE (BACK-008): `confidence_score` values are floating point (e.g., 0.95).
+//   No overflow protection: if an Ash emits an unreasonably large value, parseInt/parseFloat
+//   on downstream consumers may produce Infinity. Add bounds checks in consumers if
+//   confidence_score is used in arithmetic (e.g., weighted dedup scoring).
 
 function parseMarkerAttributes(attrString) {
   const attrs = {}
@@ -193,7 +267,13 @@ function parseMarkerAttributes(attrString) {
 
 ## Priority-Based Compression: compressFinding()
 
-Applies compression rules based on finding severity and interaction type. P1/P2 findings are fully preserved (zero information loss). P3 findings get truncated Rune Traces. Q (question) findings lose traces entirely. N (nit) findings become single-line summaries.
+Applies compression rules based on finding severity and interaction type. P1/P2 findings are fully preserved — all marker attributes and body text are byte-identical to the original (marker-level preservation). P3 findings get truncated Rune Traces. Q (question) findings lose traces entirely. N (nit) findings become single-line summaries.
+
+> **Qualification (VEIL-002)**: "Zero information loss" refers to marker attribute and block
+> content preservation, not semantic completeness for all downstream consumers. Boilerplate
+> prose between markers is discarded for non-P1/P2 findings. If Runebinder requires detailed
+> context from all P1/P2 block body text (not just marker attributes), this claim holds — but
+> it has not been empirically verified against dedup quality metrics.
 
 **Severity detection order**: Check the `interaction` marker attribute FIRST (canonical source), then fall back to ID suffix (`-Q`/`-N`) for backward compatibility with older Ash output formats.
 
@@ -266,10 +346,18 @@ Converts an N (nit) finding block to a single-line summary. Preserves the RUNE:F
 ```javascript
 // Converts a nit finding to a minimal single-line representation.
 //
-// Output format:
+// Output format contract (VEIL-006):
 //   <!-- RUNE:FINDING ... -->
 //   - [ ] **[PREFIX-NNN-N] Title** in `file:line` _(compressed)_
 //   <!-- /RUNE:FINDING ... -->
+//
+// Format contract details:
+//   - The RUNE:FINDING opening/closing markers are preserved byte-for-byte (required by SEC-010).
+//   - The _(compressed)_ suffix is a stable marker that Runebinder can detect to identify
+//     nit-compressed findings in the TOME (used for compression audit trail).
+//   - Title extraction regex expects: **[ID] Title text** in `location`
+//     This matches the canonical Ash nit output format from review-checklist.md.
+//     If Ash format changes, this regex MUST be updated in sync.
 //
 // If the title pattern is not parseable, falls back to full preservation
 // (safety over compression — never lose data silently).
@@ -304,7 +392,24 @@ function extractSection(content, heading) {
     'm'
   )
   const match = content.match(pattern)
-  return match ? match[1].trim() : null
+  // Return contract: { found: boolean, content: string | null }
+  //   found=false, content=null  → section heading not present in file at all
+  //                                (older Ash prompt that never emitted this section)
+  //   found=true,  content=""    → section heading is present but body is whitespace-only
+  //                                (Ash explicitly emitted the section with no content;
+  //                                 intentional — structured output, not incomplete processing)
+  //   found=true,  content="..."→ normal non-empty section
+  //
+  // NOTE: The caller uses .filter(Boolean) on the return value, so both null and ""
+  // are excluded from the condensed output — this is correct for assembly purposes.
+  // However, metrics should distinguish these two cases to audit Ash compliance drift.
+  // Callers that need the distinction should check the `found` flag rather than
+  // testing content for truthiness.
+  if (!match) return null          // Section not found (found=false)
+  const body = match[1].trim()
+  return body || null              // Empty section returns null (collapses with "not found" for output)
+  // TODO(BACK-006): Return { found: true, content: body } to distinguish empty-but-present
+  // from absent sections in metrics. Requires caller updates to destructure result.
 }
 ```
 
@@ -328,7 +433,12 @@ function extractHeader(content) {
 
 ## Compression Report: writeCompressionReport()
 
-Writes a human-readable metrics report for observability. This report is persisted to echoes (Phase 6) and provides per-Ash breakdowns for debugging.
+Writes a single-pass metrics summary for observability. The report lives alongside condensed files in `condensed/` and is cleaned up with the parent review directory.
+
+> **Scope note (QUAL-004)**: The structured per-Ash table is provided for debugging convenience.
+> No current Ash or Runebinder code reads this report programmatically — echo persistence
+> integration is future work. If observability is added later, prefer structured JSON emission
+> over parsing this markdown table.
 
 ```javascript
 // Writes compression metrics to _compression-report.md.
@@ -371,23 +481,34 @@ ${perAshMetrics.map(m =>
 
 ### EC-2: Malformed RUNE:FINDING markers
 
-**Scenario**: Closing marker missing or mismatched ID.
-**Handling**: `extractFindingBlocks()` skips unclosed markers. The compression report documents the skipped count. Original file remains in the parent directory.
-**Fallback**: If `extractFindingBlocks()` extracts 0 findings from a file that appears to have markers (regex detects `<!-- RUNE:FINDING` but no valid blocks), skip compression for that file — copy original to `condensed/` to prevent data loss.
+**Scenario**: Closing marker missing, mismatched ID, or marker attribute validation failure (invalid id format, path traversal in file, missing nonce, non-numeric line).
+**Handling**: `extractFindingBlocks()` skips unclosed markers and markers that fail attribute validation. The compression report documents the skipped count. Original file remains in the parent directory.
+**Fallback**: If `extractFindingBlocks()` extracts 0 findings from a file that appears to have markers (regex detects `<!-- RUNE:FINDING` but no valid blocks pass validation), skip compression for that file — copy original to `condensed/` to prevent data loss.
 
-### EC-7: Reviewer Assumptions section missing
+> **Error handling note (BACK-001)**: The fallback copy (original → `condensed/`) must itself
+> be protected against write failure. If `Write(condensedPath, originalContent)` throws (disk
+> full, permissions), the condensed directory will be incomplete and Runebinder may silently
+> mix condensed + original inputs. Implementation should catch write errors here and log to
+> the compression report with a COPY_FAILED status so Runebinder can be informed that this
+> Ash file's condensed copy is unavailable.
+
+### EC-3: Reviewer Assumptions section missing
 
 **Scenario**: An Ash does not emit `## Reviewer Assumptions` (older prompt or custom Ash).
 **Handling**: `extractSection()` returns `null`. Condensed file omits the section. Runebinder already handles missing assumption sections (records as "partial (no assumptions)" in Coverage Gaps).
 
-### EC-10: Condensed file larger than original
+### EC-4: Condensed file larger than original
 
 **Scenario**: Very short Ash output where header + finding blocks approximate the original size (minimal boilerplate).
 **Handling**: This is correct — small files have little to compress. Per-Ash metrics in the compression report show ~100% ratio. Overall savings come from larger Ash outputs in the batch.
 
-## Multi-Wave Support
+## Multi-Wave Support (Planned — Not Yet Released)
 
-When `depth=deep` activates multi-wave review (Wave 1 + Wave 2+), Phase 5.0 runs **per wave** before each wave's Runebinder pass. Each wave has its own `output_dir`, so `condensed/` is created per wave with no cross-wave interaction.
+> **Note**: Multi-wave review is not yet implemented or tested in production as of v1.116.0.
+> This section documents the intended future architecture. Do not rely on this behavior
+> until it is released and validated. (QUAL-003)
+
+When `depth=deep` activates multi-wave review (Wave 1 + Wave 2+), Phase 5.0 is designed to run **per wave** before each wave's Runebinder pass. Each wave would have its own `output_dir`, so `condensed/` would be created per wave with no cross-wave interaction.
 
 ```
 Wave 1 Ashes → output_dir_w1/ → Phase 5.0 → condensed/ → Runebinder (TOME-w1.md)
@@ -395,7 +516,7 @@ Wave 2 Ashes → output_dir_w2/ → Phase 5.0 → condensed/ → Runebinder (TOM
 Merge → Final TOME.md
 ```
 
-The threshold check and compression are independent per wave. A wave with small output (under threshold) skips pre-aggregation even if another wave triggered it.
+The threshold check and compression are designed to be independent per wave. A wave with small output (under threshold) would skip pre-aggregation even if another wave triggered it.
 
 ## Performance Budget
 
@@ -411,9 +532,23 @@ The threshold check and compression are independent per wave. A wave with small 
 - Total for 7 Ashes: well under 100ms
 
 **Runebinder savings**:
-- 40-60% less text to read = fewer Read tool calls
+- 40-60% less text to read = fewer Read tool calls _(estimate — not yet empirically measured; actual ratio depends on finding distribution, see VEIL-003/VEIL-004)_
 - Smaller context window = faster TOME generation
-- Eliminates stalling on reviews with 5-8 Ashes (>30KB combined)
+- Designed to reduce stalling on reviews with 5-8 Ashes (>30KB combined) — empirical timeout correlation pending
+
+> **Assumption notes (VEIL-003, VEIL-004)**:
+> - The 40-60% compression range is a design estimate. Actual ratio depends heavily on the
+>   distribution of finding severities in each review. Reviews dominated by P1/P2 findings
+>   (which are fully preserved) will see minimal compression. The estimate assumes P3/N
+>   findings make up a significant portion of combined output — this has not been measured
+>   across production reviews.
+> - To calibrate: collect histogram of per-severity finding counts across 20+ production
+>   reviews and correlate with actual compression report ratios.
+
+> **Bash dependency (VEIL-003)**: Error recovery paths (fallback to original on write failure,
+> `mkdir -p` for condensed/ directory) assume Bash is available in the execution environment.
+> This algorithm runs at Tarnished level where Bash is always available. If ported to a
+> non-Bash environment, these error paths require adaptation.
 
 ## References
 

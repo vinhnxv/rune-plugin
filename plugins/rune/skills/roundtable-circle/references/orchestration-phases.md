@@ -333,6 +333,30 @@ Conditional phase — runs after each wave's monitor completes. See roundtable-c
 
 Conditional phase — deterministic marker-based extraction of Ash findings before Runebinder ingestion. Threshold-gated: no behavioral change for small reviews. No LLM calls — pure text processing at Tarnished level (no subagent spawned).
 
+**Integration point (BACK-007)**: Phase 5.0 runs after Phase 4 Monitor (`waitForCompletion`) returns. Before pre-aggregating, the orchestrator SHOULD validate that the expected number of Ash output files are present. If a wave timed out (partial completion), `outputDir` may contain fewer files than `selectedAsh.length`. Phase 5.0 proceeds regardless — this is intentional fail-forward behavior (compress what's available) — but the timeout flag MUST be propagated so TOME and mend downstream can surface the incomplete coverage:
+
+```javascript
+// BACK-007 integration guard — run before Phase 5.0
+const ashOutputFiles = Glob(`${outputDir}*.md`)
+  .filter(f => !basename(f).startsWith('TOME') && !basename(f).startsWith('_'))
+const expectedCount = selectedAsh.length  // (or wave.agents.length for per-wave)
+if (ashOutputFiles.length < expectedCount) {
+  warn(
+    `Phase 5.0: Expected ${expectedCount} Ash outputs, found ${ashOutputFiles.length}. ` +
+    `Wave may have timed out. TOME will reflect incomplete coverage.`
+  )
+  // Record incomplete flag in state file so mend/TOME can surface it
+  const currentState = JSON.parse(Read(`${stateFilePrefix}-${identifier}.json`))
+  Write(`${stateFilePrefix}-${identifier}.json`, {
+    ...currentState,
+    coverage_incomplete: true,
+    coverage_found: ashOutputFiles.length,
+    coverage_expected: expectedCount
+  })
+}
+// Phase 5.0 then proceeds with whatever files are present (fail-forward)
+```
+
 See [pre-aggregate.md](pre-aggregate.md) for the full algorithm specification.
 
 ```javascript
@@ -370,6 +394,16 @@ if (preAggConfig.enabled !== false) {
 ```
 
 **Multi-wave support**: When deep review runs multiple waves, Phase 5.0 executes **per-wave** before each wave's Runebinder invocation. Each wave has its own `outputDir`, so `condensed/` is created independently per wave with no cross-wave interaction. The threshold check is per-wave — a wave with small output skips pre-aggregation even if another wave triggered it.
+
+> **BACK-002 — `compressionApplied` state threading**: The orchestrator-level `compressionApplied` flag is set once (for standard depth) or per-wave (for deep depth). In multi-wave mode, each wave maintains its own compression state independently — `compressionApplied` is NOT shared across waves. Phase 5 (Runebinder invocation) re-derives the input directory via glob check (`condensedExists`) rather than relying solely on the flag, so a per-wave failure in Phase 5.0 (e.g., `condensed/` not created) is caught at Phase 5 invocation time. If Phase 5.0 fails silently for a wave, Phase 5 will fall back to `outputDir` (uncompressed) for that wave. Implementors MUST log an error when Phase 5.0 sets `compressionApplied = true` but `condensed/` is subsequently missing before Phase 5 runs:
+> ```javascript
+> // After preAggregate() call, verify condensed/ was actually created
+> const condensedFiles = Glob(`${outputDir}condensed/*.md`)
+> if (condensedFiles.length === 0) {
+>   warn(`Phase 5.0: compressionApplied=true but condensed/ is empty — falling back to original outputDir`)
+>   compressionApplied = false
+> }
+> ```
 
 ## Phase 5: Aggregate
 
@@ -426,6 +460,26 @@ const workflowType = workflow === "rune-review" ? "review" : "audit"
   // 2. Extract findings via RUNE:FINDING markers (6-step pipeline)
   //    nonce validation → marker parsing → attribute extraction →
   //    path normalization → Q/N filtering → scope classification
+
+  // GUARD (SEC-010 / BACK-005): sessionNonce MUST be defined before extraction.
+  // After compaction or session resume, in-memory variables may be lost.
+  // Re-read from inscription.json as authoritative source of truth.
+  if (!sessionNonce) {
+    try {
+      const inscription = JSON.parse(Read(`${outputDir}inscription.json`))
+      sessionNonce = inscription.session_nonce  // snake_case in inscription.json
+    } catch (e) {
+      // inscription.json missing or malformed — cannot safely validate nonces
+    }
+    if (!sessionNonce) {
+      throw new Error(
+        `Phase 5.4: sessionNonce not provided and could not be recovered from inscription.json. ` +
+        `Cannot validate findings — aborting to prevent SEC-010 bypass.`
+      )
+    }
+    warn(`Phase 5.4: sessionNonce recovered from inscription.json (was lost, likely post-compaction).`)
+  }
+
   let allFindings = extractFindings(tomeContent, sessionNonce)
 
   // 2a. Nonce-missing fallback (Layer 2 — graceful degradation)
@@ -452,6 +506,15 @@ const workflowType = workflow === "rune-review" ? "review" : "audit"
   // 2b. Heading-based extraction fallback (Layer 3 — audit TOMEs without markers)
   // When TOME uses markdown heading format instead of HTML comment markers,
   // extract findings from ### headings matching known prefix patterns.
+  //
+  // BACK-003 — Hybrid TOME handling: This condition (`markerCount === 0`) assumes
+  // binary format: either ALL findings use markers OR ALL use headings. A hybrid TOME
+  // (mixed markers + heading-format findings) is NOT handled here — heading-format
+  // findings are silently dropped when `markerCount > 0`. This is a known limitation:
+  // hybrid TOMEs should not occur in practice (Runebinder emits one format consistently),
+  // but if detected, implementors SHOULD log a warning and optionally run heading
+  // extraction to supplement marker-based findings. File a follow-up if hybrid TOMEs
+  // are observed in production.
   if (allFindings.length === 0) {
     const markerCount = (tomeContent.match(/<!-- RUNE:FINDING /g) || []).length
     if (markerCount === 0) {
@@ -462,6 +525,9 @@ const workflowType = workflow === "rune-review" ? "review" : "audit"
         allFindings.forEach(f => f.marker_format = 'heading')
       }
     }
+    // Note: if markerCount > 0 here, all markers were rejected (cross-session nonce mismatch
+    // from step 2a or some other validation failure). Heading extraction is intentionally
+    // skipped — do NOT fall through to heading mode when markers were present but invalid.
   }
 
   // 3. Filter out non-actionable findings

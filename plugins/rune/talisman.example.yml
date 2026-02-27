@@ -799,9 +799,8 @@ review:
   pre_aggregate:
     enabled: true                # Master toggle (default: true — opt-OUT)
     threshold_bytes: 25000       # Auto-trigger threshold in bytes (default: 25KB)
-    preserve_priorities: ["P1", "P2"]  # Full preservation priorities (zero info loss)
-    truncate_trace_lines: 3      # Max Rune Trace lines for P3 findings
-    nit_summary_only: true       # Convert N findings to 1-line summaries
+    # Other settings (preserve_priorities, truncate_trace_lines, nit_summary_only)
+    # are internal constants — do not modify.
 
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings
