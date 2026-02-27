@@ -44,6 +44,9 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | **resolve-gh-pr-comment** | Resolve a single GitHub PR review comment — fetch, analyze, fix, reply, and resolve thread |
 | **resolve-all-gh-pr-comments** | Batch resolve all open PR review comments with pagination and progress tracking |
 | **strive** | Swarm work execution with self-organizing task pool (+ `--approve`, incremental commits) |
+| **debug** | ACH-based parallel debugging — spawns multiple hypothesis-investigator agents to investigate competing hypotheses simultaneously. Use when bugs are complex or root cause is unclear |
+| **figma-to-react** | Figma-to-React MCP server knowledge — 4 tools for converting Figma designs to React components with Tailwind CSS v4 (non-invocable) |
+| **status** | Worker status reporting — standardized status output for swarm workers (non-invocable) |
 
 ## Commands
 
@@ -52,8 +55,6 @@ Multi-agent engineering orchestration for Claude Code. Plan, work, review, inspe
 | `/rune:cancel-review` | Cancel active review and shutdown teammates |
 | `/rune:cancel-codex-review` | Cancel active codex review and shutdown teammates |
 | `/rune:cancel-audit` | Cancel active audit and shutdown teammates |
-| `/rune:arc` | End-to-end pipeline with pre-flight freshness gate + 23 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review (--deep) → goldmask correlation → mend → verify mend (convergence loop) → test → test coverage critique → pre-ship validation → release quality check → bot review wait → PR comment resolution → ship → merge |
-| `/rune:arc-batch` | Sequential batch arc execution across multiple plans with auto-merge, crash recovery, and progress tracking |
 | `/rune:plan-review` | Review plan code samples for implementation correctness (thin wrapper for /rune:inspect --mode plan) |
 | `/rune:cancel-arc` | Cancel active arc pipeline |
 | `/rune:cancel-arc-batch` | Cancel active arc-batch loop and remove state file |
@@ -197,6 +198,7 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `PreToolUse:Bash` | `scripts/enforce-zsh-compat.sh` | ZSH-001: (A) Blocks assignment to zsh read-only variables (`status`), (B) auto-fixes unprotected glob in for-loops with setopt nullglob, (C) auto-fixes `! [[` history expansion to `[[ !`, (D) auto-fixes `\!=` to `!=` in conditions, (E) auto-fixes unprotected globs in command arguments with setopt nullglob. Only active when user's shell is zsh (or macOS fallback). |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-mend-fixer-paths.sh` | SEC-MEND-001: Blocks mend-fixer Ashes from writing files outside their assigned file group (via inscription.json lookup). Only active during mend workflows. |
 | `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-gap-fixer-paths.sh` | SEC-GAP-001: Blocks gap-fixer Ashes from writing to `.claude/`, `.github/`, `node_modules/`, CI YAML, and `.env` files. Only active during gap-fix workflows. |
+| `PreToolUse:Write\|Edit\|NotebookEdit` | `scripts/validate-strive-worker-paths.sh` | SEC-STRIVE-001: Blocks strive worker Ashes from writing files outside their assigned file scope (via inscription.json task_ownership lookup). Only active during strive workflows. |
 | `PreToolUse:Task` | `scripts/enforce-teams.sh` | ATE-1: Blocks bare `Task` calls (without `team_name`) during active Rune workflows. Prevents context explosion from subagent output. Filters by session ownership. |
 | `PreToolUse:TeamCreate` | `scripts/enforce-team-lifecycle.sh` | TLC-001: Validates team name (hard block on invalid), detects stale teams (30-min threshold), auto-cleans filesystem orphans, injects advisory context. |
 | `PreToolUse:Write\|Edit\|NotebookEdit\|Task\|TeamCreate` | `scripts/advise-post-completion.sh` | POST-COMP-001: Advisory warning when heavy tools are used after arc pipeline completion. Debounced once per session. Fail-open. Never blocks. |
@@ -222,8 +224,11 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `Stop` | `scripts/arc-issues-stop-hook.sh` | ARC-ISSUES-LOOP: Drives the arc-issues loop via Stop hook pattern. Reads `.claude/arc-issues-loop.local.md` state file, marks current issue completed, posts GitHub comment, updates labels, constructs next arc prompt. Includes session isolation guard. Runs BEFORE on-session-stop.sh. |
 | `Stop` | `scripts/on-session-stop.sh` | STOP-001: Detects active Rune workflows when Claude finishes responding. Blocks exit with cleanup instructions. Filters cleanup by session ownership. One-shot design prevents infinite loops via `stop_hook_active` flag. Layer 3 process kill: AUTO-CLEAN PHASE 0 sends SIGTERM/SIGKILL to orphaned teammate processes before filesystem cleanup. |
 | `Notification:statusline` | `scripts/rune-statusline.sh` | Context statusline producer. Writes session metrics (used%, remaining%, cost) to bridge file for `rune-context-monitor.sh` consumer. Outputs colored progress bar with workflow status. |
+| `Notification:idle_prompt` | `scripts/rune-context-monitor.sh` | Context health monitor consumer. Reads bridge file written by `rune-statusline.sh`, fires context degradation warnings (85%/95% used thresholds). Only triggers once per threshold per session (debounced). |
 
 **Seal Convention**: Ashes emit `<seal>TAG</seal>` as the last line of output for deterministic completion detection. See `roundtable-circle/references/monitor-utility.md` "Seal Convention" section.
+
+**Stop hook JSON format** (PAT-011): Stop hooks use a DIFFERENT JSON format from PreToolUse hooks. Stop hooks output `{"decision":"block","reason":"...","systemMessage":"..."}` — NOT wrapped in `hookSpecificOutput`. The `systemMessage` field becomes Claude's next prompt. PreToolUse hooks use `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow|deny|ask",...}}`.
 
 ### Hook Crash Classification (ADR: Fail-Forward)
 
@@ -232,7 +237,7 @@ Based on rlm-claude-code ADR-002 "Fail-Forward Behavior". Hooks should guide, no
 | Category | Behavior | Scripts |
 |----------|----------|---------|
 | SECURITY | Fail-closed (no ERR trap). Crash → blocks operation. | `enforce-readonly.sh` |
-| OPERATIONAL | Fail-forward (`_rune_fail_forward` ERR trap). Crash → allows operation. | All other 33 scripts |
+| OPERATIONAL | Fail-forward (`_rune_fail_forward` ERR trap). Crash → allows operation. | All other 31 scripts |
 
 The `_rune_fail_forward` function logs crash location (`BASH_LINENO[0]`) to `$RUNE_TRACE_LOG` when `RUNE_TRACE=1`. Uses `${BASH_SOURCE[0]##*/}` for script name (pure bash, no subprocess fork). Intentional `exit 2` paths (validation denials, quality gates) are unaffected — ERR traps fire on **failed commands**, not explicit `exit N`.
 
@@ -245,6 +250,7 @@ All hooks require `jq` for JSON parsing. If `jq` is missing, SECURITY-CRITICAL h
 | Server | Tools | Purpose |
 |--------|-------|---------|
 | `echo-search` | `echo_search`, `echo_details`, `echo_reindex`, `echo_stats`, `echo_record_access`, `echo_upsert_group` | Full-text search over Rune Echoes (`.claude/echoes/*/MEMORY.md`) using SQLite FTS5 with BM25 ranking. 5-factor composite scoring, access frequency tracking, file proximity, semantic grouping, query decomposition, retry tracking, Haiku reranking. Requires Python 3.7+. Launched via `scripts/echo-search/start.sh`. |
+| `figma-to-react` | `figma_fetch_design`, `figma_inspect_node`, `figma_list_components`, `figma_to_react` | Converts Figma designs to React + Tailwind CSS v4 components. Parses Figma URLs, fetches node trees via Figma API, extracts styling/layout/typography, generates JSX with Tailwind classes. Supports component extraction, pagination, and depth-limited traversal. Requires `FIGMA_ACCESS_TOKEN`. Launched via `scripts/figma-to-react/start.sh`. |
 
 **echo-search tools:**
 - `echo_search(query, limit?, layer?, role?)` — Multi-pass retrieval pipeline: query decomposition, BM25 search, composite scoring, semantic group expansion, retry injection, Haiku reranking. Each stage toggleable via `talisman.yml` echoes config. Returns content previews (200 chars).

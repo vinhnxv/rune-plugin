@@ -63,6 +63,9 @@ CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || exit 0
 # Check talisman config for inner_flame settings (QUAL-001/SEC-002)
 # CHOME: CLAUDE_CONFIG_DIR pattern for multi-account support (user-level talisman)
 CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+# QUAL-007 FIX: BLOCK_ON_FAIL defaults to false (soft enforcement) but talisman's
+# inner_flame.block_on_fail defaults to true via yq fallback — so if talisman exists
+# with inner_flame section, blocking is ON unless explicitly set to false.
 BLOCK_ON_FAIL=false
 INNER_FLAME_ENABLED=true
 for TALISMAN_PATH in "${CWD}/.claude/talisman.yml" "${CHOME}/talisman.yml"; do

@@ -57,9 +57,13 @@ def build_defaults():
 
     output = json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False)
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    # QUAL-012 FIX: Atomic output write via temp file + os.replace to prevent
+    # partial reads if the build script crashes mid-write
+    tmp_file = OUTPUT_FILE + ".tmp"
+    with open(tmp_file, "w", encoding="utf-8") as f:
         f.write(output)
         f.write("\n")
+    os.replace(tmp_file, OUTPUT_FILE)
 
     print(f"OK: wrote {OUTPUT_FILE} ({len(output)} bytes, {len(data)} top-level keys)")
 

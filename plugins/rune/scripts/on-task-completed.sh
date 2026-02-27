@@ -33,6 +33,7 @@ _rune_fail_forward() {
       "$_safe_tid" "$_crash_line" "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" \
       > "${SIGNAL_DIR}/${TASK_ID}.crash-detected" 2>/dev/null || true
   fi
+  _ERR_ACTIVE=1  # QUAL-002 FIX: Signal EXIT trap to skip cleanup
   exit 0
 }
 trap '_rune_fail_forward' ERR
@@ -44,7 +45,10 @@ RUNE_TRACE_LOG="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
 _trace() { [[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "$RUNE_TRACE_LOG" ]] && printf '[%s] on-task-completed: %s\n' "$(date +%H:%M:%S)" "$*" >> "$RUNE_TRACE_LOG"; return 0; }
 
 # Cleanup trap — remove temp files on exit (BACK-002)
-cleanup() { [[ -z "${SIGNAL_DIR:-}" ]] && return; rm -f "${SIGNAL_DIR}/${TASK_ID:-unknown}.done.tmp.$$" "${SIGNAL_DIR}/.all-done.tmp.$$" 2>/dev/null; }
+# QUAL-002 FIX: Guard against ERR→EXIT trap interaction. When _rune_fail_forward fires,
+# skip cleanup to avoid operating on inconsistent SIGNAL_DIR state.
+_ERR_ACTIVE=0
+cleanup() { [[ "$_ERR_ACTIVE" -eq 1 ]] && return; [[ -z "${SIGNAL_DIR:-}" ]] && return; rm -f "${SIGNAL_DIR}/${TASK_ID:-unknown}.done.tmp.$$" "${SIGNAL_DIR}/.all-done.tmp.$$" 2>/dev/null; }
 trap cleanup EXIT
 
 # Pre-flight: jq is required for safe JSON parsing and construction.
