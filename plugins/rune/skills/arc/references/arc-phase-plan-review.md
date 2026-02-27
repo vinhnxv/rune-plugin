@@ -27,6 +27,18 @@ This phase creates a team and spawns agents. It MUST follow the Agent Teams patt
 
 **NEVER** use bare `Task()` calls or named `subagent_type` values in this phase.
 
+## Reviewer Roster
+
+| Reviewer | Agent | Condition | Focus |
+|----------|-------|-----------|-------|
+| scroll-reviewer | `agents/utility/scroll-reviewer.md` | Always | Document quality |
+| decree-arbiter | `agents/utility/decree-arbiter.md` | Always | Technical soundness |
+| knowledge-keeper | `agents/utility/knowledge-keeper.md` | Always | Documentation coverage |
+| veil-piercer-plan | `agents/utility/veil-piercer-plan.md` | Always | Plan truth-telling (reality vs fiction) |
+| horizon-sage | `agents/utility/horizon-sage.md` | `talisman.horizon.enabled !== false` | Strategic depth assessment |
+| evidence-verifier | `agents/utility/evidence-verifier.md` | `talisman.evidence.enabled !== false` | Evidence-based plan grounding |
+| codex-plan-reviewer | CLI-backed (codex exec) | Codex detected + `codex.workflows` includes `"arc"` | Cross-model plan verification |
+
 ## Algorithm
 
 ```javascript

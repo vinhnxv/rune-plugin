@@ -68,6 +68,10 @@ session_budget:
 
 {Any critical information -- constraints, dependencies, deadlines}
 
+## Evidence Chain (optional)
+
+{Omit for truly minimal plans. Include when upgrading to Standard for traceability.}
+
 ## References
 
 - Related: {links}
