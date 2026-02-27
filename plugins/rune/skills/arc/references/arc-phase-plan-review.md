@@ -1,6 +1,6 @@
 # Phase 2: PLAN REVIEW — Full Algorithm
 
-Three to four parallel reviewers evaluate the enriched plan. Any BLOCK verdict halts the pipeline.
+Three to six parallel reviewers evaluate the enriched plan. Any BLOCK verdict halts the pipeline.
 
 **Team**: `arc-plan-review-{id}`
 **Tools (read-only)**: Read, Glob, Grep, Write (own output file only)
@@ -26,6 +26,18 @@ This phase creates a team and spawns agents. It MUST follow the Agent Teams patt
 ```
 
 **NEVER** use bare `Task()` calls or named `subagent_type` values in this phase.
+
+## Reviewer Roster
+
+| Reviewer | Agent | Condition | Focus |
+|----------|-------|-----------|-------|
+| scroll-reviewer | `agents/utility/scroll-reviewer.md` | Always | Document quality |
+| decree-arbiter | `agents/utility/decree-arbiter.md` | Always | Technical soundness |
+| knowledge-keeper | `agents/utility/knowledge-keeper.md` | Always | Documentation coverage |
+| veil-piercer-plan | `agents/utility/veil-piercer-plan.md` | Always | Plan truth-telling (reality vs fiction) |
+| horizon-sage | `agents/utility/horizon-sage.md` | `talisman.horizon.enabled !== false` | Strategic depth assessment |
+| evidence-verifier | `agents/utility/evidence-verifier.md` | `talisman.evidence.enabled !== false` | Evidence-based plan grounding |
+| codex-plan-reviewer | CLI-backed (codex exec) | Codex detected + `codex.workflows` includes `"arc"` | Cross-model plan verification |
 
 ## Algorithm
 
@@ -113,6 +125,18 @@ if (horizonEnabled) {
   })
 }
 
+// Evidence Verifier — evidence-based plan validation (v1.113.0)
+// Skipped if talisman evidence.enabled === false
+const evidenceEnabled = readTalisman()?.evidence?.enabled !== false
+if (evidenceEnabled) {
+  const evidenceExternalSearch = readTalisman()?.evidence?.external_search === true
+  reviewers.push({
+    name: "evidence-verifier",
+    agent: "agents/utility/evidence-verifier.md",
+    focus: `Evidence-based plan grounding (external_search: ${evidenceExternalSearch})`
+  })
+}
+
 // Codex Plan Reviewer (optional 5th reviewer — see arc-delegation-checklist.md Phase 2)
 // Detection: canonical codex-detection.md algorithm (9 steps, NOT inline simplified check)
 // Arc-mode adaptation: if .codexignore is missing, skip Codex silently (no AskUserQuestion)
@@ -127,13 +151,27 @@ if (codexDetected && talisman?.codex?.workflows?.includes("arc")) {
 }
 
 for (const reviewer of reviewers) {
+  // Evidence-verifier gets augmented prompt with ANCHOR/RE-ANCHOR and config
+  let reviewerPrompt = `Review plan for: ${reviewer.focus}
+      Plan: tmp/arc/${id}/enriched-plan.md
+      Output: tmp/arc/${id}/reviews/${reviewer.name}-verdict.md
+      Include structured verdict marker: <!-- VERDICT:${reviewer.name}:{PASS|CONCERN|BLOCK} -->`
+  if (reviewer.name === "evidence-verifier") {
+    const evConfig = readTalisman()?.evidence ?? {}
+    reviewerPrompt = `<!-- ANCHOR: You are evidence-verifier. Your ONLY role is grounding verification. -->
+      Review plan for: ${reviewer.focus}
+      Plan: tmp/arc/${id}/enriched-plan.md
+      Output: tmp/arc/${id}/reviews/${reviewer.name}-verdict.md
+      Evidence config: block_threshold=${evConfig.block_threshold ?? 0.4}, concern_threshold=${evConfig.concern_threshold ?? 0.6}
+      External search: ${evConfig.external_search === true ? "ALLOWED (WebSearch/WebFetch permitted)" : "DISABLED (codebase + documentation only)"}
+      Evidence types (strength order): CODEBASE > DOCUMENTATION > EXTERNAL > OBSERVED > NOVEL
+      Include structured verdict marker: <!-- VERDICT:${reviewer.name}:{PASS|CONCERN|BLOCK} -->
+      <!-- RE-ANCHOR: Evaluate grounding score. Below ${evConfig.block_threshold ?? 0.4} → BLOCK, below ${evConfig.concern_threshold ?? 0.6} → CONCERN, otherwise PASS. -->`
+  }
   Task({
     team_name: `arc-plan-review-${id}`, name: reviewer.name,
     subagent_type: "general-purpose",
-    prompt: `Review plan for: ${reviewer.focus}
-      Plan: tmp/arc/${id}/enriched-plan.md
-      Output: tmp/arc/${id}/reviews/${reviewer.name}-verdict.md
-      Include structured verdict marker: <!-- VERDICT:${reviewer.name}:{PASS|CONCERN|BLOCK} -->`,
+    prompt: reviewerPrompt,
     run_in_background: true
   })
 }
@@ -431,8 +469,8 @@ try {
   // SEC-4 FIX: Validate member names against safe pattern before use in SendMessage
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
-  // FALLBACK: Phase 2 plan review — core reviewers summoned in this phase (horizon-sage is conditional)
-  allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper", "horizon-sage"]
+  // FALLBACK: Phase 2 plan review — core reviewers summoned in this phase (horizon-sage, evidence-verifier are conditional)
+  allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper", "horizon-sage", "evidence-verifier"]
 }
 
 // Shutdown all discovered members

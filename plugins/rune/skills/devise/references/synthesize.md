@@ -31,7 +31,8 @@ AskUserQuestion({
 1. Read all research output files from `tmp/plans/{timestamp}/research/`
 2. Identify common themes, conflicting advice, key patterns
 3. Populate git metadata in plan frontmatter: include `git_sha` (from `git rev-parse HEAD`) and `branch` (from `git branch --show-current`). If the working directory is not a git repository, omit these fields. On a detached HEAD, set `branch` to `null`.
-4. Draft the plan document using the template matching the selected detail level:
+4. **Evidence population** (Standard and Comprehensive only): For each major factual claim in Proposed Solution and Technical Approach, search research outputs (`tmp/plans/{timestamp}/research/`) for supporting evidence. Populate the Evidence Chain table with claims and their verification status. Claims without supporting evidence in research outputs get `Verified: No`. Evidence types ordered by strength: CODEBASE > DOCUMENTATION > EXTERNAL > OBSERVED > NOVEL.
+5. Draft the plan document using the template matching the selected detail level:
 
 ## Minimal Template
 
@@ -66,6 +67,10 @@ session_budget:
 ## Context
 
 {Any critical information -- constraints, dependencies, deadlines}
+
+## Evidence Chain (optional)
+
+{Omit for truly minimal plans. Include when upgrading to Standard for traceability.}
 
 ## References
 
@@ -150,6 +155,18 @@ session_budget:
 ## Dependencies & Risks
 
 {What could block or complicate this}
+
+## Evidence Chain
+
+{Populated during Phase 2 Synthesize. For each major claim in Proposed Solution and Technical Approach, record the evidence found in research outputs. Claims without evidence get Verified: No. evidence-verifier agent validates this table during Phase 4C.}
+
+| # | Claim | Evidence Type | Source | Verified |
+|---|-------|--------------|--------|----------|
+| E-1 | "{factual claim from Proposed Solution}" | CODEBASE | {tool + query + result summary} | Yes/No |
+| E-2 | "{factual claim from Technical Approach}" | DOCUMENTATION | {doc file + relevant section} | Yes/No |
+| E-3 | "{dependency or API claim}" | EXTERNAL | {registry/docs URL} | Yes/No |
+
+**Evidence types** (ordered by strength): CODEBASE (verified in source code) > DOCUMENTATION (verified in project docs) > EXTERNAL (verified via external sources) > OBSERVED (indirect evidence found) > NOVEL (new, with justification)
 
 ## Design Implementation (conditional — auto-generated when figma_url is detected)
 
@@ -340,6 +357,20 @@ erDiagram
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
 | {Risk 1} | H/M/L | H/M/L | {Strategy} |
+
+## Evidence Chain
+
+{Populated during Phase 2 Synthesize. For each major claim in Proposed Solution, Architecture, and Technical Approach, record the evidence found in research outputs. Claims without evidence get Verified: No. evidence-verifier agent validates this table during Phase 4C.}
+
+| # | Claim | Evidence Type | Source | Verified |
+|---|-------|--------------|--------|----------|
+| E-1 | "{factual claim from Proposed Solution}" | CODEBASE | {tool + query + result summary} | Yes/No |
+| E-2 | "{factual claim from Architecture}" | CODEBASE | {file path + relevant code} | Yes/No |
+| E-3 | "{factual claim from Technical Approach}" | DOCUMENTATION | {doc file + relevant section} | Yes/No |
+| E-4 | "{dependency or API claim}" | EXTERNAL | {registry/docs URL} | Yes/No |
+| E-5 | "{pattern or convention claim}" | OBSERVED | {indirect evidence description} | Yes/No |
+
+**Evidence types** (ordered by strength): CODEBASE (verified in source code) > DOCUMENTATION (verified in project docs) > EXTERNAL (verified via external sources) > OBSERVED (indirect evidence found) > NOVEL (new, with justification)
 
 ## Design Implementation (conditional — auto-generated when figma_url is detected)
 
