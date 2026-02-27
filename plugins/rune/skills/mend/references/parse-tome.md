@@ -51,6 +51,17 @@ const scope = marker.match(/scope="(in-diff|pre-existing)"/)?.[1] || "in-diff"
 
 **Nonce validation**: Each finding marker contains a session nonce. Validate that the nonce matches the TOME session nonce from the header. Markers with invalid or missing nonces are flagged as `INJECTED` and reported to the user -- these are not processed.
 
+**Input length validation** (SEC-004): Before processing, validate finding marker content lengths to prevent resource exhaustion from oversized or malformed markers:
+- `id`: max 32 characters (e.g., `SEC-001`, `CUSTOM-999`)
+- `file`: max 500 characters (matches `normalizeFindingPath` cap)
+- `line`: max 10 characters (numeric string)
+- `severity`: max 8 characters (`P1`/`P2`/`P3`)
+- `scope`: max 16 characters (`in-diff`/`pre-existing`)
+- Finding title (text between markers): max 500 characters
+- Finding body (evidence + fix guidance): max 5000 characters
+
+Markers exceeding these limits are flagged as `OVERSIZED` and skipped with a warning.
+
 ### Interaction Type Extraction (v1.60.0+)
 
 The `interaction` attribute identifies Q/N findings that should be excluded from auto-mend:
@@ -139,7 +150,16 @@ function normalizeFindingPath(path) {
     warn(`Path exceeds 500-char cap: ${path.slice(0, 50)}...`)
     return null
   }
-  let normalized = path.replace(/^\.\//, '')           // Strip leading ./
+  let normalized = path
+  // BACK-016: Normalize Windows-style backslash separators to forward slashes
+  normalized = normalized.replace(/\\/g, '/')
+  // BACK-016: Reject URL-encoded characters (e.g., %2F, %20) — these indicate
+  // tampered or mis-extracted paths and should not be silently decoded
+  if (/%[0-9A-Fa-f]{2}/.test(normalized)) {
+    warn(`URL-encoded characters in finding path: ${path} — skipping`)
+    return null
+  }
+  normalized = normalized.replace(/^\.\//, '')           // Strip leading ./
   if (normalized.includes('..') || normalized.startsWith('/') || !SAFE_FILE_PATH.test(normalized)) {
     warn(`Unsafe path in finding: ${path} — skipping`)
     return null

@@ -330,6 +330,17 @@ Deterministic grep-based verification of TOME file:line citations. Runs at Tarni
 
 Configurable via `review.verify_tome_citations` in talisman (default: true). SEC-prefixed findings always verified at 100%.
 
+**Quality check**: After citation verification completes, validate the results before proceeding:
+
+| Metric | Threshold | Action |
+|--------|-----------|--------|
+| Verification pass rate | >= 50% | Proceed normally to Phase 5.4 |
+| Verification pass rate | < 50% | Flag TOME for human review, warn user before proceeding |
+| SEC-prefixed pass rate | 100% verified | Proceed normally |
+| SEC-prefixed pass rate | Any UNVERIFIED | Escalation warning — SEC findings with unverifiable citations require human attention |
+| Total findings checked | == TOME finding count | Proceed (all findings covered) |
+| Total findings checked | < TOME finding count | Log "citation verification incomplete: {checked}/{total}" in verification output |
+
 See [orchestration-phases.md](references/orchestration-phases.md) Phase 5.2 for full pseudocode.
 
 ## Phase 5.4: Todo Generation from TOME

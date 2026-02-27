@@ -114,6 +114,20 @@ tagged as `[UNVERIFIED]` or `[SUSPECT]` in the TOME:
 | `[SUSPECT: ...]` | **CAUTION** — finding assigned to fixer with extra verification instruction. Fixer must confirm file:line before fixing |
 | (no tag) | **NORMAL** — standard fix protocol |
 
+**Tag detection**: During Phase 0 TOME parsing, after extracting each `<!-- RUNE:FINDING -->` marker block, scan the finding body text for verification tags using these patterns:
+
+```
+UNVERIFIED_PATTERN = /\[UNVERIFIED:\s*(.+?)\]/
+SUSPECT_PATTERN    = /\[SUSPECT:\s*(.+?)\]/
+```
+
+For each finding:
+1. Match against `UNVERIFIED_PATTERN` — if found, set `finding.verification = "unverified"` and `finding.verification_reason` from capture group
+2. Else match against `SUSPECT_PATTERN` — if found, set `finding.verification = "suspect"` and `finding.verification_reason` from capture group
+3. Else set `finding.verification = "normal"`
+
+Findings with `verification = "unverified"` are excluded from `fileGroups` during grouping but retained in `allFindings` for Phase 6 reporting.
+
 When invoked from arc Phase 7 (mend), citation verification has already run in
 Phase 5.2. When invoked standalone (`/rune:mend`), citation verification has NOT
 run — all findings are treated as NORMAL.
