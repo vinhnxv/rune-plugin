@@ -134,6 +134,40 @@ if [[ -z "$PROGRESS_CONTENT" ]]; then
   exit 0
 fi
 
+# ── PHASE B FAST PATH (long-term fix) ──
+# When compact_pending=true, this is Phase B: a lightweight interlude turn where
+# Claude just responded "Ready for next iteration." Phase A already:
+#   - Detected arc status (signal + checkpoint)
+#   - Wrote the inter-iteration summary
+#   - Marked the current plan completed in progress.json
+#   - Ran GUARD 10 rapid-iteration check
+# Phase B only needs: find next plan, increment iteration, inject arc prompt.
+# Skipping the heavy blocks (~375 lines) eliminates the 15s timeout risk entirely,
+# regardless of whether the signal file exists or how many checkpoints there are.
+if [[ "$COMPACT_PENDING" == "true" ]]; then
+  # Re-read progress file (Phase A already updated it on disk)
+  UPDATED_PROGRESS=$(cat "${CWD}/${PROGRESS_FILE}" 2>/dev/null || true)
+  if [[ -z "$UPDATED_PROGRESS" ]]; then
+    rm -f "$STATE_FILE" 2>/dev/null; exit 0
+  fi
+  # Reconstruct _CURRENT_PLAN_PATH (last non-pending plan = just completed by Phase A)
+  # Used only for shard-aware transition detection (sibling shard check)
+  _CURRENT_PLAN_PATH=$(echo "$UPDATED_PROGRESS" | jq -r '
+    [.plans[] | select(.status != "pending")] | last | .path // empty
+  ' 2>/dev/null || true)
+  # Reconstruct SUMMARY_PATH from iteration number (deterministic naming)
+  SUMMARY_PATH=""
+  if [[ "$ITERATION" =~ ^[0-9]+$ ]]; then
+    _sp="${CWD}/tmp/arc-batch/summaries/iteration-${ITERATION}.md"
+    [[ -f "$_sp" && ! -L "$_sp" ]] && SUMMARY_PATH="$_sp"
+  fi
+  # PR_URL/ARC_SIGNAL_ARC_ID not needed (plan already marked by Phase A)
+  PR_URL="none"
+  ARC_SIGNAL_ARC_ID=""
+  _trace "Phase B fast path: skipped arc detection, re-read progress, plan=${_CURRENT_PLAN_PATH:-none}"
+else
+# ── PHASE A: Full arc detection + summary + plan marking ──
+
 # ── [NEW v1.72.0] Write inter-iteration summary (Revised Flow: BEFORE completion mark) ──
 # If crash during summary write, plan stays in_progress → --resume re-runs it (safe)
 SUMMARY_PATH=""
@@ -308,13 +342,9 @@ if _read_arc_result_signal; then
   if [[ "$PR_URL" == "none" && "$ARC_SIGNAL_PR_URL" != "none" ]]; then
     PR_URL="$ARC_SIGNAL_PR_URL"
   fi
-  # PERF-FIX: Defer signal deletion to Phase B. Phase A preserves the signal so
-  # Phase B gets O(1) read instead of falling back to _find_arc_checkpoint() O(N) scan.
-  # With 20+ checkpoint files, the scan exceeded the 15s hook timeout → stuck session.
-  if [[ "$COMPACT_PENDING" == "true" ]]; then
-    rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
-  fi
-  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL} compact_pending=${COMPACT_PENDING} (signal consumed)"
+  # Always clean up signal after consumption (single-read design)
+  rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
+  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL} (signal consumed+cleaned)"
 fi
 
 # Layer 2: Checkpoint scan fallback (for crash recovery or pre-v1.109.2 arcs)
@@ -513,6 +543,8 @@ else
   fi
 fi
 
+fi  # end Phase A / Phase B fast path
+
 # ── Find next pending plan ──
 NEXT_PLAN=$(echo "$UPDATED_PROGRESS" | jq -r '
   [.plans[] | select(.status == "pending")] | first | .path // empty
@@ -557,7 +589,7 @@ if [[ -z "$NEXT_PLAN" ]]; then
     fi
   fi
 
-  # Clean up arc result signal (deferred from Phase A consumption)
+  # Safety net: clean up any leftover arc result signal
   rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
 
   # Release workflow lock on final iteration
@@ -616,8 +648,8 @@ fi
 #
 # Worst case: auto-compact doesn't fire (context was under threshold) — adds one
 # extra lightweight turn. Best case: full context reset between iterations.
-# NOTE: COMPACT_PENDING already read early (after PROGRESS_FILE) for conditional
-# signal deletion. Re-read removed to avoid stale value from frontmatter re-parse.
+# NOTE: COMPACT_PENDING read early (line 64) and used for Phase B fast path (line 137).
+# Phase B fast path skips ~375 lines of arc detection to avoid 15s timeout.
 
 # ── F-02 FIX: Stale compact_pending recovery ──
 # If Phase A set compact_pending=true but Phase B never fired (e.g., Claude crashed

@@ -139,6 +139,32 @@ if [[ -z "$PROGRESS_CONTENT" ]]; then
   exit 0
 fi
 
+# ── PHASE B FAST PATH (long-term fix) ──
+# When compact_pending=true, this is Phase B: a lightweight interlude turn where
+# Claude just responded "Ready for next iteration." Phase A already:
+#   - Detected arc status, extracted PR URL, posted GitHub status
+#   - Marked the current plan completed in progress.json
+#   - Ran GUARD 10 rapid-iteration check
+# Phase B only needs: find next plan, increment iteration, inject arc prompt.
+# Skipping the heavy blocks eliminates the 15s timeout risk entirely.
+if [[ "$COMPACT_PENDING" == "true" ]]; then
+  # Re-read progress file (Phase A already updated it on disk)
+  UPDATED_PROGRESS=$(cat "${CWD}/${PROGRESS_FILE}" 2>/dev/null || true)
+  if [[ -z "$UPDATED_PROGRESS" ]]; then
+    rm -f "$STATE_FILE" 2>/dev/null; exit 0
+  fi
+  # Reconstruct plan metadata for downstream use
+  _CURRENT_PLAN_PATH=$(echo "$UPDATED_PROGRESS" | jq -r '
+    [.plans[] | select(.status != "pending")] | last | .path // empty
+  ' 2>/dev/null || true)
+  _CURRENT_ISSUE_NUM=""
+  PR_URL="none"
+  ARC_STATUS="completed"
+  ARC_SIGNAL_ARC_ID=""
+  _trace "Phase B fast path: skipped arc detection, re-read progress, plan=${_CURRENT_PLAN_PATH:-none}"
+else
+# ── PHASE A: Full arc detection + plan marking ──
+
 # ── Extract current in_progress plan metadata (BEFORE marking completed) ──
 _CURRENT_PLAN_PATH=$(echo "$PROGRESS_CONTENT" | jq -r '
   [.plans[] | select(.status == "in_progress")] | first | .path // empty
@@ -170,13 +196,9 @@ if _read_arc_result_signal; then
   if [[ "$ARC_SIGNAL_PR_URL" != "none" ]]; then
     PR_URL="$ARC_SIGNAL_PR_URL"
   fi
-  # PERF-FIX: Defer signal deletion to Phase B. Phase A preserves the signal so
-  # Phase B gets O(1) read instead of falling back to _find_arc_checkpoint() O(N) scan.
-  # With 20+ checkpoint files, the scan exceeded the 15s hook timeout → stuck session.
-  if [[ "$COMPACT_PENDING" == "true" ]]; then
-    rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
-  fi
-  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL} compact_pending=${COMPACT_PENDING} (signal consumed)"
+  # Always clean up signal after consumption (single-read design)
+  rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
+  _trace "Arc status from result signal: status=${ARC_STATUS} pr_url=${PR_URL} (signal consumed+cleaned)"
 fi
 
 # Layer 2: Checkpoint scan fallback (for crash recovery or pre-v1.109.2 arcs)
@@ -363,6 +385,8 @@ else
   fi
 fi
 
+fi  # end Phase A / Phase B fast path
+
 # ── Find next pending plan ──
 NEXT_PLAN=$(echo "$UPDATED_PROGRESS" | jq -r '
   [.plans[] | select(.status == "pending")] | first | .path // empty
@@ -411,7 +435,7 @@ if [[ -z "$NEXT_PLAN" ]]; then
     fi
   fi
 
-  # Clean up arc result signal (deferred from Phase A consumption)
+  # Safety net: clean up any leftover arc result signal
   rm -f "${CWD}/tmp/arc-result-current.json" 2>/dev/null
 
   # Release workflow lock on final iteration
@@ -477,8 +501,8 @@ fi
 #   Phase A (compact_pending != "true"): set flag, inject lightweight checkpoint
 #     prompt to give auto-compaction a chance to fire between turns.
 #   Phase B (compact_pending == "true"): reset flag, inject actual arc prompt.
-# NOTE: COMPACT_PENDING already read early (after PROGRESS_FILE) for conditional
-# signal deletion. Re-read removed to avoid stale value from frontmatter re-parse.
+# NOTE: COMPACT_PENDING read early (line 69) and used for Phase B fast path (line 142).
+# Phase B fast path skips arc detection + plan marking to avoid 15s timeout.
 
 # ── F-02 FIX: Stale compact_pending recovery ──
 if [[ "$COMPACT_PENDING" == "true" ]]; then
