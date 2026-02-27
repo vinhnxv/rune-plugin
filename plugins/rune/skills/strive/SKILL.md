@@ -107,9 +107,9 @@ Parse `--worktree` flag from `$ARGUMENTS` and read talisman configuration. This 
 const args = "$ARGUMENTS"
 const worktreeFlag = args.includes("--worktree")
 
-// Read talisman config for worktree default
-const talisman = readTalisman()
-const worktreeEnabled = talisman?.work?.worktree?.enabled || false
+// readTalismanSection: "work"
+const work = readTalismanSection("work")
+const worktreeEnabled = work?.worktree?.enabled || false
 
 // worktreeMode: flag wins, talisman is fallback default
 const worktreeMode = worktreeFlag || worktreeEnabled

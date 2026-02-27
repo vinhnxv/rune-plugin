@@ -33,6 +33,13 @@ def build_defaults():
         print(f"ERROR: {EXAMPLE_FILE} not found", file=sys.stderr)
         sys.exit(1)
 
+    # Guard: file size limit to prevent pathological YAML (BACK-004)
+    MAX_FILE_SIZE = 1024 * 1024  # 1MB
+    file_size = os.path.getsize(EXAMPLE_FILE)
+    if file_size > MAX_FILE_SIZE:
+        print(f"ERROR: {EXAMPLE_FILE} exceeds {MAX_FILE_SIZE} byte limit ({file_size} bytes)", file=sys.stderr)
+        sys.exit(1)
+
     with open(EXAMPLE_FILE, encoding="utf-8-sig") as f:
         data = yaml.safe_load(f)
 

@@ -9,7 +9,7 @@
 - `/rune:rest` now cleans up `tmp/.talisman-resolved/` (regenerated at next SessionStart).
 
 ### Changed
-- **readTalisman() → readTalismanSection()** — All 50+ talisman read sites migrated to shard-aware access pattern. Composite shards group co-accessed sections: `gates` (elicitation, horizon, evidence, doubt_seer), `settings` (version, cost_tier, rune-gaze, ashes, echoes), `misc` (15 low-frequency sections). Duplicate reads in `ship-phase.md` and `plan-review.md` eliminated.
+- **readTalisman() → readTalismanSection()** — 41 execution-path talisman read sites migrated to shard-aware access pattern (108 total references including docs and examples). Composite shards group co-accessed sections: `gates` (elicitation, horizon, evidence, doubt_seer), `settings` (version, cost_tier, rune-gaze, ashes, echoes), `misc` (15 low-frequency sections). Duplicate reads in `ship-phase.md` and `plan-review.md` eliminated. Token reduction estimated from file size ratio: ~300 bytes shard vs ~3.6KB full file.
 
 ## [1.113.2] - 2026-02-27
 

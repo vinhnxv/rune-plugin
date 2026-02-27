@@ -24,8 +24,9 @@ if (!BRANCH_NAME_REGEX.test(defaultBranch) || defaultBranch.includes('..')) {
 ```javascript
 // Performance: Single invocation — O(1) shell calls instead of O(N) per-file calls.
 // Three-dot syntax uses merge base, handling merge commits correctly.
-const talisman = readTalisman()
-const EXPANSION_ZONE = talisman?.review?.diff_scope?.expansion ?? 8
+// readTalismanSection: "review"
+const review = readTalismanSection("review")
+const EXPANSION_ZONE = review?.diff_scope?.expansion ?? 8
 // SEC-010 FIX: Clamp expansion to 0-50 range (aligned with talisman.example.yml docs)
 // SEC-004 FIX: Type-guard before clamping — non-numeric values fallback to default 8
 const rawExpansion = typeof EXPANSION_ZONE === 'number' ? EXPANSION_ZONE : 8

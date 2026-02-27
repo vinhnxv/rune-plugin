@@ -55,6 +55,9 @@ if [[ -z "$CWD" ]]; then
   CWD=$(pwd)
 fi
 
+# Canonicalize CWD to prevent symlink-based path manipulation (SEC-002)
+CWD=$(cd "$CWD" 2>/dev/null && pwd -P) || CWD=$(pwd -P)
+
 SHARD_DIR="${CWD}/tmp/.talisman-resolved"
 PROJECT_TALISMAN="${CWD}/.claude/talisman.yml"
 GLOBAL_TALISMAN="${CHOME}/talisman.yml"
@@ -69,6 +72,11 @@ fi
 HAS_PYYAML=false
 if python3 -c "import yaml" 2>/dev/null; then
   HAS_PYYAML=true
+fi
+
+# ── Guard: warn if no YAML parser available (VEIL-007) ──
+if [[ "$HAS_PYYAML" != "true" ]] && ! command -v yq &>/dev/null; then
+  _trace "WARN: No YAML parser available (need python3+PyYAML or yq). Using defaults only."
 fi
 
 # ── YAML→JSON conversion ──
@@ -125,14 +133,16 @@ defaults_json=$(cat "$DEFAULTS_FILE")
 
 # ── Deep merge: defaults <- global <- project ──
 # jq -s '.[0] * .[1] * .[2]' performs recursive merge for objects, replaces arrays
+MERGE_STATUS="full"
 merged=$(jq -s '.[0] * .[1] * .[2]' \
   <(echo "$defaults_json") \
   <(echo "$global_json") \
-  <(echo "$project_json") 2>/dev/null || echo '{}')
+  <(echo "$project_json") 2>/dev/null || { MERGE_STATUS="partial"; echo '{}'; })
 
 if [[ "$merged" == '{}' || -z "$merged" ]]; then
   _trace "WARN: merged config is empty, using defaults only"
   merged="$defaults_json"
+  MERGE_STATUS="defaults_only"
 fi
 
 # ── Create shard directory ──
@@ -245,6 +255,7 @@ meta_json=$(jq -n \
   --argjson shard_count "$shard_count" \
   --argjson schema_version 1 \
   --arg resolver_status "$RESOLVER_STATUS" \
+  --arg merge_status "$MERGE_STATUS" \
   --arg config_dir "$CURRENT_CFG" \
   --arg owner_pid "$OWNER_PID" \
   --arg session_id "${SESSION_ID:-unknown}" \
@@ -255,6 +266,8 @@ meta_json=$(jq -n \
       global: (if $global_exists then $global_src else null end),
       defaults: $defaults_src
     },
+    merge_order: ["defaults", (if $global_exists then "global" else null end), (if $project_exists then "project" else null end)] | map(select(. != null)),
+    merge_status: $merge_status,
     shard_count: $shard_count,
     schema_version: $schema_version,
     resolver_status: $resolver_status,

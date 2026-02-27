@@ -47,8 +47,14 @@ fi
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 RESOLVER="${PLUGIN_ROOT}/scripts/talisman-resolve.sh"
 
-if [[ -x "$RESOLVER" ]]; then
-  echo "$INPUT" | exec "$RESOLVER"
+if [[ -x "$RESOLVER" ]] && [[ ! -L "$RESOLVER" ]]; then
+  echo "$INPUT" | "$RESOLVER" || {
+    if [[ "${RUNE_TRACE:-}" == "1" ]]; then
+      _log="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+      [[ ! -L "$_log" ]] && echo "[talisman-invalidate] WARN: resolver failed with exit code $?" >> "$_log" 2>/dev/null
+    fi
+    exit 0  # Non-blocking per design
+  }
 else
   exit 0
 fi

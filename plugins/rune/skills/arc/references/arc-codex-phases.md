@@ -190,13 +190,13 @@ if (checkpoint.codex_cascade?.cascade_warning === true) {
 }
 
 // readTalismanSection: "codex"
-const codex56 = readTalismanSection("codex")
+const codexConfig = readTalismanSection("codex")
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
-const codexDisabled = codex56?.disabled === true
-const codexWorkflows = codex56?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
+const codexDisabled = codexConfig?.disabled === true
+const codexWorkflows = codexConfig?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
 
 if (codexAvailable && !codexDisabled && codexWorkflows.includes("arc")) {
-  const gapEnabled = codex56?.gap_analysis?.enabled !== false
+  const gapEnabled = codexConfig?.gap_analysis?.enabled !== false
 
   if (gapEnabled) {
     // CTX-001 + CTX-002: Pass file PATHS (not content) and split into focused aspects for parallel review.
@@ -221,9 +221,9 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("arc")) {
     const gitDiffRange = safeGitSha ? `${safeGitSha}..HEAD` : 'HEAD~5..HEAD'
 
     // Model, reasoning, timeout — validated by codex-exec.sh (SEC-006, SEC-004, CODEX_MODEL_ALLOWLIST)
-    const codexModel = codex56?.model ?? "gpt-5.3-codex"
-    const codexReasoning = codex56?.gap_analysis?.reasoning ?? "xhigh"
-    const rawGapTimeout = Number(codex56?.gap_analysis?.timeout)
+    const codexModel = codexConfig?.model ?? "gpt-5.3-codex"
+    const codexReasoning = codexConfig?.gap_analysis?.reasoning ?? "xhigh"
+    const rawGapTimeout = Number(codexConfig?.gap_analysis?.timeout)
     const perAspectTimeout = Number.isFinite(rawGapTimeout) ? rawGapTimeout : 900
 
     // Define focused gap aspects for parallel Codex calls
@@ -328,13 +328,13 @@ const driftFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\
 const codexFindingCount = completenessFindings.length + incompleteFindings.length + driftFindings.length
 // RUIN-001: Clamp threshold to [1, 20] range
 const codexThreshold = Math.max(1, Math.min(20,
-  codex56?.gap_analysis?.remediation_threshold ?? 5
+  codexConfig?.gap_analysis?.remediation_threshold ?? 5
 ))
 const codexNeedsRemediation = !codexWasSkipped && codexFindingCount >= codexThreshold
 
 // H2 FIX: Use "skipped" when codex didn't actually run
 const gapActuallyRan = codexAvailable && !codexDisabled && codexWorkflows.includes("arc")
-  && (codex56?.gap_analysis?.enabled !== false)
+  && (codexConfig?.gap_analysis?.enabled !== false)
 
 updateCheckpoint({
   phase: "codex_gap_analysis",
