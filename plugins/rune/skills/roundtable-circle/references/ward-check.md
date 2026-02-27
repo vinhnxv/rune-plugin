@@ -112,9 +112,9 @@ for (const file of newFiles) {
   }
 }
 
-// 10. Talisman verification_patterns (phase-filtered)
-const talisman = readTalisman()
-const customPatterns = talisman?.plan?.verification_patterns || []
+// readTalismanSection: "plan"
+const plan = readTalismanSection("plan")
+const customPatterns = plan?.verification_patterns || []
 // Security patterns: SAFE_REGEX_PATTERN, SAFE_PATH_PATTERN -- see security-patterns.md
 // SEC-FIX: Pattern interpolation uses safeRgMatch() (rg -f) to prevent $() command substitution. See security-patterns.md for safeRgMatch() implementation.
 const SAFE_REGEX_PATTERN = /^[a-zA-Z0-9._\-\/ \\|()[\]{}^$+?]+$/

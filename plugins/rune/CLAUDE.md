@@ -117,10 +117,12 @@ Override via `talisman.yml` → `teammate_lifecycle.max_turns.{category}`.
 
 ## Core Pseudo-Functions
 
-### readTalisman()
+### readTalisman() / readTalismanSection()
 
 Reads `.claude/talisman.yml` (project) → `$CHOME/talisman.yml` (global) → `{}`.
 Where `CHOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`.
+
+**Preferred**: Use `readTalismanSection(sectionName)` — reads pre-resolved JSON shards from `tmp/.talisman-resolved/` for 94% token reduction. Falls back to full-file `readTalisman()` if shards are unavailable. Available shards: `arc`, `codex`, `review`, `work`, `goldmask`, `plan`, `gates`, `settings`, `inspect`, `testing`, `audit`, `misc`.
 
 **Rule**: Use SDK `Read()` — NEVER `Bash("cat ...")` or `Bash("test -f ...")`.
 `Read()` auto-resolves `CLAUDE_CONFIG_DIR` and tilde. Bash does not (ZSH `~ not found` bug).
@@ -209,6 +211,8 @@ Rune uses Claude Code hooks for event-driven agent synchronization, quality gate
 | `TaskCompleted` | `scripts/validate-inner-flame.sh` | Inner Flame self-review enforcement. Validates teammate output includes Grounding/Completeness/Self-Adversarial checks. Configurable via talisman. |
 | `TeammateIdle` | `scripts/on-teammate-idle.sh` | Quality gate — validates teammate wrote expected output file before going idle. Checks for SEAL markers on review/audit workflows. |
 | `SessionStart:startup\|resume\|clear\|compact` | `scripts/session-start.sh` | Loads using-rune workflow routing into context. Runs synchronously to ensure routing is available from first message. |
+| `SessionStart:startup\|resume` | `scripts/talisman-resolve.sh` | Pre-processes `talisman.yml` into per-namespace JSON shards in `tmp/.talisman-resolved/`. Merge order: defaults < global < project. 12 data shards + `_meta.json`. Graceful fallback (python3+PyYAML → yq → skip). |
+| `PostToolUse:Write\|Edit` | `scripts/talisman-invalidate.sh` | Re-runs talisman resolver when `talisman.yml` is written. Fast-path grep exit (~0.3ms) for non-talisman writes. |
 | `SessionStart:startup\|resume` | `scripts/session-team-hygiene.sh` | TLC-003: Scans for orphaned team dirs and stale state files at session start and resume. Filters stale state counting by session ownership. |
 | `PreCompact:manual\|auto` | `scripts/pre-compact-checkpoint.sh` | Saves team state (config.json, tasks, workflow phase, arc checkpoint) to `tmp/.rune-compact-checkpoint.json` before compaction. Non-blocking (exit 0). |
 | `SessionStart:compact` | `scripts/session-compact-recovery.sh` | Re-injects team checkpoint as `additionalContext` after compaction. Correlation guard verifies team still exists. One-time injection (deletes checkpoint after use). |

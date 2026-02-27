@@ -14,17 +14,19 @@ Bash(`mkdir -p ${REVIEW_DIR}/claude ${REVIEW_DIR}/codex`)
 ## Talisman Config
 
 ```javascript
-const talisman = readTalisman()  // SDK Read() — never Bash cat
+// readTalismanSection: "codex", "misc"
+const codex = readTalismanSection("codex")
+const misc = readTalismanSection("misc")
 
 // Check both disable flags:
-const globalDisabled = talisman?.codex?.disabled === true
-const skillDisabled = talisman?.codex_review?.disabled === true
+const globalDisabled = codex?.disabled === true
+const skillDisabled = misc?.codex_review?.disabled === true
 if (globalDisabled || skillDisabled) {
   // If --codex-only: ERROR "Codex is disabled in talisman.yml"
   // Else: fall back to Claude-only mode, warn user
 }
 
-const codexReviewConfig = talisman?.codex_review || {}
+const codexReviewConfig = misc?.codex_review || {}
 ```
 
 ## Codex Detection

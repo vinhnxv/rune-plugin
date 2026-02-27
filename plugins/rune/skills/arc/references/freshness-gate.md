@@ -46,16 +46,15 @@ if (planSha && SAFE_SHA_PATTERN.test(planSha)) {
   // clamp: returns value bounded to [min, max]. If NaN, returns min.
   const clamp = (v, min, max) => !Number.isFinite(v) ? min : Math.min(Math.max(v, min), max)
 
-  // Read talisman thresholds (G8: with validation and defaults)
-  // readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-  const talisman = readTalisman()
+  // readTalismanSection: "plan"
+  const plan = readTalismanSection("plan")
   const config = {
     // BACK-008: warn min=0.01 (can't be 0 — use enabled:false to disable warnings)
     // block min=0.0 (set 0 to disable blocking while keeping warnings)
-    warn_threshold:       clamp(talisman?.plan?.freshness?.warn_threshold ?? 0.7, 0.01, 1.0),
-    block_threshold:      clamp(talisman?.plan?.freshness?.block_threshold ?? 0.4, 0.0, 0.99),
-    max_commit_distance:  Math.min(Math.max(talisman?.plan?.freshness?.max_commit_distance ?? 100, 1), 10000),
-    enabled:              talisman?.plan?.freshness?.enabled ?? true
+    warn_threshold:       clamp(plan?.freshness?.warn_threshold ?? 0.7, 0.01, 1.0),
+    block_threshold:      clamp(plan?.freshness?.block_threshold ?? 0.4, 0.0, 0.99),
+    max_commit_distance:  Math.min(Math.max(plan?.freshness?.max_commit_distance ?? 100, 1), 10000),
+    enabled:              plan?.freshness?.enabled ?? true
   }
   // G8: Ensure block < warn (swap if inverted)
   if (config.block_threshold >= config.warn_threshold) {

@@ -146,9 +146,9 @@ fileGroups = {
 When findings have `scope` attributes (from review.md Phase 5.3 diff-scope tagging), apply scope-aware priority to focus mend budget on PR-relevant findings:
 
 ```javascript
-// Read talisman config for scope filtering behavior
-const talisman = readTalisman()
-const fixPreExistingP1 = talisman?.review?.diff_scope?.fix_pre_existing_p1 !== false  // Default: true
+// readTalismanSection: "review"
+const review = readTalismanSection("review")
+const fixPreExistingP1 = review?.diff_scope?.fix_pre_existing_p1 !== false  // Default: true
 
 // Apply scope-aware priority
 // QUAL-003: scope = raw TOME attribute ("in-diff"|"pre-existing"|undefined).

@@ -95,8 +95,9 @@ const consistencyGuardPass =
   (taskStats.completed / taskStats.total) >= 0.5
 
 if (consistencyGuardPass) {
-  const consistencyTalisman = readTalisman()
-  const customChecks = consistencyTalisman?.arc?.consistency?.checks || []
+  // readTalismanSection: "arc"
+  const arcConfig = readTalismanSection("arc")
+  const customChecks = arcConfig?.consistency?.checks || []
 
   // Default checks when talisman does not define any
   const DEFAULT_CONSISTENCY_CHECKS = [

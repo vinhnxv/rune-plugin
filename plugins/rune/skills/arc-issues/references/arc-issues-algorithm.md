@@ -647,9 +647,9 @@ if (existingState && existingState.includes('active: true')) {
   warn('Found orphaned arc-issues state file (previous session crashed). Overwriting.')
 }
 
-// Merge resolution: CLI --no-merge (highest) → talisman auto_merge → default (true)
-const talisman = readTalisman()
-const batchConfig = talisman?.arc?.batch || {}
+// readTalismanSection: "arc"
+const arc = readTalismanSection("arc")
+const batchConfig = arc?.batch || {}
 const autoMerge = flags.noMerge ? false : (batchConfig.auto_merge ?? true)
 const summaryEnabled = batchConfig?.summaries?.enabled !== false  // default: true
 

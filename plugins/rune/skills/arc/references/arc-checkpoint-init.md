@@ -31,8 +31,9 @@ const sessionNonce = rawNonce
 // SEC-011 FIX: Null guard — parseDiffStats may return null on empty/malformed git output
 const diffStats = parseDiffStats(Bash(`git diff --stat ${defaultBranch}...HEAD`)) ?? { insertions: 0, deletions: 0, files: [] }
 const planMeta = extractYamlFrontmatter(Read(planFile))
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const talisman = readTalisman()
+// readTalismanSection: "arc", "work"
+const arc = readTalismanSection("arc")
+const work = readTalismanSection("work")
 ```
 
 ## 3-Layer Config Resolution
@@ -40,7 +41,7 @@ const talisman = readTalisman()
 ```javascript
 // 3-layer config resolution: hardcoded defaults → talisman → inline CLI flags (v1.40.0+)
 // Contract: inline flags ALWAYS override talisman; talisman overrides hardcoded defaults.
-function resolveArcConfig(talisman, inlineFlags) {
+function resolveArcConfig(arc, work, inlineFlags) {
   // Layer 1: Hardcoded defaults
   const defaults = {
     no_forge: false,
@@ -61,9 +62,9 @@ function resolveArcConfig(talisman, inlineFlags) {
   }
 
   // Layer 2: Talisman overrides (null-safe)
-  const talismanDefaults = talisman?.arc?.defaults ?? {}
-  const talismanShip = talisman?.arc?.ship ?? {}
-  const talismanPreMerge = talisman?.arc?.pre_merge_checks ?? {}  // QUAL-001 FIX
+  const talismanDefaults = arc?.defaults ?? {}
+  const talismanShip = arc?.ship ?? {}
+  const talismanPreMerge = arc?.pre_merge_checks ?? {}  // QUAL-001 FIX
 
   const config = {
     no_forge:        talismanDefaults.no_forge ?? defaults.no_forge,
@@ -85,7 +86,7 @@ function resolveArcConfig(talisman, inlineFlags) {
       // BACK-012 FIX: Include co_authors in 3-layer resolution (was read from raw talisman)
       // QUAL-003 FIX: Check arc.ship.co_authors first, fall back to work.co_authors
       co_authors: Array.isArray(talismanShip.co_authors) ? talismanShip.co_authors
-        : Array.isArray(talisman?.work?.co_authors) ? talisman.work.co_authors : [],
+        : Array.isArray(work?.co_authors) ? work.co_authors : [],
     },
     // QUAL-001 FIX: Include pre_merge_checks in config resolution (was missing — talisman overrides silently ignored)
     pre_merge_checks: {
@@ -128,14 +129,14 @@ const inlineFlags = {
   bot_review: args.includes('--bot-review') ? true : undefined,
   no_bot_review: args.includes('--no-bot-review') ? true : undefined,
 }
-const arcConfig = resolveArcConfig(talisman, inlineFlags)
+const arcConfig = resolveArcConfig(arc, work, inlineFlags)
 // Use arcConfig.no_forge, arcConfig.approve, arcConfig.ship.auto_pr, etc. throughout
 ```
 
 ## Tier Selection and Timeout Calculation
 
 ```javascript
-const tier = selectReviewMendTier(diffStats, planMeta, talisman)
+const tier = selectReviewMendTier(diffStats, planMeta, arc)
 // SEC-005 FIX: Collect changed files for progressive focus fallback (EC-9 paradox recovery)
 const changedFiles = diffStats.files || []
 // Calculate dynamic total timeout based on tier

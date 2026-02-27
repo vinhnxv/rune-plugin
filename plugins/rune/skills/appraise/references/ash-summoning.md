@@ -90,7 +90,9 @@ Skipped if talisman `elicitation.enabled` is `false`.
 // ATE-1: subagent_type: "general-purpose", identity via prompt
 // NOTE: Review uses path-based activation (security file patterns), not keyword-based.
 // See elicitation-sage.md for keyword-based activation used by forge.md and plan.md.
-const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+// readTalismanSection: "gates"
+const gates = readTalismanSection("gates")
+const elicitEnabled = gates?.elicitation?.enabled !== false
 const securityFiles = changedFiles.filter(f =>
   /\/(auth|api|security|middleware)\//.test(f) ||
   /\b(auth|login|token|session|password|secret)\b/i.test(f)

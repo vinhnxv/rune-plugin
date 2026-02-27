@@ -102,8 +102,8 @@ if (!["implementation", "plan"].includes(inspectMode)):
 ### Step 0.2 — Read Talisman Config
 
 ```javascript
-const config = readTalisman()
-const inspectConfig = config?.inspect ?? {}
+// readTalismanSection: "inspect"
+const inspectConfig = readTalismanSection("inspect")
 
 // RUIN-001 FIX: Runtime clamping prevents misconfiguration-based DoS/bypass
 maxInspectors = Math.max(1, Math.min(4, flag("--max-agents") ?? inspectConfig.max_inspectors ?? 4))

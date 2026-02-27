@@ -92,8 +92,8 @@ if figmaUrl AND NOT FIGMA_URL_PATTERN.test(figmaUrl):
   AskUserQuestion("Invalid Figma URL format. Please provide a valid Figma URL.")
   STOP
 
-// Step 3: Read talisman config
-config = readTalisman()
+// readTalismanSection: "misc"
+config = readTalismanSection("misc")
 if NOT config?.design_sync?.enabled:
   AskUserQuestion("Design sync is disabled. Enable it in talisman.yml:\n\ndesign_sync:\n  enabled: true")
   STOP

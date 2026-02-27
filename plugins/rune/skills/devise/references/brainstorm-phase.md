@@ -168,9 +168,8 @@ After approach selection, summon 1-3 elicitation-sage teammates for multi-perspe
 **Talisman check**: Read `.claude/talisman.yml` → if `elicitation.enabled` is explicitly `false`, skip this step entirely.
 
 ```javascript
-// Talisman kill switch — early exit if elicitation disabled
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+// readTalismanSection: "gates"
+const elicitEnabled = readTalismanSection("gates")?.elicitation?.enabled !== false
 if (elicitEnabled) {
 // ── BEGIN elicitation gate ──
 

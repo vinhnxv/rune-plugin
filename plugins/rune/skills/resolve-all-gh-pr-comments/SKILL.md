@@ -71,9 +71,9 @@ if owner is empty or repo is empty:
   error("Cannot resolve repository owner/name. Ensure gh CLI is configured.")
   exit
 
-# Read talisman config for bot_review settings
-talisman = readTalisman()
-botConfig = talisman?.arc?.ship?.bot_review ?? {}
+# readTalismanSection: "arc"
+arc = readTalismanSection("arc")
+botConfig = arc?.ship?.bot_review ?? {}
 
 BATCH_SIZE = botConfig.max_comment_batch_size ?? 10
 AUTO_RESOLVE_OUTDATED = botConfig.auto_resolve_outdated ?? true

@@ -33,18 +33,20 @@ if (checkpoint.codex_cascade?.cascade_warning === true) {
 // H1 NOTE: Uses inline Bash check instead of detectCodex() for self-containment.
 // This reference file is consumed by the LLM orchestrator — detectCodex() is a SKILL.md
 // pseudo-function that may not be in context when this reference is loaded.
+// readTalismanSection: "codex"
+const codex = readTalismanSection("codex")
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
-const codexDisabled = talisman?.codex?.disabled === true
-const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
+const codexDisabled = codex?.disabled === true
+const codexWorkflows = codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
 
 if (codexAvailable && !codexDisabled && codexWorkflows.includes("arc")) {
-  const semanticEnabled = talisman?.codex?.semantic_verification?.enabled !== false
+  const semanticEnabled = codex?.semantic_verification?.enabled !== false
 
   if (semanticEnabled) {
     // Security pattern: CODEX_MODEL_ALLOWLIST — see security-patterns.md
     const CODEX_MODEL_ALLOWLIST = /^gpt-5(\.\d+)?-codex(-spark)?$/
-    const codexModel = CODEX_MODEL_ALLOWLIST.test(talisman?.codex?.model ?? "")
-      ? talisman.codex.model : "gpt-5.3-codex"
+    const codexModel = CODEX_MODEL_ALLOWLIST.test(codex?.model ?? "")
+      ? codex.model : "gpt-5.3-codex"
 
     // CTX-001: Pass file PATH to Codex instead of inlining content to avoid context overflow.
     // Codex runs with --sandbox read-only and CAN read local files by path.
@@ -52,8 +54,8 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("arc")) {
     const planFilePath = enrichedPlanPath
 
     // Reasoning + timeout — validated by codex-exec.sh (SEC-006, SEC-004)
-    const codexReasoning = talisman?.codex?.semantic_verification?.reasoning ?? "xhigh"
-    const rawSemanticTimeout = Number(talisman?.codex?.semantic_verification?.timeout)
+    const codexReasoning = codex?.semantic_verification?.reasoning ?? "xhigh"
+    const rawSemanticTimeout = Number(codex?.semantic_verification?.timeout)
     const semanticTimeoutValidated = Number.isFinite(rawSemanticTimeout) ? rawSemanticTimeout : 420
 
     // CTX-002: Split into focused aspects and run in parallel.
@@ -148,7 +150,7 @@ If no contradictions found, output: "No scope/timeline contradictions detected."
 // H2 FIX: Use "skipped" status when codex didn't actually run (was unavailable or disabled)
 // "completed" is reserved for when the phase actually executed its core logic
 const semanticActuallyRan = codexAvailable && !codexDisabled && codexWorkflows.includes("arc")
-  && (talisman?.codex?.semantic_verification?.enabled !== false)
+  && (codex?.semantic_verification?.enabled !== false)
 
 updateCheckpoint({
   phase: "semantic_verification",
@@ -187,12 +189,14 @@ if (checkpoint.codex_cascade?.cascade_warning === true) {
   return
 }
 
+// readTalismanSection: "codex"
+const codexConfig = readTalismanSection("codex")
 const codexAvailable = Bash("command -v codex >/dev/null 2>&1 && echo 'yes' || echo 'no'").trim() === "yes"
-const codexDisabled = talisman?.codex?.disabled === true
-const codexWorkflows = talisman?.codex?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
+const codexDisabled = codexConfig?.disabled === true
+const codexWorkflows = codexConfig?.workflows ?? ["review", "audit", "plan", "forge", "work", "arc", "mend"]
 
 if (codexAvailable && !codexDisabled && codexWorkflows.includes("arc")) {
-  const gapEnabled = talisman?.codex?.gap_analysis?.enabled !== false
+  const gapEnabled = codexConfig?.gap_analysis?.enabled !== false
 
   if (gapEnabled) {
     // CTX-001 + CTX-002: Pass file PATHS (not content) and split into focused aspects for parallel review.
@@ -217,9 +221,9 @@ if (codexAvailable && !codexDisabled && codexWorkflows.includes("arc")) {
     const gitDiffRange = safeGitSha ? `${safeGitSha}..HEAD` : 'HEAD~5..HEAD'
 
     // Model, reasoning, timeout — validated by codex-exec.sh (SEC-006, SEC-004, CODEX_MODEL_ALLOWLIST)
-    const codexModel = talisman?.codex?.model ?? "gpt-5.3-codex"
-    const codexReasoning = talisman?.codex?.gap_analysis?.reasoning ?? "xhigh"
-    const rawGapTimeout = Number(talisman?.codex?.gap_analysis?.timeout)
+    const codexModel = codexConfig?.model ?? "gpt-5.3-codex"
+    const codexReasoning = codexConfig?.gap_analysis?.reasoning ?? "xhigh"
+    const rawGapTimeout = Number(codexConfig?.gap_analysis?.timeout)
     const perAspectTimeout = Number.isFinite(rawGapTimeout) ? rawGapTimeout : 900
 
     // Define focused gap aspects for parallel Codex calls
@@ -324,13 +328,13 @@ const driftFindings = codexWasSkipped ? [] : (codexGapContent.match(/\[CDX-GAP-\
 const codexFindingCount = completenessFindings.length + incompleteFindings.length + driftFindings.length
 // RUIN-001: Clamp threshold to [1, 20] range
 const codexThreshold = Math.max(1, Math.min(20,
-  talisman?.codex?.gap_analysis?.remediation_threshold ?? 5
+  codexConfig?.gap_analysis?.remediation_threshold ?? 5
 ))
 const codexNeedsRemediation = !codexWasSkipped && codexFindingCount >= codexThreshold
 
 // H2 FIX: Use "skipped" when codex didn't actually run
 const gapActuallyRan = codexAvailable && !codexDisabled && codexWorkflows.includes("arc")
-  && (talisman?.codex?.gap_analysis?.enabled !== false)
+  && (codexConfig?.gap_analysis?.enabled !== false)
 
 updateCheckpoint({
   phase: "codex_gap_analysis",

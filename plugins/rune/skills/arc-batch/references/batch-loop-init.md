@@ -15,10 +15,9 @@ const pluginDir = Bash(`echo "${CLAUDE_PLUGIN_ROOT}"`).trim()
 const planListFile = "tmp/arc-batch/plan-list.txt"
 Write(planListFile, planPaths.join('\n'))
 
-// Merge resolution: CLI --no-merge (highest) → talisman auto_merge → default (true)
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const talisman = readTalisman()
-const batchConfig = talisman?.arc?.batch || {}
+// readTalismanSection: "arc"
+const arc = readTalismanSection("arc")
+const batchConfig = arc?.batch || {}
 const autoMerge = noMerge ? false : (batchConfig.auto_merge ?? true)
 const summaryEnabled = batchConfig?.summaries?.enabled !== false  // default: true
 

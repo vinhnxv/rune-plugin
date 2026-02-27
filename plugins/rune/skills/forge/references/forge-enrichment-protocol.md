@@ -233,10 +233,8 @@ ${agentRiskContext ? `
 ## Elicitation Sage Spawning
 
 ```javascript
-// Elicitation Sage — summon per eligible section (v1.31)
-// ATE-1: subagent_type: "general-purpose", identity via prompt
-// readTalisman: SDK Read() with project→global fallback. See references/read-talisman.md
-const elicitEnabled = readTalisman()?.elicitation?.enabled !== false
+// readTalismanSection: "gates"
+const elicitEnabled = readTalismanSection("gates")?.elicitation?.enabled !== false
 if (elicitEnabled) {
   // MAX_FORGE_SAGES caps total elicitation sages to prevent resource exhaustion.
   // Future: configurable via talisman.yml elicitation.max_sages (range 1-10). Currently hardcoded.

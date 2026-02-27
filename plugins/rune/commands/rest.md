@@ -37,6 +37,7 @@ Remove ephemeral `tmp/` output directories from completed Rune workflows. Preser
 | `tmp/arc-batch/` | Batch progress, logs, config | Yes (if no active batch) |
 | `tmp/gh-issues/` | GitHub Issues batch progress, issue list JSON | Yes (if no active arc-issues loop) |
 | `tmp/gh-plans/` | Auto-generated plan files from GitHub Issues | Yes (if no active arc-issues loop) |
+| `tmp/.talisman-resolved/` | Talisman shard resolver cache (JSON shards) | Yes (unconditional, regenerated at next SessionStart) |
 | `tmp/.rune-signals/` | Event-driven signal files from Phase 2 hooks | Yes (unconditional, symlink-guarded) |
 | `tmp/.rune-locks/` | Workflow lock directories (PID-guarded) | Yes (dead PIDs only; live PIDs preserved) |
 | `~/.claude/teams/{rune-*/arc-*}/` (or `$CLAUDE_CONFIG_DIR/teams/` if set) | Orphaned team configs from crashed workflows | `--heal` only |
@@ -245,6 +246,9 @@ fi
 
 # Remove scratch files (unconditional — no state file)
 rm -rf tmp/scratch/
+
+# Talisman resolver cache (regenerated at next SessionStart)
+rm -rf tmp/.talisman-resolved/ 2>/dev/null
 
 # Remove event-driven signal files with symlink guard (unconditional — ephemeral hook artifacts)
 # Created by Phase 2 BRIDGE orchestrators when hooks are active. Safe no-op if absent.

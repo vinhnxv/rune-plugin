@@ -172,6 +172,18 @@
         ]
       },
       {
+        "matcher": "Write|Edit",
+        "_rationale": "Talisman shard invalidation. Fast-path exit (<5ms) via grep for non-talisman writes. Only triggers full resolver (~0.6s) when talisman.yml is modified. PostToolUse (not PreToolUse) so it does not block the write.",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/talisman-invalidate.sh",
+            "timeout": 5,
+            "statusMessage": "Checking talisman invalidation..."
+          }
+        ]
+      },
+      {
         "matcher": "Read|Write|Edit|Bash|Glob|Grep|Task|WebFetch",
         "_rationale": "Monitor high-frequency tools that indicate active work. Excludes TeamCreate/TeamDelete/SendMessage (low context impact). Task catches agent spawning (highest context cost).",
         "hooks": [
@@ -251,6 +263,19 @@
             "timeout": 5,
             "async": false,
             "statusMessage": "Loading Rune workflow routing..."
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume",
+        "_rationale": "Resolves talisman.yml into per-namespace JSON shards for 94% token reduction. Must run after session-start.sh (workflow routing) and before team hygiene. Not async — shards must be ready before first readTalismanSection() call. Excluded from clear (no workflows run) and compact (shards still valid).",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/talisman-resolve.sh",
+            "timeout": 5,
+            "async": false,
+            "statusMessage": "Resolving talisman config..."
           }
         ]
       },
