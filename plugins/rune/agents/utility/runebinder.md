@@ -50,6 +50,10 @@ Before beginning aggregation, query Rune Echoes for previously identified aggreg
 ## Task
 
 1. Read all Ash output files from `{output_dir}/`
+   > **Note**: When Phase 5.0 (Pre-Aggregate) runs, inputs come from `{output_dir}/condensed/` instead.
+   > Condensed files preserve all RUNE:FINDING markers, Reviewer Assumptions, and Summary sections.
+   > Non-finding sections (Self-Review Log, Unverified Observations, boilerplate) are stripped.
+   > The dedup algorithm is identical — only input volume changes.
 2. Deduplicate findings using the hierarchy: SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX
 2.3. Parse `confidence` and `confidence_score` from RUNE:FINDING markers. Both are OPTIONAL. Missing values default to `confidence="UNKNOWN"`, `confidence_score=50`. When two findings match same file + 5-line window + same hierarchy level, higher `confidence_score` wins the tiebreak. Include `also_flagged_by` annotations with confidence labels (e.g., "also flagged by: Flaw Hunter [HIGH]").
 2.5. Parse `## Reviewer Assumptions` from each Ash output — collect per-Ash assumption lists and confidence breakdowns (PROVEN/LIKELY/UNCERTAIN counts). If an Ash output is missing `## Reviewer Assumptions`, record it in Coverage Gaps as "partial (no assumptions)". Confidence values are informational only in v1 — NOT used as inputs to mend priority, convergence scoring, or file-todo triage.
