@@ -69,7 +69,10 @@ Skip non-findings files: TOME.md, truthsight-report.md
 
 Read ONLY the TOME.md file. Do NOT also read raw files (that defeats the purpose).
 
-**Fallback**: If the Runebinder fails, read raw files ONE AT A TIME, not all at once.
+**Runebinder Input Management:**
+1. Phase 5.0 pre-aggregation (automatic when combined size > threshold)
+2. Condensed files reduce input by 40-60%
+3. Fallback: If Runebinder still fails, read raw files ONE AT A TIME
 
 ## MCP Schema Cost Per Teammate
 

@@ -35,11 +35,12 @@ Unified context management combining overflow prevention, compression strategies
 
 Agents can write unlimited detail to files. The overflow comes from what they _return_ to the caller. This skill ensures returns are minimal (file path + 1-sentence summary).
 
-## Six Layers of Context Management
+## Seven Layers of Context Management
 
 | Layer | Problem | Solution | When |
 |-------|---------|----------|------|
 | **Overflow Prevention** | Agent returns flood lead context | Glyph Budget: file-only output | Before any Rune multi-agent command |
+| **Inter-Agent Output Compression** | Ash file outputs too verbose for Runebinder | Phase 5.0 Pre-Aggregate: marker-based extraction | Before aggregation (threshold-gated) |
 | **Context Rot** | Attention degrades in long contexts | Instruction anchoring, re-anchoring signals | Always (in prompts) |
 | **Compression** | Session grows beyond 50+ messages | Anchored iterative summarization | During long sessions |
 | **Filesystem Offloading** | Tool outputs consume 83.9% of context | Write outputs to files, read on demand | During any workflow |
@@ -106,6 +107,43 @@ After aggregation, read ONLY the TOME.md file. Do NOT also read raw files.
 | Each agent return (with budget) | ~100-200 | File path + 50-word summary |
 | TOME.md (aggregated) | ~1k | Replaces reading all raw files |
 | Context window | Full | Claude's per-session limit |
+
+## Layer 1.5: Inter-Agent Output Compression (Pre-Aggregation)
+
+**Problem**: Ash output files are verbose — 15-25% is non-finding overhead (Self-Review Log,
+Unverified Observations, boilerplate). When 5-8 Ashes produce 100-270 lines each,
+combined size exceeds 30KB, causing Runebinder stalling.
+
+**Solution**: Phase 5.0 (Pre-Aggregate) extracts structured findings from Ash outputs
+before Runebinder ingestion. Deterministic marker-based extraction — no LLM call.
+
+**Trigger**: Combined Ash output size >= `review.pre_aggregate.threshold_bytes` (default 25KB)
+
+**Mechanism**:
+1. Measure combined Ash output file size
+2. If under threshold → skip (fast path, exact existing behavior)
+3. If over threshold → for each Ash file:
+   - Extract RUNE:FINDING marker blocks (full fidelity for P1/P2)
+   - Extract ## Reviewer Assumptions and ## Summary
+   - Apply priority-based trace truncation (P3: truncate to 3 lines; N: 1-line summary)
+   - Discard: Self-Review Log, Unverified Observations, methodology prose
+4. Write condensed files to `{output_dir}/condensed/`
+5. Runebinder reads from condensed/ instead of raw output directory
+
+**Expected reduction**: 40-60% byte savings (non-finding sections + trace truncation)
+
+**Config**:
+```yaml
+review:
+  pre_aggregate:
+    enabled: true               # Master toggle (default: true)
+    threshold_bytes: 25000      # Auto-trigger threshold (default: 25KB)
+    preserve_priorities: [P1, P2]  # Full preservation priorities
+    truncate_trace_lines: 3     # Max Rune Trace lines for P3
+    nit_summary_only: true      # 1-line summaries for N findings
+```
+
+See [roundtable-circle/references/pre-aggregate.md](../roundtable-circle/references/pre-aggregate.md) for the extraction algorithm.
 
 ## Layer 2: Context Rot Prevention
 

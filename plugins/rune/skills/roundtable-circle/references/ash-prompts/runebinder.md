@@ -12,6 +12,9 @@ a single TOME.md summary.
 ## YOUR TASK
 
 1. Read ALL Ash output files from: {output_dir}/
+   NOTE: If the input directory contains files from Phase 5.0 pre-aggregation,
+   non-finding sections have been stripped. All RUNE:FINDING markers, Reviewer
+   Assumptions, and Summary sections are preserved. Dedup normally.
 2. Parse findings from each file (P1, P2, P3, Questions, Nits sections)
 3. Deduplicate overlapping findings using the hierarchy below
 4. Write the aggregated TOME.md to: {output_dir}/TOME.md

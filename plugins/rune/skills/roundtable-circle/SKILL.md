@@ -57,7 +57,8 @@ Phase 2:   Forge Team      → TeamCreate + TaskCreate + inscription.json
 Phase 3:   Summon           → Fan-out Ash with self-organizing prompts
 Phase 4:   Monitor         → TaskList polling, 5-min stale detection
 Phase 4.5: Doubt Seer     → Cross-examine Ash findings (conditional)
-Phase 5:   Aggregate       → Summon Runebinder → writes TOME.md
+Phase 5.0: Pre-Aggregate  → Extract findings, discard boilerplate (conditional, threshold-gated)
+Phase 5:   Aggregate       → Summon Runebinder → writes TOME.md (reads condensed/ if available)
 Phase 5.4: Todo Generation → Per-finding todo files from TOME (mandatory)
 Phase 6:   Verify          → Truthsight validation on P1 findings
 Phase 6.2: Diff Verify     → Codex cross-model P1/P2 verification (v1.51.0+)
@@ -107,6 +108,10 @@ tmp/reviews/{id}/
 ├── glyph-scribe.md          # Frontend review findings (if summoned)
 ├── knowledge-keeper.md      # Docs review findings (if summoned)
 ├── codex-oracle.md          # Cross-model review findings (if codex CLI available)
+├── condensed/               # Pre-aggregated Ash outputs (Phase 5.0, when threshold exceeded)
+│   ├── forge-warden.md      #   Condensed: findings + assumptions + summary only
+│   ├── ward-sentinel.md     #   P1/P2 full, P3 truncated, N one-liner
+│   └── _compression-report.md  # Per-Ash compression metrics
 ├── TOME.md                  # Aggregated + deduplicated findings
 ├── truthsight-report.md     # Verification results (if Layer 2 enabled)
 ├── codex-diff-verification.md  # Codex diff verification (Phase 6.2, v1.51.0+)
@@ -283,21 +288,32 @@ const result = waitForCompletion(teamName, ashCount, {
 
 Optional adversarial cross-examination of Ash findings. Opt-in via `doubt_seer.enabled` in talisman. Registered in inscription at Phase 2 but only spawned when P1+P2 count > 0. Verdicts: BLOCK (unproven P1), CONCERN (unproven any), PASS. See [doubt-seer.md](references/doubt-seer.md) for trigger conditions, signal protocol, and Runebinder integration.
 
+## Phase 5.0: Pre-Aggregate (Conditional)
+
+Threshold-gated deterministic extraction of structured findings from Ash outputs before Runebinder ingestion. Runs at Tarnished level (no subagent spawned, no LLM call). Only activates when combined Ash output size exceeds `review.pre_aggregate.threshold_bytes` (default 25KB). Below threshold, exact existing behavior is preserved (fast path).
+
+When active, for each Ash output file: extracts RUNE:FINDING marker blocks (full fidelity for P1/P2), Reviewer Assumptions, and Summary sections. Discards Self-Review Log, Unverified Observations, and boilerplate. Writes condensed files to `{output_dir}/condensed/`. Expected 40-60% byte reduction.
+
+When deep review runs multiple waves, Phase 5.0 executes per-wave before each wave's Runebinder invocation.
+
+See [orchestration-phases.md](references/orchestration-phases.md) Phase 5.0 and [pre-aggregate.md](references/pre-aggregate.md) for the full algorithm.
+
 ## Phase 5: Aggregate
 
-After all tasks complete (or timeout), summon Runebinder:
+After all tasks complete (or timeout), summon Runebinder. When Phase 5.0 pre-aggregation ran, Runebinder reads from `{output_dir}/condensed/` instead of the raw output directory.
 
 ```
 Task({
   team_name: "rune-review-{pr}",
   name: "runebinder",
   subagent_type: "general-purpose",
-  prompt: "Read all findings from tmp/reviews/{pr}/. Write TOME.md..."
+  prompt: "Read all findings from {input_dir}/. Write TOME.md..."
+  // input_dir = condensed/ if exists, else output_dir
 })
 ```
 
 The Runebinder:
-1. Reads all Ash output files
+1. Reads all Ash output files (or condensed versions when pre-aggregation was applied)
 2. Deduplicates findings (see references/dedup-runes.md)
 3. Prioritizes: P1 first, then P2, then P3, then Q (questions), then N (nits)
 4. Reports gaps from crashed/stalled Ash
@@ -399,6 +415,7 @@ Partial results remain in `tmp/audit/{id}/`.
 - [Standing Orders](references/standing-orders.md) — 6 anti-patterns for multi-agent orchestration (SO-1 through SO-6)
 - [Risk Tiers](references/risk-tiers.md) — 4-tier deterministic task classification (Grace/Ember/Rune/Elden)
 - [Sharded Review Path](references/sharded-review-path.md) — Phase 3 shard orchestration pseudocode (spawn, monitor, cross-shard)
+- [Pre-Aggregate](references/pre-aggregate.md) — Phase 5.0 extraction algorithm (threshold-gated, deterministic)
 - [Codex Verification Phases](references/codex-verification-phases.md) — Phase 6.2 diff verification + Phase 6.3 architecture review
 - [File-Todos Integration](../file-todos/references/integration-guide.md) — Phase 5.4 todo generation from TOME
 - Companion: `rune-orchestration` (patterns), `context-weaving` (Glyph Budget)
