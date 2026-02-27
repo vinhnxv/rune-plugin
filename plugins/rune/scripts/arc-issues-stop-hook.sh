@@ -107,10 +107,25 @@ fi
 # When arc-phase-stop-hook.sh is driving the inner loop, this outer loop
 # should not run. The inner loop removes its state file only when ALL
 # phases are complete — that's when the outer loop should fire.
+#
+# RACE FIX (v1.116.0): Claude Code fires Stop hooks in parallel, not sequentially.
+# The phase hook may be in the process of removing its state file while this hook
+# checks for it. Wait up to 2s for the file to disappear before skipping.
 _PHASE_STATE="${CWD}/.claude/arc-phase-loop.local.md"
 if [[ -f "$_PHASE_STATE" && ! -L "$_PHASE_STATE" ]]; then
-  _trace "GUARD 6.5: Phase loop active — skipping issues hook"
-  exit 0
+  _phase_retries=0
+  while [[ $_phase_retries -lt 4 ]]; do
+    sleep 0.5
+    if [[ ! -f "$_PHASE_STATE" ]] || [[ -L "$_PHASE_STATE" ]]; then
+      _trace "GUARD 6.5: Phase state file removed during retry ${_phase_retries} — proceeding (parallel hook race fix)"
+      break
+    fi
+    _phase_retries=$((_phase_retries + 1))
+  done
+  if [[ -f "$_PHASE_STATE" && ! -L "$_PHASE_STATE" ]]; then
+    _trace "GUARD 6.5: Phase loop active — skipping issues hook"
+    exit 0
+  fi
 fi
 
 # ── GUARD 7: Validate numeric fields ──
