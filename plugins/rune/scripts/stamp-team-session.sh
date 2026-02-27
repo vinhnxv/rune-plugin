@@ -92,6 +92,8 @@ else
   rm -f "$TMP_FILE" 2>/dev/null
 fi
 
-[[ "${RUNE_TRACE:-}" == "1" ]] && echo "[$(date '+%H:%M:%S')] TLC-004: stamped .session for team=$TEAM_NAME session=$HOOK_SESSION_ID" >> /tmp/rune-hook-trace.log
+# QUAL-005 FIX: Use standard RUNE_TRACE_LOG path instead of hardcoded /tmp/rune-hook-trace.log
+RUNE_TRACE_LOG="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+[[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "$RUNE_TRACE_LOG" ]] && printf '[%s] TLC-004: stamped .session for team=%s session=%s\n' "$(date '+%H:%M:%S')" "$TEAM_NAME" "$HOOK_SESSION_ID" >> "$RUNE_TRACE_LOG"
 
 exit 0

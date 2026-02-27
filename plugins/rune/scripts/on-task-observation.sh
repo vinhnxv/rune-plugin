@@ -12,16 +12,35 @@
 # - Signals echo-search dirty for auto-reindex
 
 set -euo pipefail
+umask 077  # PAT-005 FIX: Consistent secure file creation
 
-# Fail-open wrapper — any unexpected error → allow
-_fail_open() { exit 0; }
-trap '_fail_open' ERR
+# PAT-001 FIX: Use canonical _rune_fail_forward instead of _fail_open
+_rune_fail_forward() {
+  local _crash_line="${BASH_LINENO[0]:-unknown}"
+  if [[ "${RUNE_TRACE:-}" == "1" ]]; then
+    printf '[%s] %s: ERR trap — fail-forward activated (line %s)\n' \
+      "$(date +%H:%M:%S 2>/dev/null || true)" \
+      "${BASH_SOURCE[0]##*/}" \
+      "$_crash_line" \
+      >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-${UID:-$(id -u)}.log}" 2>/dev/null
+  fi
+  echo "WARN: ${BASH_SOURCE[0]##*/} crashed at line $_crash_line — fail-forward." >&2
+  exit 0
+}
+trap '_rune_fail_forward' ERR
+
+# PAT-009 FIX: Add _trace() for observability
+RUNE_TRACE_LOG="${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-${UID:-$(id -u)}.log}"
+_trace() { [[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "$RUNE_TRACE_LOG" ]] && printf '[%s] on-task-observation: %s\n' "$(date +%H:%M:%S)" "$*" >> "$RUNE_TRACE_LOG"; return 0; }
 
 # Guard: jq required for safe JSON parsing
-command -v jq >/dev/null 2>&1 || exit 0
+if ! command -v jq &>/dev/null; then
+  echo "WARN: jq not found — observation recording skipped." >&2  # PAT-008 FIX
+  exit 0
+fi
 
-# Read hook input from stdin (max 64KB — SEC-006)
-INPUT=$(head -c 65536)
+# Read hook input from stdin (max 1MB — PAT-002 FIX: standardized cap)
+INPUT=$(head -c 1048576 2>/dev/null || true)
 [[ -z "$INPUT" ]] && exit 0
 
 # --- Guard 1: Only process Rune workflow tasks ---

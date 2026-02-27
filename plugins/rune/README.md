@@ -925,9 +925,26 @@ plugins/rune/
 │   ├── arc-hierarchy-stop-hook.sh   # ARC-HIERARCHY-LOOP: Stop hook loop driver for arc-hierarchy
 │   ├── arc-issues-stop-hook.sh      # ARC-ISSUES-LOOP: Stop hook loop driver for arc-issues
 │   ├── arc-issues-preflight.sh      # Arc issues pre-flight validation
+│   ├── validate-strive-worker-paths.sh # SEC-STRIVE-001: Strive worker file scope
+│   ├── validate-gap-fixer-paths.sh  # SEC-GAP-001: Gap fixer path restrictions
+│   ├── stamp-team-session.sh        # TLC-004: Session marker for team dirs
+│   ├── advise-post-completion.sh    # POST-COMP-001: Post-arc advisory
+│   ├── guard-context-critical.sh    # CTX-GUARD-001: Token degradation guard
+│   ├── enforce-glyph-budget.sh      # GLYPH-BUDGET-001: Message size monitor
+│   ├── on-task-observation.sh       # Observation tier echo recorder
+│   ├── talisman-resolve.sh          # Talisman YAML → JSON shard resolver
+│   ├── talisman-invalidate.sh       # Talisman change re-resolver
+│   ├── rune-statusline.sh           # Context statusline producer
+│   ├── rune-context-monitor.sh      # Context health monitor consumer
+│   ├── codex-exec.sh                # Canonical Codex CLI wrapper
+│   ├── build-talisman-defaults.py   # Build-time defaults generator
+│   ├── resolve-session-identity.sh  # Shared session identity resolver
 │   ├── lib/
-│   │   └── stop-hook-common.sh      # Shared Stop hook utilities
-│   └── echo-search/                 # Echo Search MCP server + hooks
+│   │   ├── stop-hook-common.sh      # Shared Stop hook utilities
+│   │   ├── pretooluse-write-guard.sh # Shared PreToolUse write guard library
+│   │   └── workflow-lock.sh         # Shared workflow locking utilities
+│   ├── echo-search/                 # Echo Search MCP server + hooks
+│   └── figma-to-react/              # Figma-to-React MCP server
 ├── talisman.example.yml
 ├── CLAUDE.md
 ├── LICENSE
@@ -962,6 +979,23 @@ Rune includes an MCP server (`echo-search`) for full-text search over Rune Echoe
 7. **Haiku Reranking** — Semantic re-scoring via Claude Haiku subprocess (`echoes.reranking.enabled`)
 
 The `annotate-hook.sh` PostToolUse hook marks the index as dirty when echo files are modified. On next search, the server auto-reindexes before returning results. Configuration lives in `.mcp.json`.
+
+## Figma-to-React MCP Server
+
+Rune includes an MCP server (`figma-to-react`) for converting Figma designs to React + Tailwind CSS v4 components. Fetches designs via the Figma API, parses node trees into an intermediate representation (IR), and generates React JSX with Tailwind classes.
+
+**Requirements:** Python 3.7+, `FIGMA_ACCESS_TOKEN` environment variable
+
+**Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `figma_fetch_design` | Fetch and parse a Figma design URL into an IR node tree. Supports depth-limited traversal and pagination. |
+| `figma_inspect_node` | Inspect detailed properties of a specific Figma node (auto-layout, styling, text content, component refs). |
+| `figma_list_components` | List all components and instances in a Figma file. Detects duplicate instances. |
+| `figma_to_react` | End-to-end pipeline: URL → Figma API → parse → style → layout → React JSX generation with Tailwind CSS. |
+
+Configuration lives in `.mcp.json`. See `skills/figma-to-react/SKILL.md` for usage details and the `skills/design-sync/SKILL.md` for the full design synchronization workflow.
 
 ## Lore
 

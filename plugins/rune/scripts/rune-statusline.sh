@@ -108,8 +108,8 @@ shopt -s nullglob
 for f in "${DIR}"/tmp/.rune-*.json; do
   [[ -f "$f" ]] || continue
   [[ -L "$f" ]] && continue   # P2-2 FIX: symlink guard on workflow detection
-  STATUS=$(jq -r '.status // empty' "$f" 2>/dev/null || true)
-  if [[ "$STATUS" == "active" ]]; then
+  WF_STATUS=$(jq -r '.status // empty' "$f" 2>/dev/null || true)  # QUAL-004 FIX: Renamed from STATUS (read-only in zsh)
+  if [[ "$WF_STATUS" == "active" ]]; then
     WF_TYPE=$(jq -r '.workflow // empty' "$f" 2>/dev/null || true)
     WORKFLOW=" ${BOLD}${WF_TYPE}${RESET}"
     break

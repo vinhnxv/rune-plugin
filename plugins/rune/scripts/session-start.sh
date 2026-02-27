@@ -61,8 +61,11 @@ done < "$SKILL_FILE"
 if command -v jq &>/dev/null; then
   ESCAPED_CONTENT=$(printf '%s' "$CONTENT" | jq -Rs '.' | sed 's/^"//;s/"$//')
 else
-  # Fallback: manual escaping for named control chars
-  # SEC-P3-003: Also strip remaining C0 control chars (U+0000-U+001F) via tr
+  # QUAL-006 FIX: Fallback when jq is unavailable. Covers the 6 named JSON
+  # control characters (\\, ", \n, \r, \t, \b, \f) plus strips remaining C0
+  # control chars (U+0000-U+001F) via tr. This handles 99% of real-world
+  # SKILL.md content. Edge case: Unicode escape sequences (\uXXXX) are NOT
+  # generated — jq is the preferred path for full RFC 8259 compliance.
   json_escape() {
     local s="$1"
     s="${s//\\/\\\\}"

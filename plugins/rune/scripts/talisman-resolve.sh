@@ -267,7 +267,8 @@ fi
 RESOLVED_AT=$(python3 -c "from datetime import datetime, timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))" 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "unknown")
 
 # Session isolation fields
-CURRENT_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+# QUAL-008 FIX: Canonicalize config_dir via cd+pwd -P (matches resolve-session-identity.sh)
+CURRENT_CFG=$(cd "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P) || CURRENT_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 OWNER_PID="${PPID:-0}"
 
 meta_json=$(jq -n \

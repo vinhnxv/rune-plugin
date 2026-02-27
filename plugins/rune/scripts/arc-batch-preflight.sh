@@ -8,7 +8,10 @@ umask 077
 # ──────────────────────────────────────────────
 
 ERRORS=0
-SEEN=()
+# QUAL-003 FIX: Use temp file + grep for O(N) dedup instead of O(N^2) array scan.
+# Maintains Bash 3.x compatibility (no associative arrays needed).
+DEDUP_FILE=$(mktemp "${TMPDIR:-/tmp}/arc-batch-dedup-XXXXXX")
+trap 'rm -f "$DEDUP_FILE"' EXIT
 
 while IFS= read -r plan || [[ -n "$plan" ]]; do
   [[ -z "$plan" || "$plan" == \#* ]] && continue
@@ -54,15 +57,12 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
   # 5. Canonicalize path
   CANONICAL=$(realpath "$plan" 2>/dev/null || echo "$plan")
 
-  # 6. Duplicate check
+  # 6. Duplicate check — O(N) via temp file + grep (QUAL-003 FIX)
   DUPLICATE=false
-  for seen_path in "${SEEN[@]+"${SEEN[@]}"}"; do
-    if [[ "$seen_path" == "$CANONICAL" ]]; then
-      echo "WARNING: Duplicate plan skipped: $plan" >&2
-      DUPLICATE=true
-      break
-    fi
-  done
+  if grep -qxF "$CANONICAL" "$DEDUP_FILE" 2>/dev/null; then
+    echo "WARNING: Duplicate plan skipped: $plan" >&2
+    DUPLICATE=true
+  fi
 
   # 7. Shard frontmatter validation (v1.66.0+, lightweight — WARNING only)
   case "$plan" in
@@ -78,7 +78,7 @@ while IFS= read -r plan || [[ -n "$plan" ]]; do
   esac
 
   if ! $DUPLICATE; then
-    SEEN+=("$CANONICAL")
+    printf '%s\n' "$CANONICAL" >> "$DEDUP_FILE"
     echo "$plan"
   fi
 done

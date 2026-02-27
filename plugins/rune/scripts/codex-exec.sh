@@ -193,8 +193,12 @@ fi
 _trace "EXEC model=$MODEL reasoning=$REASONING timeout=$TIMEOUT json=$JSON_MODE git_skip=$SKIP_GIT_CHECK file=$PROMPT_FILE"
 
 # Capture stderr to temp file for error classification
+# QUAL-001 FIX: Use accumulative cleanup pattern to avoid overwriting prior EXIT traps
+_CLEANUP_FILES=()
+_cleanup() { rm -f "${_CLEANUP_FILES[@]}" 2>/dev/null; }
+trap _cleanup EXIT
 STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/codex-stderr-XXXXXX")
-trap 'rm -f "$STDERR_FILE"' EXIT
+_CLEANUP_FILES+=("$STDERR_FILE")
 
 # Build codex exec flags array
 CODEX_FLAGS=()

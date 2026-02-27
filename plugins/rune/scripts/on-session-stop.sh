@@ -49,13 +49,13 @@ INPUT=$(head -c 1048576 2>/dev/null || true)
 
 # ── GUARD 3: Loop prevention ──
 # If stop_hook_active is true, we already cleaned on a previous pass — allow stop
-STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // empty' 2>/dev/null || true)
+STOP_HOOK_ACTIVE=$(printf '%s\n' "$INPUT" | jq -r '.stop_hook_active // empty' 2>/dev/null || true)  # PAT-003 FIX: printf over echo for JSON safety
 if [[ "$STOP_HOOK_ACTIVE" == "true" ]]; then
   exit 0
 fi
 
 # ── GUARD 4: CWD extraction and canonicalization ──
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)  # PAT-003 FIX: printf over echo
 if [[ -z "$CWD" ]]; then
   exit 0
 fi
@@ -68,7 +68,14 @@ fi
 # Sourced early (before GUARD 5) so all ownership checks use the same RUNE_CURRENT_CFG.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=resolve-session-identity.sh
-source "${SCRIPT_DIR}/resolve-session-identity.sh"
+# PAT-007 FIX: Guard source with file existence check
+if [[ -f "${SCRIPT_DIR}/resolve-session-identity.sh" ]]; then
+  source "${SCRIPT_DIR}/resolve-session-identity.sh"
+else
+  # Fallback: inline resolution (matches resolve-session-identity.sh logic)
+  RUNE_CURRENT_CFG=$(cd "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P) || RUNE_CURRENT_CFG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  rune_pid_alive() { kill -0 "$1" 2>/dev/null; }
+fi
 
 # ── Helper: Extract a YAML frontmatter field value (single-line, simple values only) ──
 _get_fm_field() {
