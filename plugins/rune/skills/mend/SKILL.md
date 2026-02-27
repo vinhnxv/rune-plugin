@@ -103,6 +103,21 @@ Finds TOME, validates freshness, extracts `<!-- RUNE:FINDING -->` markers with n
 **Inputs**: TOME path (from argument or auto-detected), session nonce
 **Outputs**: `fileGroups` map, `allFindings` list, deduplicated with priority hierarchy
 
+### UNVERIFIED Finding Handling
+
+When Phase 5.2 (Citation Verification) runs before mend, some findings may be
+tagged as `[UNVERIFIED]` or `[SUSPECT]` in the TOME:
+
+| Tag | Mend Behavior |
+|-----|--------------|
+| `[UNVERIFIED: ...]` | **SKIP** — finding excluded from fixer assignment. Reported in resolution report as "skipped: citation unverified" |
+| `[SUSPECT: ...]` | **CAUTION** — finding assigned to fixer with extra verification instruction. Fixer must confirm file:line before fixing |
+| (no tag) | **NORMAL** — standard fix protocol |
+
+When invoked from arc Phase 7 (mend), citation verification has already run in
+Phase 5.2. When invoked standalone (`/rune:mend`), citation verification has NOT
+run — all findings are treated as NORMAL.
+
 See [parse-tome.md](references/parse-tome.md) for detailed TOME finding extraction, freshness validation, nonce verification, deduplication, file grouping, and FALSE_POSITIVE handling.
 
 Read and execute when Phase 0 runs.

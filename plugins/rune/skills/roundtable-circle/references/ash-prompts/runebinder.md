@@ -216,6 +216,12 @@ After writing TOME.md, perform ONE verification pass:
 
 This is ONE pass. Do not iterate further.
 
+## CITATION VERIFICATION NOTE
+
+File:line citations will be verified by the Tarnished in Phase 5.2 (after TOME write).
+Do NOT attempt to verify citations yourself — your job is aggregation and dedup.
+Focus on copy-exact fidelity, not citation accuracy.
+
 ### Inner Flame (Supplementary)
 After the verification pass above, verify grounding:
 - Every Ash output file cited — actually Read() in this session?

@@ -79,3 +79,4 @@ In addition to the universal 3-layer protocol:
 - [ ] **Dedup is correct**: findings marked as duplicates truly ARE duplicates (same file:line)
 - [ ] **Priority ordering maintained**: P1 before P2 before P3 in output
 - [ ] **Gap detection**: any Ash that was expected but didn't produce output? Flag it.
+- [ ] **Citation verification awareness**: I did NOT attempt to verify file:line citations myself — that is Phase 5.2's responsibility. I copied findings exactly per Rule 1.

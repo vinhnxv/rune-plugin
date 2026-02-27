@@ -802,6 +802,21 @@ review:
     # Other settings (preserve_priorities, truncate_trace_lines, nit_summary_only)
     # are internal constants — do not modify.
 
+  # ── Citation Verification (Phase 5.2, v1.117.0+) ──────
+  # Deterministic grep-based verification of TOME file:line citations.
+  # Catches phantom citations (non-existent files, out-of-range lines,
+  # pattern mismatches) before todo generation and mend.
+  # Inspired by rlm-claude-code's Epistemic Verification pipeline.
+  verify_tome_citations: true        # Master toggle (default: true)
+  citation_verify_priorities:        # Which priorities to verify (default: ["P1"])
+    - "P1"
+    # - "P2"                         # Uncomment to verify P2 findings too
+  # citation_sampling_rate:          # Sampling rates per priority
+  #   P1: 1.0                        # Always verify P1 (default: 1.0)
+  #   P2: 0.3                        # Sample 30% of P2 (default: 0.0)
+  #   P3: 0.0                        # Skip P3 (default: 0.0)
+  # SEC-prefixed findings are ALWAYS verified at 100% regardless of config
+
 # ──────────────────────────────────────────────
 # Work — Swarm execution settings
 # ──────────────────────────────────────────────

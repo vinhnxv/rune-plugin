@@ -87,6 +87,38 @@ if (skippedByInteraction.length > 0) {
 
 File groups containing ONLY Q/N findings are excluded entirely from mend planning.
 
+### UNVERIFIED Finding Filtering (v1.117.0+)
+
+After extracting findings and filtering Q/N interactions, classify findings by Phase 5.2 citation verification status:
+
+```javascript
+// Step: UNVERIFIED finding filtering
+// After extracting findings, filter out UNVERIFIED findings
+const unverifiedPattern = /\[UNVERIFIED:.*?\]/
+const suspectPattern = /\[SUSPECT:.*?\]/
+
+for (const finding of allFindings) {
+  if (unverifiedPattern.test(finding.title)) {
+    finding.verification_status = "UNVERIFIED"
+    finding.mend_priority = "SKIP"  // Mend-fixer will skip these
+  } else if (suspectPattern.test(finding.title)) {
+    finding.verification_status = "SUSPECT"
+    finding.mend_priority = "CAUTION"  // Fixer verifies before fixing
+  } else {
+    finding.verification_status = "CONFIRMED"
+    finding.mend_priority = finding.severity  // Normal priority
+  }
+}
+
+// Report skipped findings in Phase 1 (PLAN)
+const skippedCount = allFindings.filter(f => f.mend_priority === "SKIP").length
+if (skippedCount > 0) {
+  // Log: "{skippedCount} findings skipped (UNVERIFIED citations)"
+}
+```
+
+**Standalone invocation**: When `/rune:mend` runs without arc (no Phase 5.2), no findings will have `[UNVERIFIED]` or `[SUSPECT]` tags — all are treated as CONFIRMED with normal priority.
+
 ## Deduplicate
 
 Apply Dedup Hierarchy: `SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX`

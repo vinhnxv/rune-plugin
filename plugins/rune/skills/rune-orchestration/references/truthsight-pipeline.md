@@ -8,6 +8,24 @@ Truthsight validates that Ash findings are grounded in actual code, not hallucin
 
 ## 4 Layers
 
+### Phase 5.2: Citation Verification (pre-Truthsight)
+
+A grep-first structural verification pass that runs BEFORE Truthsight Layers 0-2.
+Catches the most common hallucination type (non-existent files, out-of-range lines)
+at near-zero cost, reducing the load on the more expensive Layer 2 Smart Verifier.
+
+| Check | Method | Cost |
+|-------|--------|------|
+| File exists | Glob | ~0ms |
+| Line in range | Read + line count | ~5ms |
+| Pattern match | Grep first trace line | ~10ms |
+
+Phase 5.2 is complementary to Layer 2 — it handles structural validity while
+Layer 2 handles semantic correctness (does the code actually exhibit the described
+behavior?).
+
+See [orchestration-phases.md](../../roundtable-circle/references/orchestration-phases.md) Phase 5.2 for full pseudocode.
+
 ### Layer 0: Inline Checks (Tarnished)
 
 **Cost:** ~0 extra tokens (lead runs Grep directly)
@@ -242,6 +260,22 @@ Configuration: `layer_2_circuit: { failure_threshold: 2, recovery_seconds: 120 }
 - If timeout: check for partial output in `truthsight-report.md`
 - If partial output exists: use whatever was verified, note incomplete coverage
 - If no output: fallback to Layer 0 results only, flag for human review
+
+### Phase 5.2: Citation Verification (pre-Truthsight)
+
+A grep-first structural verification pass that runs BEFORE Truthsight Layers 0-2.
+Catches the most common hallucination type (non-existent files, out-of-range lines)
+at near-zero cost, reducing the load on the more expensive Layer 2 Smart Verifier.
+
+| Check | Method | Cost |
+|-------|--------|------|
+| File exists | Glob | ~0ms |
+| Line in range | Read + line count | ~5ms |
+| Pattern match | Grep first trace line | ~10ms |
+
+Phase 5.2 is complementary to Layer 2 — it handles structural validity while
+Layer 2 handles semantic correctness (does the code actually exhibit the described
+behavior?).
 
 ### Layer 3: Reliability Tracking (Deferred to v2.0)
 

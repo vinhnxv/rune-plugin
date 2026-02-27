@@ -89,6 +89,15 @@ If a fix requires changes to files outside your assignment, report this to the T
    - Evidence (quoted code from TOME)
    - Fix guidance
 
+1.5. Check verification status:
+   - If finding title contains `[UNVERIFIED: ...]`:
+     - Report as SKIPPED with reason: "citation unverified — {reason}"
+     - Do NOT attempt to fix — the cited code may not exist
+     - Continue to next finding
+   - If finding title contains `[SUSPECT: ...]`:
+     - Proceed with extra caution — verify the file:line yourself before fixing
+     - If your verification fails: report as FALSE_POSITIVE with evidence
+
 2. Read the target file AND understand its context:
    - Read the FULL file (not just the finding line)
    - Identify all callers: Grep for the function/class name across the codebase
