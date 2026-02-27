@@ -329,6 +329,48 @@ Uses `waitForCompletion` from [monitor-utility.md](monitor-utility.md). Per-comm
 
 Conditional phase — runs after each wave's monitor completes. See roundtable-circle SKILL.md for the full Doubt Seer protocol.
 
+## Phase 5.0: Pre-Aggregate
+
+Conditional phase — deterministic marker-based extraction of Ash findings before Runebinder ingestion. Threshold-gated: no behavioral change for small reviews. No LLM calls — pure text processing at Tarnished level (no subagent spawned).
+
+See [pre-aggregate.md](pre-aggregate.md) for the full algorithm specification.
+
+```javascript
+// Phase 5.0: Pre-Aggregate (conditional — threshold-gated)
+// Extracts structured findings from Ash outputs before Runebinder ingestion.
+// Deterministic (no LLM) — marker-based extraction at Tarnished level.
+
+const preAggConfig = talisman?.review?.pre_aggregate ?? {}
+let compressionApplied = false
+
+if (preAggConfig.enabled !== false) {
+  // Discover Ash output files (exclude TOME and internal files)
+  const ashFiles = Glob(`${outputDir}*.md`)
+    .filter(f => !basename(f).startsWith('TOME') && !basename(f).startsWith('_'))
+
+  // Measure combined Ash output size
+  // IMPORTANT: parseInt with radix 10 — wc -c returns a string
+  let combinedBytes = 0
+  for (const f of ashFiles) {
+    const stat = Bash(`wc -c < "${f}"`)
+    combinedBytes += parseInt(stat.trim(), 10)
+  }
+
+  const threshold = preAggConfig.threshold_bytes ?? 25000
+  if (combinedBytes >= threshold) {
+    // Run pre-aggregation (see pre-aggregate.md for full algorithm)
+    // This is inline Tarnished work — NO subagent spawned
+    preAggregate(outputDir, talisman)
+    compressionApplied = true
+    log(`Phase 5.0: Pre-aggregation applied (${combinedBytes}B combined, threshold ${threshold}B)`)
+  } else {
+    log(`Phase 5.0: Skipped — combined size ${combinedBytes}B under threshold ${threshold}B`)
+  }
+}
+```
+
+**Multi-wave support**: When deep review runs multiple waves, Phase 5.0 executes **per-wave** before each wave's Runebinder invocation. Each wave has its own `outputDir`, so `condensed/` is created independently per wave with no cross-wave interaction. The threshold check is per-wave — a wave with small output skips pre-aggregation even if another wave triggered it.
+
 ## Phase 5: Aggregate
 
 Summon Runebinder to aggregate findings from all waves.
@@ -336,12 +378,21 @@ Summon Runebinder to aggregate findings from all waves.
 ```javascript
 // For standard depth: single Runebinder pass (TOME.md)
 // For deep depth: per-wave TOME files (TOME-w1.md, TOME-w2.md) then merge into final TOME.md
+
+// Determine input directory — use condensed/ if Phase 5.0 pre-aggregation ran
+const condensedDir = `${outputDir}condensed/`
+const condensedExists = Glob(`${condensedDir}*.md`).length > 0
+const runeBinderInputDir = condensedExists ? condensedDir : outputDir
+
 Task({
   team_name: teamName,  // May need to re-create team for final aggregation
   name: "runebinder",
   subagent_type: "general-purpose",
   model: resolveModelForAgent("runebinder", talisman),  // Cost tier mapping
-  prompt: `Read all findings from ${outputDir}.
+  prompt: `Read all findings from ${runeBinderInputDir}.
+    ${condensedExists
+      ? "NOTE: These are pre-compressed Ash outputs from Phase 5.0. Finding markers are preserved. Non-finding sections (Self-Review Log, Unverified Observations, boilerplate) have been stripped."
+      : ""}
     Deduplicate using hierarchy from dedup-runes.md.
     ${depth === "deep"
       ? "Merge cross-wave findings. Later wave findings supersede earlier (deeper analysis wins)."
@@ -619,6 +670,22 @@ Write(`${stateFilePrefix}-${identifier}.json`, {
 })
 
 // 5. Persist learnings to Rune Echoes
+//    Include compression metrics when Phase 5.0 ran
+if (compressionApplied) {
+  const reportPath = `${outputDir}condensed/_compression-report.md`
+  try {
+    const report = Read(reportPath)
+    const ratioMatch = report.match(/\*\*Overall ratio\*\*:\s*([\d.]+)%/)
+    const origMatch = report.match(/\*\*Combined original\*\*:\s*(\d+)\s*bytes/)
+    const condMatch = report.match(/\*\*Combined condensed\*\*:\s*(\d+)\s*bytes/)
+    if (ratioMatch && origMatch && condMatch) {
+      const origKB = (parseInt(origMatch[1], 10) / 1024).toFixed(1)
+      const condKB = (parseInt(condMatch[1], 10) / 1024).toFixed(1)
+      // appendEchoEntry: persists to Observations tier for tracking over time
+      // "Pre-aggregation compressed to {ratio}% ({origKB}KB → {condKB}KB)"
+    }
+  } catch (e) { /* compression report missing — non-fatal */ }
+}
 // 6. Read and present TOME.md to user
 ```
 
@@ -694,6 +761,7 @@ const params = {
 
 ## References
 
+- [Pre-Aggregate](pre-aggregate.md) — Phase 5.0 extraction algorithm (threshold-gated, deterministic)
 - [Wave Scheduling](wave-scheduling.md) — selectWaves, mergeSmallWaves, distributeTimeouts
 - [Monitor Utility](monitor-utility.md) — waitForCompletion, per-command configuration
 - [Circle Registry](circle-registry.md) — Ash wave assignments, deepOnly flags
