@@ -247,10 +247,13 @@ const SSRF_BLOCKLIST = [
   /^https?:\/\/[^/]*\.invalid(\/|$)/i,
   /^https?:\/\/[^/]*\.localhost(\/|$)/i,
 ]
-const SENSITIVE_PARAMS = /[?&](token|key|api_key|secret|password|auth|access_token|client_secret|refresh_token|session_id|private_key|bearer|jwt|credentials|authorization)=[^&]*/gi
+const SENSITIVE_PARAMS = /[?&](token|key|api_key|apikey|secret|password|auth|access_token|client_secret|refresh_token|session_id|private_key|bearer|jwt|credentials|authorization)=[^&]*/gi
 const MAX_URLS = 10
 const MAX_URL_LENGTH = 2048
 
+if (rawUrls.length > MAX_URLS) {
+  warn(`research_urls contains ${rawUrls.length} entries — truncating to ${MAX_URLS}. Consider splitting into multiple plan iterations.`)
+}
 const sanitizedUrls = rawUrls
   .slice(0, MAX_URLS)                                          // Cap at 10 URLs
   .filter(url => typeof url === "string" && url.length <= MAX_URL_LENGTH)  // Length limit

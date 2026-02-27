@@ -8,8 +8,9 @@
   Context7's `resolve-library-id` and `get-library-docs` tools as their primary documentation
   source during `/rune:devise` Phase 1C external research, with WebSearch/WebFetch as fallback.
 - **Talisman `plan` config section** — New talisman configuration for research control:
-  - `plan.external_research`: Controls research agent behavior (`always`/`never`/`auto`/
-    `context7_only`/`web_search`/`all`/`none`). Bypass modes skip Phase 1B scoring entirely.
+  - `plan.external_research`: Controls research agent behavior (`always`/`auto`/`never`).
+    `always` and `never` bypass modes skip Phase 1B scoring entirely. `auto` (default) uses
+    enhanced risk signals with a lowered 0.25 threshold.
   - `plan.research_urls`: User-provided URLs fed to research agents with SSRF-defensive
     sanitization (IP blocklist, private TLD blocklist, sensitive param stripping, max 10 URLs,
     2048 char limit per URL). URLs wrapped in `<url-list>` tags with data-not-instructions marker.
@@ -18,7 +19,7 @@
     context is needed
   - Unfamiliar framework (+0.20 weight) — framework mentioned in feature description but absent
     from project dependencies
-- **Practice-seeker fallback chain** — Context7 MCP → WebSearch → WebFetch → offline knowledge.
+- **Practice-seeker fallback chain** — Tavily/Brave MCP → WebSearch → WebFetch → offline knowledge.
   Graceful degradation when MCP tools are unavailable.
 - **Lore-scholar fallback chain** — Context7 MCP → WebSearch → WebFetch → offline knowledge.
   Same resilient fallback pattern as practice-seeker.

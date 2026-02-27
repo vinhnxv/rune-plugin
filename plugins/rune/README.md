@@ -1011,11 +1011,11 @@ Rune includes an MCP server (`context7`) for live framework and library document
 | `get-library-docs` | Fetch version-specific documentation, API references, and migration guides for a resolved library. |
 
 **Integration points:**
-- **practice-seeker** — Uses Context7 for best practices and pattern documentation. Falls back to WebSearch → WebFetch → offline knowledge.
-- **lore-scholar** — Uses Context7 for framework docs and API references. Falls back to WebSearch → WebFetch → offline knowledge.
+- **practice-seeker** — Uses Tavily/Brave MCP for best practices and pattern documentation. Falls back to WebSearch → WebFetch → offline knowledge.
+- **lore-scholar** — Uses Context7 as primary for framework docs and API references. Falls back to WebSearch → WebFetch → offline knowledge.
 - **forge agents** — Uses Context7 for framework-specific enrichment during `/rune:forge`.
 
-Control research tool availability via `talisman.yml` → `plan.external_research` (`context7_only`, `web_search`, `all`, `none`). Configuration lives in `.mcp.json`.
+Control research tool availability via `talisman.yml` → `plan.external_research` (`always`, `auto`, `never`). `always` forces external research; `never` disables it; `auto` (default) uses enhanced risk signals. Configuration lives in `.mcp.json`.
 
 ## Lore
 
