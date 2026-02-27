@@ -8,6 +8,24 @@ Truthsight validates that Ash findings are grounded in actual code, not hallucin
 
 ## 4 Layers
 
+### Phase 5.2: Citation Verification (pre-Truthsight)
+
+A grep-first structural verification pass that runs BEFORE Truthsight Layers 0-2.
+Catches the most common hallucination type (non-existent files, out-of-range lines)
+at near-zero cost, reducing the load on the more expensive Layer 2 Smart Verifier.
+
+| Check | Method | Cost |
+|-------|--------|------|
+| File exists | Glob | ~0ms |
+| Line in range | Read + line count | ~5ms |
+| Pattern match | Grep first trace line | ~10ms |
+
+Phase 5.2 is complementary to Layer 2 — it handles structural validity while
+Layer 2 handles semantic correctness (does the code actually exhibit the described
+behavior?).
+
+See [orchestration-phases.md](../../roundtable-circle/references/orchestration-phases.md) Phase 5.2 for full pseudocode.
+
 ### Layer 0: Inline Checks (Tarnished)
 
 **Cost:** ~0 extra tokens (lead runs Grep directly)
@@ -242,6 +260,41 @@ Configuration: `layer_2_circuit: { failure_threshold: 2, recovery_seconds: 120 }
 - If timeout: check for partial output in `truthsight-report.md`
 - If partial output exists: use whatever was verified, note incomplete coverage
 - If no output: fallback to Layer 0 results only, flag for human review
+
+### Phase 5.2: Citation Verification (pre-Truthsight)
+
+A grep-first structural verification pass that runs BEFORE Truthsight Layers 0-2.
+Catches the most common hallucination type (non-existent files, out-of-range lines)
+at near-zero cost, reducing the load on the more expensive Layer 2 Smart Verifier.
+
+| Check | Method | Cost |
+|-------|--------|------|
+| File exists | Glob | ~0ms |
+| Line in range | Read + line count | ~5ms |
+| Pattern match | Grep first trace line | ~10ms |
+
+Phase 5.2 is complementary to Layer 2 — it handles structural validity while
+Layer 2 handles semantic correctness (does the code actually exhibit the described
+behavior?).
+
+#### Validation Procedure
+
+For each `<!-- RUNE:FINDING -->` marker in the TOME:
+
+```
+1. Extract file path and line number from marker attributes
+2. FILE CHECK: Glob(file_path) — if no match → tag as [UNVERIFIED: file not found]
+3. LINE CHECK: Read(file_path) → count lines — if line > total_lines → tag as [UNVERIFIED: line out of range]
+4. PATTERN CHECK: Grep(first line of Rune Trace, file_path, offset=line-2, limit=5)
+   - If no match → tag as [SUSPECT: pattern not found at cited location]
+   - If match → VERIFIED (no tag added)
+5. Record result per finding in citation-verification.json
+```
+
+**Aggregate validation**: After all findings are checked, compute pass rate.
+If pass rate < 50%, flag the entire TOME for human review. Individual
+`[UNVERIFIED]` findings are excluded from mend assignment; `[SUSPECT]` findings
+proceed with extra verification instructions for the fixer.
 
 ### Layer 3: Reliability Tracking (Deferred to v2.0)
 

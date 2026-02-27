@@ -59,6 +59,7 @@ Phase 4:   Monitor         → TaskList polling, 5-min stale detection
 Phase 4.5: Doubt Seer     → Cross-examine Ash findings (conditional)
 Phase 5.0: Pre-Aggregate  → Extract findings, discard boilerplate (conditional, threshold-gated)
 Phase 5:   Aggregate       → Summon Runebinder → writes TOME.md (reads condensed/ if available)
+Phase 5.2: Citation Verify → Deterministic grep-based file:line verification (Tarnished-level)
 Phase 5.4: Todo Generation → Per-finding todo files from TOME (mandatory)
 Phase 6:   Verify          → Truthsight validation on P1 findings
 Phase 6.2: Diff Verify     → Codex cross-model P1/P2 verification (v1.51.0+)
@@ -322,6 +323,25 @@ The Runebinder:
 **Chunked review merging:** When `inscription.chunked === true`, Runebinder additionally reads all `TOME-chunk-N.md` interim files before deduplication. Findings from different chunks may overlap on shared utilities or common imports — Runebinder applies the same dedup hierarchy (see references/dedup-runes.md) across chunk boundaries. The final TOME.md notes how many chunks were merged.
 
 **Q/N Interaction Types (v1.60.0+):** Findings may carry an `interaction` attribute (`"question"` or `"nit"`) orthogonal to severity. Questions and nits appear in separate `## Questions` and `## Nits` sections in the TOME. They are excluded from convergence scoring and auto-mend. See [dedup-runes.md](references/dedup-runes.md) for Q/N dedup rules.
+
+## Phase 5.2: Citation Verification
+
+Deterministic grep-based verification of TOME file:line citations. Runs at Tarnished level (no subagent spawned). Catches phantom citations (non-existent files, out-of-range lines, pattern mismatches) before todo generation and mend. Tags findings as `[UNVERIFIED]` or `[SUSPECT]` — never deletes or modifies Rune Traces.
+
+Configurable via `review.verify_tome_citations` in talisman (default: true). SEC-prefixed findings always verified at 100%.
+
+**Quality check**: After citation verification completes, validate the results before proceeding:
+
+| Metric | Threshold | Action |
+|--------|-----------|--------|
+| Verification pass rate | >= 50% | Proceed normally to Phase 5.4 |
+| Verification pass rate | < 50% | Flag TOME for human review, warn user before proceeding |
+| SEC-prefixed pass rate | 100% verified | Proceed normally |
+| SEC-prefixed pass rate | Any UNVERIFIED | Escalation warning — SEC findings with unverifiable citations require human attention |
+| Total findings checked | == TOME finding count | Proceed (all findings covered) |
+| Total findings checked | < TOME finding count | Log "citation verification incomplete: {checked}/{total}" in verification output |
+
+See [orchestration-phases.md](references/orchestration-phases.md) Phase 5.2 for full pseudocode.
 
 ## Phase 5.4: Todo Generation from TOME
 

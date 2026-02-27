@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.117.0] - 2026-02-28
+
+### Added
+- **Phase 5.2: Citation Verification** — deterministic grep-based verification of
+  TOME file:line citations before todo generation and mend. Catches phantom citations
+  (non-existent files, out-of-range lines, pattern mismatches). Configurable via
+  `review.verify_tome_citations` in talisman. SEC-prefixed findings always verified
+  at 100%. Inspired by rlm-claude-code's Epistemic Verification pipeline.
+- `[UNVERIFIED]` and `[SUSPECT]` tags on TOME findings with failed citations
+- `## Citation Verification` section in TOME output with per-finding verdicts
+- Mend-fixer skips UNVERIFIED findings, applies extra caution on SUSPECT findings
+- 3 new talisman keys: `review.verify_tome_citations`, `review.citation_verify_priorities`,
+  `review.citation_sampling_rate`
+
 ## [1.116.1] - 2026-02-27
 
 ### Fixed

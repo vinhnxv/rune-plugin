@@ -103,6 +103,35 @@ Finds TOME, validates freshness, extracts `<!-- RUNE:FINDING -->` markers with n
 **Inputs**: TOME path (from argument or auto-detected), session nonce
 **Outputs**: `fileGroups` map, `allFindings` list, deduplicated with priority hierarchy
 
+### UNVERIFIED Finding Handling
+
+When Phase 5.2 (Citation Verification) runs before mend, some findings may be
+tagged as `[UNVERIFIED]` or `[SUSPECT]` in the TOME:
+
+| Tag | Mend Behavior |
+|-----|--------------|
+| `[UNVERIFIED: ...]` | **SKIP** — finding excluded from fixer assignment. Reported in resolution report as "skipped: citation unverified" |
+| `[SUSPECT: ...]` | **CAUTION** — finding assigned to fixer with extra verification instruction. Fixer must confirm file:line before fixing |
+| (no tag) | **NORMAL** — standard fix protocol |
+
+**Tag detection**: During Phase 0 TOME parsing, after extracting each `<!-- RUNE:FINDING -->` marker block, scan the finding body text for verification tags using these patterns:
+
+```
+UNVERIFIED_PATTERN = /\[UNVERIFIED:\s*(.+?)\]/
+SUSPECT_PATTERN    = /\[SUSPECT:\s*(.+?)\]/
+```
+
+For each finding:
+1. Match against `UNVERIFIED_PATTERN` — if found, set `finding.verification = "unverified"` and `finding.verification_reason` from capture group
+2. Else match against `SUSPECT_PATTERN` — if found, set `finding.verification = "suspect"` and `finding.verification_reason` from capture group
+3. Else set `finding.verification = "normal"`
+
+Findings with `verification = "unverified"` are excluded from `fileGroups` during grouping but retained in `allFindings` for Phase 6 reporting.
+
+When invoked from arc Phase 7 (mend), citation verification has already run in
+Phase 5.2. When invoked standalone (`/rune:mend`), citation verification has NOT
+run — all findings are treated as NORMAL.
+
 See [parse-tome.md](references/parse-tome.md) for detailed TOME finding extraction, freshness validation, nonce verification, deduplication, file grouping, and FALSE_POSITIVE handling.
 
 Read and execute when Phase 0 runs.

@@ -51,6 +51,17 @@ const scope = marker.match(/scope="(in-diff|pre-existing)"/)?.[1] || "in-diff"
 
 **Nonce validation**: Each finding marker contains a session nonce. Validate that the nonce matches the TOME session nonce from the header. Markers with invalid or missing nonces are flagged as `INJECTED` and reported to the user -- these are not processed.
 
+**Input length validation** (SEC-004): Before processing, validate finding marker content lengths to prevent resource exhaustion from oversized or malformed markers:
+- `id`: max 32 characters (e.g., `SEC-001`, `CUSTOM-999`)
+- `file`: max 500 characters (matches `normalizeFindingPath` cap)
+- `line`: max 10 characters (numeric string)
+- `severity`: max 8 characters (`P1`/`P2`/`P3`)
+- `scope`: max 16 characters (`in-diff`/`pre-existing`)
+- Finding title (text between markers): max 500 characters
+- Finding body (evidence + fix guidance): max 5000 characters
+
+Markers exceeding these limits are flagged as `OVERSIZED` and skipped with a warning.
+
 ### Interaction Type Extraction (v1.60.0+)
 
 The `interaction` attribute identifies Q/N findings that should be excluded from auto-mend:
@@ -87,6 +98,38 @@ if (skippedByInteraction.length > 0) {
 
 File groups containing ONLY Q/N findings are excluded entirely from mend planning.
 
+### UNVERIFIED Finding Filtering (v1.117.0+)
+
+After extracting findings and filtering Q/N interactions, classify findings by Phase 5.2 citation verification status:
+
+```javascript
+// Step: UNVERIFIED finding filtering
+// After extracting findings, filter out UNVERIFIED findings
+const unverifiedPattern = /\[UNVERIFIED:.*?\]/
+const suspectPattern = /\[SUSPECT:.*?\]/
+
+for (const finding of allFindings) {
+  if (unverifiedPattern.test(finding.title)) {
+    finding.verification_status = "UNVERIFIED"
+    finding.mend_priority = "SKIP"  // Mend-fixer will skip these
+  } else if (suspectPattern.test(finding.title)) {
+    finding.verification_status = "SUSPECT"
+    finding.mend_priority = "CAUTION"  // Fixer verifies before fixing
+  } else {
+    finding.verification_status = "CONFIRMED"
+    finding.mend_priority = finding.severity  // Normal priority
+  }
+}
+
+// Report skipped findings in Phase 1 (PLAN)
+const skippedCount = allFindings.filter(f => f.mend_priority === "SKIP").length
+if (skippedCount > 0) {
+  // Log: "{skippedCount} findings skipped (UNVERIFIED citations)"
+}
+```
+
+**Standalone invocation**: When `/rune:mend` runs without arc (no Phase 5.2), no findings will have `[UNVERIFIED]` or `[SUSPECT]` tags — all are treated as CONFIRMED with normal priority.
+
 ## Deduplicate
 
 Apply Dedup Hierarchy: `SEC > BACK > VEIL > DOUBT > DOC > QUAL > FRONT > CDX`
@@ -107,7 +150,16 @@ function normalizeFindingPath(path) {
     warn(`Path exceeds 500-char cap: ${path.slice(0, 50)}...`)
     return null
   }
-  let normalized = path.replace(/^\.\//, '')           // Strip leading ./
+  let normalized = path
+  // BACK-016: Normalize Windows-style backslash separators to forward slashes
+  normalized = normalized.replace(/\\/g, '/')
+  // BACK-016: Reject URL-encoded characters (e.g., %2F, %20) — these indicate
+  // tampered or mis-extracted paths and should not be silently decoded
+  if (/%[0-9A-Fa-f]{2}/.test(normalized)) {
+    warn(`URL-encoded characters in finding path: ${path} — skipping`)
+    return null
+  }
+  normalized = normalized.replace(/^\.\//, '')           // Strip leading ./
   if (normalized.includes('..') || normalized.startsWith('/') || !SAFE_FILE_PATH.test(normalized)) {
     warn(`Unsafe path in finding: ${path} — skipping`)
     return null

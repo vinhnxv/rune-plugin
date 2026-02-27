@@ -28,7 +28,7 @@ Both appraise and audit set these parameters before invoking shared phases:
 | 16 | `focusArea` | string | `"full"` (appraise has no focus flag) | From `--focus` or `"full"` |
 | 17 | `flags` | object | Parsed CLI flags | Parsed CLI flags |
 | 18 | `talisman` | object | Parsed talisman.yml config | Parsed talisman.yml config |
-| 19 | `sessionNonce` | string | `crypto.randomUUID().slice(0,8)` | `crypto.randomUUID().slice(0,8)` |
+| 19 | `sessionNonce` | string | `crypto.randomUUID().slice(0,8)` (32-bit entropy; sufficient for intra-session dedup, not a security token) | `crypto.randomUUID().slice(0,8)` (32-bit entropy; sufficient for intra-session dedup, not a security token) |
 | 20 | `dirScope` | object | `null` (appraise operates on diff, no dir scoping) | `{ include: string[], exclude: string[] }` from `--dirs`/`--exclude-dirs` flags |
 | 21 | `customPromptBlock` | string | `null` (or value from `--prompt`/`--prompt-file`) | `null` (or value from `--prompt`/`--prompt-file`) |
 
@@ -37,6 +37,8 @@ Both appraise and audit set these parameters before invoking shared phases:
 > **Note on `dirScope`** (parameter #20): When set, `dirScope.include` restricts file scanning to the listed directories; `dirScope.exclude` suppresses the listed directories even if they match `include`. The orchestrator threads `dirScope` through to inscription metadata so Ash teammates know which directories they are responsible for. When `null`, all discovered files are in scope (default behavior).
 
 > **Note on `customPromptBlock`** (parameter #21): An optional freeform string injected into each Ash prompt immediately before the RE-ANCHOR Truthbinding boundary. Sourced from `--prompt` (inline string) or `--prompt-file` (file contents). When both are provided, `--prompt-file` takes precedence. Resolved by `resolveCustomPromptBlock(flags, talisman)` before orchestration begins. When `null`, no injection occurs and existing Ash prompts are unaffected — this guard is CRITICAL; omitting it would break all existing appraise/audit calls. When `dirScope` is also non-null, the custom criteria apply only within the scoped directories — Ashes should not reference files outside `dirScope.include`.
+>
+> **Nonce validation** (SEC-002): The `sessionNonce` (parameter #19) MUST be validated at every extraction boundary — Phase 5.2 (citation verification) filters findings by nonce match, and Phase 5.4 (todo generation) inherits only nonce-validated findings. Any new phase that reads RUNE:FINDING markers MUST apply the same `nonce !== sessionNonce` rejection guard.
 
 ### Session Isolation (Parameters 11-13)
 
@@ -346,7 +348,14 @@ if (ashOutputFiles.length < expectedCount) {
     `Wave may have timed out. TOME will reflect incomplete coverage.`
   )
   // Record incomplete flag in state file so mend/TOME can surface it
-  const currentState = JSON.parse(Read(`${stateFilePrefix}-${identifier}.json`))
+  // BACK-006: Guard against missing or corrupt state file
+  let currentState = {}
+  try {
+    currentState = JSON.parse(Read(`${stateFilePrefix}-${identifier}.json`))
+    if (typeof currentState !== 'object' || currentState === null) currentState = {}
+  } catch (e) {
+    warn(`Phase 5.0: Could not read state file — creating fresh entry for coverage tracking`)
+  }
   Write(`${stateFilePrefix}-${identifier}.json`, {
     ...currentState,
     coverage_incomplete: true,
@@ -441,6 +450,371 @@ Task({
 
 **TOME output format is identical for both scopes** — header differs only in `Scope:` field and `Files scanned:` vs `Files changed:`.
 
+## Phase 5.2: Citation Verification
+
+Deterministic grep-based verification of TOME file:line citations. Runs at Tarnished level (no subagent spawned). Gates Phase 5.4 todo generation. Inspired by rlm-claude-code's Epistemic Verification pipeline.
+
+**Design principles:**
+1. **Structural, not semantic**: Verify file exists, line is in range, pattern grep-matches — no LLM reasoning
+2. **Grep-first triage**: Near-zero cost deterministic checks eliminate obvious hallucinations
+3. **Priority sampling**: 100% P1/SEC, configurable sampling for P2, skip P3 by default
+4. **Non-destructive**: Tag findings as UNVERIFIED — never delete or modify Rune Traces
+5. **Gate todo generation**: Phase 5.4 skips UNVERIFIED findings (configurable)
+6. **Complement Truthsight**: Phase 5.2 catches structural hallucinations cheaply; Phase 6 Layer 2 does semantic verification
+
+**Parameters**: Uses 3 existing orchestration parameters — `outputDir` (#4), `sessionNonce` (#19), `talisman` (#18). No new parameters needed.
+
+```javascript
+// ─── Phase 5.2: Citation Verification ───────────────────────────
+// Deterministic grep-based verification of TOME file:line citations.
+// Runs at Tarnished level (no subagent). Gates Phase 5.4 todo generation.
+
+// PATH-001: Reject path traversal before any filesystem operation
+function isPathSafe(filePath) {
+  // BACK-013: Type guard — reject non-string input
+  if (typeof filePath !== 'string') return false
+  if (!filePath || filePath.includes('..')) return false
+  if (/[<>:"|?*\x00-\x1f]/.test(filePath)) return false
+  if (filePath.startsWith('/') || filePath.startsWith('~')) return false
+  // Reject leading/trailing whitespace (malformed input from LLM output)
+  if (filePath !== filePath.trim()) return false
+  // E12: Very long paths
+  if (filePath.length > 500) return false
+  // E13: Unicode/special characters — same SAFE_FILE_PATH as parse-tome.md
+  if (!/^[a-zA-Z0-9._\-\/]+$/.test(filePath)) return false
+  return true
+}
+
+const citationVerifyEnabled = talisman?.review?.verify_tome_citations !== false  // default: true
+if (!citationVerifyEnabled) {
+  // Skip citation verification — proceed to Phase 5.3/5.4
+  log("Phase 5.2 skipped (verify_tome_citations: false)")
+} else {
+  // GUARD (SEC-010 / BACK-005): sessionNonce MUST be defined before extraction.
+  // After compaction or session resume, in-memory variables may be lost.
+  // Re-read from inscription.json as authoritative source of truth.
+  if (!sessionNonce) {
+    try {
+      const inscription = JSON.parse(Read(`${outputDir}inscription.json`))
+      sessionNonce = inscription.session_nonce
+      // BACK-005: Validate recovered nonce format (8-char hex from crypto.randomUUID)
+      if (typeof sessionNonce !== 'string' || !/^[0-9a-f]{8}$/i.test(sessionNonce)) {
+        sessionNonce = null  // reject malformed nonce
+      }
+    } catch (e) {
+      // BACK-014: Log recovery failure for diagnostics (inscription.json missing or corrupt)
+      warn(`Phase 5.2: inscription.json recovery failed — ${e.message || 'unknown error'}`)
+    }
+    if (!sessionNonce) {
+      throw new Error(
+        `Phase 5.2: sessionNonce not provided and could not be recovered from inscription.json. ` +
+        `Cannot validate findings — aborting to prevent SEC-010 bypass.`
+      )
+    }
+    warn(`Phase 5.2: sessionNonce recovered from inscription.json (was lost, likely post-compaction).`)
+  }
+
+  // 5.2.1: Parse TOME for RUNE:FINDING markers
+  const tomeContent = Read(`${outputDir}TOME.md`)
+  // E11: Two-pass approach — tolerant of any attribute ordering.
+  // Pass 1: Match any RUNE:FINDING block (attributes in any order).
+  // Pass 2: Extract each attribute by name independently.
+  const blockPattern = /<!-- RUNE:FINDING\s+([^>]+)-->/g
+  const findings = []
+  let blockMatch
+  while ((blockMatch = blockPattern.exec(tomeContent)) !== null) {
+    const attrs = blockMatch[1]
+    const nonceMatch = attrs.match(/nonce="([^"]{1,256})"/)
+    const idMatch = attrs.match(/id="([^"]{1,256})"/)
+    const fileMatch = attrs.match(/file="([^"]{1,500})"/)
+    const lineMatch = attrs.match(/line="(\d+)"/)
+    const severityMatch = attrs.match(/severity="(P[123])"/)
+    // All required attributes must be present
+    if (!nonceMatch || !idMatch || !fileMatch || !lineMatch || !severityMatch) continue
+    const [, nonce] = nonceMatch
+    const [, id] = idMatch
+    const [, file] = fileMatch
+    const [, line] = lineMatch
+    const [, severity] = severityMatch
+    if (nonce !== sessionNonce) continue  // SEC-010: reject cross-session findings
+    findings.push({ id, file, line: parseInt(line, 10), severity })
+  }
+
+  // NONCE-001 + SIMP-003: Detect stale TOME (markers present but 0 findings extracted)
+  if (findings.length === 0) {
+    const markerCount = (tomeContent.match(/<!-- RUNE:FINDING /g) || []).length
+    if (markerCount > 0) {
+      // BACK-011: Count well-formed markers (those with nonce attr) to distinguish causes
+      const wellFormedCount = (tomeContent.match(/<!-- RUNE:FINDING\s+[^>]*nonce="/g) || []).length
+      if (wellFormedCount < markerCount) {
+        warn(`Phase 5.2: ${markerCount - wellFormedCount} of ${markerCount} markers malformed (missing nonce attribute)`)
+      }
+      warn(`Phase 5.2: ${markerCount} RUNE:FINDING markers found but 0 extracted — possible stale TOME`)
+    }
+  }
+
+  // 5.2.2: Filter by verification priority (priority sampling)
+  const verifyPriorities = talisman?.review?.citation_verify_priorities ?? ["P1"]
+  const rawSamplingRates = talisman?.review?.citation_sampling_rate ?? { P1: 1.0, P2: 0.0, P3: 0.0 }
+  // BACK-007: Clamp sampling rates to valid [0.0, 1.0] range
+  const samplingRates = {}
+  for (const [key, val] of Object.entries(rawSamplingRates)) {
+    samplingRates[key] = Math.max(0.0, Math.min(1.0, Number(val) || 0.0))
+  }
+  // SEC-prefixed findings always get 100% verification regardless of priority config
+  const toVerify = findings.filter(f => {
+    if (f.id.startsWith("SEC-")) return true
+    if (verifyPriorities.includes(f.severity)) return true
+    const rate = samplingRates[f.severity] ?? 0.0
+    return Math.random() < rate
+  })
+  const skipped = findings.length - toVerify.length
+
+  // 5.2.3: Batch-verify file:line citations
+  // Strategy: batch unique file paths, Read each once with targeted offset
+  const fileCache = {}  // cache file reads to avoid redundant I/O
+  const verdicts = []
+
+  for (const finding of toVerify) {
+    const verdict = { id: finding.id, file: finding.file, line: finding.line, severity: finding.severity }
+
+    // PATH-001: Guard before any filesystem operation
+    if (!isPathSafe(finding.file)) {
+      verdict.result = "SUSPECT"
+      verdict.reason = "unsafe or overlong path"
+      verdicts.push(verdict)
+      continue
+    }
+
+    // Step A: File existence check (Glob)
+    const fileExists = Glob(finding.file).length > 0
+    if (!fileExists) {
+      // E14: Check for recent renames before marking HALLUCINATED
+      // (cache rename results per Phase 5.2 run)
+      verdict.result = "HALLUCINATED"
+      verdict.reason = "file does not exist"
+      verdicts.push(verdict)
+      continue
+    }
+
+    // Step B: Line range check (Read with file content cache)
+    let fileContent
+    try {
+      if (!fileCache[finding.file]) {
+        const content = Read(finding.file)
+        // BACK-003: Guard against empty/null Read result
+        if (!content && content !== '') {
+          throw Object.assign(new Error('Read returned empty result'), { code: 'ENODATA' })
+        }
+        fileCache[finding.file] = content
+      }
+      fileContent = fileCache[finding.file]
+    } catch (e) {
+      // E9: Symlinks — ENOENT/ELOOP
+      // E10: Permission denied — EACCES/EPERM → SUSPECT (not HALLUCINATED)
+      if (e.code === 'EACCES' || e.code === 'EPERM') {
+        verdict.result = "SUSPECT"
+        verdict.reason = `file exists but unreadable: ${e.code}`
+      } else {
+        verdict.result = "HALLUCINATED"
+        verdict.reason = `file read error: ${e.message}`
+      }
+      verdicts.push(verdict)
+      continue
+    }
+
+    // E8: Binary file detection
+    if (/[\x00-\x08\x0E-\x1F]/.test(fileContent.substring(0, 512))) {
+      verdict.result = "SUSPECT"
+      verdict.reason = "binary file — cannot verify text pattern"
+      verdicts.push(verdict)
+      continue
+    }
+
+    const fileLines = fileContent.split('\n')
+    if (finding.line > fileLines.length) {
+      verdict.result = "HALLUCINATED"
+      verdict.reason = `line ${finding.line} out of range (file has ${fileLines.length} lines)`
+      verdicts.push(verdict)
+      continue
+    }
+
+    // Step C: Pattern proximity check (Grep)
+    // Extract the Rune Trace code block for this finding from TOME
+    const tracePattern = new RegExp(
+      `<!-- RUNE:FINDING[^>]*id="${finding.id}"[^>]*-->[\\s\\S]*?\`\`\`[\\w]*\\n([\\s\\S]*?)\`\`\`[\\s\\S]*?<!-- /RUNE:FINDING`,
+      'm'
+    )
+    const traceMatch = tracePattern.exec(tomeContent)
+
+    if (traceMatch) {
+      // Extract first non-empty, non-comment line from trace as search pattern
+      // Minimum length guard (>10 chars) to avoid false positives on short patterns
+      const traceLines = traceMatch[1].split('\n')
+        .map(l => l.trim())
+        .filter(l => l && !l.startsWith('#') && !l.startsWith('//') && l.length > 10)
+
+      if (traceLines.length > 0) {
+        // Grep for the first substantive trace line in the actual file
+        const searchLine = traceLines[0]
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')  // escape regex
+          .substring(0, 80)  // truncate to avoid overly specific patterns
+
+        // BACK-008: Re-verify path safety before Grep (finding.file comes from LLM output)
+        if (!isPathSafe(finding.file)) {
+          verdict.result = "SUSPECT"
+          verdict.reason = "unsafe path detected at Grep boundary"
+          verdicts.push(verdict)
+          continue
+        }
+        const grepResult = Grep(searchLine, finding.file)
+        if (grepResult.length === 0) {
+          verdict.result = "SUSPECT"
+          verdict.reason = "Rune Trace pattern not found in cited file"
+          verdicts.push(verdict)
+          continue
+        }
+      }
+    }
+
+    // All checks passed
+    verdict.result = "CONFIRMED"
+    verdict.reason = "file exists, line in range, pattern found"
+    verdicts.push(verdict)
+  }
+
+  // 5.2.4: Compute verification stats
+  // BACK-002: Validate verdict count matches input count
+  if (verdicts.length !== toVerify.length) {
+    warn(`Phase 5.2: Verdict count mismatch — ${verdicts.length} verdicts for ${toVerify.length} findings to verify`)
+  }
+  const confirmed = verdicts.filter(v => v.result === "CONFIRMED").length
+  const suspect = verdicts.filter(v => v.result === "SUSPECT").length
+  const hallucinated = verdicts.filter(v => v.result === "HALLUCINATED").length
+
+  // 5.2.5 + 5.2.6 (COLLAPSED — Forge feedback: single write pass to avoid
+  // inconsistent intermediate state if session is interrupted)
+  //
+  // Build verification section, tag findings, and write TOME in one pass.
+
+  const verificationSection = `
+## Citation Verification
+
+| Finding | File | Line | Verdict | Reason |
+|---------|------|------|---------|--------|
+${verdicts.map(v => `| ${v.id} | \`${v.file}\` | ${v.line} | **${v.result}** | ${v.reason} |`).join('\n')}
+
+**Summary**: ${confirmed} confirmed, ${suspect} suspect, ${hallucinated} hallucinated, ${skipped} skipped
+**Grounding rate**: ${toVerify.length > 0 ? Math.round(confirmed / toVerify.length * 100) : 100}%
+`
+
+  // Inject before ## Statistics (E15: handle missing ## Statistics section)
+  let updatedTome
+  if (/^## Statistics$/m.test(tomeContent)) {
+    updatedTome = tomeContent.replace(
+      /^## Statistics$/m,
+      verificationSection + '\n## Statistics'
+    )
+  } else {
+    // E15: No ## Statistics section — append at EOF
+    updatedTome = tomeContent + '\n' + verificationSection
+  }
+
+  // Tag HALLUCINATED findings with [UNVERIFIED] and SUSPECT findings with [SUSPECT]
+  // in the same pass (no intermediate Write)
+  for (const v of verdicts.filter(v => v.result === "HALLUCINATED")) {
+    updatedTome = updatedTome.replace(
+      new RegExp(`(\\[${v.id}\\][^\\n]*)`),
+      `$1 [UNVERIFIED: ${v.reason}]`
+    )
+  }
+  for (const v of verdicts.filter(v => v.result === "SUSPECT")) {
+    updatedTome = updatedTome.replace(
+      new RegExp(`(\\[${v.id}\\][^\\n]*)`),
+      `$1 [SUSPECT: ${v.reason}]`
+    )
+  }
+
+  // Single write pass — TOME with verification section + finding tags
+  Write(`${outputDir}TOME.md`, updatedTome)
+
+  // BACK-010: Read-back verification — detect silent write failures
+  const readBackTome = Read(`${outputDir}TOME.md`)
+  const expectedTagCount = verdicts.filter(v => v.result === "HALLUCINATED" || v.result === "SUSPECT").length
+  const actualTagCount = (readBackTome.match(/\[(UNVERIFIED|SUSPECT):/g) || []).length
+  if (actualTagCount < expectedTagCount) {
+    warn(
+      `Phase 5.2: TOME read-back verification failed — expected ${expectedTagCount} tags, found ${actualTagCount}. ` +
+      `Retrying write once.`
+    )
+    Write(`${outputDir}TOME.md`, updatedTome)
+  }
+
+  // 5.2.7: Update inscription.json with verification metadata
+  try {
+    const inscription = JSON.parse(Read(`${outputDir}inscription.json`))
+    inscription.citation_verification = {
+      enabled: true,
+      verified: toVerify.length,
+      skipped: skipped,
+      confirmed: confirmed,
+      suspect: suspect,
+      hallucinated: hallucinated,
+      grounding_rate: toVerify.length > 0 ? Math.round(confirmed / toVerify.length * 100) : 100
+    }
+    Write(`${outputDir}inscription.json`, JSON.stringify(inscription, null, 2))
+  } catch (e) {
+    // inscription.json may not exist in all workflows — non-blocking
+  }
+
+  // E-ARCH-5: Update arc checkpoint after Phase 5.2 completes
+  // Prevents re-running citation verification on session resume
+  try {
+    const checkpointPath = `${outputDir}../checkpoint.json`
+    const checkpoint = JSON.parse(Read(checkpointPath))
+    // BACK-015: Validate checkpoint is a non-null object before mutation
+    if (typeof checkpoint === 'object' && checkpoint !== null) {
+      checkpoint.citation_verification_completed = true
+      checkpoint.citation_verification_stats = { confirmed, suspect, hallucinated, skipped }
+      Write(checkpointPath, JSON.stringify(checkpoint, null, 2))
+    }
+  } catch (e) {
+    // Checkpoint may not exist (standalone review) — non-blocking
+  }
+
+  log(`Phase 5.2: Citation verification complete — ${confirmed} confirmed, ${suspect} suspect, ${hallucinated} hallucinated, ${skipped} skipped (grounding rate: ${toVerify.length > 0 ? Math.round(confirmed / toVerify.length * 100) : 100}%)`)
+}
+```
+
+**Edge cases:**
+
+| Case | Behavior |
+|------|----------|
+| E1: No findings | Empty verification section. Stats: 0 verified, 0 skipped. Non-blocking. |
+| E2: File deleted between review and verification | Glob catches → HALLUCINATED. Correct: stale finding. |
+| E3: Line numbers shifted after edits | Line check uses current content. Pattern check (Step C) may still succeed via Grep. |
+| E4: Framework-generated trace (not literal source) | Pattern check extracts first substantive line. May not match → SUSPECT. |
+| E8: Binary file cited | Detected via null-byte heuristic → SUSPECT. |
+| E9: Symlink with deleted/cyclic target | Read() throws ENOENT/ELOOP → HALLUCINATED. |
+| E10: Permission denied | EACCES/EPERM → SUSPECT (file exists but unreadable). |
+| E11: Malformed RUNE:FINDING attributes | Regex uses capped attribute lengths. Missing required attrs → no match (skipped). |
+| E12: Path > 500 chars | `isPathSafe()` rejects → SUSPECT. |
+| E13: Unicode/special chars in path | `isPathSafe()` rejects → SUSPECT. |
+| E15: Missing ## Statistics section | Verification section appended at EOF. |
+
+**Performance budget:**
+
+| Operation | Count | Per-Op | Total |
+|-----------|-------|--------|-------|
+| Parse TOME (regex) | 1 | ~10ms | 10ms |
+| Glob (file exists) | N unique files | ~1ms | ~20ms |
+| Read (file content) | N unique files | ~5ms | ~100ms |
+| Grep (pattern match) | N verified findings | ~10ms | ~200ms |
+| Write TOME (single pass) | 1 | ~5ms | 5ms |
+| **Total** | — | — | **~335ms** |
+
+For a typical review with 20 findings across 10 files, total verification time is <500ms. Well within the 30s budget.
+
 ## Phase 5.4: Todo Generation from TOME
 
 Generate per-finding todo files from scope-tagged TOME. Runs AFTER Phase 5.3 (diff-scope tagging) so scope attributes are available.
@@ -468,6 +842,10 @@ const workflowType = workflow === "rune-review" ? "review" : "audit"
     try {
       const inscription = JSON.parse(Read(`${outputDir}inscription.json`))
       sessionNonce = inscription.session_nonce  // snake_case in inscription.json
+      // BACK-005: Validate recovered nonce format (8-char hex from crypto.randomUUID)
+      if (typeof sessionNonce !== 'string' || !/^[0-9a-f]{8}$/i.test(sessionNonce)) {
+        sessionNonce = null  // reject malformed nonce
+      }
     } catch (e) {
       // inscription.json missing or malformed — cannot safely validate nonces
     }
@@ -519,9 +897,16 @@ const workflowType = workflow === "rune-review" ? "review" : "audit"
     const markerCount = (tomeContent.match(/<!-- RUNE:FINDING /g) || []).length
     if (markerCount === 0) {
       const headingFindings = extractFindingsFromHeadings(tomeContent)
-      if (headingFindings.length > 0) {
-        warn(`Phase 5.4: No RUNE:FINDING markers. Extracted ${headingFindings.length} findings from headings.`)
-        allFindings = headingFindings
+      // BACK-012: Validate heading-extracted findings have required fields before accepting
+      const validHeadingFindings = headingFindings.filter(f =>
+        f && typeof f.id === 'string' && typeof f.file === 'string' && typeof f.severity === 'string'
+      )
+      if (validHeadingFindings.length > 0) {
+        if (validHeadingFindings.length < headingFindings.length) {
+          warn(`Phase 5.4: ${headingFindings.length - validHeadingFindings.length} heading findings dropped (missing required fields)`)
+        }
+        warn(`Phase 5.4: No RUNE:FINDING markers. Extracted ${validHeadingFindings.length} findings from headings.`)
+        allFindings = validHeadingFindings
         allFindings.forEach(f => f.marker_format = 'heading')
       }
     }
@@ -531,12 +916,18 @@ const workflowType = workflow === "rune-review" ? "review" : "audit"
   }
 
   // 3. Filter out non-actionable findings
+  // Phase 5.2 integration: skip UNVERIFIED findings (hallucinated citations)
+  // SUSPECT findings are kept — fixer verifies before fixing (extra caution)
+  // BACK-017: Guard against findings with missing fields (heading/lenient extraction may omit optional fields)
   const todoableFindings = allFindings.filter(f =>
-    f.interaction !== 'question' &&         // Q findings are non-actionable
-    f.interaction !== 'nit' &&              // N findings are non-actionable
-    f.status !== 'FALSE_POSITIVE' &&        // Already dismissed
-    !(f.scope === 'pre-existing' && f.severity !== 'P1')  // Skip pre-existing P2/P3
+    f &&                                             // null guard
+    (f.interaction || '') !== 'question' &&           // Q findings are non-actionable
+    (f.interaction || '') !== 'nit' &&                // N findings are non-actionable
+    (f.status || '') !== 'FALSE_POSITIVE' &&          // Already dismissed
+    !/\[UNVERIFIED:/.test(f.title || '') &&           // Phase 5.2: hallucinated citations
+    !((f.scope || '') === 'pre-existing' && f.severity !== 'P1')  // Skip pre-existing P2/P3
     // Pre-existing P1 findings ARE kept (critical regardless of scope)
+    // SUSPECT findings ARE kept — fixer applies extra caution per Phase 5.2
   )
 
   // 4. Resolve source-qualified directory (session-scoped, no --todos-dir flag needed)
@@ -656,8 +1047,10 @@ function extractFindingsFromHeadings(content) {
 | `interaction="question"` | Non-actionable (questions for the author) |
 | `interaction="nit"` | Non-actionable (style nits) |
 | `FALSE_POSITIVE` | Already dismissed in prior mend |
+| `[UNVERIFIED: ...]` | Phase 5.2: hallucinated citations — do not create todo |
 | Pre-existing P2/P3 | Noise reduction (pre-existing debt) |
 | Pre-existing P1 | KEPT (critical regardless of scope) |
+| `[SUSPECT: ...]` | KEPT — fixer applies extra caution per Phase 5.2 |
 
 ## Phase 6: Verify (Truthsight)
 
