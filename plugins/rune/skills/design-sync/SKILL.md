@@ -159,7 +159,7 @@ for each component in components:
 // Step 4: Summon design-sync-agent workers
 maxWorkers = config?.design_sync?.max_extraction_workers ?? 2
 for i in range(maxWorkers):
-  Task(team_name="rune-design-sync-{timestamp}", name="design-syncer-{i+1}", ...)
+  Agent(team_name="rune-design-sync-{timestamp}", name="design-syncer-{i+1}", ...)
     // Spawn design-sync-agent with extraction context
 
 // Step 5: Monitor until extraction complete
@@ -204,7 +204,7 @@ for each vsm in vsmFiles:
 // Step 2: Summon rune-smith workers
 maxWorkers = config?.design_sync?.max_implementation_workers ?? 3
 for i in range(maxWorkers):
-  Task(team_name="rune-design-sync-{timestamp}", name="rune-smith-{i+1}", ...)
+  Agent(team_name="rune-design-sync-{timestamp}", name="rune-smith-{i+1}", ...)
     // Spawn rune-smith with VSM context + frontend-design-patterns skill
 
 // Step 3: Monitor until implementation complete
@@ -229,7 +229,7 @@ if agentBrowserAvailable AND config?.design_sync?.iterate_enabled:
   // Summon design-iterator workers
   maxIterators = config?.design_sync?.max_iteration_workers ?? 2
   for i in range(maxIterators):
-    Task(team_name="rune-design-sync-{timestamp}", name="design-iter-{i+1}", ...)
+    Agent(team_name="rune-design-sync-{timestamp}", name="design-iter-{i+1}", ...)
       // Spawn design-iterator with VSM + screenshot context
 ```
 
@@ -249,7 +249,7 @@ for each component in implementedComponents:
   })
 
 // Step 2: Summon design-implementation-reviewer
-Task(team_name="rune-design-sync-{timestamp}", name="design-reviewer-1", ...)
+Agent(team_name="rune-design-sync-{timestamp}", name="design-reviewer-1", ...)
   // Spawn design-implementation-reviewer with VSM + component paths
 
 // Step 3: Aggregate fidelity scores
@@ -261,18 +261,52 @@ See [fidelity-scoring.md](references/fidelity-scoring.md) for the scoring algori
 
 ## Phase 4: Cleanup
 
-```
-// Step 1: Shutdown workers
-// Send shutdown_request to all active workers
-
-// Step 2: Generate completion report
+```javascript
+// Step 1: Generate completion report
 Write("{workDir}/report.md", completionReport)
 
-// Step 3: Persist echoes
+// Step 2: Persist echoes
 // Write design patterns learned to .claude/echoes/
 
-// Step 4: Cleanup team
-TeamDelete("rune-design-sync-{timestamp}")
+// Step 3: Shutdown workers — dynamic member discovery with fallback
+const teamName = `rune-design-sync-${timestamp}`
+let allMembers = []
+try {
+  const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+  const teamConfig = JSON.parse(Read(`${CHOME}/teams/${teamName}/config.json`))
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
+} catch (e) {
+  // Fallback: known workers across all design-sync phases (max counts from talisman defaults)
+  // Phase 1 (extraction): design-syncer-1, design-syncer-2
+  // Phase 2 (implementation): rune-smith-1, rune-smith-2, rune-smith-3
+  // Phase 3 (iteration): design-iter-1, design-iter-2, design-reviewer-1
+  allMembers = ["design-syncer-1", "design-syncer-2",
+    "rune-smith-1", "rune-smith-2", "rune-smith-3",
+    "design-iter-1", "design-iter-2", "design-reviewer-1"]
+}
+
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Design sync complete" })
+}
+
+// Grace period for shutdown acknowledgment
+if (allMembers.length > 0) { Bash("sleep 15") }
+
+// Step 4: Cleanup team — TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+let cleanupTeamDeleteSucceeded = false
+const CLEANUP_DELAYS = [0, 5000, 10000]
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupTeamDeleteSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`design-sync cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+// Filesystem fallback — only if TeamDelete never succeeded (QUAL-012)
+if (!cleanupTeamDeleteSucceeded) {
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+  try { TeamDelete() } catch (e) { /* best effort — clear SDK leadership state */ }
+}
 
 // Step 5: Update state
 updateState({ status: "completed", phase: "cleanup", fidelity_score: overallScore })

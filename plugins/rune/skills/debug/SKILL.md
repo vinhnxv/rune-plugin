@@ -380,13 +380,40 @@ If `talisman?.debug?.echo_on_verdict`:
 
 ### Step 4.1 — Shutdown Team
 
-```
-for N in 1..hypothesisCount:
-  SendMessage({ type: "shutdown_request", recipient: "investigator-{N}" })
+```javascript
+// Dynamic member discovery — read team config for ALL teammates
+let allMembers = []
+try {
+  const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+  const teamConfig = JSON.parse(Read(`${CHOME}/teams/${teamName}/config.json`))
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
+} catch (e) {
+  // Fallback: known investigators from Phase 2 spawning
+  allMembers = Array.from({ length: hypothesisCount }, (_, i) => `investigator-${i + 1}`)
+}
+
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Debug session complete" })
+}
 
 // Grace period for shutdown acknowledgment
-Bash("sleep 15")
-TeamDelete({ name: teamName })
+if (allMembers.length > 0) { Bash("sleep 15") }
+
+// TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+let cleanupTeamDeleteSucceeded = false
+const CLEANUP_DELAYS = [0, 5000, 10000]
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupTeamDeleteSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`debug cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+// Filesystem fallback — only if TeamDelete never succeeded (QUAL-012)
+if (!cleanupTeamDeleteSucceeded) {
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+  try { TeamDelete() } catch (e) { /* best effort — clear SDK leadership state */ }
+}
 
 // Release workflow lock
 Bash(`cd "${CWD}" && source plugins/rune/scripts/lib/workflow-lock.sh && rune_release_lock "debug"`)

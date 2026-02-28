@@ -142,8 +142,19 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
   // Sage has completed (synchronous). Clear team so mend sub-command can create its own.
   try { SendMessage({ type: "shutdown_request", recipient: "elicitation-sage-mend", content: "Analysis complete" }) } catch (e) { /* sage may have already exited */ }
   Bash("sleep 5")  // Grace period — single-agent sage (5s sufficient)
-  try { TeamDelete() } catch (e) {}
-  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${sageTeam}/" "$CHOME/tasks/${sageTeam}/" 2>/dev/null`)
+  // TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+  let sageCleanupSucceeded = false
+  const SAGE_CLEANUP_DELAYS = [0, 5000, 10000]
+  for (let attempt = 0; attempt < SAGE_CLEANUP_DELAYS.length; attempt++) {
+    if (attempt > 0) Bash(`sleep ${SAGE_CLEANUP_DELAYS[attempt] / 1000}`)
+    try { TeamDelete(); sageCleanupSucceeded = true; break } catch (e) {
+      if (attempt === SAGE_CLEANUP_DELAYS.length - 1) warn(`mend sage cleanup: TeamDelete failed after ${SAGE_CLEANUP_DELAYS.length} attempts`)
+    }
+  }
+  if (!sageCleanupSucceeded) {
+    Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${sageTeam}/" "$CHOME/tasks/${sageTeam}/" 2>/dev/null`)
+    try { TeamDelete() } catch (e) { /* best effort */ }
+  }
 }
 
 // STEP 3: Delegate to /rune:mend with arc-specific parameters:

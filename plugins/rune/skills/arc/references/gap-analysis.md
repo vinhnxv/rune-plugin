@@ -1322,9 +1322,18 @@ if (!/^[a-zA-Z0-9_-]+$/.test(inspectTeamName)) {
   try { SendMessage({ type: "shutdown_request", recipient: "verdict-binder" }) } catch (e) { /* already exited */ }
   Bash("sleep 15")  // Grace period — let teammates deregister
 
-  try { TeamDelete() } catch (e) {
+  // TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+  let cleanupTeamDeleteSucceeded = false
+  const CLEANUP_DELAYS = [0, 5000, 10000]
+  for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+    if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+    try { TeamDelete(); cleanupTeamDeleteSucceeded = true; break } catch (e) {
+      if (attempt === CLEANUP_DELAYS.length - 1) warn(`gap-analysis cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+    }
+  }
+  if (!cleanupTeamDeleteSucceeded) {
     Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${inspectTeamName}/" "$CHOME/tasks/${inspectTeamName}/" 2>/dev/null`)
-    try { TeamDelete() } catch (e2) { /* done */ }
+    try { TeamDelete() } catch (e) { /* best effort */ }
   }
 
   // Ensure VERDICT file always exists

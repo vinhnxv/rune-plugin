@@ -143,11 +143,18 @@ for (let i = 0; i < maxWorkers; i++) {
 }
 sleep(15_000)
 
-try {
-  TeamDelete()
-} catch (e) {
-  const CHOME = process.env.CLAUDE_CONFIG_DIR || `${HOME}/.claude`
-  Bash(`rm -rf "${CHOME}/teams/arc-design-iter-${id}" "${CHOME}/tasks/arc-design-iter-${id}" 2>/dev/null`)
+// TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+let cleanupTeamDeleteSucceeded = false
+const CLEANUP_DELAYS = [0, 5000, 10000]
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupTeamDeleteSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`design-iteration cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+if (!cleanupTeamDeleteSucceeded) {
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-design-iter-${id}/" "$CHOME/tasks/arc-design-iter-${id}/" 2>/dev/null`)
+  try { TeamDelete() } catch (e) { /* best effort */ }
 }
 
 const iterReport = exists(`tmp/arc/${id}/design-iteration-report.md`)
