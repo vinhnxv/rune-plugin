@@ -36,10 +36,13 @@
 #   6. Check D: `\!=` inside conditions
 #   7. Check E: unprotected globs in command arguments (rm, ls, cp, mv, etc.)
 #   8. Check A: block with actionable fix suggestion
-#      Check B: AUTO-FIX by prepending `setopt nullglob;` (no wasted round-trip)
-#      Check C: AUTO-FIX by rewriting `! [[` → `[[ !`
-#      Check D: AUTO-FIX by rewriting `\!=` → `!=`
-#      Check E: AUTO-FIX by prepending `setopt nullglob;`
+#      Checks B-E: ACCUMULATED AUTO-FIX (BACK-016) — all applicable fixes are
+#      applied in a single pass, then a combined JSON response is emitted.
+#      This prevents partial fixes when multiple issues coexist (e.g., glob + \!=).
+#      - Check B: prepend `setopt nullglob;` for for-loop globs
+#      - Check C: rewrite `! [[` → `[[ !`
+#      - Check D: rewrite `\!=` → `!=`
+#      - Check E: prepend `setopt nullglob;` for argument globs
 #
 # Only active when user's shell is zsh — these are valid patterns in bash.
 #
@@ -154,6 +157,16 @@ DENY_JSON
   fi
 fi
 
+# ─── Accumulated auto-fix strategy ────────────────────────────────────────────
+# BACK-016: Checks B-E now accumulate fixes on COMMAND instead of exiting after
+# the first match. This prevents partial fixes when a command has multiple issues
+# (e.g., unprotected glob AND \!= — previously only the glob was fixed).
+# Check A remains a hard deny (exits immediately).
+# After all checks, if any fix was applied, output a single combined JSON response.
+needs_nullglob=""       # Flag: prepend setopt nullglob
+fix_applied=""          # Flag: any auto-fix was applied
+fix_descriptions=""     # Accumulated fix descriptions for additionalContext
+
 # ─── Check B: unprotected glob in for-loop ────────────────────────────────────
 # In zsh, `for f in path/*.ext; do` throws "no matches found" if no files match.
 # Bash silently expands to the literal string — zsh aborts with NOMATCH (default on).
@@ -165,55 +178,26 @@ fi
 #   - `(N)` glob qualifier: `for f in *.md(N); do`
 #   - `setopt nullglob` or `setopt NULL_GLOB` before the for-loop
 #   - `shopt -s nullglob` (bash compat, also works in zsh with emulation)
-#
-# Strategy: AUTO-FIX by prepending `setopt nullglob;` to the command.
-# This is safer than deny+retry because:
-#   - No wasted round-trip (deny forces Claude to regenerate)
-#   - `setopt nullglob` handles ALL globs in the command (not just one)
-#   - Scoped to this single Bash invocation (no persistent shell state)
-#
-# Skips: globs inside quotes, globs in non-for contexts (find, ls, etc.)
 if [[ -n "$has_for_glob" ]]; then
-  # Extract the glob portion: `for VAR in GLOB; do`
-  # This regex captures the text between "in" and "; do" or ";do"
   glob_text=$(printf '%s\n' "$NORMALIZED" | grep -oE 'for[[:space:]]+[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]+in[[:space:]]+[^;]+;[[:space:]]*do' | head -1 || true)
   if [[ -n "$glob_text" ]]; then
-    # Check if the glob portion contains * or ? (actual glob characters)
     in_portion=$(printf '%s\n' "$glob_text" | sed 's/.*[[:space:]]in[[:space:]]//' | sed 's/;[[:space:]]*do$//')
     if printf '%s\n' "$in_portion" | grep -qE '[*?]'; then
-      # Check for nullglob protection
       has_protection=""
-      # (N) qualifier right before ; do
       if printf '%s\n' "$in_portion" | grep -qE '\(N\)'; then
         has_protection=1
       fi
-      # setopt nullglob / setopt NULL_GLOB anywhere in command
       if printf '%s\n' "$NORMALIZED" | grep -qiE 'setopt[[:space:]]+(nullglob|null_glob)'; then
         has_protection=1
       fi
-      # shopt -s nullglob anywhere in command
       if printf '%s\n' "$NORMALIZED" | grep -qE 'shopt[[:space:]]+-s[[:space:]]+nullglob'; then
         has_protection=1
       fi
 
       if [[ -z "$has_protection" ]]; then
-        # Auto-fix: prepend `setopt nullglob;` and allow the command to proceed.
-        # Uses updatedInput to rewrite the command transparently.
-        # The original COMMAND (not NORMALIZED) preserves newlines/formatting.
-        FIXED_COMMAND="setopt nullglob; ${COMMAND}"
-        # SEC: Escape special JSON characters in the command
-        ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.' || { exit 0; })
-        cat << AUTOFIX_JSON
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "allow",
-    "updatedInput": { "command": ${ESCAPED_COMMAND} },
-    "additionalContext": "ZSH-001 auto-fix: prepended 'setopt nullglob;' to protect unguarded glob(s) from zsh NOMATCH. The original command was not modified otherwise."
-  }
-}
-AUTOFIX_JSON
-        exit 0
+        needs_nullglob=1
+        fix_applied=1
+        fix_descriptions="prepended 'setopt nullglob;' to protect unguarded glob(s) from zsh NOMATCH"
       fi
     fi
   fi
@@ -224,32 +208,12 @@ fi
 # `!command` (re-run last command starting with...) rather than logical negation.
 # Result: (eval):N: command not found: !
 #
-# Detection: `! [[` preceded by a shell boundary (start of string, semicolon,
-# pipe, ampersand, or keyword like `if`, `elif`, `while`, `until`).
-#
 # Strategy: AUTO-FIX by rewriting `! [[` → `[[ !` in the command.
-# For single-expression `[[ ]]` blocks (the overwhelmingly common case),
-# `! [[ expr ]]` and `[[ ! expr ]]` are semantically equivalent.
-# This handles patterns like: `if ! [[ "$x" =~ ^[0-9]+$ ]]; then`
-# → rewrites to:            `if [[ ! "$x" =~ ^[0-9]+$ ]]; then`
 if [[ -n "$has_bang_bracket" ]]; then
-  # Verify the pattern exists in the actual command (not just fast-path noise)
   if printf '%s\n' "$NORMALIZED" | grep -qE '(^|[[:space:];|&])!\s*\[\['; then
-    # Auto-fix: replace `! [[` with `[[ !` throughout the command
-    FIXED_COMMAND=$(printf '%s' "$COMMAND" | sed 's/! \[\[/[[ !/g')
-    # SEC: Escape special JSON characters in the command
-    ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.' || { exit 0; })
-    cat << AUTOFIX_JSON
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "allow",
-    "updatedInput": { "command": ${ESCAPED_COMMAND} },
-    "additionalContext": "ZSH-001 auto-fix: rewrote '! [[' to '[[ !' to avoid zsh history expansion. Semantically equivalent for single-expression [[ ]] blocks."
-  }
-}
-AUTOFIX_JSON
-    exit 0
+    COMMAND=$(printf '%s' "$COMMAND" | sed 's/! \[\[/[[ !/g')
+    fix_applied=1
+    fix_descriptions="${fix_descriptions:+${fix_descriptions}; }rewrote '! [[' to '[[ !' to avoid zsh history expansion"
   fi
 fi
 
@@ -259,25 +223,11 @@ fi
 #
 # This is a common LLM generation artifact — bash-trained models sometimes emit
 # the escaped form. Auto-fix: strip the backslash.
-#
-# Strategy: AUTO-FIX by rewriting `\!=` → `!=` in the command.
 if [[ -n "$has_escaped_neq" ]]; then
   if printf '%s\n' "$NORMALIZED" | grep -qF '\!='; then
-    # Auto-fix: replace `\!=` with `!=` throughout the command
-    FIXED_COMMAND=$(printf '%s' "$COMMAND" | sed 's/\\!=/!=/g')
-    # SEC: Escape special JSON characters in the command
-    ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.' || { exit 0; })
-    cat << AUTOFIX_JSON
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "allow",
-    "updatedInput": { "command": ${ESCAPED_COMMAND} },
-    "additionalContext": "ZSH-001 auto-fix: rewrote '\\\\!=' to '!=' — zsh's [[ ]] rejects the escaped form. Bash accepts both, so this is safe."
-  }
-}
-AUTOFIX_JSON
-    exit 0
+    COMMAND=$(printf '%s' "$COMMAND" | sed 's/\\!=/!=/g')
+    fix_applied=1
+    fix_descriptions="${fix_descriptions:+${fix_descriptions}; }rewrote '\\!=' to '!=' — zsh's [[ ]] rejects the escaped form"
   fi
 fi
 
@@ -290,15 +240,9 @@ fi
 # (rm, ls, cp, mv, cat, wc, head, tail, chmod, chown) that are NOT inside
 # quotes and NOT already protected by nullglob/setopt.
 #
-# Exclusions (safe patterns that use * but don't expand as shell globs):
-#   - `find ... -name "pattern"` — find handles its own pattern matching
-#   - Globs inside double/single quotes — shell doesn't expand quoted globs
-#   - Commands already protected by setopt/shopt nullglob
-#   - for-loop globs (handled by Check B)
-#
 # Strategy: AUTO-FIX by prepending `setopt nullglob;` (same as Check B).
-if [[ -n "$has_arg_glob" ]]; then
-  # Skip if already protected by nullglob
+# Skip if Check B already set needs_nullglob (avoid duplicate prepend).
+if [[ -n "$has_arg_glob" && -z "$needs_nullglob" ]]; then
   has_protection=""
   if printf '%s\n' "$NORMALIZED" | grep -qiE 'setopt[[:space:]]+(nullglob|null_glob)'; then
     has_protection=1
@@ -308,36 +252,33 @@ if [[ -n "$has_arg_glob" ]]; then
   fi
 
   if [[ -z "$has_protection" ]]; then
-    # Detect unquoted glob patterns in arguments to file commands.
-    # Strategy: look for command followed by arguments containing unquoted * or ?
-    # Unquoted = not preceded by a quote character within the same word.
-    #
-    # We match patterns like:
-    #   rm -rf "$CHOME/teams/rune-"*    (glob after closing quote)
-    #   rm path/rune-*                   (plain unquoted glob)
-    #   ls tmp/*.md                      (glob in path)
-    #
-    # We skip if ALL glob chars appear inside balanced quotes (conservative check).
-    # Remove content between balanced quotes, then check if globs remain.
     stripped=$(printf '%s\n' "$NORMALIZED" | sed -E "s/'[^']*'//g; s/\"[^\"]*\"//g")
     if printf '%s\n' "$stripped" | grep -qE '[*?]'; then
-      # Unquoted glob detected — auto-fix with setopt nullglob
-      FIXED_COMMAND="setopt nullglob; ${COMMAND}"
-      # SEC: Escape special JSON characters in the command
-      ESCAPED_COMMAND=$(printf '%s' "$FIXED_COMMAND" | jq -Rs '.' || { exit 0; })
-      cat << AUTOFIX_JSON
+      needs_nullglob=1
+      fix_applied=1
+      fix_descriptions="${fix_descriptions:+${fix_descriptions}; }prepended 'setopt nullglob;' to protect unquoted glob(s) from zsh NOMATCH"
+    fi
+  fi
+fi
+
+# ─── Emit combined auto-fix JSON if any fixes were applied ───────────────────
+if [[ -n "$fix_applied" ]]; then
+  # Apply nullglob prepend last (after in-place sed fixes on COMMAND)
+  if [[ -n "$needs_nullglob" ]]; then
+    COMMAND="setopt nullglob; ${COMMAND}"
+  fi
+  ESCAPED_COMMAND=$(printf '%s' "$COMMAND" | jq -Rs '.' || { exit 0; })
+  cat << AUTOFIX_JSON
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "allow",
     "updatedInput": { "command": ${ESCAPED_COMMAND} },
-    "additionalContext": "ZSH-001 auto-fix: prepended 'setopt nullglob;' to protect unquoted glob(s) in command arguments from zsh NOMATCH. Without this, zsh would abort with 'no matches found' if no files match the pattern."
+    "additionalContext": "ZSH-001 auto-fix: ${fix_descriptions}."
   }
 }
 AUTOFIX_JSON
-      exit 0
-    fi
-  fi
+  exit 0
 fi
 
 exit 0

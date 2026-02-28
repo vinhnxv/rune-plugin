@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.120.1] - 2026-02-28
+
+### Fixed
+- **Accumulated auto-fix for zsh compat hook (BACK-016)** — Checks B-E now accumulate all
+  applicable fixes in a single pass instead of exiting after the first match. Previously,
+  commands with multiple zsh issues (e.g., unprotected glob AND `\!=`) only got the first
+  fix applied. Net reduction of 59 lines.
+
 ## [1.120.0] - 2026-02-28
 
 ### Added
