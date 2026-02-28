@@ -28,7 +28,7 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
 import core
@@ -77,7 +77,7 @@ mcp = FastMCP(
 # ---------------------------------------------------------------------------
 
 
-def _get_client(ctx: Any) -> FigmaClient:
+def _get_client(ctx: Context) -> FigmaClient:
     """Extract the shared FigmaClient from the MCP context."""
     try:
         return ctx.request_context["figma_client"]
@@ -100,7 +100,7 @@ def _handle_figma_error(exc: FigmaAPIError) -> ToolError:
 @mcp.tool()
 async def figma_fetch_design(
     url: str,
-    ctx: Any,
+    ctx: Context,
     depth: int = 2,
     max_length: int = core.DEFAULT_MAX_LENGTH,
     start_index: int = core.DEFAULT_START_INDEX,
@@ -138,7 +138,7 @@ async def figma_fetch_design(
 @mcp.tool()
 async def figma_inspect_node(
     url: str,
-    ctx: Any,
+    ctx: Context,
 ) -> str:
     """Inspect detailed properties of a specific Figma node.
 
@@ -166,7 +166,7 @@ async def figma_inspect_node(
 @mcp.tool()
 async def figma_list_components(
     url: str,
-    ctx: Any,
+    ctx: Context,
 ) -> str:
     """List all components and component instances in a Figma file.
 
@@ -194,7 +194,7 @@ async def figma_list_components(
 @mcp.tool()
 async def figma_to_react(
     url: str,
-    ctx: Any,
+    ctx: Context,
     component_name: str = "",
     use_tailwind: bool = True,
     extract_components: bool = False,

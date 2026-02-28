@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.122.0] - 2026-03-01
+
+### Added
+- Worktree Lifecycle Guard: crash-safe cleanup for orphaned `rune-work-*` worktrees
+  - `scripts/lib/worktree-gc.sh`: shared GC library with PID liveness checks, jq guard, path traversal protection
+  - Stop hook (`on-session-stop.sh`): AUTO-CLEAN PHASE 4 removes orphaned worktrees on session exit (3-worktree cap for timeout budget)
+  - SessionStart hook (`session-team-hygiene.sh`): detects orphaned worktrees and reports count
+  - `/rune:rest`: expanded worktree cleanup (strive `rune-work-*` in addition to mend `bisect-worktree`)
+  - `git-worktree/SKILL.md`: Safety Net documentation section
+
 ## [1.121.0] - 2026-03-01
 
 ### Fixed

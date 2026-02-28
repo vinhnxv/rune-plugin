@@ -156,10 +156,30 @@ orphan_checkpoint_count=$(
 
 [[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: orphaned checkpoints found: ${orphan_checkpoint_count}" >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
 
+# ── Orphaned worktree detection ──
+# WORKTREE-GC: Remove when SDK provides native worktree lifecycle management
+# Detect rune-work-* worktrees left by crashed sessions (informational only — no auto-cleanup at startup)
+orphaned_wt_count=0
+if [[ -f "${SCRIPT_DIR}/lib/worktree-gc.sh" ]]; then
+  # shellcheck source=lib/worktree-gc.sh
+  source "${SCRIPT_DIR}/lib/worktree-gc.sh"
+  if rune_has_worktree_support "$CWD"; then
+    while IFS= read -r wt_path; do
+      [[ -z "$wt_path" ]] && continue
+      wt_timestamp=$(rune_extract_wt_timestamp "$wt_path")
+      if rune_wt_is_orphaned "$CWD" "$wt_timestamp"; then
+        orphaned_wt_count=$((orphaned_wt_count + 1))
+      fi
+    done < <(rune_list_work_worktrees "$CWD")
+  fi
+fi
+
+[[ "${RUNE_TRACE:-}" == "1" ]] && [[ ! -L "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}" ]] && echo "[$(date '+%H:%M:%S')] TLC-003: orphaned worktrees found: ${orphaned_wt_count}" >> "${RUNE_TRACE_LOG:-${TMPDIR:-/tmp}/rune-hook-trace-$(id -u).log}"
+
 # Report if anything found
 # BACK-007 FIX: Conditionally append orphan list to avoid trailing "Orphans: " with no names
-if [[ $orphan_count -gt 0 ]] || [[ $stale_state_count -gt 0 ]] || [[ $orphan_checkpoint_count -gt 0 ]]; then
-  msg="TLC-003 SESSION HYGIENE: Found ${orphan_count} orphaned team dir(s), ${stale_state_count} stale state file(s), and ${orphan_checkpoint_count} orphaned checkpoint(s) from prior sessions. Run /rune:rest --heal to clean up."
+if [[ $orphan_count -gt 0 ]] || [[ $stale_state_count -gt 0 ]] || [[ $orphan_checkpoint_count -gt 0 ]] || [[ $orphaned_wt_count -gt 0 ]]; then
+  msg="TLC-003 SESSION HYGIENE: Found ${orphan_count} orphaned team dir(s), ${stale_state_count} stale state file(s), ${orphan_checkpoint_count} orphaned checkpoint(s), and ${orphaned_wt_count} orphaned worktree(s) from prior sessions. Run /rune:rest --heal to clean up."
   if [[ ${#orphan_names[@]} -gt 0 ]]; then
     msg+=" Orphans: ${orphan_names[*]:0:5}"
   fi

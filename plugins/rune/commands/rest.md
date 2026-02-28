@@ -283,10 +283,24 @@ if [[ ! -L "tmp/.rune-locks" ]] && [[ -d "tmp/.rune-locks" ]]; then
   rmdir tmp/.rune-locks 2>/dev/null || true
 fi
 
-# Clean up stale git worktrees from mend bisection (if any)
+# Clean up stale git worktrees
+# 1. Mend bisection worktrees (bisect-worktree)
 git worktree list 2>/dev/null | grep 'bisect-worktree' | awk '{print $1}' | while read wt; do
   git worktree remove "$wt" --force 2>/dev/null
 done
+
+# 2. Strive worktrees (rune-work-*) — session-safe cleanup via shared GC library
+#    WORKTREE-GC: Remove when SDK provides native worktree lifecycle management
+if [[ -f "${CLAUDE_PLUGIN_ROOT}/scripts/lib/worktree-gc.sh" ]]; then
+  source "${CLAUDE_PLUGIN_ROOT}/scripts/resolve-session-identity.sh"
+  source "${CLAUDE_PLUGIN_ROOT}/scripts/lib/worktree-gc.sh"
+  result=$(rune_worktree_gc "$(pwd)" "rest")
+  [ -n "$result" ] && echo "$result"
+else
+  echo "NOTE: worktree-gc.sh not found — skipping rune-work-* cleanup"
+fi
+
+# 3. Final prune
 git worktree prune 2>/dev/null
 
 # Remove completed state files
