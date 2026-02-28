@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.121.0] - 2026-03-01
+
+### Fixed
+- **SEC-101**: Path traversal in checkpoint path construction — replaced `${outputDir}../checkpoint.json`
+  with explicit path segment splitting in `orchestration-phases.md`
+- **QUAL-010**: Property name mismatch `sessionNonce` → `session_nonce` in orchestration phases,
+  consolidated double state-file write into single write
+- **VEIL-001**: Nonce regex guard text alignment with actual `{8}` pattern, added source validation
+  check (`VALID_SOURCES`) in `todo-generation.md`
+- **VEIL-006**: Unanchored regex for todo ID extraction — anchored with `^` and `split('/').pop()`
+  to prevent false matches from directory names in `todo-generation.md`
+- **SEC-102**: NaN guard for TOME timestamp filter parsing via `parseInt(..., 10)` + `Number.isNaN()`,
+  added 3-step `reviewTodosBase` resolution (QUAL-007 pattern) in `arc-phase-code-review.md`
+- **VEIL-004**: Corrected misleading comment ("Sort by modification time" → "Sort by name descending"),
+  added BACK-005 (current arc checkpoint filtering) and BACK-006 (explicit dirname extraction)
+  in `arc-phase-mend.md`
+- Defensive null guard for `checkpoint.todos_base` in `arc-phase-work.md`
+- Resilient session context filter in `subcommands.md` (`s.todos_base || s.id`)
+
 ## [1.120.4] - 2026-02-28
 
 ### Fixed
