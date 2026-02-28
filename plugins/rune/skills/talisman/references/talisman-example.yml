@@ -14,8 +14,11 @@
 #   Optional list of documentation URLs for research agents to fetch first.
 #   URLs are sanitized (SSRF blocklist, sensitive param stripping, max 10).
 #   Agents receive them wrapped in <url-list> data delimiters.
+# NOTE: This file shows only the plan.external_research and plan.research_urls keys (v1.120.0+).
+# For the full plan: section schema (verification_patterns, freshness, external_research),
+# see talisman.example.yml in the plugin root.
 plan:
   # external_research: "auto"
   # research_urls:
-  #   - https://docs.example.com/api
-  #   - https://wiki.internal.dev/architecture
+  #   - https://reactjs.org/docs/getting-started.html
+  #   - https://docs.python.org/3/

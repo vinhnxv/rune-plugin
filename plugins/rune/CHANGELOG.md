@@ -4,9 +4,10 @@
 
 ### Added
 - **Context7 MCP integration** — Added `context7` MCP server (`@upstash/context7-mcp`) for live
-  framework and library documentation. Research agents (practice-seeker, lore-scholar) now use
-  Context7's `resolve-library-id` and `get-library-docs` tools as their primary documentation
-  source during `/rune:devise` Phase 1C external research, with WebSearch/WebFetch as fallback.
+  framework and library documentation. `lore-scholar` uses Context7's `resolve-library-id` and
+  `get-library-docs` tools as its primary documentation source during `/rune:devise` Phase 1C
+  external research, with WebSearch/WebFetch as fallback. `practice-seeker` uses Tavily/Brave MCP
+  as its primary source, with WebSearch/WebFetch as fallback.
 - **Talisman `plan` config section** — New talisman configuration for research control:
   - `plan.external_research`: Controls research agent behavior (`always`/`auto`/`never`).
     `always` and `never` bypass modes skip Phase 1B scoring entirely. `auto` (default) uses
@@ -21,17 +22,18 @@
     from project dependencies
 - **Practice-seeker fallback chain** — Tavily/Brave MCP → WebSearch → WebFetch → offline knowledge.
   Graceful degradation when MCP tools are unavailable.
-- **Lore-scholar fallback chain** — Context7 MCP → WebSearch → WebFetch → offline knowledge.
-  Same resilient fallback pattern as practice-seeker.
+- **Lore-scholar fallback chain** — Context7 MCP → Tavily MCP → WebSearch → WebFetch → offline knowledge.
+  Graceful degradation when MCP tools are unavailable.
 
 ### Changed
 - **Phase 1B threshold backwards compatibility** — LOW_RISK threshold lowered from 0.35 to 0.25,
   but ONLY when `plan.external_research` is explicitly set to `"auto"`. When the plan talisman
   section is absent (legacy behavior), the original 0.35 threshold is preserved. This ensures
   zero behavior change for existing users without talisman plan config.
-- **Risk signal weight redistribution** — Adjusted weights to accommodate new signals:
-  Keywords 40%→35%, File paths 30%→25%, External API 20%→15%, Framework 10%→10%,
-  User URLs 0%→10%, Unfamiliar framework 0%→5%.
+- **Risk signal weight redistribution** — Base score weights (sum to 85%):
+  Keywords 40%→35%, File paths 30%→25%, External API 20%→15%, Framework 10%→10%.
+  Two new additive bonuses applied on top of base score (capped at 1.0):
+  User-provided URLs (+0.30 when present), Unfamiliar framework (+0.20 when detected).
 
 ### Upgrading
 - **No action required** for existing users. Absent `plan` section in talisman preserves all

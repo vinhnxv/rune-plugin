@@ -1001,7 +1001,7 @@ Configuration lives in `.mcp.json`. See `skills/figma-to-react/SKILL.md` for usa
 
 Rune includes an MCP server (`context7`) for live framework and library documentation lookup via [Context7](https://context7.com). Research agents (practice-seeker, lore-scholar) use Context7 as their primary documentation source during `/rune:devise` Phase 1C external research, with WebSearch/WebFetch as fallback when MCP is unavailable.
 
-**Requirements:** Node.js (uses `npx -y @upstash/context7-mcp@^1.0.0`)
+**Requirements:** Node.js (uses `npx -y @upstash/context7-mcp@^1.0.0`). Unlike echo-search and figma-to-react, context7 runs entirely via `npx @upstash/context7-mcp` and requires no local script directory.
 
 **Tools:**
 
@@ -1013,7 +1013,7 @@ Rune includes an MCP server (`context7`) for live framework and library document
 **Integration points:**
 - **practice-seeker** — Uses Tavily/Brave MCP for best practices and pattern documentation. Falls back to WebSearch → WebFetch → offline knowledge.
 - **lore-scholar** — Uses Context7 as primary for framework docs and API references. Falls back to WebSearch → WebFetch → offline knowledge.
-- **forge agents** — Uses Context7 for framework-specific enrichment during `/rune:forge`.
+- **forge agents** — Can access Context7 via plugin-level MCP server inheritance (configured in `.mcp.json`) for framework-specific enrichment during `/rune:forge`.
 
 Control research tool availability via `talisman.yml` → `plan.external_research` (`always`, `auto`, `never`). `always` forces external research; `never` disables it; `auto` (default) uses enhanced risk signals. Configuration lives in `.mcp.json`.
 

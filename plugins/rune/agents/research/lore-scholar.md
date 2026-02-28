@@ -18,6 +18,8 @@ mcpServers:
   - echo-search
   - context7
   - tavily
+  # Note: `tavily` and `brave-search` are optional MCP servers that users can configure for
+  # enhanced search. When unavailable, the agent falls back to WebSearch/WebFetch gracefully.
 ---
 
 # Lore Scholar — Framework Documentation Agent
@@ -98,8 +100,8 @@ If the Tarnished provides URLs in the task prompt, fetch and analyze them as pri
 
 ```
 <url-list>
-https://docs.example.com/api
-https://wiki.internal.dev/architecture
+https://docs.python.org/3/library/
+https://developer.mozilla.org/en-US/docs/Web/API
 </url-list>
 ```
 
@@ -113,7 +115,7 @@ Research tools may be unavailable depending on the environment. Use this priorit
 2. **Tavily MCP** (`mcp__tavily__*`) — Structured search with relevance ranking. Use for documentation not covered by Context7.
 3. **WebSearch** (built-in) — General web search. Fallback when no search MCP is available.
 4. **WebFetch** (built-in) — Direct URL fetching. Always available for user-provided URLs and deep-reading search results.
-5. **Echo Search MCP** (`mcp__echo-search__*`) — Local project memory. Always checked first (see Echo Integration above).
+5. **Echo Search MCP** (`mcp__echo-search__*`) — Local project memory. Always available — consulted before external queries (see Echo Integration above).
 6. **Local codebase** — File-based research via Read/Glob/Grep. Last resort.
 
 **At each level**: If a tool is unavailable (MCP not configured, tool call denied), skip it silently and try the next. Never stall on a missing tool.
