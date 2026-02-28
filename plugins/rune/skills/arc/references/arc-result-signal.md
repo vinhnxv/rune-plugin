@@ -51,7 +51,7 @@ Stop hooks read signal (primary) → checkpoint scan (fallback)
   "pr_url": "https://github.com/user/repo/pull/149",
   "completed_at": "2026-02-26T11:56:00Z",
   "phases_completed": 17,
-  "phases_total": 23,
+  "phases_total": 26,
   "owner_pid": "36545",
   "config_dir": "/Users/user/.claude-custom"
 }

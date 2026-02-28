@@ -180,14 +180,15 @@ _phase_ref() {
   esac
 }
 
-# ── Section hint for shared reference files (codex phases) ──
+# ── Section hint for shared reference files ──
+# Only needed when multiple phases share the same reference file (e.g. arc-codex-phases.md).
+# Phases with dedicated reference files (e.g. test_coverage_critique → arc-phase-test.md,
+# release_quality_check → arc-phase-pre-ship-validator.md) do NOT need section hints.
 _phase_section_hint() {
   local phase="$1"
   case "$phase" in
     semantic_verification)    echo "Execute Phase 2.8 (Semantic Verification) section." ;;
     codex_gap_analysis)       echo "Execute Phase 5.6 (Codex Gap Analysis) section." ;;
-    test_coverage_critique)   echo "Execute Phase 7.8 (Test Coverage Critique) section." ;;
-    release_quality_check)    echo "Execute Phase 8.55 (Release Quality Check) section." ;;
     *)                        echo "" ;;
   esac
 }

@@ -115,7 +115,7 @@ When run with no arguments, `/rune:tarnished` scans your project state (plans, r
 ## Quick Start
 
 ```bash
-# End-to-end pipeline: freshness check → forge → plan review → refinement → verification → semantic verification → task decomposition → work → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → test → test coverage critique → pre-ship validation → release quality check → ship → merge
+# End-to-end pipeline (26 phases): freshness check → forge → plan review → plan refinement → verification → semantic verification → design extraction → task decomposition → work → design verification → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → design iteration → test → test coverage critique → pre-ship validation → release quality check → ship → bot review wait → PR comment resolution → merge
 /rune:arc plans/my-plan.md
 /rune:arc plans/my-plan.md --no-forge             # Skip research enrichment
 /rune:arc plans/my-plan.md --approve              # Require human approval per task
@@ -246,8 +246,10 @@ When you run `/rune:arc`, Rune chains 26 phases into one automated pipeline:
 2.5. **PLAN REFINEMENT** — Extracts CONCERN verdicts into concern-context.md for worker awareness (orchestrator-only)
 2.7. **VERIFICATION GATE** — Deterministic checks (file refs, headings, acceptance criteria, post-forge freshness re-check) with zero LLM cost. The full freshness gate runs during pre-flight (before Phase 1) using 5-signal composite score; Phase 2.7 only re-checks forge-expanded file references. Use `--skip-freshness` to bypass the pre-flight check.
 2.8. **SEMANTIC VERIFICATION** — Codex cross-model contradiction detection on the enriched plan (v1.39.0+)
+3.5. **DESIGN EXTRACTION** — Extract design specs from plan for implementation guidance (v1.87.0+)
 4.5. **TASK DECOMPOSITION** — Codex cross-model task granularity and dependency analysis (v1.87.0+)
 5. **WORK** — Swarm workers implement the plan with incremental `[ward-checked]` commits
+5.2. **DESIGN VERIFICATION** — Verify implementation matches extracted design specs (v1.87.0+)
 5.5. **GAP ANALYSIS** — Inspector Ashes score 9 quality dimensions and produce VERDICT.md (arc-inspect-{id} team). Low-scoring dimensions propagated as focus areas to Phase 6 reviewers.
 5.6. **CODEX GAP ANALYSIS** — Codex cross-model plan-vs-implementation gap detection (v1.39.0+)
 5.8. **GAP REMEDIATION** — Auto-fix FIXABLE gaps before code review (arc-gap-fix-{id} team, configurable via `arc.gap_analysis.remediation` talisman settings)
@@ -258,13 +260,14 @@ Note: Phase numbers are non-sequential (5.5 → 5.6 → 5.8 → 5.7) for backwar
 6.5. **GOLDMASK CORRELATION** — Synthesis of investigation findings into unified GOLDMASK.md report (orchestrator-only, v1.47.0+)
 7. **MEND** — Parallel fixers resolve findings from TOME
 7.5. **VERIFY MEND** — Adaptive convergence controller: loops Phase 6→7→7.5 until findings converge or tier max cycles reached (LIGHT: 2, STANDARD: 3, THOROUGH: 5). Proceeds to audit with warning on halt
+7.6. **DESIGN ITERATION** — Iterative design refinement based on review findings (v1.87.0+)
 7.7. **TEST** — Diff-scoped test execution: unit → integration → E2E/browser (non-blocking WARN, skip with `--no-test`)
 7.8. **TEST COVERAGE CRITIQUE** — Codex cross-model test adequacy assessment (v1.87.0+)
 8.5. **PRE-SHIP VALIDATION** — Zero-LLM-cost dual-gate completion check (artifact integrity + quality signals)
 8.55. **RELEASE QUALITY CHECK** — Codex cross-model release artifact validation (v1.87.0+)
-9.1. **BOT_REVIEW_WAIT** — Poll for bot reviews (CI, linters, security scanners) before shipping (v1.88.0+, opt-in via `arc.ship.bot_review.enabled`)
-9.2. **PR_COMMENT_RESOLUTION** — Multi-round loop to resolve bot/human PR review comments with hallucination checking (v1.88.0+, opt-in)
 9. **SHIP** — Auto PR creation via `gh pr create` with generated template (skip with `--no-pr`)
+9.1. **BOT_REVIEW_WAIT** — Poll for bot reviews (CI, linters, security scanners) after shipping (v1.88.0+, opt-in via `arc.ship.bot_review.enabled`)
+9.2. **PR_COMMENT_RESOLUTION** — Multi-round loop to resolve bot/human PR review comments with hallucination checking (v1.88.0+, opt-in)
 9.5. **MERGE** — Rebase onto target branch + auto squash-merge with pre-merge checklist (skip with `--no-merge`)
 
 Note: Phase numbers match the internal arc skill pipeline (Phases 3-4 are internal forge/plan-review and not shown in this summary).
@@ -673,7 +676,7 @@ Summoned during `/rune:strive` as self-organizing swarm workers:
 | Skill | Purpose |
 |-------|---------|
 | agent-browser | Browser automation knowledge injection for E2E testing (non-invocable) |
-| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 26 phases: forge → plan review → plan refinement → verification → semantic verification → task decomposition → design extraction → work → design verification → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → design iteration → test → test coverage critique → pre-ship validation → release quality check → bot review wait → PR comment resolution → ship → merge) |
+| arc | End-to-end orchestration pipeline (pre-flight freshness gate + 26 phases: forge → plan review → plan refinement → verification → semantic verification → design extraction → task decomposition → work → design verification → gap analysis → codex gap analysis → gap remediation → goldmask verification → code review → goldmask correlation → mend → verify mend → design iteration → test → test coverage critique → pre-ship validation → release quality check → ship → bot review wait → PR comment resolution → merge) |
 | arc-batch | Sequential batch arc execution with crash recovery and progress tracking |
 | arc-hierarchy | Hierarchical plan execution — parent/child plan decomposition with dependency DAGs and requires/provides contracts |
 | arc-issues | GitHub Issues-driven batch arc execution — fetch issues by label, generate plans, run arc, post results |

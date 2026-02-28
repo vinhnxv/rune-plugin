@@ -52,7 +52,7 @@ _rune_lock_safe() {
 # Helper: write meta.json atomically using jq (SEC-002: safe JSON escaping)
 _rune_write_meta() {
   local lock_dir="$1" workflow="$2" class="$3"
-  local _cfg="${RUNE_CURRENT_CFG:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}}"
+  local _cfg="${RUNE_CURRENT_CFG:-$(cd "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P || echo "${CLAUDE_CONFIG_DIR:-$HOME/.claude}")}"
   jq -n \
     --arg wf "$workflow" --arg cls "$class" --argjson pid "$PPID" \
     --arg cfg "$_cfg" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -86,7 +86,7 @@ rune_acquire_lock() {
     stored_cfg=$(jq -r '.config_dir // empty' "$lock_dir/meta.json" 2>/dev/null || true)
 
     # Different installation → not our concern
-    local _current_cfg="${RUNE_CURRENT_CFG:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}}"
+    local _current_cfg="${RUNE_CURRENT_CFG:-$(cd "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P || echo "${CLAUDE_CONFIG_DIR:-$HOME/.claude}")}"
     [[ -n "$stored_cfg" && "$stored_cfg" != "$_current_cfg" ]] && return 1
     # Same session → re-entrant (e.g., arc delegating to strive)
     [[ -n "$stored_pid" && "$stored_pid" == "$PPID" ]] && return 0
@@ -172,7 +172,7 @@ rune_check_conflicts() {
     stored_class=$(jq -r '.class // "writer"' "$lock_dir/meta.json" 2>/dev/null || true)
 
     # Skip different installations
-    local _current_cfg="${RUNE_CURRENT_CFG:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}}"
+    local _current_cfg="${RUNE_CURRENT_CFG:-$(cd "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P || echo "${CLAUDE_CONFIG_DIR:-$HOME/.claude}")}"
     [[ -n "$stored_cfg" && "$stored_cfg" != "$_current_cfg" ]] && continue
     # Skip same session (re-entrant)
     [[ -n "$stored_pid" && "$stored_pid" == "$PPID" ]] && continue
