@@ -361,8 +361,45 @@ CROSS-VERIFIED P1 → CROSS-VERIFIED P2 → DISPUTED → CLD P1 → CDX P1 → r
 // Remove readonly marker (review complete)
 Bash(`rm -f tmp/.rune-signals/${teamName}/.readonly-active`)
 
-// Teardown team
-TeamDelete({ team_name: teamName })
+// Dynamic member discovery — reads team config to find ALL teammates
+let allMembers = []
+try {
+  const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+  const teamConfig = Read(`${CHOME}/teams/${teamName}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
+} catch (e) {
+  // FALLBACK: all possible Claude + Codex agents (safe to send shutdown to absent members)
+  allMembers = ["claude-security-reviewer", "claude-bug-hunter", "claude-quality-analyzer",
+    "claude-dead-code-finder", "claude-performance-analyzer",
+    "codex-security", "codex-bugs", "codex-quality", "codex-performance"]
+}
+
+// Shutdown all discovered members
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Codex review complete" })
+}
+
+// Grace period — let teammates deregister before TeamDelete
+if (allMembers.length > 0) {
+  Bash(`sleep 15`)
+}
+
+// TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+let cleanupTeamDeleteSucceeded = false
+const CLEANUP_DELAYS = [0, 5000, 10000]
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupTeamDeleteSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`codex-review cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+if (!cleanupTeamDeleteSucceeded) {
+  // Filesystem fallback with CHOME
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+  // Post-rm-rf TeamDelete to clear SDK leadership state
+  try { TeamDelete() } catch (e) { /* best effort */ }
+}
 
 // Update state file
 updateStateFile(identifier, { phase: "completed", status: "completed" })

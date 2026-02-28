@@ -304,8 +304,16 @@ Read and execute [tome-aggregation.md](references/tome-aggregation.md) for the f
 ```javascript
 // 1. Dynamic teammate discovery from team config
 const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
-const teamConfig = Read(`${CHOME}/teams/${teamName}/config.json`)
-const allMembers = teamConfig.members.map(m => m.name)
+let allMembers = []
+try {
+  const teamConfig = Read(`${CHOME}/teams/${teamName}/config.json`)
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
+} catch (e) {
+  // FALLBACK: built-in Ashes + runebinder (safe to send shutdown to absent members)
+  allMembers = ["forge-warden", "ward-sentinel", "pattern-weaver", "veil-piercer",
+    "glyph-scribe", "knowledge-keeper", "codex-oracle", "runebinder"]
+}
 for (const member of allMembers) {
   SendMessage({ type: "shutdown_request", recipient: member, content: "Review complete" })
 }

@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.120.4] - 2026-02-28
+
+### Fixed
+- **Task→Agent rename straggler in design-sync** — `design-sync/SKILL.md` had 4 remaining `Task(`
+  pseudocode instances missed by PR #172 (v1.120.2). Renamed to `Agent(` for Claude Code 2.1.63
+  compatibility.
+- **devise Phase 6 fallback shutdown array gap** — `devise/SKILL.md` Phase 6 cleanup had an
+  empty fallback `allMembers = []` when dynamic member discovery failed. This meant zero agents
+  would receive `shutdown_request` if team config was unreadable — causing zombie teammates that
+  block `TeamDelete`. Added fallback array with all known plan-review agents (scroll-reviewer,
+  decree-arbiter, knowledge-keeper, veil-piercer-plan, horizon-sage, evidence-verifier,
+  doubt-seer, codex-plan-reviewer). Also added cleanup note to `plan-review.md` clarifying that
+  Phase 4 reviewers share the devise team — cleanup belongs at Phase 6, not Phase 4C.
+- **arc plan-review fallback shutdown array gap** — `arc-phase-plan-review.md` cleanup fallback
+  array was missing `veil-piercer-plan` (always spawned, core 4) and `codex-plan-reviewer`
+  (conditionally spawned). If dynamic member discovery failed, these agents would not receive
+  `shutdown_request` — causing zombie teammates that block `TeamDelete`.
+- **codex-review cleanup gap (HIGH)** — `codex-review/SKILL.md` had bare `TeamDelete()` with no
+  `shutdown_request`, no grace period, no retry-with-backoff, no filesystem fallback. Added full
+  standard cleanup: dynamic member discovery with fallback array (5 Claude + 4 Codex agents),
+  shutdown_request loop, 15s grace period, 3-attempt retry-with-backoff, CHOME filesystem fallback.
+- **Standardized TeamDelete retry-with-backoff across 6 arc phase files** — Upgraded single-attempt
+  `TeamDelete()` to standard 3-attempt retry-with-backoff (0s, 5s, 10s) with filesystem fallback
+  gated behind `!cleanupTeamDeleteSucceeded` in: `arc-phase-design-extraction.md`,
+  `arc-phase-design-verification.md`, `arc-phase-design-iteration.md`, `arc-phase-test.md`,
+  `gap-analysis.md` (STEP B.10), `gap-remediation.md` (STEP 9), `arc-phase-mend.md` (sage team).
+- **appraise Phase 7 cleanup crash resilience** — `appraise/SKILL.md` Phase 7 dynamic member
+  discovery had no `try/catch` around `Read(config.json)` — if the team config file was unreadable
+  (race condition, permission error, partial write), the entire cleanup block would crash, leaving
+  zombie teammates and orphaned team directories. Added `try/catch` with `Array.isArray()` guard,
+  SEC-4 member name validation (`/^[a-zA-Z0-9_-]+$/`), and fallback array of all 8 built-in Ashes
+  (forge-warden, ward-sentinel, pattern-weaver, veil-piercer, glyph-scribe, knowledge-keeper,
+  codex-oracle, runebinder).
+- **debug Phase 4 cleanup gap (HIGH)** — `debug/SKILL.md` Phase 4 had `shutdown_request` and grace
+  period but was missing retry-with-backoff TeamDelete, filesystem fallback, and dynamic member
+  discovery. Used hardcoded `investigator-{N}` loop with no fallback if team config was unreadable.
+  Added full standard cleanup: dynamic member discovery with `config.json` read + SEC-4 validation,
+  fallback to investigator index array, 3-attempt retry-with-backoff, CHOME filesystem fallback
+  gated behind `!cleanupTeamDeleteSucceeded`.
+- **design-sync Phase 4 cleanup gap (CRITICAL)** — `design-sync/SKILL.md` Phase 4 cleanup was
+  entirely skeletal — comment placeholders with no actual cleanup logic. `shutdown_request` was a
+  bare comment, no grace period, bare `TeamDelete()` with no retry, no filesystem fallback, no
+  member discovery. Added full standard cleanup: dynamic member discovery with `config.json` read +
+  SEC-4 validation, fallback array of all 8 known workers across 3 phases (design-syncer-1/2,
+  rune-smith-1/2/3, design-iter-1/2, design-reviewer-1), shutdown_request loop, 15s grace period,
+  3-attempt retry-with-backoff, CHOME filesystem fallback.
+
 ## [1.120.3] - 2026-02-28
 
 ### Fixed

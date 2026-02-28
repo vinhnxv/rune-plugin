@@ -179,7 +179,7 @@ System prompt for the agent in Markdown...
 - Subagents receive ONLY their system prompt + environment details — NOT the full Claude Code system prompt.
 - Subagents CANNOT spawn other subagents. No nesting.
 - Background subagents auto-deny permissions not pre-approved.
-- `tools: Task(worker, researcher)` restricts which subagent types can be spawned (main thread only).
+- `tools: Agent(worker, researcher)` restricts which subagent types can be spawned (main thread only).
 - Skills passed to subagents are FULLY injected at startup — not loaded on demand.
 
 ### Persistent Memory
@@ -247,6 +247,59 @@ System prompt auto-includes first 200 lines of `MEMORY.md`. Read/Write/Edit auto
 - Use `delegate` mode to prevent lead from implementing
 - Require plan approval for risky tasks: `plan_mode_required`
 - Start with research/review tasks before parallel implementation
+
+### Agent Team Cleanup (MANDATORY)
+
+Every workflow that creates an agent team via `TeamCreate` **MUST** clean up with the full 5-component standard pattern before completing. Orphaned teams leak processes, block future `TeamCreate` calls, and waste resources.
+
+**Standard cleanup pattern** (all 5 components required):
+
+```javascript
+// 1. Dynamic member discovery — read team config for ALL teammates
+let allMembers = []
+try {
+  const CHOME = Bash(`echo "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}"`).trim()
+  const teamConfig = JSON.parse(Read(`${CHOME}/teams/${teamName}/config.json`))
+  const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
+  allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
+} catch (e) {
+  // FALLBACK: hardcoded list of all known teammates for this workflow
+  allMembers = ["agent-1", "agent-2", "agent-3"]
+}
+
+// 2. shutdown_request to all members
+for (const member of allMembers) {
+  SendMessage({ type: "shutdown_request", recipient: member, content: "Workflow complete" })
+}
+
+// 3. Grace period — let teammates deregister before TeamDelete
+if (allMembers.length > 0) { Bash("sleep 15") }
+
+// 4. TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+let cleanupTeamDeleteSucceeded = false
+const CLEANUP_DELAYS = [0, 5000, 10000]
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupTeamDeleteSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+
+// 5. Filesystem fallback — only if TeamDelete never succeeded (QUAL-012)
+if (!cleanupTeamDeleteSucceeded) {
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${teamName}/" "$CHOME/tasks/${teamName}/" 2>/dev/null`)
+  try { TeamDelete() } catch (e) { /* best effort — clear SDK leadership state */ }
+}
+```
+
+**Rules:**
+- **Use `Agent` tool** (not `Task`) for spawning teammates — renamed in Claude Code 2.1.63 (see PR #172)
+- **Never skip cleanup** — even on error paths, wrap the main workflow in try/finally
+- **Fallback arrays must be complete** — list ALL teammates that could be spawned by the workflow, including conditional ones (safe to send `shutdown_request` to absent members)
+- **SEC-4 validation** — always filter member names with `/^[a-zA-Z0-9_-]+$/` before use in `SendMessage`
+- **QUAL-012** — gate filesystem fallback behind `!cleanupTeamDeleteSucceeded` to avoid unnecessary `rm -rf` when TeamDelete already succeeded
+- **CHOME pattern** — never hardcode `~/.claude/` in `Bash()` cleanup commands; use `${CLAUDE_CONFIG_DIR:-$HOME/.claude}`
+- **Shared vs separate teams** — if a workflow uses ONE team across multiple phases (e.g., devise), cleanup belongs at the FINAL phase only — not at intermediate phases
 
 ### Display Modes
 

@@ -86,11 +86,18 @@ waitForCompletion(["design-reviewer-1"], { timeoutMs: 360_000 })
 SendMessage({ type: "shutdown_request", recipient: "design-reviewer-1" })
 sleep(15_000)
 
-try {
-  TeamDelete()
-} catch (e) {
-  const CHOME = process.env.CLAUDE_CONFIG_DIR || `${HOME}/.claude`
-  Bash(`rm -rf "${CHOME}/teams/arc-design-verify-${id}" "${CHOME}/tasks/arc-design-verify-${id}" 2>/dev/null`)
+// TeamDelete with retry-with-backoff (3 attempts: 0s, 5s, 10s)
+let cleanupTeamDeleteSucceeded = false
+const CLEANUP_DELAYS = [0, 5000, 10000]
+for (let attempt = 0; attempt < CLEANUP_DELAYS.length; attempt++) {
+  if (attempt > 0) Bash(`sleep ${CLEANUP_DELAYS[attempt] / 1000}`)
+  try { TeamDelete(); cleanupTeamDeleteSucceeded = true; break } catch (e) {
+    if (attempt === CLEANUP_DELAYS.length - 1) warn(`design-verification cleanup: TeamDelete failed after ${CLEANUP_DELAYS.length} attempts`)
+  }
+}
+if (!cleanupTeamDeleteSucceeded) {
+  Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/arc-design-verify-${id}/" "$CHOME/tasks/arc-design-verify-${id}/" 2>/dev/null`)
+  try { TeamDelete() } catch (e) { /* best effort */ }
 }
 
 // 8. Read findings

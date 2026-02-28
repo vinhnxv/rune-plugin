@@ -320,7 +320,9 @@ try {
   const members = Array.isArray(teamConfig.members) ? teamConfig.members : []
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
-  allMembers = []  // Team config unavailable — no members to shutdown
+  // FALLBACK: known teammates across all devise phases (some are conditional — safe to send shutdown to absent members)
+  allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper", "veil-piercer-plan",
+    "horizon-sage", "evidence-verifier", "doubt-seer", "codex-plan-reviewer"]
 }
 
 // Shutdown all discovered members

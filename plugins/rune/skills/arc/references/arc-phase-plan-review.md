@@ -472,8 +472,9 @@ try {
   // SEC-4 FIX: Validate member names against safe pattern before use in SendMessage
   allMembers = members.map(m => m.name).filter(n => n && /^[a-zA-Z0-9_-]+$/.test(n))
 } catch (e) {
-  // FALLBACK: Phase 2 plan review — core reviewers summoned in this phase (horizon-sage, evidence-verifier are conditional)
-  allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper", "horizon-sage", "evidence-verifier"]
+  // FALLBACK: Phase 2 plan review — core reviewers summoned in this phase (horizon-sage, evidence-verifier, codex-plan-reviewer are conditional)
+  allMembers = ["scroll-reviewer", "decree-arbiter", "knowledge-keeper", "veil-piercer-plan",
+    "horizon-sage", "evidence-verifier", "codex-plan-reviewer"]
 }
 
 // Shutdown all discovered members

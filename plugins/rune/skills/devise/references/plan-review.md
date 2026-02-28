@@ -485,6 +485,10 @@ const techReviewResult = waitForCompletion("rune-plan-{timestamp}", reviewerCoun
 If any reviewer returns BLOCK verdict: address before presenting to user.
 If CONCERN verdicts: include as warnings in the plan presentation.
 
+**Cleanup note**: Phase 4 reviewers are spawned into the shared `rune-plan-{timestamp}` team.
+Do NOT TeamDelete here — cleanup is handled by devise Phase 6 (Cleanup & Present) which
+shuts down ALL teammates across all phases and deletes the team.
+
 ## 4C.5: Implementation Correctness Review (conditional)
 
 When the plan contains fenced code blocks (bash, javascript, python, ruby, typescript, sh, go, rust, yaml, json, toml), offer to run the inspect agents for implementation correctness review. This delegates to `/rune:inspect --mode plan`.
