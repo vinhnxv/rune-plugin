@@ -477,8 +477,22 @@ for f in "${CWD}/tmp/"/.rune-force-shutdown-*.json; do
 done
 shopt -u nullglob
 
+# ── AUTO-CLEAN PHASE 4: Orphaned git worktrees (rune-work-*) ──
+# WORKTREE-GC: Remove when SDK provides native worktree lifecycle management
+# Catches worktrees left behind when strive Phase 6 was never reached.
+# Uses shared GC library for session-safe cleanup.
+cleaned_worktrees=""
+if [[ -f "${SCRIPT_DIR}/lib/worktree-gc.sh" ]]; then
+  # shellcheck source=lib/worktree-gc.sh
+  source "${SCRIPT_DIR}/lib/worktree-gc.sh"
+  cleaned_worktrees=$(rune_worktree_gc "$CWD" "session-stop")
+  # session-stop mode caps at 3 worktrees to stay within 5s timeout budget
+fi
+
 # ── REPORT ──
-total=$((${#cleaned_teams[@]} + ${#cleaned_states[@]} + ${#cleaned_arcs[@]} + cleaned_processes))
+wt_count=0
+[[ -n "$cleaned_worktrees" ]] && wt_count=1
+total=$((${#cleaned_teams[@]} + ${#cleaned_states[@]} + ${#cleaned_arcs[@]} + cleaned_processes + wt_count))
 
 if [[ $total -eq 0 ]]; then
   # Nothing to clean — allow stop silently
@@ -508,6 +522,10 @@ fi
 
 if [[ "$cleaned_processes" -gt 0 ]]; then
   summary="${summary} Processes: ${cleaned_processes} terminated."
+fi
+
+if [[ -n "$cleaned_worktrees" ]]; then
+  summary="${summary} ${cleaned_worktrees}"
 fi
 
 # Log to trace file for debugging (always, not just RUNE_TRACE)

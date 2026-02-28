@@ -158,6 +158,22 @@ includes additional fields:
 - **SDK canary**: Phase 0 validates `isolation: "worktree"` support before proceeding
 - **Experimental**: Worktree mode is marked experimental in initial release
 
+## Safety Net (Worktree Lifecycle Guard)
+
+When Phase 6 cleanup is not reached (crash, session end, agent idle), three safety nets
+ensure worktrees are eventually cleaned:
+
+1. **Stop hook** (`on-session-stop.sh` Phase 4): Auto-cleans orphaned `rune-work-*` worktrees on session exit (capped at 3 for timeout budget)
+2. **SessionStart** (`session-team-hygiene.sh`): Detects orphaned worktrees, reports to user
+3. **`/rune:rest`**: Manual cleanup via standard mode or `--heal`
+
+All three use the shared `scripts/lib/worktree-gc.sh` library with:
+- PID liveness checks (never cleans live sessions' worktrees)
+- `config_dir` isolation (cross-installation safety)
+- `jq` dependency guard (fail-open if missing)
+- Path traversal + symlink guards
+- Salvage patches for uncommitted work (rest mode only)
+
 ## References
 
 - [worktree-merge.md](../strive/references/worktree-merge.md) — Merge broker algorithm, conflict handling, cleanup
