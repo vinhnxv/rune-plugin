@@ -188,7 +188,7 @@ const postMendStateFiles = Glob("tmp/.rune-mend-*.json").filter(f => {
     return isRelevant && isValidAge
   } catch (e) { return false }
 })
-// BACK-008 FIX: Sort by modification time (newest first) to pick most recent state file
+// BACK-008 FIX: Sort by name descending (newest-timestamped first) to pick most recent state file
 postMendStateFiles.sort((a, b) => b.localeCompare(a))
 if (postMendStateFiles.length > 1) {
   warn(`Multiple mend state files found (${postMendStateFiles.length}) — using most recent`)
@@ -232,7 +232,13 @@ updateCheckpoint({
 let reviewTodosBase = null
 
 // Step 1: Arc checkpoint (preferred — always available in arc context)
-const arcCheckpoints = Glob(".claude/arc/*/checkpoint.json").sort().reverse()
+// BACK-005 FIX: Filter to the current arc's checkpoint by id — not all arc checkpoints.
+// In arc-batch/arc-hierarchy, globbing all checkpoints and sorting by filename
+// could pick a different arc's checkpoint (wrong todos_base). Use the exact path.
+const currentArcCheckpoint = `.claude/arc/${id}/checkpoint.json`
+const arcCheckpoints = exists(currentArcCheckpoint)
+  ? [currentArcCheckpoint]
+  : Glob(".claude/arc/*/checkpoint.json").filter(f => f.includes(`/arc-${id.replace(/^arc-/, '')}/`)).sort().reverse()
 for (const ckpt of arcCheckpoints) {
   try {
     const c = JSON.parse(Read(ckpt))
@@ -254,9 +260,18 @@ if (!reviewTodosBase) {
 }
 
 // Step 3: Derive from TOME path (last resort)
+// BACK-006 FIX: The regex /\/[^/]+\.md$/ fails silently if tomeSource doesn't end with
+// /filename.md (e.g. missing .md extension, trailing slash, or unexpected format).
+// Use explicit dirname extraction: strip last path segment after final '/', then append 'todos/'.
+// Also add a null/empty guard so a failed derivation doesn't produce a bogus path.
 if (!reviewTodosBase) {
-  const tomeDir = tomeSource.replace(/\/[^/]+\.md$/, '/')
-  reviewTodosBase = `${tomeDir}todos/`
+  const lastSlash = tomeSource.lastIndexOf('/')
+  const tomeDir = lastSlash > 0 ? tomeSource.slice(0, lastSlash + 1) : null
+  if (tomeDir && !tomeDir.includes('..') && tomeDir.startsWith('tmp/')) {
+    reviewTodosBase = `${tomeDir}todos/`
+  } else {
+    warn(`Could not derive todos_base from TOME path: ${tomeSource} — skipping todos verification`)
+  }
 }
 
 if (reviewTodosBase) {

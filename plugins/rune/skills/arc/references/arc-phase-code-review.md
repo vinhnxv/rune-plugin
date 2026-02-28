@@ -184,7 +184,7 @@ if (postReviewStateFiles.length > 0) {
 const phaseStartTime = checkpoint.phases.code_review?.started_at ? new Date(checkpoint.phases.code_review.started_at).getTime() : Date.now() - PHASE_TIMEOUTS.code_review
 const tomeCandidates = Glob('tmp/reviews/review-*/TOME.md')
   .filter(f => {
-    try { return Bash(`stat -f %m "${f}" 2>/dev/null || stat -c %Y "${f}" 2>/dev/null`).trim() * 1000 >= phaseStartTime } catch (e) { return true }
+    try { const mtime = parseInt(Bash(`stat -f %m "${f}" 2>/dev/null || stat -c %Y "${f}" 2>/dev/null`).trim(), 10); return Number.isNaN(mtime) ? true : mtime * 1000 >= phaseStartTime } catch (e) { return true }
   })
   .sort().reverse()
 // BUG FIX: Lift tomeTarget to outer scope — needed by STEP 5 checkpoint update.
@@ -213,11 +213,50 @@ updateCheckpoint({
 })
 
 // STEP 5.5: Post-Phase 6 todos verification (non-blocking)
-// Read todos_base from review state file — set by Phase 5.4 in orchestration-phases.md
-const reviewStatePath = postReviewStateFiles.length > 0 ? postReviewStateFiles[0] : null
-const reviewTodosBase = reviewStatePath
-  ? (() => { try { return JSON.parse(Read(reviewStatePath)).todos_base || null } catch { return null } })()
-  : null
+// 3-step resolution: arc checkpoint → review state file → TOME path derivation
+// QUAL-007 FIX: Previous single-step pattern failed silently if state file was missing.
+// Now mirrors arc-phase-mend.md 3-step pattern for consistency and resilience.
+let reviewTodosBase = null
+
+// Step 1: Arc checkpoint (preferred — always available in arc context)
+// Use exact arc checkpoint path to avoid picking a different arc's checkpoint in arc-batch/hierarchy.
+const currentArcCheckpoint = `.claude/arc/${id}/checkpoint.json`
+const arcCheckpoints = exists(currentArcCheckpoint)
+  ? [currentArcCheckpoint]
+  : Glob(".claude/arc/*/checkpoint.json").filter(f => f.includes(`/arc-${id.replace(/^arc-/, '')}/`)).sort().reverse()
+for (const ckpt of arcCheckpoints) {
+  try {
+    const c = JSON.parse(Read(ckpt))
+    if (c.todos_base && c.phases?.code_review?.status !== "pending") {
+      reviewTodosBase = c.todos_base
+      break
+    }
+  } catch {}
+}
+
+// Step 2: Review state file (fallback — state file may be missing or stale)
+if (!reviewTodosBase) {
+  const reviewStatePath = postReviewStateFiles.length > 0 ? postReviewStateFiles[0] : null
+  if (reviewStatePath) {
+    try { reviewTodosBase = JSON.parse(Read(reviewStatePath)).todos_base || null } catch {}
+  }
+  if (!reviewTodosBase) {
+    warn(`Post-review todos verification: state file missing or todos_base not set — trying TOME path derivation`)
+  }
+}
+
+// Step 3: Derive from TOME path (last resort)
+// Use explicit dirname extraction to avoid regex silent failure on unexpected TOME path formats.
+if (!reviewTodosBase) {
+  const lastSlash = tomeTarget.lastIndexOf('/')
+  const tomeDir = lastSlash > 0 ? tomeTarget.slice(0, lastSlash + 1) : null
+  if (tomeDir && !tomeDir.includes('..') && tomeDir.startsWith('tmp/')) {
+    reviewTodosBase = `${tomeDir}todos/`
+  } else {
+    warn(`Could not derive todos_base from TOME path: ${tomeTarget} — skipping todos verification`)
+  }
+}
+
 if (reviewTodosBase) {
   const reviewTodos = Glob(`${reviewTodosBase}review/[0-9][0-9][0-9]-*.md`)
   log(`Todos verification: ${reviewTodos.length} review todos generated from TOME`)

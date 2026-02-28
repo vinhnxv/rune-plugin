@@ -29,7 +29,7 @@ function resolveSessionContext(args: string): string {
     .filter(f => /\.rune-(work|review|audit|mend|arc)-/.test(f))
   const activeStates = stateFiles
     .map(f => { try { return JSON.parse(Read(f)) } catch { return null } })
-    .filter(s => s && s.status === "active" && s.todos_base)
+    .filter(s => s && s.status === "active" && (s.todos_base || s.id))
     .sort((a, b) => new Date(b.started) - new Date(a.started))
 
   if (activeStates.length > 0) {

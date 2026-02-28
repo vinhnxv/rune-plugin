@@ -7,7 +7,7 @@
 | Field | Value |
 |-------|-------|
 | **Input** | `TOME.md` with `<!-- RUNE:FINDING -->` markers (post Phase 5/5.2/5.3) |
-| **Output** | Per-finding todo files in `{todosDir}/{source}/` |
+| **Output** | Per-finding todo files in `{todosDir}` |
 | **Mandatory** | YES — no skip conditions, no `--todos=false` escape hatch |
 | **Sole writer** | Tarnished orchestrator only (workers append Work Log sections only) |
 | **Runs after** | Phase 5.3 (diff-scope tagging) so scope attributes are available |
@@ -24,6 +24,7 @@ if (!workflowOutputDir || !SAFE_PATH_PATTERN.test(workflowOutputDir) || workflow
 // CRITICAL: omitting SAFE_PATH_PATTERN is a path traversal vulnerability
 const todosBase = `${workflowOutputDir.replace(/\/?$/, '/')}todos/`
 const VALID_SOURCES = new Set(["work", "review", "audit", "pr-comment", "tech-debt"])
+if (!VALID_SOURCES.has(source)) throw new Error(`Invalid source: ${source}`)
 const todosDir = `${todosBase}${source}/`  // source = "review" | "audit"
 Bash(`mkdir -p "${todosDir}"`)
 // Examples: tmp/reviews/{id}/todos/review/, tmp/audit/{id}/todos/audit/, tmp/arc/{id}/todos/review/
@@ -31,7 +32,7 @@ Bash(`mkdir -p "${todosDir}"`)
 
 ## Step 2: Session Nonce Recovery
 
-**GUARD (SEC-010 / BACK-005)**: `sessionNonce` MUST be defined before extraction. Re-read from `inscription.json` if lost (post-compaction). Validate format: 8-char hex (`/^[0-9a-f]{8}$/i`).
+**GUARD (SEC-010 / BACK-005)**: `sessionNonce` MUST be defined before extraction. Re-read from `inscription.json` if lost (post-compaction). Validate format: 8 char hex (`/^[0-9a-f]{8}$/i`).
 
 ```javascript
 if (!sessionNonce) {
@@ -113,7 +114,7 @@ Sequential ID per source subdirectory (`001`-`999`, 4-digit if >999). Idempotenc
 ```javascript
 const existingFiles = Glob(`${todosDir}[0-9][0-9][0-9]-*.md`)
 let nextId = existingFiles.length > 0
-  ? Math.max(...existingFiles.map(f => parseInt(f.match(/(\d+)-/)[1], 10))) + 1
+  ? Math.max(...existingFiles.map(f => parseInt(f.split('/').pop().match(/^(\d+)-/)?.[1] || '0', 10))) + 1
   : 1
 // Per finding: skip if existing todo has same finding_id + source_ref (idempotent)
 ```

@@ -770,7 +770,8 @@ ${verdicts.map(v => `| ${v.id} | \`${v.file}\` | ${v.line} | **${v.result}** | $
   // E-ARCH-5: Update arc checkpoint after Phase 5.2 completes
   // Prevents re-running citation verification on session resume
   try {
-    const checkpointPath = `${outputDir}../checkpoint.json`
+    const arcDir = outputDir.split('/').slice(0, -2).join('/')
+    const checkpointPath = `${arcDir}/checkpoint.json`
     const checkpoint = JSON.parse(Read(checkpointPath))
     // BACK-015: Validate checkpoint is a non-null object before mutation
     if (typeof checkpoint === 'object' && checkpoint !== null) {
@@ -1129,11 +1130,11 @@ const todoFiles = [
 const manifestPath = `${expectedTodosDir}todos-${workflowType}-manifest.json`
 
 // Nonce recovery (MANDATORY for late Phase 5.4 execution)
-let sessionNonce = inscription?.sessionNonce
+let sessionNonce = inscription?.session_nonce
 if (!sessionNonce) {
   try {
     const inscriptionData = JSON.parse(Read(`${outputDir}inscription.json`))
-    sessionNonce = inscriptionData.sessionNonce
+    sessionNonce = inscriptionData.session_nonce
   } catch {}
 }
 
@@ -1150,15 +1151,8 @@ if (todoFiles.length === 0) {
   }
 }
 
-// MANDATORY: Record todos_base via read-then-write merge
+// 4. Update state file (includes todos_base to preserve it across the write)
 const currentState = JSON.parse(Read(`${stateFilePrefix}-${identifier}.json`))
-const mergedState = {
-  ...currentState,
-  todos_base: currentState.todos_base || resolveTodosBase(outputDir)
-}
-Write(`${stateFilePrefix}-${identifier}.json`, JSON.stringify(mergedState))
-
-// 4. Update state file
 Write(`${stateFilePrefix}-${identifier}.json`, {
   team_name: `${teamPrefix}-${identifier}`,
   started: timestamp,
@@ -1166,7 +1160,8 @@ Write(`${stateFilePrefix}-${identifier}.json`, {
   completed: new Date().toISOString(),
   config_dir: configDir,
   owner_pid: ownerPid,
-  session_id: sessionId
+  session_id: sessionId,
+  todos_base: currentState.todos_base || resolveTodosBase(outputDir)
 })
 
 // 5. Persist learnings to Rune Echoes
