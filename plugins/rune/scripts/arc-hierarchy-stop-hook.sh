@@ -565,9 +565,9 @@ sed 's/^compact_pending: true$/compact_pending: false/' "$STATE_FILE" > "$_STATE
   || { rm -f "$_STATE_TMP" "$STATE_FILE" 2>/dev/null; exit 0; }
 _trace "Compact interlude Phase B: context checkpointed, proceeding to child arc prompt"
 
-# ── GUARD 11: Context-critical check before arc prompt injection (F-13 fix) ──
+# ── GUARD 12: Context-critical check before arc prompt injection (F-13 fix) ──
 if _check_context_critical 2>/dev/null; then
-  _pause_hierarchy "GUARD 11: Context critical at Phase B of compact interlude (child ${CURRENT_CHILD})"
+  _pause_hierarchy "GUARD 12: Context critical at Phase B of compact interlude (child ${CURRENT_CHILD})"
 fi
 
 # ── Mark next child as in_progress in execution table ──
