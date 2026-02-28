@@ -24,7 +24,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[--deep] [--focus <area>] [--max-agents <N>] [--dry-run] [--no-lore] [--deep-lore] [--standard] [--todos-dir <path>] [--incremental] [--resume] [--status] [--reset] [--tier <file|workflow|api|all>] [--force-files <glob>] [--dirs <path,...>] [--exclude-dirs <path,...>] [--prompt <text>] [--prompt-file <path>]"
+argument-hint: "[--deep] [--focus <area>] [--max-agents <N>] [--dry-run] [--no-lore] [--deep-lore] [--standard] [--incremental] [--resume] [--status] [--reset] [--tier <file|workflow|api|all>] [--force-files <glob>] [--dirs <path,...>] [--exclude-dirs <path,...>] [--prompt <text>] [--prompt-file <path>]"
 allowed-tools:
   - Agent
   - TaskCreate
@@ -63,7 +63,6 @@ Thin wrapper that sets audit-specific parameters, then delegates to the shared R
 | `--deep-lore` | Run Lore Layer on ALL files (default: Tier 1 only) | Off |
 | `--deep` | Run multi-wave deep audit with deep investigation Ashes | On (default for audit) |
 | `--standard` | Override default deep mode — run single-wave standard audit | Off |
-| `--todos-dir <path>` | Override base todos directory (used by arc to scope todos to `tmp/arc/{id}/todos/`). Threaded to roundtable-circle Phase 5.4 | None |
 | `--incremental` | Enable incremental stateful audit — prioritized batch selection with persistent audit history | Off |
 | `--resume` | Resume interrupted incremental audit from checkpoint | Off |
 | `--status` | Show coverage report only (no audit performed) | Off |

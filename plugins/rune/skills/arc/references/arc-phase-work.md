@@ -94,6 +94,14 @@ if (postWorkStateFiles.length > 0) {
   }
 }
 
+// Post-work todos verification (non-blocking)
+if (checkpoint.todos_base) {
+  const workTodos = Glob(`${checkpoint.todos_base}work/[0-9][0-9][0-9]-*.md`)
+  log(`Work todos: ${workTodos.length} task files generated`)
+} else {
+  log("todos_base not yet initialized — skipping todo verification")
+}
+
 // STEP 5: Update checkpoint
 updateCheckpoint({
   phase: "work", status: completedRatio >= 0.5 ? "completed" : "failed",

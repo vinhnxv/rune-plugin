@@ -16,7 +16,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[tome-path] [--output-dir <path>] [--timeout <ms>] [--todos-dir <path>]"
+argument-hint: "[tome-path] [--output-dir <path>] [--timeout <ms>]"
 allowed-tools:
   - Agent
   - TaskCreate
@@ -55,7 +55,6 @@ Parses a TOME file for structured findings, groups them by file to prevent concu
 |------|-------------|---------|
 | `--output-dir <path>` | Custom output directory for resolution report | `tmp/mend/{id}/` |
 | `--timeout <ms>` | Outer time budget in milliseconds. Inner polling timeout is derived: `timeout - SETUP_BUDGET(5m) - MEND_EXTRA_BUDGET(3m)`, minimum 120,000ms. Used by arc to propagate phase budgets. | `900_000` (15 min standalone) |
-| `--todos-dir <path>` | Base directory for file-todos. Arc passes `tmp/arc/{id}/todos/`. Mend scans all subdirectories (`{base}*/[0-9][0-9][0-9]-*.md`) for cross-source `finding_id` matching. | `(resolved from session context — session-scoped, no project-root override)` |
 
 ## Pipeline Overview
 
@@ -324,7 +323,7 @@ After all fixes are applied and verified, update corresponding file-todos for re
 **Read and execute** the full protocol from [todo-update-phase.md](references/todo-update-phase.md).
 
 **Algorithm summary** (7 steps):
-1. **Resolve `todos_base`** — from TOME path (cross-write isolation): `TOME path → strip filename → append 'todos/'`. E.g., `tmp/arc/{id}/tome.md` → `tmp/arc/{id}/todos/`. The `--todos-dir` flag is an alternative override (see command signature)
+1. **Resolve `todos_base`** — from TOME path (cross-write isolation): `TOME path → strip filename → append 'todos/'`. E.g., `tmp/arc/{id}/tome.md` → `tmp/arc/{id}/todos/`. Session-scoped model resolves `todos_base` from `workflowOutputDir` automatically
 2. **Read manifest** — parse `{todos_base}{source}/manifest.json` for indexed todo entries
 3. **Set claim** — mark matched todo as `in_progress` (orchestrator claim lock)
 4. **Update frontmatter** — set `status`, `resolution`, `resolution_reason`, `updated` date

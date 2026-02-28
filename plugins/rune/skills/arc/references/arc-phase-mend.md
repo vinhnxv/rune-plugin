@@ -163,7 +163,7 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
 // - Team name prefix: arc-mend-{id}
 // - Root cause context: if elicitation-root-cause.md exists, pass to fixers
 // No --todos-dir flag — mend resolves todos_base from TOME path (cross-write isolation)
-// Mend reads review's todos_base (from review state file) via TOME path resolution
+// Mend reads review's todos_base via 3-step resolution: arc checkpoint → review state file → TOME path
 // Delegation pattern: /rune:mend creates its own team (e.g., rune-mend-{id}).
 // Arc reads the team name from the mend state file or teammate idle notification.
 // Invoke: /rune:mend {tomeSource} --timeout ${innerPolling}
@@ -188,7 +188,7 @@ const postMendStateFiles = Glob("tmp/.rune-mend-*.json").filter(f => {
     return isRelevant && isValidAge
   } catch (e) { return false }
 })
-// BACK-008 FIX: Sort by modification time (newest first) to pick most recent state file
+// BACK-008 FIX: Sort by name descending (newest-timestamped first) to pick most recent state file
 postMendStateFiles.sort((a, b) => b.localeCompare(a))
 if (postMendStateFiles.length > 1) {
   warn(`Multiple mend state files found (${postMendStateFiles.length}) — using most recent`)
@@ -228,16 +228,51 @@ updateCheckpoint({
 })
 
 // Post-Phase 7 todos verification (non-blocking)
-// Mend updates the review's todos_base — read from the review state file
-const reviewStateFiles = Glob("tmp/.rune-review-*.json").filter(f => {
+// 3-step resolution: arc checkpoint → review state file → TOME path derivation
+let reviewTodosBase = null
+
+// Step 1: Arc checkpoint (preferred — always available in arc context)
+// BACK-005 FIX: Filter to the current arc's checkpoint by id — not all arc checkpoints.
+// In arc-batch/arc-hierarchy, globbing all checkpoints and sorting by filename
+// could pick a different arc's checkpoint (wrong todos_base). Use the exact path.
+const currentArcCheckpoint = `.claude/arc/${id}/checkpoint.json`
+const arcCheckpoints = exists(currentArcCheckpoint)
+  ? [currentArcCheckpoint]
+  : Glob(".claude/arc/*/checkpoint.json").filter(f => f.includes(`/arc-${id.replace(/^arc-/, '')}/`)).sort().reverse()
+for (const ckpt of arcCheckpoints) {
   try {
-    const s = JSON.parse(Read(f))
-    return s.todos_base && s.status === "completed"
-  } catch { return false }
-}).sort().reverse()
-const reviewTodosBase = reviewStateFiles.length > 0
-  ? (() => { try { return JSON.parse(Read(reviewStateFiles[0])).todos_base || null } catch { return null } })()
-  : null
+    const c = JSON.parse(Read(ckpt))
+    if (c.todos_base && c.phases?.mend?.status !== "pending") {
+      reviewTodosBase = c.todos_base
+      break
+    }
+  } catch {}
+}
+
+// Step 2: Review state file (standalone appraise+mend, no arc)
+if (!reviewTodosBase) {
+  const reviewStateFiles = Glob("tmp/.rune-review-*.json").filter(f => {
+    try { return JSON.parse(Read(f)).todos_base } catch { return false }
+  }).sort().reverse()
+  reviewTodosBase = reviewStateFiles.length > 0
+    ? JSON.parse(Read(reviewStateFiles[0])).todos_base
+    : null
+}
+
+// Step 3: Derive from TOME path (last resort)
+// BACK-006 FIX: The regex /\/[^/]+\.md$/ fails silently if tomeSource doesn't end with
+// /filename.md (e.g. missing .md extension, trailing slash, or unexpected format).
+// Use explicit dirname extraction: strip last path segment after final '/', then append 'todos/'.
+// Also add a null/empty guard so a failed derivation doesn't produce a bogus path.
+if (!reviewTodosBase) {
+  const lastSlash = tomeSource.lastIndexOf('/')
+  const tomeDir = lastSlash > 0 ? tomeSource.slice(0, lastSlash + 1) : null
+  if (tomeDir && !tomeDir.includes('..') && tomeDir.startsWith('tmp/')) {
+    reviewTodosBase = `${tomeDir}todos/`
+  } else {
+    warn(`Could not derive todos_base from TOME path: ${tomeSource} — skipping todos verification`)
+  }
+}
 
 if (reviewTodosBase) {
   const allTodos = Glob(`${reviewTodosBase}*/[0-9][0-9][0-9]-*.md`)

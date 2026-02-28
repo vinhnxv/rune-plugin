@@ -770,7 +770,8 @@ ${verdicts.map(v => `| ${v.id} | \`${v.file}\` | ${v.line} | **${v.result}** | $
   // E-ARCH-5: Update arc checkpoint after Phase 5.2 completes
   // Prevents re-running citation verification on session resume
   try {
-    const checkpointPath = `${outputDir}../checkpoint.json`
+    const arcDir = outputDir.split('/').slice(0, -2).join('/')
+    const checkpointPath = `${arcDir}/checkpoint.json`
     const checkpoint = JSON.parse(Read(checkpointPath))
     // BACK-015: Validate checkpoint is a non-null object before mutation
     if (typeof checkpoint === 'object' && checkpoint !== null) {
@@ -820,6 +821,8 @@ For a typical review with 20 findings across 10 files, total verification time i
 Generate per-finding todo files from scope-tagged TOME. Runs AFTER Phase 5.3 (diff-scope tagging) so scope attributes are available.
 
 **Todos are mandatory** — file-todos are ALWAYS generated. There is no `--todos=false` escape hatch.
+
+> **Dedicated reference**: See [todo-generation.md](todo-generation.md) for the standalone extraction of this phase's logic, verification checklist, and recovery patterns.
 
 ```javascript
 // Phase 5.4: Todo Generation from TOME findings (mandatory)
@@ -1117,7 +1120,39 @@ if (!cleanupSucceeded) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && for n in 2 3 4; do rm -rf "$CHOME/teams/${teamName}-w${n}/" "$CHOME/tasks/${teamName}-w${n}/" 2>/dev/null; done`)
 }
 
-// 4. Update state file
+// ── Phase 7, Step 3.5: Todo Generation Verification (non-blocking) ──
+const workflowType = workflow === "rune-review" ? "review" : "audit"
+const expectedTodosDir = resolveTodosDir(outputDir, workflowType)
+const todoFiles = [
+  ...Glob(`${expectedTodosDir}[0-9][0-9][0-9]-*.md`),
+  ...Glob(`${expectedTodosDir}[0-9][0-9][0-9][0-9]-*.md`)
+]
+const manifestPath = `${expectedTodosDir}todos-${workflowType}-manifest.json`
+
+// Nonce recovery (MANDATORY for late Phase 5.4 execution)
+let sessionNonce = inscription?.session_nonce
+if (!sessionNonce) {
+  try {
+    const inscriptionData = JSON.parse(Read(`${outputDir}inscription.json`))
+    sessionNonce = inscriptionData.session_nonce
+  } catch {}
+}
+
+if (todoFiles.length === 0) {
+  warn(`Phase 7: No todo files found in ${expectedTodosDir}. Phase 5.4 may have been skipped.`)
+  if (exists(`${outputDir}TOME.md`) && sessionNonce) {
+    warn(`Phase 7: TOME exists + nonce recovered — attempting late todo generation recovery`)
+    // Read and execute todo-generation.md (recovery path)
+  }
+} else {
+  log(`Phase 7: ${todoFiles.length} todo files verified in ${expectedTodosDir}`)
+  if (!exists(manifestPath)) {
+    warn(`Phase 7: ${todoFiles.length} todo files exist but manifest missing — rebuilding`)
+  }
+}
+
+// 4. Update state file (includes todos_base to preserve it across the write)
+const currentState = JSON.parse(Read(`${stateFilePrefix}-${identifier}.json`))
 Write(`${stateFilePrefix}-${identifier}.json`, {
   team_name: `${teamPrefix}-${identifier}`,
   started: timestamp,
@@ -1125,7 +1160,8 @@ Write(`${stateFilePrefix}-${identifier}.json`, {
   completed: new Date().toISOString(),
   config_dir: configDir,
   owner_pid: ownerPid,
-  session_id: sessionId
+  session_id: sessionId,
+  todos_base: currentState.todos_base || resolveTodosBase(outputDir)
 })
 
 // 5. Persist learnings to Rune Echoes

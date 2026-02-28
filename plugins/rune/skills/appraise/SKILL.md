@@ -12,7 +12,7 @@ description: |
   </example>
 user-invocable: true
 disable-model-invocation: false
-argument-hint: "[--deep | --partial | --dry-run | --max-agents <N> | --no-chunk | --chunk-size <N> | --no-converge | --cycles <N> | --scope-file <path> | --no-lore | --auto-mend | --todos-dir <path>]"
+argument-hint: "[--deep | --partial | --dry-run | --max-agents <N> | --no-chunk | --chunk-size <N> | --no-converge | --cycles <N> | --scope-file <path> | --no-lore | --auto-mend]"
 allowed-tools:
   - Agent
   - TaskCreate
@@ -81,7 +81,6 @@ const params = {
 | `--scope-file <path>` | Override `changed_files` with a JSON file `{ focus_files: [...] }`. Used by arc convergence controller | None |
 | `--no-lore` | Disable Phase 0.5 Lore Layer (git history risk scoring) | Off |
 | `--auto-mend` | Automatically invoke `/rune:mend` after review if P1/P2 findings exist | Off |
-| `--todos-dir <path>` | Override base todos directory (used by arc to scope todos to `tmp/arc/{id}/todos/`). Threaded to roundtable-circle Phase 5.4 | None |
 
 **Partial mode** is useful for reviewing a subset of changes before committing.
 
