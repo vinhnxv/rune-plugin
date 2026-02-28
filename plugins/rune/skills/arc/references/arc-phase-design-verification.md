@@ -69,7 +69,7 @@ for (const vsm of vsmFiles) {
 }
 
 // 5. Spawn design-implementation-reviewer
-Task({
+Agent({
   subagent_type: "general-purpose", model: "sonnet",
   name: "design-reviewer-1", team_name: `arc-design-verify-${id}`,
   prompt: `You are design-reviewer-1. Review design fidelity of implemented components against VSM files.

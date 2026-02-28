@@ -20,7 +20,7 @@ description: |
 user-invocable: false
 disable-model-invocation: false
 allowed-tools:
-  - Task
+  - Agent
   - Read
   - Write
 ---
@@ -322,10 +322,10 @@ The `guard-context-critical.sh` PreToolUse hook now implements a 3-tier context 
 |------|-------------|--------|--------|
 | **Caution** | 35–40% | Advisory: compress messages, prefer file output | No |
 | **Warning** | 25–35% | Workflow-specific degradation suggestions | No |
-| **Critical** | ≤25% | Hard DENY for TeamCreate/Task (except Explore/Plan) | Yes |
+| **Critical** | ≤25% | Hard DENY for TeamCreate/Agent (except Explore/Plan) | Yes |
 
 ### Caution Tier (40% remaining)
-Injects `additionalContext` with general compression suggestions. No block. Applies to all TeamCreate/Task calls.
+Injects `additionalContext` with general compression suggestions. No block. Applies to all TeamCreate/Agent calls.
 
 ### Warning Tier (35% remaining)
 Detects active workflow from state files (with session ownership check) and injects workflow-specific degradation suggestions:
@@ -339,7 +339,7 @@ Detects active workflow from state files (with session ownership check) and inje
 | unknown | Reduce scope, prefer file-based output |
 
 ### Critical Tier (25% remaining, unchanged)
-Hard DENY for TeamCreate and Task tool calls. Explore/Plan agents remain exempt (read-only, minimal context cost). Escape hatches: `/rune:rest`, talisman disable flag, or Explore/Plan agent types.
+Hard DENY for TeamCreate and Agent tool calls. Explore/Plan agents remain exempt (read-only, minimal context cost). Escape hatches: `/rune:rest`, talisman disable flag, or Explore/Plan agent types.
 
 ## References
 

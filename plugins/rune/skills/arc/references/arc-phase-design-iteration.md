@@ -115,7 +115,7 @@ for (const component of componentsToIterate) {
 
 // 7. Spawn design-iterator workers with agent-browser
 for (let i = 0; i < Math.min(maxWorkers, componentsToIterate.length); i++) {
-  Task({
+  Agent({
     subagent_type: "general-purpose", model: "sonnet",
     name: `design-iter-${i + 1}`, team_name: `arc-design-iter-${id}`,
     prompt: `You are design-iter-${i + 1}. Run screenshot→analyze→fix loop to improve design fidelity.

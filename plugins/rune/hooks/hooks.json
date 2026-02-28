@@ -70,7 +70,7 @@
         ]
       },
       {
-        "matcher": "Task",
+        "matcher": "Task|Agent",
         "hooks": [
           {
             "type": "command",
@@ -92,7 +92,7 @@
         ]
       },
       {
-        "matcher": "Write|Edit|NotebookEdit|Task|TeamCreate",
+        "matcher": "Write|Edit|NotebookEdit|Task|Agent|TeamCreate",
         "hooks": [
           {
             "type": "command",
@@ -103,7 +103,7 @@
         ]
       },
       {
-        "matcher": "TeamCreate|Task",
+        "matcher": "TeamCreate|Task|Agent",
         "hooks": [
           {
             "type": "command",
@@ -184,8 +184,8 @@
         ]
       },
       {
-        "matcher": "Read|Write|Edit|Bash|Glob|Grep|Task|WebFetch",
-        "_rationale": "Monitor high-frequency tools that indicate active work. Excludes TeamCreate/TeamDelete/SendMessage (low context impact). Task catches agent spawning (highest context cost).",
+        "matcher": "Read|Write|Edit|Bash|Glob|Grep|Task|Agent|WebFetch",
+        "_rationale": "Monitor high-frequency tools that indicate active work. Excludes TeamCreate/TeamDelete/SendMessage (low context impact). Task/Agent catches agent spawning (highest context cost).",
         "hooks": [
           {
             "type": "command",

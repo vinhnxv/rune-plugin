@@ -19,7 +19,7 @@ user-invocable: true
 disable-model-invocation: false
 argument-hint: "[plan-file.md | inline description] [--mode plan|implementation] [--focus <dimension>] [--dry-run] [--fix]"
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate
@@ -190,7 +190,7 @@ If `--dry-run`, display scope + assignments and stop. No teams, tasks, or agents
 
 ## Phase 1.3: Lore Layer (Risk Intelligence)
 
-Runs AFTER scope is known (Phase 1) but BEFORE team creation (Phase 2). Discovers existing risk-map or spawns `lore-analyst` as a bare Task (no team yet — ATE-1 exemption). Re-sorts `scopeFiles` by risk tier and enriches requirement classification.
+Runs AFTER scope is known (Phase 1) but BEFORE team creation (Phase 2). Discovers existing risk-map or spawns `lore-analyst` as a bare Agent (no team yet — ATE-1 exemption). Re-sorts `scopeFiles` by risk tier and enriches requirement classification.
 
 See [data-discovery.md](../goldmask/references/data-discovery.md) for the discovery protocol and [risk-context-template.md](../goldmask/references/risk-context-template.md) for prompt injection format.
 

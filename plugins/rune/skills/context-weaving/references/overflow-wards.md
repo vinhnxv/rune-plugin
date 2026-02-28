@@ -18,10 +18,10 @@ Example return:
 
 ## How to Inject
 
-When calling the Task tool, append the protocol to the prompt:
+When calling the Agent tool, append the protocol to the prompt:
 
 ```
-Task(agent-name, "
+Agent(agent-name, "
 [Your actual review/analysis prompt here]
 
 GLYPH BUDGET PROTOCOL:
@@ -58,7 +58,7 @@ After all agents complete, use the Runebinder to process raw files:
 ### How to Invoke
 
 ```
-Task(rune:utility:runebinder, "
+Agent(rune:utility:runebinder, "
 Read all findings from {output-directory}/
 Write TOME.md with deduplicated, prioritized findings.
 Skip non-findings files: TOME.md, truthsight-report.md

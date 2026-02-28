@@ -54,10 +54,10 @@ if (existing?.riskMap) {
   riskMapSource = existing.riskMapPath
   warn(`Phase N: Reusing existing risk-map from ${existing.riskMapPath}`)
 } else {
-  // Option B: Spawn lore-analyst as bare Task (ATE-1 EXEMPTION — no team exists yet)
+  // Option B: Spawn lore-analyst as bare Agent (ATE-1 EXEMPTION — no team exists yet)
   // Uses subagent_type: "general-purpose" with identity via prompt
   // (enforce-teams.sh only allows Explore/Plan as named types)
-  Task({
+  Agent({
     subagent_type: "general-purpose",
     name: "{workflow}-lore-analyst",
     // NO team_name — ATE-1 exemption (pre-team phase)

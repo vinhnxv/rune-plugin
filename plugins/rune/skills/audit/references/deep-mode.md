@@ -44,8 +44,8 @@ if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
         log(`Lore Layer: Tier 1 — analyzing ${loreFiles.length}/${all_files.length} Ash-relevant files (use --deep-lore for full scan)`)
       }
 
-      // Summon Lore Analyst as inline Task (no team yet — ATE-1 EXEMPTION applies)
-      Task({
+      // Summon Lore Analyst as inline Agent (no team yet — ATE-1 EXEMPTION applies)
+      Agent({
         name: "lore-analyst",
         subagent_type: "general-purpose",
         prompt: `You are lore-analyst — git history risk scoring specialist.
@@ -90,7 +90,7 @@ if (goldmaskEnabled && loreEnabled && isGitRepo && !flags['--no-lore']) {
 }
 ```
 
-**Timeout**: If the Lore Analyst takes > 60s, the bare Task call will complete with whatever output is available. The try/catch on risk-map read handles missing or partial output gracefully.
+**Timeout**: If the Lore Analyst takes > 60s, the bare Agent call will complete with whatever output is available. The try/catch on risk-map read handles missing or partial output gracefully.
 
 ## Doubt Seer — Full Implementation (Phase 4.5)
 
@@ -129,7 +129,7 @@ if (doubtEnabled && doubtWorkflows.includes("audit")) {
       activeForm: "Doubt seer cross-examining..."
     })
 
-    Task({
+    Agent({
       team_name: `rune-audit-${audit_id}`,
       name: "doubt-seer",
       subagent_type: "general-purpose",
@@ -200,7 +200,7 @@ if (flags['--deep']) {
 
   // Summon deep Ashes in parallel
   for (const ash of deepAsh) {
-    Task({
+    Agent({
       team_name: "rune-audit-{audit_id}",
       name: ash,
       subagent_type: ash,
@@ -214,7 +214,7 @@ Write output to tmp/audit/{audit_id}/${ash}.md with P1/P2/P3 sections + Summary.
   }
 
   // Runebinder for deep pass output
-  Task({
+  Agent({
     team_name: "rune-audit-{audit_id}",
     name: "runebinder-deep",
     subagent_type: "general-purpose",
@@ -231,7 +231,7 @@ When `--deep` is enabled, merge standard and deep TOMEs into the final output:
 
 ```javascript
 if (flags['--deep']) {
-  Task({
+  Agent({
     team_name: "rune-audit-{audit_id}",
     name: "runebinder-merge",
     subagent_type: "general-purpose",

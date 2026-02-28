@@ -96,7 +96,7 @@ function sanitize(content) {
 const sanitizedSolutions = sanitize(solutionsContent)
 
 TaskCreate({ subject: "Arena: Devil's Advocate challenge" })
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "devils-advocate",
   subagent_type: "general-purpose",
@@ -145,7 +145,7 @@ Look beyond proposed solutions for novel approaches using First Principles analy
 
 ```javascript
 TaskCreate({ subject: "Arena: Innovation Scout alternatives" })
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "innovation-scout",
   subagent_type: "general-purpose",
@@ -242,7 +242,7 @@ Report as: [CDX-ARENA-NNN] {solution_name}: {score}/10 — {brief assessment}`
     description: `Evaluate solutions from cross-model perspective. Output: tmp/plans/${timestamp}/arena/codex-arena-judge.md`
   })
 
-  Task({
+  Agent({
     team_name: `rune-plan-${timestamp}`,
     name: "codex-arena-judge",
     subagent_type: "general-purpose",

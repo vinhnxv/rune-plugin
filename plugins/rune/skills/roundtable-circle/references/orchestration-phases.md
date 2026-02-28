@@ -172,7 +172,7 @@ Summon Ashes — single wave for standard depth, multi-wave loop for deep depth.
 ```javascript
 // Summon ALL selected Ash in a single message (parallel execution)
 for (const ash of selectedAsh) {
-  Task({
+  Agent({
     team_name: teamName,
     name: ash,  // slug name, no wave suffix
     subagent_type: "general-purpose",
@@ -182,7 +182,7 @@ for (const ash of selectedAsh) {
   })
 }
 
-// buildAshPrompt() — constructs the inline Task() prompt string
+// buildAshPrompt() — constructs the inline Agent() prompt string
 // Parameters: ash (string), params (object)
 //   scope, outputDir, fileList — standard Ash context (unchanged)
 //   dirScope — threaded to inscription metadata (null = all files in scope)
@@ -250,7 +250,7 @@ for (const wave of waves) {
     const priorFindings = wave.waveNumber > 1
       ? collectWaveFindings(outputDir, wave.waveNumber - 1)  // file:line + severity only
       : null
-    Task({
+    Agent({
       team_name: wave.waveNumber === 1 ? teamName : `${teamName}-w${wave.waveNumber}`,
       name: ash.slug,  // NO -w1 suffix — preserves hook compatibility
       subagent_type: "general-purpose",
@@ -427,7 +427,7 @@ const condensedDir = `${outputDir}condensed/`
 const condensedExists = Glob(`${condensedDir}*.md`).length > 0
 const runeBinderInputDir = condensedExists ? condensedDir : outputDir
 
-Task({
+Agent({
   team_name: teamName,  // May need to re-create team for final aggregation
   name: "runebinder",
   subagent_type: "general-purpose",

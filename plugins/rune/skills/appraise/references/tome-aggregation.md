@@ -39,7 +39,7 @@ if (doubtEnabled && doubtWorkflows.includes("review")) {
       activeForm: "Doubt seer cross-examining..."
     })
 
-    Task({
+    Agent({
       team_name: `rune-review-${identifier}`,
       name: "doubt-seer",
       subagent_type: "general-purpose",
@@ -84,7 +84,7 @@ if (doubtEnabled && doubtWorkflows.includes("review")) {
 After all tasks complete (or timeout):
 
 ```javascript
-Task({
+Agent({
   team_name: "rune-review-{identifier}",
   name: "runebinder",
   subagent_type: "general-purpose",

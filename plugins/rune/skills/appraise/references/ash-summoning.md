@@ -45,7 +45,7 @@ Summon ALL selected Ash in a **single message** (parallel execution):
 
 ```javascript
 // Built-in Ash: load prompt from ash-prompts/{role}.md
-Task({
+Agent({
   team_name: "rune-review-{identifier}",
   name: "{ash-name}",
   subagent_type: "general-purpose",
@@ -70,7 +70,7 @@ Task({
 
 // Custom Ash: use wrapper prompt template from custom-ashes.md
 // The wrapper injects Truthbinding Protocol + Glyph Budget + Seal format
-Task({
+Agent({
   team_name: "rune-review-{identifier}",
   name: "{custom.name}",
   subagent_type: "{custom.agent}",  // local name or plugin namespace
@@ -122,7 +122,7 @@ if (elicitEnabled && securityFiles.length >= 3) {
       activeForm: `Sage security analysis ${i + 1}...`
     })
 
-    Task({
+    Agent({
       team_name: "rune-review-{identifier}",
       name: `elicitation-sage-security-${i + 1}`,
       subagent_type: "general-purpose",

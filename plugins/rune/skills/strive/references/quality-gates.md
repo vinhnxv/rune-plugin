@@ -181,7 +181,7 @@ if (codexAvailable && !codexDisabled) {
     TaskCreate({ subject: "Codex Advisory: implementation vs plan review",
       description: `Run codex exec to compare implementation against plan. Output: tmp/work/${timestamp}/codex-advisory.md` })
 
-    Task({
+    Agent({
       team_name: "rune-work-{timestamp}",
       name: "codex-advisory",
       subagent_type: "general-purpose",

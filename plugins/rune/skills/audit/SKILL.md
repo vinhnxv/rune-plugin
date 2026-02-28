@@ -26,7 +26,7 @@ user-invocable: true
 disable-model-invocation: false
 argument-hint: "[--deep] [--focus <area>] [--max-agents <N>] [--dry-run] [--no-lore] [--deep-lore] [--standard] [--todos-dir <path>] [--incremental] [--resume] [--status] [--reset] [--tier <file|workflow|api|all>] [--force-files <glob>] [--dirs <path,...>] [--exclude-dirs <path,...>] [--prompt <text>] [--prompt-file <path>]"
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate

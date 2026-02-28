@@ -14,7 +14,7 @@ user-invocable: true
 disable-model-invocation: false
 argument-hint: "[--deep | --partial | --dry-run | --max-agents <N> | --no-chunk | --chunk-size <N> | --no-converge | --cycles <N> | --scope-file <path> | --no-lore | --auto-mend | --todos-dir <path>]"
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate
@@ -181,7 +181,7 @@ review:
 
 ## Phase 0.5: Lore Layer (Risk Intelligence)
 
-Runs BEFORE team creation. Summons `lore-analyst` as a bare Task (no team yet — ATE-1 exemption). Outputs `risk-map.json` and `lore-analysis.md`. Re-sorts `changed_files` by risk tier (CRITICAL → HIGH → MEDIUM → LOW → STALE).
+Runs BEFORE team creation. Summons `lore-analyst` as a bare Agent (no team yet — ATE-1 exemption). Outputs `risk-map.json` and `lore-analysis.md`. Re-sorts `changed_files` by risk tier (CRITICAL → HIGH → MEDIUM → LOW → STALE).
 
 **Skip conditions**: non-git repo, `--no-lore`, `talisman.goldmask.layers.lore.enabled === false`, fewer than 5 commits in lookback window (G5 guard).
 

@@ -183,7 +183,7 @@ for (const agentName of uniqueAgents(assignments)) {
     }
   }
 
-  Task({
+  Agent({
     team_name: "rune-forge-{timestamp}",
     name: agentName,
     subagent_type: "general-purpose",
@@ -258,7 +258,7 @@ if (elicitEnabled) {
         Write output to: tmp/forge/{timestamp}/${section.slug}-elicitation-sage.md`
     })
 
-    Task({
+    Agent({
       team_name: "rune-forge-{timestamp}",
       name: `elicitation-sage-${sectionIndex}`,
       subagent_type: "general-purpose",

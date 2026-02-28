@@ -35,7 +35,7 @@ allowed-tools:
 ## Overview
 
 Git worktree mode gives each swarm worker its own isolated working copy via
-`isolation: "worktree"` on the Task tool. Workers commit directly in their
+`isolation: "worktree"` on the Agent tool. Workers commit directly in their
 worktrees instead of generating patches. After each wave of workers completes,
 the orchestrator merges worktree branches back into the feature branch.
 

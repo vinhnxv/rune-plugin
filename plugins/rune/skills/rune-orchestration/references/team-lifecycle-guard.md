@@ -553,7 +553,7 @@ Arc phase references (extracted from arc SKILL.md): arc-phase-forge.md, arc-phas
 
 ## Related
 
-- **enforce-teams.sh** (PreToolUse hook): Blocks bare Task calls (without `team_name`) during active Rune workflows. Complements this guard by preventing the _creation_ of teammates outside Agent Teams.
+- **enforce-teams.sh** (PreToolUse hook): Blocks bare Agent calls (without `team_name`) during active Rune workflows. Complements this guard by preventing the _creation_ of teammates outside Agent Teams.
 
 ## Notes
 

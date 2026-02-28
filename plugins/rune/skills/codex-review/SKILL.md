@@ -37,7 +37,7 @@ user-invocable: true
 disable-model-invocation: false
 argument-hint: "[<path|PR#N> | --staged | --commits <range> | --prompt <text>] [--focus <areas>] [--max-agents <N>] [--claude-only | --codex-only] [--no-cross-verify] [--reasoning <level>]"
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate
@@ -196,9 +196,9 @@ Write(`tmp/.rune-signals/${teamName}/.readonly-active`, "active")
 ### Spawn Claude Wing (ALL in ONE call — parallel)
 
 ```javascript
-// ATE-1: ALL Claude agents MUST use team_name (never bare Task calls)
+// ATE-1: ALL Claude agents MUST use team_name (never bare Agent calls)
 for (const agent of claudeAgents) {
-  Task({
+  Agent({
     team_name: teamName,
     name: `claude-${agent.name}`,
     subagent_type: "general-purpose",
@@ -235,7 +235,7 @@ Each Claude agent prompt includes ANCHOR/RE-ANCHOR Truthbinding, nonce-bounded c
 for (let i = 0; i < codexAgents.length; i++) {
   if (i > 0) Bash(`sleep 2`)  // Stagger to avoid Codex API rate limits (SEC-RATE-001)
   const agent = codexAgents[i]
-  Task({
+  Agent({
     team_name: teamName,
     name: `codex-${agent.name}`,
     subagent_type: "general-purpose",

@@ -221,7 +221,7 @@ System prompt auto-includes first 200 lines of `MEMORY.md`. Read/Write/Edit auto
 
 1. **TeamCreate** — creates team + task list
 2. **TaskCreate** — populate tasks with dependencies
-3. **Task tool** — spawn teammates with `team_name` and `name`
+3. **Agent tool** — spawn teammates with `team_name` and `name` (renamed from `Task` in Claude Code 2.1.63)
 4. **TaskUpdate** — assign tasks (`owner`), mark `in_progress`/`completed`
 5. **SendMessage** — `message` (DM), `broadcast` (all), `shutdown_request`
 6. **TeamDelete** — cleanup (fails if members active — shutdown first)

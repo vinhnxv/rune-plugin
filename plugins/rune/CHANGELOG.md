@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.120.2] - 2026-02-28
+
+### Fixed
+- **Claude Code 2.1.63 compatibility: Task → Agent tool rename** — Claude Code 2.1.63 renamed
+  the `Task` subagent-spawning tool to `Agent`. This broke all Rune hook matchers, enforcement
+  scripts, and allowed-tools frontmatter that targeted the `Task` tool name. Changes:
+  - **hooks.json**: Updated 4 hook matchers to `Task|Agent` for backward compatibility with both
+    old (<2.1.63) and new (2.1.63+) Claude Code versions. Affected matchers: `enforce-teams.sh`,
+    `advise-post-completion.sh`, `guard-context-critical.sh`, `rune-context-monitor.sh`.
+  - **enforce-teams.sh** (ATE-1): Updated tool_name check from `!= "Task"` to dual check
+    `!= "Task" && != "Agent"`. Updated error messages to reference `Agent` calls. Without this
+    fix, ATE-1 enforcement was completely bypassed on 2.1.63+ — bare agent calls were silently
+    allowed during active workflows.
+  - **guard-context-critical.sh** (CTX-GUARD-001): Updated Explore/Plan exemption check from
+    `== "Task"` to `== "Task" || == "Agent"`. Without this fix, the exemption was unreachable
+    and all agent spawns (including safe read-only agents) were subject to context budget denial.
+  - **enforce-readonly.sh**: Updated comment referencing Task tool.
+  - **allowed-tools frontmatter**: Updated `- Task` to `- Agent` in 15 skill SKILL.md files
+    (arc, audit, appraise, codex-review, context-weaving, debug, design-sync, devise, forge,
+    goldmask, inspect, mend, roundtable-circle, rune-orchestration, strive). Without this fix,
+    skills could not use the renamed Agent tool.
+  - **Pseudocode/documentation**: Updated ~80+ `Task({` code examples to `Agent({` across 29
+    reference and skill files. Updated prose references from "Task tool" to "Agent tool",
+    "bare Task" to "bare Agent", "Task call" to "Agent call".
+  - **Root CLAUDE.md**: Updated Team Lifecycle step 3 from "Task tool" to "Agent tool".
+  - CHANGELOG.md historical entries intentionally preserved as-is.
+
 ## [1.120.1] - 2026-02-28
 
 ### Fixed

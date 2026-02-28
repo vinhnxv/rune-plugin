@@ -6,7 +6,7 @@ After the plan is synthesized but before shatter assessment, runs a predictive G
 **Outputs**: `tmp/plans/{timestamp}/goldmask-prediction/risk-map.json`, `tmp/plans/{timestamp}/goldmask-prediction/wisdom-report.md`, `tmp/plans/{timestamp}/goldmask-prediction/GOLDMASK-PREDICTION.md`
 **Preconditions**: Phase 1 research completed, plan team (`rune-plan-{timestamp}`) already exists
 
-**Note**: Phase 2.3 runs AFTER Phase 1, which creates the plan team (`rune-plan-{timestamp}`). All Task calls MUST use `team_name` (ATE-1 compliance — unlike Phase 0 sages which run before team creation).
+**Note**: Phase 2.3 runs AFTER Phase 1, which creates the plan team (`rune-plan-{timestamp}`). All Agent calls MUST use `team_name` (ATE-1 compliance — unlike Phase 0 sages which run before team creation).
 
 **Timeout inheritance**: Arc timeouts (from `talisman.arc.timeouts`) are NOT automatically propagated to Phase 2.3 devise agents. Phase 2.3 uses its own internal ceiling (`PHASE_23_TOTAL_CEILING_MS = 360_000`). If arc timeout is tighter than 6 min, Phase 2.3 agents may outlive the arc phase budget — ensure arc `forge` timeout accounts for Phase 2.3's contribution.
 
@@ -94,7 +94,7 @@ if (!goldmaskEnabled || !goldmaskDeviseEnabled || !isGitRepo || isQuick) {
     TaskCreate({ subject: "Lore analysis — risk scoring for predicted files" })
     TaskCreate({ subject: "Wisdom analysis — design intent for CRITICAL/HIGH files" })
 
-    Task({
+    Agent({
       team_name: `rune-plan-${timestamp}`,
       name: "devise-lore",
       subagent_type: "general-purpose",
@@ -114,7 +114,7 @@ YOUR LIFECYCLE:
     // Wait for lore, then spawn wisdom
     // ... standard polling (30s interval, 120s timeout)
 
-    Task({
+    Agent({
       team_name: `rune-plan-${timestamp}`,
       name: "devise-wisdom",
       subagent_type: "general-purpose",
@@ -162,7 +162,7 @@ YOUR LIFECYCLE:
     TaskCreate({ subject: "API contract tracing — endpoint/validator/doc impact" })
 
     // Spawn 4 agents in parallel
-    Task({
+    Agent({
       team_name: `rune-plan-${timestamp}`,
       name: "devise-lore",
       subagent_type: "general-purpose",
@@ -179,7 +179,7 @@ YOUR LIFECYCLE:
       run_in_background: true
     })
 
-    Task({
+    Agent({
       team_name: `rune-plan-${timestamp}`,
       name: "devise-business",
       subagent_type: "general-purpose",
@@ -196,7 +196,7 @@ YOUR LIFECYCLE:
       run_in_background: true
     })
 
-    Task({
+    Agent({
       team_name: `rune-plan-${timestamp}`,
       name: "devise-data",
       subagent_type: "general-purpose",
@@ -213,7 +213,7 @@ YOUR LIFECYCLE:
       run_in_background: true
     })
 
-    Task({
+    Agent({
       team_name: `rune-plan-${timestamp}`,
       name: "devise-api",
       subagent_type: "general-purpose",
@@ -250,7 +250,7 @@ YOUR LIFECYCLE:
 
     // Phase 2.3b: Wisdom Sage (sequential — needs Impact outputs for context)
     TaskCreate({ subject: "Wisdom analysis — intent classification for CRITICAL/HIGH files" })
-    Task({
+    Agent({
       team_name: `rune-plan-${timestamp}`,
       name: "devise-wisdom",
       subagent_type: "general-purpose",
@@ -277,7 +277,7 @@ YOUR LIFECYCLE:
 
     // Phase 2.3c: Coordinator synthesis (sequential — needs all layer outputs)
     TaskCreate({ subject: "Coordinator synthesis — merge all layers into plan risk section" })
-    Task({
+    Agent({
       team_name: `rune-plan-${timestamp}`,
       name: "devise-coordinator",
       subagent_type: "general-purpose",

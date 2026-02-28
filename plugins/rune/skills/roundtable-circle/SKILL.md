@@ -19,7 +19,7 @@ description: |
 user-invocable: false
 disable-model-invocation: false
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate
@@ -222,7 +222,7 @@ For standard depth + diff scope with large diffs, sharding supersedes chunking â
 For each selected Ash in the current wave, summon as a background teammate:
 
 ```
-Task({
+Agent({
   team_name: "rune-review-{pr}",
   name: "{ash-slug}",     // uses ash.slug â€” no wave suffix (preserves hook compatibility)
   subagent_type: "general-purpose",
@@ -304,7 +304,7 @@ See [orchestration-phases.md](references/orchestration-phases.md) Phase 5.0 and 
 After all tasks complete (or timeout), summon Runebinder. When Phase 5.0 pre-aggregation ran, Runebinder reads from `{output_dir}/condensed/` instead of the raw output directory.
 
 ```
-Task({
+Agent({
   team_name: "rune-review-{pr}",
   name: "runebinder",
   subagent_type: "general-purpose",

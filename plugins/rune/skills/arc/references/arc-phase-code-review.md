@@ -63,7 +63,7 @@ TOME output path varies by convergence round to prevent overwriting:
 
 ## CRITICAL — Delegation Contract
 
-This phase is **delegated** to `/rune:appraise` via sub-command invocation (Task tool). The arc orchestrator MUST NOT call `TeamCreate` for this phase. The `/rune:appraise` sub-command manages its own team lifecycle in a separate process. Attempting to create a team inline in the orchestrator would fail with "Already leading team X" if SDK leadership state leaked from Phase 2 (PLAN REVIEW).
+This phase is **delegated** to `/rune:appraise` via sub-command invocation (Agent tool). The arc orchestrator MUST NOT call `TeamCreate` for this phase. The `/rune:appraise` sub-command manages its own team lifecycle in a separate process. Attempting to create a team inline in the orchestrator would fail with "Already leading team X" if SDK leadership state leaked from Phase 2 (PLAN REVIEW).
 
 The orchestrator's role in Phase 6 is limited to:
 1. Run `prePhaseCleanup(checkpoint)` — clear stale teams and SDK state

@@ -42,7 +42,7 @@ const perspectives = {
 
 ## Phase 3: Summon Inspector Ashes
 
-For each inspector in `inspectorAssignments`, summon using the Task tool with Agent Teams:
+For each inspector in `inspectorAssignments`, summon using the Agent tool with Agent Teams:
 
 ```javascript
 // Build prompts from ash-prompt templates
@@ -96,7 +96,7 @@ for (const { inspector, taskId, reqIds } of tasks) {
   }
 
   // ATE-1: All multi-agent commands MUST use subagent_type: "general-purpose" with identity via prompt
-  Task({
+  Agent({
     prompt: prompt,
     subagent_type: "general-purpose",
     team_name: teamName,
@@ -207,7 +207,7 @@ const fixerPrompt = loadTemplate("gap-fixer.md", {
   timestamp: new Date().toISOString()
 })
 
-Task({
+Agent({
   prompt: fixerPrompt,
   subagent_type: "general-purpose",
   team_name: fixerTeamName,

@@ -125,7 +125,7 @@ async function reviewSingleChunk(chunk, identifier, flags, securityPins, arcRema
   // ── ROUNDTABLE CIRCLE (inner black box) ───────────────────────────────────
   // Pass chunk.files as the review scope.
   // securityPins are contextFiles: read-only references, not budgeted files.
-  Task({
+  Agent({
     team_name: teamName,
     subagent_type: 'general-purpose',
     prompt: buildRoundtablePrompt({

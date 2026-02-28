@@ -107,7 +107,7 @@ Each agent declares which plan section topics it can enrich, what subsection it 
 **Summoning pattern** (ATE-1 compliant):
 ```javascript
 // Sage is spawned as general-purpose with identity via prompt
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: `elicitation-sage-forge-{sectionIndex}`,
   subagent_type: "general-purpose",

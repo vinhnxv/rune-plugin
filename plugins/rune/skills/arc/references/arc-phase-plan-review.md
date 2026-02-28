@@ -19,13 +19,13 @@ This phase creates a team and spawns agents. It MUST follow the Agent Teams patt
 ```
 1. TeamCreate({ team_name: "arc-plan-review-{id}" })     ← CREATE TEAM FIRST
 2. TaskCreate({ subject: ..., description: ... })          ← CREATE TASKS
-3. Task({ team_name: "arc-plan-review-{id}", name: "...", ← SPAWN WITH team_name
-     subagent_type: "general-purpose",                     ← ALWAYS general-purpose
-     prompt: "...", ... })                                  ← IDENTITY VIA PROMPT
+3. Agent({ team_name: "arc-plan-review-{id}", name: "...", ← SPAWN WITH team_name
+     subagent_type: "general-purpose",                      ← ALWAYS general-purpose
+     prompt: "...", ... })                                   ← IDENTITY VIA PROMPT
 4. Monitor → Shutdown → TeamDelete with fallback           ← CLEANUP
 ```
 
-**NEVER** use bare `Task()` calls or named `subagent_type` values in this phase.
+**NEVER** use bare `Agent()` calls or named `subagent_type` values in this phase.
 
 ## Reviewer Roster
 
@@ -171,7 +171,7 @@ for (const reviewer of reviewers) {
       Include structured verdict marker: <!-- VERDICT:${reviewer.name}:{PASS|CONCERN|BLOCK} -->
       <!-- RE-ANCHOR: Evaluate grounding score. Below ${evConfig.block_threshold ?? 0.4} → BLOCK, below ${evConfig.concern_threshold ?? 0.6} → CONCERN, otherwise PASS. -->`
   }
-  Task({
+  Agent({
     team_name: `arc-plan-review-${id}`, name: reviewer.name,
     subagent_type: "general-purpose",
     prompt: reviewerPrompt,
@@ -344,7 +344,7 @@ if (hasCodeBlocks) {
       continue
     }
 
-    Task({
+    Agent({
       team_name: layer2TeamName,
       name: inspector,
       subagent_type: "general-purpose",

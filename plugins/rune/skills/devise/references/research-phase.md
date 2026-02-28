@@ -83,7 +83,7 @@ Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && test -f "$CHOME/teams/rune
 
 // STEP 6: Write workflow state file with session isolation fields
 // CRITICAL: This state file activates the ATE-1 hook (enforce-teams.sh) which blocks
-// bare Task calls without team_name. Without this file, agents spawn as local subagents
+// bare Agent calls without team_name. Without this file, agents spawn as local subagents
 // instead of Agent Team teammates, causing context explosion.
 const configDir = Bash(`cd "\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" 2>/dev/null && pwd -P`).trim()
 const ownerPid = Bash(`echo $PPID`).trim()
@@ -119,7 +119,7 @@ TaskCreate({ subject: "Research repo patterns", description: "..." })       // #
 TaskCreate({ subject: "Read past echoes", description: "..." })             // #2
 TaskCreate({ subject: "Analyze git history", description: "..." })          // #3
 
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "repo-surveyor",
   subagent_type: "general-purpose",
@@ -139,7 +139,7 @@ Task({
   run_in_background: true
 })
 
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "echo-reader",
   subagent_type: "general-purpose",
@@ -159,7 +159,7 @@ Task({
   run_in_background: true
 })
 
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "git-miner",
   subagent_type: "general-purpose",
@@ -398,7 +398,7 @@ Summon only if the research decision requires external input.
 TaskCreate({ subject: "Research best practices", description: "..." })      // #4
 TaskCreate({ subject: "Research framework docs", description: "..." })      // #5
 
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "practice-seeker",
   subagent_type: "general-purpose",
@@ -419,7 +419,7 @@ Task({
   run_in_background: true
 })
 
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "lore-scholar",
   subagent_type: "general-purpose",
@@ -471,7 +471,7 @@ if (codexAvailable && !codexDisabled) {
 
     TaskCreate({ subject: "Codex research", description: "Cross-model research via codex exec" })
 
-    Task({
+    Agent({
       team_name: "rune-plan-{timestamp}",
       name: "codex-researcher",
       subagent_type: "general-purpose",
@@ -542,7 +542,7 @@ After 1A and 1C complete, run flow analysis.
 ```javascript
 TaskCreate({ subject: "Spec flow analysis", description: "..." })          // #6
 
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "flow-seer",
   subagent_type: "general-purpose",

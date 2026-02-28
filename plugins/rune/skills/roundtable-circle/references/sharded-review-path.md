@@ -34,7 +34,7 @@ if (inscription.sharding?.enabled) {
       innerFlame: true,
       seal: true
     })
-    Task({
+    Agent({
       team_name: teamName,
       name: shard.reviewer_name,
       subagent_type: "general-purpose",
@@ -102,7 +102,7 @@ if (inscription.sharding?.enabled) {
     // Reset .expected count: shards.length → 1 (for sentinel monitoring)
     Write(`${signalDir}/.expected`, "1")
 
-    Task({
+    Agent({
       team_name: teamName,
       name: cross_shard.reviewer_name,
       subagent_type: "general-purpose",
