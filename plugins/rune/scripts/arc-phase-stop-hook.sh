@@ -169,9 +169,9 @@ _phase_ref() {
     verify_mend)              echo "${base}/verify-mend.md" ;;
     design_iteration)         echo "${base}/arc-phase-design-iteration.md" ;;
     test)                     echo "${base}/arc-phase-test.md" ;;
-    test_coverage_critique)   echo "${base}/arc-codex-phases.md" ;;
+    test_coverage_critique)   echo "${base}/arc-phase-test.md" ;;
     pre_ship_validation)      echo "${base}/arc-phase-pre-ship-validator.md" ;;
-    release_quality_check)    echo "${base}/arc-codex-phases.md" ;;
+    release_quality_check)    echo "${base}/arc-phase-pre-ship-validator.md" ;;
     ship)                     echo "${base}/arc-phase-ship.md" ;;
     bot_review_wait)          echo "${base}/arc-phase-bot-review-wait.md" ;;
     pr_comment_resolution)    echo "${base}/arc-phase-pr-comment-resolution.md" ;;
