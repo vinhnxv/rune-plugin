@@ -25,7 +25,7 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
-  - Task
+  - Agent
   - TaskCreate
   - TaskUpdate
   - TaskGet

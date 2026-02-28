@@ -34,7 +34,7 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
-  - Task
+  - Agent
   - TaskCreate
   - TaskUpdate
   - TaskGet
@@ -60,17 +60,17 @@ Chains twenty-six phases into a single automated pipeline. Each phase runs as it
 ```
 1. TeamCreate({ team_name: "{phase-prefix}-{id}" })     ← CREATE TEAM FIRST
 2. TaskCreate({ subject: ..., description: ... })         ← CREATE TASKS
-3. Task({ team_name: "...", name: "...",                  ← SPAWN WITH team_name
+3. Agent({ team_name: "...", name: "...",                  ← SPAWN WITH team_name
      subagent_type: "general-purpose",                    ← ALWAYS general-purpose
      prompt: "You are {agent-name}...", ... })             ← IDENTITY VIA PROMPT
 4. Monitor → Shutdown → TeamDelete with fallback          ← CLEANUP
 ```
 
 **NEVER DO:**
-- `Task({ ... })` without `team_name` — bare Task calls bypass Agent Teams entirely.
+- `Agent({ ... })` without `team_name` — bare Agent calls bypass Agent Teams entirely.
 - Using named `subagent_type` values — always use `subagent_type: "general-purpose"` and inject agent identity via the prompt.
 
-**ENFORCEMENT:** The `enforce-teams.sh` PreToolUse hook blocks bare Task calls when a Rune workflow is active.
+**ENFORCEMENT:** The `enforce-teams.sh` PreToolUse hook blocks bare Agent calls when a Rune workflow is active.
 
 ## Usage
 

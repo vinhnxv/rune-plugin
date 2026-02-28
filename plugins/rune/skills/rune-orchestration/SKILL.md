@@ -24,7 +24,7 @@ description: |
 user-invocable: false
 disable-model-invocation: false
 allowed-tools:
-  - Task
+  - Agent
   - Read
   - Write
 ---
@@ -53,7 +53,7 @@ The fundamental value lies in distributing cognitive load across separate contex
 - Context window constraints from single-agent approach
 - Complex tasks requiring specialized expertise in parallel
 - Need for parallel processing of independent subtasks
-- Any workflow summoning 3+ agents via Task tool or Agent Teams
+- Any workflow summoning 3+ agents via Agent tool or Agent Teams
 
 ## Agent Coordination Patterns
 

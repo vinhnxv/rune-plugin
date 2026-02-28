@@ -18,7 +18,7 @@ user-invocable: true
 disable-model-invocation: false
 argument-hint: "[plan-path] [--exhaustive]"
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate
@@ -199,7 +199,7 @@ log(`Phase 1.3: Extracted ${uniqueFiles.length} file references from plan`)
 
 ## Phase 1.5: Lore Layer (Goldmask)
 
-Run Goldmask Lore Layer risk scoring on files referenced in the plan. Prefer reusing existing risk-map data from prior workflows via data discovery. Falls back to spawning lore-analyst as bare Task (ATE-1 exemption).
+Run Goldmask Lore Layer risk scoring on files referenced in the plan. Prefer reusing existing risk-map data from prior workflows via data discovery. Falls back to spawning lore-analyst as bare Agent (ATE-1 exemption).
 
 See [lore-layer-integration.md](../goldmask/references/lore-layer-integration.md) for the shared implementation — skip conditions gate, data discovery, lore-analyst spawning, and polling timeout logic.
 

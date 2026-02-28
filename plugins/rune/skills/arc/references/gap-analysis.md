@@ -1238,7 +1238,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(inspectTeamName)) {
       timestamp: new Date().toISOString()
     })
 
-    Task({
+    Agent({
       prompt: inspectorPrompt,
       subagent_type: "general-purpose",
       team_name: inspectTeamName,
@@ -1295,7 +1295,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(inspectTeamName)) {
       timestamp: new Date().toISOString()
     })
 
-    Task({
+    Agent({
       prompt: verdictPrompt,
       subagent_type: "general-purpose",
       team_name: inspectTeamName,

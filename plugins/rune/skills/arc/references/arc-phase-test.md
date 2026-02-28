@@ -168,7 +168,7 @@ updateCheckpoint({
 
 if (unitEnabled && unitTests.length > 0) {
   // Spawn unit-test-runner teammate
-  Task({
+  Agent({
     subagent_type: "general-purpose", model: resolveModelForAgent("unit-test-runner", talisman),  // Cost tier mapping
     name: "unit-test-runner", team_name: `arc-test-${id}`,
     prompt: `You are unit-test-runner. Run these unit tests: ${unitTests.join(', ')}
@@ -187,7 +187,7 @@ if (unitEnabled && unitTests.length > 0) {
 // ═══════════════════════════════════════════════════════
 
 if (integrationEnabled && servicesHealthy && integrationTests.length > 0) {
-  Task({
+  Agent({
     subagent_type: "general-purpose", model: resolveModelForAgent("integration-test-runner", talisman),  // Cost tier mapping
     name: "integration-test-runner", team_name: `arc-test-${id}`,
     prompt: `You are integration-test-runner. Run integration tests.
@@ -220,7 +220,7 @@ if (e2eEnabled && servicesHealthy && agentBrowserAvailable && e2eRoutes.length >
   }
 
   // BROWSER ISOLATION: ALL browser work on dedicated teammate
-  Task({
+  Agent({
     subagent_type: "general-purpose", model: resolveModelForAgent("e2e-browser-tester", talisman),  // Cost tier mapping
     name: "e2e-browser-tester", team_name: `arc-test-${id}`,
     prompt: `You are e2e-browser-tester. Test these routes: ${routesToTest.join(', ')}
@@ -252,7 +252,7 @@ if (e2eEnabled && servicesHealthy && agentBrowserAvailable && e2eRoutes.length >
 const hasFailures = checkForFailures(`tmp/arc/${id}/test-results-*.md`)
 
 if (hasFailures && remainingBudget() > 180_000) {
-  Task({
+  Agent({
     subagent_type: "general-purpose", model: resolveModelForAgent("test-failure-analyst", talisman),  // Cost tier mapping (exception: elevated model)
     name: "test-failure-analyst", team_name: `arc-test-${id}`,
     prompt: `You are test-failure-analyst. Analyze failures in:

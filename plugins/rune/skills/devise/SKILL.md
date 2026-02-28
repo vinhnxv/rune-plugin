@@ -18,7 +18,7 @@ user-invocable: true
 disable-model-invocation: false
 argument-hint: "[--quick] [--no-brainstorm] [--no-forge] [--no-arena] [--exhaustive]"
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate
@@ -164,7 +164,7 @@ if (design_sync_candidate && designSyncEnabled && figmaUrl) {
   // ATE-1 EXEMPTION: Plan team not yet created at Phase 0. enforce-teams.sh passes
   // because no plan state file (tmp/.rune-plan-*.json) exists at this point.
   // Same exemption pattern as elicitation sages (Step 3.5).
-  Task({
+  Agent({
     name: 'design-inventory-agent',
     subagent_type: 'general-purpose',
     prompt: `You are a design inventory specialist.

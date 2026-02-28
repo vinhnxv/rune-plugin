@@ -95,7 +95,7 @@ for (const component of components.slice(0, 20)) {  // cap at 20 components
 
 // 8. Spawn design-sync-agent workers
 for (let i = 0; i < Math.min(maxWorkers, components.length); i++) {
-  Task({
+  Agent({
     subagent_type: "general-purpose", model: "sonnet",
     name: `design-syncer-${i + 1}`, team_name: `arc-design-${id}`,
     prompt: `You are design-syncer-${i + 1}. Extract Figma design specs and create VSM files.

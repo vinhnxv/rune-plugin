@@ -26,7 +26,7 @@ Agent runtime caps (`maxTurns` in agent frontmatter) limit runaway agents:
 | rune-smith | 75 | Complex multi-file implementations typically need 30-50 tool calls. 75 provides 50% headroom. |
 | trial-forger | 50 | Test generation is more constrained — read source, write tests, verify. |
 
-**Note**: `maxTurns` in agent frontmatter caps the agent definition. When spawning workers via `Task()` with `subagent_type: "general-purpose"`, the `max_turns` parameter on the Task call is the effective enforcement mechanism. Both should be set for defense-in-depth.
+**Note**: `maxTurns` in agent frontmatter caps the agent definition. When spawning workers via `Agent()` with `subagent_type: "general-purpose"`, the `max_turns` parameter on the Agent call is the effective enforcement mechanism. Both should be set for defense-in-depth.
 
 **Edge cases**:
 - If an agent hits its turn cap mid-operation, it may leave staged git files or partial writes. Workers claiming a task should run `git status` first and `git reset HEAD` if unexpected staged files are found.
@@ -35,7 +35,7 @@ Agent runtime caps (`maxTurns` in agent frontmatter) limit runaway agents:
 ## Rune Smith (Implementation Worker)
 
 ```javascript
-Task({
+Agent({
   team_name: "rune-work-{timestamp}",
   name: "rune-smith",
   subagent_type: "general-purpose",
@@ -168,7 +168,7 @@ Task({
 ## Trial Forger (Test Worker)
 
 ```javascript
-Task({
+Agent({
   team_name: "rune-work-{timestamp}",
   name: "trial-forger",
   subagent_type: "general-purpose",

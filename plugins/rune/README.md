@@ -906,7 +906,7 @@ plugins/rune/
 │   ├── enforce-readonly.sh          # SEC-001: Read-only agent enforcement
 │   ├── enforce-polling.sh           # POLL-001: Monitoring anti-pattern block
 │   ├── enforce-zsh-compat.sh        # ZSH-001: zsh compatibility guard
-│   ├── enforce-teams.sh             # ATE-1: Bare Task call prevention
+│   ├── enforce-teams.sh             # ATE-1: Bare Agent call prevention
 │   ├── enforce-team-lifecycle.sh    # TLC-001: Team name validation + stale cleanup
 │   ├── validate-mend-fixer-paths.sh # SEC-MEND-001: Mend fixer file scope
 │   ├── verify-team-cleanup.sh       # TLC-002: Post-delete zombie detection
@@ -1074,7 +1074,7 @@ Configure via `talisman.yml` → `teammate_lifecycle` section.
 | POLL-001 | PreToolUse:Bash | Blocks sleep+echo monitoring anti-pattern |
 | ZSH-001 | PreToolUse:Bash | Blocks zsh-incompatible patterns (read-only vars, unprotected globs) |
 | SEC-MEND-001 | PreToolUse:Write\|Edit | Blocks mend-fixers from writing outside assigned files |
-| ATE-1 | PreToolUse:Task | Blocks bare Task calls during active workflows |
+| ATE-1 | PreToolUse:Task\|Agent | Blocks bare Agent calls during active workflows |
 | TLC-001 | PreToolUse:TeamCreate | Validates team names (hard block) + stale team cleanup (advisory) |
 | TLC-002 | PostToolUse:TeamDelete | Zombie team dir detection after deletion |
 | TLC-003 | SessionStart:startup\|resume | Orphaned team and stale state file detection |

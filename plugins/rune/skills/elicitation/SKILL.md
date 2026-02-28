@@ -242,7 +242,7 @@ When an orchestrator (plan, forge, arc) selects a method with a non-empty `codex
    const rawElicitTimeout = Number(talisman?.codex?.elicitation?.timeout)
    const elicitTimeout = Math.max(300, Math.min(900, Number.isFinite(rawElicitTimeout) ? rawElicitTimeout : 300))
 4. SPAWN: Create codex teammate in the workflow's existing team:
-   Task({
+   Agent({
      team_name: "{current_team}",
      name: "codex-elicitation-{method_slug}",
      subagent_type: "general-purpose",

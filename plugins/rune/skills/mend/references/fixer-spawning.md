@@ -206,7 +206,7 @@ for (let waveIdx = 0; waveIdx < totalWaves; waveIdx++) {
     const fixerName = totalWaves > 1
       ? `mend-fixer-w${waveIdx + 1}-${fixer.name.split('-').pop()}`
       : fixer.name
-    Task({
+    Agent({
       team_name: "rune-mend-{id}",
       name: fixerName,
       subagent_type: "rune:utility:mend-fixer",

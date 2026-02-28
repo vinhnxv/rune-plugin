@@ -1,9 +1,10 @@
 #!/bin/bash
 # scripts/guard-context-critical.sh
-# CTX-GUARD-001: Blocks TeamCreate and Task at critical context levels.
+# CTX-GUARD-001: Blocks TeamCreate and Agent/Task at critical context levels.
 # Uses the statusline bridge file (/tmp/rune-ctx-{SESSION_ID}.json) as data source.
 # Hard deny at critical threshold (default: 25% remaining / 75% used).
-# Explore/Plan agent types exempt (Task tool only — TeamCreate always checked per EC-4).
+# Explore/Plan agent types exempt (Agent/Task tool only — TeamCreate always checked per EC-4).
+# NOTE: Claude Code 2.1.63 renamed "Task" tool to "Agent". Both names are handled.
 # Fail-open: any error → exit 0 (allow tool).
 #
 # BD-2 tension: This hook uses hard-block (deny) but fail-open on dependencies
@@ -46,8 +47,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=resolve-session-identity.sh
 source "${SCRIPT_DIR}/resolve-session-identity.sh"
 
-# --- Explore/Plan exemption (Task tool only, NOT TeamCreate per EC-4) ---
-if [[ "$TOOL_NAME" == "Task" ]]; then
+# --- Explore/Plan exemption (Agent/Task tool only, NOT TeamCreate per EC-4) ---
+# Claude Code 2.1.63+ renamed "Task" → "Agent". Match both for backward compat.
+if [[ "$TOOL_NAME" == "Task" || "$TOOL_NAME" == "Agent" ]]; then
   case "$SUBAGENT_TYPE" in
     Explore|Plan) exit 0 ;;  # Read-only agents — minimal context cost
   esac

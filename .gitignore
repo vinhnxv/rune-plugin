@@ -33,6 +33,11 @@ __pycache__/
 *.pyo
 .pytest_cache/
 
+# Rust
+target/
+**/*.rs.bk
+*.pdb
+
 # Test outputs
 tests/reports/
 plugins/rune/ROADMAP.md

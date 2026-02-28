@@ -269,7 +269,7 @@ const fixerPrompt = loadTemplate("gap-fixer.md", {
 })
 
 // ATE-1: general-purpose subagent with identity via prompt
-Task({
+Agent({
   prompt: fixerPrompt,
   subagent_type: "general-purpose",
   team_name: fixTeamName,

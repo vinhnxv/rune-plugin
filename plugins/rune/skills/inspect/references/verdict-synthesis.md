@@ -42,7 +42,7 @@ const verdictPrompt = loadTemplate("verdict-binder.md", {
 })
 
 // ATE-1: Uses general-purpose with runebinder-style aggregation prompt (same as review.md Runebinder)
-Task({
+Agent({
   prompt: verdictPrompt,
   subagent_type: "general-purpose",
   team_name: teamName,

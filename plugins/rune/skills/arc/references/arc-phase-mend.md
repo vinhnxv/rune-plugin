@@ -105,7 +105,7 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
   // Synchronous sage — MUST complete before mend-fixers read its output
   // BUG FIX: Was using team_name `rune-mend-${id}` which doesn't exist yet —
   // the mend sub-command creates its own team in STEP 3. Use ephemeral team
-  // for ATE-1 compliance (enforce-teams.sh blocks bare Tasks during active arc).
+  // for ATE-1 compliance (enforce-teams.sh blocks bare Agents during active arc).
   // prePhaseCleanup already cleared SDK leadership state before this phase.
   // Context cost: ~5-10K tokens (reads SKILL.md + methods.csv + TOME excerpt, writes output).
   const sageTeam = `arc-sage-${id}`
@@ -113,7 +113,7 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && rm -rf "$CHOME/teams/${sageTeam}/" "$CHOME/tasks/${sageTeam}/" 2>/dev/null`)
   TeamCreate({ team_name: sageTeam })
 
-  Task({
+  Agent({
     team_name: sageTeam,
     name: "elicitation-sage-mend",
     subagent_type: "general-purpose",

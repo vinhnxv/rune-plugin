@@ -30,7 +30,7 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
-  - Task
+  - Agent
   - TeamCreate
   - TeamDelete
   - SendMessage

@@ -223,13 +223,13 @@ if (!quickMode) {
 //    ATE-1 EXEMPTION: Plan team not yet created at Phase 0. enforce-teams.sh passes
 //    because no plan state file (tmp/.rune-plan-*.json) exists at this point.
 //    NOTE: If another active Rune workflow (review/audit/work) is running concurrently,
-//    enforce-teams.sh WILL block these bare Task calls. This exemption only holds when
+//    enforce-teams.sh WILL block these bare Agent calls. This exemption only holds when
 //    /rune:devise runs standalone.
 //    If a plan state file is ever added pre-Phase 1, add "plan" to the hook's exclusion list.
 for (let i = 0; i < sageCount; i++) {
   const method = selectedMethods[i]
 
-  Task({
+  Agent({
     name: `elicitation-sage-${i + 1}`,
     subagent_type: "general-purpose",
     prompt: `You are elicitation-sage — a structured reasoning specialist.

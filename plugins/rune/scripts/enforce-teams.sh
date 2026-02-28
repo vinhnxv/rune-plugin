@@ -1,12 +1,15 @@
 #!/bin/bash
 # scripts/enforce-teams.sh
 # ATE-1: Enforce Agent Teams usage during active Rune multi-agent workflows.
-# Blocks bare Task calls (without team_name) when an arc/review/audit/work
+# Blocks bare Agent/Task calls (without team_name) when an arc/review/audit/work
 # workflow is active. Prevents context explosion from subagent output flowing
 # into the orchestrator's context window.
 #
+# NOTE: Claude Code 2.1.63 renamed the "Task" tool to "Agent". This script
+# handles both names for backward compatibility.
+#
 # Detection strategy:
-#   1. Check if tool_name is "Task" (only tool this hook targets)
+#   1. Check if tool_name is "Task" or "Agent" (only tools this hook targets)
 #   2. Check for active Rune workflow via state files:
 #      - .claude/arc/*/checkpoint.json with "in_progress" phase
 #      - tmp/.rune-review-*.json with "active" status
@@ -59,10 +62,12 @@ INPUT=$(head -c 1048576 2>/dev/null || true)  # SEC-2: 1MB cap to prevent unboun
 
 # Fast path: if caller is team-lead (not subagent), check for team_name in input.
 # Team leads MUST also use team_name — this is the whole point of ATE-1.
+# Note: Claude Code 2.1.63 renamed Task → Agent. Both are checked below.
 
 # BACK-003 FIX: Use printf instead of echo to avoid flag interpretation if $INPUT starts with '-'
+# Claude Code 2.1.63+ renamed "Task" → "Agent". Match both for backward compat.
 TOOL_NAME=$(printf '%s\n' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
-if [[ "$TOOL_NAME" != "Task" ]]; then
+if [[ "$TOOL_NAME" != "Task" && "$TOOL_NAME" != "Agent" ]]; then
   exit 0
 fi
 
@@ -90,7 +95,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=resolve-session-identity.sh
 # SEC-001/VEIL-005 FIX: Guard against missing resolve-session-identity.sh.
 # Without this guard, a missing file triggers the ERR trap which exits 0,
-# leaving RUNE_CURRENT_CFG unset and silently allowing bare Task calls.
+# leaving RUNE_CURRENT_CFG unset and silently allowing bare Agent/Task calls.
 if [[ -f "${SCRIPT_DIR}/resolve-session-identity.sh" ]]; then
   source "${SCRIPT_DIR}/resolve-session-identity.sh"
 else
@@ -145,12 +150,12 @@ if [[ -z "$active_workflow" ]]; then
   shopt -u nullglob
 fi
 
-# No active workflow — allow all Task calls
+# No active workflow — allow all Agent/Task calls
 if [[ -z "$active_workflow" ]]; then
   exit 0
 fi
 
-# Active workflow detected — verify Task input includes team_name
+# Active workflow detected — verify Agent/Task input includes team_name
 # BACK-2 FIX: Single-pass jq extraction (avoids fragile double-parse of tool_input)
 HAS_TEAM_NAME=$(printf '%s\n' "$INPUT" | jq -r 'if .tool_input.team_name and (.tool_input.team_name | length > 0) then "yes" else "no" end' 2>/dev/null || echo "no")
 
@@ -167,15 +172,15 @@ if [[ "$SUBAGENT_TYPE" == "Explore" || "$SUBAGENT_TYPE" == "Plan" ]]; then
   exit 0
 fi
 
-# ATE-1 VIOLATION: Task call without team_name during active workflow
+# ATE-1 VIOLATION: Agent/Task call without team_name during active workflow
 # Output deny decision with actionable feedback
 cat << 'DENY_JSON'
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
-    "permissionDecisionReason": "ATE-1: Bare Task call blocked during active Rune workflow. All multi-agent phases MUST use Agent Teams. Add team_name to your Task call. Example: Task({ team_name: 'arc-forge-{id}', name: 'agent-name', subagent_type: 'general-purpose', ... }). See arc skill (skills/arc/SKILL.md) 'CRITICAL — Agent Teams Enforcement' section.",
-    "additionalContext": "BLOCKED by enforce-teams.sh hook. You MUST create a team with TeamCreate first, then pass team_name to all Task calls. Using bare subagent types like 'rune:utility:scroll-reviewer' or 'other-plugin:some-agent-type' as subagent_type bypasses Agent Teams and causes context explosion. Always use subagent_type: 'general-purpose' and inject agent identity via the prompt parameter."
+    "permissionDecisionReason": "ATE-1: Bare Agent call blocked during active Rune workflow. All multi-agent phases MUST use Agent Teams. Add team_name to your Agent call. Example: Agent({ team_name: 'arc-forge-{id}', name: 'agent-name', subagent_type: 'general-purpose', ... }). See arc skill (skills/arc/SKILL.md) 'CRITICAL — Agent Teams Enforcement' section.",
+    "additionalContext": "BLOCKED by enforce-teams.sh hook. You MUST create a team with TeamCreate first, then pass team_name to all Agent calls. Using bare subagent types like 'rune:utility:scroll-reviewer' or 'other-plugin:some-agent-type' as subagent_type bypasses Agent Teams and causes context explosion. Always use subagent_type: 'general-purpose' and inject agent identity via the prompt parameter."
   }
 }
 DENY_JSON

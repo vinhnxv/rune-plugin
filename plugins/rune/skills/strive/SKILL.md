@@ -18,7 +18,7 @@ user-invocable: true
 disable-model-invocation: false
 argument-hint: "[plan-path] [--approve] [--worktree] [--background|-bg] [--collect]"
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate

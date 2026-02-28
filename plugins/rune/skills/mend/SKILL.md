@@ -18,7 +18,7 @@ user-invocable: true
 disable-model-invocation: false
 argument-hint: "[tome-path] [--output-dir <path>] [--timeout <ms>] [--todos-dir <path>]"
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate

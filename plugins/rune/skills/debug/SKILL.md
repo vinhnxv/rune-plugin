@@ -16,7 +16,7 @@ user-invocable: true
 disable-model-invocation: false
 argument-hint: "[bug description or test command]"
 allowed-tools:
-  - Task
+  - Agent
   - TaskCreate
   - TaskList
   - TaskUpdate
@@ -209,7 +209,7 @@ TaskCreate({
 For each hypothesis, spawn a `hypothesis-investigator` agent:
 
 ```
-Task({
+Agent({
   agent: "hypothesis-investigator",
   team_name: teamName,
   name: "investigator-{N}",

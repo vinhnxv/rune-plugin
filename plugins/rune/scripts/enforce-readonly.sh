@@ -44,7 +44,7 @@ fi
 
 # Subagent detected — check if any review/audit team has a readonly marker.
 # Detection differs from enforce-teams.sh: this script checks transcript_path
-# (subagent vs team-lead) while enforce-teams checks tool_name (Task calls only).
+# (subagent vs team-lead) while enforce-teams checks tool_name (Agent/Task calls only).
 # QUAL-5: Canonicalize CWD to resolve symlinks (matches on-task-completed.sh pattern)
 CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 if [[ -z "$CWD" ]]; then

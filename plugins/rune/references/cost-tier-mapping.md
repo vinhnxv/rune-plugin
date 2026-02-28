@@ -77,7 +77,7 @@ Centralized reference for the `cost_tier` system that controls which Claude mode
 
 ## resolveModelForAgent()
 
-**Inputs**: `agentName` (string — agent name from Task call), `talisman` (object — parsed talisman.yml)
+**Inputs**: `agentName` (string — agent name from Agent call), `talisman` (object — parsed talisman.yml)
 **Outputs**: `model` (string — "opus" | "sonnet" | "haiku")
 **Preconditions**: `talisman` loaded via `readTalisman()`, `COST_TIER_TABLE` populated from this file
 **Error handling**: Unknown agent → return tier default. Invalid tier value → fallback to "balanced".

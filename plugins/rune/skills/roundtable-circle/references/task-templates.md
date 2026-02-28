@@ -117,7 +117,7 @@ TaskCreate({
 ### Background Teammate (Agent Teams)
 
 ```
-Task({
+Agent({
   team_name: "rune-{workflow}-{id}",
   name: "{ash-name}",
   subagent_type: "general-purpose",
@@ -133,7 +133,7 @@ Task({
 > **Security**: Custom workflows using this template with 3+ agents reviewing untrusted code MUST inject the Truthbinding Protocol and Glyph Budget. See `inscription-protocol.md` for the full prompt injection template.
 
 ```
-Task({
+Agent({
   subagent_type: "general-purpose",
   description: "{role} review",
   prompt: [from references/ash-prompts/{role}.md],

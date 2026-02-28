@@ -14,7 +14,7 @@ TaskCreate({
 })
 
 // 2. Spawn scroll-reviewer as teammate
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "scroll-reviewer",
   subagent_type: "general-purpose",
@@ -156,7 +156,7 @@ TaskCreate({
   activeForm: "Challenging plan assumptions..."
 })
 
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "decree-arbiter",
   subagent_type: "general-purpose",
@@ -174,7 +174,7 @@ Task({
   run_in_background: true
 })
 
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "knowledge-keeper",
   subagent_type: "general-purpose",
@@ -192,7 +192,7 @@ Task({
   run_in_background: true
 })
 
-Task({
+Agent({
   team_name: "rune-plan-{timestamp}",
   name: "veil-piercer-plan",
   subagent_type: "general-purpose",
@@ -227,7 +227,7 @@ if (doubtSeerEnabled && doubtSeerWorkflows.includes("plan")) {
     description: `Cross-examine findings from other plan reviewers for evidence quality on ${planPath}`,
     activeForm: "Verifying reviewer claims..."
   })
-  Task({
+  Agent({
     team_name: "rune-plan-{timestamp}",
     name: "doubt-seer",
     subagent_type: "general-purpose",
@@ -276,7 +276,7 @@ if (horizonEnabled) {
     description: `Evaluate strategic depth of ${planPath}`,
     activeForm: "Horizon sage assessing strategic depth..."
   })
-  Task({
+  Agent({
     team_name: "rune-plan-{timestamp}",
     name: "horizon-sage",
     subagent_type: "general-purpose",
@@ -312,7 +312,7 @@ if (evidenceEnabled) {
     description: `Verify factual claims in ${planPath} against codebase, documentation, and external sources`,
     activeForm: "Verifying plan claims against evidence..."
   })
-  Task({
+  Agent({
     team_name: "rune-plan-{timestamp}",
     name: "evidence-verifier",
     subagent_type: "general-purpose",
@@ -369,7 +369,7 @@ if (elicitEnabled) {
       description: `Apply top-scored elicitation method #${i + 1} for plan:4 phase structured reasoning on ${planPath}`,
       activeForm: `Sage #${i + 1} analyzing plan...`
     })
-    Task({
+    Agent({
       team_name: "rune-plan-{timestamp}",
       name: `elicitation-sage-review-${i + 1}`,
       subagent_type: "general-purpose",
@@ -430,7 +430,7 @@ if (codexAvailable && !codexDisabled) {
       return
     }
 
-    Task({
+    Agent({
       team_name: "rune-plan-{timestamp}",
       name: "codex-plan-reviewer",
       subagent_type: "general-purpose",
