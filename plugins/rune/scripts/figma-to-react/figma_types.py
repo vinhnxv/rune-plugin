@@ -164,13 +164,26 @@ class BooleanOperationType(str, Enum):
 
 
 class ConstraintType(str, Enum):
-    """Constraint types for absolute positioning."""
+    """Constraint types for absolute positioning.
 
+    The Figma API returns both abstract names (MIN, MAX, STRETCH) and
+    positional names (TOP, BOTTOM, LEFT, RIGHT, TOP_BOTTOM, LEFT_RIGHT).
+    Both conventions must be supported for robust parsing.
+    """
+
+    # Abstract names (legacy docs)
     MIN = "MIN"
     CENTER = "CENTER"
     MAX = "MAX"
     STRETCH = "STRETCH"
     SCALE = "SCALE"
+    # Positional names (returned by current API)
+    TOP = "TOP"
+    BOTTOM = "BOTTOM"
+    LEFT = "LEFT"
+    RIGHT = "RIGHT"
+    TOP_BOTTOM = "TOP_BOTTOM"
+    LEFT_RIGHT = "LEFT_RIGHT"
 
 
 # ---------------------------------------------------------------------------
