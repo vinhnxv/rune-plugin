@@ -163,7 +163,7 @@ if (elicitEnabled && (p1Findings.length > 0 || recurringPatterns >= 5)) {
 // - Team name prefix: arc-mend-{id}
 // - Root cause context: if elicitation-root-cause.md exists, pass to fixers
 // No --todos-dir flag — mend resolves todos_base from TOME path (cross-write isolation)
-// Mend reads review's todos_base (from review state file) via TOME path resolution
+// Mend reads review's todos_base via 3-step resolution: arc checkpoint → review state file → TOME path
 // Delegation pattern: /rune:mend creates its own team (e.g., rune-mend-{id}).
 // Arc reads the team name from the mend state file or teammate idle notification.
 // Invoke: /rune:mend {tomeSource} --timeout ${innerPolling}
@@ -228,16 +228,36 @@ updateCheckpoint({
 })
 
 // Post-Phase 7 todos verification (non-blocking)
-// Mend updates the review's todos_base — read from the review state file
-const reviewStateFiles = Glob("tmp/.rune-review-*.json").filter(f => {
+// 3-step resolution: arc checkpoint → review state file → TOME path derivation
+let reviewTodosBase = null
+
+// Step 1: Arc checkpoint (preferred — always available in arc context)
+const arcCheckpoints = Glob(".claude/arc/*/checkpoint.json").sort().reverse()
+for (const ckpt of arcCheckpoints) {
   try {
-    const s = JSON.parse(Read(f))
-    return s.todos_base && s.status === "completed"
-  } catch { return false }
-}).sort().reverse()
-const reviewTodosBase = reviewStateFiles.length > 0
-  ? (() => { try { return JSON.parse(Read(reviewStateFiles[0])).todos_base || null } catch { return null } })()
-  : null
+    const c = JSON.parse(Read(ckpt))
+    if (c.todos_base && c.phases?.mend?.status !== "pending") {
+      reviewTodosBase = c.todos_base
+      break
+    }
+  } catch {}
+}
+
+// Step 2: Review state file (standalone appraise+mend, no arc)
+if (!reviewTodosBase) {
+  const reviewStateFiles = Glob("tmp/.rune-review-*.json").filter(f => {
+    try { return JSON.parse(Read(f)).todos_base } catch { return false }
+  }).sort().reverse()
+  reviewTodosBase = reviewStateFiles.length > 0
+    ? JSON.parse(Read(reviewStateFiles[0])).todos_base
+    : null
+}
+
+// Step 3: Derive from TOME path (last resort)
+if (!reviewTodosBase) {
+  const tomeDir = tomeSource.replace(/\/[^/]+\.md$/, '/')
+  reviewTodosBase = `${tomeDir}todos/`
+}
 
 if (reviewTodosBase) {
   const allTodos = Glob(`${reviewTodosBase}*/[0-9][0-9][0-9]-*.md`)

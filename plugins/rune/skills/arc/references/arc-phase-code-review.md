@@ -221,6 +221,10 @@ const reviewTodosBase = reviewStatePath
 if (reviewTodosBase) {
   const reviewTodos = Glob(`${reviewTodosBase}review/[0-9][0-9][0-9]-*.md`)
   log(`Todos verification: ${reviewTodos.length} review todos generated from TOME`)
+  // Cross-check: TOME has findings but no todos generated → Phase 5.4 may have been skipped
+  if (reviewTodos.length === 0 && tomeContent.includes('RUNE:FINDING')) {
+    warn(`Post-review: TOME has findings but no review todos generated. Phase 5.4 may have been skipped by roundtable-circle.`)
+  }
   // Spot-check first todo frontmatter schema (v2)
   if (reviewTodos.length > 0) {
     const fm = parseFrontmatter(Read(reviewTodos[0]))

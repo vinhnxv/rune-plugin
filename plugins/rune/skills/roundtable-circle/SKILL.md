@@ -345,20 +345,14 @@ See [orchestration-phases.md](references/orchestration-phases.md) Phase 5.2 for 
 
 ## Phase 5.4: Todo Generation from TOME
 
-Generate per-finding todo files from scope-tagged TOME. Runs after Phase 5 (Aggregate) and before Phase 5.5 (Truthseer Validator). Todos are **mandatory** — there is no `--todos=false` escape hatch.
+Generate per-finding todo files from scope-tagged TOME. Mandatory — no skip conditions.
 
-Read and execute the Phase 5.4 pseudocode from [orchestration-phases.md](references/orchestration-phases.md) § Phase 5.4.
+Read and execute [todo-generation.md](references/todo-generation.md).
 
-**File format**: Todo files use YAML frontmatter (schema v2) with 6-state lifecycle. See [../file-todos/references/todo-template.md](../file-todos/references/todo-template.md) for the canonical template.
-
-**Manifest**: After writing all todo files, call `buildManifests(todosBase, { all: true })` (per-source manifest creation) as specified in [../file-todos/references/manifest-schema.md](../file-todos/references/manifest-schema.md).
-
-**Key behaviors**:
-- Findings with `interaction="question"` or `interaction="nit"` are filtered out (non-actionable)
-- Pre-existing P2/P3 findings are filtered out (noise reduction); pre-existing P1 findings are kept
-- `FALSE_POSITIVE` findings are skipped (already dismissed)
-- Idempotency: duplicate detection via `finding_id` + `source_ref` in existing todo frontmatter
-- `todos_base` is recorded in the state file for downstream mend consumption
+**Verification**: After execution, confirm:
+1. `todosDir` exists and contains `[0-9][0-9][0-9]-*.md` or `[0-9][0-9][0-9][0-9]-*.md` files (or log "0 actionable findings")
+2. `todos_base` recorded in state file
+3. Per-source manifest exists at `{todosDir}/todos-{source}-manifest.json`
 
 ## Phase 6: Verify (Truthsight)
 
@@ -379,6 +373,7 @@ Layer 2 summon: 3+ Ashes (review) or 5+ Ashes (audit). Full spec: [Truthsight Pi
 1. **Dynamic member discovery** — read team config to find ALL teammates (fallback: Phase 1 selectedAsh list)
 2. **Shutdown all members** — `SendMessage(shutdown_request)` to each
 3. **Grace period** — `sleep 15` for teammate deregistration
+3.5. **Todo generation verification** (non-blocking) — verify Phase 5.4 todo files exist; attempt late recovery if TOME exists but todos are missing
 4. **TeamDelete with retry-with-backoff** (3 attempts: 0s, 5s, 10s) + filesystem fallback if all fail
 5. **Persist learnings** to Rune Echoes (`.claude/echoes/`)
 6. **Present TOME.md** to user

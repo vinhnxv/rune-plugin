@@ -821,6 +821,8 @@ Generate per-finding todo files from scope-tagged TOME. Runs AFTER Phase 5.3 (di
 
 **Todos are mandatory** — file-todos are ALWAYS generated. There is no `--todos=false` escape hatch.
 
+> **Dedicated reference**: See [todo-generation.md](todo-generation.md) for the standalone extraction of this phase's logic, verification checklist, and recovery patterns.
+
 ```javascript
 // Phase 5.4: Todo Generation from TOME findings (mandatory)
 const workflowType = workflow === "rune-review" ? "review" : "audit"
@@ -1116,6 +1118,45 @@ if (!cleanupSucceeded) {
   // Deep mode: also clean wave-suffixed teams (v1.67.0+)
   Bash(`CHOME="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}" && for n in 2 3 4; do rm -rf "$CHOME/teams/${teamName}-w${n}/" "$CHOME/tasks/${teamName}-w${n}/" 2>/dev/null; done`)
 }
+
+// ── Phase 7, Step 3.5: Todo Generation Verification (non-blocking) ──
+const workflowType = workflow === "rune-review" ? "review" : "audit"
+const expectedTodosDir = resolveTodosDir(outputDir, workflowType)
+const todoFiles = [
+  ...Glob(`${expectedTodosDir}[0-9][0-9][0-9]-*.md`),
+  ...Glob(`${expectedTodosDir}[0-9][0-9][0-9][0-9]-*.md`)
+]
+const manifestPath = `${expectedTodosDir}todos-${workflowType}-manifest.json`
+
+// Nonce recovery (MANDATORY for late Phase 5.4 execution)
+let sessionNonce = inscription?.sessionNonce
+if (!sessionNonce) {
+  try {
+    const inscriptionData = JSON.parse(Read(`${outputDir}inscription.json`))
+    sessionNonce = inscriptionData.sessionNonce
+  } catch {}
+}
+
+if (todoFiles.length === 0) {
+  warn(`Phase 7: No todo files found in ${expectedTodosDir}. Phase 5.4 may have been skipped.`)
+  if (exists(`${outputDir}TOME.md`) && sessionNonce) {
+    warn(`Phase 7: TOME exists + nonce recovered — attempting late todo generation recovery`)
+    // Read and execute todo-generation.md (recovery path)
+  }
+} else {
+  log(`Phase 7: ${todoFiles.length} todo files verified in ${expectedTodosDir}`)
+  if (!exists(manifestPath)) {
+    warn(`Phase 7: ${todoFiles.length} todo files exist but manifest missing — rebuilding`)
+  }
+}
+
+// MANDATORY: Record todos_base via read-then-write merge
+const currentState = JSON.parse(Read(`${stateFilePrefix}-${identifier}.json`))
+const mergedState = {
+  ...currentState,
+  todos_base: currentState.todos_base || resolveTodosBase(outputDir)
+}
+Write(`${stateFilePrefix}-${identifier}.json`, JSON.stringify(mergedState))
 
 // 4. Update state file
 Write(`${stateFilePrefix}-${identifier}.json`, {
