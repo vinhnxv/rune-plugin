@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.120.3] - 2026-02-28
+
+### Fixed
+- **_phase_ref() routing**: `test_coverage_critique` now correctly routes to `arc-phase-test.md` and `release_quality_check` routes to `arc-phase-pre-ship-validator.md` (were both incorrectly routing to `arc-codex-phases.md`)
+- **Phase count references**: Updated stale "23 phases" references to "26 phases" across 15 locations in 7 files — 3 missing design phases (design_extraction, design_verification, design_iteration) added to phase lists
+- **workflow-lock.sh config_dir fallback**: Hardened session isolation with proper `CLAUDE_CONFIG_DIR` fallback pattern
+- **Duplicate GUARD numbering**: Renumbered duplicate GUARD 11 to GUARD 12 in `arc-hierarchy-stop-hook.sh` (context-critical check before arc prompt injection)
+
 ## [1.120.2] - 2026-02-28
 
 ### Fixed
