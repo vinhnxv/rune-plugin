@@ -182,7 +182,7 @@ If `worker-logs/_summary.md` exists, append a collapsible Work Session section t
 
 ## Per-Task File-Todos (v2, mandatory)
 
-The orchestrator creates per-task todo files in `{todos_base}/work/` (session-scoped). File-todos are mandatory — there is no `--todos=false` option.
+The orchestrator creates per-task todo files in `{todos_base}/work/` (session-scoped). File-todos are mandatory — there is no `--todos=false` option. The `todos_base` path is recorded in the strive state file (`tmp/.rune-work-{timestamp}.json`) for downstream consumption by arc phases (review, mend, etc.).
 
 ### Orchestrator: Per-Task Todo Creation (Phase 1)
 
@@ -246,8 +246,9 @@ Workers also update their assigned todo file's Work Log:
 
 ```
 PER-TASK TODO PROTOCOL:
-1. After claiming a task, check if a matching todo exists in todos/
-   (grep for tags containing "task-{your-task-id}" in frontmatter)
+1. After claiming a task, check if a matching todo exists in {todosDir}
+   (resolved via resolveTodosDir(workflowOutputDir, "work") — passed in spawn prompt)
+   Grep for tags containing "task-{your-task-id}" in frontmatter
 2. If found: append Work Log entries as you progress
 3. On completion: signal orchestrator (orchestrator updates status)
 4. On block: signal orchestrator (orchestrator updates status)

@@ -151,6 +151,13 @@ Read and execute the arc-checkpoint-init.md algorithm.
 
 ### Session-Scoped Todos (auto-resolve)
 
+```javascript
+// Arc scaffolding (pre-Phase 5) — set todos_base once
+const todosBase = `tmp/arc/${id}/todos/`
+Bash(`mkdir -p "${todosBase}"`)
+updateCheckpoint({ todos_base: todosBase })
+```
+
 Each delegated phase resolves `todos_base` via `resolveTodosBase(workflowOutputDir)`, then resolves the source-qualified `todosDir` via `resolveTodosDir(workflowOutputDir, source)` where `workflowOutputDir = tmp/arc/{id}/`. No `--todos-dir` flag is passed. See [arc-delegation-checklist.md](references/arc-delegation-checklist.md) § Phase 5, 6, 7 for per-phase todo resolution contracts.
 
 ### Inter-Phase Cleanup Guard (ARC-6)
@@ -316,7 +323,7 @@ After ARC-9 sweep, **finish your response immediately**. Do NOT process further 
 - [Architecture & Pipeline Overview](references/arc-architecture.md) — Pipeline diagram, orchestrator design, transition contracts
 - [Phase Constants](references/arc-phase-constants.md) — PHASE_ORDER, PHASE_TIMEOUTS, CYCLE_BUDGET, shared utilities
 - [Failure Policy](references/arc-failure-policy.md) — Per-phase failure handling matrix
-- [Checkpoint Init](references/arc-checkpoint-init.md) — Schema v19, 3-layer config resolution
+- [Checkpoint Init](references/arc-checkpoint-init.md) — Schema v20, 3-layer config resolution
 - [Resume](references/arc-resume.md) — Checkpoint restoration, schema migration
 - [Pre-flight](references/arc-preflight.md) — Git state, branch creation, stale team scan, prePhaseCleanup
 - [Phase Cleanup](references/arc-phase-cleanup.md) — postPhaseCleanup, PHASE_PREFIX_MAP

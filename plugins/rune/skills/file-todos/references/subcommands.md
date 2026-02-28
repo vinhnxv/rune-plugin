@@ -26,13 +26,24 @@ function resolveSessionContext(args: string): string {
   // 2. Auto-detect: find most recent active workflow from state files
   // Use wildcard + filter instead of brace expansion (not universally supported)
   const stateFiles = Glob("tmp/.rune-*-*.json")
-    .filter(f => /\.rune-(work|review|audit|mend)-/.test(f))
+    .filter(f => /\.rune-(work|review|audit|mend|arc)-/.test(f))
   const activeStates = stateFiles
     .map(f => { try { return JSON.parse(Read(f)) } catch { return null } })
     .filter(s => s && s.status === "active" && s.todos_base)
     .sort((a, b) => new Date(b.started) - new Date(a.started))
 
-  if (activeStates.length > 0) return activeStates[0].todos_base
+  if (activeStates.length > 0) {
+    let todosBase = activeStates[0].todos_base
+    if (!todosBase && activeStates[0].id) {
+      // Arc checkpoint stores todos_base at top level; arc state file may not
+      const ckptPath = `.claude/arc/${activeStates[0].id}/checkpoint.json`
+      try {
+        const ckpt = JSON.parse(Read(ckptPath))
+        todosBase = ckpt.todos_base
+      } catch {}
+    }
+    return todosBase
+  }
 
   // 3. Fallback: list recent completed sessions for user selection
   const completedStates = stateFiles
