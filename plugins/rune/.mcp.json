@@ -9,6 +9,12 @@
       "type": "stdio",
       "command": "${CLAUDE_PLUGIN_ROOT}/scripts/figma-to-react/start.sh",
       "args": []
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@^1.0.0"],
+      "_supply_chain_note": "Uses floating semver ^1.0.0 (any 1.x.x). Supply chain risk: minor updates are auto-resolved at runtime. Pin to an exact version (e.g. @upstash/context7-mcp@1.0.14) and verify with `npm pack` if stricter supply-chain controls are required."
     }
   }
 }

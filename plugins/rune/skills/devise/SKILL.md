@@ -68,8 +68,8 @@ Phase 0: Gather Input (brainstorm by default — auto-skip when requirements are
     ↓
 Phase 1: Research (up to 7 agents, conditional)
     ├─ Phase 1A: LOCAL RESEARCH (always — repo-surveyor, echo-reader, git-miner)
-    ├─ Phase 1B: RESEARCH DECISION (risk + local sufficiency scoring)
-    ├─ Phase 1C: EXTERNAL RESEARCH (conditional — practice-seeker, lore-scholar, codex-researcher)
+    ├─ Phase 1B: RESEARCH DECISION (talisman plan config bypass, risk + local sufficiency scoring, URL sanitization)
+    ├─ Phase 1C: EXTERNAL RESEARCH (conditional — practice-seeker + Context7 MCP, lore-scholar + Context7, codex-researcher)
     └─ Phase 1D: SPEC VALIDATION (always — flow-seer)
     ↓ (all research tasks converge)
 Phase 1.5: Research Consolidation Validation (AskUserQuestion checkpoint)
@@ -192,11 +192,11 @@ Read and execute when Phase 0 runs.
 
 ## Phase 1: Research (Conditional, up to 7 agents)
 
-Spawns local research agents (repo-surveyor, echo-reader, git-miner), evaluates risk/sufficiency scores to decide on external research (practice-seeker, lore-scholar, codex-researcher), then runs spec validation (flow-seer). Includes research consolidation validation checkpoint.
+Spawns local research agents (repo-surveyor, echo-reader, git-miner), evaluates risk/sufficiency scores to decide on external research (practice-seeker, lore-scholar, codex-researcher), then runs spec validation (flow-seer). Includes research consolidation validation checkpoint. Phase 1B reads `talisman.plan` config for `external_research` bypass modes (`always`/`auto`/`never`) and `research_urls` with SSRF-defensive URL sanitization. External research agents use Context7 MCP for framework documentation alongside WebSearch.
 
-**Inputs**: `feature` (sanitized string, from Phase 0), `timestamp` (validated identifier), talisman config
+**Inputs**: `feature` (sanitized string, from Phase 0), `timestamp` (validated identifier), talisman config (plan section for research control)
 **Outputs**: Research agent outputs in `tmp/plans/{timestamp}/research/`, `inscription.json`
-**Error handling**: TeamDelete fallback on cleanup, identifier validation before rm -rf, agent timeout (5 min) proceeds with partial findings
+**Error handling**: TeamDelete fallback on cleanup, identifier validation before rm-rf, agent timeout (5 min) proceeds with partial findings
 
 See [research-phase.md](references/research-phase.md) for the full protocol.
 
