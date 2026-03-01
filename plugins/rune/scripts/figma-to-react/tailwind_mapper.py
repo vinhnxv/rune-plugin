@@ -398,6 +398,9 @@ class TailwindMapper:
         if prop == "background-color":
             return [snap_color(value, "bg")]
 
+        if prop == "color":
+            return [snap_color(value, "text")]
+
         if prop == "background-image":
             return self._map_gradient(value)
 
@@ -475,6 +478,12 @@ class TailwindMapper:
         if prop == "backdrop-filter" and "blur" in value:
             return [self._map_blur(value, "backdrop-blur")]
 
+        if prop == "mix-blend-mode":
+            return [f"mix-blend-{value}"]
+
+        if prop == "transform" and "rotate" in value:
+            return [self._map_rotation(value)]
+
         if prop == "overflow":
             return [f"overflow-{value}"]
 
@@ -493,6 +502,9 @@ class TailwindMapper:
     def _map_gradient(self, value: str) -> List[str]:
         """Map a CSS gradient to Tailwind v4 gradient classes.
 
+        Extracts direction and color stops from CSS gradient syntax,
+        mapping them to Tailwind's ``from-``, ``via-``, ``to-`` classes.
+
         Args:
             value: CSS background-image gradient string.
 
@@ -506,16 +518,67 @@ class TailwindMapper:
             "to bottom left": "bl", "to top left": "tl",
         }
 
+        classes: List[str] = []
+
         if "linear-gradient" in value:
-            for css_dir, tw_dir in direction_map.items():
+            tw_dir = "b"  # default
+            for css_dir, d in direction_map.items():
                 if css_dir in value:
-                    return [f"bg-linear-to-{tw_dir}"]
-            return ["bg-linear-to-b"]
+                    tw_dir = d
+                    break
+            classes.append(f"bg-linear-to-{tw_dir}")
+
+            # Extract color stops
+            stop_classes = self._extract_gradient_stops(value)
+            classes.extend(stop_classes)
+            return classes
 
         if "radial-gradient" in value:
-            return ["bg-radial"]
+            classes.append("bg-radial")
+            stop_classes = self._extract_gradient_stops(value)
+            classes.extend(stop_classes)
+            return classes
 
         return []
+
+    @staticmethod
+    def _extract_gradient_stops(value: str) -> List[str]:
+        """Extract color stops from a CSS gradient and map to from/via/to classes.
+
+        Args:
+            value: CSS gradient string containing color stops.
+
+        Returns:
+            List of Tailwind from-/via-/to- classes.
+        """
+        # Extract the content inside the gradient function parentheses
+        paren_match = re.search(r"gradient\((.+)\)", value)
+        if not paren_match:
+            return []
+
+        inner = paren_match.group(1)
+
+        # Split on color stops — each is "color position%"
+        # Match: hex colors, rgba(), or named colors followed by optional percentage
+        stop_pattern = re.findall(
+            r"(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))\s*(\d+%)?",
+            inner,
+        )
+        if not stop_pattern:
+            return []
+
+        colors = [match[0] for match in stop_pattern]
+        classes: List[str] = []
+
+        if len(colors) >= 1:
+            classes.append(snap_color(colors[0], "from"))
+        if len(colors) >= 3:
+            # Middle stop(s) → via-
+            classes.append(snap_color(colors[1], "via"))
+        if len(colors) >= 2:
+            classes.append(snap_color(colors[-1], "to"))
+
+        return classes
 
     @staticmethod
     def _map_border_width(value: str) -> str:
@@ -598,28 +661,48 @@ class TailwindMapper:
 
     @staticmethod
     def _map_shadow(value: str) -> str:
-        """Map a box-shadow to the nearest Tailwind shadow class.
+        """Map a box-shadow to a Tailwind shadow class.
 
-        Extracts the blur radius from the shadow and snaps to the
-        nearest Tailwind shadow scale.
+        For standard shadows (black/gray, matching Tailwind scale), snaps
+        to named classes. For shadows with custom colors or offsets, uses
+        arbitrary value syntax to preserve exact design values.
 
         Args:
-            value: CSS box-shadow value.
+            value: CSS box-shadow value (e.g., "2px 4px 6px 0px rgba(0, 0, 0, 0.1)").
 
         Returns:
             Tailwind shadow class.
         """
-        # Extract blur radius from shadow value
-        # Format: [inset] x y blur spread color
-        blur_match = re.search(r"(\d+(?:\.\d+)?)px\s+(\d+(?:\.\d+)?)px\s+(\d+(?:\.\d+)?)px", value)
+        if "inset" in value:
+            return "shadow-inner"
+
+        # Parse shadow components: x y blur [spread] color
+        # Match: offset_x offset_y blur_radius
+        blur_match = re.search(
+            r"(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px\s+(\d+(?:\.\d+)?)px",
+            value,
+        )
         if not blur_match:
             return "shadow"
 
         blur_radius = float(blur_match.group(3))
 
-        if "inset" in value:
-            return "shadow-inner"
+        # Check for non-standard color (not black/gray)
+        color_match = re.search(r"(rgba?\([^)]+\)|#[0-9a-fA-F]{3,8})", value)
+        has_custom_color = False
+        if color_match:
+            color_str = color_match.group(1)
+            # Standard Tailwind shadows use black with varying opacity
+            if not re.match(r"rgba\(\s*0,\s*0,\s*0,", color_str):
+                has_custom_color = True
 
+        # If non-standard color, use arbitrary value to preserve it
+        if has_custom_color:
+            # Clean value for Tailwind arbitrary: replace spaces in rgba
+            clean = value.strip().replace(", ", ",")
+            return f"shadow-[{clean}]"
+
+        # Standard shadow — snap to named class
         best_class = "shadow"
         best_diff = float("inf")
 
@@ -677,6 +760,44 @@ class TailwindMapper:
         if px is not None:
             return f"{prefix}-{_px_to_spacing(px)}"
         return f"{prefix}-[{value}]"
+
+    @staticmethod
+    def _map_rotation(value: str) -> str:
+        """Map a CSS rotate transform to a Tailwind rotate class.
+
+        Snaps to named Tailwind rotate classes (rotate-45, rotate-90, etc.)
+        when the angle is close. Otherwise uses arbitrary value syntax.
+
+        Args:
+            value: CSS transform value (e.g., "rotate(-45.0deg)").
+
+        Returns:
+            Tailwind rotate class (e.g., "rotate-45", "-rotate-90", "rotate-[12deg]").
+        """
+        match = re.search(r"rotate\((-?\d+(?:\.\d+)?)deg\)", value)
+        if not match:
+            return "rotate-0"
+
+        deg = float(match.group(1))
+        if abs(deg) < 0.1:
+            return "rotate-0"
+
+        # Named Tailwind rotate classes
+        named = {0: "rotate-0", 1: "rotate-1", 2: "rotate-2", 3: "rotate-3",
+                 6: "rotate-6", 12: "rotate-12", 45: "rotate-45",
+                 90: "rotate-90", 180: "rotate-180"}
+
+        abs_deg = abs(deg)
+        neg_prefix = "-" if deg < 0 else ""
+
+        # Snap to named class if within 0.5 degrees
+        for named_deg, tw_class in named.items():
+            if abs(abs_deg - named_deg) < 0.5:
+                return f"{neg_prefix}{tw_class}"
+
+        # Arbitrary value
+        rounded = round(deg)
+        return f"rotate-[{rounded}deg]"
 
     @staticmethod
     def _map_blur(value: str, prefix: str) -> str:

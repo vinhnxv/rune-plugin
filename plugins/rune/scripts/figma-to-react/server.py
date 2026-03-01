@@ -198,6 +198,7 @@ async def figma_to_react(
     component_name: str = "",
     use_tailwind: bool = True,
     extract_components: bool = False,
+    aria: bool = False,
     max_length: int = core.DEFAULT_MAX_LENGTH,
     start_index: int = core.DEFAULT_START_INDEX,
 ) -> str:
@@ -216,6 +217,7 @@ async def figma_to_react(
             auto-detected from the Figma node name.
         use_tailwind: Generate Tailwind CSS classes (default True).
         extract_components: Extract repeated instances as separate components.
+        aria: Add ARIA accessibility attributes to generated JSX (default False).
         max_length: Max response characters (default 50000).
         start_index: Pagination offset (default 0).
 
@@ -225,8 +227,14 @@ async def figma_to_react(
     client = _get_client(ctx)
     try:
         result = await core.to_react(
-            client, url, component_name, use_tailwind,
-            extract_components, max_length, start_index,
+            client,
+            url,
+            component_name=component_name,
+            use_tailwind=use_tailwind,
+            extract_components=extract_components,
+            aria=aria,
+            max_length=max_length,
+            start_index=start_index,
         )
         return json.dumps(result)
     except FigmaURLError as exc:

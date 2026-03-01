@@ -15,7 +15,7 @@ import logging
 from typing import Any
 
 from figma_client import FigmaClient, FigmaAPIError  # noqa: F401
-from figma_types import FigmaFileResponse, FigmaNodesResponse, NodeType
+from figma_types import NodeType
 from image_handler import collect_image_refs
 from node_parser import FigmaIRNode, count_nodes, parse_node, walk_tree
 from react_generator import generate_component
@@ -112,6 +112,10 @@ def ir_to_dict(node: FigmaIRNode, max_depth: int = 20) -> dict[str, Any]:
     if node.image_ref:
         result["image_ref"] = node.image_ref
 
+    # SVG geometry
+    if node.fill_geometry:
+        result["fill_geometry_count"] = len(node.fill_geometry)
+
     # Children
     if node.children:
         result["children"] = [
@@ -119,6 +123,21 @@ def ir_to_dict(node: FigmaIRNode, max_depth: int = 20) -> dict[str, Any]:
         ]
 
     return result
+
+
+def extract_react_code(result: dict[str, Any]) -> str:
+    """Extract raw React/TSX code from a to_react() paginated result.
+
+    The to_react() function returns a paginated dict with a 'content' key
+    containing a JSON string. Inside that JSON is 'main_component' with the
+    actual React code. This helper unwraps both layers.
+    """
+    content = result.get("content")
+    if isinstance(content, str):
+        inner = json.loads(content)
+    else:
+        inner = result
+    return inner.get("main_component", "")
 
 
 def paginate_output(
@@ -147,6 +166,7 @@ def paginate_output(
 def extract_sub_components(
     root: FigmaIRNode,
     image_urls: dict[str, str],
+    aria: bool = False,
 ) -> list[dict[str, str]]:
     """Extract repeated component instances as separate React components."""
     all_nodes = walk_tree(root)
@@ -163,7 +183,7 @@ def extract_sub_components(
         if len(instances) < 2:
             continue
         template = instances[0]
-        code = generate_component(template, image_urls=image_urls)
+        code = generate_component(template, image_urls=image_urls, aria=aria)
         sub_components.append({
             "component_id": comp_id,
             "name": template.name,
@@ -194,25 +214,32 @@ async def _fetch_node_or_file(
         response_data = await client.get_nodes(
             file_key, [node_id], branch_key=branch_key
         )
-        nodes_resp = FigmaNodesResponse.model_validate(response_data)
-        node_data = nodes_resp.nodes.get(node_id)
-        if node_data is None or node_data.document is None:
+        # Extract raw dict directly — avoids Pydantic extra="ignore"
+        # stripping type-specific fields (characters, layoutMode, etc.)
+        node_data = response_data.get("nodes", {}).get(node_id)
+        if node_data is None:
             raise FigmaAPIError(
                 f"Node '{node_id}' not found in file '{file_key}'. "
                 f"Verify the node ID is correct."
             )
-        return node_data.document.model_dump(by_alias=True)
+        document = node_data.get("document")
+        if document is None:
+            raise FigmaAPIError(
+                f"Node '{node_id}' has no document data."
+            )
+        return document
     else:
         response_data = await client.get_file(
             file_key, depth=depth, branch_key=branch_key
         )
-        file_resp = FigmaFileResponse.model_validate(response_data)
-        if file_resp.document is None:
+        # Extract raw dict directly — same reason as above
+        document = response_data.get("document")
+        if document is None:
             raise FigmaAPIError(
                 f"File '{file_key}' returned no document. "
                 f"The file may be empty or access may be restricted."
             )
-        return file_resp.document.model_dump(by_alias=True)
+        return document
 
 
 def _parse_url(url: str) -> tuple[str, str | None, str | None]:
@@ -382,6 +409,7 @@ async def to_react(
     component_name: str = "",
     use_tailwind: bool = True,
     extract_components: bool = False,
+    aria: bool = False,
     max_length: int = DEFAULT_MAX_LENGTH,
     start_index: int = DEFAULT_START_INDEX,
 ) -> dict[str, Any]:
@@ -389,6 +417,16 @@ async def to_react(
 
     End-to-end pipeline: URL parsing -> Figma API fetch -> node parsing ->
     style extraction -> layout resolution -> React JSX generation.
+
+    Args:
+        client: Figma API client.
+        url: Full Figma URL.
+        component_name: Override component name.
+        use_tailwind: Generate Tailwind CSS classes.
+        extract_components: Extract repeated instances as components.
+        aria: When True, emit ARIA accessibility attributes.
+        max_length: Max response characters for pagination.
+        start_index: Pagination offset.
     """
     file_key, node_id, branch_key = _parse_url(url)
 
@@ -419,6 +457,7 @@ async def to_react(
         ir_root,
         component_name=name,
         image_urls=image_urls,
+        aria=aria,
     )
 
     output: dict[str, Any] = {
@@ -429,7 +468,7 @@ async def to_react(
 
     # Extract sub-components from repeated instances
     if extract_components:
-        sub = extract_sub_components(ir_root, image_urls)
+        sub = extract_sub_components(ir_root, image_urls, aria=aria)
         if sub:
             output["extracted_components"] = sub
 

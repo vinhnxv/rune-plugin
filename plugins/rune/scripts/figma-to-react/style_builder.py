@@ -148,14 +148,20 @@ class StyleBuilder:
     def __init__(self) -> None:
         self._props: Dict[str, str] = {}
 
-    def fills(self, paints: List[Paint]) -> StyleBuilder:
+    def fills(self, paints: List[Paint], *, is_text: bool = False) -> StyleBuilder:
         """Extract background/fill properties from Figma paints.
 
         Processes only the first visible fill. Handles SOLID colors,
         linear/radial gradients, and IMAGE fills.
 
+        For TEXT nodes (``is_text=True``), solid fills are mapped to
+        ``color`` (CSS text color) instead of ``background-color``.
+        This produces Tailwind ``text-*`` classes instead of ``bg-*``.
+
         Args:
             paints: List of Figma Paint objects (typically node.fills).
+            is_text: If True, map solid fills to ``color`` instead of
+                ``background-color``. Defaults to False.
 
         Returns:
             Self for chaining.
@@ -167,7 +173,8 @@ class StyleBuilder:
         paint = visible[0]  # Primary fill
 
         if paint.type == PaintType.SOLID and paint.color:
-            self._props["background-color"] = _color_to_css(
+            css_prop = "color" if is_text else "background-color"
+            self._props[css_prop] = _color_to_css(
                 paint.color, paint.opacity
             )
 
@@ -413,6 +420,60 @@ class StyleBuilder:
         """
         if clips:
             self._props["overflow"] = "hidden"
+        return self
+
+    def rotation(self, degrees: float) -> StyleBuilder:
+        """Set rotation transform.
+
+        Only emits if the rotation is non-zero. Uses CSS transform syntax
+        that maps to Tailwind ``rotate-[Ndeg]`` classes.
+
+        Args:
+            degrees: Rotation in degrees (Figma uses counter-clockwise;
+                CSS uses clockwise, so we negate).
+
+        Returns:
+            Self for chaining.
+        """
+        if abs(degrees) > 0.01:
+            # Figma rotation is counter-clockwise, CSS is clockwise
+            css_deg = -degrees
+            self._props["transform"] = f"rotate({css_deg:.1f}deg)"
+        return self
+
+    def blend_mode(self, mode: Optional[str]) -> StyleBuilder:
+        """Set blend mode.
+
+        Maps Figma blend mode names to CSS ``mix-blend-mode`` values.
+
+        Args:
+            mode: Figma blend mode string (e.g., MULTIPLY, SCREEN).
+
+        Returns:
+            Self for chaining.
+        """
+        if not mode:
+            return self
+        _BLEND_MAP: Dict[str, str] = {
+            "MULTIPLY": "multiply",
+            "SCREEN": "screen",
+            "OVERLAY": "overlay",
+            "DARKEN": "darken",
+            "LIGHTEN": "lighten",
+            "COLOR_DODGE": "color-dodge",
+            "COLOR_BURN": "color-burn",
+            "HARD_LIGHT": "hard-light",
+            "SOFT_LIGHT": "soft-light",
+            "DIFFERENCE": "difference",
+            "EXCLUSION": "exclusion",
+            "HUE": "hue",
+            "SATURATION": "saturation",
+            "COLOR": "color",
+            "LUMINOSITY": "luminosity",
+        }
+        css_val = _BLEND_MAP.get(mode)
+        if css_val:
+            self._props["mix-blend-mode"] = css_val
         return self
 
     def build(self) -> Dict[str, str]:

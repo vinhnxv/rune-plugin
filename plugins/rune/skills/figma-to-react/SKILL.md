@@ -85,6 +85,29 @@ figma_to_react(
 
 **Returns:** JSON with `main_component` (React code string) and optionally `extracted_components`.
 
+## CLI: Direct Output Modes
+
+The CLI (`scripts/figma-to-react/cli.py`) also supports direct code output without JSON wrapping:
+
+### `--code` — Raw TSX to stdout
+
+```bash
+python3 cli.py react URL --code               # pipe-friendly raw TSX
+python3 cli.py react URL --code > SignUp.tsx   # redirect to file
+```
+
+### `--write PATH` — Write .tsx file directly
+
+```bash
+# Auto-name from component (e.g., creates ./components/LoginForm.tsx)
+python3 cli.py react URL --write ./components/
+
+# Explicit filename
+python3 cli.py react URL --write ./SignUp.tsx
+```
+
+**Validation:** `--code` and `--write` are mutually exclusive. Neither can be combined with `--output`.
+
 ## Workflow
 
 Typical usage flow:

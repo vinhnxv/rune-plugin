@@ -12,7 +12,7 @@ import pytest
 # Add parent directory to path so we can import the module under test
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from cli import _mask_token, _supports_color, build_parser, main  # noqa: E402
+from cli import _extract_component_name, _mask_token, _supports_color, build_parser, main  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +113,34 @@ class TestBuildParser:
         ])
         assert args.extract is True
 
+    def test_react_code_flag(self):
+        parser = build_parser()
+        args = parser.parse_args([
+            "react", "https://figma.com/design/ABC/Title", "--code"
+        ])
+        assert args.code is True
+
+    def test_react_write_flag(self):
+        parser = build_parser()
+        args = parser.parse_args([
+            "react", "https://figma.com/design/ABC/Title", "--write", "/tmp/out/"
+        ])
+        assert args.write == "/tmp/out/"
+
+    def test_react_aria_flag(self):
+        parser = build_parser()
+        args = parser.parse_args([
+            "react", "https://figma.com/design/ABC/Title", "--aria"
+        ])
+        assert args.aria is True
+
+    def test_react_aria_default_off(self):
+        parser = build_parser()
+        args = parser.parse_args([
+            "react", "https://figma.com/design/ABC/Title"
+        ])
+        assert args.aria is False
+
     def test_global_options(self):
         parser = build_parser()
         args = parser.parse_args([
@@ -212,3 +240,116 @@ class TestMain:
             output = captured.getvalue()
             assert "\n" in output  # indented output has newlines
             assert "  " in output  # 2-space indentation
+
+    def test_code_flag_outputs_raw_tsx(self, monkeypatch):
+        """--code prints raw React code, not JSON."""
+        monkeypatch.setenv("FIGMA_TOKEN", "figd_test_token_value")
+
+        mock_result = {
+            "content": json.dumps({
+                "file_key": "ABC",
+                "main_component": "export default function SignUp() {\n  return <div/>;\n}",
+            }),
+        }
+
+        with patch("core.to_react", new_callable=AsyncMock, return_value=mock_result):
+            captured = StringIO()
+            monkeypatch.setattr("sys.stdout", captured)
+
+            main([
+                "react",
+                "https://www.figma.com/design/ABC123XYZabcdef789012/Title?node-id=1-3",
+                "--code",
+            ])
+
+            output = captured.getvalue().strip()
+            assert output.startswith("export default function")
+            # Should NOT be JSON-wrapped
+            assert not output.startswith("{")
+
+    def test_write_flag_creates_file(self, monkeypatch, tmp_path):
+        """--write writes a .tsx file."""
+        monkeypatch.setenv("FIGMA_TOKEN", "figd_test_token_value")
+
+        code = "export default function MyCard() {\n  return <div/>;\n}"
+        mock_result = {
+            "content": json.dumps({"file_key": "ABC", "main_component": code}),
+        }
+
+        with patch("core.to_react", new_callable=AsyncMock, return_value=mock_result):
+            main([
+                "react",
+                "https://www.figma.com/design/ABC123XYZabcdef789012/Title?node-id=1-3",
+                "--write", str(tmp_path / "MyCard.tsx"),
+            ])
+
+        out_file = tmp_path / "MyCard.tsx"
+        assert out_file.exists()
+        content = out_file.read_text()
+        assert "export default function MyCard" in content
+
+    def test_write_flag_auto_names_from_component(self, monkeypatch, tmp_path):
+        """--write to a directory auto-names the .tsx file from the component."""
+        monkeypatch.setenv("FIGMA_TOKEN", "figd_test_token_value")
+
+        code = "export default function LoginForm() {\n  return <div/>;\n}"
+        mock_result = {
+            "content": json.dumps({"file_key": "ABC", "main_component": code}),
+        }
+
+        with patch("core.to_react", new_callable=AsyncMock, return_value=mock_result):
+            main([
+                "react",
+                "https://www.figma.com/design/ABC123XYZabcdef789012/Title?node-id=1-3",
+                "--write", str(tmp_path),
+            ])
+
+        out_file = tmp_path / "LoginForm.tsx"
+        assert out_file.exists()
+
+    def test_code_and_write_mutually_exclusive(self, monkeypatch):
+        """--code and --write together should error."""
+        monkeypatch.setenv("FIGMA_TOKEN", "figd_test_token_value")
+        with pytest.raises(SystemExit) as exc_info:
+            main([
+                "react",
+                "https://figma.com/design/ABC/Title",
+                "--code", "--write", "/tmp/out.tsx",
+            ])
+        assert exc_info.value.code == 2  # argparse error
+
+    def test_code_and_output_conflict(self, monkeypatch):
+        """--code and --output together should error."""
+        monkeypatch.setenv("FIGMA_TOKEN", "figd_test_token_value")
+        with pytest.raises(SystemExit) as exc_info:
+            main([
+                "--output", "/tmp/out.json",
+                "react",
+                "https://figma.com/design/ABC/Title",
+                "--code",
+            ])
+        assert exc_info.value.code == 2
+
+
+# ---------------------------------------------------------------------------
+# _extract_component_name
+# ---------------------------------------------------------------------------
+
+
+class TestExtractComponentName:
+    """Test component name extraction from generated React code."""
+
+    def test_standard_export(self):
+        code = "export default function MyCard() {\n  return <div/>;\n}"
+        assert _extract_component_name(code) == "MyCard"
+
+    def test_multiline_code(self):
+        code = "import React from 'react';\n\nexport default function SignUpForm() {"
+        assert _extract_component_name(code) == "SignUpForm"
+
+    def test_no_match_returns_default(self):
+        code = "const x = 42;"
+        assert _extract_component_name(code) == "Component"
+
+    def test_empty_string(self):
+        assert _extract_component_name("") == "Component"
