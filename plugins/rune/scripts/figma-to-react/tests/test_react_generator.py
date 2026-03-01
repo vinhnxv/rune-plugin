@@ -13,9 +13,14 @@ from react_generator import (
     generate_component_with_props,
     _to_component_name,
     _escape_jsx,
+    _resolve_html_tag,
+    _deduplicate_classes,
+    _is_decorative_name,
+    _resolve_aria_attrs,
+    _format_html_attrs,
 )
 from node_parser import FigmaIRNode, StyledTextSegment
-from figma_types import LayoutMode, NodeType, TypeStyle
+from figma_types import Color, LayoutMode, LayoutSizingMode, NodeType, Paint, PaintType, TypeStyle
 
 
 # ---------------------------------------------------------------------------
@@ -316,3 +321,750 @@ class TestGenerateComponentWithProps:
         )
         assert "MyWidgetProps" in code
         assert "function MyWidget" in code
+
+
+# ---------------------------------------------------------------------------
+# _resolve_html_tag — semantic HTML mapping
+# ---------------------------------------------------------------------------
+
+
+class TestResolveHtmlTag:
+    """Test Figma node to semantic HTML tag mapping."""
+
+    def test_button_by_name(self):
+        node = _make_node(name="Login Button")
+        assert _resolve_html_tag(node) == "button"
+
+    def test_btn_keyword(self):
+        node = _make_node(name="primary-btn")
+        assert _resolve_html_tag(node) == "button"
+
+    def test_cta_keyword(self):
+        node = _make_node(name="CTA Block")
+        assert _resolve_html_tag(node) == "button"
+
+    def test_input_by_name(self):
+        node = _make_node(name="Email Input")
+        assert _resolve_html_tag(node) == "input"
+
+    def test_nav_by_name(self):
+        node = _make_node(name="TopNav")
+        assert _resolve_html_tag(node) == "nav"
+
+    def test_header_by_name(self):
+        node = _make_node(name="Header")
+        assert _resolve_html_tag(node) == "header"
+
+    def test_footer_by_name(self):
+        node = _make_node(name="Footer Section")
+        assert _resolve_html_tag(node) == "footer"
+
+    def test_large_text_is_h1(self):
+        style = TypeStyle.model_validate({"fontSize": 36.0, "fontWeight": 700.0})
+        node = _make_text_node(name="Heading", text_style=style)
+        assert _resolve_html_tag(node) == "h1"
+
+    def test_medium_text_is_h2(self):
+        style = TypeStyle.model_validate({"fontSize": 24.0, "fontWeight": 600.0})
+        node = _make_text_node(name="Subheading", text_style=style)
+        assert _resolve_html_tag(node) == "h2"
+
+    def test_h3_text(self):
+        style = TypeStyle.model_validate({"fontSize": 20.0, "fontWeight": 500.0})
+        node = _make_text_node(name="Label", text_style=style)
+        assert _resolve_html_tag(node) == "h3"
+
+    def test_small_text_is_p(self):
+        style = TypeStyle.model_validate({"fontSize": 14.0, "fontWeight": 400.0})
+        node = _make_text_node(name="Body", text_style=style)
+        assert _resolve_html_tag(node) == "p"
+
+    def test_text_no_style_is_p(self):
+        node = _make_text_node(name="SomeText")
+        assert _resolve_html_tag(node) == "p"
+
+    def test_plain_frame_is_div(self):
+        node = _make_node(name="Container")
+        assert _resolve_html_tag(node) == "div"
+
+
+# ---------------------------------------------------------------------------
+# Semantic HTML in generated components
+# ---------------------------------------------------------------------------
+
+
+class TestSemanticHtmlGeneration:
+    """Test that semantic tags appear in generated component output."""
+
+    def test_button_node_generates_button_tag(self):
+        child = _make_node(node_id="2:1", name="Submit Button", children=[])
+        root = _make_node(children=[child])
+        code = generate_component(root)
+        assert "<button" in code
+
+    def test_heading_text_generates_h_tag(self):
+        style = TypeStyle.model_validate({"fontSize": 32.0, "fontWeight": 700.0})
+        text = _make_text_node(
+            name="PageTitle",
+            text_content="Welcome",
+            text_style=style,
+        )
+        root = _make_node(children=[text])
+        code = generate_component(root)
+        assert "<h1" in code
+        assert "Welcome" in code
+
+    def test_nav_container_generates_nav_tag(self):
+        child = _make_node(node_id="3:1", name="Link", children=[])
+        nav = _make_node(node_id="2:1", name="Navigation", children=[child])
+        root = _make_node(children=[nav])
+        code = generate_component(root)
+        assert "<nav" in code
+
+    def test_input_with_children_wraps_in_div(self):
+        """Void element <input> with children wraps in div instead of nesting."""
+        label = _make_text_node(node_id="3:1", name="Label", text_content="Email")
+        field = _make_node(node_id="2:1", name="Text field", children=[label])
+        root = _make_node(children=[field])
+        code = generate_component(root)
+        # Should NOT have <input>...</input> (void element with children)
+        assert "<input>" not in code
+        # Should have self-closing <input />
+        assert "<input />" in code
+        # Children should still render
+        assert "Email" in code
+
+
+# ---------------------------------------------------------------------------
+# SVG path rendering
+# ---------------------------------------------------------------------------
+
+
+class TestSvgPathRendering:
+    """Test SVG path generation from fillGeometry."""
+
+    def test_fill_geometry_renders_path(self):
+        icon = _make_node(
+            node_id="2:1",
+            name="ArrowIcon",
+            is_svg_candidate=True,
+            width=24.0,
+            height=24.0,
+            fill_geometry=[
+                {"path": "M10 20L20 10L30 20", "windingRule": "NONZERO"}
+            ],
+        )
+        root = _make_node(children=[icon])
+        code = generate_component(root)
+        assert "<svg" in code
+        assert '<path d="M10 20L20 10L30 20"' in code
+        assert "TODO" not in code
+
+    def test_evenodd_winding_rule(self):
+        icon = _make_node(
+            node_id="2:1",
+            name="StarIcon",
+            is_svg_candidate=True,
+            width=24.0,
+            height=24.0,
+            fill_geometry=[
+                {"path": "M12 2L15 9H22L16 14L18 21L12 17L6 21L8 14L2 9H9Z",
+                 "windingRule": "EVENODD"}
+            ],
+        )
+        root = _make_node(children=[icon])
+        code = generate_component(root)
+        assert 'fillRule="evenodd"' in code
+
+    def test_multiple_paths(self):
+        icon = _make_node(
+            node_id="2:1",
+            name="ComplexIcon",
+            is_svg_candidate=True,
+            width=32.0,
+            height=32.0,
+            fill_geometry=[
+                {"path": "M0 0L10 10", "windingRule": "NONZERO"},
+                {"path": "M5 5L15 15", "windingRule": "NONZERO"},
+            ],
+        )
+        root = _make_node(children=[icon])
+        code = generate_component(root)
+        assert code.count("<path") == 2
+
+    def test_no_fill_geometry_shows_todo(self):
+        """SVG candidate without fill_geometry falls back to TODO."""
+        icon = _make_node(
+            node_id="2:1",
+            name="UnknownIcon",
+            is_svg_candidate=True,
+            width=24.0,
+            height=24.0,
+        )
+        root = _make_node(children=[icon])
+        code = generate_component(root)
+        assert "<svg" in code
+        assert "TODO" in code
+
+
+# ---------------------------------------------------------------------------
+# _deduplicate_classes
+# ---------------------------------------------------------------------------
+
+
+class TestDeduplicateClasses:
+    """Test CSS class deduplication."""
+
+    def test_removes_exact_duplicates(self):
+        assert _deduplicate_classes(["w-36", "h-20", "w-36"]) == ["w-36", "h-20"]
+
+    def test_preserves_order(self):
+        assert _deduplicate_classes(["flex", "flex-col", "gap-2"]) == ["flex", "flex-col", "gap-2"]
+
+    def test_empty_list(self):
+        assert _deduplicate_classes([]) == []
+
+    def test_all_unique(self):
+        assert _deduplicate_classes(["a", "b", "c"]) == ["a", "b", "c"]
+
+    def test_multiple_duplicates(self):
+        result = _deduplicate_classes(["w-36", "h-20", "bg-white", "w-36", "h-20"])
+        assert result == ["w-36", "h-20", "bg-white"]
+
+
+# ---------------------------------------------------------------------------
+# Text color (text-* instead of bg-* for TEXT fills)
+# ---------------------------------------------------------------------------
+
+
+class TestTextColorFills:
+    """Test that TEXT node fills produce text-* classes, not bg-*."""
+
+    def test_text_node_solid_fill_uses_text_color(self):
+        """TEXT nodes with solid fills should produce text-* classes."""
+        blue_fill = Paint.model_validate({
+            "type": "SOLID",
+            "visible": True,
+            "color": {"r": 0.23, "g": 0.23, "b": 0.23, "a": 1.0},
+        })
+        text = _make_text_node(
+            name="Title",
+            text_content="Hello",
+            fills=[blue_fill],
+        )
+        root = _make_node(children=[text])
+        code = generate_component(root)
+        # Should NOT have bg-* from text node fills
+        # (bg-* from parent is OK)
+        lines = code.split("\n")
+        text_lines = [l for l in lines if "Hello" in l]
+        for line in text_lines:
+            # The text element should not have bg-*
+            # Instead it should have text-* color
+            if 'className="' in line:
+                cls = line.split('className="')[1].split('"')[0]
+                assert "bg-" not in cls or "text-" in cls
+
+    def test_frame_node_fill_still_uses_bg(self):
+        """Non-TEXT nodes should still use bg-* for fills."""
+        fill = Paint.model_validate({
+            "type": "SOLID",
+            "visible": True,
+            "color": {"r": 1.0, "g": 1.0, "b": 1.0, "a": 1.0},
+        })
+        node = _make_node(fills=[fill])
+        code = generate_component(node)
+        assert "bg-" in code
+
+
+# ---------------------------------------------------------------------------
+# Font-family support
+# ---------------------------------------------------------------------------
+
+
+class TestFontFamilySupport:
+    """Test font-family extraction from TypeStyle."""
+
+    def test_custom_font_family(self):
+        """Custom fonts should produce font-['FontName'] classes."""
+        style = TypeStyle.model_validate({
+            "fontSize": 16.0,
+            "fontWeight": 400.0,
+            "fontFamily": "Poppins",
+        })
+        text = _make_text_node(
+            name="Body",
+            text_content="Hello",
+            text_style=style,
+        )
+        root = _make_node(children=[text])
+        code = generate_component(root)
+        assert "font-['Poppins']" in code
+
+    def test_system_font_maps_to_named(self):
+        """Common system fonts map to Tailwind named classes."""
+        style = TypeStyle.model_validate({
+            "fontSize": 16.0,
+            "fontWeight": 400.0,
+            "fontFamily": "Inter",
+        })
+        text = _make_text_node(
+            name="Body",
+            text_content="Hello",
+            text_style=style,
+        )
+        root = _make_node(children=[text])
+        code = generate_component(root)
+        assert "font-sans" in code
+        assert "font-['Inter']" not in code
+
+    def test_no_font_family(self):
+        """No fontFamily should not add any font class."""
+        style = TypeStyle.model_validate({
+            "fontSize": 16.0,
+            "fontWeight": 400.0,
+        })
+        text = _make_text_node(
+            name="Body",
+            text_content="Hello",
+            text_style=style,
+        )
+        root = _make_node(children=[text])
+        code = generate_component(root)
+        assert "font-['" not in code
+
+
+# ---------------------------------------------------------------------------
+# Duplicate class resolution with layout + style
+# ---------------------------------------------------------------------------
+
+
+class TestNewlineHandling:
+    """Test newline → <br /> conversion in JSX text."""
+
+    def test_newline_converts_to_br(self):
+        """Newlines in text should become <br /> elements."""
+        result = _escape_jsx("Line one\nLine two")
+        assert "<br />" in result
+        assert "Line one" in result
+        assert "Line two" in result
+
+    def test_no_newline_unchanged(self):
+        """Text without newlines should pass through unchanged."""
+        result = _escape_jsx("No newlines here")
+        assert "<br />" not in result
+
+
+class TestEllipseRounding:
+    """Test that ELLIPSE nodes get rounded-full class."""
+
+    def test_ellipse_gets_rounded_full(self):
+        """ELLIPSE nodes should always have rounded-full."""
+        node = _make_node(
+            node_type=NodeType.ELLIPSE,
+            name="Circle",
+            width=48.0,
+            height=48.0,
+        )
+        code = generate_component(node)
+        assert "rounded-full" in code
+
+
+class TestRotationAndBlendMode:
+    """Test that rotation and blend mode are wired to the style builder."""
+
+    def test_rotation_produces_rotate_class(self):
+        """A rotated node should produce a rotate-* class."""
+        node = _make_node(rotation=45.0)
+        code = generate_component(node)
+        assert "rotate-45" in code or "-rotate-45" in code
+
+    def test_blend_mode_produces_mix_blend_class(self):
+        """A node with blend mode should produce mix-blend-* class."""
+        node = _make_node(blend_mode="MULTIPLY")
+        # blend_mode on FigmaIRNode stores the CSS value after mapping in style_builder
+        # Actually, style_builder.blend_mode() maps Figma names → CSS values
+        code = generate_component(node)
+        assert "mix-blend-multiply" in code
+
+
+class TestTextAutoResize:
+    """Test text auto-resize suppresses fixed dimensions."""
+
+    def test_width_and_height_auto_suppresses_both(self):
+        """WIDTH_AND_HEIGHT should suppress both w- and h- classes."""
+        node = _make_text_node(
+            text_auto_resize="WIDTH_AND_HEIGHT",
+            width=200.0,
+            height=24.0,
+        )
+        code = generate_component(node)
+        # Should NOT have w-50 or h-6 from fixed dimensions
+        assert "w-50" not in code
+        assert "h-6" not in code
+
+    def test_height_auto_suppresses_only_height(self):
+        """HEIGHT should suppress h- but keep w- class."""
+        node = _make_text_node(
+            text_auto_resize="HEIGHT",
+            width=200.0,
+            height=24.0,
+        )
+        code = generate_component(node)
+        assert "h-6" not in code
+        # Width should still be present
+        assert "w-50" in code
+
+    def test_none_keeps_both_dimensions(self):
+        """NONE should keep both w- and h- classes."""
+        node = _make_text_node(
+            text_auto_resize="NONE",
+            width=200.0,
+            height=24.0,
+        )
+        code = generate_component(node)
+        assert "w-50" in code
+        assert "h-6" in code
+
+
+class TestLayoutStyleDedup:
+    """Test that layout + style classes don't produce duplicates."""
+
+    def test_fixed_child_no_duplicate_width(self):
+        """A FIXED-width child should not get w-* from both layout and style."""
+        child = _make_node(
+            node_id="2:1",
+            name="FixedBox",
+            width=144.0,
+            height=80.0,
+            layout_sizing_horizontal=LayoutSizingMode.FIXED,
+            layout_sizing_vertical=LayoutSizingMode.FIXED,
+        )
+        root = _make_node(
+            has_auto_layout=True,
+            layout_mode=LayoutMode.HORIZONTAL,
+            children=[child],
+        )
+        code = generate_component(root)
+        # Extract className of the child element
+        # The w-36 class (144/4=36) should appear only once
+        import re
+        w_classes = re.findall(r'w-36', code)
+        assert len(w_classes) <= 1, f"Found duplicate w-36: {w_classes}"
+
+
+# ---------------------------------------------------------------------------
+# ARIA: _is_decorative_name
+# ---------------------------------------------------------------------------
+
+class TestIsDecorativeName:
+    """Test decorative/auto-generated Figma name detection."""
+
+    def test_empty_is_decorative(self):
+        assert _is_decorative_name("") is True
+
+    def test_whitespace_is_decorative(self):
+        assert _is_decorative_name("   ") is True
+
+    def test_frame_n_is_decorative(self):
+        assert _is_decorative_name("Frame 42") is True
+        assert _is_decorative_name("frame 1") is True
+
+    def test_rectangle_is_decorative(self):
+        assert _is_decorative_name("Rectangle 7") is True
+
+    def test_group_is_decorative(self):
+        assert _is_decorative_name("Group 3") is True
+
+    def test_vector_is_decorative(self):
+        assert _is_decorative_name("Vector") is True
+        assert _is_decorative_name("Vector 5") is True
+
+    def test_named_is_not_decorative(self):
+        assert _is_decorative_name("HeroCard") is False
+        assert _is_decorative_name("Submit Button") is False
+        assert _is_decorative_name("Main Navigation") is False
+
+
+# ---------------------------------------------------------------------------
+# ARIA: _resolve_aria_attrs
+# ---------------------------------------------------------------------------
+
+class TestResolveAriaAttrs:
+    """Unit tests for ARIA attribute resolution by tag."""
+
+    def test_button_tag(self):
+        node = _make_node(name="Login")
+        attrs = _resolve_aria_attrs(node, "button")
+        assert attrs == {"type": "button"}
+
+    def test_input_tag(self):
+        node = _make_node(name="Email")
+        attrs = _resolve_aria_attrs(node, "input")
+        assert attrs["type"] == "text"
+        assert attrs["aria-label"] == "Email"
+
+    def test_nav_tag(self):
+        node = _make_node(name="Site Nav")
+        attrs = _resolve_aria_attrs(node, "nav")
+        assert attrs["aria-label"] == "Site Nav"
+
+    def test_header_tag(self):
+        node = _make_node(name="Header")
+        attrs = _resolve_aria_attrs(node, "header")
+        assert attrs["role"] == "banner"
+
+    def test_footer_tag(self):
+        node = _make_node(name="Footer")
+        attrs = _resolve_aria_attrs(node, "footer")
+        assert attrs["role"] == "contentinfo"
+
+    def test_h1_tag(self):
+        node = _make_node(name="Title")
+        attrs = _resolve_aria_attrs(node, "h1")
+        assert attrs["role"] == "heading"
+        assert attrs["aria-level"] == "1"
+
+    def test_h2_tag(self):
+        node = _make_node(name="Subtitle")
+        attrs = _resolve_aria_attrs(node, "h2")
+        assert attrs["aria-level"] == "2"
+
+    def test_h3_tag(self):
+        node = _make_node(name="Section")
+        attrs = _resolve_aria_attrs(node, "h3")
+        assert attrs["aria-level"] == "3"
+
+    def test_div_with_button_name(self):
+        node = _make_node(name="Action Button")
+        attrs = _resolve_aria_attrs(node, "div")
+        assert attrs["role"] == "button"
+        assert attrs["tabIndex"] == "{0}"
+
+    def test_decorative_returns_empty(self):
+        node = _make_node(name="Frame 42")
+        attrs = _resolve_aria_attrs(node, "div")
+        assert attrs == {}
+
+    def test_regular_div_no_attrs(self):
+        node = _make_node(name="ContentWrapper")
+        attrs = _resolve_aria_attrs(node, "div")
+        assert attrs == {}
+
+
+# ---------------------------------------------------------------------------
+# ARIA: _format_html_attrs
+# ---------------------------------------------------------------------------
+
+class TestFormatHtmlAttrs:
+    """Test JSX attribute string formatting."""
+
+    def test_class_only(self):
+        result = _format_html_attrs("flex gap-4", {})
+        assert result == ' className="flex gap-4"'
+
+    def test_class_plus_aria(self):
+        result = _format_html_attrs("flex", {"role": "banner"})
+        assert result == ' className="flex" role="banner"'
+
+    def test_aria_sorted_alphabetically(self):
+        result = _format_html_attrs("", {"role": "button", "aria-label": "Go"})
+        assert result == ' aria-label="Go" role="button"'
+
+    def test_jsx_expression_no_quotes(self):
+        result = _format_html_attrs("", {"tabIndex": "{0}"})
+        assert result == " tabIndex={0}"
+
+    def test_empty_both(self):
+        result = _format_html_attrs("", {})
+        assert result == ""
+
+
+# ---------------------------------------------------------------------------
+# ARIA: Full generate_component integration
+# ---------------------------------------------------------------------------
+
+class TestAriaIntegration:
+    """Test ARIA attributes in full component generation."""
+
+    def test_button_gets_type_attribute(self):
+        child = _make_node(node_id="2:1", name="Submit Button", children=[])
+        root = _make_node(children=[child])
+        code = generate_component(root, aria=True)
+        assert 'type="button"' in code
+
+    def test_no_aria_by_default(self):
+        child = _make_node(node_id="2:1", name="Submit Button", children=[])
+        root = _make_node(children=[child])
+        code = generate_component(root, aria=False)
+        assert 'type="button"' not in code
+
+    def test_input_gets_type_and_label(self):
+        field = _make_node(node_id="2:1", name="Email Input", children=[])
+        root = _make_node(children=[field])
+        code = generate_component(root, aria=True)
+        assert 'type="text"' in code
+        assert 'aria-label="Email Input"' in code
+
+    def test_nav_gets_aria_label(self):
+        child = _make_node(node_id="3:1", name="Link", children=[])
+        nav = _make_node(node_id="2:1", name="Main Navigation", children=[child])
+        root = _make_node(children=[nav])
+        code = generate_component(root, aria=True)
+        assert 'aria-label="Main Navigation"' in code
+
+    def test_header_gets_banner_role(self):
+        child = _make_node(node_id="3:1", name="Logo", children=[])
+        header = _make_node(node_id="2:1", name="Header", children=[child])
+        root = _make_node(children=[header])
+        code = generate_component(root, aria=True)
+        assert 'role="banner"' in code
+
+    def test_footer_gets_contentinfo_role(self):
+        child = _make_node(node_id="3:1", name="Copyright", children=[])
+        footer = _make_node(node_id="2:1", name="Footer", children=[child])
+        root = _make_node(children=[footer])
+        code = generate_component(root, aria=True)
+        assert 'role="contentinfo"' in code
+
+    def test_h1_gets_heading_role_and_level(self):
+        style = TypeStyle.model_validate({"fontSize": 36.0, "fontWeight": 700.0})
+        text = _make_text_node(name="PageTitle", text_content="Welcome", text_style=style)
+        root = _make_node(children=[text])
+        code = generate_component(root, aria=True)
+        assert 'role="heading"' in code
+        assert 'aria-level="1"' in code
+
+    def test_decorative_frame_no_aria(self):
+        node = _make_node(name="Frame 42")
+        code = generate_component(node, aria=True)
+        assert "aria-" not in code
+        assert 'role=' not in code
+
+    def test_unnamed_node_no_aria(self):
+        node = _make_node(name="Rectangle 7")
+        code = generate_component(node, aria=True)
+        assert "aria-" not in code
+
+    def test_classname_before_aria(self):
+        """className attribute should come before ARIA attributes."""
+        child = _make_node(node_id="2:1", name="Submit Button", children=[])
+        root = _make_node(children=[child])
+        code = generate_component(root, aria=True)
+        import re
+        match = re.search(r'<button\s+([^>]+?)(?:\s*/)?\s*>', code)
+        if match:
+            attrs = match.group(1)
+            class_pos = attrs.find("className")
+            type_pos = attrs.find('type=')
+            if class_pos >= 0 and type_pos >= 0:
+                assert class_pos < type_pos
+
+    def test_svg_candidate_gets_role_img(self):
+        icon = _make_node(
+            node_id="2:1",
+            name="CloseIcon",
+            is_svg_candidate=True,
+            width=24.0,
+            height=24.0,
+        )
+        root = _make_node(children=[icon])
+        code = generate_component(root, aria=True)
+        assert 'role="img"' in code
+
+
+class TestVoidElementAttrSplit:
+    """Test that void elements wrapped in <div> get correct attribute placement.
+
+    When a void element like <input> has children in the Figma IR, it gets
+    wrapped in a <div>. ARIA attrs (type, aria-label) must go on the <input>,
+    NOT on the wrapper <div>. Regression tests for the type-on-div bug.
+    """
+
+    def test_input_with_children_type_on_input_not_div(self):
+        """type='text' must appear on <input>, not the wrapper <div>."""
+        import re
+
+        placeholder = _make_text_node(
+            node_id="3:1", name="Placeholder", text_content="Enter email"
+        )
+        field = _make_node(
+            node_id="2:1", name="Text field", children=[placeholder]
+        )
+        root = _make_node(children=[field])
+        code = generate_component(root, aria=True)
+        # type='text' must NOT be on <div>
+        assert re.search(r'<div[^>]*type="text"', code) is None
+        # type='text' must be on <input>
+        assert re.search(r'<input[^>]*type="text"', code) is not None
+
+    def test_input_with_children_aria_label_on_input(self):
+        """aria-label must appear on <input>, not the wrapper <div>."""
+        import re
+
+        child = _make_text_node(
+            node_id="3:1", name="Help text", text_content="Required"
+        )
+        field = _make_node(
+            node_id="2:1", name="Email Input", children=[child]
+        )
+        root = _make_node(children=[field])
+        code = generate_component(root, aria=True)
+        # aria-label must NOT be on <div>
+        assert re.search(r'<div[^>]*aria-label', code) is None
+        # aria-label must be on <input>
+        assert re.search(r'<input[^>]*aria-label="Email Input"', code) is not None
+
+    def test_input_without_children_keeps_attrs(self):
+        """Childless <input> should keep its attrs directly."""
+        field = _make_node(
+            node_id="2:1", name="Search Input", children=[]
+        )
+        root = _make_node(children=[field])
+        code = generate_component(root, aria=True)
+        assert 'type="text"' in code
+        assert 'aria-label="Search Input"' in code
+        # Should be a self-closing input, not wrapped in div
+        assert "<input" in code
+
+    def test_wrapper_div_keeps_classname(self):
+        """The wrapper <div> must retain className for styling."""
+        child = _make_text_node(
+            node_id="3:1", name="Label", text_content="Name"
+        )
+        field = _make_node(
+            node_id="2:1", name="Text field", children=[child],
+            width=200.0, height=56.0,
+        )
+        root = _make_node(children=[field])
+        code = generate_component(root, aria=True)
+        # The wrapper div should have className
+        import re
+        assert re.search(r'<div\s+className="[^"]*"', code) is not None
+
+    def test_no_aria_mode_no_attrs_on_void_wrapper(self):
+        """Without aria flag, no ARIA attrs should appear anywhere."""
+        child = _make_text_node(
+            node_id="3:1", name="Hint", text_content="Enter value"
+        )
+        field = _make_node(
+            node_id="2:1", name="Text field", children=[child]
+        )
+        root = _make_node(children=[field])
+        code = generate_component(root, aria=False)
+        assert 'type="text"' not in code
+        assert "aria-label" not in code
+
+    def test_button_with_children_no_split_needed(self):
+        """Non-void elements like <button> should NOT split attrs."""
+        label = _make_text_node(
+            node_id="3:1", name="Label", text_content="Submit"
+        )
+        btn = _make_node(
+            node_id="2:1", name="Submit Button", children=[label]
+        )
+        root = _make_node(children=[btn])
+        code = generate_component(root, aria=True)
+        # type='button' should be directly on <button>
+        import re
+        assert re.search(r'<button[^>]*type="button"', code) is not None

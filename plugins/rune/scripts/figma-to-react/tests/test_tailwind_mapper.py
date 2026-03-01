@@ -423,3 +423,141 @@ class TestTextAlign:
 
     def test_none_input(self):
         assert map_text_align(None) is None
+
+
+# ---------------------------------------------------------------------------
+# Rotation mapping
+# ---------------------------------------------------------------------------
+
+class TestRotationMapping:
+    """Test CSS rotate transform to Tailwind rotate class mapping."""
+
+    def test_zero_rotation(self):
+        mapper = TailwindMapper()
+        assert mapper._map_rotation("rotate(0.0deg)") == "rotate-0"
+
+    def test_named_45_degrees(self):
+        mapper = TailwindMapper()
+        assert mapper._map_rotation("rotate(45.0deg)") == "rotate-45"
+
+    def test_negative_90_degrees(self):
+        mapper = TailwindMapper()
+        assert mapper._map_rotation("rotate(-90.0deg)") == "-rotate-90"
+
+    def test_arbitrary_angle(self):
+        mapper = TailwindMapper()
+        result = mapper._map_rotation("rotate(37.0deg)")
+        assert result == "rotate-[37deg]"
+
+    def test_named_180_degrees(self):
+        mapper = TailwindMapper()
+        assert mapper._map_rotation("rotate(180.0deg)") == "rotate-180"
+
+    def test_invalid_value(self):
+        mapper = TailwindMapper()
+        assert mapper._map_rotation("scale(2)") == "rotate-0"
+
+    def test_rotation_via_map_properties(self):
+        """Rotation should go through the full map_properties pipeline."""
+        mapper = TailwindMapper()
+        result = mapper.map_properties({"transform": "rotate(45.0deg)"})
+        assert "rotate-45" in result
+
+
+# ---------------------------------------------------------------------------
+# Blend mode mapping
+# ---------------------------------------------------------------------------
+
+class TestBlendModeMapping:
+    """Test mix-blend-mode to Tailwind class mapping."""
+
+    def test_multiply(self):
+        mapper = TailwindMapper()
+        result = mapper.map_properties({"mix-blend-mode": "multiply"})
+        assert result == ["mix-blend-multiply"]
+
+    def test_overlay(self):
+        mapper = TailwindMapper()
+        result = mapper.map_properties({"mix-blend-mode": "overlay"})
+        assert result == ["mix-blend-overlay"]
+
+    def test_screen(self):
+        mapper = TailwindMapper()
+        result = mapper.map_properties({"mix-blend-mode": "screen"})
+        assert result == ["mix-blend-screen"]
+
+
+# ---------------------------------------------------------------------------
+# Gradient stops mapping
+# ---------------------------------------------------------------------------
+
+class TestGradientStops:
+    """Test gradient color stop extraction to from-/via-/to- classes."""
+
+    def test_two_stop_linear_gradient(self):
+        """A 2-color gradient should produce from- and to- classes."""
+        mapper = TailwindMapper()
+        value = "linear-gradient(to right, #ff0000 0%, #0000ff 100%)"
+        result = mapper.map_properties({"background-image": value})
+        assert "bg-linear-to-r" in result
+        assert any(c.startswith("from-") for c in result)
+        assert any(c.startswith("to-") for c in result)
+
+    def test_three_stop_linear_gradient(self):
+        """A 3-color gradient should produce from-, via-, and to- classes."""
+        mapper = TailwindMapper()
+        value = "linear-gradient(to bottom, #ff0000 0%, #00ff00 50%, #0000ff 100%)"
+        result = mapper.map_properties({"background-image": value})
+        assert "bg-linear-to-b" in result
+        assert any(c.startswith("from-") for c in result)
+        assert any(c.startswith("via-") for c in result)
+        assert any(c.startswith("to-") for c in result)
+
+    def test_radial_gradient_with_stops(self):
+        """A radial gradient should also extract color stops."""
+        mapper = TailwindMapper()
+        value = "radial-gradient(circle, #ffffff 0%, #000000 100%)"
+        result = mapper.map_properties({"background-image": value})
+        assert "bg-radial" in result
+        assert any(c.startswith("from-") for c in result)
+
+    def test_gradient_without_stops(self):
+        """A gradient with no extractable colors falls back to direction only."""
+        mapper = TailwindMapper()
+        value = "linear-gradient(to top)"
+        result = mapper.map_properties({"background-image": value})
+        assert "bg-linear-to-t" in result
+
+
+# ---------------------------------------------------------------------------
+# Shadow arbitrary values
+# ---------------------------------------------------------------------------
+
+class TestShadowArbitraryValues:
+    """Test improved shadow mapping with custom colors."""
+
+    def test_standard_black_shadow_snaps(self):
+        """Black shadows should snap to named classes."""
+        mapper = TailwindMapper()
+        result = mapper._map_shadow("2px 4px 6px 0px rgba(0, 0, 0, 0.1)")
+        assert not result.startswith("shadow-[")
+        assert result.startswith("shadow")
+
+    def test_colored_shadow_uses_arbitrary(self):
+        """Non-black shadows should use arbitrary syntax."""
+        mapper = TailwindMapper()
+        result = mapper._map_shadow("2px 4px 8px 0px rgba(255, 0, 0, 0.5)")
+        assert result.startswith("shadow-[")
+        assert "255" in result
+
+    def test_inset_shadow(self):
+        """Inset shadows should always return shadow-inner."""
+        mapper = TailwindMapper()
+        result = mapper._map_shadow("inset 0px 2px 4px 0px rgba(100, 50, 0, 0.3)")
+        assert result == "shadow-inner"
+
+    def test_no_match_returns_shadow(self):
+        """Unparseable shadow falls back to shadow."""
+        mapper = TailwindMapper()
+        result = mapper._map_shadow("none")
+        assert result == "shadow"

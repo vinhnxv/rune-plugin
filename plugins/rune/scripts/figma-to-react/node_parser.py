@@ -238,6 +238,15 @@ class FigmaIRNode:
     # Boolean operation
     boolean_operation: Optional[str] = None
 
+    # SVG geometry (for vector nodes — actual path data from fillGeometry)
+    fill_geometry: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Blend mode (e.g., MULTIPLY, SCREEN, OVERLAY — maps to mix-blend-*)
+    blend_mode: Optional[str] = None
+
+    # Text auto-resize mode (WIDTH_AND_HEIGHT, HEIGHT, NONE, TRUNCATE)
+    text_auto_resize: Optional[str] = None
+
     # Raw data for fallback
     raw: Optional[Dict[str, Any]] = field(default=None, repr=False)
 
@@ -487,6 +496,42 @@ def _can_be_flattened(node: FigmaIRNode) -> bool:
 _MAX_PARSE_DEPTH = 100  # BACK-P3-004: Guard against pathological nesting
 
 
+def _collect_child_fill_geometry(
+    children: List[Dict[str, Any]],
+    _depth: int = 0,
+) -> List[Dict[str, Any]]:
+    """Recursively collect fillGeometry from descendant vector nodes.
+
+    When a BOOLEAN_OPERATION or icon-candidate FRAME has no fillGeometry
+    at its own level, this traverses children to gather path data from
+    VECTOR, ELLIPSE, RECTANGLE, etc. nodes.
+
+    Args:
+        children: List of raw child node dicts.
+        _depth: Recursion depth guard.
+
+    Returns:
+        Collected fill geometry entries from all descendant vectors.
+    """
+    if _depth > 10:  # Prevent deep recursion in pathological trees
+        return []
+
+    result: List[Dict[str, Any]] = []
+    for child in children:
+        if not isinstance(child, dict):
+            continue
+        child_type = child.get("type", "")
+        fill_geo = child.get("fillGeometry")
+        if fill_geo and isinstance(fill_geo, list):
+            result.extend(fill_geo)
+        elif child_type in _VECTOR_TYPES or child_type in _FRAME_LIKE_TYPES:
+            # Recurse into nested groups / boolean ops
+            sub_children = child.get("children", [])
+            if sub_children:
+                result.extend(_collect_child_fill_geometry(sub_children, _depth + 1))
+    return result
+
+
 def parse_node(
     raw: Dict[str, Any],
     parent_rotation: float = 0.0,
@@ -591,6 +636,16 @@ def parse_node(
         raw=raw,
     )
 
+    # Blend mode
+    blend_mode = raw.get("blendMode")
+    if blend_mode and blend_mode != "PASS_THROUGH" and blend_mode != "NORMAL":
+        ir_node.blend_mode = blend_mode
+
+    # Text auto-resize mode
+    text_auto_resize = raw.get("textAutoResize")
+    if text_auto_resize:
+        ir_node.text_auto_resize = text_auto_resize
+
     # Frame-like properties (auto-layout, clipping)
     if isinstance(pydantic_node, FrameNode) or node_type_str in _FRAME_LIKE_TYPES:
         _apply_frame_properties(ir_node, raw)
@@ -607,6 +662,21 @@ def parse_node(
     # Text properties
     if isinstance(pydantic_node, TextNode):
         _apply_text_properties(ir_node, pydantic_node)
+
+    # Extract fillGeometry for vector/SVG nodes (actual path data)
+    if node_type_str in _VECTOR_TYPES or ir_node.is_svg_candidate:
+        fill_geo = raw.get("fillGeometry")
+        if fill_geo and isinstance(fill_geo, list):
+            ir_node.fill_geometry = fill_geo
+
+    # For icon/SVG candidates without own fillGeometry, collect from
+    # descendant VECTOR nodes (e.g., BOOLEAN_OPERATION children, icon frames)
+    if (
+        ir_node.is_svg_candidate
+        and not ir_node.fill_geometry
+        and raw.get("children")
+    ):
+        ir_node.fill_geometry = _collect_child_fill_geometry(raw.get("children", []))
 
     # Override: icon candidates are also SVG candidates
     if ir_node.is_icon_candidate:

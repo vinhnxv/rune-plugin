@@ -9,7 +9,10 @@ Usage:
   python3 cli.py fetch URL [--depth N]
   python3 cli.py inspect URL
   python3 cli.py list URL
-  python3 cli.py react URL [--name NAME] [--no-tailwind] [--extract]
+  python3 cli.py react URL [--name NAME] [--no-tailwind] [--extract] [--aria]
+  python3 cli.py react URL --code                  # raw TSX to stdout
+  python3 cli.py react URL --write ./components/   # write .tsx file
+  python3 cli.py react URL --aria --code           # with ARIA attributes
 
 Environment:
   FIGMA_TOKEN   Figma Personal Access Token (or use --token)
@@ -21,6 +24,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -154,6 +158,7 @@ async def _cmd_react(client: FigmaClient, args: argparse.Namespace) -> dict:
         component_name=getattr(args, "name", "") or "",
         use_tailwind=not getattr(args, "no_tailwind", False),
         extract_components=getattr(args, "extract", False),
+        aria=getattr(args, "aria", False),
     )
     _verbose(f"{_green(CHECK)} React generation complete", args)
     return result
@@ -247,6 +252,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_react.add_argument("--name", default="", help="Override React component name")
     p_react.add_argument("--no-tailwind", action="store_true", help="Skip Tailwind CSS classes")
     p_react.add_argument("--extract", action="store_true", help="Extract repeated instances as components")
+    p_react.add_argument("--aria", action="store_true", help="Add ARIA accessibility attributes to generated JSX")
+    p_react.add_argument("--code", action="store_true", help="Print raw TSX code to stdout (no JSON wrapping)")
+    p_react.add_argument(
+        "--write",
+        metavar="PATH",
+        help="Write .tsx file directly (auto-names from component if PATH is a directory)",
+    )
     p_react.set_defaults(func=_cmd_react)
 
     return parser
@@ -257,8 +269,22 @@ def build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 
 
+def _extract_component_name(code: str) -> str:
+    """Extract the React component name from generated code.
+
+    Looks for 'export default function Name' which is the pattern
+    used by react_generator.py.
+    """
+    match = re.search(r"export default function\s+(\w+)", code)
+    return match.group(1) if match else "Component"
+
+
 async def _run(args: argparse.Namespace) -> str:
-    """Execute the subcommand and return JSON output."""
+    """Execute the subcommand and return output string.
+
+    Returns raw TSX code when --code or --write is active,
+    otherwise returns JSON.
+    """
     token = _resolve_token(args)
     _verbose(f"Using token: {_dim(_mask_token(token))}", args)
 
@@ -273,6 +299,11 @@ async def _run(args: argparse.Namespace) -> str:
         result = await args.func(client, args)
         elapsed = time.monotonic() - t0
         _verbose(f"Done ({elapsed:.1f}s)", args)
+
+        # --code / --write: extract raw React code instead of JSON
+        if getattr(args, "code", False) or getattr(args, "write", None):
+            return core.extract_react_code(result)
+
         return json.dumps(result, indent=2 if args.pretty else None, ensure_ascii=False)
     finally:
         if client is not None:
@@ -287,6 +318,14 @@ def main(argv: list[str] | None = None) -> None:
     """CLI entry point."""
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    # Validate mutually exclusive output flags
+    use_code = getattr(args, "code", False)
+    use_write = getattr(args, "write", None)
+    if use_code and use_write:
+        parser.error("--code and --write are mutually exclusive")
+    if (use_code or use_write) and args.output:
+        parser.error("--code/--write cannot be combined with --output")
 
     try:
         output = asyncio.run(_run(args))
@@ -303,7 +342,17 @@ def main(argv: list[str] | None = None) -> None:
         print(_red(f"{CROSS} Error: {exc}"), file=sys.stderr)
         sys.exit(3)
 
-    if args.output:
+    if use_write:
+        write_path = Path(use_write)
+        # Auto-name from component if PATH is a directory (or has no file extension)
+        if write_path.is_dir() or write_path.suffix not in (".tsx", ".jsx", ".ts", ".js"):
+            comp_name = _extract_component_name(output)
+            write_path = write_path / f"{comp_name}.tsx"
+        write_path = write_path.resolve()
+        write_path.parent.mkdir(parents=True, exist_ok=True)
+        write_path.write_text(output, encoding="utf-8")
+        print(f"  {_green(CHECK)} Written to {write_path}", file=sys.stderr)
+    elif args.output:
         out_path = Path(args.output).resolve()
         out_path.write_text(output, encoding="utf-8")
         if args.verbose:

@@ -72,6 +72,7 @@ class ImageHandler:
         self,
         node: FigmaIRNode,
         classes: str = "",
+        aria_attrs: Optional[Dict[str, str]] = None,
     ) -> str:
         """Generate JSX for an image-containing node.
 
@@ -82,14 +83,22 @@ class ImageHandler:
         Args:
             node: IR node with image content.
             classes: Tailwind class string for the element.
+            aria_attrs: Optional ARIA attributes dict (from ``--aria`` flag).
 
         Returns:
             JSX string for the image element.
         """
         class_attr = f' className="{classes}"' if classes else ""
 
+        # Build extra ARIA attribute string
+        extra_attrs = ""
+        if aria_attrs:
+            for key in sorted(aria_attrs.keys()):
+                val = aria_attrs[key]
+                extra_attrs += f' {key}="{val}"'
+
         if node.is_svg_candidate:
-            return self._generate_svg_placeholder(node, class_attr)
+            return self._generate_svg_placeholder(node, class_attr + extra_attrs)
 
         if node.has_image_fill and node.image_ref:
             url = _sanitize_image_url(self.resolve_url(node.image_ref))
@@ -104,7 +113,7 @@ class ImageHandler:
             if height:
                 size_attrs += f' height={{{height}}}'
             return (
-                f'<img src="{url}" alt="{alt}"{class_attr}{size_attrs} />'
+                f'<img src="{url}" alt="{alt}"{class_attr}{size_attrs}{extra_attrs} />'
             )
 
         # Fallback: div with background image
@@ -115,18 +124,45 @@ class ImageHandler:
         node: FigmaIRNode,
         class_attr: str,
     ) -> str:
-        """Generate an inline SVG placeholder for vector nodes.
+        """Generate inline SVG for vector nodes.
+
+        If ``node.fill_geometry`` contains path data from the Figma API,
+        renders actual ``<path>`` elements. Otherwise falls back to a
+        TODO placeholder comment.
 
         Args:
             node: SVG candidate IR node.
             class_attr: Pre-formatted className attribute string.
 
         Returns:
-            JSX string with SVG placeholder.
+            JSX string with SVG element.
         """
         width = round(node.width) if node.width > 0 else 24
         height = round(node.height) if node.height > 0 else 24
 
+        # Render actual paths from fillGeometry when available
+        if node.fill_geometry:
+            paths: List[str] = []
+            for geo in node.fill_geometry:
+                path_data = geo.get("path", "")
+                wind_rule = geo.get("windingRule", "NONZERO").lower()
+                fill_rule = "evenodd" if wind_rule == "evenodd" else "nonzero"
+                if path_data:
+                    paths.append(
+                        f'<path d="{path_data}" fillRule="{fill_rule}" fill="currentColor" />'
+                    )
+            if paths:
+                path_lines = "\n".join(f"  {p}" for p in paths)
+                return (
+                    f"<svg{class_attr} "
+                    f'width="{width}" height="{height}" '
+                    f'viewBox="0 0 {width} {height}" '
+                    f'fill="none" xmlns="http://www.w3.org/2000/svg">\n'
+                    f"{path_lines}\n"
+                    f"</svg>"
+                )
+
+        # Fallback: TODO placeholder
         return (
             f"<svg{class_attr} "
             f'width="{width}" height="{height}" '
