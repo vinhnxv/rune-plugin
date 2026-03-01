@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.122.1] - 2026-03-01
+
+### Fixed
+- **Evidence-verifier false positive on `version_target`** — evidence-verifier was treating YAML frontmatter planning metadata (`version_target`, `estimated_effort`, `complexity`, `impact`, `risk`, `date`) as factual codebase claims and verifying them against current state. This caused spurious BLOCK verdicts in arc-batch when a previous plan bumped the plugin version, making subsequent plans' `version_target` appear "stale". Added Non-Factual Field Exemptions section to exempt intent/estimate fields from claim verification.
+
 ## [1.122.0] - 2026-03-01
 
 ### Added

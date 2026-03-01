@@ -106,6 +106,17 @@ The following plan sections contain intent, not facts, and are exempt from verif
 - Future Work / Next Steps
 - Motivation / Background (unless containing codebase claims)
 
+### Non-Factual Field Exemptions
+
+The following YAML frontmatter fields are **intent/estimates**, not factual claims about the current codebase state. Do NOT verify them against current values — they describe future targets or planning metadata:
+
+- `version_target` — estimated version the plan will bump to (not the current version)
+- `estimated_effort` — planning estimate, not a measurable fact
+- `complexity` — subjective classification
+- `impact` — subjective score
+- `risk` — subjective assessment
+- `date` — plan creation date (not a codebase fact)
+
 ## 3-Layer Verification Protocol
 
 For each extracted claim, attempt verification in priority order:
